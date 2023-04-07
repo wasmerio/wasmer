@@ -365,21 +365,19 @@ where
         if let Some(exit_code) = self.env.should_exit() {
             return Poll::Ready(Err(WasiError::Exit(exit_code)));
         }
-        if self.env.inner().signal_set == false {
-            if self.env.thread.has_signals_or_subscribe(cx.waker()) == true {
-                let signals = self.env.thread.signals().lock().unwrap();
-                for sig in signals.0.iter() {
-                    if *sig == Signal::Sigint
-                        || *sig == Signal::Sigquit
-                        || *sig == Signal::Sigkill
-                        || *sig == Signal::Sigabrt
-                    {
-                        let exit_code = env.thread.set_or_get_exit_code_for_signal(*sig);
-                        return Poll::Ready(Err(WasiError::Exit(exit_code)));
-                    }
+        if !self.env.inner().signal_set && self.env.thread.has_signals_or_subscribe(cx.waker()) {
+            let signals = self.env.thread.signals().lock().unwrap();
+            for sig in signals.0.iter() {
+                if *sig == Signal::Sigint
+                    || *sig == Signal::Sigquit
+                    || *sig == Signal::Sigkill
+                    || *sig == Signal::Sigabrt
+                {
+                    let exit_code = env.thread.set_or_get_exit_code_for_signal(*sig);
+                    return Poll::Ready(Err(WasiError::Exit(exit_code)));
                 }
-                return Poll::Ready(Ok(Err(Errno::Intr)));
             }
+            return Poll::Ready(Ok(Err(Errno::Intr)));
         }
         Poll::Pending
     }
