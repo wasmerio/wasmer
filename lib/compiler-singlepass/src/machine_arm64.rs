@@ -8368,3 +8368,90 @@ impl Machine for MachineARM64 {
         None
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn test_move_location(machine: &mut MachineARM64, size: Size) -> Result<(), CompileError> {
+        machine.move_location(size, Location::GPR(GPR::X1), Location::GPR(GPR::X2))?;
+        machine.move_location(size, Location::GPR(GPR::X1), Location::Memory(GPR::X2, 10))?;
+        machine.move_location(size, Location::GPR(GPR::X1), Location::Memory(GPR::X2, -10))?;
+        machine.move_location(
+            size,
+            Location::GPR(GPR::X1),
+            Location::Memory(GPR::X2, 1024),
+        )?;
+        machine.move_location(
+            size,
+            Location::GPR(GPR::X1),
+            Location::Memory(GPR::X2, -1024),
+        )?;
+        machine.move_location(size, Location::Memory(GPR::X2, 10), Location::GPR(GPR::X1))?;
+        machine.move_location(size, Location::Memory(GPR::X2, -10), Location::GPR(GPR::X1))?;
+        machine.move_location(
+            size,
+            Location::Memory(GPR::X2, 1024),
+            Location::GPR(GPR::X1),
+        )?;
+        machine.move_location(
+            size,
+            Location::Memory(GPR::X2, -1024),
+            Location::GPR(GPR::X1),
+        )?;
+        machine.move_location(size, Location::GPR(GPR::X1), Location::SIMD(NEON::V0))?;
+        machine.move_location(size, Location::SIMD(NEON::V0), Location::GPR(GPR::X1))?;
+        machine.move_location(
+            size,
+            Location::SIMD(NEON::V0),
+            Location::Memory(GPR::X2, 10),
+        )?;
+        machine.move_location(
+            size,
+            Location::SIMD(NEON::V0),
+            Location::Memory(GPR::X2, -10),
+        )?;
+        machine.move_location(
+            size,
+            Location::SIMD(NEON::V0),
+            Location::Memory(GPR::X2, 1024),
+        )?;
+        machine.move_location(
+            size,
+            Location::SIMD(NEON::V0),
+            Location::Memory(GPR::X2, -1024),
+        )?;
+        machine.move_location(
+            size,
+            Location::Memory(GPR::X2, 10),
+            Location::SIMD(NEON::V0),
+        )?;
+        machine.move_location(
+            size,
+            Location::Memory(GPR::X2, -10),
+            Location::SIMD(NEON::V0),
+        )?;
+        machine.move_location(
+            size,
+            Location::Memory(GPR::X2, 1024),
+            Location::SIMD(NEON::V0),
+        )?;
+        machine.move_location(
+            size,
+            Location::Memory(GPR::X2, -1024),
+            Location::SIMD(NEON::V0),
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn tests_arm64() -> Result<(), CompileError> {
+        let mut machine = MachineARM64::new();
+
+        test_move_location(&mut machine, Size::S32)?;
+        test_move_location(&mut machine, Size::S64)?;
+
+        Ok(())
+    }
+}
