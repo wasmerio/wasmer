@@ -565,9 +565,13 @@ impl WasiEnv {
             let signals = env.thread.pop_signals();
             let signal_cnt = signals.len();
             for sig in signals {
-                if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    env.thread.set_status_finished(Ok(Errno::Intr.into()));
-                    return Err(WasiError::Exit(Errno::Intr.into()));
+                if sig == Signal::Sigint
+                    || sig == Signal::Sigquit
+                    || sig == Signal::Sigkill
+                    || sig == Signal::Sigabrt
+                {
+                    let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
+                    return Err(WasiError::Exit(exit_code));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
                 }
@@ -591,12 +595,6 @@ impl WasiEnv {
         // differently
         let env = ctx.data();
         if !env.inner().signal_set {
-            if env
-                .thread
-                .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
-            {
-                env.thread.set_status_finished(Ok(Errno::Intr.into()));
-            }
             return Ok(Ok(false));
         }
 
