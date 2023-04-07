@@ -49,6 +49,7 @@ members = [
     "lib/wasi",
     "lib/wasi-types",
     "lib/wasi-experimental-io-devices",
+    "lib/wasi-web",
     "lib/wasix/wasix-http-client",
     "lib/wasm-interface",
     "lib/c-api/tests/wasmer-c-api-test-runner",

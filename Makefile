@@ -398,6 +398,13 @@ check-capi:
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
 
+build-web-install:
+	cd lib/wasi-web && npm install || true
+	cd lib/wasi-web && npm run build
+
+build-web:
+	cd lib/wasi-web && npm run build
+
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "webc_runner,debug"  --bin wasmer
 
