@@ -12,6 +12,8 @@ use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
+#[cfg(feature = "sys")]
+use crate::PluggableRuntime;
 use crate::{
     bin_factory::{BinFactory, ModuleCache},
     capabilities::Capabilities,
@@ -20,7 +22,7 @@ use crate::{
     parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    PluggableRuntime, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
+    WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;
