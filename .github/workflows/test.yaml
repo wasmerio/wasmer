@@ -127,8 +127,6 @@ jobs:
         run: rustup target add wasm32-wasi
       - name: make build-wasmer-wasm
         run: make build-wasmer-wasm
-      - name: make build-web-install
-        run: make build-web-install
   
   build_linux_aarch64:
     name: ${{ matrix.build-what.name }} on linux-aarch64
