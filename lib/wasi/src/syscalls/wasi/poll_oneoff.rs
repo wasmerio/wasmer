@@ -163,7 +163,7 @@ where
         .filter(|a| a.2.type_ == Eventtype::Clock)
         .count();
     let mut clock_subs: Vec<(SubscriptionClock, u64)> = Vec::with_capacity(subs.len());
-    let mut time_to_sleep = None;
+    let mut time_to_sleep = Duration::ZERO;
 
     // First we extract all the subscriptions into an array so that they
     // can be processed
@@ -222,9 +222,9 @@ where
                     // If the timeout duration is zero then this is an immediate check rather than
                     // a sleep itself
                     if clock_info.timeout == 0 {
-                        time_to_sleep = Some(Duration::ZERO);
+                        time_to_sleep = Duration::MAX;
                     } else {
-                        time_to_sleep = Some(Duration::from_nanos(clock_info.timeout));
+                        time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
                     }
                     continue;
@@ -294,18 +294,25 @@ where
             fd_guards
         };
 
-        if let Some(time_to_sleep) = time_to_sleep.as_ref() {
-            if *time_to_sleep == Duration::ZERO {
-                Span::current().record("timeout_ms", "nonblocking");
-            } else {
-                Span::current().record("timeout_ms", time_to_sleep.as_millis());
+        // If the time is infinite then we omit the time_to_sleep parameter
+        let asyncify_time = match time_to_sleep {
+            Duration::ZERO => {
+                Span::current().record("timeout_ns", "nonblocking");
+                Some(Duration::ZERO)
             }
-        } else {
-            Span::current().record("timeout_ms", "infinite");
-        }
+            Duration::MAX => {
+                Span::current().record("timeout_ns", "infinite");
+                None
+            }
+            time => {
+                Span::current().record("timeout_ns", time.as_millis());
+                Some(time)
+            }
+        };
 
         // Block polling the file descriptors
-        PollBatch::new(pid, tid, guards)
+        let batch = PollBatch::new(pid, tid, &mut guards);
+        __asyncify(ctx, asyncify_time, batch)?
     };
 
     // We use asyncify with a deep sleep to wait on new IO events
@@ -316,52 +323,40 @@ where
         move |env, store, res| {
             let events = res.unwrap_or_else(Err);
 
-            // Process the result
-            match events {
-                Ok(evts) => {
-                    // If its a timeout then return an event for it
-                    Span::current().record("seen", evts.len());
-
-                    // Process the events
-                    process_events(env, store, evts);
-                }
-                Err(Errno::Timedout) => {
-                    // The timeout has triggerred so lets add that event
-                    if clock_subs.is_empty() && time_to_sleep != Some(Duration::ZERO) {
-                        tracing::warn!("triggered_timeout (without any clock subscriptions)",);
-                    }
-                    let mut evts = Vec::new();
-                    for (clock_info, userdata) in clock_subs {
-                        let evt = Event {
-                            userdata,
-                            error: Errno::Success,
-                            type_: Eventtype::Clock,
-                            u: EventUnion { clock: 0 },
-                        };
-                        Span::current().record(
-                            "seen",
-                            &format!(
-                                "clock(id={},userdata={})",
-                                clock_info.clock_id as u32, evt.userdata
-                            ),
-                        );
-                        evts.push(evt);
-                    }
-
-                    // Process the events
-                    process_events(env, store, evts);
-                }
-                // If nonblocking the Errno::Again needs to be turned into an empty list
-                Err(Errno::Again) if time_to_sleep == Some(Duration::ZERO) => {
-                    process_events(env, store, Default::default());
-                }
-                // Otherwise process the error
-                Err(err) => {
-                    tracing::warn!("triggered_timeout (without any clock subscriptions)");
-                }
+    // Process the result
+    match ret {
+        Ok(evts) => {
+            // If its a timeout then return an event for it
+            Span::current().record("seen", evts.len());
+            Ok(Ok(evts))
+        }
+        Err(Errno::Timedout) => {
+            // The timeout has triggerred so lets add that event
+            if clock_subs.is_empty() {
+                tracing::warn!("triggered_timeout (without any clock subscriptions)",);
             }
-            Ok(())
-        },
-    )?;
-    Ok(Errno::Success)
+            let mut evts = Vec::new();
+            for (clock_info, userdata) in clock_subs {
+                let evt = Event {
+                    userdata,
+                    error: Errno::Success,
+                    type_: Eventtype::Clock,
+                    u: EventUnion { clock: 0 },
+                };
+                Span::current().record(
+                    "seen",
+                    &format!(
+                        "clock(id={},userdata={})",
+                        clock_info.clock_id as u32, evt.userdata
+                    ),
+                );
+                evts.push(evt);
+            }
+            Ok(Ok(evts))
+        }
+        // If nonblocking the Errno::Again needs to be turned into an empty list
+        Err(Errno::Again) => Ok(Ok(Default::default())),
+        // Otherwise process the rror
+        Err(err) => Ok(Err(err)),
+    }
 }

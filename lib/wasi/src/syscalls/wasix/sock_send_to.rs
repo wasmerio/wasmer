@@ -54,7 +54,7 @@ pub fn sock_send_to<M: MemorySize>(
                         .map_err(mem_error_to_wasi)?
                         .access()
                         .map_err(mem_error_to_wasi)?;
-                    sent += match socket
+                    let local_sent = match socket
                         .send_to::<M>(env.tasks().deref(), buf.as_ref(), addr, fd.flags)
                         .await
                     {
@@ -62,6 +62,10 @@ pub fn sock_send_to<M: MemorySize>(
                         Err(_) if sent > 0 => break,
                         Err(err) => return Err(err),
                     };
+                    sent += local_sent;
+                    if local_sent != buf.len() {
+                        break;
+                    }
                 }
                 Ok(sent)
             },
