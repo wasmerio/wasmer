@@ -62,6 +62,9 @@ members = [
     "tests/integration/ios",
     "fuzz",
 ]
+exclude = [
+    "lib/wasi-web",
+]
 resolver = "2"
 
 [build-dependencies]

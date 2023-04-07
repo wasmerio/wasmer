@@ -64,7 +64,7 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "=5.0.0-rc.5" }
+webc = { version = "=5.0.0-rc.6" }
 # HACK(Michael-F-Bryan): Remove this once a new version of wapm-targz-to-pirita
 # is published that doesn't have a public dependency on webc
 webc_v4 = { version = "4", package = "webc" }

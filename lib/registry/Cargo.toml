@@ -27,7 +27,7 @@ tar = "0.4.38"
 flate2 = "1.0.24"
 semver = "1.0.14"
 lzma-rs = "0.2.0"
-webc = { version = "=5.0.0-rc.5", features = ["mmap"] }
+webc = { version = "=5.0.0-rc.6", features = ["mmap"] }
 hex = "0.4.3"
 tokio = "1.24.0"
 log = "0.4.17"
