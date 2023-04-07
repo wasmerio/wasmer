@@ -294,69 +294,77 @@ where
             fd_guards
         };
 
-        // If the time is infinite then we omit the time_to_sleep parameter
-        let asyncify_time = match time_to_sleep {
-            Duration::ZERO => {
-                Span::current().record("timeout_ns", "nonblocking");
-                Some(Duration::ZERO)
-            }
-            Duration::MAX => {
-                Span::current().record("timeout_ns", "infinite");
-                None
-            }
-            time => {
-                Span::current().record("timeout_ns", time.as_millis());
-                Some(time)
-            }
-        };
-
         // Block polling the file descriptors
-        let batch = PollBatch::new(pid, tid, &mut guards);
-        __asyncify(ctx, asyncify_time, batch)?
+        PollBatch::new(pid, tid, guards)
+    };
+
+    // If the time is infinite then we omit the time_to_sleep parameter
+    let asyncify_time = match time_to_sleep {
+        Duration::ZERO => {
+            Span::current().record("timeout_ns", "nonblocking");
+            Some(Duration::ZERO)
+        }
+        Duration::MAX => {
+            Span::current().record("timeout_ns", "infinite");
+            None
+        }
+        time => {
+            Span::current().record("timeout_ns", time.as_millis());
+            Some(time)
+        }
     };
 
     // We use asyncify with a deep sleep to wait on new IO events
     let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
         ctx,
-        time_to_sleep,
+        asyncify_time,
         batch,
         move |env, store, res| {
             let events = res.unwrap_or_else(Err);
+            // Process the result
+            match events {
+                Ok(evts) => {
+                    // If its a timeout then return an event for it
+                    Span::current().record("seen", evts.len());
 
-    // Process the result
-    match ret {
-        Ok(evts) => {
-            // If its a timeout then return an event for it
-            Span::current().record("seen", evts.len());
-            Ok(Ok(evts))
-        }
-        Err(Errno::Timedout) => {
-            // The timeout has triggerred so lets add that event
-            if clock_subs.is_empty() {
-                tracing::warn!("triggered_timeout (without any clock subscriptions)",);
+                    // Process the events
+                    process_events(env, store, evts);
+                }
+                Err(Errno::Timedout) => {
+                    // The timeout has triggerred so lets add that event
+                    if clock_subs.is_empty() {
+                        tracing::warn!("triggered_timeout (without any clock subscriptions)",);
+                    }
+                    let mut evts = Vec::new();
+                    for (clock_info, userdata) in clock_subs {
+                        let evt = Event {
+                            userdata,
+                            error: Errno::Success,
+                            type_: Eventtype::Clock,
+                            u: EventUnion { clock: 0 },
+                        };
+                        Span::current().record(
+                            "seen",
+                            &format!(
+                                "clock(id={},userdata={})",
+                                clock_info.clock_id as u32, evt.userdata
+                            ),
+                        );
+                        evts.push(evt);
+                    }
+                    process_events(env, store, evts);
+                }
+                // If nonblocking the Errno::Again needs to be turned into an empty list
+                Err(Errno::Again) => {
+                    process_events(env, store, Default::default());
+                }
+                // Otherwise process the error
+                Err(err) => {
+                    tracing::warn!("triggered_timeout (without any clock subscriptions)");
+                }
             }
-            let mut evts = Vec::new();
-            for (clock_info, userdata) in clock_subs {
-                let evt = Event {
-                    userdata,
-                    error: Errno::Success,
-                    type_: Eventtype::Clock,
-                    u: EventUnion { clock: 0 },
-                };
-                Span::current().record(
-                    "seen",
-                    &format!(
-                        "clock(id={},userdata={})",
-                        clock_info.clock_id as u32, evt.userdata
-                    ),
-                );
-                evts.push(evt);
-            }
-            Ok(Ok(evts))
-        }
-        // If nonblocking the Errno::Again needs to be turned into an empty list
-        Err(Errno::Again) => Ok(Ok(Default::default())),
-        // Otherwise process the rror
-        Err(err) => Ok(Err(err)),
-    }
+            Ok(())
+        },
+    )?;
+    Ok(Errno::Success)
 }
