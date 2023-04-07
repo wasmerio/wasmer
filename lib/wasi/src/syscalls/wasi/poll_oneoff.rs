@@ -163,7 +163,7 @@ where
         .filter(|a| a.2.type_ == Eventtype::Clock)
         .count();
     let mut clock_subs: Vec<(SubscriptionClock, u64)> = Vec::with_capacity(subs.len());
-    let mut time_to_sleep = Duration::ZERO;
+    let mut time_to_sleep = Duration::MAX;
 
     // First we extract all the subscriptions into an array so that they
     // can be processed
@@ -223,6 +223,8 @@ where
                     // a sleep itself
                     if clock_info.timeout == 0 {
                         time_to_sleep = Duration::MAX;
+                    } else if clock_info.timeout == 1 {
+                        time_to_sleep = Duration::ZERO;
                     } else {
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));

@@ -676,6 +676,24 @@ fn test_run_http_request(
     ignore
 )]
 #[test]
+fn test_snapshot_tokio() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-tokio.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_unix_pipe() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/example-unix-pipe.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
 fn test_snapshot_web_server() {
     let name = function!();
     let port = 7777;
