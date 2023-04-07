@@ -20,7 +20,7 @@ use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
     runtime::SpawnType,
-    wasmer::{vm::VMMemory, MemoryType, Module, Store},
+    wasmer::{Memory, MemoryType, Module, Store, StoreMut},
     VirtualFile, VirtualNetworking, VirtualTaskManager, WasiRuntime, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
@@ -100,39 +100,29 @@ impl<'g> Drop for WebRuntimeGuard<'g> {
     fn drop(&mut self) {}
 }
 
-pub fn build_memory_internal(ty: MemoryType) -> Result<VMMemory, WasiThreadError> {
-    let descriptor = js_sys::Object::new();
-    js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
-    //let min = 100u32.max(ty.minimum.0);
-    //js_sys::Reflect::set(&descriptor, &"initial".into(), &min.into()).unwrap();
-    if let Some(max) = ty.maximum {
-        js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.0.into()).unwrap();
-    }
-    js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
-
-    match js_sys::WebAssembly::Memory::new(&descriptor) {
-        Ok(a) => Ok(VMMemory::new(a, ty)),
-        Err(err) => {
-            error!(
-                "WebAssembly failed to create the memory - {}",
-                err.as_string().unwrap_or_else(|| format!("{:?}", err))
-            );
-            return Err(WasiThreadError::MemoryCreateFailed);
-        }
-    }
-}
-
 #[async_trait::async_trait]
 #[allow(unused_variables)]
 impl VirtualTaskManager for WebTaskManager {
     /// Build a new Webassembly memory.
     ///
     /// May return `None` if the memory can just be auto-constructed.
-    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError> {
+    fn build_memory(
+        &self,
+        mut store: &mut StoreMut,
+        spawn_type: SpawnType,
+    ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
-            SpawnType::Create => Ok(None),
-            SpawnType::CreateWithType(mem) => build_memory_internal(mem.ty).map(|a| Some(a)),
+            SpawnType::CreateWithType(mut mem) => {
+                mem.ty.shared = true;
+                Memory::new(&mut store, mem.ty)
+                    .map_err(|err| {
+                        tracing::error!("could not create memory: {err}");
+                        WasiThreadError::MemoryCreateFailed
+                    })
+                    .map(Some)
+            }
             SpawnType::NewThread(mem) => Ok(Some(mem)),
+            SpawnType::Create => Ok(None),
         }
     }
 
@@ -191,7 +181,7 @@ impl VirtualTaskManager for WebTaskManager {
     /// It is ok for this task to block execution and any async futures within its scope
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,

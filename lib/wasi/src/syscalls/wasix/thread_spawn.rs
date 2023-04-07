@@ -4,7 +4,7 @@ use crate::{
     WasiThreadHandle,
 };
 
-use wasmer::{vm::VMMemory, MemoryType};
+use wasmer::Memory;
 use wasmer_wasix_types::wasi::ThreadStart;
 
 /// ### `thread_spawn()`
@@ -72,13 +72,6 @@ pub fn thread_spawn<M: MemorySize>(
     let thread_id: Tid = thread_handle.id().into();
     Span::current().record("tid", thread_id);
 
-    // We need a copy of the process memory and a packaged store in order to
-    // launch threads and reactors
-    let thread_memory = wasi_try!(ctx.data().memory().try_clone(&ctx).ok_or_else(|| {
-        error!("failed - the memory could not be cloned");
-        Errno::Notcapable
-    }));
-
     let mut store = ctx.data().runtime.new_store();
 
     // We capture some local variables
@@ -91,6 +84,17 @@ pub fn thread_spawn<M: MemorySize>(
     wasi_env.enable_deep_sleep = env.capable_of_deep_sleep();
     tracing::trace!(enable_deep_sleep = wasi_env.enable_deep_sleep);
 
+    // We need a copy of the process memory and a packaged store in order to
+    // launch threads and reactors
+    let thread_memory = wasi_try!(ctx
+        .data()
+        .memory()
+        .clone_in_store(&ctx, &mut store)
+        .ok_or_else(|| {
+            error!("failed - the memory could not be cloned");
+            Errno::Notcapable
+        }));
+
     // This next function gets a context for the local thread and then
     // calls into the process
     let mut execute_module = {
@@ -98,7 +102,7 @@ pub fn thread_spawn<M: MemorySize>(
         let tasks = tasks.clone();
         let wasi_env = wasi_env.duplicate();
         let thread_handle = thread_handle;
-        move |mut store: Store, module: Module, mut memory: Option<VMMemory>| {
+        move |mut store: Store, module: Module, mut memory: Option<Memory>| {
             // Now create the context and hook it up
             let ctx = match create_ctx(&mut store, &module, memory, wasi_env) {
                 Ok(c) => c,
@@ -263,7 +267,7 @@ fn call_module<M: MemorySize>(
 fn create_ctx(
     store: &mut Store,
     module: &Module,
-    mut memory: Option<VMMemory>,
+    mut memory: Option<Memory>,
     wasi_env: WasiEnv,
 ) -> Result<WasiFunctionEnv, Errno> {
     // Otherwise we need to create a new context under a write lock
@@ -276,7 +280,6 @@ fn create_ctx(
             return Err(Errno::Noexec);
         }
     };
-    let memory = Memory::new_from_existing(store, memory);
 
     // Build the context object and import the memory
     let mut ctx = WasiFunctionEnv::new(store, wasi_env);

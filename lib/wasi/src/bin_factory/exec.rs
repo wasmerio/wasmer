@@ -3,7 +3,7 @@ use std::{pin::Pin, sync::Arc};
 use crate::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
     syscalls::rewind,
-    RewindState, VirtualBusError, WasiError, WasiRuntimeError,
+    RewindState, SpawnedMemory, VirtualBusError, WasiError, WasiRuntimeError,
 };
 use futures::Future;
 use tracing::*;
@@ -12,8 +12,7 @@ use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
 use crate::{
-    import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory, WasiEnv,
-    WasiFunctionEnv, WasiRuntime,
+    import_object_for_all_wasi_versions, runtime::SpawnType, WasiEnv, WasiFunctionEnv, WasiRuntime,
 };
 
 pub fn spawn_exec(
@@ -81,15 +80,7 @@ pub fn spawn_exec_module(
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
         let memory_spawn = match shared_memory {
-            Some(ty) => {
-                #[cfg(feature = "sys")]
-                let style = store.engine().tunables().memory_style(&ty);
-                SpawnType::CreateWithType(SpawnedMemory {
-                    ty,
-                    #[cfg(feature = "sys")]
-                    style,
-                })
-            }
+            Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
             None => SpawnType::Create,
         };
 
@@ -98,7 +89,7 @@ pub fn spawn_exec_module(
         let tasks_outer = tasks.clone();
 
         let task = {
-            move |mut store: Store, module, memory| {
+            move |mut store: Store, module, memory: Option<Memory>| {
                 // Create the WasiFunctionEnv
                 let mut wasi_env = env;
                 wasi_env.runtime = runtime;
@@ -112,9 +103,8 @@ pub fn spawn_exec_module(
                     let (mut import_object, init) =
                         import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
                     let imported_memory = if let Some(memory) = memory {
-                        let imported_memory = Memory::new_from_existing(&mut store, memory);
-                        import_object.define("env", "memory", imported_memory.clone());
-                        Some(imported_memory)
+                        import_object.define("env", "memory", memory.clone());
+                        Some(memory)
                     } else {
                         None
                     };
