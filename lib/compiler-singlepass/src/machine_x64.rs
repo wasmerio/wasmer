@@ -8529,6 +8529,112 @@ mod test {
         Ok(())
     }
 
+    fn test_float_binop_op(
+        machine: &mut MachineX86_64,
+        op: fn(&mut MachineX86_64, Location, Location, Location) -> Result<(), CompileError>,
+    ) -> Result<(), CompileError> {
+        op(
+            machine,
+            Location::SIMD(XMM::XMM3),
+            Location::SIMD(XMM::XMM2),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM2),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RBP, 0),
+            Location::SIMD(XMM::XMM2),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RBP, 0),
+            Location::Memory(GPR::RDX, 10),
+            Location::SIMD(XMM::XMM0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RBP, 0),
+            Location::Memory(GPR::RDX, 16),
+            Location::Memory(GPR::RAX, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::Memory(GPR::RDX, 16),
+            Location::Memory(GPR::RAX, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM1),
+            Location::Memory(GPR::RAX, 32),
+        )?;
+
+        Ok(())
+    }
+
+    fn test_float_cmp_op(
+        machine: &mut MachineX86_64,
+        op: fn(&mut MachineX86_64, Location, Location, Location) -> Result<(), CompileError>,
+    ) -> Result<(), CompileError> {
+        op(
+            machine,
+            Location::SIMD(XMM::XMM3),
+            Location::SIMD(XMM::XMM2),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM0),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RBP, 0),
+            Location::SIMD(XMM::XMM2),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RBP, 0),
+            Location::Memory(GPR::RDX, 10),
+            Location::GPR(GPR::RAX),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::RBP, 0),
+            Location::Memory(GPR::RDX, 16),
+            Location::Memory(GPR::RAX, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::Memory(GPR::RDX, 16),
+            Location::Memory(GPR::RAX, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(XMM::XMM0),
+            Location::SIMD(XMM::XMM1),
+            Location::Memory(GPR::RAX, 32),
+        )?;
+
+        Ok(())
+    }
+
     #[test]
     fn tests_avx() -> Result<(), CompileError> {
         let set = enum_set!(CpuFeature::AVX);
@@ -8552,6 +8658,15 @@ mod test {
         test_binop_op(&mut machine, MachineX86_64::emit_binop_xor64)?;
         test_binop_op(&mut machine, MachineX86_64::emit_binop_or32)?;
         test_binop_op(&mut machine, MachineX86_64::emit_binop_or64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_mul32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_mul64)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_add)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_sub)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_mul)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_div)?;
+        test_float_cmp_op(&mut machine, MachineX86_64::f32_cmp_eq)?;
+        test_float_cmp_op(&mut machine, MachineX86_64::f32_cmp_lt)?;
+        test_float_cmp_op(&mut machine, MachineX86_64::f32_cmp_le)?;
 
         Ok(())
     }
@@ -8579,6 +8694,15 @@ mod test {
         test_binop_op(&mut machine, MachineX86_64::emit_binop_xor64)?;
         test_binop_op(&mut machine, MachineX86_64::emit_binop_or32)?;
         test_binop_op(&mut machine, MachineX86_64::emit_binop_or64)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_mul32)?;
+        test_binop_op(&mut machine, MachineX86_64::emit_binop_mul64)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_add)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_sub)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_mul)?;
+        test_float_binop_op(&mut machine, MachineX86_64::f32_div)?;
+        test_float_cmp_op(&mut machine, MachineX86_64::f32_cmp_eq)?;
+        test_float_cmp_op(&mut machine, MachineX86_64::f32_cmp_lt)?;
+        test_float_cmp_op(&mut machine, MachineX86_64::f32_cmp_le)?;
 
         Ok(())
     }
