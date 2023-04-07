@@ -2087,8 +2087,24 @@ impl Machine for MachineARM64 {
                 self.assembler.emit_mov(size_val, source, dst)?;
                 dst
             }
+            (Size::S8, false, Location::GPR(_)) => {
+                self.assembler.emit_uxtb(size_op, source, dst)?;
+                dst
+            }
+            (Size::S16, false, Location::GPR(_)) => {
+                self.assembler.emit_uxth(size_op, source, dst)?;
+                dst
+            }
+            (Size::S8, true, Location::GPR(_)) => {
+                self.assembler.emit_sxtb(size_op, source, dst)?;
+                dst
+            }
+            (Size::S16, true, Location::GPR(_)) => {
+                self.assembler.emit_sxth(size_op, source, dst)?;
+                dst
+            }
             (Size::S32, true, Location::GPR(_)) => {
-                self.assembler.emit_sxtw(size_val, source, dst)?;
+                self.assembler.emit_sxtw(size_op, source, dst)?;
                 dst
             }
             (Size::S32, false, Location::Memory(_, _)) => {
@@ -2097,6 +2113,22 @@ impl Machine for MachineARM64 {
             }
             (Size::S32, true, Location::Memory(_, _)) => {
                 self.emit_relaxed_ldr32s(size_op, dst, source)?;
+                dst
+            }
+            (Size::S16, false, Location::Memory(_, _)) => {
+                self.emit_relaxed_ldr16(size_op, dst, source)?;
+                dst
+            }
+            (Size::S16, true, Location::Memory(_, _)) => {
+                self.emit_relaxed_ldr16s(size_op, dst, source)?;
+                dst
+            }
+            (Size::S8, false, Location::Memory(_, _)) => {
+                self.emit_relaxed_ldr8(size_op, dst, source)?;
+                dst
+            }
+            (Size::S8, true, Location::Memory(_, _)) => {
+                self.emit_relaxed_ldr8s(size_op, dst, source)?;
                 dst
             }
             _ => codegen_error!(
@@ -8445,12 +8477,76 @@ mod test {
         Ok(())
     }
 
+    fn test_move_location_extended(
+        machine: &mut MachineARM64,
+        signed: bool,
+        sized: Size,
+    ) -> Result<(), CompileError> {
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::GPR(GPR::X0),
+            Size::S64,
+            Location::GPR(GPR::X1),
+        )?;
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::GPR(GPR::X0),
+            Size::S64,
+            Location::Memory(GPR::X1, 10),
+        )?;
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::GPR(GPR::X0),
+            Size::S64,
+            Location::Memory(GPR::X1, 16),
+        )?;
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::GPR(GPR::X0),
+            Size::S64,
+            Location::Memory(GPR::X1, -16),
+        )?;
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::GPR(GPR::X0),
+            Size::S64,
+            Location::Memory(GPR::X1, 1024),
+        )?;
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::GPR(GPR::X0),
+            Size::S64,
+            Location::Memory(GPR::X1, -1024),
+        )?;
+        machine.move_location_extend(
+            sized,
+            signed,
+            Location::Memory(GPR::X0, 10),
+            Size::S64,
+            Location::GPR(GPR::X1),
+        )?;
+
+        Ok(())
+    }
+
     #[test]
     fn tests_arm64() -> Result<(), CompileError> {
         let mut machine = MachineARM64::new();
 
         test_move_location(&mut machine, Size::S32)?;
         test_move_location(&mut machine, Size::S64)?;
+        test_move_location_extended(&mut machine, false, Size::S8)?;
+        test_move_location_extended(&mut machine, false, Size::S16)?;
+        test_move_location_extended(&mut machine, false, Size::S32)?;
+        test_move_location_extended(&mut machine, true, Size::S8)?;
+        test_move_location_extended(&mut machine, true, Size::S16)?;
+        test_move_location_extended(&mut machine, true, Size::S32)?;
 
         Ok(())
     }

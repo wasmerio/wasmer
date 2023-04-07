@@ -8432,46 +8432,46 @@ mod test {
         sized: Size,
     ) -> Result<(), CompileError> {
         machine.move_location_extend(
-            Size::S64,
+            sized,
             signed,
             Location::GPR(GPR::RAX),
-            sized,
+            Size::S64,
             Location::GPR(GPR::RCX),
         )?;
         machine.move_location_extend(
-            Size::S64,
+            sized,
             signed,
             Location::GPR(GPR::RAX),
-            sized,
+            Size::S64,
             Location::Memory(GPR::RCX, 10),
         )?;
         machine.move_location_extend(
-            Size::S64,
+            sized,
             signed,
             Location::Memory(GPR::RAX, 10),
-            sized,
+            Size::S64,
             Location::GPR(GPR::RCX),
         )?;
         if sized != Size::S32 {
             machine.move_location_extend(
-                Size::S32,
+                sized,
                 signed,
                 Location::GPR(GPR::RAX),
-                sized,
+                Size::S32,
                 Location::GPR(GPR::RCX),
             )?;
             machine.move_location_extend(
-                Size::S32,
+                sized,
                 signed,
                 Location::GPR(GPR::RAX),
-                sized,
+                Size::S32,
                 Location::Memory(GPR::RCX, 10),
             )?;
             machine.move_location_extend(
-                Size::S32,
+                sized,
                 signed,
                 Location::Memory(GPR::RAX, 10),
-                sized,
+                Size::S32,
                 Location::GPR(GPR::RCX),
             )?;
         }
