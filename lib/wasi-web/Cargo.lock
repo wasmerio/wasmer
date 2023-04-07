@@ -1929,7 +1929,6 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "virtual-fs"
 version = "0.1.1"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1949,7 +1948,6 @@ dependencies = [
 [[package]]
 name = "virtual-net"
 version = "0.1.0"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2024,7 +2022,6 @@ dependencies = [
 [[package]]
 name = "wai-bindgen-wasmer"
 version = "0.2.5"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2210,7 +2207,6 @@ dependencies = [
 [[package]]
 name = "wasmer"
 version = "3.2.0-beta.2"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -2228,6 +2224,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-types",
  "wasmer-vm",
+ "wasmparser",
  "wat",
  "winapi",
 ]
@@ -2235,7 +2232,6 @@ dependencies = [
 [[package]]
 name = "wasmer-compiler"
 version = "3.2.0-beta.2"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "backtrace",
  "cfg-if",
@@ -2257,7 +2253,6 @@ dependencies = [
 [[package]]
 name = "wasmer-derive"
 version = "3.2.0-beta.2"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2268,7 +2263,6 @@ dependencies = [
 [[package]]
 name = "wasmer-types"
 version = "3.2.0-beta.2"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -2283,7 +2277,6 @@ dependencies = [
 [[package]]
 name = "wasmer-vm"
 version = "3.2.0-beta.2"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "backtrace",
  "cc",
@@ -2307,7 +2300,6 @@ dependencies = [
 [[package]]
 name = "wasmer-wasix"
 version = "0.2.0"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2356,7 +2348,6 @@ dependencies = [
 [[package]]
 name = "wasmer-wasix-types"
 version = "0.2.0"
-source = "git+https://github.com/wasmerio/wasmer?branch=deploy#14e2411d569f518f304667c43f2364e37d7069a6"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2406,10 +2397,21 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
+ "wasmer",
  "wasmer-wasix",
  "wat",
  "web-sys",
  "xterm-js-rs",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.95.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2ea896273ea99b15132414be1da01ab0d8836415083298ecaffbe308eaac87a"
+dependencies = [
+ "indexmap",
+ "url",
 ]
 
 [[package]]
