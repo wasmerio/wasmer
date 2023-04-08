@@ -88,7 +88,7 @@ mod objects {
 
         /// Return an vector of all globals and converted to u128
         pub fn as_u128_globals(&self) -> Vec<u128> {
-            unimplemented!();
+            vec![]
             // self.iter_globals()
             //     .map(|v| v.global.value().as_f64().unwrap() as u128)
             //     .collect()
@@ -99,7 +99,6 @@ mod objects {
         /// with destination VMGlobal type
         pub fn set_global_unchecked(&self, idx: usize, new_val: u128) {
             assert!(idx < self.globals.len());
-            unimplemented!();
             // let g = &self.globals[idx].global;
             // let cur_val = g.value().as_f64().unwrap();
             // let new_val = new_val as f64;

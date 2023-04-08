@@ -38,8 +38,16 @@ unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let store_mut = store.as_store_mut();
-        let engine = store_mut.engine();
+        let vm_memory = VMMemory::new(Self::js_memory_from_type(store, &ty)?, ty);
+        Ok(Self::from_vm_extern(store, vm_memory))
+    }
+
+    pub(crate) fn js_memory_from_type(
+        store: &impl AsStoreRef,
+        ty: &MemoryType,
+    ) -> Result<JSObject, MemoryError> {
+        let store_ref = store.as_store_ref();
+        let engine = store_ref.engine();
         let context = engine.0.context();
 
         let mut descriptor = JSObject::new(&context);
@@ -61,13 +69,11 @@ impl Memory {
             JSValue::boolean(&context, ty.shared),
         );
 
-        let js_memory = engine
+        engine
             .0
             .wasm_memory_type()
             .construct(&context, &[descriptor.to_jsvalue()])
-            .map_err(|e| MemoryError::Generic(format!("{:?}", e)))?;
-        let vm_memory = VMMemory::new(js_memory, ty);
-        Ok(Self::from_vm_extern(store, vm_memory))
+            .map_err(|e| MemoryError::Generic(format!("{:?}", e)))
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
@@ -167,13 +173,23 @@ impl Memory {
         self.handle.try_clone()
     }
 
+    pub fn duplicate_in_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Option<Self> {
+        self.try_clone(&store)
+            .and_then(|mut memory| memory.duplicate(&store).ok())
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+    }
+
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 
     #[allow(unused)]
-    pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.handle.duplicate()
+    pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        self.handle.duplicate(store)
     }
 }
 

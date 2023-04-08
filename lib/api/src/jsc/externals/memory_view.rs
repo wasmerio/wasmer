@@ -24,13 +24,15 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
+        Self::new_raw(&memory.handle.memory, store)
+    }
+
+    pub(crate) fn new_raw(memory: &JSObject, store: &'a impl AsStoreRef) -> Self {
         let store_ref = store.as_store_ref();
         let engine = store_ref.engine();
         let context = engine.0.context();
 
         let buffer = memory
-            .handle
-            .memory
             .get_property(&context, "buffer".into())
             .to_object(&context);
         let typed_buffer = JSObject::create_typed_array_from_buffer(&context, buffer).unwrap();
