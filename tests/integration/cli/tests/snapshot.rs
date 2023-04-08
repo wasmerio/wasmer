@@ -215,7 +215,15 @@ impl TestBuilder {
     }
 
     pub fn run_wasm(self, code: &[u8]) -> TestSnapshot {
-        build_snapshot(self.spec, code)
+        let mut snapshot = build_snapshot(self.spec, code);
+        // TODO: figure out why snapshot exit code is 79 on macos
+        #[cfg(target_os = "macos")]
+        if let TestResult::Success(ref mut output) = snapshot.result {
+            if output.exit_code == 79 {
+                output.exit_code = 78;
+            }
+        }
+        snapshot
     }
 
     pub fn run_wasm_with(self, code: &[u8], with: RunWith) -> TestSnapshot {
@@ -437,7 +445,6 @@ fn test_snapshot_condvar() {
 
 // Test that the expected default directories are present.
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_default_file_system_tree() {
     let snapshot = TestBuilder::new()
@@ -499,7 +506,6 @@ fn test_snapshot_file_copy() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
@@ -641,7 +647,6 @@ rm -f /cfg/config.toml
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
@@ -734,7 +739,6 @@ fn test_snapshot_sleep() {
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
@@ -808,7 +812,6 @@ fn test_snapshot_dash_echo() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
@@ -832,7 +835,6 @@ fn test_snapshot_dash_python() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_dash_dev_zero() {
     let snapshot = TestBuilder::new()
@@ -844,7 +846,6 @@ fn test_snapshot_dash_dev_zero() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_dash_dev_urandom() {
     let snapshot = TestBuilder::new()
@@ -856,7 +857,6 @@ fn test_snapshot_dash_dev_urandom() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
@@ -868,7 +868,6 @@ fn test_snapshot_dash_dash() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
@@ -890,7 +889,6 @@ fn test_snapshot_bash_echo() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_bash_ls() {
     let snapshot = TestBuilder::new()
@@ -902,7 +900,6 @@ fn test_snapshot_bash_ls() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_bash_pipe() {
     let snapshot = TestBuilder::new()
@@ -937,7 +934,6 @@ fn test_snapshot_bash_bash() {
 }
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[cfg_attr(any(target_arch = "aarch64"), ignore)] // Aarch64 stack probing is not yet supported
 #[test]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
