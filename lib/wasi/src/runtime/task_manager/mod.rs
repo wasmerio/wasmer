@@ -7,19 +7,13 @@ use std::{pin::Pin, time::Duration};
 use ::tokio::runtime::Handle;
 use futures::Future;
 use wasmer::vm::VMMemory;
-use wasmer::{MemoryType, Module, Store};
-
-#[cfg(feature = "sys")]
-use wasmer_types::MemoryStyle;
+use wasmer::{MemoryType, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
 
 #[derive(Debug)]
 pub struct SpawnedMemory {
     pub ty: MemoryType,
-    // TODO: don't put behind a feature (Option<MemoryStyle>?)
-    #[cfg(feature = "sys")]
-    pub style: MemoryStyle,
 }
 
 #[derive(Debug)]
@@ -36,7 +30,11 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Build a new Webassembly memory.
     ///
     /// May return `None` if the memory can just be auto-constructed.
-    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError>;
+    fn build_memory(
+        &self,
+        store: &mut StoreMut,
+        spawn_type: SpawnType,
+    ) -> Result<Option<VMMemory>, WasiThreadError>;
 
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main

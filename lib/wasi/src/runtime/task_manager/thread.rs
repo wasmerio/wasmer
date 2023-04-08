@@ -160,14 +160,17 @@ impl VirtualTaskManager for ThreadTaskManager {
         use wasmer::vm::VMSharedMemory;
 
         let memory: Option<VMMemory> = match spawn_type {
-            SpawnType::CreateWithType(mem) => Some(
-                VMSharedMemory::new(&mem.ty, &mem.style)
-                    .map_err(|err| {
-                        tracing::error!("failed to create memory - {}", err);
-                    })
-                    .unwrap()
-                    .into(),
-            ),
+            SpawnType::CreateWithType(mem) => {
+                let style = store.engine().tunables().memory_style(&mem.ty);
+                Some(
+                    VMSharedMemory::new(&mem.ty, &style)
+                        .map_err(|err| {
+                            tracing::error!("failed to create memory - {}", err);
+                        })
+                        .unwrap()
+                        .into(),
+                )
+            },
             SpawnType::NewThread(mem) => Some(mem),
             SpawnType::Create => None,
         };

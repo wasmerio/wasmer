@@ -80,15 +80,7 @@ pub fn spawn_exec_module(
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
         let memory_spawn = match shared_memory {
-            Some(ty) => {
-                #[cfg(feature = "sys")]
-                let style = store.engine().tunables().memory_style(&ty);
-                SpawnType::CreateWithType(SpawnedMemory {
-                    ty,
-                    #[cfg(feature = "sys")]
-                    style,
-                })
-            }
+            Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
             None => SpawnType::Create,
         };
 
