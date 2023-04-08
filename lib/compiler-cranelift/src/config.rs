@@ -130,6 +130,13 @@ impl Cranelift {
             .enable("enable_probestack")
             .expect("should be valid flag");
 
+        // Only inline probestack is supported on AArch64
+        if matches!(target.triple().architecture, Architecture::Aarch64(_)) {
+            flags
+                .set("probestack_strategy", "inline")
+                .expect("should be valid flag");
+        }
+
         // There are two possible traps for division, and this way
         // we get the proper one if code traps.
         flags
