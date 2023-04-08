@@ -232,6 +232,13 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::CraneliftCompiler;
 <span class="kw">use </span>cranelift_codegen::isa::{lookup, TargetIsa};
 <span class="kw">use </span>cranelift_codegen::settings::{<span class="self">self</span>, Configurable};
@@ -363,6 +370,13 @@
         </span>flags
             .enable(<span class="string">&quot;enable_probestack&quot;</span>)
             .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+
+        <span class="comment">// Only inline probestack is supported on AArch64
+        </span><span class="kw">if </span><span class="macro">matches!</span>(target.triple().architecture, Architecture::Aarch64(<span class="kw">_</span>)) {
+            flags
+                .set(<span class="string">&quot;probestack_strategy&quot;</span>, <span class="string">&quot;inline&quot;</span>)
+                .expect(<span class="string">&quot;should be valid flag&quot;</span>);
+        }
 
         <span class="comment">// There are two possible traps for division, and this way
         // we get the proper one if code traps.
