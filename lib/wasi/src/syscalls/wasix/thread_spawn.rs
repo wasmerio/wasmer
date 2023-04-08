@@ -56,13 +56,6 @@ pub fn thread_spawn<M: MemorySize>(
     let thread_id: Tid = thread_handle.id().into();
     Span::current().record("tid", thread_id);
 
-    // We need a copy of the process memory and a packaged store in order to
-    // launch threads and reactors
-    let thread_memory = wasi_try!(ctx.data().memory().try_clone(&ctx).ok_or_else(|| {
-        error!("failed - the memory could not be cloned");
-        Errno::Notcapable
-    }));
-
     let mut store = ctx.data().runtime.new_store();
 
     // This function takes in memory and a store and creates a context that
@@ -106,6 +99,17 @@ pub fn thread_spawn<M: MemorySize>(
             })
         }
     };
+
+    // We need a copy of the process memory and a packaged store in order to
+    // launch threads and reactors
+    let thread_memory = wasi_try!(ctx
+        .data()
+        .memory()
+        .clone_in_store(&ctx, &mut store)
+        .ok_or_else(|| {
+            error!("failed - the memory could not be cloned");
+            Errno::Notcapable
+        }));
 
     // This function calls into the module
     let start_ptr_offset = start_ptr.offset();
@@ -225,7 +229,6 @@ pub fn thread_spawn<M: MemorySize>(
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
-    let thread_memory = Memory::new_from_existing(&mut store, thread_memory);
     let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
 
     // Now spawn a thread
