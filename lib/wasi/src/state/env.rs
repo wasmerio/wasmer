@@ -453,9 +453,8 @@ impl WasiEnv {
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
         let imported_memory = if let Some(memory) = memory {
-            let imported_memory = Memory::new_from_existing(&mut store, memory);
-            import_object.define("env", "memory", imported_memory.clone());
-            Some(imported_memory)
+            import_object.define("env", "memory", memory.clone());
+            Some(memory)
         } else {
             None
         };

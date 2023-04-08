@@ -225,7 +225,7 @@ pub fn thread_spawn<M: MemorySize>(
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
-
+    let thread_memory = Memory::new_from_existing(&mut store, thread_memory);
     let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
 
     // Now spawn a thread

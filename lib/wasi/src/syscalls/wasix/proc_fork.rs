@@ -121,11 +121,13 @@ pub fn proc_fork<M: MemorySize>(
             .unwrap();
         let store_data = Bytes::from(store_data);
 
+        let mut fork_store = ctx.data().runtime.new_store();
+
         // Fork the memory and copy the module (compiled code)
-        let env = ctx.data();
+        let (env, mut store) = ctx.data_and_store_mut();
         let fork_memory: VMMemory = match env
             .memory()
-            .try_clone(&ctx)
+            .try_clone(&store)
             .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
             .and_then(|mut memory| memory.duplicate())
         {
@@ -137,9 +139,8 @@ pub fn proc_fork<M: MemorySize>(
                 return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
         };
+        let fork_memory = Memory::new_from_existing(&mut fork_store, fork_memory);
         let fork_module = env.inner().instance.module().clone();
-
-        let mut fork_store = ctx.data().runtime.new_store();
 
         // Now we use the environment and memory references
         let runtime = child_env.runtime.clone();

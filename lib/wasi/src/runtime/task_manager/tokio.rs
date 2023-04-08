@@ -6,10 +6,7 @@ use std::{
 
 use futures::Future;
 use tokio::runtime::Handle;
-use wasmer::{
-    vm::{VMMemory, VMSharedMemory},
-    AsStoreMut, Memory, Module, Store, StoreMut,
-};
+use wasmer::{vm::VMSharedMemory, AsStoreMut, Memory, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -83,9 +80,9 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 impl VirtualTaskManager for TokioTaskManager {
     fn build_memory(
         &self,
-        store: &mut StoreMut,
+        mut store: &mut StoreMut,
         spawn_type: SpawnType,
-    ) -> Result<Option<VMMemory>, WasiThreadError> {
+    ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
             SpawnType::CreateWithType(mem) => {
                 let style = store.engine().tunables().memory_style(&mem.ty);
@@ -94,7 +91,10 @@ impl VirtualTaskManager for TokioTaskManager {
                         tracing::error!("could not create memory: {err}");
                         WasiThreadError::MemoryCreateFailed
                     })
-                    .map(|m| Some(m.into()))
+                    .map(|m| {
+                        Some(m.into())
+                            .map(|vm_memory| Memory::new_from_existing(&mut store, vm_memory))
+                    })
             }
             SpawnType::NewThread(mem) => Ok(Some(mem)),
             SpawnType::Create => Ok(None),
@@ -145,9 +145,7 @@ impl VirtualTaskManager for TokioTaskManager {
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
-        let memory = self
-            .build_memory(&mut store.as_store_mut(), spawn_type)?
-            .map(|vm_memory| Memory::new_from_existing(&mut store, vm_memory));
+        let memory = self.build_memory(&mut store.as_store_mut(), spawn_type)?;
         self.0.spawn_blocking(move || {
             // Invoke the callback
             task(store, module, memory);

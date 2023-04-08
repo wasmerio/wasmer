@@ -6,7 +6,6 @@ use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
 use futures::Future;
-use wasmer::vm::VMMemory;
 use wasmer::{Memory, MemoryType, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
@@ -20,7 +19,7 @@ pub struct SpawnedMemory {
 pub enum SpawnType {
     Create,
     CreateWithType(SpawnedMemory),
-    NewThread(VMMemory),
+    NewThread(Memory),
 }
 
 /// An implementation of task management
@@ -34,7 +33,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         &self,
         store: &mut StoreMut,
         spawn_type: SpawnType,
-    ) -> Result<Option<VMMemory>, WasiThreadError>;
+    ) -> Result<Option<Memory>, WasiThreadError>;
 
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main

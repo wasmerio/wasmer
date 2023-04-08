@@ -159,7 +159,7 @@ impl VirtualTaskManager for ThreadTaskManager {
     ) -> Result<(), WasiThreadError> {
         use wasmer::vm::VMSharedMemory;
 
-        let vm_memory: Option<VMMemory> = match spawn_type {
+        let vm_memory: Option<Memory> = match spawn_type {
             SpawnType::CreateWithType(mem) => {
                 let style = store.engine().tunables().memory_style(&mem.ty);
                 Some(
@@ -169,14 +169,13 @@ impl VirtualTaskManager for ThreadTaskManager {
                         })
                         .unwrap()
                         .into(),
-                )
+                ).map(|vm_memory| Memory::new_from_existing(&mut store, vm_memory))
             },
             SpawnType::NewThread(mem) => Some(mem),
             SpawnType::Create => None,
         };
 
         std::thread::spawn(move || {
-            let memory = vm_memory.map(|vm_memory| Memory::new_from_existing(&mut store, vm_memory));
             // Invoke the callback
             task(store, module, memory);
         });
