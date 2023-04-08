@@ -475,6 +475,7 @@
 <span id="475">475</span>
 <span id="476">476</span>
 <span id="477">477</span>
+<span id="478">478</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFileSystem;
 <span class="kw">use crate</span>::{
     FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
@@ -925,6 +926,7 @@
 
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>bytes::Bytes;
     <span class="kw">use </span>tokio::io::AsyncReadExt;
     <span class="kw">use </span>webc::v1::{ParseOptions, WebCOwned};
 
@@ -934,7 +936,7 @@
     </span><span class="kw">async fn </span>read_a_file_from_the_webc_fs() {
         <span class="kw">let </span>webc: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
         <span class="kw">let </span>options = ParseOptions::default();
-        <span class="kw">let </span>webc = WebCOwned::parse(webc.to_vec(), <span class="kw-2">&amp;</span>options).unwrap();
+        <span class="kw">let </span>webc = WebCOwned::parse(Bytes::from_static(webc), <span class="kw-2">&amp;</span>options).unwrap();
 
         <span class="kw">let </span>fs = WebcFileSystem::init_all(Arc::new(webc));
 

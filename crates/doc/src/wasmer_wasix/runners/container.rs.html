@@ -232,7 +232,7 @@
     <span class="kw">pub fn </span>from_bytes(bytes: Bytes) -&gt; std::result::Result&lt;<span class="self">Self</span>, WebcParseError&gt; {
         <span class="kw">match </span>webc::detect(bytes.as_ref())<span class="question-mark">? </span>{
             Version::V1 =&gt; {
-                <span class="kw">let </span>webc = WebCOwned::parse(bytes.into(), <span class="kw-2">&amp;</span>ParseOptions::default())<span class="question-mark">?</span>;
+                <span class="kw">let </span>webc = WebCOwned::parse(bytes, <span class="kw-2">&amp;</span>ParseOptions::default())<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(WapmContainer {
                     repr: Repr::V1Owned(Arc::new(webc)),
                 })

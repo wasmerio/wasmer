@@ -196,7 +196,7 @@
             atom: atom_name,
             main_args,
             ..
-        } = command.get_annotation(<span class="string">&quot;emscripten&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
+        } = command.annotation(<span class="string">&quot;emscripten&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
         <span class="kw">let </span>atom_name = atom_name.context(<span class="string">&quot;The atom name is required&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>atom_bytes = container
             .get_atom(<span class="kw-2">&amp;</span>atom_name)

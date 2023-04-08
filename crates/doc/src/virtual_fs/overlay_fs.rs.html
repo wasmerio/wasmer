@@ -828,6 +828,7 @@
 <span id="828">828</span>
 <span id="829">829</span>
 <span id="830">830</span>
+<span id="831">831</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Debug,
     path::{Path, PathBuf},
@@ -1305,6 +1306,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
+    <span class="kw">use </span>bytes::Bytes;
     <span class="kw">use </span>tempfile::TempDir;
     <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncWriteExt};
     <span class="kw">use </span>webc::v1::{ParseOptions, WebCOwned};
@@ -1488,7 +1490,7 @@
                 .unwrap();
         }
         <span class="comment">// Set up the secondary file systems
-        </span><span class="kw">let </span>webc = WebCOwned::parse(PYTHON.to_vec(), <span class="kw-2">&amp;</span>ParseOptions::default()).unwrap();
+        </span><span class="kw">let </span>webc = WebCOwned::parse(Bytes::from_static(PYTHON), <span class="kw-2">&amp;</span>ParseOptions::default()).unwrap();
         <span class="kw">let </span>webc = WebcFileSystem::init_all(Arc::new(webc));
 
         <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [webc]);
@@ -1564,7 +1566,7 @@
 
     <span class="kw">fn </span>load_webc(bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]) -&gt; WebcFileSystem&lt;WebCOwned&gt; {
         <span class="kw">let </span>options = ParseOptions::default();
-        <span class="kw">let </span>webc = WebCOwned::parse(bytes.into(), <span class="kw-2">&amp;</span>options).unwrap();
+        <span class="kw">let </span>webc = WebCOwned::parse(Bytes::from_static(bytes), <span class="kw-2">&amp;</span>options).unwrap();
         WebcFileSystem::init_all(Arc::new(webc))
     }
 

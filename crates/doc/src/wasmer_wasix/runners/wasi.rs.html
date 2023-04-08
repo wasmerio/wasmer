@@ -348,7 +348,7 @@
         container: <span class="kw-2">&amp;</span>WapmContainer,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
         <span class="kw">let </span>wasi = command
-            .get_annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
+            .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
         <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>wasi.atom;
         <span class="kw">let </span>atom = container
