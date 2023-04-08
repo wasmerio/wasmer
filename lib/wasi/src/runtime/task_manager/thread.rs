@@ -3,7 +3,7 @@ use std::pin::Pin;
 use futures::Future;
 #[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
-use wasmer::{vm::VMMemory, Module, Store};
+use wasmer::{Module, Store};
 
 use crate::{WasiCallingId, WasiThreadError};
 
@@ -79,7 +79,7 @@ impl VirtualTaskManager for ThreadTaskManager {
     /// It is ok for this task to block execution and any async futures within its scope
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,
@@ -152,22 +152,18 @@ impl VirtualTaskManager for ThreadTaskManager {
     /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
-        use wasmer::vm::VMSharedMemory;
-
-        let memory: Option<VMMemory> = match spawn_type {
-            SpawnType::CreateWithType(mem) => Some(
-                VMSharedMemory::new(&mem.ty, &mem.style)
-                    .map_err(|err| {
-                        tracing::error!("failed to create memory - {}", err);
-                    })
-                    .unwrap()
-                    .into(),
-            ),
+        let vm_memory: Option<Memory> = match spawn_type {
+            SpawnType::CreateWithType(mut mem) => {
+                mem.shared = true;
+                Some(Memory::new(&mut store, mem).map_err(|err| {
+                    tracing::error!("failed to create memory - {}", err);
+                }).unwrap())
+            },
             SpawnType::NewThread(mem) => Some(mem),
             SpawnType::Create => None,
         };

@@ -442,28 +442,19 @@ impl WasiEnv {
             t
         } else {
             match shared_memory {
-                Some(ty) => {
-                    #[cfg(feature = "sys")]
-                    let style = store.engine().tunables().memory_style(&ty);
-                    SpawnType::CreateWithType(SpawnedMemory {
-                        ty,
-                        #[cfg(feature = "sys")]
-                        style,
-                    })
-                }
+                Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
                 None => SpawnType::Create,
             }
         };
-        let memory = tasks.build_memory(spawn_type)?;
+        let memory = tasks.build_memory(&mut store, spawn_type)?;
 
         // Let's instantiate the module with the imports.
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
         let imported_memory = if let Some(memory) = memory {
-            let imported_memory = Memory::new_from_existing(&mut store, memory);
-            import_object.define("env", "memory", imported_memory.clone());
-            Some(imported_memory)
+            import_object.define("env", "memory", memory.clone());
+            Some(memory)
         } else {
             None
         };
