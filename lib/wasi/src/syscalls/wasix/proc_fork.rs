@@ -159,7 +159,7 @@ pub fn proc_fork<M: MemorySize>(
             let module = fork_module;
 
             let spawn_type = SpawnType::NewThread(fork_memory);
-            let task = move |mut store, module, memory| {
+            let task = move |mut store, module, memory: Option<Memory>| {
                 // Create the WasiFunctionEnv
                 let pid = child_env.pid();
                 let tid = child_env.tid();
@@ -171,7 +171,6 @@ pub fn proc_fork<M: MemorySize>(
                 let (mut import_object, init) =
                     import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
                 let memory = if let Some(memory) = memory {
-                    let memory = Memory::new_from_existing(&mut store, memory);
                     import_object.define("env", "memory", memory.clone());
                     memory
                 } else {

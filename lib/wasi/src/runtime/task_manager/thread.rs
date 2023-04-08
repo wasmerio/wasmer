@@ -79,7 +79,7 @@ impl VirtualTaskManager for ThreadTaskManager {
     /// It is ok for this task to block execution and any async futures within its scope
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,
@@ -152,14 +152,14 @@ impl VirtualTaskManager for ThreadTaskManager {
     /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
         use wasmer::vm::VMSharedMemory;
 
-        let memory: Option<VMMemory> = match spawn_type {
+        let vm_memory: Option<VMMemory> = match spawn_type {
             SpawnType::CreateWithType(mem) => {
                 let style = store.engine().tunables().memory_style(&mem.ty);
                 Some(
@@ -176,6 +176,7 @@ impl VirtualTaskManager for ThreadTaskManager {
         };
 
         std::thread::spawn(move || {
+            let memory = vm_memory.map(|vm_memory| Memory::new_from_existing(&mut store, vm_memory));
             // Invoke the callback
             task(store, module, memory);
         });

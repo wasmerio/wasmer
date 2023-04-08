@@ -7,7 +7,7 @@ use std::{pin::Pin, time::Duration};
 use ::tokio::runtime::Handle;
 use futures::Future;
 use wasmer::vm::VMMemory;
-use wasmer::{MemoryType, Module, Store, StoreMut};
+use wasmer::{Memory, MemoryType, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -62,7 +62,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// It is ok for this task to block execution and any async futures within its scope
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,
