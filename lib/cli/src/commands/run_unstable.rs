@@ -24,6 +24,7 @@ use wasmer::{
     Value,
 };
 use wasmer_cache::Cache;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::{wcgi::AbortHandle, MappedDirectory, Runner, WapmContainer};
@@ -81,6 +82,7 @@ impl RunUnstable {
         };
 
         if let Err(e) = &result {
+            #[cfg(feature = "coredump")]
             if let Some(coredump) = &self.coredump_on_trap {
                 if let Err(e) = generate_coredump(e, target.path(), coredump) {
                     tracing::warn!(
@@ -439,11 +441,13 @@ impl TargetOnDisk {
             Ok(TargetOnDisk::WebAssemblyBinary(path))
         } else if webc::detect(leading_bytes).is_ok() {
             Ok(TargetOnDisk::Webc(path))
-        } else if ArtifactBuild::is_deserializable(leading_bytes) {
-            Ok(TargetOnDisk::Artifact(path))
         } else if path.extension() == Some("wat".as_ref()) {
             Ok(TargetOnDisk::Wat(path))
         } else {
+            #[cfg(feature = "compiler")]
+            if ArtifactBuild::is_deserializable(leading_bytes) {
+                return Ok(TargetOnDisk::Artifact(path));
+            }
             anyhow::bail!("Unable to determine how to execute \"{}\"", path.display());
         }
     }
@@ -571,6 +575,7 @@ enum ExecutableTarget {
     Webc(WapmContainer, ModuleCache),
 }
 
+#[cfg(feature = "coredump")]
 fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result<(), Error> {
     let err: &wasmer::RuntimeError = match err.downcast_ref() {
         Some(e) => e,

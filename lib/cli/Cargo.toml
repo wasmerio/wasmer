@@ -88,8 +88,8 @@ pathdiff = "0.2.1"
 sha2 = "0.10.6"
 object = "0.30.0"
 wasm-coredump-builder = { version = "0.1.11", optional = true }
-tracing = { version = "0.1", optional = true }
-tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ], optional = true }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
 wapm-targz-to-pirita = "0.1.10"
 
@@ -126,7 +126,7 @@ coredump = [
     "wasm-coredump-builder",
 ]
 sys = [
-    "wasmer-compiler",
+    "compiler",
     "wasmer-vm",
 ]
 jsc = ["wasmer/jsc", "wasmer/std"]
