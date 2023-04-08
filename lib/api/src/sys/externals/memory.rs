@@ -10,7 +10,7 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
-use wasmer_types::Pages;
+use wasmer_types::{Pages, StoreId};
 use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 #[derive(Debug, Clone)]
@@ -39,12 +39,6 @@ impl Memory {
         self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    /// Creates a view into the memory that then allows for
-    /// read and write
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-        MemoryView::new(self, store)
-    }
-
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -54,34 +48,6 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
-    }
-
-    pub fn copy_to_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        // Create the new memory using the parameters of the existing memory
-        let view = self.view(store);
-        let ty = self.ty(store);
-        let amount = view.data_size() as usize;
-
-        let new_memory = Self::new(new_store, ty)?;
-        let mut new_view = new_memory.view(&new_store);
-        let new_view_size = new_view.data_size() as usize;
-        if amount > new_view_size {
-            let delta = amount - new_view_size;
-            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
-            new_memory.grow(new_store, Pages(pages as u32))?;
-            new_view = new_memory.view(&new_store);
-        }
-
-        // Copy the bytes
-        view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
-        // Return the new memory
-        Ok(new_memory)
     }
 
     pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
@@ -95,6 +61,11 @@ impl Memory {
     /// Checks whether this `Memory` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+
+    /// Returns the ID of the store this memory relates to
+    pub fn store_id(&self) -> StoreId {
+        self.handle.store_id()
     }
 
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
@@ -137,7 +108,10 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 self.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds);
+            return Err(MemoryAccessError::HeapOutOfBounds(
+                end,
+                self.len.try_into().unwrap(),
+            ));
         }
         unsafe {
             volatile_memcpy_read(self.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
@@ -161,7 +135,10 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 self.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds);
+            return Err(MemoryAccessError::HeapOutOfBounds(
+                end,
+                self.len.try_into().unwrap(),
+            ));
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
         unsafe {
@@ -183,7 +160,10 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 self.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds);
+            return Err(MemoryAccessError::HeapOutOfBounds(
+                end,
+                self.len.try_into().unwrap(),
+            ));
         }
         unsafe {
             volatile_memcpy_write(data.as_ptr(), self.base.add(offset as usize), data.len());

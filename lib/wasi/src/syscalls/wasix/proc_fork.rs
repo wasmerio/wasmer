@@ -1,5 +1,11 @@
 use super::*;
-use crate::{os::task::OwnedTaskStatus, syscalls::*, WasiThreadHandle};
+use crate::{
+    capture_snapshot,
+    os::task::OwnedTaskStatus,
+    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    syscalls::*,
+    WasiThreadHandle,
+};
 use wasmer::Memory;
 
 /// ### `proc_fork()`
@@ -31,7 +37,6 @@ pub fn proc_fork<M: MemorySize>(
     // and associate a new context but otherwise shares things like the
     // file system interface. The handle to the forked process is stored
     // in the parent process context
-    let capable_of_deep_sleep = ctx.data().capable_of_deep_sleep();
     let (mut child_env, mut child_handle) = match ctx.data().fork() {
         Ok(p) => p,
         Err(err) => {
@@ -51,7 +56,11 @@ pub fn proc_fork<M: MemorySize>(
     }
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
+
+    // Setup some properties in the child environment
     wasi_try_mem_ok!(pid_ptr.write(&memory, 0));
+    let pid = child_env.pid();
+    let tid = child_env.tid();
 
     // Pass some offsets to the unwind function
     let pid_offset = pid_ptr.offset();
@@ -107,6 +116,7 @@ pub fn proc_fork<M: MemorySize>(
     let bin_factory = env.bin_factory.clone();
 
     // Perform the unwind action
+    let snapshot = capture_snapshot(&mut ctx.as_store_mut());
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
         let span = debug_span!(
             "unwind",
@@ -116,23 +126,8 @@ pub fn proc_fork<M: MemorySize>(
         let _span_guard = span.enter();
 
         // Grab all the globals and serialize them
-        let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
-            .serialize()
-            .unwrap();
+        let store_data = snapshot.serialize().unwrap();
         let store_data = Bytes::from(store_data);
-
-        let mut fork_store = ctx.data().runtime.new_store();
-
-        // Fork the memory and copy the module (compiled code)
-        let (env, mut store) = ctx.data_and_store_mut();
-        let fork_memory: Memory = match env.memory().duplicate_in_store(&store, &mut fork_store) {
-            Some(memory) => memory,
-            None => {
-                warn!("Can't duplicate memory in new store");
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
-            }
-        };
-        let fork_module = env.inner().instance.module().clone();
 
         // Now we use the environment and memory references
         let runtime = child_env.runtime.clone();
@@ -140,50 +135,21 @@ pub fn proc_fork<M: MemorySize>(
         let child_memory_stack = memory_stack.clone();
         let child_rewind_stack = rewind_stack.clone();
 
+        let module = ctx.data().inner().module_clone();
+        let memory = ctx.data().memory_clone();
+        let spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());
+
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());
         {
-            let store_data = store_data.clone();
             let runtime = runtime.clone();
             let tasks = tasks.clone();
             let tasks_outer = tasks.clone();
+            let store_data = store_data.clone();
 
-            let store = fork_store;
-            let module = fork_module;
-
-            let spawn_type = SpawnType::NewThread(fork_memory);
-            let task = move |mut store, module, memory: Option<Memory>| {
-                // Create the WasiFunctionEnv
-                let pid = child_env.pid();
-                let tid = child_env.tid();
-                child_env.runtime = runtime.clone();
-                child_env.enable_deep_sleep = capable_of_deep_sleep;
-                let mut ctx = WasiFunctionEnv::new(&mut store, child_env);
-                // fork_store, fork_module,
-
-                // Let's instantiate the module with the imports.
-                let (mut import_object, init) =
-                    import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
-                let memory = if let Some(memory) = memory {
-                    import_object.define("env", "memory", memory.clone());
-                    memory
-                } else {
-                    error!("wasm instantiate failed - no memory supplied",);
-                    return;
-                };
-                let instance = match Instance::new(&mut store, &module, &import_object) {
-                    Ok(a) => a,
-                    Err(err) => {
-                        error!("wasm instantiate error ({})", err);
-                        return;
-                    }
-                };
-
-                init(&instance, &store).unwrap();
-
-                // Set the current thread ID
-                ctx.data_mut(&mut store).inner =
-                    Some(WasiInstanceHandles::new(memory, &store, instance));
+            let run = move |mut props: TaskWasmRunProperties| {
+                let ctx = props.ctx;
+                let mut store = props.store;
 
                 // Rewind the stack and carry on
                 {
@@ -208,11 +174,15 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                run::<M>(ctx, store, module, tasks, child_handle, None);
+                run::<M>(ctx, store, child_handle, None);
             };
 
             tasks_outer
-                .task_wasm(Box::new(task), store, module, spawn_type)
+                .task_wasm(
+                    TaskWasm::new(Box::new(run), child_env, module, false)
+                        .with_snapshot(&snapshot)
+                        .with_memory(spawn_type),
+                )
                 .map_err(|err| {
                     warn!(
                         "failed to fork as the process could not be spawned - {}",
@@ -225,6 +195,7 @@ pub fn proc_fork<M: MemorySize>(
 
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
+        let env = ctx.data();
         let val_bytes = child_pid.raw().to_ne_bytes();
         let pid_offset: u64 = pid_offset.into();
         if pid_offset >= env.layout.stack_lower
@@ -272,13 +243,13 @@ pub fn proc_fork<M: MemorySize>(
 fn run<M: MemorySize>(
     ctx: WasiFunctionEnv,
     mut store: Store,
-    module: Module,
-    tasks: Arc<dyn VirtualTaskManager>,
     child_handle: WasiThreadHandle,
     rewind_state: Option<(RewindState, Result<(), Errno>)>,
 ) -> ExitCode {
-    let pid = ctx.data(&store).pid();
-    let tid = ctx.data(&store).tid();
+    let env = ctx.data(&store);
+    let tasks = env.tasks().clone();
+    let pid = env.pid();
+    let tid = env.tid();
 
     // If we need to rewind then do so
     if let Some((mut rewind_state, trigger_res)) = rewind_state {
@@ -318,23 +289,15 @@ fn run<M: MemorySize>(
 
                 // Create the respawn function
                 let respawn = {
-                    let ctx = ctx.clone();
                     let tasks = tasks.clone();
                     let rewind_state = deep.rewind;
-                    move |store, module, trigger_res| {
-                        run::<M>(
-                            ctx,
-                            store,
-                            module,
-                            tasks,
-                            child_handle,
-                            Some((rewind_state, trigger_res)),
-                        );
+                    move |ctx, store, trigger_res| {
+                        run::<M>(ctx, store, child_handle, Some((rewind_state, trigger_res)));
                     }
                 };
 
                 /// Spawns the WASM process after a trigger
-                tasks.resume_wasm_after_poller(Box::new(respawn), store, module, ctx, deep.work);
+                tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger);
                 return Errno::Success.into();
             }
             _ => {}

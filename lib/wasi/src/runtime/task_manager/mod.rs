@@ -2,48 +2,81 @@
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
 
-use std::cell::RefCell;
 use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
 use futures::Future;
-use wasmer::{Memory, MemoryType, Module, Store, StoreMut};
+use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
-use crate::WasiFunctionEnv;
+use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 #[derive(Debug)]
-pub struct SpawnedMemory {
-    pub ty: MemoryType,
+pub enum SpawnMemoryType<'a> {
+    CreateMemory,
+    CreateMemoryOfType(MemoryType),
+    CloneMemory(Memory, StoreRef<'a>),
+    CopyMemory(Memory, StoreRef<'a>),
 }
 
-#[derive(Debug)]
-pub enum SpawnType {
-    Create,
-    CreateWithType(SpawnedMemory),
-    NewThread(Memory),
+pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Result<(), Errno>) + Send + 'static;
+
+pub type WasmResumeTrigger =
+    dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<(), Errno>> + Send + 'static>> + Send + Sync;
+
+/// The properties passed to the task
+pub struct TaskWasmRunProperties {
+    pub ctx: WasiFunctionEnv,
+    pub store: Store,
+    pub result: Result<(), Errno>,
 }
 
-/// Indicates if the task should run with the supplied store
-/// or if it should abort and exit the thread
-pub enum TaskResumeAction {
-    // The task will run with the following store
-    Run(Store, Result<(), Errno>),
-    /// The task has been aborted
-    Abort,
+/// Callback that will be invoked
+pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
+
+/// Represents a WASM task that will be executed on a dedicated thread
+pub struct TaskWasm<'a, 'b> {
+    pub run: Box<TaskWasmRun>,
+    pub env: WasiEnv,
+    pub module: Module,
+    pub snapshot: Option<&'b InstanceSnapshot>,
+    pub spawn_type: SpawnMemoryType<'a>,
+    pub trigger: Option<Box<WasmResumeTrigger>>,
+    pub update_layout: bool,
 }
+impl<'a, 'b> TaskWasm<'a, 'b> {
+    pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
+        Self {
+            run,
+            env,
+            module,
+            snapshot: None,
+            spawn_type: SpawnMemoryType::CreateMemory,
+            trigger: None,
+            update_layout,
+        }
+    }
 
-pub type WasmResumeTask = dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static;
+    pub fn with_memory(mut self, spawn_type: SpawnMemoryType<'a>) -> Self {
+        self.spawn_type = spawn_type;
+        self
+    }
 
-pub type WasmResumeTrigger = dyn FnOnce(Store) -> Pin<Box<dyn Future<Output = TaskResumeAction> + Send + 'static>>
-    + Send
-    + Sync;
+    pub fn with_snapshot(mut self, snapshot: &'b InstanceSnapshot) -> Self {
+        self.snapshot.replace(snapshot);
+        self
+    }
+
+    pub fn with_trigger(mut self, trigger: Box<WasmResumeTrigger>) -> Self {
+        self.trigger.replace(trigger);
+        self
+    }
+}
 
 /// An implementation of task management
-#[async_trait::async_trait]
 #[allow(unused_variables)]
 pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Build a new Webassembly memory.
@@ -51,14 +84,43 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// May return `None` if the memory can just be auto-constructed.
     fn build_memory(
         &self,
-        store: &mut StoreMut,
-        spawn_type: SpawnType,
-    ) -> Result<Option<Memory>, WasiThreadError>;
+        mut store: &mut StoreMut,
+        spawn_type: SpawnMemoryType,
+    ) -> Result<Option<Memory>, WasiThreadError> {
+        match spawn_type {
+            SpawnMemoryType::CreateMemoryOfType(mut ty) => {
+                ty.shared = true;
+                let mem = Memory::new(&mut store, ty).map_err(|err| {
+                    tracing::error!("could not create memory: {err}");
+                    WasiThreadError::MemoryCreateFailed(err)
+                })?;
+                Ok(Some(mem))
+            }
+            SpawnMemoryType::CloneMemory(mem, old_store) => {
+                let mem = mem.clone_in_store(&old_store, store).map_err(|err| {
+                    tracing::warn!("could not clone memory: {err}");
+                    WasiThreadError::MemoryCreateFailed(err)
+                })?;
+                Ok(Some(mem))
+            }
+            SpawnMemoryType::CopyMemory(mem, old_store) => {
+                let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
+                    tracing::warn!("could not copy memory: {err}");
+                    WasiThreadError::MemoryCreateFailed(err)
+                })?;
+                Ok(Some(mem))
+            }
+            SpawnMemoryType::CreateMemory => Ok(None),
+        }
+    }
 
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    async fn sleep_now(&self, time: Duration);
+    fn sleep_now(
+        &self,
+        time: Duration,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>;
 
     /// Starts an asynchronous task that will run on a shared worker pool
     /// This task must not block the execution or it could cause a deadlock
@@ -78,24 +140,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
 
     /// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
-    fn task_wasm(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
-        store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -> Result<(), WasiThreadError>;
-
-    /// Starts an WebAssembly task will will run on a dedicated thread
-    /// pulled from the worker pool that has a stateful thread local variable
-    /// After the trigger has successfully completed
-    fn resume_wasm_after_trigger(
-        &self,
-        task: Box<WasmResumeTask>,
-        store: Store,
-        module: Module,
-        trigger: Box<WasmResumeTrigger>,
-    ) -> Result<(), WasiThreadError>;
+    fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError>;
 
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool. It is ok for this task to block execution
@@ -120,32 +165,31 @@ impl dyn VirtualTaskManager {
     /// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// After the poller has successed
+    #[doc(hidden)]
     pub fn resume_wasm_after_poller(
         &self,
         task: Box<WasmResumeTask>,
-        store: Store,
-        module: Module,
-        env: WasiFunctionEnv,
-        work: Box<dyn AsyncifyFuture + Send + Sync + 'static>,
+        ctx: WasiFunctionEnv,
+        mut store: Store,
+        trigger: Pin<Box<AsyncifyFuture>>,
     ) -> Result<(), WasiThreadError> {
         // This poller will process any signals when the main working function is idle
         struct AsyncifyPollerOwned {
-            env: WasiFunctionEnv,
-            store: Store,
-            work: RefCell<Box<dyn AsyncifyFuture + Send + Sync + 'static>>,
+            thread: WasiThread,
+            trigger: Pin<Box<AsyncifyFuture>>,
         }
         impl Future for AsyncifyPollerOwned {
             type Output = Result<Result<(), Errno>, ExitCode>;
-            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                let mut work = self.work.borrow_mut();
-                let store = &self.store;
-                let env = self.env.data(store);
-
-                Poll::Ready(if let Poll::Ready(res) = work.poll(env, &self.store, cx) {
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let work = self.trigger.as_mut();
+                Poll::Ready(if let Poll::Ready(res) = work.poll(cx) {
                     Ok(res)
-                } else if let Some(exit_code) = env.should_exit() {
-                    Err(exit_code)
-                } else if env.thread.has_signals_or_subscribe(cx.waker()) {
+                } else if let Some(forced_exit) = self.thread.try_join() {
+                    return Poll::Ready(Err(forced_exit.unwrap_or_else(|err| {
+                        tracing::debug!("exit runtime error - {}", err);
+                        Errno::Child.into()
+                    })));
+                } else if self.thread.has_signals_or_subscribe(cx.waker()) {
                     Ok(Err(Errno::Intr))
                 } else {
                     return Poll::Pending;
@@ -153,30 +197,37 @@ impl dyn VirtualTaskManager {
             }
         }
 
-        self.resume_wasm_after_trigger(
-            task,
-            store,
-            module,
-            Box::new(move |store| {
+        let snapshot = capture_snapshot(&mut store.as_store_mut());
+        let env = ctx.data(&store).clone();
+        let module = env.inner().module_clone();
+        let memory = env.inner().memory_clone();
+        let thread = env.thread.clone();
+
+        self.task_wasm(
+            TaskWasm::new(
+                Box::new(move |props| task(props.ctx, props.store, props.result)),
+                env.clone(),
+                module,
+                false,
+            )
+            .with_memory(SpawnMemoryType::CloneMemory(memory, store.as_store_ref()))
+            .with_snapshot(&snapshot)
+            .with_trigger(Box::new(move || {
                 Box::pin(async move {
-                    let mut poller = AsyncifyPollerOwned {
-                        env,
-                        store,
-                        work: RefCell::new(work),
-                    };
+                    let mut poller = AsyncifyPollerOwned { thread, trigger };
                     let res = Pin::new(&mut poller).await;
                     let res = match res {
                         Ok(res) => res,
                         Err(exit_code) => {
-                            let env = poller.env.data(&poller.store);
                             env.thread.set_status_finished(Ok(exit_code));
-                            return TaskResumeAction::Abort;
+                            return Err(exit_code.into());
                         }
                     };
+
                     tracing::trace!("deep sleep woken - {:?}", res);
-                    TaskResumeAction::Run(poller.store, res)
+                    res
                 })
-            }),
+            })),
         )
     }
 }

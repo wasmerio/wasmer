@@ -17,8 +17,8 @@ use wasmer_types::ValueType;
 #[non_exhaustive]
 pub enum MemoryAccessError {
     /// Memory access is outside heap bounds.
-    #[error("memory access out of bounds")]
-    HeapOutOfBounds,
+    #[error("memory access out of bounds (offset={0}, max={1})")]
+    HeapOutOfBounds(u64, u64),
     /// Address calculation overflow.
     #[error("address calculation overflow")]
     Overflow,

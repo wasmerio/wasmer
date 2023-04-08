@@ -2,6 +2,7 @@ use crate::js::vm::{VMExtern, VMMemory};
 use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
 use crate::MemoryType;
+use crate::StoreId;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
@@ -10,7 +11,7 @@ use tracing::warn;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::{Pages, WASM_PAGE_SIZE};
+use wasmer_types::Pages;
 
 use super::memory_view::MemoryView;
 
@@ -136,33 +137,6 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    pub fn copy_to_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        // Create the new memory using the parameters of the existing memory
-        let view = self.view(store);
-        let ty = self.ty(store);
-        let amount = view.data_size() as usize;
-
-        let new_memory = Self::new(new_store, ty)?;
-        let new_view_size = new_memory.view(&new_store).data_size() as usize;
-        if amount > new_view_size {
-            let delta = amount - new_view_size;
-            let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
-            new_memory.grow(new_store, Pages(pages as u32))?;
-        }
-        let new_view = new_memory.view(&new_store);
-
-        // Copy the bytes
-        view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
-        // Return the new memory
-        Ok(new_memory)
-    }
-
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }
@@ -175,9 +149,8 @@ impl Memory {
         true
     }
 
-    #[allow(unused)]
-    pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.handle.duplicate()
+    pub fn store_id(&self) -> StoreId {
+        StoreId::unknown()
     }
 }
 
@@ -208,7 +181,10 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 view.length()
             );
-            return Err(MemoryAccessError::HeapOutOfBounds);
+            return Err(MemoryAccessError::HeapOutOfBounds(
+                end,
+                view.length() as u64,
+            ));
         }
         view.subarray(offset as _, end as _)
             .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) });
@@ -232,7 +208,10 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 view.length()
             );
-            return Err(MemoryAccessError::HeapOutOfBounds);
+            return Err(MemoryAccessError::HeapOutOfBounds(
+                end,
+                view.length() as u64,
+            ));
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
         view.subarray(offset as _, end as _)
@@ -254,7 +233,10 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 view.length()
             );
-            return Err(MemoryAccessError::HeapOutOfBounds);
+            return Err(MemoryAccessError::HeapOutOfBounds(
+                end,
+                view.length() as u64,
+            ));
         }
         view.subarray(offset as _, end as _).copy_from(data);
 

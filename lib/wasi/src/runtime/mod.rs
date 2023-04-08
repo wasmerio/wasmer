@@ -2,7 +2,7 @@ pub mod task_manager;
 
 use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
 
-pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
+pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 
 use std::{
     fmt,

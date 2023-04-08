@@ -19,8 +19,7 @@ use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
-    runtime::SpawnType,
-    wasmer::{Memory, MemoryType, Module, Store, StoreMut},
+    runtime::task_manager::TaskWasm,
     VirtualFile, VirtualNetworking, VirtualTaskManager, WasiRuntime, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
@@ -103,33 +102,13 @@ impl<'g> Drop for WebRuntimeGuard<'g> {
 #[async_trait::async_trait]
 #[allow(unused_variables)]
 impl VirtualTaskManager for WebTaskManager {
-    /// Build a new Webassembly memory.
-    ///
-    /// May return `None` if the memory can just be auto-constructed.
-    fn build_memory(
-        &self,
-        mut store: &mut StoreMut,
-        spawn_type: SpawnType,
-    ) -> Result<Option<Memory>, WasiThreadError> {
-        match spawn_type {
-            SpawnType::CreateWithType(mut mem) => {
-                mem.ty.shared = true;
-                Memory::new(&mut store, mem.ty)
-                    .map_err(|err| {
-                        tracing::error!("could not create memory: {err}");
-                        WasiThreadError::MemoryCreateFailed
-                    })
-                    .map(Some)
-            }
-            SpawnType::NewThread(mem) => Ok(Some(mem)),
-            SpawnType::Create => Ok(None),
-        }
-    }
-
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
     /// thread goes idle and this is the place to hook for that.
-    async fn sleep_now(&self, time: Duration) {
+    fn sleep_now(
+        &self,
+        time: Duration,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
         // The async code itself has to be sent to a main JS thread as this is where
         // time can be handled properly - later we can look at running a JS runtime
         // on the dedicated threads but that will require that processes can be unwound
@@ -137,13 +116,20 @@ impl VirtualTaskManager for WebTaskManager {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.pool.spawn_shared(Box::new(move || {
             Box::pin(async move {
-                let promise = bindgen_sleep(time.as_millis() as i32);
+                let time = if time.as_millis() < i32::MAX as u128 {
+                    time.as_millis() as i32
+                } else {
+                    i32::MAX
+                };
+                let promise = bindgen_sleep(time);
                 let js_fut = JsFuture::from(promise);
                 let _ = js_fut.await;
                 let _ = tx.send(());
             })
         }));
-        let _ = rx.await;
+        Box::pin(async move {
+            let _ = rx.await;
+        })
     }
 
     /// Starts an asynchronous task that will run on a shared worker pool
@@ -179,14 +165,8 @@ impl VirtualTaskManager for WebTaskManager {
     /// Starts an asynchronous task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// It is ok for this task to block execution and any async futures within its scope
-    fn task_wasm(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
-        store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -> Result<(), WasiThreadError> {
-        self.pool.spawn_wasm(task, store, module, spawn_type)?;
+    fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
+        self.pool.spawn_wasm(task)?;
         Ok(())
     }
 

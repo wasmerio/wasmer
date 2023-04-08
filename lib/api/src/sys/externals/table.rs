@@ -2,6 +2,7 @@ use crate::store::{AsStoreMut, AsStoreRef};
 use crate::TableType;
 use crate::Value;
 use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
+use wasmer_types::StoreId;
 use wasmer_vm::{StoreHandle, TableElement, VMExtern, VMTable};
 
 #[derive(Debug, Clone)]
@@ -145,6 +146,11 @@ impl Table {
     /// Checks whether this `Table` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+
+    /// Returns the ID of the store this table relates to
+    pub fn store_id(&self) -> StoreId {
+        self.handle.store_id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

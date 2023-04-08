@@ -6,12 +6,10 @@ use std::{
 
 use futures::Future;
 use tokio::runtime::Handle;
-use wasmer::{AsStoreMut, Memory, Module, Store, StoreMut};
-use wasmer_wasix_types::wasi::Errno;
 
-use crate::os::task::thread::WasiThreadError;
+use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
-use super::{SpawnType, TaskResumeAction, VirtualTaskManager, WasmResumeTrigger};
+use super::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
@@ -77,35 +75,16 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
     fn drop(&mut self) {}
 }
 
-#[async_trait::async_trait]
 impl VirtualTaskManager for TokioTaskManager {
-    fn build_memory(
-        &self,
-        mut store: &mut StoreMut,
-        spawn_type: SpawnType,
-    ) -> Result<Option<Memory>, WasiThreadError> {
-        match spawn_type {
-            SpawnType::CreateWithType(mut mem) => {
-                mem.ty.shared = true;
-                Memory::new(&mut store, mem.ty)
-                    .map_err(|err| {
-                        tracing::error!("could not create memory: {err}");
-                        WasiThreadError::MemoryCreateFailed
-                    })
-                    .map(Some)
-            }
-            SpawnType::NewThread(mem) => Ok(Some(mem)),
-            SpawnType::Create => Ok(None),
-        }
-    }
-
     /// See [`VirtualTaskManager::sleep_now`].
-    async fn sleep_now(&self, time: Duration) {
-        if time == Duration::ZERO {
-            tokio::task::yield_now().await;
-        } else {
-            tokio::time::sleep(time).await;
-        }
+    fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
+        Box::pin(async move {
+            if time == Duration::ZERO {
+                tokio::task::yield_now().await;
+            } else {
+                tokio::time::sleep(time).await;
+            }
+        })
     }
 
     /// See [`VirtualTaskManager::task_shared`].
@@ -136,40 +115,45 @@ impl VirtualTaskManager for TokioTaskManager {
     }
 
     /// See [`VirtualTaskManager::task_wasm`].
-    fn task_wasm(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
-        mut store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -> Result<(), WasiThreadError> {
-        let memory = self.build_memory(&mut store.as_store_mut(), spawn_type)?;
-        self.0.spawn_blocking(move || {
-            // Invoke the callback
-            task(store, module, memory);
-        });
-        Ok(())
-    }
+    fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
+        // Create the context on a new store
+        let run = task.run;
+        let (ctx, store) = WasiFunctionEnv::new_with_store(
+            task.module,
+            task.env,
+            task.snapshot,
+            task.spawn_type,
+            task.update_layout,
+        )?;
 
-    /// See [`VirtualTaskManager::task_wasm_with_trigger`].
-    fn resume_wasm_after_trigger(
-        &self,
-        task: Box<dyn FnOnce(Store, Module, Result<(), Errno>) + Send + 'static>,
-        store: Store,
-        module: Module,
-        trigger: Box<WasmResumeTrigger>,
-    ) -> Result<(), WasiThreadError> {
-        let trigger = trigger(store);
-        let handle = self.0.clone();
-        self.0.spawn(async move {
-            let action = trigger.await;
-            if let TaskResumeAction::Run(store, res) = action {
+        // If we have a trigger then we first need to run
+        // the poller to completion
+        if let Some(trigger) = task.trigger {
+            let trigger = trigger();
+            let handle = self.0.clone();
+            self.0.spawn(async move {
+                let res = trigger.await;
+                // Build the task that will go on the callback
                 handle.spawn_blocking(move || {
                     // Invoke the callback
-                    task(store, module, res);
+                    run(TaskWasmRunProperties {
+                        ctx,
+                        store,
+                        result: res,
+                    });
                 });
-            }
-        });
+            });
+        } else {
+            // Run the callback on a dedicated thread
+            self.0.spawn_blocking(move || {
+                // Invoke the callback
+                run(TaskWasmRunProperties {
+                    ctx,
+                    store,
+                    result: Ok(()),
+                });
+            });
+        }
         Ok(())
     }
 

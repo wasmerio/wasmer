@@ -11,7 +11,7 @@ use crate::Extern;
 use crate::MemoryAccessError;
 use crate::MemoryType;
 use std::mem::MaybeUninit;
-use wasmer_types::{MemoryError, Pages};
+use wasmer_types::{MemoryError, Pages, StoreId};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -119,15 +119,6 @@ impl Memory {
         self.0.grow(store, delta)
     }
 
-    /// Copies the memory to a new store and returns a memory reference to it
-    pub fn copy_to_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        Ok(Self(self.0.copy_to_store(store, new_store)?))
-    }
-
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
         Self(memory_impl::Memory::from_vm_extern(store, vm_extern))
     }
@@ -137,40 +128,55 @@ impl Memory {
         self.0.is_from_store(store)
     }
 
+    /// Returns the ID of the store this memory relates to
+    pub fn store_id(&self) -> StoreId {
+        self.0.store_id()
+    }
+
     /// Attempts to clone this memory (if its clonable)
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
         self.0.try_clone(store)
     }
 
     /// Attempts to clone this memory (if its clonable) in a new store
+    /// (cloned memory will be shared between those that clone it)
     pub fn clone_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
+    ) -> Result<Self, MemoryError> {
         if !self.ty(store).shared {
             // We should only be able to duplicate in a new store if the memory is shared
-            return None;
+            return Err(MemoryError::InvalidMemory {
+                reason: format!("memory is not a shared memory type"),
+            });
         }
         self.0
             .try_clone(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
+            .ok_or(MemoryError::Generic(format!("memory is not clonable")))
     }
 
     /// Attempts to duplicate this memory (if its clonable) in a new store
-    pub fn duplicate_in_store(
+    /// (copied memory)
+    pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
+    ) -> Result<Self, MemoryError> {
         if !self.ty(store).shared {
             // We should only be able to duplicate in a new store if the memory is shared
-            return None;
+            return Err(MemoryError::InvalidMemory {
+                reason: format!("memory is not a shared memory type"),
+            });
         }
         self.0
             .try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
+            .and_then(|mut memory| memory.copy().ok())
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+            .ok_or(MemoryError::Generic(format!(
+                "memory is not clonable or could not be copied"
+            )))
     }
 
     /// To `VMExtern`.

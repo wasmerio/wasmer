@@ -2,18 +2,17 @@ use std::{pin::Pin, sync::Arc};
 
 use crate::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
+    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::rewind,
-    RewindState, SpawnedMemory, VirtualBusError, WasiError, WasiRuntimeError,
+    RewindState, VirtualBusError, WasiError, WasiRuntimeError,
 };
 use futures::Future;
 use tracing::*;
-use wasmer::{Function, FunctionEnvMut, Instance, Memory, Memory32, Memory64, Module, Store};
+use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage, ModuleCache};
-use crate::{
-    import_object_for_all_wasi_versions, runtime::SpawnType, WasiEnv, WasiFunctionEnv, WasiRuntime,
-};
+use crate::{runtime::SpawnMemoryType, WasiEnv, WasiFunctionEnv, WasiRuntime};
 
 pub fn spawn_exec(
     binary: BinaryPackage,
@@ -58,12 +57,11 @@ pub fn spawn_exec(
     tracing::debug!("{:?}", env.state.fs);
 
     // Now run the module
-    spawn_exec_module(module, store, env, runtime)
+    spawn_exec_module(module, env, runtime)
 }
 
 pub fn spawn_exec_module(
     module: Module,
-    store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, VirtualBusError> {
@@ -80,63 +78,32 @@ pub fn spawn_exec_module(
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
         let memory_spawn = match shared_memory {
-            Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
-            None => SpawnType::Create,
+            Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+            None => SpawnMemoryType::CreateMemory,
         };
 
         // Create a thread that will run this process
-        let runtime = runtime.clone();
         let tasks_outer = tasks.clone();
 
-        let task = {
-            move |mut store: Store, module, memory: Option<Memory>| {
+        let run = {
+            move |props: TaskWasmRunProperties| {
+                let ctx = props.ctx;
+                let mut store = props.store;
+
                 // Create the WasiFunctionEnv
-                let mut wasi_env = env;
-                wasi_env.runtime = runtime;
-                let thread = WasiThreadRunGuard::new(wasi_env.thread.clone());
+                let thread = WasiThreadRunGuard::new(ctx.data(&store).thread.clone());
 
                 // Perform the initialization
-                let (start, ctx) = {
-                    let mut ctx = WasiFunctionEnv::new(&mut store, wasi_env);
-
-                    // Let's instantiate the module with the imports.
-                    let (mut import_object, init) =
-                        import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
-                    let imported_memory = if let Some(memory) = memory {
-                        import_object.define("env", "memory", memory.clone());
-                        Some(memory)
-                    } else {
-                        None
-                    };
-
-                    let instance = match Instance::new(&mut store, &module, &import_object) {
-                        Ok(a) => a,
-                        Err(err) => {
-                            error!("wasi[{}]::wasm instantiate error ({})", pid, err);
-                            ctx.data(&store)
-                                .blocking_cleanup(Some(Errno::Noexec.into()));
-                            return;
-                        }
-                    };
-
-                    init(&instance, &store).unwrap();
-
-                    // Initialize the WASI environment
-                    if let Err(err) =
-                        ctx.initialize_with_memory(&mut store, instance.clone(), imported_memory)
-                    {
-                        error!("wasi[{}]::wasi initialize error ({})", pid, err);
-                        ctx.data(&store)
-                            .blocking_cleanup(Some(Errno::Noexec.into()));
-                        return;
-                    }
-
-                    // Set the asynchronous threads flag
-                    let capable_of_deep_sleep = ctx.data(&store).capable_of_deep_sleep();
-                    ctx.data_mut(&mut store).enable_deep_sleep = capable_of_deep_sleep;
-
+                let ctx = {
                     // If this module exports an _initialize function, run that first.
-                    if let Ok(initialize) = instance.exports.get_function("_initialize") {
+                    if let Ok(initialize) = ctx
+                        .data(&store)
+                        .inner()
+                        .instance
+                        .exports
+                        .get_function("_initialize")
+                    {
+                        let initialize = initialize.clone();
                         if let Err(err) = initialize.call(&mut store, &[]) {
                             thread.thread.set_status_finished(Err(err.into()));
                             ctx.data(&store)
@@ -145,15 +112,7 @@ pub fn spawn_exec_module(
                         }
                     }
 
-                    // Let's call the `_start` function, which is our `main` function in Rust.
-                    let start = instance
-                        .exports
-                        .get_function("_start")
-                        .map(|a| a.clone())
-                        .ok();
-                    let ctx = WasiFunctionEnv { env: ctx.env };
-
-                    (start, ctx)
+                    WasiFunctionEnv { env: ctx.env }
                 };
 
                 // If there is a start function
@@ -161,18 +120,12 @@ pub fn spawn_exec_module(
                 // TODO: rewrite to use crate::run_wasi_func
 
                 // Call the module
-                if let Some(start) = start {
-                    call_module(ctx, store, module, start, None);
-                } else {
-                    debug!("wasi[{}]::exec-failed: missing _start function", pid);
-                    ctx.data(&store)
-                        .blocking_cleanup(Some(Errno::Noexec.into()));
-                }
+                call_module(ctx, store, thread, None);
             }
         };
 
         tasks_outer
-            .task_wasm(Box::new(task), store, module, memory_spawn)
+            .task_wasm(TaskWasm::new(Box::new(run), env, module, true).with_memory(memory_spawn))
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
                 VirtualBusError::UnknownError
@@ -182,19 +135,27 @@ pub fn spawn_exec_module(
     Ok(join_handle)
 }
 
+fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
+    ctx.data(store)
+        .inner()
+        .instance
+        .exports
+        .get_function("_start")
+        .map(|a| a.clone())
+        .ok()
+}
+
 /// Calls the module
 fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
-    module: Module,
-    start: Function,
+    handle: WasiThreadRunGuard,
     rewind_state: Option<(RewindState, Result<(), Errno>)>,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
-    let thread = env.thread.clone();
     let tasks = env.tasks().clone();
-    thread.set_status_running();
+    handle.thread.set_status_running();
 
     // If we need to rewind then do so
     if let Some((mut rewind_state, trigger_res)) = rewind_state {
@@ -237,7 +198,15 @@ fn call_module(
 
     // Invoke the start function
     let ret = {
-        let call_ret = start.call(&mut store, &[]);
+        // Call the module
+        let call_ret = if let Some(start) = get_start(&ctx, &store) {
+            start.call(&mut store, &[])
+        } else {
+            debug!("wasi[{}]::exec-failed: missing _start function", pid);
+            ctx.data(&store)
+                .blocking_cleanup(Some(Errno::Noexec.into()));
+            return;
+        };
 
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
@@ -252,21 +221,16 @@ fn call_module(
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
                     let respawn = {
-                        let ctx = ctx.clone();
-                        move |store, module, trigger_res| {
+                        move |ctx, store, trigger_res| {
                             // Call the thread
-                            call_module(ctx, store, module, start, Some((rewind, trigger_res)));
+                            call_module(ctx, store, handle, Some((rewind, trigger_res)));
                         }
                     };
 
                     // Spawns the WASM process after a trigger
-                    if let Err(err) = tasks.resume_wasm_after_poller(
-                        Box::new(respawn),
-                        store,
-                        module,
-                        ctx,
-                        deep.work,
-                    ) {
+                    if let Err(err) =
+                        tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                    {
                         debug!("failed to go into deep sleep - {}", err);
                     }
                     return;
@@ -292,7 +256,7 @@ fn call_module(
     ctx.data(&store).blocking_cleanup(Some(code));
 
     debug!("wasi[{pid}]::main() has exited with {code}");
-    thread.set_status_finished(ret.map(|a| a.into()));
+    handle.thread.set_status_finished(ret.map(|a| a.into()));
 }
 
 impl BinFactory {

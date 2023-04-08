@@ -1,6 +1,9 @@
 use super::*;
 use crate::{
-    os::task::thread::WasiMemoryLayout, runtime::task_manager::TaskResumeAction, syscalls::*,
+    capture_snapshot,
+    os::task::thread::WasiMemoryLayout,
+    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    syscalls::*,
     WasiThreadHandle,
 };
 
@@ -38,6 +41,9 @@ pub fn thread_spawn<M: MemorySize>(
     let tasks = env.tasks().clone();
     let start_ptr_offset = start_ptr.offset();
 
+    // We extract the memory which will be passed to the thread
+    let thread_memory = env.memory_clone();
+
     // Read the properties about the stack which we will use for asyncify
     let layout = {
         let start = wasi_try_mem!(start_ptr.read(&memory));
@@ -72,55 +78,20 @@ pub fn thread_spawn<M: MemorySize>(
     let thread_id: Tid = thread_handle.id().into();
     Span::current().record("tid", thread_id);
 
-    let mut store = ctx.data().runtime.new_store();
-
     // We capture some local variables
     let state = env.state.clone();
-    let mut wasi_env = env.duplicate();
-    wasi_env.thread = thread_handle.as_thread();
-    wasi_env.layout = layout;
-
-    // If the environment is capable of doing it then we support deep sleeping
-    wasi_env.enable_deep_sleep = env.capable_of_deep_sleep();
-    tracing::trace!(enable_deep_sleep = wasi_env.enable_deep_sleep);
-
-    // We need a copy of the process memory and a packaged store in order to
-    // launch threads and reactors
-    let thread_memory = wasi_try!(ctx
-        .data()
-        .memory()
-        .clone_in_store(&ctx, &mut store)
-        .ok_or_else(|| {
-            error!("failed - the memory could not be cloned");
-            Errno::Notcapable
-        }));
+    let mut thread_env = env.clone();
+    thread_env.thread = thread_handle.as_thread();
+    thread_env.layout = layout;
+    thread_env.enable_deep_sleep = thread_env.capable_of_deep_sleep();
 
     // This next function gets a context for the local thread and then
     // calls into the process
     let mut execute_module = {
-        let state = env.state.clone();
-        let tasks = tasks.clone();
-        let wasi_env = wasi_env.duplicate();
         let thread_handle = thread_handle;
-        move |mut store: Store, module: Module, mut memory: Option<Memory>| {
-            // Now create the context and hook it up
-            let ctx = match create_ctx(&mut store, &module, memory, wasi_env) {
-                Ok(c) => c,
-                Err(err) => {
-                    return err as u32;
-                }
-            };
-
+        move |ctx: WasiFunctionEnv, mut store: Store| {
             // Call the thread
-            call_module::<M>(
-                ctx,
-                store,
-                module,
-                tasks,
-                start_ptr_offset,
-                thread_handle,
-                None,
-            )
+            call_module::<M>(ctx, store, start_ptr_offset, thread_handle, None)
         }
     };
 
@@ -130,7 +101,10 @@ pub fn thread_spawn<M: MemorySize>(
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
-    let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
+    let thread_module = env.inner().module_clone();
+    let snapshot = capture_snapshot(&mut ctx.as_store_mut());
+    let spawn_type =
+        crate::runtime::SpawnMemoryType::CloneMemory(thread_memory, ctx.as_store_ref());
 
     // Write the thread ID to the return value
     let memory = ctx.data().memory_view(&ctx);
@@ -138,12 +112,15 @@ pub fn thread_spawn<M: MemorySize>(
 
     // Now spawn a thread
     trace!("threading: spawning background thread");
-    let thread_module = env.inner().instance.module().clone();
-    let task = move |store, thread_module, thread_memory| {
-        execute_module(store, thread_module, thread_memory);
+    let run = move |props: TaskWasmRunProperties| {
+        execute_module(props.ctx, props.store);
     };
     wasi_try!(tasks
-        .task_wasm(Box::new(task), store, thread_module, spawn_type)
+        .task_wasm(
+            TaskWasm::new(Box::new(run), thread_env, thread_module, false)
+                .with_snapshot(&snapshot)
+                .with_memory(spawn_type)
+        )
         .map_err(|err| { Into::<Errno>::into(err) }));
 
     // Success
@@ -152,14 +129,15 @@ pub fn thread_spawn<M: MemorySize>(
 
 /// Calls the module
 fn call_module<M: MemorySize>(
-    ctx: WasiFunctionEnv,
+    mut ctx: WasiFunctionEnv,
     mut store: Store,
-    module: Module,
-    tasks: Arc<dyn VirtualTaskManager>,
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<(RewindState, Result<(), Errno>)>,
 ) -> u32 {
+    let env = ctx.data(&store);
+    let tasks = env.tasks().clone();
+
     // This function calls into the module
     let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
         // We either call the reactor callback or the thread spawn callback
@@ -239,15 +217,12 @@ fn call_module<M: MemorySize>(
             // Create the callback that will be invoked when the thread respawns after a deep sleep
             let rewind = deep.rewind;
             let respawn = {
-                let env = ctx.clone();
                 let tasks = tasks.clone();
-                move |store, module, trigger_res| {
+                move |ctx, store, trigger_res| {
                     // Call the thread
                     call_module::<M>(
-                        env,
+                        ctx,
                         store,
-                        module,
-                        tasks,
                         start_ptr_offset,
                         thread_handle,
                         Some((rewind, trigger_res)),
@@ -256,47 +231,8 @@ fn call_module<M: MemorySize>(
             };
 
             /// Spawns the WASM process after a trigger
-            tasks.resume_wasm_after_poller(Box::new(respawn), store, module, ctx, deep.work);
+            tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger);
             Errno::Unknown as u32
         }
     }
-}
-
-// This function takes in memory and a store and creates a context that
-// can be used to call back into the process
-fn create_ctx(
-    store: &mut Store,
-    module: &Module,
-    mut memory: Option<Memory>,
-    wasi_env: WasiEnv,
-) -> Result<WasiFunctionEnv, Errno> {
-    // Otherwise we need to create a new context under a write lock
-    debug!("encountered a new caller - creating WASM execution context...");
-
-    let memory = match memory.take() {
-        Some(m) => m,
-        None => {
-            debug!("failed - memory can only be consumed once per context creation");
-            return Err(Errno::Noexec);
-        }
-    };
-
-    // Build the context object and import the memory
-    let mut ctx = WasiFunctionEnv::new(store, wasi_env);
-    let (mut import_object, init) = import_object_for_all_wasi_versions(module, store, &ctx.env);
-    import_object.define("env", "memory", memory.clone());
-
-    let instance = match Instance::new(store, module, &import_object) {
-        Ok(a) => a,
-        Err(err) => {
-            error!("failed - create instance failed: {}", err);
-            return Err(Errno::Noexec);
-        }
-    };
-
-    init(&instance, &store).unwrap();
-
-    // Set the current thread ID
-    ctx.data_mut(store).inner = Some(WasiInstanceHandles::new(memory, &store, instance));
-    Ok(ctx)
 }

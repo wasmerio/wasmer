@@ -7,6 +7,7 @@ use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionE
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
+use crate::StoreId;
 use std::fmt;
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -294,6 +295,10 @@ impl Function {
     /// Checks whether this `Function` can be used with the given context.
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
+    }
+
+    pub fn store_id(&self) -> StoreId {
+        StoreId::unknown()
     }
 }
 

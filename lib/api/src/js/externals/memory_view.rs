@@ -135,7 +135,10 @@ impl<'a> MemoryView<'a> {
                 end,
                 view.length()
             );
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            Err(MemoryAccessError::HeapOutOfBounds(
+                end as u64,
+                view.length() as u64,
+            ))?;
         }
         view.subarray(offset, end).copy_to(data);
         Ok(())
@@ -155,7 +158,10 @@ impl<'a> MemoryView<'a> {
                 offset,
                 view.length()
             );
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            Err(MemoryAccessError::HeapOutOfBounds(
+                offset as u64,
+                view.length() as u64,
+            ))?;
         }
         Ok(view.get_index(offset))
     }
@@ -190,7 +196,10 @@ impl<'a> MemoryView<'a> {
                 end,
                 view.length()
             );
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            Err(MemoryAccessError::HeapOutOfBounds(
+                end as u64,
+                view.length() as u64,
+            ))?;
         }
 
         // Zero-initialize the buffer to avoid undefined behavior with
@@ -227,7 +236,10 @@ impl<'a> MemoryView<'a> {
                 end,
                 view.length()
             );
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            Err(MemoryAccessError::HeapOutOfBounds(
+                end as u64,
+                view.length() as u64,
+            ))?;
         }
         view.subarray(offset, end).copy_from(data);
         Ok(())
@@ -247,7 +259,10 @@ impl<'a> MemoryView<'a> {
                 offset,
                 view.length()
             );
-            Err(MemoryAccessError::HeapOutOfBounds)?;
+            Err(MemoryAccessError::HeapOutOfBounds(
+                offset as u64,
+                view.length() as u64,
+            ))?;
         }
         view.set_index(offset, val);
         Ok(())

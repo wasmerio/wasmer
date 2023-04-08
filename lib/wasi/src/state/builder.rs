@@ -782,7 +782,7 @@ impl WasiEnvBuilder {
             control_plane,
             bin_factory,
             capabilities,
-            spawn_type: None,
+            memory_ty: None,
             process: None,
             thread: None,
             call_initialize: true,

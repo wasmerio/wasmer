@@ -81,6 +81,23 @@ mod objects {
             }
         }
 
+        /// Drains all the objects of a particular type from the store
+        pub fn drain<T: StoreObject>(&mut self) -> Vec<T> {
+            let list = T::list_mut(self);
+            list.drain(..).collect()
+        }
+
+        /// Adds many objects directly to the store
+        pub fn append<T: StoreObject, I>(&mut self, values: I)
+        where
+            I: IntoIterator<Item = T>,
+        {
+            let list = T::list_mut(self);
+            for val in values {
+                list.push(val);
+            }
+        }
+
         /// Return an immutable iterator over all globals
         pub fn iter_globals(&self) -> core::slice::Iter<VMGlobal> {
             self.globals.iter()

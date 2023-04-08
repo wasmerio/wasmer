@@ -1,12 +1,16 @@
 use tracing::trace;
-use wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module};
+use wasmer::{
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+};
 use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
+    import_object_for_all_wasi_versions,
     os::task::thread::DEFAULT_STACK_SIZE,
+    runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions},
-    WasiEnv, WasiError,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
+    InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
 
 #[derive(Clone)]
@@ -19,6 +23,54 @@ impl WasiFunctionEnv {
         Self {
             env: FunctionEnv::new(store, env),
         }
+    }
+
+    // Creates a new environment context on a new store
+    pub fn new_with_store(
+        module: Module,
+        env: WasiEnv,
+        snapshot: Option<&InstanceSnapshot>,
+        spawn_type: SpawnMemoryType,
+        update_layout: bool,
+    ) -> Result<(Self, Store), WasiThreadError> {
+        // Create a new store and put the memory object in it
+        // (but only if it has imported memory)
+        let mut store = env.runtime.new_store();
+        let memory = env
+            .tasks()
+            .build_memory(&mut store.as_store_mut(), spawn_type)?;
+
+        // Build the context object and import the memory
+        let mut ctx = WasiFunctionEnv::new(&mut store, env);
+        let (mut import_object, init) =
+            import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
+        if let Some(memory) = memory.clone() {
+            import_object.define("env", "memory", memory);
+        }
+
+        let instance = Instance::new(&mut store, &module, &import_object).map_err(|err| {
+            tracing::warn!("failed to create instance - {}", err);
+            WasiThreadError::InstanceCreateFailed(err)
+        })?;
+
+        init(&instance, &store).map_err(|err| {
+            tracing::warn!("failed to init instance - {}", err);
+            WasiThreadError::InitFailed(err)
+        })?;
+
+        // Initialize the WASI environment
+        ctx.initialize_with_memory(&mut store, instance.clone(), memory.clone(), update_layout)
+            .map_err(|err| {
+                tracing::warn!("failed initialize environment - {}", err);
+                WasiThreadError::ExportError(err)
+            })?;
+
+        // Set all the globals
+        if let Some(snapshot) = snapshot {
+            restore_snapshot(&mut store, snapshot);
+        }
+
+        Ok((ctx, store))
     }
 
     /// Get an `Imports` for a specific version of WASI detected in the module.
@@ -41,7 +93,7 @@ impl WasiFunctionEnv {
     }
 
     /// Gets a mutable- reference to the host state in this context.
-    pub fn data_mut<'a>(&'a mut self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
+    pub fn data_mut<'a>(&'a self, store: &'a mut impl AsStoreMut) -> &'a mut WasiEnv {
         self.env.as_mut(store)
     }
 
@@ -54,7 +106,7 @@ impl WasiFunctionEnv {
         store: &mut impl AsStoreMut,
         instance: Instance,
     ) -> Result<(), ExportError> {
-        self.initialize_with_memory(store, instance, None)
+        self.initialize_with_memory(store, instance, None, true)
     }
 
     /// Initializes the WasiEnv using the instance exports and a provided optional memory
@@ -66,16 +118,8 @@ impl WasiFunctionEnv {
         store: &mut impl AsStoreMut,
         instance: Instance,
         memory: Option<Memory>,
+        update_layout: bool,
     ) -> Result<(), ExportError> {
-        // List all the exports and imports
-        for ns in instance.module().exports() {
-            //trace!("module::export - {} ({:?})", ns.name(), ns.ty());
-            trace!("module::export - {}", ns.name());
-        }
-        for ns in instance.module().imports() {
-            trace!("module::import - {}::{}", ns.module(), ns.name());
-        }
-
         let is_wasix_module = crate::utils::is_wasix_module(instance.module());
 
         // First we get the malloc function which if it exists will be used to
@@ -98,25 +142,28 @@ impl WasiFunctionEnv {
 
         env.state.fs.set_is_wasix(is_wasix_module);
 
-        // Set the base stack
-        let mut stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
-            match stack_pointer.get(store) {
-                wasmer::Value::I32(a) => a as u64,
-                wasmer::Value::I64(a) => a as u64,
-                _ => 0,
+        // If the stack offset and size is not set then do so
+        if update_layout {
+            // Set the base stack
+            let mut stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+                match stack_pointer.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => 0,
+                }
+            } else {
+                0
+            };
+            if stack_base == 0 {
+                stack_base = DEFAULT_STACK_SIZE;
             }
-        } else {
-            0
-        };
-        if stack_base == 0 {
-            stack_base = DEFAULT_STACK_SIZE;
-        }
 
-        // Update the stack layout which is need for asyncify
-        let env = self.data_mut(store);
-        let layout = &mut env.layout;
-        layout.stack_upper = stack_base;
-        layout.stack_size = layout.stack_upper - layout.stack_lower;
+            // Update the stack layout which is need for asyncify
+            let env = self.data_mut(store);
+            let layout = &mut env.layout;
+            layout.stack_upper = stack_base;
+            layout.stack_size = layout.stack_upper - layout.stack_lower;
+        }
 
         Ok(())
     }

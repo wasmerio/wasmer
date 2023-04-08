@@ -49,17 +49,17 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     wasi_try_mem_ok!(nevents.write(&memory, M::ZERO));
 
     // Function to invoke once the poll is finished
-    let process_events = move |env: &'_ WasiEnv, store: &'_ dyn AsStoreRef, triggered_events| {
+    let process_events = move |memory: &'_ Memory, store: &'_ dyn AsStoreRef, triggered_events| {
         // Process all the events that were triggered
-        let mut memory = env.memory_view(store);
+        let mut view = memory.view(store);
         let mut events_seen: u32 = 0;
-        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions));
+        let event_array = wasi_try_mem!(out_.slice(&view, nsubscriptions));
         for event in triggered_events {
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
         }
         let events_seen: M::Offset = wasi_try!(events_seen.try_into().map_err(|_| Errno::Overflow));
-        let out_ptr = nevents.deref(&memory);
+        let out_ptr = nevents.deref(&view);
         wasi_try_mem!(out_ptr.write(events_seen));
         Errno::Success
     };
@@ -142,7 +142,7 @@ pub(crate) fn poll_oneoff_internal<M: MemorySize, After>(
     process_events: After,
 ) -> Result<Errno, WasiError>
 where
-    After: FnOnce(&'_ WasiEnv, &'_ dyn AsStoreRef, Vec<Event>) -> Errno + Send + Sync + 'static,
+    After: FnOnce(&'_ Memory, &'_ dyn AsStoreRef, Vec<Event>) -> Errno + Send + Sync + 'static,
 {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
     if handle_rewind::<M>(&mut ctx) {
@@ -320,8 +320,9 @@ where
     let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
         ctx,
         asyncify_time,
+        Duration::from_millis(50),
         batch,
-        move |env, store, res| {
+        move |memory, store, res| {
             let events = res.unwrap_or_else(Err);
             // Process the result
             match events {
@@ -330,7 +331,7 @@ where
                     Span::current().record("seen", evts.len());
 
                     // Process the events
-                    process_events(env, store, evts);
+                    process_events(memory, store, evts);
                 }
                 Err(Errno::Timedout) => {
                     // The timeout has triggerred so lets add that event
@@ -354,15 +355,15 @@ where
                         );
                         evts.push(evt);
                     }
-                    process_events(env, store, evts);
+                    process_events(memory, store, evts);
                 }
                 // If nonblocking the Errno::Again needs to be turned into an empty list
                 Err(Errno::Again) => {
-                    process_events(env, store, Default::default());
+                    process_events(memory, store, Default::default());
                 }
                 // Otherwise process the error
                 Err(err) => {
-                    tracing::warn!("triggered_timeout (without any clock subscriptions)");
+                    tracing::warn!("failed to poll during deep sleep - {}", err);
                 }
             }
             Ok(())

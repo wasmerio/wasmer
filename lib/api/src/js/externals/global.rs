@@ -5,6 +5,7 @@ use crate::value::Value;
 use crate::vm::{VMExtern, VMGlobal};
 use crate::GlobalType;
 use crate::Mutability;
+use crate::StoreId;
 use wasm_bindgen::JsValue;
 use wasmer_types::{RawValue, Type};
 
@@ -135,5 +136,9 @@ impl Global {
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
+    }
+
+    pub fn store_id(&self) -> StoreId {
+        StoreId::unknown()
     }
 }

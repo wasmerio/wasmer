@@ -1,6 +1,7 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::vm::VMFunctionEnvironment;
+use crate::Store;
 
 use crate::store::{AsStoreMut, AsStoreRef, StoreHandle, StoreMut, StoreObjects, StoreRef};
 
@@ -26,6 +27,16 @@ impl<T> FunctionEnv<T> {
             ),
             marker: PhantomData,
         }
+    }
+
+    /// Transfers the contained object from one store to another
+    pub fn transfer_to_store(&self, from: &mut Store, to: &mut Store) {
+        // Take out all the environment objects and move them to the new store
+        let mut from = from.as_store_mut();
+        let from = from.objects_mut();
+        let mut to = to.as_store_mut();
+        let to = to.objects_mut();
+        to.append(from.drain::<VMFunctionEnvironment>());
     }
 
     /// Get the data as reference

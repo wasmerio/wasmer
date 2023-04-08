@@ -4,53 +4,28 @@ use super::*;
 use crate::syscalls::*;
 
 #[derive(Clone)]
-struct FutexPoller<M>
-where
-    M: MemorySize,
-{
+struct FutexPoller {
     state: Arc<WasiState>,
     woken: Arc<Mutex<bool>>,
     futex_idx: u64,
-    futex_ptr: WasmPtr<u32, M>,
     expected: u32,
+    hooked: bool,
 }
-impl<M> AsyncifyFuture for FutexPoller<M>
-where
-    M: MemorySize,
-{
-    fn poll(
-        &mut self,
-        env: &WasiEnv,
-        store: &dyn AsStoreRef,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), Errno>> {
-        let waker = cx.waker();
-        let view = env.memory_view(store);
-        let mut guard = env.state.futexs.lock().unwrap();
-
-        {
-            let val = match self.futex_ptr.read(&view) {
-                Ok(a) => a,
-                Err(err) => {
-                    {
-                        let mut guard = self.woken.lock().unwrap();
-                        *guard = true;
-                    }
-                    return Poll::Ready(Err(mem_error_to_wasi(err)));
-                }
-            };
-            if val != self.expected {
-                {
-                    let mut guard = self.woken.lock().unwrap();
-                    *guard = true;
-                }
-                return Poll::Ready(Ok(()));
-            }
+impl Future for FutexPoller {
+    type Output = Result<(), Errno>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Errno>> {
+        if self.hooked == true {
+            return Poll::Ready(Ok(()));
         }
+        self.hooked = true;
+
+        let waker = cx.waker();
+        let mut guard = self.state.futexs.lock().unwrap();
 
         let futex = guard
             .entry(self.futex_idx)
             .or_insert_with(|| WasiFutex { wakers: vec![] });
+
         if !futex.wakers.iter().any(|w| w.will_wake(waker)) {
             futex.wakers.push(waker.clone());
         }
@@ -58,17 +33,13 @@ where
         Poll::Pending
     }
 }
-impl<M> Drop for FutexPoller<M>
-where
-    M: MemorySize,
-{
+impl Drop for FutexPoller {
     fn drop(&mut self) {
-        let futex = {
-            let mut guard = self.state.futexs.lock().unwrap();
-            guard.remove(&self.futex_idx)
-        };
-        if let Some(futex) = futex {
-            futex.wakers.into_iter().for_each(|w| w.wake());
+        let mut guard = self.state.futexs.lock().unwrap();
+        if let Some(futex) = guard.remove(&self.futex_idx) {
+            for waker in futex.wakers {
+                waker.wake();
+            }
         }
     }
 }
@@ -138,8 +109,13 @@ pub fn futex_wait<M: MemorySize + 'static>(
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     // If we were just restored then we were woken after a deep sleep
+    // and thus we repeat all the checks again, we do not immediately
+    // exit here as it could be the case that we were woken but the
+    // expected value does not match
     if handle_rewind::<M>(&mut ctx) {
-        return Ok(Errno::Success);
+        // fall through so the normal checks kick in, this will
+        // ensure that the expected value has changed before
+        // this syscall returns even if it was woken
     }
 
     // Determine the timeout
@@ -158,9 +134,17 @@ pub fn futex_wait<M: MemorySize + 'static>(
     let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
     Span::current().record("futex_idx", futex_idx);
 
+    // We check if the expected value has changed
+    let memory = env.memory_view(&ctx);
+    let val = wasi_try_mem_ok!(futex_ptr.read(&memory));
+    if val != expected {
+        // We have been triggered so do not go into a wait
+        wasi_try_mem_ok!(ret_woken.write(&memory, Bool::True));
+        return Ok(Errno::Success);
+    }
+
     // We clear the woken flag (so if the poller fails to trigger
     // then the value is not set) - the poller will set it to true
-    let memory = env.memory_view(&ctx);
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
     // Create a poller which will register ourselves against
@@ -170,12 +154,19 @@ pub fn futex_wait<M: MemorySize + 'static>(
         state: env.state.clone(),
         woken: woken.clone(),
         futex_idx,
-        futex_ptr,
         expected,
+        hooked: false,
     };
     let after = FutexAfter { woken, ret_woken };
 
     // We use asyncify on the poller and potentially go into deep sleep
-    __asyncify_with_deep_sleep::<M, _, _>(ctx, timeout, poller, after)?;
+    __asyncify_with_deep_sleep::<M, _>(
+        ctx,
+        timeout,
+        //Duration::from_millis(50),
+        Duration::from_millis(100000),
+        Box::pin(poller),
+        after,
+    )?;
     Ok(Errno::Success)
 }

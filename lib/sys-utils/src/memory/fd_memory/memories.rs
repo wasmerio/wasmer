@@ -131,11 +131,11 @@ impl WasmMmap {
 
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mem_length = self.size.bytes().0;
         let mut alloc = self
             .alloc
-            .duplicate(Some(mem_length))
+            .copy(Some(mem_length))
             .map_err(MemoryError::Generic)?;
         let base_ptr = alloc.as_mut_ptr();
         Ok(Self {
@@ -301,9 +301,9 @@ impl VMOwnedMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, MemoryError> {
         Ok(Self {
-            mmap: self.mmap.duplicate()?,
+            mmap: self.mmap.copy()?,
             config: self.config.clone(),
         })
     }
@@ -345,8 +345,8 @@ impl LinearMemory for VMOwnedMemory {
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = Self::duplicate(self)?;
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
 }
@@ -388,10 +388,10 @@ impl VMSharedMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.duplicate()?)),
+            mmap: Arc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
         })
     }
@@ -439,8 +439,8 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = Self::duplicate(self)?;
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
 }
@@ -507,8 +507,8 @@ impl LinearMemory for VMMemory {
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        self.0.duplicate()
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        self.0.copy()
     }
 }
 
@@ -570,8 +570,8 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        LinearMemory::duplicate(self)
+    pub fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        LinearMemory::copy(self)
     }
 }
 

@@ -197,7 +197,7 @@ pub fn proc_exec<M: MemorySize>(
     // on the new module
     else {
         // Prepare the environment
-        let mut wasi_env = ctx.data_mut().duplicate();
+        let mut wasi_env = ctx.data().clone();
         _prepare_wasi(&mut wasi_env, Some(args));
 
         // Get a reference to the runtime
@@ -240,20 +240,22 @@ pub fn proc_exec<M: MemorySize>(
             Ok(Ok(mut process)) => {
                 // If we support deep sleeping then we switch to deep sleep mode
                 let env = ctx.data();
+                let thread = env.thread.clone();
 
                 // The poller will wait for the process to actually finish
                 let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
                     ctx,
                     None,
+                    Duration::from_millis(50),
                     async move {
                         process
                             .wait_finished()
                             .await
                             .unwrap_or_else(|_| Errno::Child.into())
                     },
-                    |env, _, res| {
+                    move |_, _, res| {
                         let exit_code = res.unwrap_or_else(ExitCode::Errno);
-                        env.thread.set_status_finished(Ok(exit_code));
+                        thread.set_status_finished(Ok(exit_code));
                         Ok(())
                     },
                 )?;

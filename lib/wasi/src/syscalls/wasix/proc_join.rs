@@ -90,11 +90,12 @@ pub fn proc_join<M: MemorySize + 'static>(
             let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
                 ctx,
                 None,
+                Duration::from_millis(50),
                 async move { process.join_any_child().await },
-                move |env, store, res| {
+                move |memory, store, res| {
                     let child_exit = res.unwrap_or_else(Err);
 
-                    let memory = env.memory_view(store);
+                    let memory = memory.view(store);
                     match child_exit {
                         Ok(Some((pid, exit_code))) => {
                             trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
@@ -148,13 +149,12 @@ pub fn proc_join<M: MemorySize + 'static>(
     };
 
     // Otherwise we wait for the specific PID
-    let env = ctx.data();
     let pid: WasiProcessId = pid.into();
 
     // Waiting for a process that is an explicit child will join it
     // meaning it will no longer be a sub-process of the main process
     let mut process = {
-        let mut inner = env.process.inner.write().unwrap();
+        let mut inner = ctx.data().process.inner.write().unwrap();
         let process = inner
             .children
             .iter()
@@ -168,7 +168,7 @@ pub fn proc_join<M: MemorySize + 'static>(
     // Otherwise it could be the case that we are waiting for a process
     // that is not a child of this process but may still be running
     if process.is_none() {
-        process = env.control_plane.get_process(pid);
+        process = ctx.data().control_plane.get_process(pid);
     }
 
     if let Some(process) = process {
@@ -182,20 +182,22 @@ pub fn proc_join<M: MemorySize + 'static>(
         ));
 
         // Wait for the process to finish
+        let process2 = process.clone();
         let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
             ctx,
             None,
+            Duration::from_millis(50),
             async move { process.join().await.unwrap_or_else(|_| Errno::Child.into()) },
-            move |env, store, res| {
+            move |memory, store, res| {
                 let exit_code = res.unwrap_or_else(ExitCode::Errno);
 
                 trace!(ret_id = pid.raw(), exit_code = exit_code.raw());
                 {
-                    let mut inner = env.process.inner.write().unwrap();
+                    let mut inner = process2.inner.write().unwrap();
                     inner.children.retain(|a| a.pid != pid);
                 }
 
-                let memory = env.memory_view(store);
+                let memory = memory.view(store);
                 let status = JoinStatus {
                     tag: JoinStatusType::ExitNormal,
                     u: JoinStatusUnion {

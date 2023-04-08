@@ -16,6 +16,7 @@ use std::fmt;
 
 #[cfg(feature = "js")]
 use crate::js::vm::VMExtern;
+use wasmer_types::StoreId;
 #[cfg(feature = "sys")]
 use wasmer_vm::VMExtern;
 
@@ -65,6 +66,16 @@ impl Extern {
             Self::Global(g) => g.is_from_store(store),
             Self::Memory(m) => m.is_from_store(store),
             Self::Table(t) => t.is_from_store(store),
+        }
+    }
+
+    /// Returns the ID of the store this extern relates to
+    pub fn store_id(&self) -> StoreId {
+        match self {
+            Self::Function(f) => f.store_id(),
+            Self::Global(g) => g.store_id(),
+            Self::Memory(m) => m.store_id(),
+            Self::Table(t) => t.store_id(),
         }
     }
 

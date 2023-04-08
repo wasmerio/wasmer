@@ -78,6 +78,23 @@ impl StoreObjects {
         }
     }
 
+    /// Drains all the objects of a particular type from the store
+    pub fn drain<T: StoreObject>(&mut self) -> Vec<T> {
+        let list = T::list_mut(self);
+        list.drain(..).collect()
+    }
+
+    /// Adds many objects directly to the store
+    pub fn append<T: StoreObject, I>(&mut self, values: I)
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let list = T::list_mut(self);
+        for val in values {
+            list.push(val);
+        }
+    }
+
     /// Return an immutable iterator over all globals
     pub fn iter_globals(&self) -> Iter<VMGlobal> {
         self.globals.iter()
@@ -98,6 +115,13 @@ impl StoreObjects {
         unsafe {
             self.globals[idx].vmglobal().as_mut().val.u128 = val;
         }
+    }
+
+    /// Set a global, at index idx. Will panic if idx is out of range
+    /// Safety: the caller should check taht the raw value is compatible
+    /// with destination VMGlobal type
+    pub fn cmp_and_set_global_unchecked(&self, idx: usize, val: u128) {
+        self.set_global_unchecked(idx, val);
     }
 }
 

@@ -1,5 +1,5 @@
 use tracing::{field, instrument, trace_span};
-use wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, WasmPtr};
+use wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Memory, WasmPtr};
 use wasmer_wasix_types::wasi::{
     Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
     Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
@@ -166,11 +166,11 @@ pub fn poll_oneoff<M: MemorySize>(
     wasi_try_mem_ok!(nevents.write(&memory, 0));
 
     // Function to invoke once the poll is finished
-    let process_events = move |env: &'_ WasiEnv, store: &'_ dyn AsStoreRef, triggered_events| {
+    let process_events = move |memory: &'_ Memory, store: &'_ dyn AsStoreRef, triggered_events| {
         // Process all the events that were triggered
-        let mut memory = env.memory_view(store);
+        let mut view = memory.view(store);
         let mut events_seen: u32 = 0;
-        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions));
+        let event_array = wasi_try_mem!(out_.slice(&view, nsubscriptions));
         for event in triggered_events {
             let event: Event = event;
             let event = Snapshot0Event {
@@ -189,7 +189,7 @@ pub fn poll_oneoff<M: MemorySize>(
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
         }
-        let out_ptr = nevents.deref(&memory);
+        let out_ptr = nevents.deref(&view);
         wasi_try_mem!(out_ptr.write(events_seen));
         Errno::Success
     };

@@ -52,6 +52,7 @@ pub mod capabilities;
 /// WAI based bindings.
 mod bindings;
 
+use std::pin::Pin;
 use std::sync::Arc;
 use std::{cell::RefCell, sync::atomic::AtomicU32};
 
@@ -97,7 +98,7 @@ pub use crate::{
     },
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, SpawnedMemory, WasiRuntime,
+        PluggableRuntime, WasiRuntime,
     },
     wapm::parse_static_webc,
 };
@@ -110,7 +111,11 @@ pub use crate::{
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{rewind, types, unwind},
-    utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
+    utils::{
+        get_wasi_version, get_wasi_versions, is_wasi_module,
+        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        WasiVersion,
+    },
 };
 
 /// Trait that will be invoked after the rewind has finished
@@ -168,7 +173,7 @@ impl RewindState {
 /// includes the things needed to restore it again
 pub struct DeepSleepWork {
     /// This is the work that will be performed before the thread is rewoken
-    pub work: Box<dyn AsyncifyFuture + Send + Sync + 'static>,
+    pub trigger: Pin<Box<AsyncifyFuture>>,
     /// State that the thread will be rewound to
     pub rewind: RewindState,
 }
@@ -274,7 +279,7 @@ pub enum WasiRuntimeError {
     Wasi(#[from] WasiError),
     #[error("Process manager error")]
     ControlPlane(#[from] ControlPlaneError),
-    #[error("Runtime error")]
+    #[error("{0}")]
     Runtime(#[from] RuntimeError),
     #[error("Memory access error")]
     Thread(#[from] WasiThreadError),
@@ -350,22 +355,14 @@ pub struct WasiVFork {
     pub handle: WasiThreadHandle,
 }
 
-impl WasiVFork {
-    /// Clones this env.
-    ///
-    /// This is a custom function instead of a [`Clone`] implementation because
-    /// this type should not be cloned.
-    ///
-    // TODO: remove WasiEnv::duplicate()
-    // This function should not exist, since it just copies internal state.
-    // Currently only used by fork/spawn related syscalls.
-    pub(crate) fn duplicate(&self) -> Self {
+impl Clone for WasiVFork {
+    fn clone(&self) -> Self {
         Self {
             rewind_stack: self.rewind_stack.clone(),
             memory_stack: self.memory_stack.clone(),
             store_data: self.store_data.clone(),
             pid_offset: self.pid_offset,
-            env: Box::new(self.env.duplicate()),
+            env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
         }
     }
@@ -859,7 +856,7 @@ fn generate_import_object_wasix64_v1(
 
 fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => Errno::Memviolation,
+        MemoryAccessError::HeapOutOfBounds(..) => Errno::Memviolation,
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
         _ => Errno::Unknown,
@@ -868,7 +865,7 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
 
 fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
-        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
+        MemoryAccessError::HeapOutOfBounds(..) => BusErrno::Memviolation,
         MemoryAccessError::Overflow => BusErrno::Memviolation,
         MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
         _ => BusErrno::Unknown,

@@ -10,6 +10,7 @@ use tracing::{debug, error, info, trace, warn};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasmer_wasix::{
     bin_factory::ModuleCache,
+    capabilities::Capabilities,
     os::{Console, InputEvent, Tty, TtyOptions},
     Pipe,
 };
@@ -187,6 +188,11 @@ pub fn start() -> Result<(), JsValue> {
         .with_stdout(Box::new(stdout))
         .with_stderr(Box::new(stderr))
         .with_env(env);
+
+    let mut capabilities = Capabilities::default();
+    capabilities.threading.max_threads = Some(50);
+    capabilities.threading.enable_asynchronous_threading = true;
+    console = console.with_capabilities(capabilities);
 
     let (tx, mut rx) = mpsc::unbounded_channel();
 

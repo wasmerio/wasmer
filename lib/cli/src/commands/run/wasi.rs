@@ -104,7 +104,6 @@ pub struct Wasi {
 
 pub struct RunProperties {
     pub ctx: WasiFunctionEnv,
-    pub instance: Instance,
     pub path: PathBuf,
     pub invoke: Option<String>,
     pub args: Vec<String>,
@@ -315,9 +314,10 @@ impl Wasi {
 
         // Do we want to invoke a function?
         if let Some(ref invoke) = run.invoke {
+            let instance = ctx.data(&store).inner().instance().clone();
             let res = RunWithPathBuf::inner_module_invoke_function(
                 &mut store,
-                run.instance,
+                &instance,
                 run.path.as_path(),
                 invoke,
                 &run.args,
@@ -328,15 +328,15 @@ impl Wasi {
 
             tx.send(res).unwrap();
         } else {
+            let instance = ctx.data(&store).inner().instance();
             let start: Function =
-                RunWithPathBuf::try_find_function(&run.instance, run.path.as_path(), "_start", &[])
+                RunWithPathBuf::try_find_function(instance, run.path.as_path(), "_start", &[])
                     .unwrap();
 
             let result = start.call(&mut store, &[]);
             Self::handle_result(
                 RunProperties {
                     ctx,
-                    instance: run.instance,
                     path: run.path,
                     invoke: run.invoke,
                     args: run.args,
@@ -367,31 +367,26 @@ impl Wasi {
                         tracing::trace!(%pid, %tid, "entered a deep sleep");
 
                         // Create the respawn function
-                        let module = run.instance.module().clone();
                         let tasks = ctx.data(&store).tasks().clone();
                         let rewind = deep.rewind;
                         let respawn = {
-                            let run = RunProperties {
-                                ctx: ctx.clone(),
-                                instance: run.instance,
-                                path: run.path,
-                                invoke: run.invoke,
-                                args: run.args,
-                            };
-                            move |store, _module, res| {
+                            let path = run.path;
+                            let invoke = run.invoke;
+                            let args = run.args;
+                            move |ctx, store, res| {
+                                let run = RunProperties {
+                                    ctx,
+                                    path,
+                                    invoke,
+                                    args,
+                                };
                                 Self::run_with_deep_sleep(run, store, tx, Some((rewind, res)));
                             }
                         };
 
                         // Spawns the WASM process after a trigger
                         tasks
-                            .resume_wasm_after_poller(
-                                Box::new(respawn),
-                                store,
-                                module,
-                                ctx,
-                                deep.work,
-                            )
+                            .resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
                             .unwrap();
                         return;
                     }

@@ -3,6 +3,7 @@ pub use crate::js::errors::{LinkError, RuntimeError};
 use thiserror::Error;
 #[cfg(feature = "sys")]
 pub use wasmer_compiler::{LinkError, RuntimeError};
+use wasmer_types::StoreId;
 
 /// An error while instantiating a module.
 ///
@@ -30,8 +31,11 @@ pub enum InstantiationError {
 
     /// Import from a different [`Store`][super::Store].
     /// This error occurs when an import from a different store is used.
-    #[cfg_attr(feature = "std", error("cannot mix imports from different stores"))]
-    DifferentStores,
+    #[cfg_attr(
+        feature = "std",
+        error("cannot mix imports from different stores: obj.id={1} vs store.id={2} (ty={0})")
+    )]
+    DifferentStores(String, StoreId, StoreId),
 
     /// Import from a different Store.
     /// This error occurs when an import from a different store is used.

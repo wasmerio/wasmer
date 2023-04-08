@@ -38,6 +38,7 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
         __asyncify_with_deep_sleep_ext::<M, _, _, _>(
             ctx,
             Some(duration),
+            Duration::from_millis(50),
             async move {
                 // using an infinite async sleep here means we don't have to write the same event
                 // handling loop code for signals and timeouts

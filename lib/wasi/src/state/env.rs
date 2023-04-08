@@ -6,8 +6,8 @@ use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
-    TypedFunction,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
+    Module, TypedFunction,
 };
 use wasmer_wasix_types::{
     types::Signal,
@@ -27,10 +27,10 @@ use crate::{
             thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
         },
     },
-    runtime::SpawnType,
+    runtime::SpawnMemoryType,
     syscalls::{__asyncify_light, platform_clock_time_get},
-    SpawnedMemory, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError,
-    WasiFunctionEnv, WasiRuntime, WasiRuntimeError, WasiStateCreationError, WasiVFork,
+    VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiRuntime,
+    WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
 
 use super::WasiState;
@@ -185,6 +185,36 @@ impl WasiInstanceHandles {
             instance,
         }
     }
+
+    pub fn module(&self) -> &Module {
+        self.instance.module()
+    }
+
+    pub fn module_clone(&self) -> Module {
+        self.instance.module().clone()
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&'a self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
+        self.memory.view(store)
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory(&self) -> &Memory {
+        &self.memory
+    }
+
+    /// Copy the lazy reference so that when it's initialized during the
+    /// export phase, all the other references get a copy of it
+    pub fn memory_clone(&self) -> Memory {
+        self.memory.clone()
+    }
+
+    pub fn instance(&self) -> &Instance {
+        &self.instance
+    }
 }
 
 /// The code itself makes safe use of the struct so multiple threads don't access
@@ -206,9 +236,7 @@ pub struct WasiEnvInit {
     pub capabilities: Capabilities,
 
     pub control_plane: WasiControlPlane,
-    // TODO: remove these again?
-    // Only needed if WasiEnvInit is also used for process/thread spawning.
-    pub spawn_type: Option<SpawnType>,
+    pub memory_ty: Option<MemoryType>,
     pub process: Option<WasiProcess>,
     pub thread: Option<WasiThreadHandle>,
 
@@ -249,7 +277,7 @@ impl WasiEnvInit {
             bin_factory: self.bin_factory.clone(),
             capabilities: self.capabilities.clone(),
             control_plane: self.control_plane.clone(),
-            spawn_type: None,
+            memory_ty: None,
             process: None,
             thread: None,
             call_initialize: self.call_initialize,
@@ -304,28 +332,15 @@ unsafe impl Send for WasiEnv {}
 #[cfg(feature = "js")]
 unsafe impl Sync for WasiEnv {}
 
-impl WasiEnv {
-    /// Construct a new [`WasiEnvBuilder`] that allows customizing an environment.
-    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
-        WasiEnvBuilder::new(program_name)
-    }
-
-    /// Clones this env.
-    ///
-    /// This is a custom function instead of a [`Clone`] implementation because
-    /// this type should not be cloned.
-    ///
-    // TODO: remove WasiEnv::duplicate()
-    // This function should not exist, since it just copies internal state.
-    // Currently only used by fork/spawn related syscalls.
-    pub(crate) fn duplicate(&self) -> Self {
+impl Clone for WasiEnv {
+    fn clone(&self) -> Self {
         Self {
             control_plane: self.control_plane.clone(),
             process: self.process.clone(),
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
             layout: self.layout.clone(),
-            vfork: self.vfork.as_ref().map(|v| v.duplicate()),
+            vfork: self.vfork.as_ref().map(|v| v.clone()),
             state: self.state.clone(),
             bin_factory: self.bin_factory.clone(),
             inner: self.inner.clone(),
@@ -335,6 +350,13 @@ impl WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
         }
+    }
+}
+
+impl WasiEnv {
+    /// Construct a new [`WasiEnvBuilder`] that allows customizing an environment.
+    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
+        WasiEnvBuilder::new(program_name)
     }
 
     /// Forking the WasiState is used when either fork or vfork is called
@@ -363,7 +385,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             module_cache: self.module_cache.clone(),
-            enable_deep_sleep: false,
+            enable_deep_sleep: self.enable_deep_sleep,
         };
         Ok((new_env, handle))
     }
@@ -419,8 +441,8 @@ impl WasiEnv {
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             module_cache: init.module_cache.clone(),
+            enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
-            enable_deep_sleep: false,
         };
         env.owned_handles.push(thread);
 
@@ -441,7 +463,7 @@ impl WasiEnv {
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let call_initialize = init.call_initialize;
-        let spawn_type = init.spawn_type.take();
+        let spawn_type = init.memory_ty.take();
 
         let env = Self::from_init(init)?;
 
@@ -457,11 +479,11 @@ impl WasiEnv {
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
         let spawn_type = if let Some(t) = spawn_type {
-            t
+            SpawnMemoryType::CreateMemoryOfType(t)
         } else {
             match shared_memory {
-                Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
-                None => SpawnType::Create,
+                Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+                None => SpawnMemoryType::CreateMemory,
             }
         };
         let memory = tasks.build_memory(&mut store, spawn_type)?;
@@ -494,7 +516,7 @@ impl WasiEnv {
 
         // Initialize the WASI environment
         if let Err(err) =
-            func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory)
+            func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory, true)
         {
             tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
             func_env
@@ -671,10 +693,16 @@ impl WasiEnv {
     pub fn should_exit(&self) -> Option<ExitCode> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
+            return Some(forced_exit.unwrap_or_else(|err| {
+                tracing::debug!("exit runtime error - {}", err);
+                Errno::Child.into()
+            }));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
+            return Some(forced_exit.unwrap_or_else(|err| {
+                tracing::debug!("exit runtime error - {}", err);
+                Errno::Child.into()
+            }));
         }
         None
     }
@@ -703,19 +731,19 @@ impl WasiEnv {
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
     pub fn memory_view<'a>(&'a self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
-        self.memory().view(store)
+        self.inner().memory_view(store)
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
     pub fn memory(&self) -> &Memory {
-        &self.inner().memory
+        self.inner().memory()
     }
 
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
     pub fn memory_clone(&self) -> Memory {
-        self.memory().clone()
+        self.inner().memory_clone()
     }
 
     /// Get the WASI state

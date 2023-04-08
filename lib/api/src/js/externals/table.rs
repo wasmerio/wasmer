@@ -3,6 +3,7 @@ use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::vm::VMExternTable;
 use crate::vm::{VMExtern, VMFunction, VMTable};
+use crate::StoreId;
 use crate::{FunctionType, TableType};
 use js_sys::Function;
 
@@ -115,5 +116,9 @@ impl Table {
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
+    }
+
+    pub fn store_id(&self) -> StoreId {
+        StoreId::unknown()
     }
 }

@@ -25,6 +25,7 @@ pub fn thread_join<M: MemorySize + 'static>(
         let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
             ctx,
             None,
+            Duration::from_millis(50),
             async move {
                 other_thread
                     .join()

@@ -5,7 +5,7 @@ use crate::vm::VMExternFunction;
 use crate::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue};
+use wasmer_types::{NativeWasmType, RawValue, StoreId};
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMExtern, VMFuncRef,
@@ -396,6 +396,11 @@ impl Function {
     /// Checks whether this `Function` can be used with the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
+    }
+
+    /// Returns the ID of the store this function relates to
+    pub fn store_id(&self) -> StoreId {
+        self.handle.store_id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

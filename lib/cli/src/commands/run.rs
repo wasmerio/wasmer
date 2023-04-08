@@ -193,12 +193,12 @@ impl RunWithPathBuf {
 
     fn inner_module_invoke_function(
         store: &mut Store,
-        instance: Instance,
+        instance: &Instance,
         path: &Path,
         invoke: &str,
         args: &[String],
     ) -> Result<()> {
-        let result = Self::invoke_function(store, &instance, path, invoke, args)?;
+        let result = Self::invoke_function(store, instance, path, invoke, args)?;
         println!(
             "{}",
             result
@@ -210,7 +210,7 @@ impl RunWithPathBuf {
         Ok(())
     }
 
-    fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
+    fn inner_module_run(&self, store: &mut Store, instance: &Instance) -> Result<i32> {
         // Do we want to invoke a function?
         if let Some(ref invoke) = self.invoke {
             Self::inner_module_invoke_function(
@@ -222,7 +222,7 @@ impl RunWithPathBuf {
             )?;
         } else {
             let start: Function =
-                Self::try_find_function(&instance, self.path.as_path(), "_start", &[])?;
+                Self::try_find_function(instance, self.path.as_path(), "_start", &[])?;
             start.call(store, &[])?;
         }
 
@@ -329,7 +329,7 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let (mut ctx, instance) = self
+                    let (ctx, instance) = self
                         .wasi
                         .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
@@ -341,7 +341,7 @@ impl RunWithPathBuf {
                     self.inner_module_init(&mut store, &instance)?;
                     Wasi::run(
                         RunProperties {
-                            ctx, instance, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
+                            ctx, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
                         },
                         store
                     )
@@ -350,7 +350,7 @@ impl RunWithPathBuf {
                 _ => {
                     let instance = Instance::new(&mut store, &module, &imports! {})?;
                     self.inner_module_init(&mut store, &instance)?;
-                    self.inner_module_run(&mut store, instance)
+                    self.inner_module_run(&mut store, &instance)
                 }
             }
         }.map(|exit_code| {

@@ -6,6 +6,7 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
+use wasmer::{ExportError, InstantiationError, MemoryError};
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
@@ -490,8 +491,14 @@ pub enum WasiThreadError {
     Unsupported,
     #[error("The method named is not an exported function")]
     MethodNotFound,
-    #[error("Failed to create the requested memory")]
-    MemoryCreateFailed,
+    #[error("Failed to create the requested memory - {0}")]
+    MemoryCreateFailed(MemoryError),
+    #[error("{0}")]
+    ExportError(ExportError),
+    #[error("Failed to create the instance")]
+    InstanceCreateFailed(InstantiationError),
+    #[error("Initialization function failed - {0}")]
+    InitFailed(anyhow::Error),
     /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     #[error("WASM context is invalid")]
     InvalidWasmContext,
@@ -502,7 +509,10 @@ impl From<WasiThreadError> for Errno {
         match a {
             WasiThreadError::Unsupported => Errno::Notsup,
             WasiThreadError::MethodNotFound => Errno::Inval,
-            WasiThreadError::MemoryCreateFailed => Errno::Nomem,
+            WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,
+            WasiThreadError::ExportError(_) => Errno::Noexec,
+            WasiThreadError::InstanceCreateFailed(_) => Errno::Noexec,
+            WasiThreadError::InitFailed(_) => Errno::Noexec,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,
         }
     }
