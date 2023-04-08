@@ -3,7 +3,7 @@ use std::pin::Pin;
 use futures::Future;
 #[cfg(feature = "sys-thread")]
 use tokio::runtime::{Builder, Runtime};
-use wasmer::{vm::VMMemory, Module, Store};
+use wasmer::{Module, Store};
 
 use crate::{WasiCallingId, WasiThreadError};
 
@@ -157,19 +157,12 @@ impl VirtualTaskManager for ThreadTaskManager {
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
-        use wasmer::vm::VMSharedMemory;
-
         let vm_memory: Option<Memory> = match spawn_type {
-            SpawnType::CreateWithType(mem) => {
-                let style = store.engine().tunables().memory_style(&mem.ty);
-                Some(
-                    VMSharedMemory::new(&mem.ty, &style)
-                        .map_err(|err| {
-                            tracing::error!("failed to create memory - {}", err);
-                        })
-                        .unwrap()
-                        .into(),
-                ).map(|vm_memory| Memory::new_from_existing(&mut store, vm_memory))
+            SpawnType::CreateWithType(mut mem) => {
+                mem.shared = true;
+                Some(Memory::new(&mut store, mem).map_err(|err| {
+                    tracing::error!("failed to create memory - {}", err);
+                }).unwrap())
             },
             SpawnType::NewThread(mem) => Some(mem),
             SpawnType::Create => None,

@@ -1,7 +1,6 @@
 use super::*;
 use crate::{os::task::OwnedTaskStatus, syscalls::*};
-
-use wasmer::vm::VMMemory;
+use wasmer::Memory;
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -125,21 +124,13 @@ pub fn proc_fork<M: MemorySize>(
 
         // Fork the memory and copy the module (compiled code)
         let (env, mut store) = ctx.data_and_store_mut();
-        let fork_memory: VMMemory = match env
-            .memory()
-            .try_clone(&store)
-            .ok_or_else(|| MemoryError::Generic("the memory could not be cloned".to_string()))
-            .and_then(|mut memory| memory.duplicate())
-        {
-            Ok(memory) => memory.into(),
-            Err(err) => {
-                warn!(
-                    %err
-                );
+        let fork_memory: Memory = match env.memory().duplicate_in_store(&store, &mut fork_store) {
+            Some(memory) => memory,
+            None => {
+                warn!("Can't duplicate memory in new store");
                 return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
         };
-        let fork_memory = Memory::new_from_existing(&mut fork_store, fork_memory);
         let fork_module = env.inner().instance.module().clone();
 
         // Now we use the environment and memory references
