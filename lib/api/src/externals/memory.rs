@@ -154,7 +154,7 @@ impl Memory {
         }
         self.0
             .try_clone(&store)
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory))
     }
 
     /// Attempts to duplicate this memory (if its clonable) in a new store
