@@ -36,7 +36,11 @@ pub struct TestSpec {
     pub use_packages: Vec<String>,
     pub include_webcs: Vec<TestIncludeWeb>,
     pub cli_args: Vec<String>,
+    #[serde(skip)]
     pub stdin: Option<Vec<u8>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub stdin_hash: Option<String>,
     pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
@@ -91,6 +95,19 @@ pub struct TestSnapshot {
     pub result: TestResult,
 }
 
+impl TestSnapshot {
+    pub fn convert_stdout_to_hash(&mut self) {
+        self.result = match &self.result {
+            TestResult::Success(a) => TestResult::Success(TestOutput {
+                stdout: format!("hash: {:x}", md5::compute(a.stdout.as_bytes())),
+                stderr: a.stderr.clone(),
+                exit_code: a.exit_code,
+            }),
+            res => res.clone(),
+        };
+    }
+}
+
 pub struct TestBuilder {
     spec: TestSpec,
 }
@@ -107,6 +124,7 @@ impl TestBuilder {
                 include_webcs: Vec::new(),
                 cli_args: Vec::new(),
                 stdin: None,
+                stdin_hash: None,
                 debug_output: false,
                 enable_threads: true,
                 enable_network: false,
@@ -125,8 +143,14 @@ impl TestBuilder {
         self
     }
 
-    pub fn stdin_str(mut self, s: impl Into<String>) -> Self {
-        self.spec.stdin = Some(s.into().into_bytes());
+    pub fn stdin_str(self, s: impl Into<String>) -> Self {
+        let str = s.into();
+        self.stdin(str.as_bytes())
+    }
+
+    pub fn stdin(mut self, s: &[u8]) -> Self {
+        self.spec.stdin_hash = Some(format!("{:x}", md5::compute(s)));
+        self.spec.stdin = Some(s.to_vec());
         self
     }
 
@@ -475,6 +499,38 @@ fn test_snapshot_execve() {
         .with_name(function!())
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-execve.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_minimodem_tx() {
+    let mut snapshot = TestBuilder::new()
+        .with_name(function!())
+        .stdin_str("This message wont get through")
+        .arg("--tx")
+        .arg("--tx-carrier")
+        .arg("--stdio")
+        .arg("--float-samples")
+        .arg("same")
+        .run_wasm(include_bytes!("./wasm/minimodem.wasm"));
+    snapshot.convert_stdout_to_hash();
+
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[test]
+fn test_snapshot_minimodem_rx() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .arg("--rx")
+        .arg("--tx-carrier")
+        .arg("--stdio")
+        .arg("--float-samples")
+        .arg("same")
+        .stdin(include_bytes!("./wasm/minimodem.data"))
+        .run_wasm(include_bytes!("./wasm/minimodem.wasm"));
     assert_json_snapshot!(snapshot);
 }
 

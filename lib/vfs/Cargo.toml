@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.1.0"
+version = "0.1.1"
 description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
@@ -11,7 +11,7 @@ libc = { version = "^0.2", default-features = false, optional = true }
 thiserror = "1"
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
-webc = { version = "5.0.0-rc.5", optional = true }
+webc = { version = "=5.0.0-rc.5", optional = true }
 slab = { version = "0.4" }
 derivative = "2.2.0"
 anyhow = { version = "1.0.66", optional = true }

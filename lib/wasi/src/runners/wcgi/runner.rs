@@ -19,7 +19,7 @@ use crate::{
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        MappedDirectory, WapmContainer,
+        CompileModule, MappedDirectory, WapmContainer,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
@@ -28,6 +28,7 @@ use crate::{
 pub struct WcgiRunner {
     program_name: String,
     config: Config,
+    compile: Option<Box<CompileModule>>,
 }
 
 // TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -104,6 +105,7 @@ impl WcgiRunner {
         WcgiRunner {
             program_name: program_name.into(),
             config: Config::default(),
+            compile: None,
         }
     }
 
@@ -111,13 +113,30 @@ impl WcgiRunner {
         &mut self.config
     }
 
-    fn load_module(&self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
+    /// Sets the compile function
+    pub fn with_compile(
+        mut self,
+        compile: impl FnMut(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+    ) -> Self {
+        self.compile = Some(Box::new(compile));
+        self
+    }
+
+    fn load_module(&mut self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
         let atom_name = &wasi.atom;
         let atom = ctx
             .get_atom(atom_name)
             .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
 
-        let module = ctx.compile(atom).context("Unable to compile the atom")?;
+        let module = match self.compile.as_mut() {
+            Some(compile) => compile(&ctx.engine, atom).context("Unable to compile the atom")?,
+            None => {
+                tracing::warn!("No compile function was provided, falling back to the default");
+                Module::new(&ctx.engine, atom)
+                    .map_err(Error::from)
+                    .context("Unable to compile the atom")?
+            }
+        };
 
         Ok(module)
     }
@@ -203,11 +222,6 @@ impl RunnerContext<'_> {
 
     fn get_atom(&self, name: &str) -> Option<&[u8]> {
         self.container.get_atom(name)
-    }
-
-    fn compile(&self, wasm: &[u8]) -> Result<Module, Error> {
-        // TODO(Michael-F-Bryan): wire this up to wasmer-cache
-        Module::new(&self.engine, wasm).map_err(Error::from)
     }
 
     fn container_fs(&self) -> Arc<dyn FileSystem> {

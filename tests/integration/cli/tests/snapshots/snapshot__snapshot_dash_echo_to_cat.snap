@@ -15,24 +15,7 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": [
-      101,
-      99,
-      104,
-      111,
-      32,
-      104,
-      101,
-      108,
-      108,
-      111,
-      32,
-      124,
-      32,
-      99,
-      97,
-      116
-    ],
+    "stdin_hash": "4a75babacd4e06efe6c6594a2864f61f",
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false
