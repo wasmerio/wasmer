@@ -215,6 +215,7 @@ impl TestBuilder {
     }
 
     pub fn run_wasm(self, code: &[u8]) -> TestSnapshot {
+        #[allow(unused_mut)]
         let mut snapshot = build_snapshot(self.spec, code);
         // TODO: figure out why snapshot exit code is 79 on macos
         #[cfg(target_os = "macos")]
@@ -749,6 +750,17 @@ fn test_snapshot_multithreading() {
         .with_name(function!())
         .debug_output(true)
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+// multithreading with shared memory access
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_threaded_memory() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .debug_output(true)
+        .run_wasm(include_bytes!("./wasm/threaded-memory.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
