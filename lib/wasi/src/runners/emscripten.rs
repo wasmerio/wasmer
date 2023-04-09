@@ -63,7 +63,7 @@ impl crate::runners::Runner for EmscriptenRunner {
             atom: atom_name,
             main_args,
             ..
-        } = command.get_annotation("emscripten")?.unwrap_or_default();
+        } = command.annotation("emscripten")?.unwrap_or_default();
         let atom_name = atom_name.context("The atom name is required")?;
         let atom_bytes = container
             .get_atom(&atom_name)

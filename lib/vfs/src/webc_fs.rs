@@ -448,6 +448,7 @@ fn translate_file_type(f: FsEntryType) -> crate::FileType {
 
 #[cfg(test)]
 mod tests {
+    use bytes::Bytes;
     use tokio::io::AsyncReadExt;
     use webc::v1::{ParseOptions, WebCOwned};
 
@@ -457,7 +458,7 @@ mod tests {
     async fn read_a_file_from_the_webc_fs() {
         let webc: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
         let options = ParseOptions::default();
-        let webc = WebCOwned::parse(webc.to_vec(), &options).unwrap();
+        let webc = WebCOwned::parse(Bytes::from_static(webc), &options).unwrap();
 
         let fs = WebcFileSystem::init_all(Arc::new(webc));
 
