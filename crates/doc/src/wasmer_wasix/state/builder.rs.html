@@ -1035,6 +1035,8 @@
 <span id="1033">1033</span>
 <span id="1034">1034</span>
 <span id="1035">1035</span>
+<span id="1036">1036</span>
+<span id="1037">1037</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1049,6 +1051,8 @@
 <span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
+<span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::PluggableRuntime;
 <span class="kw">use crate</span>::{
     bin_factory::{BinFactory, ModuleCache},
     capabilities::Capabilities,
@@ -1057,7 +1061,7 @@
     parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    PluggableRuntime, WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
+    WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::env::WasiEnvInit;
