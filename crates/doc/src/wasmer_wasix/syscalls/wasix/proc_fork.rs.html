@@ -286,19 +286,9 @@
 <span id="284">284</span>
 <span id="285">285</span>
 <span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{os::task::OwnedTaskStatus, syscalls::<span class="kw-2">*</span>};
-
-<span class="kw">use </span>wasmer::vm::VMMemory;
+<span class="kw">use </span>wasmer::Memory;
 
 <span class="doccomment">/// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -418,25 +408,18 @@
             .unwrap();
         <span class="kw">let </span>store_data = Bytes::from(store_data);
 
+        <span class="kw">let </span><span class="kw-2">mut </span>fork_store = ctx.data().runtime.new_store();
+
         <span class="comment">// Fork the memory and copy the module (compiled code)
-        </span><span class="kw">let </span>env = ctx.data();
-        <span class="kw">let </span>fork_memory: VMMemory = <span class="kw">match </span>env
-            .memory()
-            .try_clone(<span class="kw-2">&amp;</span>ctx)
-            .ok_or_else(|| MemoryError::Generic(<span class="string">&quot;the memory could not be cloned&quot;</span>.to_string()))
-            .and_then(|<span class="kw-2">mut </span>memory| memory.duplicate())
-        {
-            <span class="prelude-val">Ok</span>(memory) =&gt; memory.into(),
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">warn!</span>(
-                    %err
-                );
+        </span><span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
+        <span class="kw">let </span>fork_memory: Memory = <span class="kw">match </span>env.memory().duplicate_in_store(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;mut </span>fork_store) {
+            <span class="prelude-val">Some</span>(memory) =&gt; memory,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="macro">warn!</span>(<span class="string">&quot;Can&#39;t duplicate memory in new store&quot;</span>);
                 <span class="kw">return </span>OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
             }
         };
         <span class="kw">let </span>fork_module = env.inner().instance.module().clone();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>fork_store = ctx.data().runtime.new_store();
 
         <span class="comment">// Now we use the environment and memory references
         </span><span class="kw">let </span>runtime = child_env.runtime.clone();
@@ -456,7 +439,7 @@
             <span class="kw">let </span>module = fork_module;
 
             <span class="kw">let </span>spawn_type = SpawnType::NewThread(fork_memory);
-            <span class="kw">let </span>task = <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory| {
+            <span class="kw">let </span>task = <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;| {
                 <span class="comment">// Create the WasiFunctionEnv
                 </span><span class="kw">let </span>pid = child_env.pid();
                 <span class="kw">let </span>tid = child_env.tid();
@@ -468,7 +451,6 @@
                 </span><span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
                     import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>ctx.env);
                 <span class="kw">let </span>memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
-                    <span class="kw">let </span>memory = Memory::new_from_existing(<span class="kw-2">&amp;mut </span>store, memory);
                     import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory.clone());
                     memory
                 } <span class="kw">else </span>{

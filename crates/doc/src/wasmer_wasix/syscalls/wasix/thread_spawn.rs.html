@@ -252,10 +252,11 @@
 <span id="250">250</span>
 <span id="251">251</span>
 <span id="252">252</span>
+<span id="253">253</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="kw">use </span>wasmer::vm::VMMemory;
+<span class="kw">use </span>wasmer::Memory;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ThreadStart;
 
 <span class="doccomment">/// ### `thread_spawn()`
@@ -310,13 +311,6 @@
     <span class="kw">let </span>thread_id: Tid = thread_handle.id().into();
     Span::current().record(<span class="string">&quot;tid&quot;</span>, thread_id);
 
-    <span class="comment">// We need a copy of the process memory and a packaged store in order to
-    // launch threads and reactors
-    </span><span class="kw">let </span>thread_memory = <span class="macro">wasi_try!</span>(ctx.data().memory().try_clone(<span class="kw-2">&amp;</span>ctx).ok_or_else(|| {
-        <span class="macro">error!</span>(<span class="string">&quot;failed - the memory could not be cloned&quot;</span>);
-        Errno::Notcapable
-    }));
-
     <span class="kw">let </span><span class="kw-2">mut </span>store = ctx.data().runtime.new_store();
 
     <span class="comment">// This function takes in memory and a store and creates a context that
@@ -325,11 +319,9 @@
         <span class="kw">let </span>state = env.state.clone();
         <span class="kw">let </span>wasi_env = env.duplicate();
         <span class="kw">let </span>thread = thread_handle.as_thread();
-        <span class="kw">move </span>|<span class="kw-2">mut </span>store: Store, module: Module, memory: VMMemory| {
+        <span class="kw">move </span>|<span class="kw-2">mut </span>store: Store, module: Module, memory: Memory| {
             <span class="comment">// We need to reconstruct some things
             </span><span class="kw">let </span>module = module;
-            <span class="kw">let </span>memory = Memory::new_from_existing(<span class="kw-2">&amp;mut </span>store, memory);
-
             <span class="comment">// Build the context object and import the memory
             </span><span class="kw">let </span><span class="kw-2">mut </span>ctx = WasiFunctionEnv::new(<span class="kw-2">&amp;mut </span>store, wasi_env.duplicate());
             {
@@ -362,6 +354,17 @@
             })
         }
     };
+
+    <span class="comment">// We need a copy of the process memory and a packaged store in order to
+    // launch threads and reactors
+    </span><span class="kw">let </span>thread_memory = <span class="macro">wasi_try!</span>(ctx
+        .data()
+        .memory()
+        .clone_in_store(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store)
+        .ok_or_else(|| {
+            <span class="macro">error!</span>(<span class="string">&quot;failed - the memory could not be cloned&quot;</span>);
+            Errno::Notcapable
+        }));
 
     <span class="comment">// This function calls into the module
     </span><span class="kw">let </span>start_ptr_offset = start_ptr.offset();
@@ -411,7 +414,7 @@
     // calls into the process
     </span><span class="kw">let </span><span class="kw-2">mut </span>execute_module = {
         <span class="kw">let </span>state = env.state.clone();
-        <span class="kw">move </span>|store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;, module: Module, memory: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;VMMemory&gt;| {
+        <span class="kw">move </span>|store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;, module: Module, memory: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Memory&gt;| {
             <span class="comment">// We capture the thread handle here, it is used to notify
             // anyone that is interested when this thread has terminated
             </span><span class="kw">let </span>_captured_handle = Box::new(<span class="kw-2">&amp;mut </span>thread_handle);
@@ -481,7 +484,6 @@
         <span class="macro">warn!</span>(<span class="string">&quot;thread failed - the program does not export a `wasi_thread_start` function&quot;</span>);
         <span class="kw">return </span>Errno::Notcapable;
     }
-
     <span class="kw">let </span>spawn_type = <span class="kw">crate</span>::runtime::SpawnType::NewThread(thread_memory);
 
     <span class="comment">// Now spawn a thread

@@ -106,9 +106,6 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
-<span id="107">107</span>
-<span id="108">108</span>
-<span id="109">109</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -117,27 +114,20 @@
 
 <span class="kw">use </span>::tokio::runtime::Handle;
 <span class="kw">use </span>futures::Future;
-<span class="kw">use </span>wasmer::vm::VMMemory;
-<span class="kw">use </span>wasmer::{MemoryType, Module, Store};
-
-<span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-</span><span class="kw">use </span>wasmer_types::MemoryStyle;
+<span class="kw">use </span>wasmer::{Memory, MemoryType, Module, Store, StoreMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiThreadError;
 
 <span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub struct </span>SpawnedMemory {
     <span class="kw">pub </span>ty: MemoryType,
-    <span class="comment">// TODO: don&#39;t put behind a feature (Option&lt;MemoryStyle&gt;?)
-    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-    </span><span class="kw">pub </span>style: MemoryStyle,
 }
 
 <span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub enum </span>SpawnType {
     Create,
     CreateWithType(SpawnedMemory),
-    NewThread(VMMemory),
+    NewThread(Memory),
 }
 
 <span class="doccomment">/// An implementation of task management
@@ -147,7 +137,11 @@
     <span class="doccomment">/// Build a new Webassembly memory.
     ///
     /// May return `None` if the memory can just be auto-constructed.
-    </span><span class="kw">fn </span>build_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, spawn_type: SpawnType) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;VMMemory&gt;, WasiThreadError&gt;;
+    </span><span class="kw">fn </span>build_memory(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;mut </span>StoreMut,
+        spawn_type: SpawnType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Memory&gt;, WasiThreadError&gt;;
 
     <span class="doccomment">/// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
@@ -175,7 +169,7 @@
     /// It is ok for this task to block execution and any async futures within its scope
     </span><span class="kw">fn </span>task_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;VMMemory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;Memory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
         store: Store,
         module: Module,
         spawn_type: SpawnType,

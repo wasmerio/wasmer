@@ -166,6 +166,10 @@
 <span id="164">164</span>
 <span id="165">165</span>
 <span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     pin::Pin,
     sync::{Arc, Mutex},
@@ -174,10 +178,7 @@
 
 <span class="kw">use </span>futures::Future;
 <span class="kw">use </span>tokio::runtime::Handle;
-<span class="kw">use </span>wasmer::{
-    vm::{VMMemory, VMSharedMemory},
-    Module, Store,
-};
+<span class="kw">use </span>wasmer::{AsStoreMut, Memory, Module, Store, StoreMut};
 
 <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiThreadError;
 
@@ -249,14 +250,21 @@
 
 <span class="attribute">#[async_trait::async_trait]
 </span><span class="kw">impl </span>VirtualTaskManager <span class="kw">for </span>TokioTaskManager {
-    <span class="kw">fn </span>build_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, spawn_type: SpawnType) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;VMMemory&gt;, WasiThreadError&gt; {
+    <span class="kw">fn </span>build_memory(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span>StoreMut,
+        spawn_type: SpawnType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Memory&gt;, WasiThreadError&gt; {
         <span class="kw">match </span>spawn_type {
-            SpawnType::CreateWithType(mem) =&gt; VMSharedMemory::new(<span class="kw-2">&amp;</span>mem.ty, <span class="kw-2">&amp;</span>mem.style)
-                .map_err(|err| {
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;could not create memory: {err}&quot;</span>);
-                    WasiThreadError::MemoryCreateFailed
-                })
-                .map(|m| <span class="prelude-val">Some</span>(m.into())),
+            SpawnType::CreateWithType(<span class="kw-2">mut </span>mem) =&gt; {
+                mem.ty.shared = <span class="bool-val">true</span>;
+                Memory::new(<span class="kw-2">&amp;mut </span>store, mem.ty)
+                    .map_err(|err| {
+                        <span class="macro">tracing::error!</span>(<span class="string">&quot;could not create memory: {err}&quot;</span>);
+                        WasiThreadError::MemoryCreateFailed
+                    })
+                    .map(<span class="prelude-val">Some</span>)
+            }
             SpawnType::NewThread(mem) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem)),
             SpawnType::Create =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
         }
@@ -301,12 +309,12 @@
     <span class="doccomment">/// See [`VirtualTaskManager::enter`].
     </span><span class="kw">fn </span>task_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;VMMemory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
-        store: Store,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;Memory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
+        <span class="kw-2">mut </span>store: Store,
         module: Module,
         spawn_type: SpawnType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="kw">let </span>memory = <span class="self">self</span>.build_memory(spawn_type)<span class="question-mark">?</span>;
+        <span class="kw">let </span>memory = <span class="self">self</span>.build_memory(<span class="kw-2">&amp;mut </span>store.as_store_mut(), spawn_type)<span class="question-mark">?</span>;
         <span class="self">self</span>.<span class="number">0</span>.spawn_blocking(<span class="kw">move </span>|| {
             <span class="comment">// Invoke the callback
             </span>task(store, module, memory);

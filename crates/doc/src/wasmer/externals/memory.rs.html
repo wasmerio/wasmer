@@ -201,6 +201,21 @@
 <span id="199">199</span>
 <span id="200">200</span>
 <span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::memory <span class="kw">as </span>memory_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -346,6 +361,21 @@
     }
 
     <span class="doccomment">/// Attempts to clone this memory (if its clonable) in a new store
+    </span><span class="kw">pub fn </span>clone_in_store(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
+            <span class="comment">// We should only be able to duplicate in a new store if the memory is shared
+            </span><span class="kw">return </span><span class="prelude-val">None</span>;
+        }
+        <span class="self">self</span>.<span class="number">0
+            </span>.try_clone(<span class="kw-2">&amp;</span>store)
+            .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory))
+    }
+
+    <span class="doccomment">/// Attempts to duplicate this memory (if its clonable) in a new store
     </span><span class="kw">pub fn </span>duplicate_in_store(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,

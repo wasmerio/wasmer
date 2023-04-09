@@ -238,15 +238,6 @@
 <span id="236">236</span>
 <span id="237">237</span>
 <span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -329,15 +320,7 @@
 
         <span class="comment">// Determine if we are going to create memory and import it or just rely on self creation of memory
         </span><span class="kw">let </span>memory_spawn = <span class="kw">match </span>shared_memory {
-            <span class="prelude-val">Some</span>(ty) =&gt; {
-                <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-                </span><span class="kw">let </span>style = store.engine().tunables().memory_style(<span class="kw-2">&amp;</span>ty);
-                SpawnType::CreateWithType(SpawnedMemory {
-                    ty,
-                    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-                    </span>style,
-                })
-            }
+            <span class="prelude-val">Some</span>(ty) =&gt; SpawnType::CreateWithType(SpawnedMemory { ty }),
             <span class="prelude-val">None </span>=&gt; SpawnType::Create,
         };
 
@@ -346,7 +329,7 @@
         <span class="kw">let </span>tasks_outer = tasks.clone();
 
         <span class="kw">let </span>task = {
-            <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory| {
+            <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;| {
                 <span class="comment">// Create the WasiFunctionEnv
                 </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_env = env;
                 wasi_env.runtime = runtime;
@@ -358,9 +341,8 @@
                 </span><span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
                     import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>wasi_env.env);
                 <span class="kw">let </span>imported_memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
-                    <span class="kw">let </span>imported_memory = Memory::new_from_existing(<span class="kw-2">&amp;mut </span>store, memory);
-                    import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, imported_memory.clone());
-                    <span class="prelude-val">Some</span>(imported_memory)
+                    import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory.clone());
+                    <span class="prelude-val">Some</span>(memory)
                 } <span class="kw">else </span>{
                     <span class="prelude-val">None
                 </span>};
