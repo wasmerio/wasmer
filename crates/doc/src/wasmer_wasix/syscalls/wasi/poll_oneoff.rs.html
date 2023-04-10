@@ -339,6 +339,8 @@
 <span id="337">337</span>
 <span id="338">338</span>
 <span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use </span>wasmer_wasix_types::wasi::SubscriptionClock;
@@ -486,7 +488,7 @@
         .filter(|a| a.<span class="number">2</span>.type_ == Eventtype::Clock)
         .count();
     <span class="kw">let </span><span class="kw-2">mut </span>clock_subs: Vec&lt;(SubscriptionClock, u64)&gt; = Vec::with_capacity(subs.len());
-    <span class="kw">let </span><span class="kw-2">mut </span>time_to_sleep = Duration::ZERO;
+    <span class="kw">let </span><span class="kw-2">mut </span>time_to_sleep = Duration::MAX;
 
     <span class="comment">// First we extract all the subscriptions into an array so that they
     // can be processed
@@ -546,6 +548,8 @@
                     // a sleep itself
                     </span><span class="kw">if </span>clock_info.timeout == <span class="number">0 </span>{
                         time_to_sleep = Duration::MAX;
+                    } <span class="kw">else if </span>clock_info.timeout == <span class="number">1 </span>{
+                        time_to_sleep = Duration::ZERO;
                     } <span class="kw">else </span>{
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
