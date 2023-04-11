@@ -1,7 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 
-use wasmer::vm::VMMemory;
+use wasmer::Memory;
 use wasmer_wasix_types::wasi::ThreadStart;
 
 /// ### `thread_spawn()`
@@ -56,13 +56,6 @@ pub fn thread_spawn<M: MemorySize>(
     let thread_id: Tid = thread_handle.id().into();
     Span::current().record("tid", thread_id);
 
-    // We need a copy of the process memory and a packaged store in order to
-    // launch threads and reactors
-    let thread_memory = wasi_try!(ctx.data().memory().try_clone(&ctx).ok_or_else(|| {
-        error!("failed - the memory could not be cloned");
-        Errno::Notcapable
-    }));
-
     let mut store = ctx.data().runtime.new_store();
 
     // This function takes in memory and a store and creates a context that
@@ -71,11 +64,9 @@ pub fn thread_spawn<M: MemorySize>(
         let state = env.state.clone();
         let wasi_env = env.duplicate();
         let thread = thread_handle.as_thread();
-        move |mut store: Store, module: Module, memory: VMMemory| {
+        move |mut store: Store, module: Module, memory: Memory| {
             // We need to reconstruct some things
             let module = module;
-            let memory = Memory::new_from_existing(&mut store, memory);
-
             // Build the context object and import the memory
             let mut ctx = WasiFunctionEnv::new(&mut store, wasi_env.duplicate());
             {
@@ -108,6 +99,17 @@ pub fn thread_spawn<M: MemorySize>(
             })
         }
     };
+
+    // We need a copy of the process memory and a packaged store in order to
+    // launch threads and reactors
+    let thread_memory = wasi_try!(ctx
+        .data()
+        .memory()
+        .clone_in_store(&ctx, &mut store)
+        .ok_or_else(|| {
+            error!("failed - the memory could not be cloned");
+            Errno::Notcapable
+        }));
 
     // This function calls into the module
     let start_ptr_offset = start_ptr.offset();
@@ -157,7 +159,7 @@ pub fn thread_spawn<M: MemorySize>(
     // calls into the process
     let mut execute_module = {
         let state = env.state.clone();
-        move |store: &mut Option<Store>, module: Module, memory: &mut Option<VMMemory>| {
+        move |store: &mut Option<Store>, module: Module, memory: &mut Option<Memory>| {
             // We capture the thread handle here, it is used to notify
             // anyone that is interested when this thread has terminated
             let _captured_handle = Box::new(&mut thread_handle);
@@ -227,7 +229,6 @@ pub fn thread_spawn<M: MemorySize>(
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
-
     let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
 
     // Now spawn a thread

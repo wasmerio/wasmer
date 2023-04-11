@@ -29,14 +29,14 @@ use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
     runtime::SpawnType,
-    wasmer::{vm::VMMemory, MemoryType, Module, Store, WASM_MAX_PAGES},
+    wasmer::{AsJs, Memory, MemoryType, Module, Store, WASM_MAX_PAGES},
     VirtualTaskManager, WasiThreadError,
 };
 use web_sys::{DedicatedWorkerGlobalScope, WorkerOptions, WorkerType};
 use xterm_js_rs::Terminal;
 
 use super::{common::*, interval::*};
-use crate::runtime::{build_memory_internal, WebTaskManager};
+use crate::runtime::WebTaskManager;
 
 pub type BoxRun<'a> = Box<dyn FnOnce() + Send + 'a>;
 
@@ -54,7 +54,7 @@ enum WasmRunType {
 #[derivative(Debug)]
 struct WasmRunCommand {
     #[derivative(Debug = "ignore")]
-    run: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+    run: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
     ty: WasmRunType,
     store: Store,
     module_bytes: Bytes,
@@ -269,7 +269,7 @@ impl WebThreadPool {
 
     pub fn spawn_wasm(
         &self,
-        run: impl FnOnce(Store, Module, Option<VMMemory>) + Send + 'static,
+        run: impl FnOnce(Store, Module, Option<Memory>) + Send + 'static,
         wasm_store: Store,
         wasm_module: Module,
         spawn_type: SpawnType,
@@ -279,9 +279,8 @@ impl WebThreadPool {
             SpawnType::Create => WasmRunType::Create,
             SpawnType::CreateWithType(mem) => WasmRunType::CreateWithMemory(mem.ty),
             SpawnType::NewThread(memory) => {
-                let (mem, ty) = memory.clone().into();
-                wasm_memory = mem;
-                WasmRunType::Existing(ty)
+                wasm_memory = memory.as_jsvalue(&wasm_store);
+                WasmRunType::Existing(memory.ty(&wasm_store))
             }
         };
 
@@ -566,7 +565,7 @@ pub fn wasm_entry_point(ctx_ptr: u32, wasm_module: JsValue, wasm_memory: JsValue
     let run_callback = (*ctx).cmd.run;
 
     // Compile the web assembly module
-    let wasm_store = ctx.cmd.store;
+    let mut wasm_store = ctx.cmd.store;
     let wasm_module = match wasm_module.dyn_into::<js_sys::WebAssembly::Module>() {
         Ok(a) => a,
         Err(err) => {
@@ -583,17 +582,18 @@ pub fn wasm_entry_point(ctx_ptr: u32, wasm_module: JsValue, wasm_memory: JsValue
     let wasm_memory = match ctx.memory {
         WasmRunMemory::WithoutMemory => None,
         WasmRunMemory::WithMemory(wasm_memory_type) => {
-            let wasm_memory = match wasm_memory.dyn_into::<js_sys::WebAssembly::Memory>() {
-                Ok(a) => a,
-                Err(err) => {
-                    error!(
-                        "Failed to receive memory for module - {}",
-                        err.as_string().unwrap_or_else(|| format!("{:?}", err))
-                    );
-                    return;
-                }
-            };
-            Some(VMMemory::new(wasm_memory, wasm_memory_type))
+            let wasm_memory =
+                match Memory::from_jsvalue(&mut wasm_store, &wasm_memory_type, &wasm_memory) {
+                    Ok(a) => a,
+                    Err(err) => {
+                        // error!(
+                        //     "Failed to receive memory for module - {}",
+                        //     err.as_string().unwrap_or_else(|| format!("{:?}", err))
+                        // );
+                        return;
+                    }
+                };
+            Some(wasm_memory)
         }
     };
 
@@ -610,7 +610,7 @@ pub fn wasm_entry_point(ctx_ptr: u32, wasm_module: JsValue, wasm_memory: JsValue
 pub fn worker_schedule_task(task_ptr: u32, wasm_module: JsValue, mut wasm_memory: JsValue) {
     // Grab the task that passes us the rust variables
     let task = task_ptr as *mut WasmRunCommand;
-    let task = unsafe { Box::from_raw(task) };
+    let mut task = unsafe { Box::from_raw(task) };
 
     let mut opts = WorkerOptions::new();
     opts.type_(WorkerType::Module);
@@ -647,13 +647,14 @@ pub fn worker_schedule_task(task_ptr: u32, wasm_module: JsValue, mut wasm_memory
             }
 
             if wasm_memory.is_null() {
-                wasm_memory = match build_memory_internal(ty) {
-                    Ok(m) => JsValue::from(m),
+                let memory = match Memory::new(&mut task.store, ty.clone()) {
+                    Ok(a) => a,
                     Err(err) => {
                         error!("Failed to create WASM memory - {}", err);
                         return;
                     }
                 };
+                wasm_memory = memory.as_jsvalue(&task.store);
             }
 
             let ctx = WasmRunContext {
