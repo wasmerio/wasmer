@@ -140,7 +140,7 @@ qjs >
 [go docs]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer?tab=doc
 
 [php logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/php.svg
-[php integration]: https://github.com/wasmerio/wasmer-php
+[php integration]: https://wasmerio.github.io/wasmer-php/
 [`wasm` pecl package]: https://pecl.php.net/package/wasm
 [php docs]: https://wasmerio.github.io/wasmer-php/wasm/
 
