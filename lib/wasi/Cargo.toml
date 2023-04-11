@@ -107,7 +107,7 @@ webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
-sys = ["webc/mmap", "time"]
+sys = ["webc/mmap", "time", "wasmer/sys"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
