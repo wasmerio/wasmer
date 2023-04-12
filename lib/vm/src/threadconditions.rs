@@ -108,93 +108,93 @@ impl Clone for ThreadConditions {
 }
 
 #[cfg(test)]
-#[test]
-fn threadconditions_notify_nowaiters() {
-    let mut conditions = ThreadConditions::new();
-    let dst = NotifyLocation { address: 0 };
-    let ret = conditions.do_notify(dst, 1);
-    assert_eq!(ret, 0);
-}
+mod tests {
+    use super::*;
 
-#[cfg(test)]
-#[test]
-fn threadconditions_notify_1waiter() {
-    use std::thread;
-
-    let mut conditions = ThreadConditions::new();
-    let mut threadcond = conditions.clone();
-
-    thread::spawn(move || {
+    #[test]
+    fn threadconditions_notify_nowaiters() {
+        let mut conditions = ThreadConditions::new();
         let dst = NotifyLocation { address: 0 };
-        let ret = threadcond.do_wait(dst.clone(), None);
-        assert_eq!(ret, Some(0));
-    });
-    thread::sleep(Duration::from_millis(1));
-    let dst = NotifyLocation { address: 0 };
-    let ret = conditions.do_notify(dst, 1);
-    assert_eq!(ret, 1);
-}
+        let ret = conditions.do_notify(dst, 1);
+        assert_eq!(ret, 0);
+    }
 
-#[cfg(test)]
-#[test]
-fn threadconditions_notify_waiter_timeout() {
-    use std::thread;
+    #[test]
+    fn threadconditions_notify_1waiter() {
+        use std::thread;
 
-    let mut conditions = ThreadConditions::new();
-    let mut threadcond = conditions.clone();
+        let mut conditions = ThreadConditions::new();
+        let mut threadcond = conditions.clone();
 
-    thread::spawn(move || {
+        thread::spawn(move || {
+            let dst = NotifyLocation { address: 0 };
+            let ret = threadcond.do_wait(dst.clone(), None);
+            assert_eq!(ret, Some(0));
+        });
+        thread::sleep(Duration::from_millis(1));
         let dst = NotifyLocation { address: 0 };
-        let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(1)));
-        assert_eq!(ret, Some(2));
-    });
-    thread::sleep(Duration::from_millis(50));
-    let dst = NotifyLocation { address: 0 };
-    let ret = conditions.do_notify(dst, 1);
-    assert_eq!(ret, 0);
-}
+        let ret = conditions.do_notify(dst, 1);
+        assert_eq!(ret, 1);
+    }
 
-#[cfg(test)]
-#[test]
-fn threadconditions_notify_waiter_mismatch() {
-    use std::thread;
+    #[test]
+    fn threadconditions_notify_waiter_timeout() {
+        use std::thread;
 
-    let mut conditions = ThreadConditions::new();
-    let mut threadcond = conditions.clone();
+        let mut conditions = ThreadConditions::new();
+        let mut threadcond = conditions.clone();
 
-    thread::spawn(move || {
-        let dst = NotifyLocation { address: 8 };
-        let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(10)));
-        assert_eq!(ret, Some(2));
-    });
-    thread::sleep(Duration::from_millis(1));
-    let dst = NotifyLocation { address: 0 };
-    let ret = conditions.do_notify(dst, 1);
-    assert_eq!(ret, 0);
-    thread::sleep(Duration::from_millis(100));
-}
-
-#[cfg(test)]
-#[test]
-fn threadconditions_notify_2waiters() {
-    use std::thread;
-
-    let mut conditions = ThreadConditions::new();
-    let mut threadcond = conditions.clone();
-    let mut threadcond2 = conditions.clone();
-
-    thread::spawn(move || {
+        thread::spawn(move || {
+            let dst = NotifyLocation { address: 0 };
+            let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(1)));
+            assert_eq!(ret, Some(2));
+        });
+        thread::sleep(Duration::from_millis(50));
         let dst = NotifyLocation { address: 0 };
-        let ret = threadcond.do_wait(dst.clone(), None);
-        assert_eq!(ret, Some(0));
-    });
-    thread::spawn(move || {
+        let ret = conditions.do_notify(dst, 1);
+        assert_eq!(ret, 0);
+    }
+
+    #[test]
+    fn threadconditions_notify_waiter_mismatch() {
+        use std::thread;
+
+        let mut conditions = ThreadConditions::new();
+        let mut threadcond = conditions.clone();
+
+        thread::spawn(move || {
+            let dst = NotifyLocation { address: 8 };
+            let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(10)));
+            assert_eq!(ret, Some(2));
+        });
+        thread::sleep(Duration::from_millis(1));
         let dst = NotifyLocation { address: 0 };
-        let ret = threadcond2.do_wait(dst.clone(), None);
-        assert_eq!(ret, Some(0));
-    });
-    thread::sleep(Duration::from_millis(1));
-    let dst = NotifyLocation { address: 0 };
-    let ret = conditions.do_notify(dst, 5);
-    assert_eq!(ret, 2);
+        let ret = conditions.do_notify(dst, 1);
+        assert_eq!(ret, 0);
+        thread::sleep(Duration::from_millis(100));
+    }
+
+    #[test]
+    fn threadconditions_notify_2waiters() {
+        use std::thread;
+
+        let mut conditions = ThreadConditions::new();
+        let mut threadcond = conditions.clone();
+        let mut threadcond2 = conditions.clone();
+
+        thread::spawn(move || {
+            let dst = NotifyLocation { address: 0 };
+            let ret = threadcond.do_wait(dst.clone(), None);
+            assert_eq!(ret, Some(0));
+        });
+        thread::spawn(move || {
+            let dst = NotifyLocation { address: 0 };
+            let ret = threadcond2.do_wait(dst.clone(), None);
+            assert_eq!(ret, Some(0));
+        });
+        thread::sleep(Duration::from_millis(1));
+        let dst = NotifyLocation { address: 0 };
+        let ret = conditions.do_notify(dst, 5);
+        assert_eq!(ret, 2);
+    }
 }
