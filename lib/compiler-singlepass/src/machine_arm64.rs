@@ -8535,6 +8535,162 @@ mod test {
         Ok(())
     }
 
+    fn test_binop_op(
+        machine: &mut MachineARM64,
+        op: fn(&mut MachineARM64, Location, Location, Location) -> Result<(), CompileError>,
+    ) -> Result<(), CompileError> {
+        op(
+            machine,
+            Location::GPR(GPR::X2),
+            Location::GPR(GPR::X2),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::X2),
+            Location::Imm32(10),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::X0),
+            Location::GPR(GPR::X0),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::Imm32(10),
+            Location::GPR(GPR::X2),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::X0),
+            Location::GPR(GPR::X2),
+            Location::Memory(GPR::X0, 10),
+        )?;
+        op(
+            machine,
+            Location::GPR(GPR::X0),
+            Location::Memory(GPR::X2, 16),
+            Location::Memory(GPR::X0, 10),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X0, 0),
+            Location::Memory(GPR::X2, 16),
+            Location::Memory(GPR::X0, 10),
+        )?;
+
+        Ok(())
+    }
+
+    fn test_float_binop_op(
+        machine: &mut MachineARM64,
+        op: fn(&mut MachineARM64, Location, Location, Location) -> Result<(), CompileError>,
+    ) -> Result<(), CompileError> {
+        op(
+            machine,
+            Location::SIMD(NEON::V3),
+            Location::SIMD(NEON::V2),
+            Location::SIMD(NEON::V0),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::SIMD(NEON::V2),
+            Location::SIMD(NEON::V0),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::SIMD(NEON::V0),
+            Location::SIMD(NEON::V0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X0, 0),
+            Location::SIMD(NEON::V2),
+            Location::SIMD(NEON::V0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X0, 0),
+            Location::Memory(GPR::X1, 10),
+            Location::SIMD(NEON::V0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X0, 0),
+            Location::Memory(GPR::X1, 16),
+            Location::Memory(GPR::X2, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::Memory(GPR::X1, 16),
+            Location::Memory(GPR::X2, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::SIMD(NEON::V1),
+            Location::Memory(GPR::X2, 32),
+        )?;
+
+        Ok(())
+    }
+
+    fn test_float_cmp_op(
+        machine: &mut MachineARM64,
+        op: fn(&mut MachineARM64, Location, Location, Location) -> Result<(), CompileError>,
+    ) -> Result<(), CompileError> {
+        op(
+            machine,
+            Location::SIMD(NEON::V3),
+            Location::SIMD(NEON::V2),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::SIMD(NEON::V0),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X1, 0),
+            Location::SIMD(NEON::V2),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X1, 0),
+            Location::Memory(GPR::X2, 10),
+            Location::GPR(GPR::X0),
+        )?;
+        op(
+            machine,
+            Location::Memory(GPR::X1, 0),
+            Location::Memory(GPR::X2, 16),
+            Location::Memory(GPR::X0, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::Memory(GPR::X2, 16),
+            Location::Memory(GPR::X0, 32),
+        )?;
+        op(
+            machine,
+            Location::SIMD(NEON::V0),
+            Location::SIMD(NEON::V1),
+            Location::Memory(GPR::X0, 32),
+        )?;
+
+        Ok(())
+    }
+
     #[test]
     fn tests_arm64() -> Result<(), CompileError> {
         let mut machine = MachineARM64::new();
@@ -8547,6 +8703,25 @@ mod test {
         test_move_location_extended(&mut machine, true, Size::S8)?;
         test_move_location_extended(&mut machine, true, Size::S16)?;
         test_move_location_extended(&mut machine, true, Size::S32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_add32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_add64)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_sub32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_sub64)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_and32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_and64)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_xor32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_xor64)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_or32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_or64)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_mul32)?;
+        test_binop_op(&mut machine, MachineARM64::emit_binop_mul64)?;
+        test_float_binop_op(&mut machine, MachineARM64::f32_add)?;
+        test_float_binop_op(&mut machine, MachineARM64::f32_sub)?;
+        test_float_binop_op(&mut machine, MachineARM64::f32_mul)?;
+        test_float_binop_op(&mut machine, MachineARM64::f32_div)?;
+        test_float_cmp_op(&mut machine, MachineARM64::f32_cmp_eq)?;
+        test_float_cmp_op(&mut machine, MachineARM64::f32_cmp_lt)?;
+        test_float_cmp_op(&mut machine, MachineARM64::f32_cmp_le)?;
 
         Ok(())
     }
