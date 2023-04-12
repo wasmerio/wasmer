@@ -9,6 +9,48 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.2.0-beta.2 - 05/04/2023
+
+Bug fixes for this beta release, and some exciting new possibilities with the `run-unstable` function from the CLI tools.
+ - New wcgi runner
+ - Caching of runners
+ - Many fixes to wasix
+
+Known issue: RISC-V build is currently broken and will be fixes on next version
+
+## Added
+
+  - [#3731](https://github.com/wasmerio/wasmer/pull/3731) Added missing ASM instructions for wasix on singlepass
+
+## Changed
+
+  - [#3743](https://github.com/wasmerio/wasmer/pull/3743) Bumped crates version pre-beta.2 release
+  - [#3742](https://github.com/wasmerio/wasmer/pull/3742) Update versions of wcgi
+  - [#3739](https://github.com/wasmerio/wasmer/pull/3739) Use cache in runners
+  - [#3735](https://github.com/wasmerio/wasmer/pull/3735) [CI] More WAPM_DEV_TOKEN check for CI
+  - [#3734](https://github.com/wasmerio/wasmer/pull/3734) Updated spin to 0.9.8
+  - [#3733](https://github.com/wasmerio/wasmer/pull/3733) [CI] Use early exit for wasmer_init_works_1 and wasmer_init_works_2 when WAPM_DEV_TOKEN is empty
+  - [#3693](https://github.com/wasmerio/wasmer/pull/3693) Validate Module Artifacts (CLI + WASIX ModuleCache)
+  - [#3724](https://github.com/wasmerio/wasmer/pull/3724) ci: Cancel previous workflow runs when new commits are pushed
+  - [#3722](https://github.com/wasmerio/wasmer/pull/3722) Revert #3715
+  - [#3718](https://github.com/wasmerio/wasmer/pull/3718) Apply CGI environment variables in the correct order
+  - [#3716](https://github.com/wasmerio/wasmer/pull/3716) Move Package Build/Publish Logic to wasmer-registry
+
+## Fixed
+
+  - [#3740](https://github.com/wasmerio/wasmer/pull/3740) Fix fuzz build
+  - [#3741](https://github.com/wasmerio/wasmer/pull/3741) Fixed an issue where blocking polls were being treated as nonblocking
+  - [#3737](https://github.com/wasmerio/wasmer/pull/3737) Fixed FileSystem createdir when parent_inode is an ArcDirectory
+  - [#3736](https://github.com/wasmerio/wasmer/pull/3736) Fixed Vectored IO when a partial operation occurs
+  - [#3726](https://github.com/wasmerio/wasmer/pull/3726) fix CI-Badge on README.md
+  - [#3687](https://github.com/wasmerio/wasmer/pull/3687) Master with fixes
+  - [#3719](https://github.com/wasmerio/wasmer/pull/3719) Fixes a bug which causes libc to thrash the futex_wake_all
+  - [#3715](https://github.com/wasmerio/wasmer/pull/3715) Fix annotation deserializing for the Wasi and Wcgi runners
+  - [#3704](https://github.com/wasmerio/wasmer/pull/3704) Fix the absolute/relative path weirdness when setting up WASI-based runner filesystems
+  - [#3705](https://github.com/wasmerio/wasmer/pull/3705) Fixes post 3.2.0-beta.1 release (but needed for the crates publication)
+
+
+
 ## 3.2.0-beta.1 - 22/03/2023
 
 Lots of new things in the release!

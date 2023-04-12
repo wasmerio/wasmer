@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.1.0"
+version = "0.2.0"
 description = "An experimental non-standard WASI/WASIX extension for graphics"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "types"]
@@ -14,8 +14,8 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-wasix = { version = "0.1.0", path = "../wasi", default-features=false }
-wasmer-wasix-types = { path = "../wasi-types", version = "0.1.0" }
+wasmer-wasix = { version = "0.2.0", path = "../wasi", default-features=false }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.2.0" }
 tracing = "0.1"
 minifb = { version = "0.24.0", optional = true }
 nix = "0.25.0"

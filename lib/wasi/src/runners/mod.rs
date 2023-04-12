@@ -12,7 +12,7 @@ pub mod wcgi;
 
 pub use self::{
     container::{Bindings, WapmContainer, WebcParseError, WitBindings},
-    runner::Runner,
+    runner::{CompileModule, Runner},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
