@@ -804,6 +804,21 @@ impl Instance {
         }
     }
 
+    fn memory_wait(memory: &mut VMMemory, dst: u32, timeout: i64) -> Result<u32, Trap> {
+        let location = NotifyLocation { address: dst };
+        let timeout = if timeout < 0 {
+            None
+        } else {
+            Some(std::time::Duration::from_nanos(timeout as u64))
+        };
+        let waiter = memory.do_wait(location, timeout);
+        if waiter.is_none() {
+            // ret is None if there is more than 2^32 waiter in queue or some other error
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
+        Ok(waiter.unwrap())
+    }
+
     /// Perform an Atomic.Wait32
     pub(crate) fn local_memory_wait32(
         &mut self,
@@ -822,18 +837,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                let location = NotifyLocation { address: dst };
-                let timeout = if timeout < 0 {
-                    None
-                } else {
-                    Some(std::time::Duration::from_nanos(timeout as u64))
-                };
-                let waiter = memory.do_wait(location, timeout);
-                if waiter.is_none() {
-                    // ret is None if there is more than 2^32 waiter in queue or some other error
-                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
-                }
-                ret = waiter.unwrap();
+                ret = Instance::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -859,18 +863,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                let location = NotifyLocation { address: dst };
-                let timeout = if timeout < 0 {
-                    None
-                } else {
-                    Some(std::time::Duration::from_nanos(timeout as u64))
-                };
-                let waiter = memory.do_wait(location, timeout);
-                if waiter.is_none() {
-                    // ret is None if there is more than 2^32 waiter in queue or some other error
-                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
-                }
-                ret = waiter.unwrap();
+                ret = Instance::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -896,18 +889,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                let location = NotifyLocation { address: dst };
-                let timeout = if timeout < 0 {
-                    None
-                } else {
-                    Some(std::time::Duration::from_nanos(timeout as u64))
-                };
-                let waiter = memory.do_wait(location, timeout);
-                if waiter.is_none() {
-                    // ret is None if there is more than 2^32 waiter in queue or some other error
-                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
-                }
-                ret = waiter.unwrap();
+                ret = Instance::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -934,18 +916,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                let location = NotifyLocation { address: dst };
-                let timeout = if timeout < 0 {
-                    None
-                } else {
-                    Some(std::time::Duration::from_nanos(timeout as u64))
-                };
-                let waiter = memory.do_wait(location, timeout);
-                if waiter.is_none() {
-                    // ret is None if there is more than 2^32 waiter in queue or some other error
-                    return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
-                }
-                ret = waiter.unwrap();
+                ret = Instance::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
