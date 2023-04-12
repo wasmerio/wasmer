@@ -2427,6 +2427,15 @@
 <span id="2427">2427</span>
 <span id="2428">2428</span>
 <span id="2429">2429</span>
+<span id="2430">2430</span>
+<span id="2431">2431</span>
+<span id="2432">2432</span>
+<span id="2433">2433</span>
+<span id="2434">2434</span>
+<span id="2435">2435</span>
+<span id="2436">2436</span>
+<span id="2437">2437</span>
+<span id="2438">2438</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
 <span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
@@ -3536,6 +3545,15 @@
                     }
                     (Size::S32, Location::SIMD(src), Location::Memory(dst, disp)) =&gt; {
                         <span class="macro">dynasm!</span>(<span class="self">self </span>; movd [Rq(dst <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8));
+                    }
+                    (Size::S64, Location::Imm64(src), Location::GPR(dst)) =&gt; {
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+                    }
+                    (Size::S64, Location::Imm32(src), Location::GPR(dst)) =&gt; {
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+                    }
+                    (Size::S64, Location::Imm8(src), Location::GPR(dst)) =&gt; {
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
                     }
 
                     (Size::S64, Location::GPR(src), Location::SIMD(dst)) =&gt; {
