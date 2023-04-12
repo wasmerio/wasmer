@@ -5,8 +5,8 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
-pub use crate::threadconditions::NotifyLocation;
 use crate::threadconditions::ThreadConditions;
+pub use crate::threadconditions::{NotifyLocation, WaiterError};
 use crate::trap::Trap;
 use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 use more_asserts::assert_ge;
@@ -440,7 +440,11 @@ impl LinearMemory for VMSharedMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
+    fn do_wait(
+        &mut self,
+        dst: NotifyLocation,
+        timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
         self.conditions.do_wait(dst, timeout)
     }
 
@@ -517,7 +521,11 @@ impl LinearMemory for VMMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
+    fn do_wait(
+        &mut self,
+        dst: NotifyLocation,
+        timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
         self.0.do_wait(dst, timeout)
     }
 
@@ -646,8 +654,12 @@ where
 
     /// Add current thread to the waiter hash, and wait until notified or timout.
     /// Return 0 if the waiter has been notified, 2 if the timeout occured, or None if en error happened
-    fn do_wait(&mut self, _dst: NotifyLocation, _timeout: Option<Duration>) -> Option<u32> {
-        None
+    fn do_wait(
+        &mut self,
+        _dst: NotifyLocation,
+        _timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
+        Err(WaiterError::Unimplemented)
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified

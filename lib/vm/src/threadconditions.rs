@@ -3,6 +3,22 @@ use fnv::FnvBuildHasher;
 use std::sync::Arc;
 use std::thread::{current, park, park_timeout, Thread};
 use std::time::Duration;
+use thiserror::Error;
+
+/// Wait/Notify error type
+#[derive(Debug, Error)]
+pub enum WaiterError {
+    /// Wait/Notify is not implemented for this memory
+    Unimplemented,
+    /// To many waiter for an address
+    TooManyWaiters,
+}
+
+impl std::fmt::Display for WaiterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "WaiterError")
+    }
+}
 
 /// A location in memory for a Waiter
 #[derive(Hash, Eq, PartialEq, Clone, Copy, Debug)]
@@ -45,10 +61,14 @@ impl ThreadConditions {
     // because `park_timeout` doesn't gives any information on why it returns
 
     /// Add current thread to the waiter hash
-    pub fn do_wait(&mut self, dst: NotifyLocation, timeout: Option<Duration>) -> Option<u32> {
+    pub fn do_wait(
+        &mut self,
+        dst: NotifyLocation,
+        timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
         // fetch the notifier
         if self.inner.map.len() >= 1 << 32 {
-            return None;
+            return Err(WaiterError::TooManyWaiters);
         }
         self.inner
             .map
@@ -80,7 +100,7 @@ impl ThreadConditions {
         if empty {
             self.inner.map.remove(&dst);
         }
-        Some(ret)
+        Ok(ret)
     }
 
     /// Notify waiters from the wait list
@@ -128,10 +148,10 @@ mod tests {
 
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst.clone(), None);
-            assert_eq!(ret, Some(0));
+            let ret = threadcond.do_wait(dst.clone(), None).unwrap();
+            assert_eq!(ret, 0);
         });
-        thread::sleep(Duration::from_millis(1));
+        thread::sleep(Duration::from_millis(10));
         let dst = NotifyLocation { address: 0 };
         let ret = conditions.do_notify(dst, 1);
         assert_eq!(ret, 1);
@@ -146,8 +166,10 @@ mod tests {
 
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(1)));
-            assert_eq!(ret, Some(2));
+            let ret = threadcond
+                .do_wait(dst.clone(), Some(Duration::from_millis(1)))
+                .unwrap();
+            assert_eq!(ret, 2);
         });
         thread::sleep(Duration::from_millis(50));
         let dst = NotifyLocation { address: 0 };
@@ -164,8 +186,10 @@ mod tests {
 
         thread::spawn(move || {
             let dst = NotifyLocation { address: 8 };
-            let ret = threadcond.do_wait(dst.clone(), Some(Duration::from_millis(10)));
-            assert_eq!(ret, Some(2));
+            let ret = threadcond
+                .do_wait(dst.clone(), Some(Duration::from_millis(10)))
+                .unwrap();
+            assert_eq!(ret, 2);
         });
         thread::sleep(Duration::from_millis(1));
         let dst = NotifyLocation { address: 0 };
@@ -184,15 +208,15 @@ mod tests {
 
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst.clone(), None);
-            assert_eq!(ret, Some(0));
+            let ret = threadcond.do_wait(dst.clone(), None).unwrap();
+            assert_eq!(ret, 0);
         });
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond2.do_wait(dst.clone(), None);
-            assert_eq!(ret, Some(0));
+            let ret = threadcond2.do_wait(dst.clone(), None).unwrap();
+            assert_eq!(ret, 0);
         });
-        thread::sleep(Duration::from_millis(1));
+        thread::sleep(Duration::from_millis(20));
         let dst = NotifyLocation { address: 0 };
         let ret = conditions.do_notify(dst, 5);
         assert_eq!(ret, 2);

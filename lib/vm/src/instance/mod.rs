@@ -812,7 +812,7 @@ impl Instance {
             Some(std::time::Duration::from_nanos(timeout as u64))
         };
         let waiter = memory.do_wait(location, timeout);
-        if waiter.is_none() {
+        if waiter.is_err() {
             // ret is None if there is more than 2^32 waiter in queue or some other error
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
