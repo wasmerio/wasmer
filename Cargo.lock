@@ -5682,7 +5682,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "mach",
- "memoffset 0.6.5",
+ "memoffset 0.8.0",
  "more-asserts",
  "region",
  "scopeguard",
