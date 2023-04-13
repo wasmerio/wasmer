@@ -617,6 +617,56 @@
 <span id="617">617</span>
 <span id="618">618</span>
 <span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -624,7 +674,9 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::trap::Trap;
+</span><span class="kw">use </span><span class="kw">crate</span>::threadconditions::ThreadConditions;
+<span class="kw">pub use </span><span class="kw">crate</span>::threadconditions::{NotifyLocation, WaiterError};
+<span class="kw">use </span><span class="kw">crate</span>::trap::Trap;
 <span class="kw">use crate</span>::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 <span class="kw">use </span>more_asserts::assert_ge;
 <span class="kw">use </span>std::cell::UnsafeCell;
@@ -632,6 +684,7 @@
 <span class="kw">use </span>std::ptr::NonNull;
 <span class="kw">use </span>std::slice;
 <span class="kw">use </span>std::sync::{Arc, RwLock};
+<span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
 
 <span class="comment">// The memory mapped area
@@ -904,6 +957,7 @@
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(<span class="self">self</span>.mmap)),
             config: <span class="self">self</span>.config,
+            conditions: ThreadConditions::new(),
         }
     }
 
@@ -965,6 +1019,8 @@
     </span>mmap: Arc&lt;RwLock&lt;WasmMmap&gt;&gt;,
     <span class="comment">// Configuration of this memory
     </span>config: VMMemoryConfig,
+    <span class="comment">// waiters list for this memory
+    </span>conditions: ThreadConditions,
 }
 
 <span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMSharedMemory {}
@@ -1000,6 +1056,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             mmap: Arc::new(RwLock::new(guard.duplicate()<span class="question-mark">?</span>)),
             config: <span class="self">self</span>.config.clone(),
+            conditions: ThreadConditions::new(),
         })
     }
 }
@@ -1049,6 +1106,20 @@
     </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
         <span class="kw">let </span>forked = <span class="self">Self</span>::duplicate(<span class="self">self</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Box::new(forked))
+    }
+
+    <span class="comment">// Add current thread to waiter list
+    </span><span class="kw">fn </span>do_wait(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        dst: NotifyLocation,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, WaiterError&gt; {
+        <span class="self">self</span>.conditions.do_wait(dst, timeout)
+    }
+
+    <span class="doccomment">/// Notify waiters from the wait list. Return the number of waiters notified
+    </span><span class="kw">fn </span>do_notify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dst: NotifyLocation, count: u32) -&gt; u32 {
+        <span class="self">self</span>.conditions.do_notify(dst, count)
     }
 }
 
@@ -1116,6 +1187,20 @@
     <span class="doccomment">/// Copies this memory to a new memory
     </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.duplicate()
+    }
+
+    <span class="comment">// Add current thread to waiter list
+    </span><span class="kw">fn </span>do_wait(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        dst: NotifyLocation,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, WaiterError&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.do_wait(dst, timeout)
+    }
+
+    <span class="doccomment">/// Notify waiters from the wait list. Return the number of waiters notified
+    </span><span class="kw">fn </span>do_notify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dst: NotifyLocation, count: u32) -&gt; u32 {
+        <span class="self">self</span>.<span class="number">0</span>.do_notify(dst, count)
     }
 }
 
@@ -1235,6 +1320,21 @@
 
     <span class="doccomment">/// Copies this memory to a new memory
     </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt;;
+
+    <span class="doccomment">/// Add current thread to the waiter hash, and wait until notified or timout.
+    /// Return 0 if the waiter has been notified, 2 if the timeout occured, or None if en error happened
+    </span><span class="kw">fn </span>do_wait(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        _dst: NotifyLocation,
+        _timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, WaiterError&gt; {
+        <span class="prelude-val">Err</span>(WaiterError::Unimplemented)
+    }
+
+    <span class="doccomment">/// Notify waiters from the wait list. Return the number of waiters notified
+    </span><span class="kw">fn </span>do_notify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _dst: NotifyLocation, _count: u32) -&gt; u32 {
+        <span class="number">0
+    </span>}
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

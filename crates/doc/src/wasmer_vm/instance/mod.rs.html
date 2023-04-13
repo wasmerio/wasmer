@@ -1538,77 +1538,6 @@
 <span id="1538">1538</span>
 <span id="1539">1539</span>
 <span id="1540">1540</span>
-<span id="1541">1541</span>
-<span id="1542">1542</span>
-<span id="1543">1543</span>
-<span id="1544">1544</span>
-<span id="1545">1545</span>
-<span id="1546">1546</span>
-<span id="1547">1547</span>
-<span id="1548">1548</span>
-<span id="1549">1549</span>
-<span id="1550">1550</span>
-<span id="1551">1551</span>
-<span id="1552">1552</span>
-<span id="1553">1553</span>
-<span id="1554">1554</span>
-<span id="1555">1555</span>
-<span id="1556">1556</span>
-<span id="1557">1557</span>
-<span id="1558">1558</span>
-<span id="1559">1559</span>
-<span id="1560">1560</span>
-<span id="1561">1561</span>
-<span id="1562">1562</span>
-<span id="1563">1563</span>
-<span id="1564">1564</span>
-<span id="1565">1565</span>
-<span id="1566">1566</span>
-<span id="1567">1567</span>
-<span id="1568">1568</span>
-<span id="1569">1569</span>
-<span id="1570">1570</span>
-<span id="1571">1571</span>
-<span id="1572">1572</span>
-<span id="1573">1573</span>
-<span id="1574">1574</span>
-<span id="1575">1575</span>
-<span id="1576">1576</span>
-<span id="1577">1577</span>
-<span id="1578">1578</span>
-<span id="1579">1579</span>
-<span id="1580">1580</span>
-<span id="1581">1581</span>
-<span id="1582">1582</span>
-<span id="1583">1583</span>
-<span id="1584">1584</span>
-<span id="1585">1585</span>
-<span id="1586">1586</span>
-<span id="1587">1587</span>
-<span id="1588">1588</span>
-<span id="1589">1589</span>
-<span id="1590">1590</span>
-<span id="1591">1591</span>
-<span id="1592">1592</span>
-<span id="1593">1593</span>
-<span id="1594">1594</span>
-<span id="1595">1595</span>
-<span id="1596">1596</span>
-<span id="1597">1597</span>
-<span id="1598">1598</span>
-<span id="1599">1599</span>
-<span id="1600">1600</span>
-<span id="1601">1601</span>
-<span id="1602">1602</span>
-<span id="1603">1603</span>
-<span id="1604">1604</span>
-<span id="1605">1605</span>
-<span id="1606">1606</span>
-<span id="1607">1607</span>
-<span id="1608">1608</span>
-<span id="1609">1609</span>
-<span id="1610">1610</span>
-<span id="1611">1611</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1630,8 +1559,8 @@
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
-<span class="kw">use </span><span class="kw">crate</span>::LinearMemory;
 <span class="kw">use crate</span>::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
+<span class="kw">use crate</span>::{LinearMemory, NotifyLocation};
 <span class="kw">use crate</span>::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 <span class="kw">pub use </span>allocator::InstanceAllocator;
 <span class="kw">use </span>memoffset::offset_of;
@@ -1644,28 +1573,13 @@
 <span class="kw">use </span>std::mem;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
 <span class="kw">use </span>std::slice;
-<span class="kw">use </span>std::sync::{Arc, Mutex};
-<span class="kw">use </span>std::thread::{current, park, park_timeout, Thread};
+<span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
     MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, VMOffsets,
 };
-
-<span class="attribute">#[derive(Hash, Eq, PartialEq, Clone, Copy)]
-</span><span class="kw">struct </span>NotifyLocation {
-    memory_index: u32,
-    address: u32,
-}
-
-<span class="kw">struct </span>NotifyWaiter {
-    thread: Thread,
-    notified: bool,
-}
-<span class="kw">struct </span>NotifyMap {
-    map: HashMap&lt;NotifyLocation, Vec&lt;NotifyWaiter&gt;&gt;,
-}
 
 <span class="doccomment">/// A WebAssembly instance.
 ///
@@ -1715,9 +1629,6 @@
     <span class="doccomment">/// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions imported by this instance.
     </span>imported_funcrefs: BoxedSlice&lt;FunctionIndex, NonNull&lt;VMCallerCheckedAnyfunc&gt;&gt;,
-
-    <span class="doccomment">/// The Hasmap with the Notify for the Notify/wait opcodes
-    </span>conditions: Arc&lt;Mutex&lt;NotifyMap&gt;&gt;,
 
     <span class="doccomment">/// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -1884,6 +1795,31 @@
         } <span class="kw">else </span>{
             <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(index);
             <span class="kw">unsafe </span>{ import.handle.get(<span class="self">self</span>.context.as_ref().unwrap()) }
+        }
+    }
+
+    <span class="doccomment">/// Get a locally defined or imported memory.
+    </span><span class="kw">fn </span>get_vmmemory_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: MemoryIndex) -&gt; <span class="kw-2">&amp;mut </span>VMMemory {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(index) {
+            <span class="kw">unsafe </span>{
+                <span class="self">self</span>.memories
+                    .get_mut(local_index)
+                    .unwrap()
+                    .get_mut(<span class="self">self</span>.context.as_mut().unwrap())
+            }
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(index);
+            <span class="kw">unsafe </span>{ import.handle.get_mut(<span class="self">self</span>.context.as_mut().unwrap()) }
+        }
+    }
+
+    <span class="doccomment">/// Get a locally defined memory as mutable.
+    </span><span class="kw">fn </span>get_local_vmmemory_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, local_index: LocalMemoryIndex) -&gt; <span class="kw-2">&amp;mut </span>VMMemory {
+        <span class="kw">unsafe </span>{
+            <span class="self">self</span>.memories
+                .get_mut(local_index)
+                .unwrap()
+                .get_mut(<span class="self">self</span>.context.as_mut().unwrap())
         }
     }
 
@@ -2408,51 +2344,19 @@
         }
     }
 
-    <span class="comment">// To implement Wait / Notify, a HasMap, behind a mutex, will be used
-    // to track the address of waiter. The key of the hashmap is based on the memory
-    // and waiter threads are &quot;park&quot;&#39;d (with or without timeout)
-    // Notify will wake the waiters by simply &quot;unpark&quot; the thread
-    // as the Thread info is stored on the HashMap
-    // once unparked, the waiter thread will remove it&#39;s mark on the HashMap
-    // timeout / awake is tracked with a boolean in the HashMap
-    // because `park_timeout` doesn&#39;t gives any information on why it returns
-    </span><span class="kw">fn </span>do_wait(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: u32, dst: u32, timeout: i64) -&gt; u32 {
-        <span class="comment">// fetch the notifier
-        </span><span class="kw">let </span>key = NotifyLocation {
-            memory_index: index,
-            address: dst,
+    <span class="kw">fn </span>memory_wait(memory: <span class="kw-2">&amp;mut </span>VMMemory, dst: u32, timeout: i64) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+        <span class="kw">let </span>location = NotifyLocation { address: dst };
+        <span class="kw">let </span>timeout = <span class="kw">if </span>timeout &lt; <span class="number">0 </span>{
+            <span class="prelude-val">None
+        </span>} <span class="kw">else </span>{
+            <span class="prelude-val">Some</span>(std::time::Duration::from_nanos(timeout <span class="kw">as </span>u64))
         };
-        <span class="kw">let </span><span class="kw-2">mut </span>conds = <span class="self">self</span>.conditions.lock().unwrap();
-        <span class="kw">let </span>v = conds.map.entry(key).or_insert_with(Vec::new);
-        v.push(NotifyWaiter {
-            thread: current(),
-            notified: <span class="bool-val">false</span>,
-        });
-        drop(conds);
-        <span class="kw">if </span>timeout &lt; <span class="number">0 </span>{
-            park();
-        } <span class="kw">else </span>{
-            park_timeout(std::time::Duration::from_nanos(timeout <span class="kw">as </span>u64));
+        <span class="kw">let </span>waiter = memory.do_wait(location, timeout);
+        <span class="kw">if </span>waiter.is_err() {
+            <span class="comment">// ret is None if there is more than 2^32 waiter in queue or some other error
+            </span><span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
-        <span class="kw">let </span><span class="kw-2">mut </span>conds = <span class="self">self</span>.conditions.lock().unwrap();
-        <span class="kw">let </span>v = conds.map.get_mut(<span class="kw-2">&amp;</span>key).unwrap();
-        <span class="kw">let </span>id = current().id();
-        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="number">0</span>;
-        v.retain(|cond| {
-            <span class="kw">if </span>cond.thread.id() == id {
-                ret = <span class="kw">if </span>cond.notified { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">2 </span>};
-                <span class="bool-val">false
-            </span>} <span class="kw">else </span>{
-                <span class="bool-val">true
-            </span>}
-        });
-        <span class="kw">if </span>v.is_empty() {
-            conds.map.remove(<span class="kw-2">&amp;</span>key);
-        }
-        <span class="kw">if </span>conds.map.len() &gt; <span class="number">1 </span>&lt;&lt; <span class="number">32 </span>{
-            ret = <span class="number">0xffff</span>;
-        }
-        ret
+        <span class="prelude-val">Ok</span>(waiter.unwrap())
     }
 
     <span class="doccomment">/// Perform an Atomic.Wait32
@@ -2472,11 +2376,8 @@
 
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
-                ret = <span class="self">self</span>.do_wait(memory_index.as_u32(), dst, timeout);
-            }
-            <span class="kw">if </span>ret == <span class="number">0xffff </span>{
-                <span class="comment">// ret is 0xffff if there is more than 2^32 waiter in queue
-                </span><span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
+                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
@@ -2499,14 +2400,10 @@
         //}
 
         </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check32(memory, dst, val) };
-
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
-                ret = <span class="self">self</span>.do_wait(memory_index.as_u32(), dst, timeout);
-            }
-            <span class="kw">if </span>ret == <span class="number">0xffff </span>{
-                <span class="comment">// ret is 0xffff if there is more than 2^32 waiter in queue
-                </span><span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
+                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
@@ -2531,11 +2428,8 @@
 
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
-                ret = <span class="self">self</span>.do_wait(memory_index.as_u32(), dst, timeout);
-            }
-            <span class="kw">if </span>ret == <span class="number">0xffff </span>{
-                <span class="comment">// ret is 0xffff if there is more than 2^32 waiter in queue
-                </span><span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
+                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
@@ -2561,31 +2455,13 @@
 
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
-                ret = <span class="self">self</span>.do_wait(memory_index.as_u32(), dst, timeout);
-            }
-            <span class="kw">if </span>ret == <span class="number">0xffff </span>{
-                <span class="comment">// ret is 0xffff if there is more than 2^32 waiter in queue
-                </span><span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
+                <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
+                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
             ret
         }
-    }
-
-    <span class="kw">fn </span>do_notify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: NotifyLocation, count: u32) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>conds = <span class="self">self</span>.conditions.lock().unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>cnt = <span class="number">0u32</span>;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = conds.map.get_mut(<span class="kw-2">&amp;</span>key) {
-            <span class="kw">for </span>waiter <span class="kw">in </span>v {
-                <span class="kw">if </span>cnt &lt; count {
-                    waiter.notified = <span class="bool-val">true</span>; <span class="comment">// mark as was waiked up
-                    </span>waiter.thread.unpark(); <span class="comment">// wakeup!
-                    </span>cnt += <span class="number">1</span>;
-                }
-            }
-        }
-        <span class="prelude-val">Ok</span>(cnt)
     }
 
     <span class="doccomment">/// Perform an Atomic.Notify
@@ -2595,17 +2471,10 @@
         dst: u32,
         count: u32,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-        <span class="comment">//let memory = self.memory(memory_index);
-        //if ! memory.shared {
-        // We should trap according to spec, but official test rely on not trapping...
-        //}
-
-        // fetch the notifier
-        </span><span class="kw">let </span>key = NotifyLocation {
-            memory_index: memory_index.as_u32(),
-            address: dst,
-        };
-        <span class="self">self</span>.do_notify(key, count)
+        <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
+        <span class="comment">// fetch the notifier
+        </span><span class="kw">let </span>location = NotifyLocation { address: dst };
+        <span class="prelude-val">Ok</span>(memory.do_notify(location, count))
     }
 
     <span class="doccomment">/// Perform an Atomic.Notify
@@ -2615,18 +2484,10 @@
         dst: u32,
         count: u32,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-        <span class="comment">//let import = self.imported_memory(memory_index);
-        //let memory = unsafe { import.definition.as_ref() };
-        //if ! memory.shared {
-        // We should trap according to spec, but official test rely on not trapping...
-        //}
-
-        // fetch the notifier
-        </span><span class="kw">let </span>key = NotifyLocation {
-            memory_index: memory_index.as_u32(),
-            address: dst,
-        };
-        <span class="self">self</span>.do_notify(key, count)
+        <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
+        <span class="comment">// fetch the notifier
+        </span><span class="kw">let </span>location = NotifyLocation { address: dst };
+        <span class="prelude-val">Ok</span>(memory.do_notify(location, count))
     }
 }
 
@@ -2736,9 +2597,6 @@
                 funcrefs,
                 imported_funcrefs,
                 vmctx: VMContext {},
-                conditions: Arc::new(Mutex::new(NotifyMap {
-                    map: HashMap::new(),
-                })),
             };
 
             <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = allocator.into_vminstance(instance);

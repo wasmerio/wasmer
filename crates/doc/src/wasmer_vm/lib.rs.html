@@ -150,6 +150,8 @@
 <span id="150">150</span>
 <span id="151">151</span>
 <span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.
 
 </span><span class="attribute">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
@@ -184,6 +186,7 @@
 <span class="kw">mod </span>sig_registry;
 <span class="kw">mod </span>store;
 <span class="kw">mod </span>table;
+<span class="kw">mod </span>threadconditions;
 <span class="kw">mod </span>trap;
 <span class="kw">mod </span>vmcontext;
 
@@ -199,7 +202,8 @@
 <span class="attribute">#[allow(deprecated)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::instance::{InstanceAllocator, InstanceHandle, VMInstance};
 <span class="kw">pub use </span><span class="kw">crate</span>::memory::{
-    initialize_memory_with_data, LinearMemory, VMMemory, VMOwnedMemory, VMSharedMemory,
+    initialize_memory_with_data, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
+    VMSharedMemory,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::mmap::Mmap;
 <span class="kw">pub use </span><span class="kw">crate</span>::probestack::PROBESTACK;
