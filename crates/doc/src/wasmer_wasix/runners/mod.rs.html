@@ -22,8 +22,13 @@
 <span id="20">20</span>
 <span id="21">21</span>
 <span id="22">22</span>
-</pre><pre class="rust"><code><span class="kw">mod </span>container;
-<span class="kw">mod </span>runner;
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+</pre><pre class="rust"><code><span class="kw">mod </span>runner;
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner_rt_emscripten&quot;</span>)]
 </span><span class="kw">pub mod </span>emscripten;
@@ -34,15 +39,22 @@
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner_rt_wcgi&quot;</span>)]
 </span><span class="kw">pub mod </span>wcgi;
 
-<span class="kw">pub use </span><span class="self">self</span>::{
-    container::{Bindings, WapmContainer, WebcParseError, WitBindings},
-    runner::{CompileModule, Runner},
-};
+<span class="kw">pub use </span><span class="self">self</span>::runner::Runner;
+
+<span class="kw">use </span>anyhow::Error;
+<span class="kw">use </span>wasmer::{Engine, Module};
+
+<span class="kw">pub type </span>CompileModule = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt;;
 
 <span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 </span><span class="kw">pub struct </span>MappedDirectory {
     <span class="kw">pub </span>host: std::path::PathBuf,
     <span class="kw">pub </span>guest: String,
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>default_compile(engine: <span class="kw-2">&amp;</span>Engine, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
+    <span class="kw">let </span>module = Module::new(engine, wasm)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(module)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

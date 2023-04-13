@@ -654,10 +654,6 @@
 <span id="652">652</span>
 <span id="653">653</span>
 <span id="654">654</span>
-<span id="655">655</span>
-<span id="656">656</span>
-<span id="657">657</span>
-<span id="658">658</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(missing_docs, unused)]
 
 </span><span class="kw">use </span>std::{
@@ -686,9 +682,9 @@
 <span class="kw">use </span>wasmer_cache::Cache;
 <span class="kw">use </span>wasmer_compiler::ArtifactBuild;
 <span class="kw">use </span>wasmer_registry::Package;
-<span class="kw">use </span>wasmer_wasix::runners::{wcgi::AbortHandle, MappedDirectory, Runner, WapmContainer};
-<span class="kw">use </span>webc::metadata::Manifest;
-<span class="kw">use </span>webc_v4::DirOrFile;
+<span class="kw">use </span>wasmer_wasix::runners::wcgi::AbortHandle;
+<span class="kw">use </span>wasmer_wasix::runners::{MappedDirectory, Runner};
+<span class="kw">use </span>webc::{metadata::Manifest, v1::DirOrFile, Container};
 
 <span class="kw">use crate</span>::{
     store::StoreOptions,
@@ -732,10 +728,10 @@
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>cache = <span class="self">self</span>.wasmer_home.module_cache();
-        <span class="kw">let </span>result = <span class="kw">match </span>target.load(cache, <span class="kw-2">&amp;</span>store)<span class="question-mark">? </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.wasmer_home.module_cache();
+        <span class="kw">let </span>result = <span class="kw">match </span>target.load(<span class="kw-2">&amp;mut </span>cache, <span class="kw-2">&amp;</span>store)<span class="question-mark">? </span>{
             ExecutableTarget::WebAssembly(wasm) =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>target, <span class="kw-2">&amp;</span>wasm, <span class="kw-2">&amp;mut </span>store),
-            ExecutableTarget::Webc(container, cache) =&gt; {
+            ExecutableTarget::Webc(container) =&gt; {
                 <span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>target, container, cache, <span class="kw-2">&amp;mut </span>store)
             }
         };
@@ -774,7 +770,7 @@
     </span><span class="kw">fn </span>execute_webc(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         target: <span class="kw-2">&amp;</span>TargetOnDisk,
-        container: WapmContainer,
+        container: Container,
         <span class="kw-2">mut </span>cache: ModuleCache,
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -796,6 +792,8 @@
             .map(|(base, version)| base)
             .unwrap_or_else(|| command.runner.as_str());
 
+        <span class="kw">let </span>cache = Mutex::new(cache);
+
         <span class="kw">match </span>runner_base {
             webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
@@ -809,6 +807,7 @@
             webc::metadata::annotations::WCGI_RUNNER_URI =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id).with_compile(
                     <span class="kw">move </span>|engine, bytes| {
+                        <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.lock().unwrap();
                         compile_wasm_cached(<span class="string">&quot;&quot;</span>.to_string(), bytes, <span class="kw-2">&amp;mut </span>cache, engine)
                     },
                 );
@@ -833,6 +832,7 @@
             </span>| webc::metadata::annotations::WASI_RUNNER_URI =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
                     .with_compile(<span class="kw">move </span>|engine, bytes| {
+                        <span class="kw">let </span><span class="kw-2">mut </span>cache = cache.lock().unwrap();
                         compile_wasm_cached(<span class="string">&quot;&quot;</span>.to_string(), bytes, <span class="kw-2">&amp;mut </span>cache, engine)
                     })
                     .with_args(<span class="self">self</span>.args.clone())
@@ -973,7 +973,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
     load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>wasmer_toml = webc_v4::DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
+    <span class="kw">let </span>wasmer_toml = DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
     <span class="kw">if let </span><span class="prelude-val">Some</span>(toml_data) = files.remove(<span class="kw-2">&amp;</span>wasmer_toml) {
         <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
         // using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we
@@ -985,7 +985,7 @@
     }
 
     <span class="kw">let </span>functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-    wapm_targz_to_pirita::generate_webc_file(files, <span class="kw-2">&amp;</span>dir.to_path_buf(), <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>functions)
+    wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>functions)
 }
 
 <span class="kw">fn </span>load_files_from_disk(files: <span class="kw-2">&amp;mut </span>FileMap, dir: <span class="kw-2">&amp;</span>Path, base: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -999,11 +999,11 @@
 
         <span class="kw">if </span>path.is_dir() {
             load_files_from_disk(files, <span class="kw-2">&amp;</span>path, base)<span class="question-mark">?</span>;
-            files.insert(webc_v4::DirOrFile::Dir(relative_path), Vec::new());
+            files.insert(DirOrFile::Dir(relative_path), Vec::new());
         } <span class="kw">else if </span>path.is_file() {
             <span class="kw">let </span>data = std::fs::read(<span class="kw-2">&amp;</span>path)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
-            files.insert(webc_v4::DirOrFile::File(relative_path), data);
+            files.insert(DirOrFile::File(relative_path), data);
         }
     }
     <span class="prelude-val">Ok</span>(())
@@ -1118,21 +1118,21 @@
         }
     }
 
-    <span class="kw">fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>cache: ModuleCache, store: <span class="kw-2">&amp;</span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutableTarget, Error&gt; {
+    <span class="kw">fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, cache: <span class="kw-2">&amp;mut </span>ModuleCache, store: <span class="kw-2">&amp;</span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutableTarget, Error&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             TargetOnDisk::Webc(webc) =&gt; {
                 <span class="comment">// As an optimisation, try to use the mmapped version first.
-                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = WapmContainer::from_path(webc.clone()) {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container, cache));
+                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = Container::from_disk(webc.clone()) {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container));
                 }
 
                 <span class="comment">// Otherwise, fall back to the version that reads everything
                 // into memory.
                 </span><span class="kw">let </span>bytes = std::fs::read(webc)
                     .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, webc.display()))<span class="question-mark">?</span>;
-                <span class="kw">let </span>container = WapmContainer::from_bytes(bytes.into())<span class="question-mark">?</span>;
+                <span class="kw">let </span>container = Container::from_bytes(bytes)<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container, cache))
+                <span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::Directory(dir) =&gt; {
                 <span class="comment">// FIXME: Runners should be able to load directories directly
@@ -1140,20 +1140,16 @@
                 </span><span class="kw">let </span>webc = compile_directory_to_webc(dir).with_context(|| {
                     <span class="macro">format!</span>(<span class="string">&quot;Unable to bundle \&quot;{}\&quot; as a WEBC package&quot;</span>, dir.display())
                 })<span class="question-mark">?</span>;
-                <span class="kw">let </span>container = WapmContainer::from_bytes(webc.into())
+                <span class="kw">let </span>container = Container::from_bytes(webc)
                     .context(<span class="string">&quot;Unable to parse the generated WEBC file&quot;</span>)<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container, cache))
+                <span class="prelude-val">Ok</span>(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::WebAssemblyBinary(path) =&gt; {
                 <span class="kw">let </span>wasm = std::fs::read(path)
                     .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
-                <span class="kw">let </span>module = compile_wasm_cached(
-                    path.display().to_string(),
-                    <span class="kw-2">&amp;</span>wasm,
-                    <span class="kw-2">&amp;mut </span>cache,
-                    store.engine(),
-                )<span class="question-mark">?</span>;
+                <span class="kw">let </span>module =
+                    compile_wasm_cached(path.display().to_string(), <span class="kw-2">&amp;</span>wasm, cache, store.engine())<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Wat(path) =&gt; {
@@ -1162,12 +1158,8 @@
                 <span class="kw">let </span>wasm =
                     wasmer::wat2wasm(<span class="kw-2">&amp;</span>wat).context(<span class="string">&quot;Unable to convert the WAT to WebAssembly&quot;</span>)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>module = compile_wasm_cached(
-                    path.display().to_string(),
-                    <span class="kw-2">&amp;</span>wasm,
-                    <span class="kw-2">&amp;mut </span>cache,
-                    store.engine(),
-                )<span class="question-mark">?</span>;
+                <span class="kw">let </span>module =
+                    compile_wasm_cached(path.display().to_string(), <span class="kw-2">&amp;</span>wasm, cache, store.engine())<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Artifact(artifact) =&gt; {
@@ -1228,7 +1220,7 @@
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">enum </span>ExecutableTarget {
     WebAssembly(Module),
-    Webc(WapmContainer, ModuleCache),
+    Webc(Container),
 }
 
 <span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source: <span class="kw-2">&amp;</span>Path, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {

@@ -1566,7 +1566,7 @@
 
     <span class="kw">fn </span>load_webc(bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]) -&gt; WebcFileSystem&lt;WebCOwned&gt; {
         <span class="kw">let </span>options = ParseOptions::default();
-        <span class="kw">let </span>webc = WebCOwned::parse(Bytes::from_static(bytes), <span class="kw-2">&amp;</span>options).unwrap();
+        <span class="kw">let </span>webc = WebCOwned::parse(bytes, <span class="kw-2">&amp;</span>options).unwrap();
         WebcFileSystem::init_all(Arc::new(webc))
     }
 

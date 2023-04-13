@@ -167,6 +167,86 @@
 <span id="165">165</span>
 <span id="166">166</span>
 <span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -174,7 +254,7 @@
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>virtual_fs::{FileSystem, OverlayFileSystem, RootFileSystemBuilder};
+<span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
 <span class="kw">use crate</span>::{runners::MappedDirectory, WasiEnvBuilder};
@@ -199,9 +279,14 @@
         <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, |path| {
             builder.add_preopen_dir(path).map_err(Error::from)
         })<span class="question-mark">?</span>;
-        builder.set_fs(fs);
+
         builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
-        builder.add_preopen_dir(<span class="string">&quot;.&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">if </span>fs.read_dir(<span class="string">&quot;.&quot;</span>.as_ref()).is_ok() {
+            <span class="comment">// Sometimes &quot;.&quot; won&#39;t be mounted so preopening will fail.
+            </span>builder.add_preopen_dir(<span class="string">&quot;.&quot;</span>)<span class="question-mark">?</span>;
+        }
+
+        builder.set_fs(fs);
 
         <span class="self">self</span>.populate_env(wasi, builder);
         <span class="self">self</span>.populate_args(wasi, builder);
@@ -249,7 +334,6 @@
 
     <span class="kw">if </span>!mapped_dirs.is_empty() {
         <span class="kw">let </span>host_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; = Arc::new(<span class="kw">crate</span>::default_fs_backing());
-        <span class="macro">dbg!</span>(mapped_dirs);
 
         <span class="kw">for </span>dir <span class="kw">in </span>mapped_dirs {
             <span class="kw">let </span>MappedDirectory { host, guest } = dir;
@@ -281,6 +365,16 @@
         }
     }
 
+    <span class="comment">// HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
+    // paths, but our Python executable will try to access its standard library
+    // with relative paths assuming that it is being run from the root
+    // directory (i.e. it does `open(&quot;lib/python3.6/io.py&quot;)` instead of
+    // `open(&quot;/lib/python3.6/io.py&quot;)`).
+    // Until the FileSystem trait figures out whether relative paths should be
+    // supported or not, we&#39;ll add an adapter that automatically retries
+    // operations using an absolute path if it failed using a relative path.
+    </span><span class="kw">let </span>container_fs = RelativeOrAbsolutePathHack(container_fs);
+
     <span class="prelude-val">Ok</span>(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
 }
 
@@ -298,11 +392,76 @@
     <span class="prelude-val">Ok</span>(())
 }
 
+<span class="attribute">#[derive(Debug)]
+</span><span class="kw">struct </span>RelativeOrAbsolutePathHack&lt;F&gt;(F);
+
+<span class="kw">impl</span>&lt;F: FileSystem&gt; RelativeOrAbsolutePathHack&lt;F&gt; {
+    <span class="kw">fn </span>execute&lt;Func, Ret&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path, operation: Func) -&gt; <span class="prelude-ty">Result</span>&lt;Ret, FsError&gt;
+    <span class="kw">where
+        </span>Func: Fn(<span class="kw-2">&amp;</span>F, <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Ret, FsError&gt;,
+    {
+        <span class="comment">// First, try it with the path we were given
+        </span><span class="kw">let </span>result = operation(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, path);
+
+        <span class="kw">if </span>result.is_err() &amp;&amp; !path.is_absolute() {
+            <span class="comment">// we were given a relative path, but maybe the operation will work
+            // using absolute paths instead.
+            </span><span class="kw">let </span>path = Path::new(<span class="string">&quot;/&quot;</span>).join(path);
+            operation(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span>path)
+        } <span class="kw">else </span>{
+            result
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;F: FileSystem&gt; virtual_fs::FileSystem <span class="kw">for </span>RelativeOrAbsolutePathHack&lt;F&gt; {
+    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::ReadDir&gt; {
+        <span class="self">self</span>.execute(path, |fs, p| fs.read_dir(p))
+    }
+
+    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="self">self</span>.execute(path, |fs, p| fs.create_dir(p))
+    }
+
+    <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="self">self</span>.execute(path, |fs, p| fs.remove_dir(p))
+    }
+
+    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="self">self</span>.execute(from, |fs, p| fs.rename(p, to))
+    }
+
+    <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {
+        <span class="self">self</span>.execute(path, |fs, p| fs.metadata(p))
+    }
+
+    <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="self">self</span>.execute(path, |fs, p| fs.remove_file(p))
+    }
+
+    <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; virtual_fs::OpenOptions {
+        virtual_fs::OpenOptions::new(<span class="self">self</span>)
+    }
+}
+
+<span class="kw">impl</span>&lt;F: FileSystem&gt; virtual_fs::FileOpener <span class="kw">for </span>RelativeOrAbsolutePathHack&lt;F&gt; {
+    <span class="kw">fn </span>open(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        path: <span class="kw-2">&amp;</span>Path,
+        conf: <span class="kw-2">&amp;</span>virtual_fs::OpenOptionsConfig,
+    ) -&gt; virtual_fs::Result&lt;Box&lt;<span class="kw">dyn </span>virtual_fs::VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="self">self</span>.execute(path, |fs, p| {
+            fs.new_open_options().options(conf.clone()).open(p)
+        })
+    }
+}
+
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>tempfile::TempDir;
 
-    <span class="kw">use </span><span class="kw">crate</span>::runners::WapmContainer;
+    <span class="kw">use </span>virtual_fs::WebcVolumeFileSystem;
+    <span class="kw">use </span>webc::Container;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -318,9 +477,10 @@
             guest: <span class="string">&quot;/home&quot;</span>.to_string(),
             host: sub_dir,
         }];
-        <span class="kw">let </span>container = WapmContainer::from_bytes(PYTHON.into()).unwrap();
+        <span class="kw">let </span>container = Container::from_bytes(PYTHON).unwrap();
+        <span class="kw">let </span>webc_fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
 
-        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span>mapping, container.container_fs(), |<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).unwrap();
+        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span>mapping, Arc::new(webc_fs), |<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).unwrap();
 
         <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;/home/file.txt&quot;</span>.as_ref()).unwrap().is_file());
         <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;lib&quot;</span>.as_ref()).unwrap().is_dir());

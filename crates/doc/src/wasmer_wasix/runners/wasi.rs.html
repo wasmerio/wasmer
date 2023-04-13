@@ -182,17 +182,31 @@
 <span id="180">180</span>
 <span id="181">181</span>
 <span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>virtual_fs::WebcVolumeFileSystem;
 <span class="kw">use </span>wasmer::{Engine, Module, Store};
-<span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
+<span class="kw">use </span>webc::{
+    metadata::{annotations::Wasi, Command},
+    Container,
+};
 
 <span class="kw">use crate</span>::{
-    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory, WapmContainer},
+    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory},
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
 };
 
@@ -221,7 +235,7 @@
     <span class="doccomment">/// Sets the compile function
     </span><span class="kw">pub fn </span>with_compile(
         <span class="kw-2">mut </span><span class="self">self</span>,
-        compile: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
+        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Box::new(compile));
         <span class="self">self
@@ -314,13 +328,14 @@
 
     <span class="kw">fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        container: <span class="kw-2">&amp;</span>WapmContainer,
+        container: <span class="kw-2">&amp;</span>Container,
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name);
+        <span class="kw">let </span>container_fs = Arc::new(WebcVolumeFileSystem::mount_all(container));
         <span class="self">self</span>.wasi
-            .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container.container_fs(), wasi)<span class="question-mark">?</span>;
+            .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container_fs, wasi)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = <span class="kw-2">&amp;</span><span class="self">self</span>.tasks {
             <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(tasks));
@@ -345,17 +360,22 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         command: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>WapmContainer,
+        container: <span class="kw-2">&amp;</span>Container,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
         <span class="kw">let </span>wasi = command
             .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
         <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>wasi.atom;
-        <span class="kw">let </span>atom = container
-            .get_atom(atom_name)
+        <span class="kw">let </span>atoms = container.atoms();
+        <span class="kw">let </span>atom = atoms
+            .get(atom_name)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to get the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>module = Module::new(<span class="kw-2">&amp;</span><span class="self">self</span>.store, atom)<span class="question-mark">?</span>;
+        <span class="kw">let </span>compile = <span class="self">self
+            </span>.compile
+            .as_deref()
+            .unwrap_or(<span class="kw-2">&amp;</span><span class="kw">crate</span>::runners::default_compile);
+        <span class="kw">let </span><span class="kw-2">mut </span>module = compile(<span class="self">self</span>.store.engine(), atom)<span class="question-mark">?</span>;
         module.set_name(atom_name);
 
         <span class="self">self</span>.prepare_webc_env(container, atom_name, <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?

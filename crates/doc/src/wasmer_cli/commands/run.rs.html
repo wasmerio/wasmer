@@ -734,7 +734,7 @@
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_cache::{Cache, FileSystemCache, Hash};
 <span class="kw">use </span>wasmer_types::Type <span class="kw">as </span>ValueType;
-<span class="kw">use </span>wasmer_wasix::runners::{Runner, WapmContainer};
+<span class="kw">use </span>wasmer_wasix::runners::Runner;
 
 <span class="kw">mod </span>wasi;
 
@@ -933,7 +933,7 @@
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
         </span>{
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(pf) = WapmContainer::from_path(<span class="self">self</span>.path.clone()) {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(pf) = webc::Container::from_disk(<span class="self">self</span>.path.clone()) {
                 <span class="kw">return </span><span class="self">self</span>.run_container(pf, <span class="self">self</span>.command_name.as_deref(), <span class="kw-2">&amp;</span><span class="self">self</span>.args);
             }
         }
@@ -1090,7 +1090,7 @@
     <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
     </span><span class="kw">fn </span>run_container(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        container: WapmContainer,
+        container: webc::Container,
         id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
         args: <span class="kw-2">&amp;</span>[String],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {

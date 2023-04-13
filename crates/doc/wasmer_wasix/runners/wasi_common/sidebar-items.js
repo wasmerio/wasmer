@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["create_dir_all",""],["prepare_filesystem",""]],"struct":[["CommonWasiOptions",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["create_dir_all",""],["prepare_filesystem",""]],"struct":[["CommonWasiOptions",""],["RelativeOrAbsolutePathHack",""]]};

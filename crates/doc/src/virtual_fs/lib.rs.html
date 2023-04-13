@@ -656,6 +656,10 @@
 <span id="656">656</span>
 <span id="657">657</span>
 <span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(test)]
 #[macro_use]
 </span><span class="kw">extern crate </span>pretty_assertions;
@@ -698,6 +702,8 @@
 <span class="kw">mod </span>trace_fs;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc-fs&quot;</span>)]
 </span><span class="kw">pub mod </span>webc_fs;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;webc-fs&quot;</span>)]
+</span><span class="kw">mod </span>webc_volume_fs;
 
 <span class="kw">pub use </span>arc_box_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>arc_file::<span class="kw-2">*</span>;
@@ -715,6 +721,8 @@
 <span class="kw">pub use </span>tmp_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>trace_fs::TraceFileSystem;
 <span class="kw">pub use </span>union_fs::<span class="kw-2">*</span>;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;webc-fs&quot;</span>)]
+</span><span class="kw">pub use </span>webc_volume_fs::WebcVolumeFileSystem;
 <span class="kw">pub use </span>zero_file::<span class="kw-2">*</span>;
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, FsError&gt;;

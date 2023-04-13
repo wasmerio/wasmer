@@ -131,17 +131,22 @@
 <span id="129">129</span>
 <span id="130">130</span>
 <span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running Emscripten modules
 
-</span><span class="kw">use </span><span class="kw">crate</span>::runners::WapmContainer;
-<span class="kw">use </span>anyhow::{anyhow, Context, Error};
+</span><span class="kw">use </span>anyhow::{anyhow, Context, Error};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer::{FunctionEnv, Instance, Module, Store};
 <span class="kw">use </span>wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-<span class="kw">use </span>webc::metadata::{annotations::Emscripten, Command};
+<span class="kw">use </span>webc::{
+    metadata::{annotations::Emscripten, Command},
+    Container,
+};
 
 <span class="attribute">#[derive(Debug, PartialEq, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>EmscriptenRunner {
@@ -190,7 +195,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         command: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>WapmContainer,
+        container: <span class="kw-2">&amp;</span>Container,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
         <span class="kw">let </span>Emscripten {
             atom: atom_name,
@@ -198,8 +203,9 @@
             ..
         } = command.annotation(<span class="string">&quot;emscripten&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
         <span class="kw">let </span>atom_name = atom_name.context(<span class="string">&quot;The atom name is required&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>atom_bytes = container
-            .get_atom(<span class="kw-2">&amp;</span>atom_name)
+        <span class="kw">let </span>atoms = container.atoms();
+        <span class="kw">let </span>atom_bytes = atoms
+            .get(<span class="kw-2">&amp;</span>atom_name)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>module = Module::new(<span class="kw-2">&amp;</span><span class="self">self</span>.store, atom_bytes)<span class="question-mark">?</span>;

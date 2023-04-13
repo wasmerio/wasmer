@@ -374,6 +374,8 @@
 <span id="372">372</span>
 <span id="373">373</span>
 <span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -383,19 +385,23 @@
 <span class="kw">use </span>tower::{make::Shared, ServiceBuilder};
 <span class="kw">use </span>tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 <span class="kw">use </span>tracing::Span;
-<span class="kw">use </span>virtual_fs::FileSystem;
+<span class="kw">use </span>virtual_fs::{FileSystem, WebcVolumeFileSystem};
 <span class="kw">use </span>wasmer::{Engine, Module, Store};
 <span class="kw">use </span>wcgi_host::CgiDialect;
-<span class="kw">use </span>webc::metadata::{
-    annotations::{Wasi, Wcgi},
-    Command, Manifest,
+<span class="kw">use </span>webc::{
+    compat::SharedBytes,
+    metadata::{
+        annotations::{Wasi, Wcgi},
+        Command, Manifest,
+    },
+    Container,
 };
 
 <span class="kw">use crate</span>::{
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        CompileModule, MappedDirectory, WapmContainer,
+        CompileModule, MappedDirectory,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
@@ -404,7 +410,7 @@
 <span class="kw">pub struct </span>WcgiRunner {
     program_name: String,
     config: Config,
-    compile: <span class="prelude-ty">Option</span>&lt;Box&lt;CompileModule&gt;&gt;,
+    compile: <span class="prelude-ty">Option</span>&lt;Arc&lt;CompileModule&gt;&gt;,
 }
 
 <span class="comment">// TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -492,9 +498,9 @@
     <span class="doccomment">/// Sets the compile function
     </span><span class="kw">pub fn </span>with_compile(
         <span class="kw-2">mut </span><span class="self">self</span>,
-        compile: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
+        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Box::new(compile));
+        <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Arc::new(compile));
         <span class="self">self
     </span>}
 
@@ -504,15 +510,7 @@
             .get_atom(atom_name)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to retrieve the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>module = <span class="kw">match </span><span class="self">self</span>.compile.as_mut() {
-            <span class="prelude-val">Some</span>(compile) =&gt; compile(<span class="kw-2">&amp;</span>ctx.engine, atom).context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?</span>,
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;No compile function was provided, falling back to the default&quot;</span>);
-                Module::new(<span class="kw-2">&amp;</span>ctx.engine, atom)
-                    .map_err(Error::from)
-                    .context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?
-            </span>}
-        };
+        <span class="kw">let </span>module = ctx.compile(<span class="kw-2">&amp;</span>atom).context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(module)
     }
@@ -572,8 +570,9 @@
 <span class="comment">// TODO(Michael-F-Bryan): Pass this to Runner::run() as a &quot;&amp;dyn RunnerContext&quot;
 // when we rewrite the &quot;Runner&quot; trait.
 </span><span class="kw">struct </span>RunnerContext&lt;<span class="lifetime">&#39;a</span>&gt; {
-    container: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>WapmContainer,
+    container: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Container,
     command: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Command,
+    compile: <span class="prelude-ty">Option</span>&lt;Arc&lt;CompileModule&gt;&gt;,
     engine: Engine,
     store: Arc&lt;Store&gt;,
 }
@@ -588,20 +587,24 @@
         <span class="self">self</span>.container.manifest()
     }
 
-    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Engine {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.engine
-    }
-
     <span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Store {
         <span class="kw-2">&amp;</span><span class="self">self</span>.store
     }
 
-    <span class="kw">fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
-        <span class="self">self</span>.container.get_atom(name)
+    <span class="kw">fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBytes&gt; {
+        <span class="self">self</span>.container.atoms().remove(name)
     }
 
     <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>FileSystem&gt; {
-        <span class="self">self</span>.container.container_fs()
+        Arc::new(WebcVolumeFileSystem::mount_all(<span class="self">self</span>.container))
+    }
+
+    <span class="kw">fn </span>compile(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
+        <span class="kw">let </span>compile = <span class="self">self
+            </span>.compile
+            .as_deref()
+            .unwrap_or(<span class="kw-2">&amp;</span><span class="kw">crate</span>::runners::default_compile);
+        compile(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, wasm)
     }
 }
 
@@ -616,7 +619,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         command: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>WapmContainer,
+        container: <span class="kw-2">&amp;</span>Container,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
         <span class="kw">let </span>store = <span class="self">self</span>.config.store.clone().unwrap_or_default();
 
@@ -625,6 +628,7 @@
             command,
             engine: store.engine().clone(),
             store,
+            compile: <span class="self">self</span>.compile.clone(),
         };
 
         WcgiRunner::run(<span class="self">self</span>, command_name, <span class="kw-2">&amp;</span>ctx)
