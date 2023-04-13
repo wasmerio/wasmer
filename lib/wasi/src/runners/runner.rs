@@ -1,10 +1,5 @@
-use crate::runners::WapmContainer;
 use anyhow::Error;
-use wasmer::{Engine, Module};
-use webc::metadata::Command;
-
-/// A compile module function
-pub type CompileModule = dyn FnMut(&Engine, &[u8]) -> Result<Module, Error>;
+use webc::{metadata::Command, Container};
 
 /// Trait that all runners have to implement
 pub trait Runner {
@@ -22,11 +17,11 @@ pub trait Runner {
         &mut self,
         command_name: &str,
         cmd: &Command,
-        container: &WapmContainer,
+        container: &Container,
     ) -> Result<Self::Output, Error>;
 
     /// Runs the container if the container has an `entrypoint` in the manifest
-    fn run(&mut self, container: &WapmContainer) -> Result<Self::Output, Error> {
+    fn run(&mut self, container: &Container) -> Result<Self::Output, Error> {
         let cmd = match container.manifest().entrypoint.as_ref() {
             Some(s) => s,
             None => {
@@ -38,7 +33,7 @@ pub trait Runner {
     }
 
     /// Runs the given `cmd` on the container
-    fn run_cmd(&mut self, container: &WapmContainer, cmd: &str) -> Result<Self::Output, Error> {
+    fn run_cmd(&mut self, container: &Container, cmd: &str) -> Result<Self::Output, Error> {
         let command_to_exec = container
             .manifest()
             .commands
