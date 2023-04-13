@@ -1963,7 +1963,7 @@
 </span><span class="kw">pub struct </span>Inode(u64);
 
 <span class="kw">impl </span>Inode {
-    <span class="kw">fn </span>as_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+    <span class="kw">pub fn </span>as_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.<span class="number">0
     </span>}
 }

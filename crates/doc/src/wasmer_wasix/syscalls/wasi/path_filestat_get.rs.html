@@ -91,6 +91,9 @@
 <span id="89">89</span>
 <span id="90">90</span>
 <span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -175,12 +178,15 @@
         path_string,
         flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
     )<span class="question-mark">?</span>;
-    <span class="kw">if </span>file_inode.is_preopened {
-        <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>file_inode.stat.read().unwrap().deref())
+    <span class="kw">let </span>st_ino = file_inode.ino().as_u64();
+    <span class="kw">let </span><span class="kw-2">mut </span>stat = <span class="kw">if </span>file_inode.is_preopened {
+        <span class="kw-2">*</span>file_inode.stat.read().unwrap().deref()
     } <span class="kw">else </span>{
         <span class="kw">let </span>guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())
-    }
+        state.fs.get_stat_for_kind(guard.deref())<span class="question-mark">?
+    </span>};
+    stat.st_ino = st_ino;
+    <span class="prelude-val">Ok</span>(stat)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>
