@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 wasmer-types = { path = "../types", version = "=3.2.0-beta.2" }
 libc = { version = "^0.2", default-features = false }
-memoffset = "0.6"
+memoffset = "0.8.0"
 indexmap = { version = "1.6" }
 thiserror = "1.0"
 more-asserts = "0.2"
