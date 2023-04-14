@@ -13,10 +13,10 @@ pub struct WasiInstanceHandlesPointer {
     inner: Option<WasiInstanceHandles>,
 }
 impl WasiInstanceHandlesPointer {
-    pub fn get<'a>(&'a self) -> Option<&'a WasiInstanceHandles> {
+    pub fn get(&self) -> Option<&WasiInstanceHandles> {
         self.inner.as_ref()
     }
-    pub fn get_mut<'a>(&'a mut self) -> Option<&'a mut WasiInstanceHandles> {
+    pub fn get_mut(&mut self) -> Option<&mut WasiInstanceHandles> {
         self.inner.as_mut()
     }
     pub fn set(&mut self, val: WasiInstanceHandles) {

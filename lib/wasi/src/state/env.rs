@@ -327,10 +327,10 @@ impl Clone for WasiEnv {
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
             layout: self.layout.clone(),
-            vfork: self.vfork.as_ref().map(|v| v.clone()),
+            vfork: self.vfork.clone(),
             state: self.state.clone(),
             bin_factory: self.bin_factory.clone(),
-            inner: self.inner.clone(),
+            inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
             module_cache: self.module_cache.clone(),
@@ -701,7 +701,7 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner<'a>(&'a self) -> WasiInstanceGuard<'a> {
+    pub fn inner(&self) -> WasiInstanceGuard<'_> {
         self.inner.get().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -709,7 +709,7 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner_mut<'a>(&'a mut self) -> WasiInstanceGuardMut<'a> {
+    pub fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
         self.inner.get_mut().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -717,7 +717,7 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory<'a>(&'a self) -> WasiInstanceGuardMemory<'a> {
+    pub fn memory(&self) -> WasiInstanceGuardMemory<'_> {
         self.inner().memory()
     }
 

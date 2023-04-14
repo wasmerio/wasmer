@@ -74,7 +74,7 @@ impl Drop for WasiInstanceHandlesPointer {
     }
 }
 impl WasiInstanceHandlesPointer {
-    pub fn get<'a>(&'a self) -> Option<WasiInstanceGuard<'a>> {
+    pub fn get(&self) -> Option<WasiInstanceGuard<'_>> {
         self.id
             .iter()
             .filter_map(|id| {
@@ -96,7 +96,7 @@ impl WasiInstanceHandlesPointer {
             })
             .next()
     }
-    pub fn get_mut<'a>(&'a self) -> Option<WasiInstanceGuardMut<'a>> {
+    pub fn get_mut(&self) -> Option<WasiInstanceGuardMut<'_>> {
         self.id
             .clone()
             .into_iter()
@@ -127,10 +127,14 @@ impl WasiInstanceHandlesPointer {
             let mut map = map.borrow_mut();
             map.insert(id, Rc::new(RefCell::new(val)));
         });
-        self.id.replace(id).map(Self::destroy);
+        if let Some(old_id) = self.id.replace(id) {
+            Self::destroy(old_id)
+        }
     }
     pub fn clear(&mut self) {
-        self.id.take().map(Self::destroy);
+        if let Some(id) = self.id.take() {
+            Self::destroy(id)
+        }
     }
     fn destroy(id: u64) {
         THREAD_LOCAL_INSTANCE_HANDLES.with(|map| {

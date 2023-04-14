@@ -59,7 +59,7 @@ impl WasiFunctionEnv {
         })?;
 
         // Initialize the WASI environment
-        ctx.initialize_with_memory(&mut store, instance.clone(), memory.clone(), update_layout)
+        ctx.initialize_with_memory(&mut store, instance, memory, update_layout)
             .map_err(|err| {
                 tracing::warn!("failed initialize environment - {}", err);
                 WasiThreadError::ExportError(err)

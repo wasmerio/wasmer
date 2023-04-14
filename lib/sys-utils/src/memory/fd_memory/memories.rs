@@ -135,7 +135,7 @@ impl WasmMmap {
         let mem_length = self.size.bytes().0;
         let mut alloc = self
             .alloc
-            .copy(Some(mem_length))
+            .duplicate(Some(mem_length))
             .map_err(MemoryError::Generic)?;
         let base_ptr = alloc.as_mut_ptr();
         Ok(Self {
