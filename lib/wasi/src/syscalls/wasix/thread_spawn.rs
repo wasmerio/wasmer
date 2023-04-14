@@ -187,9 +187,7 @@ fn call_module<M: MemorySize>(
 
     // If we need to rewind then do so
     if let Some((mut rewind_state, trigger_res)) = rewind_state {
-        if let Err(exit_code) =
-            rewind_state.rewinding_finish::<M>(ctx.env.clone().into_mut(&mut store), trigger_res)
-        {
+        if let Err(exit_code) = rewind_state.rewinding_finish::<M>(&ctx, &mut store, trigger_res) {
             return exit_code.raw() as u32;
         }
         let res = rewind::<M>(

@@ -276,8 +276,8 @@ impl Wasi {
         let ctx = run.ctx;
         if let Some((mut rewind_state, trigger_res)) = rewind_state {
             if rewind_state.is_64bit {
-                if let Err(exit_code) = rewind_state
-                    .rewinding_finish::<Memory64>(ctx.env.clone().into_mut(&mut store), trigger_res)
+                if let Err(exit_code) =
+                    rewind_state.rewinding_finish::<Memory64>(&ctx, &mut store, trigger_res)
                 {
                     tx.send(Ok(exit_code.raw())).ok();
                     return;
@@ -293,8 +293,8 @@ impl Wasi {
                     return;
                 }
             } else {
-                if let Err(exit_code) = rewind_state
-                    .rewinding_finish::<Memory32>(ctx.env.clone().into_mut(&mut store), trigger_res)
+                if let Err(exit_code) =
+                    rewind_state.rewinding_finish::<Memory32>(&ctx, &mut store, trigger_res)
                 {
                     tx.send(Ok(exit_code.raw())).ok();
                     return;
@@ -312,9 +312,17 @@ impl Wasi {
             }
         }
 
+        // Get the instance from the environment
+        let instance = match ctx.data(&store).try_clone_instance() {
+            Some(inst) => inst,
+            None => {
+                tx.send(Ok(Errno::Noexec as i32)).ok();
+                return;
+            }
+        };
+
         // Do we want to invoke a function?
         if let Some(ref invoke) = run.invoke {
-            let instance = ctx.data(&store).inner().instance().clone();
             let res = RunWithPathBuf::inner_module_invoke_function(
                 &mut store,
                 &instance,
@@ -328,10 +336,8 @@ impl Wasi {
 
             tx.send(res).unwrap();
         } else {
-            let inner = ctx.data(&store).inner();
-            let instance = inner.instance();
             let start: Function =
-                RunWithPathBuf::try_find_function(instance, run.path.as_path(), "_start", &[])
+                RunWithPathBuf::try_find_function(&instance, run.path.as_path(), "_start", &[])
                     .unwrap();
 
             let result = start.call(&mut store, &[]);

@@ -33,7 +33,7 @@ use crate::{
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
 
-pub use super::handles::*;
+pub(crate) use super::handles::*;
 use super::WasiState;
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
@@ -298,8 +298,6 @@ pub struct WasiEnv {
     pub(crate) state: Arc<WasiState>,
     /// Binary factory attached to this environment
     pub bin_factory: BinFactory,
-    /// Inner functions and references that are loaded before the environment starts
-    pub inner: WasiInstanceHandlesPointer,
     /// List of the handles that are owned by this context
     /// (this can be used to ensure that threads own themselves or others)
     pub owned_handles: Vec<WasiThreadHandle>,
@@ -311,6 +309,12 @@ pub struct WasiEnv {
 
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
+
+    /// Inner functions and references that are loaded before the environment starts
+    /// (inner is not safe to send between threads and so it is private and will
+    ///  not be cloned)
+    /// TODO: We should move this outside of `WasiEnv` with some refactoring
+    pub(crate) inner: WasiInstanceHandlesPointer,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -701,7 +705,7 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner(&self) -> WasiInstanceGuard<'_> {
+    pub(crate) fn inner(&self) -> WasiInstanceGuard<'_> {
         self.inner.get().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -709,27 +713,32 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
+    pub(crate) fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
         self.inner.get_mut().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
     }
 
+    /// Tries to clone the instance from this environment
+    pub fn try_clone_instance(&self) -> Option<Instance> {
+        self.inner.get().map(|i| i.instance.clone())
+    }
+
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory(&self) -> WasiInstanceGuardMemory<'_> {
+    pub(crate) fn memory(&self) -> WasiInstanceGuardMemory<'_> {
         self.inner().memory()
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
+    pub(crate) fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         self.memory().view(store)
     }
 
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
-    pub fn memory_clone(&self) -> Memory {
+    pub(crate) fn memory_clone(&self) -> Memory {
         self.inner().memory_clone()
     }
 

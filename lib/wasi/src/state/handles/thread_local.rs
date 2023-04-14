@@ -20,7 +20,7 @@ thread_local! {
 /// This non-sendable guard provides memory safe access
 /// to the WasiInstance object but only when it is
 /// constructed with certain constraints
-pub struct WasiInstanceGuard<'a> {
+pub(crate) struct WasiInstanceGuard<'a> {
     // the order is very important as the first value is
     // dropped before the reference count is dropped
     borrow: Ref<'static, WasiInstanceHandles>,
@@ -38,7 +38,7 @@ impl<'a> Deref for WasiInstanceGuard<'a> {
 /// to the WasiInstance object but only when it is
 /// constructed with certain constraints. This one provides
 /// mutable access
-pub struct WasiInstanceGuardMut<'a> {
+pub(crate) struct WasiInstanceGuardMut<'a> {
     // the order is very important as the first value is
     // dropped before the reference count is dropped
     borrow: RefMut<'static, WasiInstanceHandles>,
@@ -64,7 +64,7 @@ impl<'a> DerefMut for WasiInstanceGuardMut<'a> {
 /// possible to make WasiEnv send without unsafe code
 /// however it means that access to the must be checked
 #[derive(Debug, Default, Clone)]
-pub struct WasiInstanceHandlesPointer {
+pub(crate) struct WasiInstanceHandlesPointer {
     /// Inner functions and references that are loaded before the environment starts
     id: Option<u64>,
 }
@@ -131,6 +131,7 @@ impl WasiInstanceHandlesPointer {
             Self::destroy(old_id)
         }
     }
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         if let Some(id) = self.id.take() {
             Self::destroy(id)
@@ -145,7 +146,7 @@ impl WasiInstanceHandlesPointer {
 }
 
 /// This provides access to the memory inside the instance
-pub struct WasiInstanceGuardMemory<'a> {
+pub(crate) struct WasiInstanceGuardMemory<'a> {
     // the order is very important as the first value is
     // dropped before the reference count is dropped
     borrow: &'a Memory,

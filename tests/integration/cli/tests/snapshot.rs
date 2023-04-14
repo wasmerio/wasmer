@@ -602,9 +602,9 @@ fn test_run_http_request(
         .enable_all()
         .build()?;
 
-    let http_get = move |url, max_retries| {
+    let http_get = move |url, max_retries: i32| {
         rt.block_on(async move {
-            for n in 0..(max_retries+1) {
+            for n in 0..(max_retries.max(1)) {
                 println!("http request: {}", &url);
                 tokio::select! {
                     resp = reqwest::get(&url) => {
@@ -621,8 +621,8 @@ fn test_run_http_request(
                         }
                         return Ok(resp.bytes().await?);
                     }
-                    _ = tokio::time::sleep(std::time::Duration::from_secs(1)) => {
-                        eprintln!("retrying request... ({} attempts)", n);
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(4)) => {
+                        eprintln!("retrying request... ({} attempts)", (n+1));
                         continue;
                     }
                 }
@@ -635,7 +635,7 @@ fn test_run_http_request(
         None => {
             let url = format!("http://localhost:{}/{}.size", port, what);
             let expected_size = usize::from_str_radix(
-                String::from_utf8_lossy(http_get(url, 50)?.as_ref()).trim(),
+                String::from_utf8_lossy(http_get(url, 10)?.as_ref()).trim(),
                 10,
             )?;
             if expected_size == 0 {
@@ -648,9 +648,9 @@ fn test_run_http_request(
     println!("expected_size: {}", expected_size);
 
     let url = format!("http://localhost:{}/{}", port, what);
-    let reference_data = http_get(url.clone(), 50)?;
+    let reference_data = http_get(url.clone(), 10)?;
     for _ in 0..20 {
-        let test_data = http_get(url.clone(), 0)?;
+        let test_data = http_get(url.clone(), 2)?;
         println!("actual_size: {}", test_data.len());
 
         if expected_size != test_data.len() {

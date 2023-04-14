@@ -7,6 +7,7 @@ use crate::syscalls::*;
 struct FutexPoller {
     state: Arc<WasiState>,
     woken: Arc<Mutex<bool>>,
+    poller_idx: u64,
     futex_idx: u64,
     expected: u32,
     hooked: bool,
@@ -23,11 +24,12 @@ impl Future for FutexPoller {
         let mut guard = self.state.futexs.lock().unwrap();
 
         let futex = guard
+            .futexes
             .entry(self.futex_idx)
-            .or_insert_with(|| WasiFutex { wakers: vec![] });
+            .or_insert_with(|| Default::default());
 
-        if !futex.wakers.iter().any(|w| w.will_wake(waker)) {
-            futex.wakers.push(waker.clone());
+        if !futex.wakers.iter().any(|w| w.1.will_wake(waker)) {
+            futex.wakers.insert(self.poller_idx, waker.clone());
         }
 
         Poll::Pending
@@ -36,10 +38,15 @@ impl Future for FutexPoller {
 impl Drop for FutexPoller {
     fn drop(&mut self) {
         let mut guard = self.state.futexs.lock().unwrap();
-        if let Some(futex) = guard.remove(&self.futex_idx) {
-            for waker in futex.wakers {
-                waker.wake();
-            }
+
+        let mut should_remove = false;
+        if let Some(futex) = guard.futexes.get_mut(&self.futex_idx) {
+            futex.wakers.remove(&self.poller_idx);
+            should_remove = futex.wakers.is_empty();
+        }
+
+        if should_remove {
+            guard.futexes.remove(&self.futex_idx);
         }
     }
 }
@@ -147,12 +154,21 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // then the value is not set) - the poller will set it to true
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
+    // We generate a new poller index which is used to remove the
+    // waker when it goes out of scope
+    let poller_idx = {
+        let mut guard = env.state.futexs.lock().unwrap();
+        guard.poller_seed += 1;
+        guard.poller_seed
+    };
+
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
     let woken = Arc::new(Mutex::new(false));
     let poller = FutexPoller {
         state: env.state.clone(),
         woken: woken.clone(),
+        poller_idx,
         futex_idx,
         expected,
         hooked: false,

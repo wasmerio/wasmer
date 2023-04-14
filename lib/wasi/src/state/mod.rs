@@ -21,7 +21,13 @@ mod func_env;
 mod handles;
 mod types;
 
-use std::{collections::HashMap, path::Path, sync::Mutex, task::Waker, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+    sync::Mutex,
+    task::Waker,
+    time::Duration,
+};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -40,7 +46,7 @@ use crate::{
     syscalls::types::*,
     utils::WasiParkingLot,
 };
-pub use handles::*;
+pub(crate) use handles::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
@@ -63,9 +69,9 @@ impl FileOpener for WasiStateOpener {
 
 /// Represents a futex which will make threads wait for completion in a more
 /// CPU efficient manner
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WasiFutex {
-    pub(crate) wakers: Vec<Waker>,
+    pub(crate) wakers: BTreeMap<u64, Waker>,
 }
 
 /// Structure that holds the state of BUS calls to this process and from
@@ -101,6 +107,14 @@ impl WasiBusState {
     }
 }
 
+/// Stores the state of the futexes
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub(crate) struct WasiFutexState {
+    pub poller_seed: u64,
+    pub futexes: HashMap<u64, WasiFutex>,
+}
+
 /// Top level data type containing all* the state with which WASI can
 /// interact.
 ///
@@ -114,7 +128,7 @@ pub(crate) struct WasiState {
 
     pub fs: WasiFs,
     pub inodes: WasiInodes,
-    pub futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub futexs: Mutex<WasiFutexState>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,

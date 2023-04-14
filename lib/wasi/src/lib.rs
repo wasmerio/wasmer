@@ -67,8 +67,8 @@ pub use wasmer;
 pub use wasmer_wasix_types;
 
 use wasmer::{
-    imports, namespace, AsStoreMut, AsStoreRef, Exports, FunctionEnv, FunctionEnvMut, Imports,
-    Memory32, MemoryAccessError, MemorySize, RuntimeError,
+    imports, namespace, AsStoreMut, AsStoreRef, Exports, FunctionEnv, Imports, Memory32,
+    MemoryAccessError, MemorySize, RuntimeError,
 };
 
 pub use virtual_fs;
@@ -148,9 +148,11 @@ pub struct RewindState {
 impl RewindState {
     pub fn rewinding_finish<M: MemorySize>(
         &mut self,
-        mut ctx: FunctionEnvMut<WasiEnv>,
+        ctx: &WasiFunctionEnv,
+        store: &mut impl AsStoreMut,
         res: Result<(), Errno>,
     ) -> Result<(), ExitCode> {
+        let mut ctx = ctx.env.clone().into_mut(store);
         let (env, mut store) = ctx.data_and_store_mut();
         set_memory_stack::<M>(env, &mut store, self.memory_stack.clone()).map_err(|err| {
             tracing::error!("failed on rewinding_finish - {}", err);

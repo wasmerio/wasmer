@@ -3,13 +3,13 @@ use wasmer::Memory;
 
 use crate::WasiInstanceHandles;
 
-pub type WasiInstanceGuard<'a> = &'a WasiInstanceHandles;
-pub type WasiInstanceGuardMut<'a> = &'a mut WasiInstanceHandles;
-pub type WasiInstanceGuardMemory<'a> = &'a Memory;
+pub(crate) type WasiInstanceGuard<'a> = &'a WasiInstanceHandles;
+pub(crate) type WasiInstanceGuardMut<'a> = &'a mut WasiInstanceHandles;
+pub(crate) type WasiInstanceGuardMemory<'a> = &'a Memory;
 
 /// This pointer provides global access to some instance handles
 #[derive(Debug, Clone, Default)]
-pub struct WasiInstanceHandlesPointer {
+pub(crate) struct WasiInstanceHandlesPointer {
     inner: Option<WasiInstanceHandles>,
 }
 impl WasiInstanceHandlesPointer {
@@ -22,6 +22,7 @@ impl WasiInstanceHandlesPointer {
     pub fn set(&mut self, val: WasiInstanceHandles) {
         self.inner.replace(val);
     }
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.inner.take();
     }

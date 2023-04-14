@@ -2,6 +2,6 @@ mod global;
 mod thread_local;
 
 #[cfg(feature = "sys")]
-pub use global::*;
+pub(crate) use global::*;
 #[cfg(feature = "js")]
-pub use thread_local::*;
+pub(crate) use thread_local::*;

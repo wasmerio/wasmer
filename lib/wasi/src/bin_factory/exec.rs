@@ -160,8 +160,8 @@ fn call_module(
     // If we need to rewind then do so
     if let Some((mut rewind_state, trigger_res)) = rewind_state {
         if rewind_state.is_64bit {
-            if let Err(exit_code) = rewind_state
-                .rewinding_finish::<Memory64>(ctx.env.clone().into_mut(&mut store), trigger_res)
+            if let Err(exit_code) =
+                rewind_state.rewinding_finish::<Memory64>(&ctx, &mut store, trigger_res)
             {
                 ctx.data(&store).blocking_cleanup(Some(exit_code));
                 return;
@@ -177,8 +177,8 @@ fn call_module(
                 return;
             }
         } else {
-            if let Err(exit_code) = rewind_state
-                .rewinding_finish::<Memory32>(ctx.env.clone().into_mut(&mut store), trigger_res)
+            if let Err(exit_code) =
+                rewind_state.rewinding_finish::<Memory32>(&ctx, &mut store, trigger_res)
             {
                 ctx.data(&store).blocking_cleanup(Some(exit_code));
                 return;
