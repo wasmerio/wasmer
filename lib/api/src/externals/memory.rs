@@ -148,13 +148,13 @@ impl Memory {
         if !self.ty(store).shared {
             // We should only be able to duplicate in a new store if the memory is shared
             return Err(MemoryError::InvalidMemory {
-                reason: format!("memory is not a shared memory type"),
+                reason: "memory is not a shared memory type".to_string(),
             });
         }
         self.0
             .try_clone(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
-            .ok_or(MemoryError::Generic(format!("memory is not clonable")))
+            .ok_or_else(|| MemoryError::Generic("memory is not clonable".to_string()))
     }
 
     /// Attempts to duplicate this memory (if its clonable) in a new store
@@ -167,16 +167,16 @@ impl Memory {
         if !self.ty(store).shared {
             // We should only be able to duplicate in a new store if the memory is shared
             return Err(MemoryError::InvalidMemory {
-                reason: format!("memory is not a shared memory type"),
+                reason: "memory is not a shared memory type".to_string(),
             });
         }
         self.0
             .try_clone(&store)
             .and_then(|mut memory| memory.copy().ok())
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
-            .ok_or(MemoryError::Generic(format!(
-                "memory is not clonable or could not be copied"
-            )))
+            .ok_or_else(|| {
+                MemoryError::Generic("memory is not clonable or could not be copied".to_string())
+            })
     }
 
     /// To `VMExtern`.

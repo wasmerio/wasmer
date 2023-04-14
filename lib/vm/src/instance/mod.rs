@@ -837,7 +837,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -863,7 +863,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -889,7 +889,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -916,7 +916,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {

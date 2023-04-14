@@ -14,7 +14,7 @@ pub struct StoreId(NonZeroUsize);
 
 impl StoreId {
     /// Represents an unknown store ID
-    pub fn unknown() -> StoreId {
+    pub fn unknown() -> Self {
         Self(usize::MAX.try_into().unwrap())
     }
 }
