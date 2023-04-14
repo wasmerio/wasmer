@@ -26,7 +26,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "hi\n",
-      "stderr": "# # # ",
+      "stderr": "# bash-5.1# exit\n# # ",
       "exit_code": 78
     }
   }
