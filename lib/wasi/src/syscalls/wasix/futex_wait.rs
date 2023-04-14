@@ -10,38 +10,29 @@ struct FutexPoller {
     poller_idx: u64,
     futex_idx: u64,
     expected: u32,
-    hooked: bool,
 }
 impl Future for FutexPoller {
     type Output = Result<(), Errno>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Errno>> {
-        if self.hooked == true {
-            let guard = self.state.futexs.lock().unwrap();
-            if guard
-                .futexes
-                .get(&self.futex_idx)
-                .iter()
-                .any(|f| f.wakers.contains_key(&self.poller_idx))
-            {
-                return Poll::Pending;
-            } else {
-                return Poll::Ready(Ok(()));
-            }
-        }
-        self.hooked = true;
-
-        let waker = cx.waker();
         let mut guard = self.state.futexs.lock().unwrap();
 
-        let futex = guard
-            .futexes
-            .entry(self.futex_idx)
-            .or_insert_with(|| Default::default());
+        // If the futex itself is no longer registered then it was likely
+        // woken by a wake call
+        let futex = match guard.futexes.get_mut(&self.futex_idx) {
+            Some(f) => f,
+            None => return Poll::Ready(Ok(())),
+        };
+        let waker = match futex.wakers.get_mut(&self.poller_idx) {
+            Some(w) => w,
+            None => return Poll::Ready(Ok(())),
+        };
 
-        if !futex.wakers.iter().any(|w| w.1.will_wake(waker)) {
-            futex.wakers.insert(self.poller_idx, waker.clone());
+        // Register the waker if its not set
+        if waker.is_none() {
+            waker.replace(cx.waker().clone());
         }
 
+        // We will now wait to be woken
         Poll::Pending
     }
 }
@@ -54,7 +45,6 @@ impl Drop for FutexPoller {
             futex.wakers.remove(&self.poller_idx);
             should_remove = futex.wakers.is_empty();
         }
-
         if should_remove {
             guard.futexes.remove(&self.futex_idx);
         }
@@ -115,7 +105,7 @@ where
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
-#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
@@ -151,6 +141,35 @@ pub fn futex_wait<M: MemorySize + 'static>(
     let futex_idx: u64 = wasi_try_ok!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
     Span::current().record("futex_idx", futex_idx);
 
+    // We generate a new poller which also registers in the
+    // shared state futex lookup. When this object is dropped
+    // it will remove itself from the lookup. It can also be
+    // removed whenever the wake call is invoked (which could
+    // be before the poller is polled).
+    let woken = Arc::new(Mutex::new(false));
+    let poller = {
+        let mut guard = env.state.futexs.lock().unwrap();
+        guard.poller_seed += 1;
+        let poller_idx = guard.poller_seed;
+
+        // We insert the futex before we check the condition variable to avoid
+        // certain race conditions
+        let futex = guard
+            .futexes
+            .entry(futex_idx)
+            .or_insert_with(|| Default::default());
+        futex.wakers.insert(poller_idx, Default::default());
+
+        Span::current().record("poller_idx", poller_idx);
+        FutexPoller {
+            state: env.state.clone(),
+            woken: woken.clone(),
+            poller_idx,
+            futex_idx,
+            expected,
+        }
+    };
+
     // We check if the expected value has changed
     let memory = env.memory_view(&ctx);
     let val = wasi_try_mem_ok!(futex_ptr.read(&memory));
@@ -164,25 +183,8 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // then the value is not set) - the poller will set it to true
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
-    // We generate a new poller index which is used to remove the
-    // waker when it goes out of scope
-    let poller_idx = {
-        let mut guard = env.state.futexs.lock().unwrap();
-        guard.poller_seed += 1;
-        guard.poller_seed
-    };
-
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
-    let woken = Arc::new(Mutex::new(false));
-    let poller = FutexPoller {
-        state: env.state.clone(),
-        woken: woken.clone(),
-        poller_idx,
-        futex_idx,
-        expected,
-        hooked: false,
-    };
     let after = FutexAfter { woken, ret_woken };
 
     // We use asyncify on the poller and potentially go into deep sleep

@@ -82,7 +82,7 @@ pub fn proc_fork<M: MemorySize>(
             // We first fork the environment and replace the current environment
             // so that the process can continue to prepare for the real fork as
             // if it had actually forked
-            std::mem::swap(&mut ctx.data_mut().inner, &mut child_env.inner);
+            child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), &mut child_env);
             ctx.data_mut().vfork.replace(WasiVFork {
                 rewind_stack: rewind_stack.clone(),

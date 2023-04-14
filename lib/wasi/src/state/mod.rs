@@ -71,7 +71,7 @@ impl FileOpener for WasiStateOpener {
 /// CPU efficient manner
 #[derive(Debug, Default)]
 pub struct WasiFutex {
-    pub(crate) wakers: BTreeMap<u64, Waker>,
+    pub(crate) wakers: BTreeMap<u64, Option<Waker>>,
 }
 
 /// Structure that holds the state of BUS calls to this process and from

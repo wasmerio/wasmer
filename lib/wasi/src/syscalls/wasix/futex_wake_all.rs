@@ -24,7 +24,9 @@ pub fn futex_wake_all<M: MemorySize>(
         let mut guard = state.futexs.lock().unwrap();
         if let Some(futex) = guard.futexes.remove(&pointer) {
             for waker in futex.wakers {
-                waker.1.wake();
+                if let Some(waker) = waker.1 {
+                    waker.wake();
+                }
             }
             true
         } else {

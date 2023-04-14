@@ -312,9 +312,9 @@ pub struct WasiEnv {
 
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
-    ///  not be cloned)
+    ///  not be cloned when `WasiEnv` is cloned)
     /// TODO: We should move this outside of `WasiEnv` with some refactoring
-    pub(crate) inner: WasiInstanceHandlesPointer,
+    inner: WasiInstanceHandlesPointer,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -717,6 +717,22 @@ impl WasiEnv {
         self.inner.get_mut().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
+    }
+
+    /// Sets the inner object (this should only be called when
+    /// creating the instance and eventually should be moved out
+    /// of the WasiEnv)
+    #[doc(hidden)]
+    pub(crate) fn set_inner(&mut self, handles: WasiInstanceHandles) {
+        self.inner.set(handles)
+    }
+
+    /// Swaps this inner with the WasiEnvironment of another, this
+    /// is used by the vfork so that the inner handles can be restored
+    /// after the vfork finishes.
+    #[doc(hidden)]
+    pub(crate) fn swap_inner(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.inner, &mut other.inner);
     }
 
     /// Tries to clone the instance from this environment

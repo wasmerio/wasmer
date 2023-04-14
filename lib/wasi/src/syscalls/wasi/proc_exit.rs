@@ -18,7 +18,7 @@ pub fn proc_exit<M: MemorySize>(
     // If we are in a vfork we need to return to the point we left off
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
         // Restore the WasiEnv to the point when we vforked
-        std::mem::swap(&mut vfork.env.inner, &mut ctx.data_mut().inner);
+        vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
         let mut wasi_env = *vfork.env;
         wasi_env.owned_handles.push(vfork.handle);
