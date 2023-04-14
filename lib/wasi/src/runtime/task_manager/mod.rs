@@ -198,10 +198,11 @@ impl dyn VirtualTaskManager {
         }
 
         let snapshot = capture_snapshot(&mut store.as_store_mut());
-        let env = ctx.data(&store).clone();
+        let env = ctx.data(&store);
         let module = env.inner().module_clone();
         let memory = env.inner().memory_clone();
         let thread = env.thread.clone();
+        let env = env.clone();
 
         self.task_wasm(
             TaskWasm::new(
