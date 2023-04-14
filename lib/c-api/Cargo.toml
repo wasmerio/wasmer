@@ -23,16 +23,16 @@ crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
 wasmer-api = { version = "=3.2.0-beta.2", path = "../api", default-features = false, package = "wasmer" }
-wasmer-compiler-cranelift = { version = "=3.2.0-beta.2", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=3.2.0-beta.2", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=3.2.0-beta.2", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=3.2.0-beta.2", path = "../emscripten", optional = true }
 wasmer-compiler = { version = "=3.2.0-beta.2", path = "../compiler", optional = true }
+wasmer-compiler-cranelift = { version = "=3.2.0-beta.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=3.2.0-beta.2", path = "../compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=3.2.0-beta.2", path = "../compiler-singlepass", optional = true }
+wasmer-emscripten = { version = "=3.2.0-beta.2", path = "../emscripten", optional = true }
 wasmer-middlewares = { version = "=3.2.0-beta.2", path = "../middlewares", optional = true }
-wasmer-wasix = { version = "0.2.0", path = "../wasi", features = ["host-fs", "host-vnet"], optional = true }
 wasmer-types = { version = "=3.2.0-beta.2", path = "../types" }
+wasmer-wasix = { version = "0.2.0", path = "../wasi", features = ["host-fs", "host-vnet"], optional = true }
+webc = { version = "5.0.0-rc.7", optional = true }
 virtual-fs = { version = "0.1.1", path = "../vfs", optional = true, default-features = false, features = ["static-fs"] }
-webc = { version = "=5.0.0-rc.6", optional = true }
 enumset = "1.0.2"
 cfg-if = "1.0"
 lazy_static = "1.4"

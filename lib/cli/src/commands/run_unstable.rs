@@ -27,9 +27,9 @@ use wasmer_cache::Cache;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::{wcgi::AbortHandle, MappedDirectory, Runner, WapmContainer};
-use webc::metadata::Manifest;
-use webc_v4::DirOrFile;
+use wasmer_wasix::runners::wcgi::AbortHandle;
+use wasmer_wasix::runners::{MappedDirectory, Runner};
+use webc::{metadata::Manifest, v1::DirOrFile, Container};
 
 use crate::{
     store::StoreOptions,
@@ -73,10 +73,10 @@ impl RunUnstable {
 
         let (mut store, _) = self.store.get_store()?;
 
-        let cache = self.wasmer_home.module_cache();
-        let result = match target.load(cache, &store)? {
+        let mut cache = self.wasmer_home.module_cache();
+        let result = match target.load(&mut cache, &store)? {
             ExecutableTarget::WebAssembly(wasm) => self.execute_wasm(&target, &wasm, &mut store),
-            ExecutableTarget::Webc(container, cache) => {
+            ExecutableTarget::Webc(container) => {
                 self.execute_webc(&target, container, cache, &mut store)
             }
         };
@@ -116,7 +116,7 @@ impl RunUnstable {
     fn execute_webc(
         &self,
         target: &TargetOnDisk,
-        container: WapmContainer,
+        container: Container,
         mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
@@ -138,6 +138,8 @@ impl RunUnstable {
             .map(|(base, version)| base)
             .unwrap_or_else(|| command.runner.as_str());
 
+        let cache = Mutex::new(cache);
+
         match runner_base {
             webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
@@ -151,6 +153,7 @@ impl RunUnstable {
             webc::metadata::annotations::WCGI_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id).with_compile(
                     move |engine, bytes| {
+                        let mut cache = cache.lock().unwrap();
                         compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
                     },
                 );
@@ -175,6 +178,7 @@ impl RunUnstable {
             | webc::metadata::annotations::WASI_RUNNER_URI => {
                 let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
                     .with_compile(move |engine, bytes| {
+                        let mut cache = cache.lock().unwrap();
                         compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
                     })
                     .with_args(self.args.clone())
@@ -315,7 +319,7 @@ fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
     let mut files = BTreeMap::new();
     load_files_from_disk(&mut files, dir, dir)?;
 
-    let wasmer_toml = webc_v4::DirOrFile::File("wasmer.toml".into());
+    let wasmer_toml = DirOrFile::File("wasmer.toml".into());
     if let Some(toml_data) = files.remove(&wasmer_toml) {
         // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
         // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
@@ -327,7 +331,7 @@ fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
     }
 
     let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-    wapm_targz_to_pirita::generate_webc_file(files, &dir.to_path_buf(), None, &functions)
+    wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)
 }
 
 fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {
@@ -341,11 +345,11 @@ fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<
 
         if path.is_dir() {
             load_files_from_disk(files, &path, base)?;
-            files.insert(webc_v4::DirOrFile::Dir(relative_path), Vec::new());
+            files.insert(DirOrFile::Dir(relative_path), Vec::new());
         } else if path.is_file() {
             let data = std::fs::read(&path)
                 .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-            files.insert(webc_v4::DirOrFile::File(relative_path), data);
+            files.insert(DirOrFile::File(relative_path), data);
         }
     }
     Ok(())
@@ -462,21 +466,21 @@ impl TargetOnDisk {
         }
     }
 
-    fn load(&self, mut cache: ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
+    fn load(&self, cache: &mut ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
         match self {
             TargetOnDisk::Webc(webc) => {
                 // As an optimisation, try to use the mmapped version first.
-                if let Ok(container) = WapmContainer::from_path(webc.clone()) {
-                    return Ok(ExecutableTarget::Webc(container, cache));
+                if let Ok(container) = Container::from_disk(webc.clone()) {
+                    return Ok(ExecutableTarget::Webc(container));
                 }
 
                 // Otherwise, fall back to the version that reads everything
                 // into memory.
                 let bytes = std::fs::read(webc)
                     .with_context(|| format!("Unable to read \"{}\"", webc.display()))?;
-                let container = WapmContainer::from_bytes(bytes.into())?;
+                let container = Container::from_bytes(bytes)?;
 
-                Ok(ExecutableTarget::Webc(container, cache))
+                Ok(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::Directory(dir) => {
                 // FIXME: Runners should be able to load directories directly
@@ -484,20 +488,16 @@ impl TargetOnDisk {
                 let webc = compile_directory_to_webc(dir).with_context(|| {
                     format!("Unable to bundle \"{}\" as a WEBC package", dir.display())
                 })?;
-                let container = WapmContainer::from_bytes(webc.into())
+                let container = Container::from_bytes(webc)
                     .context("Unable to parse the generated WEBC file")?;
 
-                Ok(ExecutableTarget::Webc(container, cache))
+                Ok(ExecutableTarget::Webc(container))
             }
             TargetOnDisk::WebAssemblyBinary(path) => {
                 let wasm = std::fs::read(path)
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-                let module = compile_wasm_cached(
-                    path.display().to_string(),
-                    &wasm,
-                    &mut cache,
-                    store.engine(),
-                )?;
+                let module =
+                    compile_wasm_cached(path.display().to_string(), &wasm, cache, store.engine())?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Wat(path) => {
@@ -506,12 +506,8 @@ impl TargetOnDisk {
                 let wasm =
                     wasmer::wat2wasm(&wat).context("Unable to convert the WAT to WebAssembly")?;
 
-                let module = compile_wasm_cached(
-                    path.display().to_string(),
-                    &wasm,
-                    &mut cache,
-                    store.engine(),
-                )?;
+                let module =
+                    compile_wasm_cached(path.display().to_string(), &wasm, cache, store.engine())?;
                 Ok(ExecutableTarget::WebAssembly(module))
             }
             TargetOnDisk::Artifact(artifact) => {
@@ -572,7 +568,7 @@ fn compile_wasm_cached(
 #[derive(Debug, Clone)]
 enum ExecutableTarget {
     WebAssembly(Module),
-    Webc(WapmContainer, ModuleCache),
+    Webc(Container),
 }
 
 #[cfg(feature = "coredump")]

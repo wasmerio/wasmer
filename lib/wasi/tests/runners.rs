@@ -4,7 +4,8 @@ use std::{path::Path, time::Duration};
 
 use once_cell::sync::Lazy;
 use reqwest::Client;
-use wasmer_wasix::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::Runner;
+use webc::Container;
 
 #[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
@@ -20,7 +21,7 @@ mod wasi {
     async fn can_run_wat2wasm() {
         let webc = download_cached("https://wapm.io/wasmer/wabt").await;
         let store = Store::default();
-        let container = WapmContainer::from_bytes(webc).unwrap();
+        let container = Container::from_bytes(webc).unwrap();
         let runner = WasiRunner::new(store);
         let command = &container.manifest().commands["wat2wasm"];
 
@@ -32,7 +33,7 @@ mod wasi {
         let webc = download_cached("https://wapm.io/wasmer/wabt").await;
         let store = Store::default();
         let tasks = TokioTaskManager::new(Handle::current());
-        let container = WapmContainer::from_bytes(webc).unwrap();
+        let container = Container::from_bytes(webc).unwrap();
 
         // Note: we don't have any way to intercept stdin or stdout, so blindly
         // assume that everything is fine if it runs successfully.
@@ -43,6 +44,7 @@ mod wasi {
                 .run_cmd(&container, "wat2wasm")
         });
         let err = handle.join().unwrap().unwrap_err();
+        dbg!(&err);
 
         let runtime_error = err
             .chain()
@@ -60,7 +62,7 @@ mod wasi {
         let webc = download_cached("https://wapm.io/python/python").await;
         let store = Store::default();
         let tasks = TokioTaskManager::new(Handle::current());
-        let container = WapmContainer::from_bytes(webc).unwrap();
+        let container = Container::from_bytes(webc).unwrap();
 
         let handle = std::thread::spawn(move || {
             WasiRunner::new(store)
@@ -96,7 +98,7 @@ mod wcgi {
     #[tokio::test]
     async fn can_run_staticserver() {
         let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
-        let container = WapmContainer::from_bytes(webc).unwrap();
+        let container = Container::from_bytes(webc).unwrap();
         let runner = WcgiRunner::new("staticserver");
 
         let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
@@ -109,7 +111,7 @@ mod wcgi {
     async fn staticserver() {
         let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
         let tasks = TokioTaskManager::new(Handle::current());
-        let container = WapmContainer::from_bytes(webc).unwrap();
+        let container = Container::from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new("staticserver");
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
         let (cb, started) = callbacks(Handle::current());

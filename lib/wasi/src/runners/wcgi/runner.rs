@@ -7,19 +7,23 @@ use hyper::Body;
 use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
-use virtual_fs::FileSystem;
+use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
-use webc::metadata::{
-    annotations::{Wasi, Wcgi},
-    Command, Manifest,
+use webc::{
+    compat::SharedBytes,
+    metadata::{
+        annotations::{Wasi, Wcgi},
+        Command, Manifest,
+    },
+    Container,
 };
 
 use crate::{
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        CompileModule, MappedDirectory, WapmContainer,
+        CompileModule, MappedDirectory,
     },
     runtime::task_manager::tokio::TokioTaskManager,
     PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
@@ -28,7 +32,7 @@ use crate::{
 pub struct WcgiRunner {
     program_name: String,
     config: Config,
-    compile: Option<Box<CompileModule>>,
+    compile: Option<Arc<CompileModule>>,
 }
 
 // TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
@@ -116,9 +120,9 @@ impl WcgiRunner {
     /// Sets the compile function
     pub fn with_compile(
         mut self,
-        compile: impl FnMut(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + 'static,
     ) -> Self {
-        self.compile = Some(Box::new(compile));
+        self.compile = Some(Arc::new(compile));
         self
     }
 
@@ -128,15 +132,7 @@ impl WcgiRunner {
             .get_atom(atom_name)
             .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
 
-        let module = match self.compile.as_mut() {
-            Some(compile) => compile(&ctx.engine, atom).context("Unable to compile the atom")?,
-            None => {
-                tracing::warn!("No compile function was provided, falling back to the default");
-                Module::new(&ctx.engine, atom)
-                    .map_err(Error::from)
-                    .context("Unable to compile the atom")?
-            }
-        };
+        let module = ctx.compile(&atom).context("Unable to compile the atom")?;
 
         Ok(module)
     }
@@ -196,8 +192,9 @@ impl WcgiRunner {
 // TODO(Michael-F-Bryan): Pass this to Runner::run() as a "&dyn RunnerContext"
 // when we rewrite the "Runner" trait.
 struct RunnerContext<'a> {
-    container: &'a WapmContainer,
+    container: &'a Container,
     command: &'a Command,
+    compile: Option<Arc<CompileModule>>,
     engine: Engine,
     store: Arc<Store>,
 }
@@ -212,20 +209,24 @@ impl RunnerContext<'_> {
         self.container.manifest()
     }
 
-    fn engine(&self) -> &Engine {
-        &self.engine
-    }
-
     fn store(&self) -> &Store {
         &self.store
     }
 
-    fn get_atom(&self, name: &str) -> Option<&[u8]> {
-        self.container.get_atom(name)
+    fn get_atom(&self, name: &str) -> Option<SharedBytes> {
+        self.container.atoms().remove(name)
     }
 
     fn container_fs(&self) -> Arc<dyn FileSystem> {
-        self.container.container_fs()
+        Arc::new(WebcVolumeFileSystem::mount_all(self.container))
+    }
+
+    fn compile(&self, wasm: &[u8]) -> Result<Module, Error> {
+        let compile = self
+            .compile
+            .as_deref()
+            .unwrap_or(&crate::runners::default_compile);
+        compile(&self.engine, wasm)
     }
 }
 
@@ -240,7 +241,7 @@ impl crate::runners::Runner for WcgiRunner {
         &mut self,
         command_name: &str,
         command: &Command,
-        container: &WapmContainer,
+        container: &Container,
     ) -> Result<Self::Output, Error> {
         let store = self.config.store.clone().unwrap_or_default();
 
@@ -249,6 +250,7 @@ impl crate::runners::Runner for WcgiRunner {
             command,
             engine: store.engine().clone(),
             store,
+            compile: self.compile.clone(),
         };
 
         WcgiRunner::run(self, command_name, &ctx)
