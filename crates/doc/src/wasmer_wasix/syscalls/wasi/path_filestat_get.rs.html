@@ -94,8 +94,56 @@
 <span id="92">92</span>
 <span id="93">93</span>
 <span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::types::wasi::Snapshot0Filestat;
 
 <span class="doccomment">/// ### `path_filestat_get()`
 /// Access metadata about a file or directory
@@ -145,20 +193,8 @@
     Errno::Success
 }
 
-<span class="doccomment">/// ### `path_filestat_get()`
-/// Access metadata about a file or directory
-/// Inputs:
-/// - `Fd fd`
-///     The directory that `path` is relative to
-/// - `LookupFlags flags`
-///     Flags to control how `path` is understood
-/// - `const char *path`
-///     String containing the file path
-/// - `u32 path_len`
-///     The length of the `path` string
-/// Output:
-/// - `__wasi_file_stat_t *buf`
-///     The location where the metadata will be stored
+<span class="doccomment">/// ### `path_filestat_get_internal()`
+/// return a Filstat or Errno
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_filestat_get_internal(
     memory: <span class="kw-2">&amp;</span>MemoryView,
     state: <span class="kw-2">&amp;</span>WasiState,
@@ -187,6 +223,64 @@
     </span>};
     stat.st_ino = st_ino;
     <span class="prelude-val">Ok</span>(stat)
+}
+
+<span class="doccomment">/// ### `path_filestat_get_old()`
+/// Access metadata about a file or directory
+/// Inputs:
+/// - `Fd fd`
+///     The directory that `path` is relative to
+/// - `LookupFlags flags`
+///     Flags to control how `path` is understood
+/// - `const char *path`
+///     String containing the file path
+/// - `u32 path_len`
+///     The length of the `path` string
+/// Output:
+/// - `__wasi_file_stat_t *buf`
+///     The location where the metadata will be stored
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
+</span><span class="kw">pub fn </span>path_filestat_get_old&lt;M: MemorySize&gt;(
+    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    flags: LookupFlags,
+    path: WasmPtr&lt;u8, M&gt;,
+    path_len: M::Offset,
+    buf: WasmPtr&lt;Snapshot0Filestat, M&gt;,
+) -&gt; Errno {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+
+    <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+
+    <span class="comment">// Convert relative paths into absolute paths
+    </span><span class="kw">if </span>path_string.starts_with(<span class="string">&quot;./&quot;</span>) {
+        path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
+    }
+    <span class="macro">tracing::trace!</span>(path = path_string.as_str());
+
+    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(path_filestat_get_internal(
+        <span class="kw-2">&amp;</span>memory,
+        state,
+        inodes,
+        fd,
+        flags,
+        <span class="kw-2">&amp;</span>path_string
+    ));
+
+    <span class="kw">let </span>old_stat = Snapshot0Filestat {
+        st_dev: stat.st_dev,
+        st_ino: stat.st_ino,
+        st_filetype: stat.st_filetype,
+        st_nlink: stat.st_nlink <span class="kw">as </span>u32,
+        st_size: stat.st_size,
+        st_atim: stat.st_atim,
+        st_mtim: stat.st_mtim,
+        st_ctim: stat.st_ctim,
+    };
+    <span class="macro">wasi_try_mem!</span>(buf.deref(<span class="kw-2">&amp;</span>memory).write(old_stat));
+
+    Errno::Success
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

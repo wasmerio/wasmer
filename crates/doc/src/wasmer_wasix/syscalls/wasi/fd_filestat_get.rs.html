@@ -47,8 +47,46 @@
 <span id="45">45</span>
 <span id="46">46</span>
 <span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+<span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::types::wasi::Snapshot0Filestat;
 
 <span class="doccomment">/// ### `fd_filestat_get()`
 /// Get the metadata of an open file
@@ -64,7 +102,14 @@
     fd: WasiFd,
     buf: WasmPtr&lt;Filestat, M&gt;,
 ) -&gt; Errno {
-    fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd, buf)
+    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
+
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw">_</span>) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>buf = buf.deref(<span class="kw-2">&amp;</span>memory);
+    <span class="macro">wasi_try_mem!</span>(buf.write(stat));
+
+    Errno::Success
 }
 
 <span class="doccomment">/// ### `fd_filestat_get()`
@@ -75,22 +120,51 @@
 /// Output:
 /// - `__wasi_filestat_t *buf`
 ///     Where the metadata from `fd` will be written
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_filestat_get_internal&lt;M: MemorySize&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_filestat_get_internal(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
-    buf: WasmPtr&lt;Filestat, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Filestat, Errno&gt; {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
-    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
     <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_FILESTAT_GET) {
-        <span class="kw">return </span>Errno::Access;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
-    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(state.fs.filestat_fd(fd));
+    state.fs.filestat_fd(fd)
+}
+
+<span class="doccomment">/// ### `fd_filestat_get_old()`
+/// Get the metadata of an open file
+/// Input:
+/// - `Fd fd`
+///     The open file descriptor whose metadata will be read
+/// Output:
+/// - `Snapshot0Filestat *buf`
+///     Where the metadata from `fd` will be written
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd), ret)]
+</span><span class="kw">pub fn </span>fd_filestat_get_old&lt;M: MemorySize&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    buf: WasmPtr&lt;Snapshot0Filestat, M&gt;,
+) -&gt; Errno {
+    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
+
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw">_</span>) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>old_stat = Snapshot0Filestat {
+        st_dev: stat.st_dev,
+        st_ino: stat.st_ino,
+        st_filetype: stat.st_filetype,
+        st_nlink: stat.st_nlink <span class="kw">as </span>u32,
+        st_size: stat.st_size,
+        st_atim: stat.st_atim,
+        st_mtim: stat.st_mtim,
+        st_ctim: stat.st_ctim,
+    };
 
     <span class="kw">let </span>buf = buf.deref(<span class="kw-2">&amp;</span>memory);
-    <span class="macro">wasi_try_mem!</span>(buf.write(stat));
+    <span class="macro">wasi_try_mem!</span>(buf.write(old_stat));
 
     Errno::Success
 }
