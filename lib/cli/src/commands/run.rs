@@ -16,7 +16,7 @@ use wasmer::FunctionEnv;
 use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
-use wasmer_wasix::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::Runner;
 
 mod wasi;
 
@@ -232,7 +232,7 @@ impl RunWithPathBuf {
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
-            if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
+            if let Ok(pf) = webc::Container::from_disk(self.path.clone()) {
                 return self.run_container(pf, self.command_name.as_deref(), &self.args);
             }
         }
@@ -399,7 +399,7 @@ impl RunWithPathBuf {
     #[cfg(feature = "webc_runner")]
     fn run_container(
         &self,
-        container: WapmContainer,
+        container: webc::Container,
         id: Option<&str>,
         args: &[String],
     ) -> Result<(), anyhow::Error> {
