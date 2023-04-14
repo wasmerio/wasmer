@@ -16,7 +16,17 @@ impl Future for FutexPoller {
     type Output = Result<(), Errno>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Errno>> {
         if self.hooked == true {
-            return Poll::Ready(Ok(()));
+            let guard = self.state.futexs.lock().unwrap();
+            if guard
+                .futexes
+                .get(&self.futex_idx)
+                .iter()
+                .any(|f| f.wakers.contains_key(&self.poller_idx))
+            {
+                return Poll::Pending;
+            } else {
+                return Poll::Ready(Ok(()));
+            }
         }
         self.hooked = true;
 
@@ -179,8 +189,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
     __asyncify_with_deep_sleep::<M, _>(
         ctx,
         timeout,
-        //Duration::from_millis(50),
-        Duration::from_millis(100000),
+        Duration::from_millis(50),
         Box::pin(poller),
         after,
     )?;
