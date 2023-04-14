@@ -328,7 +328,8 @@ impl Wasi {
 
             tx.send(res).unwrap();
         } else {
-            let instance = ctx.data(&store).inner().instance();
+            let inner = ctx.data(&store).inner();
+            let instance = inner.instance();
             let start: Function =
                 RunWithPathBuf::try_find_function(instance, run.path.as_path(), "_start", &[])
                     .unwrap();

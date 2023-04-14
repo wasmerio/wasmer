@@ -192,7 +192,7 @@ pub fn start() -> Result<(), JsValue> {
 
     let mut capabilities = Capabilities::default();
     capabilities.threading.max_threads = Some(50);
-    capabilities.threading.enable_asynchronous_threading = false;
+    capabilities.threading.enable_asynchronous_threading = true;
     console = console.with_capabilities(capabilities);
 
     let (tx, mut rx) = mpsc::unbounded_channel();

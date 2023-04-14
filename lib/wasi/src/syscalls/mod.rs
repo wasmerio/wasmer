@@ -87,7 +87,7 @@ pub(crate) use self::types::{
     },
     *,
 };
-use self::utils::WasiDummyWaker;
+use self::{state::WasiInstanceGuardMemory, utils::WasiDummyWaker};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -339,7 +339,7 @@ pub type AsyncifyFuture = dyn Future<Output = Result<(), Errno>> + Send + Sync +
 struct AsyncifyPoller<'a, 'b, 'c> {
     signal_set: bool,
     thread: WasiThread,
-    memory: &'a Memory,
+    memory: WasiInstanceGuardMemory<'a>,
     store: &'b dyn AsStoreRef,
     work: &'c mut Pin<Box<AsyncifyFuture>>,
 }
@@ -347,7 +347,7 @@ impl<'a, 'b, 'c> Future for AsyncifyPoller<'a, 'b, 'c> {
     type Output = Result<Result<(), Errno>, WasiError>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let store = self.store;
-        let memory = self.memory;
+        let memory = self.memory.clone();
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
         }
@@ -539,7 +539,8 @@ where
                     }
                     Err(err) => Err(err),
                 };
-                after(env.memory(), store, res)
+                let memory = env.memory();
+                after(memory.deref(), store, res)
             } else {
                 Err(ExitCode::Errno(Errno::Unknown))
             }

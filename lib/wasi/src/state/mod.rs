@@ -18,6 +18,7 @@
 mod builder;
 mod env;
 mod func_env;
+mod handles;
 mod types;
 
 use std::{collections::HashMap, path::Path, sync::Mutex, task::Waker, time::Duration};
@@ -39,6 +40,7 @@ use crate::{
     syscalls::types::*,
     utils::WasiParkingLot,
 };
+pub use handles::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();

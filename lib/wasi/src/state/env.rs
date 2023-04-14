@@ -33,6 +33,7 @@ use crate::{
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
 
+pub use super::handles::*;
 use super::WasiState;
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
@@ -217,13 +218,6 @@ impl WasiInstanceHandles {
     }
 }
 
-/// The code itself makes safe use of the struct so multiple threads don't access
-/// it (without this the JS code prevents the reference to the module from being stored
-/// which is needed for the multithreading mode)
-unsafe impl Send for WasiInstanceHandles {}
-
-unsafe impl Sync for WasiInstanceHandles {}
-
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
 pub struct WasiEnvInit {
@@ -305,7 +299,7 @@ pub struct WasiEnv {
     /// Binary factory attached to this environment
     pub bin_factory: BinFactory,
     /// Inner functions and references that are loaded before the environment starts
-    pub inner: Option<WasiInstanceHandles>,
+    pub inner: WasiInstanceHandlesPointer,
     /// List of the handles that are owned by this context
     /// (this can be used to ensure that threads own themselves or others)
     pub owned_handles: Vec<WasiThreadHandle>,
@@ -324,13 +318,6 @@ impl std::fmt::Debug for WasiEnv {
         write!(f, "env(pid={}, tid={})", self.pid().raw(), self.tid().raw())
     }
 }
-
-// FIXME: remove unsafe impls!
-// Added because currently WasiEnv can hold a wasm_bindgen::JsValue via wasmer::Module.
-#[cfg(feature = "js")]
-unsafe impl Send for WasiEnv {}
-#[cfg(feature = "js")]
-unsafe impl Sync for WasiEnv {}
 
 impl Clone for WasiEnv {
     fn clone(&self) -> Self {
@@ -380,7 +367,7 @@ impl WasiEnv {
             poll_seed: 0,
             bin_factory,
             state,
-            inner: None,
+            inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
@@ -436,7 +423,7 @@ impl WasiEnv {
             vfork: None,
             poll_seed: 0,
             state: Arc::new(init.state),
-            inner: None,
+            inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: init.runtime,
             bin_factory: init.bin_factory,
@@ -714,30 +701,30 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner(&self) -> &WasiInstanceHandles {
-        self.inner
-            .as_ref()
-            .expect("You must initialize the WasiEnv before using it")
+    pub fn inner<'a>(&'a self) -> WasiInstanceGuard<'a> {
+        self.inner.get().expect(
+            "You must initialize the WasiEnv before using it and can not pass it between threads",
+        )
     }
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner_mut(&mut self) -> &mut WasiInstanceHandles {
-        self.inner
-            .as_mut()
-            .expect("You must initialize the WasiEnv before using it")
+    pub fn inner_mut<'a>(&'a mut self) -> WasiInstanceGuardMut<'a> {
+        self.inner.get_mut().expect(
+            "You must initialize the WasiEnv before using it and can not pass it between threads",
+        )
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory_view<'a>(&'a self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
-        self.inner().memory_view(store)
-    }
-
-    /// Providers safe access to the memory
-    /// (it must be initialized before it can be used)
-    pub fn memory(&self) -> &Memory {
+    pub fn memory<'a>(&'a self) -> WasiInstanceGuardMemory<'a> {
         self.inner().memory()
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
+        self.memory().view(store)
     }
 
     /// Copy the lazy reference so that when it's initialized during the

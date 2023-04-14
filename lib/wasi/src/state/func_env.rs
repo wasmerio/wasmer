@@ -138,7 +138,7 @@ impl WasiFunctionEnv {
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
 
         let env = self.data_mut(store);
-        env.inner.replace(new_inner);
+        env.inner.set(new_inner);
 
         env.state.fs.set_is_wasix(is_wasix_module);
 
