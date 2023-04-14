@@ -73,7 +73,7 @@ pub const MAX_SYMLINKS: u32 = 128;
 pub struct Inode(u64);
 
 impl Inode {
-    fn as_u64(&self) -> u64 {
+    pub fn as_u64(&self) -> u64 {
         self.0
     }
 }

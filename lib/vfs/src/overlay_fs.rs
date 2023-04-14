@@ -475,6 +475,7 @@ fn should_continue(e: FsError) -> bool {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
+    use bytes::Bytes;
     use tempfile::TempDir;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use webc::v1::{ParseOptions, WebCOwned};
@@ -658,7 +659,7 @@ mod tests {
                 .unwrap();
         }
         // Set up the secondary file systems
-        let webc = WebCOwned::parse(PYTHON.to_vec(), &ParseOptions::default()).unwrap();
+        let webc = WebCOwned::parse(Bytes::from_static(PYTHON), &ParseOptions::default()).unwrap();
         let webc = WebcFileSystem::init_all(Arc::new(webc));
 
         let fs = OverlayFileSystem::new(primary, [webc]);

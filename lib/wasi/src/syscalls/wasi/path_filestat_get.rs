@@ -82,10 +82,13 @@ pub(crate) fn path_filestat_get_internal(
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;
-    if file_inode.is_preopened {
-        Ok(*file_inode.stat.read().unwrap().deref())
+    let st_ino = file_inode.ino().as_u64();
+    let mut stat = if file_inode.is_preopened {
+        *file_inode.stat.read().unwrap().deref()
     } else {
         let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())
-    }
+        state.fs.get_stat_for_kind(guard.deref())?
+    };
+    stat.st_ino = st_ino;
+    Ok(stat)
 }
