@@ -18,7 +18,7 @@ use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiTh
 pub enum SpawnMemoryType<'a> {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
-    CloneMemory(Memory, StoreRef<'a>),
+    ShareMemory(Memory, StoreRef<'a>),
     CopyMemory(Memory, StoreRef<'a>),
 }
 
@@ -96,8 +96,8 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 })?;
                 Ok(Some(mem))
             }
-            SpawnMemoryType::CloneMemory(mem, old_store) => {
-                let mem = mem.clone_in_store(&old_store, store).map_err(|err| {
+            SpawnMemoryType::ShareMemory(mem, old_store) => {
+                let mem = mem.share_in_store(&old_store, store).map_err(|err| {
                     tracing::warn!("could not clone memory: {err}");
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
@@ -210,7 +210,7 @@ impl dyn VirtualTaskManager {
                 module,
                 false,
             )
-            .with_memory(SpawnMemoryType::CloneMemory(memory, store.as_store_ref()))
+            .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
             .with_snapshot(&snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {

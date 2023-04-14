@@ -140,7 +140,7 @@ impl Memory {
 
     /// Attempts to clone this memory (if its clonable) in a new store
     /// (cloned memory will be shared between those that clone it)
-    pub fn clone_in_store(
+    pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,

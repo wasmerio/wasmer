@@ -104,7 +104,7 @@ pub fn thread_spawn<M: MemorySize>(
     let thread_module = env.inner().module_clone();
     let snapshot = capture_snapshot(&mut ctx.as_store_mut());
     let spawn_type =
-        crate::runtime::SpawnMemoryType::CloneMemory(thread_memory, ctx.as_store_ref());
+        crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
 
     // Write the thread ID to the return value
     let memory = ctx.data().memory_view(&ctx);
