@@ -89,6 +89,21 @@ pub enum TestResult {
     Error(String),
 }
 
+impl TestResult {
+    /// Remove stdout and stderr from the result.
+    ///
+    /// Can be used for tests that don't have deterministic output.
+    pub fn ignore_output(&mut self) {
+        match self {
+            TestResult::Success(s) => {
+                s.stdout.clear();
+                s.stderr.clear();
+            }
+            TestResult::Error(_) => todo!(),
+        }
+    }
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct TestSnapshot {
     pub spec: TestSpec,
@@ -746,10 +761,11 @@ fn test_snapshot_longjump_fork() {
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_multithreading() {
-    let snapshot = TestBuilder::new()
+    let mut snapshot = TestBuilder::new()
         .with_name(function!())
         .debug_output(true)
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+    snapshot.result.ignore_output();
     assert_json_snapshot!(snapshot);
 }
 
