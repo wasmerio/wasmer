@@ -203,7 +203,7 @@ impl WasiFunctionEnv {
     /// This function should only be called from within a syscall
     /// as it can potentially execute local thread variable cleanup
     /// code
-    pub unsafe fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
+    pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup - destroying local thread variables",
             self.data(store).pid(),
@@ -226,28 +226,26 @@ impl WasiFunctionEnv {
             to_local_destroy
         };
         if !to_local_destroy.is_empty() {
-            if let Some(thread_local_destroy) = self
-                .data(store)
-                .inner()
-                .thread_local_destroy
-                .as_ref()
-                .cloned()
-            {
-                for (user_data, val) in to_local_destroy {
-                    let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
-                    let user_data_high: u32 = (user_data >> 32) as u32;
+            if let Some(inner) = self.data(store).try_inner() {
+                if let Some(thread_local_destroy) = inner.thread_local_destroy.as_ref().cloned() {
+                    for (user_data, val) in to_local_destroy {
+                        let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
+                        let user_data_high: u32 = (user_data >> 32) as u32;
 
-                    let val_low: u32 = (val & 0xFFFFFFFF) as u32;
-                    let val_high: u32 = (val >> 32) as u32;
+                        let val_low: u32 = (val & 0xFFFFFFFF) as u32;
+                        let val_high: u32 = (val >> 32) as u32;
 
-                    let _ = thread_local_destroy.call(
-                        store,
-                        user_data_low as i32,
-                        user_data_high as i32,
-                        val_low as i32,
-                        val_high as i32,
-                    );
+                        let _ = thread_local_destroy.call(
+                            store,
+                            user_data_low as i32,
+                            user_data_high as i32,
+                            val_low as i32,
+                            val_high as i32,
+                        );
+                    }
                 }
+            } else {
+                tracing::warn!("unable to clean up thread local variables as the inner instance is not accessible");
             }
         }
 

@@ -856,7 +856,7 @@ impl WasiEnvBuilder {
             Err(err) => err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into()),
         };
 
-        unsafe { env.cleanup(store, Some(exit_code)) };
+        env.cleanup(store, Some(exit_code));
 
         res
     }

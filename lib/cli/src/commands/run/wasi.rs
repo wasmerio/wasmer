@@ -323,7 +323,7 @@ impl Wasi {
             )
             .map(|()| 0);
 
-            unsafe { ctx.cleanup(&mut store, None) };
+            ctx.cleanup(&mut store, None);
 
             tx.send(res).unwrap();
         } else {
@@ -400,7 +400,7 @@ impl Wasi {
             }
         };
 
-        unsafe { ctx.cleanup(&mut store, None) };
+        ctx.cleanup(&mut store, None);
 
         tx.send(ret).unwrap();
     }
