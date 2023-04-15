@@ -83,7 +83,15 @@ pub fn thread_spawn<M: MemorySize>(
     let mut thread_env = env.clone();
     thread_env.thread = thread_handle.as_thread();
     thread_env.layout = layout;
-    thread_env.enable_deep_sleep = env.capable_of_deep_sleep();
+
+    // TODO: Currently asynchronous threading does not work with multi
+    //       threading but it does work for the main thread. This will
+    //       require more work to find out why.
+    thread_env.enable_deep_sleep = if cfg!(feature = "js") {
+        false
+    } else {
+        env.capable_of_deep_sleep()
+    };
 
     // This next function gets a context for the local thread and then
     // calls into the process
