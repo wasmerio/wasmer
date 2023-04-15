@@ -6,7 +6,6 @@ use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
     import_object_for_all_wasi_versions,
-    os::task::thread::DEFAULT_STACK_SIZE,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
@@ -146,7 +145,7 @@ impl WasiFunctionEnv {
         // If the stack offset and size is not set then do so
         if update_layout {
             // Set the base stack
-            let mut stack_base = if let Some(stack_pointer) = stack_pointer {
+            let stack_base = if let Some(stack_pointer) = stack_pointer {
                 match stack_pointer.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
@@ -156,7 +155,9 @@ impl WasiFunctionEnv {
                 0
             };
             if stack_base == 0 {
-                stack_base = DEFAULT_STACK_SIZE;
+                return Err(ExportError::Missing(
+                    "stack_pointer is not set to the upper stack range".to_string(),
+                ));
             }
 
             // Update the stack layout which is need for asyncify
@@ -165,6 +166,7 @@ impl WasiFunctionEnv {
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
         }
+        tracing::trace!("initializing with layout {:?}", self.data(store).layout);
 
         Ok(())
     }

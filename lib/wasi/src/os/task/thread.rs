@@ -137,17 +137,13 @@ pub struct WasiMemoryLayout {
     pub stack_size: u64,
 }
 
-/// The default stack size for WASIX
-pub const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
-pub const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
-
 impl Default for WasiMemoryLayout {
     fn default() -> Self {
         Self {
             stack_lower: 0,
-            stack_upper: DEFAULT_STACK_SIZE,
+            stack_upper: 0,
             guard_size: 0,
-            stack_size: DEFAULT_STACK_SIZE,
+            stack_size: 0,
         }
     }
 }

@@ -55,8 +55,6 @@ pub fn thread_spawn<M: MemorySize>(
         let tls_base: u64 = wasi_try!(start.tls_base.try_into().map_err(|_| Errno::Overflow));
         let stack_lower = stack_upper - stack_size;
 
-        tracing::trace!(%stack_upper, %stack_lower, %stack_size, %guard_size, %tls_base);
-
         WasiMemoryLayout {
             stack_upper,
             stack_lower,
@@ -64,6 +62,7 @@ pub fn thread_spawn<M: MemorySize>(
             stack_size,
         }
     };
+    tracing::trace!("spawn with layout {:?}", layout);
 
     // Create the handle that represents this thread
     let mut thread_handle = match env.process.new_thread() {

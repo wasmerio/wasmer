@@ -38,61 +38,11 @@ pub fn stack_restore<M: MemorySize>(
             let env = ctx.data();
             let memory = unsafe { env.memory_view(&ctx) };
 
-            // If the return value offset is within the memory stack then we need
-            // to update it here rather than in the real memory
-            let val_bytes = val.to_ne_bytes();
-            let ret_val_offset = snapshot.user;
-            if ret_val_offset >= env.layout.stack_lower
-                && (ret_val_offset + val_bytes.len() as u64) <= env.layout.stack_upper
-            {
-                // Make sure its within the "active" part of the memory stack
-                let offset = env.layout.stack_upper - ret_val_offset;
-                let end = offset + (val_bytes.len() as u64);
-                if end as usize > memory_stack.len() {
-                    warn!(
-                        "snapshot stack restore failed - the return value is outside of the active part of the memory stack ({} vs {}) - {} - {}",
-                        offset,
-                        memory_stack.len(),
-                        ret_val_offset,
-                        end
-                    );
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(
-                        Errno::Memviolation.into(),
-                    )));
-                } else {
-                    // Update the memory stack with the new return value
-                    let pstart = memory_stack.len() - offset as usize;
-                    let pend = pstart + val_bytes.len();
-                    let pbytes = &mut memory_stack[pstart..pend];
-                    pbytes.clone_from_slice(&val_bytes);
-                }
-            } else {
-                let err = snapshot
-                    .user
-                    .try_into()
-                    .map_err(|_| Errno::Overflow)
-                    .map(|a| WasmPtr::<Longsize, M>::new(a))
-                    .map(|a| {
-                        a.write(&memory, val)
-                            .map(|_| Errno::Success)
-                            .map_err(mem_error_to_wasi)
-                            .unwrap_or_else(|e| e)
-                    })
-                    .unwrap_or_else(|a| a);
-                if err != Errno::Success {
-                    warn!(
-                        "snapshot stack restore failed - the return value can not be written too - {}",
-                        err
-                    );
-                    return OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())));
-                }
-            }
-
             // Rewind the stack - after this point we must immediately return
             // so that the execution can end here and continue elsewhere.
             let pid = ctx.data().pid();
             let tid = ctx.data().tid();
-            match rewind::<M, _>(ctx, memory_stack.freeze(), rewind_stack, store_data, ()) {
+            match rewind::<M, _>(ctx, memory_stack.freeze(), rewind_stack, store_data, val) {
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("failed to rewind the stack - errno={}", err);
