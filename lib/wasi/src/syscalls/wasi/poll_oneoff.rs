@@ -29,7 +29,7 @@ pub struct EventResult {
     pub inner: EventResultType,
 }
 impl EventResult {
-    pub fn to_event(self) -> Event {
+    pub fn into_event(self) -> Event {
         Event {
             userdata: self.userdata,
             error: self.error,
@@ -417,7 +417,7 @@ where
 
     // If we are rewound then its time to process them
     if let Some(events) = unsafe { handle_rewind::<M, Result<Vec<EventResult>, Errno>>(&mut ctx) } {
-        let events = events.map(|events| events.into_iter().map(EventResult::to_event).collect());
+        let events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
         process_events(&ctx, events);
         return Ok(Errno::Success);
     }
@@ -429,7 +429,7 @@ where
         Box::pin(trigger),
     )?;
     if let AsyncifyAction::Finish(mut ctx, events) = res {
-        let events = events.map(|events| events.into_iter().map(EventResult::to_event).collect());
+        let events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
         process_events(&ctx, events);
     }
     Ok(Errno::Success)

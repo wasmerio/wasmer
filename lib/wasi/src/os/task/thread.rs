@@ -123,7 +123,7 @@ impl Drop for WasiThreadRunGuard {
 }
 
 /// Represents the memory layout of the parts that the thread itself uses
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct WasiMemoryLayout {
     /// This is the top part of the stack (stacks go backwards)
     pub stack_upper: u64,
@@ -135,17 +135,6 @@ pub struct WasiMemoryLayout {
     pub guard_size: u64,
     /// Total size of the stack
     pub stack_size: u64,
-}
-
-impl Default for WasiMemoryLayout {
-    fn default() -> Self {
-        Self {
-            stack_lower: 0,
-            stack_upper: 0,
-            guard_size: 0,
-            stack_size: 0,
-        }
-    }
 }
 
 #[derive(Debug)]

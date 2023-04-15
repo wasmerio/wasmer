@@ -400,11 +400,11 @@ pub enum AsyncifyAction<'a, R> {
 /// or it will return an WasiError which will exit the WASM call using asyncify
 /// and instead process it on a shared task
 ///
-pub(crate) fn __asyncify_with_deep_sleep<'a, M: MemorySize, T, Fut>(
-    ctx: FunctionEnvMut<'a, WasiEnv>,
+pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     deep_sleep_time: Duration,
     trigger: Fut,
-) -> Result<AsyncifyAction<'a, T>, WasiError>
+) -> Result<AsyncifyAction<'_, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
     Fut: Future<Output = T> + Send + Sync + 'static,
@@ -829,7 +829,7 @@ pub(crate) fn set_memory_stack_offset(
     let stack_pointer = stack_upper - offset;
     if let Some(stack_pointer_ptr) = env
         .try_inner()
-        .ok_or("unable to access the stack pointer of the instance".to_string())?
+        .ok_or_else(|| "unable to access the stack pointer of the instance".to_string())?
         .stack_pointer
         .clone()
     {
@@ -863,7 +863,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     let stack_base = get_stack_upper(env);
     let stack_pointer = if let Some(stack_pointer) = env
         .try_inner()
-        .ok_or("unable to access the stack pointer of the instance".to_string())?
+        .ok_or_else(|| "unable to access the stack pointer of the instance".to_string())?
         .stack_pointer
         .clone()
     {
@@ -877,7 +877,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     };
     let memory = env
         .try_memory_view(store)
-        .ok_or("unable to access the memory of the instance".to_string())?;
+        .ok_or_else(|| "unable to access the memory of the instance".to_string())?;
     let stack_offset = env.layout.stack_upper - stack_pointer;
 
     // Read the memory stack into a vector
@@ -916,7 +916,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
 
     let memory = env
         .try_memory_view(store)
-        .ok_or("unable to set the stack pointer of the instance".to_string())?;
+        .ok_or_else(|| "unable to set the stack pointer of the instance".to_string())?;
     stack_ptr
         .slice(
             &memory,
@@ -1045,7 +1045,7 @@ where
         let env = ctx.data();
         let memory = env
             .try_memory_view(&ctx)
-            .ok_or("failed to save stack: stack pointer overflow - unable to access the memory of the instance".to_string())?;
+            .ok_or_else(|| "failed to save stack: stack pointer overflow - unable to access the memory of the instance".to_string())?;
 
         let unwind_data_ptr: WasmPtr<__wasi_asyncify_t<M::Offset>, M> = WasmPtr::new(
             unwind_pointer

@@ -129,7 +129,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
         Span::current().record("poller_idx", poller_idx);
         FutexPoller {
             state: env.state.clone(),
-            woken: woken.clone(),
+            woken,
             poller_idx,
             futex_idx,
             expected,

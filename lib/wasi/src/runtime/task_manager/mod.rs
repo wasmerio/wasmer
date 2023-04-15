@@ -237,7 +237,7 @@ impl dyn VirtualTaskManager {
                         Ok(res) => res,
                         Err(exit_code) => {
                             env.thread.set_status_finished(Ok(exit_code));
-                            return Err(exit_code.into());
+                            return Err(exit_code);
                         }
                     };
 

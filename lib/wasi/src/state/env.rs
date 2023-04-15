@@ -391,6 +391,11 @@ impl WasiEnv {
 
     /// Returns true if this module is capable of deep sleep
     /// (needs asyncify to unwind and rewin)
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called from within a syscall
+    /// as it accessed objects that are a thread local (functions)
     pub unsafe fn capable_of_deep_sleep(&self) -> bool {
         if !self.control_plane.config().enable_asynchronous_threading {
             return false;
@@ -567,7 +572,7 @@ impl WasiEnv {
         let env = ctx.data();
         let inner = env
             .try_inner()
-            .ok_or(WasiError::Exit(Errno::Fault.into()))?;
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         if !inner.signal_set {
             let signals = env.thread.pop_signals();
             let signal_cnt = signals.len();
@@ -603,7 +608,7 @@ impl WasiEnv {
         let env = ctx.data();
         let inner = env
             .try_inner()
-            .ok_or(WasiError::Exit(Errno::Fault.into()))?;
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         if !inner.signal_set {
             return Ok(Ok(false));
         }
@@ -625,7 +630,7 @@ impl WasiEnv {
         let env = ctx.data();
         let inner = env
             .try_inner()
-            .ok_or(WasiError::Exit(Errno::Fault.into()))?;
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;

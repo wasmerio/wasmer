@@ -30,7 +30,6 @@ pub fn proc_join<M: MemorySize + 'static>(
     // This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
     let ret_result = {
-        let status_ptr = status_ptr.clone();
         move |ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
             let mut ret = Errno::Success;
 

@@ -193,6 +193,11 @@ impl WasiFunctionEnv {
         Ok(resolver)
     }
 
+    /// # Safety
+    ///
+    /// This function should only be called from within a syscall
+    /// as it can potentially execute local thread variable cleanup
+    /// code
     pub unsafe fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup - destroying local thread variables",
