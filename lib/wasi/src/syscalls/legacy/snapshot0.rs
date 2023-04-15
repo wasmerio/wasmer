@@ -23,51 +23,8 @@ pub fn fd_filestat_get(
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
     let env = ctx.data();
-<<<<<<< HEAD
     let memory = unsafe { env.memory_view(&ctx) };
-    // TODO: understand what's happening inside this function, then do the correct thing
-
-    // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
-    // The edge case of this cenv.mausing an OOB is not handled, if the new field is OOB, then the entire
-    // memory access will fail.
-    let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
-
-    // Copy the data including the extra data
-    let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
-
-    // Set up complete, make the call with the pointer that will write to the
-    // struct and some unrelated memory after the struct.
-    let result = syscalls::fd_filestat_get::<Memory32>(ctx.as_mut(), fd, new_buf);
-
-    // reborrow memory
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-
-    // get the values written to memory
-    let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
-    // translate the new struct into the old struct in host memory
-    let old_stat = Snapshot0Filestat {
-        st_dev: new_filestat.st_dev,
-        st_ino: new_filestat.st_ino,
-        st_filetype: new_filestat.st_filetype,
-        st_nlink: new_filestat.st_nlink as u32,
-        st_size: new_filestat.st_size,
-        st_atim: new_filestat.st_atim,
-        st_mtim: new_filestat.st_mtim,
-        st_ctim: new_filestat.st_ctim,
-    };
-
-    // write back the original values at the pointer's memory locations
-    // (including the memory unrelated to the pointer)
-    wasi_try_mem!(new_buf.deref(&memory).write(new_filestat_setup));
-
-    // Now that this memory is back as it was, write the translated filestat
-    // into memory leaving it as it should be
-    wasi_try_mem!(buf.deref(&memory).write(old_stat));
-=======
-    let memory = env.memory_view(&ctx);
     let result = syscalls::fd_filestat_get_old::<Memory32>(ctx.as_mut(), fd, buf);
->>>>>>> asynchronous-threading
 
     result
 }
@@ -86,29 +43,7 @@ pub fn path_filestat_get(
     let memory = unsafe { env.memory_view(&ctx) };
 
     let result =
-<<<<<<< HEAD
-        syscalls::path_filestat_get::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, new_buf);
-
-    // need to re-borrow
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-    let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
-    let old_stat = Snapshot0Filestat {
-        st_dev: new_filestat.st_dev,
-        st_ino: new_filestat.st_ino,
-        st_filetype: new_filestat.st_filetype,
-        st_nlink: new_filestat.st_nlink as u32,
-        st_size: new_filestat.st_size,
-        st_atim: new_filestat.st_atim,
-        st_mtim: new_filestat.st_mtim,
-        st_ctim: new_filestat.st_ctim,
-    };
-
-    wasi_try_mem!(new_buf.deref(&memory).write(new_filestat_setup));
-    wasi_try_mem!(buf.deref(&memory).write(old_stat));
-=======
         syscalls::path_filestat_get_old::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, buf);
->>>>>>> asynchronous-threading
 
     result
 }
