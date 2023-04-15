@@ -15,12 +15,7 @@ use crate::{
     Memory32, MemorySize, WasiEnv, WasiError,
 };
 
-/// Wrapper around `syscalls::fd_filestat_get` with extra logic to handle the size
-/// difference of `wasi_filestat_t`
-///
-/// WARNING: this function involves saving, clobbering, and restoring unrelated
-/// Wasm memory.  If the memory clobbered by the current syscall is also used by
-/// that syscall, then it may break.
+/// Wrapper around `syscalls::fd_filestat_get` for old Snapshot0
 #[instrument(level = "debug", skip_all, ret)]
 pub fn fd_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
@@ -28,6 +23,7 @@ pub fn fd_filestat_get(
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
     let env = ctx.data();
+<<<<<<< HEAD
     let memory = unsafe { env.memory_view(&ctx) };
     // TODO: understand what's happening inside this function, then do the correct thing
 
@@ -68,12 +64,15 @@ pub fn fd_filestat_get(
     // Now that this memory is back as it was, write the translated filestat
     // into memory leaving it as it should be
     wasi_try_mem!(buf.deref(&memory).write(old_stat));
+=======
+    let memory = env.memory_view(&ctx);
+    let result = syscalls::fd_filestat_get_old::<Memory32>(ctx.as_mut(), fd, buf);
+>>>>>>> asynchronous-threading
 
     result
 }
 
-/// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
-/// difference of `wasi_filestat_t`
+/// Wrapper around `syscalls::path_filestat_get` for old Snapshot0
 #[instrument(level = "debug", skip_all, ret)]
 pub fn path_filestat_get(
     mut ctx: FunctionEnvMut<WasiEnv>,
@@ -83,16 +82,11 @@ pub fn path_filestat_get(
     path_len: u32,
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
-    // TODO: understand what's happening inside this function, then do the correct thing
-
-    // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
-    let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
-    let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
-
     let result =
+<<<<<<< HEAD
         syscalls::path_filestat_get::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, new_buf);
 
     // need to re-borrow
@@ -112,6 +106,9 @@ pub fn path_filestat_get(
 
     wasi_try_mem!(new_buf.deref(&memory).write(new_filestat_setup));
     wasi_try_mem!(buf.deref(&memory).write(old_stat));
+=======
+        syscalls::path_filestat_get_old::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, buf);
+>>>>>>> asynchronous-threading
 
     result
 }

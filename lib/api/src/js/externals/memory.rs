@@ -181,10 +181,7 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 view.length()
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                view.length() as u64,
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _)
             .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) });
@@ -208,10 +205,7 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 view.length()
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                view.length() as u64,
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
         view.subarray(offset as _, end as _)
@@ -233,10 +227,7 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 view.length()
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                view.length() as u64,
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _).copy_from(data);
 

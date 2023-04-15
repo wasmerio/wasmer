@@ -23,10 +23,7 @@ where
                 end,
                 slice.buffer.0.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                slice.buffer.0.len as u64,
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf = unsafe {
             let buf_ptr: *mut u8 = slice.buffer.0.base.add(slice.offset as usize);
@@ -58,10 +55,7 @@ where
                 end,
                 ptr.buffer.0.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                ptr.buffer.0.len as u64,
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let val = unsafe {
             let val_ptr: *mut u8 = ptr.buffer.0.base.add(ptr.offset as usize);

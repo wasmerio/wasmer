@@ -826,7 +826,7 @@ fn generate_import_object_wasix64_v1(
 
 fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
     match err {
-        MemoryAccessError::HeapOutOfBounds(..) => Errno::Memviolation,
+        MemoryAccessError::HeapOutOfBounds => Errno::Memviolation,
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
         _ => Errno::Unknown,
@@ -835,7 +835,7 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
 
 fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
     match err {
-        MemoryAccessError::HeapOutOfBounds(..) => BusErrno::Memviolation,
+        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
         MemoryAccessError::Overflow => BusErrno::Memviolation,
         MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
         _ => BusErrno::Unknown,
