@@ -133,11 +133,7 @@ impl Module {
         // Ensure all imports come from the same context.
         for import in imports {
             if !import.is_from_store(store) {
-                return Err(InstantiationError::DifferentStores(
-                    format!("{:?}", import),
-                    import.store_id(),
-                    store.objects_mut().id(),
-                ));
+                return Err(InstantiationError::DifferentStores);
             }
         }
         let mut store_mut = store.as_store_mut();

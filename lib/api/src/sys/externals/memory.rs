@@ -108,10 +108,7 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 self.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                self.len.try_into().unwrap(),
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
             volatile_memcpy_read(self.base.add(offset as usize), buf.as_mut_ptr(), buf.len());
@@ -135,10 +132,7 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 self.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                self.len.try_into().unwrap(),
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
         unsafe {
@@ -160,10 +154,7 @@ impl<'a> MemoryBuffer<'a> {
                 end,
                 self.len
             );
-            return Err(MemoryAccessError::HeapOutOfBounds(
-                end,
-                self.len.try_into().unwrap(),
-            ));
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
         unsafe {
             volatile_memcpy_write(data.as_ptr(), self.base.add(offset as usize), data.len());
