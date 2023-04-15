@@ -12,6 +12,11 @@ use crate::{
     InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
 
+/// The default stack size for WASIX
+/// (this is only used for programs that have no stack pointer)
+const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
+const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
+
 #[derive(Clone)]
 pub struct WasiFunctionEnv {
     pub env: FunctionEnv<WasiEnv>,
@@ -149,10 +154,10 @@ impl WasiFunctionEnv {
                 match stack_pointer.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
-                    _ => 0,
+                    _ => DEFAULT_STACK_BASE,
                 }
             } else {
-                0
+                DEFAULT_STACK_BASE
             };
             if stack_base == 0 {
                 return Err(ExportError::Missing(
