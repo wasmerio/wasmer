@@ -123,10 +123,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
 
         // We insert the futex before we check the condition variable to avoid
         // certain race conditions
-        let futex = guard
-            .futexes
-            .entry(futex_idx)
-            .or_insert_with(|| Default::default());
+        let futex = guard.futexes.entry(futex_idx).or_default();
         futex.wakers.insert(poller_idx, Default::default());
 
         Span::current().record("poller_idx", poller_idx);

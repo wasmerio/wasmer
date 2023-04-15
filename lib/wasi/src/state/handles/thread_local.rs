@@ -98,7 +98,6 @@ impl WasiInstanceHandlesPointer {
     }
     pub fn get_mut(&self) -> Option<WasiInstanceGuardMut<'_>> {
         self.id
-            .clone()
             .into_iter()
             .filter_map(|id| {
                 THREAD_LOCAL_INSTANCE_HANDLES.with(|map| {
