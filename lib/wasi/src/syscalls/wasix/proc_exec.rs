@@ -1,3 +1,5 @@
+use wasmer::FromToNativeWasmType;
+
 use super::*;
 use crate::{
     os::task::{OwnedTaskStatus, TaskStatus},
@@ -26,13 +28,15 @@ pub fn proc_exec<M: MemorySize>(
     WasiEnv::process_signals_and_exit(&mut ctx)?;
 
     // If we were just restored the stack then we were woken after a deep sleep
-    if handle_rewind::<M>(&mut ctx) {
+    if let Some(exit_code) = unsafe { handle_rewind::<M, i32>(&mut ctx) } {
         // We should never get here as the process will be termined
         // in the `WasiEnv::process_signals_and_exit()` call
-        return Err(WasiError::Exit(Errno::Unknown.into()));
+        let exit_code = ExitCode::from_native(exit_code);
+        ctx.data().process.terminate(exit_code);
+        return Err(WasiError::Exit(exit_code));
     }
 
-    let memory = ctx.data().memory_view(&ctx);
+    let memory = unsafe { ctx.data().memory_view(&ctx) };
     let mut name = name.read_utf8_string(&memory, name_len).map_err(|err| {
         warn!("failed to execve as the name could not be read - {}", err);
         WasiError::Exit(Errno::Inval.into())
@@ -59,7 +63,8 @@ pub fn proc_exec<M: MemorySize>(
 
     // Get the current working directory
     let (_, cur_dir) = {
-        let (memory, state, inodes) = ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0);
+        let (memory, state, inodes) =
+            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
         match state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD) {
             Ok(a) => a,
             Err(err) => {
@@ -132,11 +137,11 @@ pub fn proc_exec<M: MemorySize>(
                                     "failed to execve as the process could not be spawned (vfork) - {}",
                                     err
                                 );
-                                let _ = stderr_write(
+                                let _ = unsafe { stderr_write(
                                     &ctx,
                                     format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
                                         .as_bytes(),
-                                ).await;
+                                ).await };
                             }
                         }
                     })
@@ -144,44 +149,22 @@ pub fn proc_exec<M: MemorySize>(
             }
         };
 
-        let mut memory_stack = vfork.memory_stack;
-        let rewind_stack = vfork.rewind_stack;
-        let store_data = vfork.store_data;
-
-        // If the return value offset is within the memory stack then we need
-        // to update it here rather than in the real memory
-        let val_bytes = child_pid.raw().to_ne_bytes();
-        let pid_offset: u64 = vfork.pid_offset;
-        if pid_offset >= stack_lower && (pid_offset + val_bytes.len() as u64) <= stack_upper {
-            // Make sure its within the "active" part of the memory stack
-            let offset = stack_upper - pid_offset;
-            if (offset as usize + val_bytes.len()) > memory_stack.len() {
-                warn!(
-                    "vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
-                    offset,
-                    memory_stack.len()
-                );
-            } else {
-                // Update the memory stack with the new PID
-                let pstart = memory_stack.len() - offset as usize;
-                let pend = pstart + val_bytes.len();
-                let pbytes = &mut memory_stack[pstart..pend];
-                pbytes.clone_from_slice(&val_bytes);
-            }
-        } else {
-            warn!(
-                "vfork failed - the return value (pid) is not being returned on the stack - which is not supported",
-            );
-        }
-
         // Jump back to the vfork point and current on execution
+        // note: fork does not return any values hence passing `()`
+        let memory_stack = vfork.memory_stack.freeze();
+        let rewind_stack = vfork.rewind_stack.freeze();
+        let store_data = vfork.store_data;
         unwind::<M, _>(ctx, move |mut ctx, _, _| {
             // Rewind the stack
-            match rewind::<M>(
+            match rewind::<M, _>(
                 ctx,
-                memory_stack.freeze(),
-                rewind_stack.freeze(),
+                memory_stack,
+                rewind_stack,
                 store_data,
+                ForkResult {
+                    pid: child_pid.raw() as Pid,
+                    ret: Errno::Success,
+                },
             ) {
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
@@ -243,25 +226,22 @@ pub fn proc_exec<M: MemorySize>(
                 let thread = env.thread.clone();
 
                 // The poller will wait for the process to actually finish
-                let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
+                let res = __asyncify_with_deep_sleep::<M, _, _>(
                     ctx,
-                    None,
                     Duration::from_millis(50),
                     async move {
                         process
                             .wait_finished()
                             .await
                             .unwrap_or_else(|_| Errno::Child.into())
-                    },
-                    move |_, _, res| {
-                        let exit_code = res.unwrap_or_else(ExitCode::Errno);
-                        thread.set_status_finished(Ok(exit_code));
-                        Ok(())
+                            .to_native()
                     },
                 )?;
                 match res {
-                    AsyncifyAction::Finish(mut ctx) => {
+                    AsyncifyAction::Finish(mut ctx, result) => {
                         // When we arrive here the process should already be terminated
+                        let exit_code = ExitCode::from_native(result);
+                        ctx.data().process.terminate(exit_code);
                         WasiEnv::process_signals_and_exit(&mut ctx)?;
                         Err(WasiError::Exit(Errno::Unknown.into()))
                     }

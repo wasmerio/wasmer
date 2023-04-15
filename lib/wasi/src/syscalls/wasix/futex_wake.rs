@@ -15,7 +15,7 @@ pub fn futex_wake<M: MemorySize>(
     ret_woken: WasmPtr<Bool, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state.deref();
 
     let pointer: u64 = wasi_try!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));

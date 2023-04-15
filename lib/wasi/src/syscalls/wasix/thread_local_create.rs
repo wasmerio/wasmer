@@ -26,7 +26,7 @@ pub fn thread_local_create<M: MemorySize>(
         key
     };
 
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(ret_key.write(&memory, key));
     Errno::Success
 }

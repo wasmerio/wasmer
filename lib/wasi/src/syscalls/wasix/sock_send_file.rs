@@ -188,7 +188,7 @@ pub fn sock_send_file<M: MemorySize>(
         }
         Span::current().record("nsent", total_written);
 
-        let memory = env.memory_view(&ctx);
+        let memory = unsafe { env.memory_view(&ctx) };
         wasi_try_mem_ok!(ret_sent.write(&memory, total_written as Filesize));
 
         Ok(Errno::Success)

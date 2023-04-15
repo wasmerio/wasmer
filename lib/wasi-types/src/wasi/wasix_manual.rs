@@ -1,3 +1,5 @@
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
 
 use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
@@ -179,7 +181,7 @@ unsafe impl ValueType for StackSnapshot {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub union JoinStatusUnion {
-    pub nothing_errno: Errno,
+    pub nothing: u8,
     pub exit_normal: Errno,
     pub exit_signal: ErrnoSignal,
     pub stopped: Signal,
@@ -196,7 +198,7 @@ impl core::fmt::Debug for JoinStatus {
         let mut f = binding.field("tag", &self.tag);
         f = unsafe {
             match self.tag {
-                JoinStatusType::Nothing => f.field("nothing_errno", &self.u.nothing_errno),
+                JoinStatusType::Nothing => f.field("nothing", &self.u.nothing),
                 JoinStatusType::ExitNormal => f.field("exit_normal", &self.u.exit_normal),
                 JoinStatusType::ExitSignal => f.field("exit_signal", &self.u.exit_signal),
                 JoinStatusType::Stopped => f.field("stopped", &self.u.stopped),
@@ -242,6 +244,7 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExitCode {
     Errno(Errno),
     Other(i32),

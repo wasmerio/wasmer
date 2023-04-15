@@ -16,7 +16,7 @@ pub fn stack_restore<M: MemorySize>(
 ) -> Result<(), WasiError> {
     // Read the snapshot from the stack
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let snapshot = match snapshot_ptr.read(&memory) {
         Ok(a) => {
             trace!("with_ret={}, hash={}, user={}", val, a.hash, a.user);
@@ -36,7 +36,7 @@ pub fn stack_restore<M: MemorySize>(
             env.thread.get_snapshot(snapshot.hash)
         {
             let env = ctx.data();
-            let memory = env.memory_view(&ctx);
+            let memory = unsafe { env.memory_view(&ctx) };
 
             // If the return value offset is within the memory stack then we need
             // to update it here rather than in the real memory
@@ -92,7 +92,7 @@ pub fn stack_restore<M: MemorySize>(
             // so that the execution can end here and continue elsewhere.
             let pid = ctx.data().pid();
             let tid = ctx.data().tid();
-            match rewind::<M>(ctx, memory_stack.freeze(), rewind_stack, store_data) {
+            match rewind::<M, _>(ctx, memory_stack.freeze(), rewind_stack, store_data, ()) {
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
                     warn!("failed to rewind the stack - errno={}", err);

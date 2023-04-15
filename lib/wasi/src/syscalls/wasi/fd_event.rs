@@ -11,7 +11,7 @@ pub fn fd_event<M: MemorySize>(
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, state, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, state, mut inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let is_semaphore = flags & EVENT_FD_FLAGS_SEMAPHORE != 0;
     let kind =

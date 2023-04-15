@@ -1,3 +1,5 @@
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
 use wasmer::{MemorySize, ValueType};
 // TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
@@ -93,6 +95,7 @@ impl core::fmt::Debug for Clockid {
 #[doc = " merely for alignment with POSIX."]
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Errno {
     #[doc = " No error occurred. System call completed successfully."]
     Success,
@@ -875,6 +878,7 @@ pub type Userdata = u64;
 #[doc = " Type of a subscription to an event or its occurrence."]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Eventtype {
     #[doc = " The time value of clock `subscription_clock::id` has"]
     #[doc = " reached timestamp `subscription_clock::timeout`."]
@@ -982,6 +986,7 @@ impl core::fmt::Debug for Preopentype {
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " The state of the file descriptor subscribed to with"]
     #[doc = " `eventtype::fd_read` or `eventtype::fd_write`."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Eventrwflags : u16 {
         #[doc = " The peer of this socket has closed or disconnected."]
         const FD_READWRITE_HANGUP = 1 << 0;
@@ -998,6 +1003,7 @@ impl Eventrwflags {
 #[doc = " `eventtype::fd_write` variants"]
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct EventFdReadwrite {
     #[doc = " The number of bytes available for reading or writing."]
     pub nbytes: Filesize,

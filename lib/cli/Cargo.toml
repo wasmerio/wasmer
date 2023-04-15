@@ -83,6 +83,7 @@ tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
 wapm-targz-to-pirita = "0.2.0"
+bytes = "1"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }

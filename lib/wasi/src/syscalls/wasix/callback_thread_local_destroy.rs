@@ -14,19 +14,18 @@ pub fn callback_thread_local_destroy<M: MemorySize>(
     name_len: M::Offset,
 ) -> Result<(), MemoryAccessError> {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
-    let name = unsafe { name.read_utf8_string(&memory, name_len)? };
+    let name = name.read_utf8_string(&memory, name_len)?;
     Span::current().record("name", name.as_str());
 
-    let funct = env
-        .inner()
+    let funct = unsafe { env.inner() }
         .instance
         .exports
         .get_typed_function(&ctx, &name)
         .ok();
     Span::current().record("funct_is_some", funct.is_some());
 
-    ctx.data_mut().inner_mut().thread_local_destroy = funct;
+    ctx.data_mut().try_inner_mut().unwrap().thread_local_destroy = funct;
     Ok(())
 }

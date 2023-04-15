@@ -11,7 +11,7 @@ pub fn path_remove_directory<M: MemorySize>(
 ) -> Errno {
     // TODO check if fd is a dir, ensure it's within sandbox, etc.
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let base_dir = wasi_try!(state.fs.get_fd(fd));
     let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };

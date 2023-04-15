@@ -3,32 +3,43 @@ use std::task::Waker;
 use super::*;
 use crate::syscalls::*;
 
-#[derive(Clone)]
+/// Poller returns true if its triggered and false if it times out
 struct FutexPoller {
     state: Arc<WasiState>,
     woken: Arc<Mutex<bool>>,
     poller_idx: u64,
     futex_idx: u64,
     expected: u32,
+    timeout: Option<Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>>,
 }
 impl Future for FutexPoller {
-    type Output = Result<(), Errno>;
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), Errno>> {
+    type Output = bool;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<bool> {
         let mut guard = self.state.futexs.lock().unwrap();
 
         // If the futex itself is no longer registered then it was likely
         // woken by a wake call
         let futex = match guard.futexes.get_mut(&self.futex_idx) {
             Some(f) => f,
-            None => return Poll::Ready(Ok(())),
+            None => return Poll::Ready(true),
         };
         let waker = match futex.wakers.get_mut(&self.poller_idx) {
             Some(w) => w,
-            None => return Poll::Ready(Ok(())),
+            None => return Poll::Ready(true),
         };
 
         // Register the waker
         waker.replace(cx.waker().clone());
+
+        // Check for timeout
+        drop(guard);
+        if let Some(timeout) = self.timeout.as_mut() {
+            let timeout = timeout.as_mut();
+            if timeout.poll(cx).is_ready() {
+                self.timeout.take();
+                return Poll::Ready(false);
+            }
+        }
 
         // We will now wait to be woken
         Poll::Pending
@@ -51,51 +62,6 @@ impl Drop for FutexPoller {
     }
 }
 
-/// The futex after struct will write the response of whether the
-/// futex was actually woken or not to the return memory of the syscall
-/// callee after the wake event has been triggered.
-///
-/// It is encased in this struct so that it can be passed around
-/// between threads and execute after the threads are rewound (in an
-/// asynchronous threading situation).
-///
-/// The same implementation is used for both synchronous and
-/// asynchronous threading.
-///
-/// It is not possible to include this logic directly in the poller
-/// as the poller runs before the stack is rewound and the memory
-/// that this writes to is often a pointer to the stack hence a
-/// rewind would override whatever is written.
-struct FutexAfter<M>
-where
-    M: MemorySize,
-{
-    woken: Arc<Mutex<bool>>,
-    ret_woken: WasmPtr<Bool, M>,
-}
-impl<M> RewindPostProcess for FutexAfter<M>
-where
-    M: MemorySize,
-{
-    fn finish(
-        &mut self,
-        env: &WasiEnv,
-        store: &dyn AsStoreRef,
-        res: Result<(), Errno>,
-    ) -> Result<(), ExitCode> {
-        let woken = self.woken.lock().unwrap();
-        if *woken {
-            let view = env.memory_view(store);
-            self.ret_woken
-                .write(&view, Bool::True)
-                .map_err(mem_error_to_wasi)
-                .map_err(ExitCode::Errno)
-        } else {
-            Ok(())
-        }
-    }
-}
-
 /// Wait for a futex_wake operation to wake us.
 /// Returns with EINVAL if the futex doesn't hold the expected value.
 /// Returns false on timeout, and true in all other cases.
@@ -105,7 +71,7 @@ where
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
-#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+//#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
@@ -119,7 +85,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // and thus we repeat all the checks again, we do not immediately
     // exit here as it could be the case that we were woken but the
     // expected value does not match
-    if handle_rewind::<M>(&mut ctx) {
+    if let Some(_woken) = unsafe { handle_rewind::<M, bool>(&mut ctx) } {
         // fall through so the normal checks kick in, this will
         // ensure that the expected value has changed before
         // this syscall returns even if it was woken
@@ -128,7 +94,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // Determine the timeout
     let mut env = ctx.data();
     let timeout = {
-        let memory = env.memory_view(&ctx);
+        let memory = unsafe { env.memory_view(&ctx) };
         wasi_try_mem_ok!(timeout.read(&memory))
     };
     let timeout = match timeout.tag {
@@ -152,6 +118,9 @@ pub fn futex_wait<M: MemorySize + 'static>(
         guard.poller_seed += 1;
         let poller_idx = guard.poller_seed;
 
+        // Create the timeout if one exists
+        let timeout = timeout.map(|timeout| env.tasks().sleep_now(timeout));
+
         // We insert the futex before we check the condition variable to avoid
         // certain race conditions
         let futex = guard
@@ -167,11 +136,12 @@ pub fn futex_wait<M: MemorySize + 'static>(
             poller_idx,
             futex_idx,
             expected,
+            timeout,
         }
     };
 
     // We check if the expected value has changed
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let val = wasi_try_mem_ok!(futex_ptr.read(&memory));
     if val != expected {
         // We have been triggered so do not go into a wait
@@ -183,17 +153,17 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // then the value is not set) - the poller will set it to true
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
-    // Create a poller which will register ourselves against
-    // this futex event and check when it has changed
-    let after = FutexAfter { woken, ret_woken };
-
     // We use asyncify on the poller and potentially go into deep sleep
-    __asyncify_with_deep_sleep::<M, _>(
-        ctx,
-        timeout,
-        Duration::from_millis(50),
-        Box::pin(poller),
-        after,
-    )?;
+    let res =
+        __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), Box::pin(poller))?;
+    if let AsyncifyAction::Finish(ctx, res) = res {
+        let mut env = ctx.data();
+        let memory = unsafe { env.memory_view(&ctx) };
+        if res {
+            wasi_try_mem_ok!(ret_woken.write(&memory, Bool::True));
+        } else {
+            wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
+        }
+    }
     Ok(Errno::Success)
 }

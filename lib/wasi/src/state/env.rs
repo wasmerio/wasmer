@@ -391,7 +391,7 @@ impl WasiEnv {
 
     /// Returns true if this module is capable of deep sleep
     /// (needs asyncify to unwind and rewin)
-    pub fn capable_of_deep_sleep(&self) -> bool {
+    pub unsafe fn capable_of_deep_sleep(&self) -> bool {
         if !self.control_plane.config().enable_asynchronous_threading {
             return false;
         }
@@ -559,13 +559,16 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub fn process_signals_and_exit(
+    pub(crate) fn process_signals_and_exit(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        if !env.inner().signal_set {
+        let inner = env
+            .try_inner()
+            .ok_or(WasiError::Exit(Errno::Fault.into()))?;
+        if !inner.signal_set {
             let signals = env.thread.pop_signals();
             let signal_cnt = signals.len();
             for sig in signals {
@@ -592,19 +595,22 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up
-    pub fn process_signals(
+    pub(crate) fn process_signals(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        if !env.inner().signal_set {
+        let inner = env
+            .try_inner()
+            .ok_or(WasiError::Exit(Errno::Fault.into()))?;
+        if !inner.signal_set {
             return Ok(Ok(false));
         }
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if env.inner().signal.as_ref().is_some() {
+        if inner.signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
             Ok(Ok(Self::process_signals_internal(ctx, signals)?))
         } else {
@@ -612,12 +618,15 @@ impl WasiEnv {
         }
     }
 
-    pub fn process_signals_internal(
+    pub(crate) fn process_signals_internal(
         ctx: &mut FunctionEnvMut<'_, Self>,
         mut signals: Vec<Signal>,
     ) -> Result<bool, WasiError> {
         let env = ctx.data();
-        if let Some(handler) = env.inner().signal.clone() {
+        let inner = env
+            .try_inner()
+            .ok_or(WasiError::Exit(Errno::Fault.into()))?;
+        if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;
             let has_signal_interval = {
@@ -705,18 +714,23 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub(crate) fn inner(&self) -> WasiInstanceGuard<'_> {
+    /// This has been marked as unsafe as it will panic if its executed
+    /// on the wrong thread or before the inner is set
+    pub(crate) unsafe fn inner(&self) -> WasiInstanceGuard<'_> {
         self.inner.get().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
     }
 
     /// Providers safe access to the initialized part of WasiEnv
+    pub(crate) fn try_inner(&self) -> Option<WasiInstanceGuard<'_>> {
+        self.inner.get()
+    }
+
+    /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub(crate) fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
-        self.inner.get_mut().expect(
-            "You must initialize the WasiEnv before using it and can not pass it between threads",
-        )
+    pub(crate) fn try_inner_mut(&mut self) -> Option<WasiInstanceGuardMut<'_>> {
+        self.inner.get_mut()
     }
 
     /// Sets the inner object (this should only be called when
@@ -742,20 +756,37 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn memory(&self) -> WasiInstanceGuardMemory<'_> {
-        self.inner().memory()
+    pub(crate) fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
+        self.try_inner().map(|i| i.memory())
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
-        self.memory().view(store)
+    pub(crate) fn try_memory_view<'a>(
+        &self,
+        store: &'a (impl AsStoreRef + ?Sized),
+    ) -> Option<MemoryView<'a>> {
+        self.try_memory().map(|m| m.view(store))
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    /// This has been marked as unsafe as it will panic if its executed
+    /// on the wrong thread or before the inner is set
+    pub(crate) unsafe fn memory_view<'a>(
+        &self,
+        store: &'a (impl AsStoreRef + ?Sized),
+    ) -> MemoryView<'a> {
+        self.try_memory_view(store).expect(
+            "You must initialize the WasiEnv before using it and can not pass it between threads",
+        )
     }
 
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
-    pub(crate) fn memory_clone(&self) -> Memory {
-        self.inner().memory_clone()
+    #[allow(dead_code)]
+    pub(crate) fn try_memory_clone(&self) -> Option<Memory> {
+        self.try_inner().map(|i| i.memory_clone())
     }
 
     /// Get the WASI state
@@ -787,7 +818,7 @@ impl WasiEnv {
         self.state.std_dev_get(fd)
     }
 
-    pub(crate) fn get_memory_and_wasi_state<'a>(
+    pub(crate) unsafe fn get_memory_and_wasi_state<'a>(
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
@@ -797,7 +828,7 @@ impl WasiEnv {
         (memory, state)
     }
 
-    pub(crate) fn get_memory_and_wasi_state_and_inodes<'a>(
+    pub(crate) unsafe fn get_memory_and_wasi_state_and_inodes<'a>(
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,

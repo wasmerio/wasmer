@@ -3,9 +3,10 @@ use std::{pin::Pin, sync::Arc};
 use crate::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
-    syscalls::rewind,
+    syscalls::rewind_ext,
     RewindState, VirtualBusError, WasiError, WasiRuntimeError,
 };
+use bytes::Bytes;
 use futures::Future;
 use tracing::*;
 use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
@@ -96,9 +97,7 @@ pub fn spawn_exec_module(
                 // Perform the initialization
                 let ctx = {
                     // If this module exports an _initialize function, run that first.
-                    if let Ok(initialize) = ctx
-                        .data(&store)
-                        .inner()
+                    if let Ok(initialize) = unsafe { ctx.data(&store).inner() }
                         .instance
                         .exports
                         .get_function("_initialize")
@@ -136,8 +135,7 @@ pub fn spawn_exec_module(
 }
 
 fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
-    ctx.data(store)
-        .inner()
+    unsafe { ctx.data(store).inner() }
         .instance
         .exports
         .get_function("_start")
@@ -150,7 +148,7 @@ fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: Option<(RewindState, Result<(), Errno>)>,
+    rewind_state: Option<(RewindState, Bytes)>,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
@@ -158,36 +156,26 @@ fn call_module(
     handle.thread.set_status_running();
 
     // If we need to rewind then do so
-    if let Some((mut rewind_state, trigger_res)) = rewind_state {
+    if let Some((rewind_state, rewind_result)) = rewind_state {
         if rewind_state.is_64bit {
-            if let Err(exit_code) =
-                rewind_state.rewinding_finish::<Memory64>(&ctx, &mut store, trigger_res)
-            {
-                ctx.data(&store).blocking_cleanup(Some(exit_code));
-                return;
-            }
-            let res = rewind::<Memory64>(
+            let res = rewind_ext::<Memory64>(
                 ctx.env.clone().into_mut(&mut store),
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
+                rewind_result,
             );
             if res != Errno::Success {
                 ctx.data(&store).blocking_cleanup(Some(res.into()));
                 return;
             }
         } else {
-            if let Err(exit_code) =
-                rewind_state.rewinding_finish::<Memory32>(&ctx, &mut store, trigger_res)
-            {
-                ctx.data(&store).blocking_cleanup(Some(exit_code));
-                return;
-            }
-            let res = rewind::<Memory32>(
+            let res = rewind_ext::<Memory32>(
                 ctx.env.clone().into_mut(&mut store),
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
+                rewind_result,
             );
             if res != Errno::Success {
                 ctx.data(&store).blocking_cleanup(Some(res.into()));
@@ -221,16 +209,16 @@ fn call_module(
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
                     let respawn = {
-                        move |ctx, store, trigger_res| {
+                        move |ctx, store, rewind_result| {
                             // Call the thread
-                            call_module(ctx, store, handle, Some((rewind, trigger_res)));
+                            call_module(ctx, store, handle, Some((rewind, rewind_result)));
                         }
                     };
 
                     // Spawns the WASM process after a trigger
-                    if let Err(err) =
+                    if let Err(err) = unsafe {
                         tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-                    {
+                    } {
                         debug!("failed to go into deep sleep - {}", err);
                     }
                     return;

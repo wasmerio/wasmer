@@ -42,7 +42,8 @@ pub fn path_open<M: MemorySize>(
         Span::current().record("follow_symlinks", true);
     }
     let env = ctx.data();
-    let (memory, mut state, mut inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state, mut inodes) =
+        unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     let path_len64: u64 = path_len.into();
     if path_len64 > 1024u64 * 1024u64 {

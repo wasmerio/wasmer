@@ -25,7 +25,7 @@ pub fn path_filestat_get<M: MemorySize>(
     buf: WasmPtr<Filestat, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
 

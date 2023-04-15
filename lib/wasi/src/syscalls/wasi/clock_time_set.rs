@@ -15,7 +15,7 @@ pub fn clock_time_set<M: MemorySize>(
     time: Timestamp,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let precision = 1 as Timestamp;
     let t_now = wasi_try!(platform_clock_time_get(clock_id, precision));

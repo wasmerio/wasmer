@@ -14,23 +14,20 @@ pub fn callback_signal<M: MemorySize>(
     name_len: M::Offset,
 ) -> Result<(), WasiError> {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
-    let name = unsafe {
-        match name.read_utf8_string(&memory, name_len) {
-            Ok(a) => a,
-            Err(err) => {
-                warn!(
-                    "failed to access memory that holds the name of the signal callback: {}",
-                    err
-                );
-                return Ok(());
-            }
+    let memory = unsafe { env.memory_view(&ctx) };
+    let name = match name.read_utf8_string(&memory, name_len) {
+        Ok(a) => a,
+        Err(err) => {
+            warn!(
+                "failed to access memory that holds the name of the signal callback: {}",
+                err
+            );
+            return Ok(());
         }
     };
     Span::current().record("name", name.as_str());
 
-    let funct = env
-        .inner()
+    let funct = unsafe { env.inner() }
         .instance
         .exports
         .get_typed_function(&ctx, &name)
@@ -38,12 +35,12 @@ pub fn callback_signal<M: MemorySize>(
     Span::current().record("funct_is_some", funct.is_some());
 
     {
-        let mut inner = ctx.data_mut().inner_mut();
+        let mut inner = ctx.data_mut().try_inner_mut().unwrap();
         inner.signal = funct;
         inner.signal_set = true;
     }
 
-    let _ = WasiEnv::process_signals_and_exit(&mut ctx)?;
+    let _ = unsafe { WasiEnv::process_signals_and_exit(&mut ctx)? };
 
     Ok(())
 }

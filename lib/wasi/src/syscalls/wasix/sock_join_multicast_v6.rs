@@ -17,7 +17,7 @@ pub fn sock_join_multicast_v6<M: MemorySize>(
     iface: u32,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let multiaddr = wasi_try!(crate::net::read_ip_v6(&memory, multiaddr));
     wasi_try!(__sock_actor_mut(
         &mut ctx,

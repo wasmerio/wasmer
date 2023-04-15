@@ -32,7 +32,7 @@ pub fn sock_get_opt_time<M: MemorySize>(
     ));
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let time = match time {
         None => OptionTimestamp {

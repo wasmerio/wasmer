@@ -1,3 +1,5 @@
+use std::f32::consts::E;
+
 use super::*;
 use crate::{
     capture_snapshot,
@@ -36,13 +38,13 @@ pub fn thread_spawn<M: MemorySize>(
 ) -> Errno {
     // Now we use the environment and memory references
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let runtime = env.runtime.clone();
     let tasks = env.tasks().clone();
     let start_ptr_offset = start_ptr.offset();
 
     // We extract the memory which will be passed to the thread
-    let thread_memory = env.memory_clone();
+    let thread_memory = unsafe { env.inner() }.memory_clone();
 
     // Read the properties about the stack which we will use for asyncify
     let layout = {
@@ -83,7 +85,7 @@ pub fn thread_spawn<M: MemorySize>(
     let mut thread_env = env.clone();
     thread_env.thread = thread_handle.as_thread();
     thread_env.layout = layout;
-    thread_env.enable_deep_sleep = env.capable_of_deep_sleep();
+    thread_env.enable_deep_sleep = unsafe { env.capable_of_deep_sleep() };
 
     // This next function gets a context for the local thread and then
     // calls into the process
@@ -97,17 +99,17 @@ pub fn thread_spawn<M: MemorySize>(
 
     // If the process does not export a thread spawn function then obviously
     // we can't spawn a background thread
-    if env.inner().thread_spawn.is_none() {
+    if unsafe { env.inner() }.thread_spawn.is_none() {
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Errno::Notcapable;
     }
-    let thread_module = env.inner().module_clone();
+    let thread_module = unsafe { env.inner() }.module_clone();
     let snapshot = capture_snapshot(&mut ctx.as_store_mut());
     let spawn_type =
         crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
 
     // Write the thread ID to the return value
-    let memory = ctx.data().memory_view(&ctx);
+    let memory = unsafe { ctx.data().memory_view(&ctx) };
     wasi_try_mem!(ret_tid.write(&memory, thread_id));
 
     // Now spawn a thread
@@ -133,7 +135,7 @@ fn call_module<M: MemorySize>(
     mut store: Store,
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
-    rewind_state: Option<(RewindState, Result<(), Errno>)>,
+    rewind_state: Option<(RewindState, Bytes)>,
 ) -> u32 {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -142,7 +144,10 @@ fn call_module<M: MemorySize>(
     let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
         // We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
-        let spawn = env.data(&store).inner().thread_spawn.clone().unwrap();
+        let spawn = unsafe { env.data(&store).inner() }
+            .thread_spawn
+            .clone()
+            .unwrap();
         let tid = env.data(&store).tid();
         let call_ret = spawn.call(
             store,
@@ -179,22 +184,20 @@ fn call_module<M: MemorySize>(
         trace!("callback finished (ret={})", ret);
 
         // Clean up the environment
-        env.cleanup(store, Some(ret.into()));
+        unsafe { env.cleanup(store, Some(ret.into())) };
 
         // Return the result
         Ok(ret as u32)
     };
 
     // If we need to rewind then do so
-    if let Some((mut rewind_state, trigger_res)) = rewind_state {
-        if let Err(exit_code) = rewind_state.rewinding_finish::<M>(&ctx, &mut store, trigger_res) {
-            return exit_code.raw() as u32;
-        }
-        let res = rewind::<M>(
+    if let Some((rewind_state, rewind_result)) = rewind_state {
+        let res = rewind_ext::<M>(
             ctx.env.clone().into_mut(&mut store),
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
+            rewind_result,
         );
         if res != Errno::Success {
             return res as u32;
@@ -229,7 +232,9 @@ fn call_module<M: MemorySize>(
             };
 
             /// Spawns the WASM process after a trigger
-            tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger);
+            unsafe {
+                tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+            };
             Errno::Unknown as u32
         }
     }

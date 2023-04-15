@@ -6,6 +6,7 @@ use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
+use bytes::Bytes;
 use futures::Future;
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
@@ -22,16 +23,17 @@ pub enum SpawnMemoryType<'a> {
     CopyMemory(Memory, StoreRef<'a>),
 }
 
-pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Result<(), Errno>) + Send + 'static;
+pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
 
-pub type WasmResumeTrigger =
-    dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<(), Errno>> + Send + 'static>> + Send + Sync;
+pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<Bytes, ExitCode>> + Send + 'static>>
+    + Send
+    + Sync;
 
 /// The properties passed to the task
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
-    pub result: Result<(), Errno>,
+    pub result: Option<Result<Bytes, ExitCode>>,
 }
 
 /// Callback that will be invoked
@@ -166,7 +168,7 @@ impl dyn VirtualTaskManager {
     /// pulled from the worker pool that has a stateful thread local variable
     /// After the poller has successed
     #[doc(hidden)]
-    pub fn resume_wasm_after_poller(
+    pub unsafe fn resume_wasm_after_poller(
         &self,
         task: Box<WasmResumeTask>,
         ctx: WasiFunctionEnv,
@@ -179,7 +181,7 @@ impl dyn VirtualTaskManager {
             trigger: Pin<Box<AsyncifyFuture>>,
         }
         impl Future for AsyncifyPollerOwned {
-            type Output = Result<Result<(), Errno>, ExitCode>;
+            type Output = Result<Bytes, ExitCode>;
             fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let work = self.trigger.as_mut();
                 Poll::Ready(if let Poll::Ready(res) = work.poll(cx) {
@@ -189,8 +191,6 @@ impl dyn VirtualTaskManager {
                         tracing::debug!("exit runtime error - {}", err);
                         Errno::Child.into()
                     })));
-                } else if self.thread.has_signals_or_subscribe(cx.waker()) {
-                    Ok(Err(Errno::Intr))
                 } else {
                     return Poll::Pending;
                 })
@@ -204,9 +204,22 @@ impl dyn VirtualTaskManager {
         let thread = env.thread.clone();
         let env = env.clone();
 
+        let thread_inner = thread.clone();
         self.task_wasm(
             TaskWasm::new(
-                Box::new(move |props| task(props.ctx, props.store, props.result)),
+                Box::new(move |props| {
+                    let result = props
+                        .result
+                        .expect("If there is no result then its likely the trigger did not run");
+                    let result = match result {
+                        Ok(r) => r,
+                        Err(exit_code) => {
+                            thread.set_status_finished(Ok(exit_code));
+                            return;
+                        }
+                    };
+                    task(props.ctx, props.store, result)
+                }),
                 env.clone(),
                 module,
                 false,
@@ -215,7 +228,10 @@ impl dyn VirtualTaskManager {
             .with_snapshot(&snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {
-                    let mut poller = AsyncifyPollerOwned { thread, trigger };
+                    let mut poller = AsyncifyPollerOwned {
+                        thread: thread_inner,
+                        trigger,
+                    };
                     let res = Pin::new(&mut poller).await;
                     let res = match res {
                         Ok(res) => res,
@@ -226,7 +242,7 @@ impl dyn VirtualTaskManager {
                     };
 
                     tracing::trace!("deep sleep woken - {:?}", res);
-                    res
+                    Ok(res)
                 })
             })),
         )

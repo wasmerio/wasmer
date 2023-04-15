@@ -59,7 +59,7 @@ pub fn sock_recv<M: MemorySize>(
     Span::current().record("nread", bytes_read);
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(ro_flags.write(&memory, 0));
@@ -93,7 +93,7 @@ fn sock_recv_internal<M: MemorySize>(
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let mut env = ctx.data();
-    let memory = env.memory_view(ctx);
+    let memory = unsafe { env.memory_view(ctx) };
 
     let data = wasi_try_ok_ok!(__sock_asyncify(
         env,

@@ -6,7 +6,14 @@ use crate::{
     syscalls::*,
     WasiThreadHandle,
 };
+use serde::{Deserialize, Serialize};
 use wasmer::Memory;
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct ForkResult {
+    pub pid: Pid,
+    pub ret: Errno,
+}
 
 /// ### `proc_fork()`
 /// Forks the current process into a new subprocess. If the function
@@ -21,15 +28,15 @@ pub fn proc_fork<M: MemorySize>(
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     // If we were just restored then we need to return the value instead
-    if handle_rewind::<M>(&mut ctx) {
-        let view = ctx.data().memory_view(&ctx);
-        let ret_pid = pid_ptr.read(&view).unwrap_or(u32::MAX);
-        if ret_pid == 0 {
+    if let Some(result) = unsafe { handle_rewind::<M, ForkResult>(&mut ctx) } {
+        if result.pid == 0 {
             trace!("handle_rewind - i am child");
         } else {
-            trace!("handle_rewind - i am parent (child={})", ret_pid);
+            trace!("handle_rewind - i am parent (child={})", result.pid);
         }
-        return Ok(Errno::Success);
+        let memory = unsafe { ctx.data().memory_view(&ctx) };
+        wasi_try_mem_ok!(pid_ptr.write(&memory, result.pid));
+        return Ok(result.ret);
     }
     trace!(%copy_memory, "capturing");
 
@@ -55,7 +62,7 @@ pub fn proc_fork<M: MemorySize>(
         inner.children.push(child_env.process.clone());
     }
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     // Setup some properties in the child environment
     wasi_try_mem_ok!(pid_ptr.write(&memory, 0));
@@ -71,7 +78,6 @@ pub fn proc_fork<M: MemorySize>(
     // actually occurs
     if copy_memory == Bool::False {
         // Perform the unwind action
-        let pid_offset: u64 = pid_offset.into();
         return unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
             // Grab all the globals and serialize them
             let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
@@ -90,17 +96,20 @@ pub fn proc_fork<M: MemorySize>(
                 store_data: store_data.clone(),
                 env: Box::new(child_env),
                 handle: child_handle,
-                pid_offset,
             });
 
             // Carry on as if the fork had taken place (which basically means
             // it prevents to be the new process with the old one suspended)
             // Rewind the stack and carry on
-            match rewind::<M>(
+            match rewind::<M, _>(
                 ctx,
                 memory_stack.freeze(),
                 rewind_stack.freeze(),
                 store_data,
+                ForkResult {
+                    pid: 0,
+                    ret: Errno::Success,
+                },
             ) {
                 Errno::Success => OnCalledAction::InvokeAgain,
                 err => {
@@ -135,8 +144,8 @@ pub fn proc_fork<M: MemorySize>(
         let child_memory_stack = memory_stack.clone();
         let child_rewind_stack = rewind_stack.clone();
 
-        let module = ctx.data().inner().module_clone();
-        let memory = ctx.data().memory_clone();
+        let module = unsafe { ctx.data().inner() }.module_clone();
+        let memory = unsafe { ctx.data().inner() }.memory_clone();
         let spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());
 
         // Spawn a new process with this current execution environment
@@ -156,11 +165,15 @@ pub fn proc_fork<M: MemorySize>(
                     trace!("rewinding child");
                     let mut ctx = ctx.env.clone().into_mut(&mut store);
                     let (data, mut store) = ctx.data_and_store_mut();
-                    match rewind::<M>(
+                    match rewind::<M, _>(
                         ctx,
                         child_memory_stack.freeze(),
                         child_rewind_stack.freeze(),
                         store_data.clone(),
+                        ForkResult {
+                            pid: 0,
+                            ret: Errno::Success,
+                        },
                     ) {
                         Errno::Success => OnCalledAction::InvokeAgain,
                         err => {
@@ -193,43 +206,16 @@ pub fn proc_fork<M: MemorySize>(
                 .ok()
         };
 
-        // If the return value offset is within the memory stack then we need
-        // to update it here rather than in the real memory
-        let env = ctx.data();
-        let val_bytes = child_pid.raw().to_ne_bytes();
-        let pid_offset: u64 = pid_offset.into();
-        if pid_offset >= env.layout.stack_lower
-            && (pid_offset + val_bytes.len() as u64) <= env.layout.stack_upper
-        {
-            // Make sure its within the "active" part of the memory stack
-            let offset = env.layout.stack_upper - pid_offset;
-            if offset as usize > memory_stack.len() {
-                warn!(
-                        "failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
-                        offset,
-                        memory_stack.len()
-                    );
-                return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
-            }
-
-            // Update the memory stack with the new PID
-            let pstart = memory_stack.len() - offset as usize;
-            let pend = pstart + val_bytes.len();
-            let pbytes = &mut memory_stack[pstart..pend];
-            pbytes.clone_from_slice(&val_bytes);
-        } else {
-            warn!(
-                    "failed - the return value (pid) is not being returned on the stack - which is not supported"
-                );
-            return OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
-        }
-
         // Rewind the stack and carry on
-        match rewind::<M>(
+        match rewind::<M, _>(
             ctx,
             memory_stack.freeze(),
             rewind_stack.freeze(),
             store_data,
+            ForkResult {
+                pid: child_pid.raw() as Pid,
+                ret: Errno::Success,
+            },
         ) {
             Errno::Success => OnCalledAction::InvokeAgain,
             err => {
@@ -244,7 +230,7 @@ fn run<M: MemorySize>(
     ctx: WasiFunctionEnv,
     mut store: Store,
     child_handle: WasiThreadHandle,
-    rewind_state: Option<(RewindState, Result<(), Errno>)>,
+    rewind_state: Option<(RewindState, Bytes)>,
 ) -> ExitCode {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -252,15 +238,13 @@ fn run<M: MemorySize>(
     let tid = env.tid();
 
     // If we need to rewind then do so
-    if let Some((mut rewind_state, trigger_res)) = rewind_state {
-        if let Err(exit_code) = rewind_state.rewinding_finish::<M>(&ctx, &mut store, trigger_res) {
-            return exit_code;
-        }
-        let res = rewind::<M>(
+    if let Some((rewind_state, rewind_result)) = rewind_state {
+        let res = rewind_ext::<M>(
             ctx.env.clone().into_mut(&mut store),
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
+            rewind_result,
         );
         if res != Errno::Success {
             return res.into();
@@ -270,11 +254,14 @@ fn run<M: MemorySize>(
     let mut ret: ExitCode = Errno::Success.into();
     let err = if ctx.data(&store).thread.is_main() {
         trace!(%pid, %tid, "re-invoking main");
-        let start = ctx.data(&store).inner().start.clone().unwrap();
+        let start = unsafe { ctx.data(&store).inner() }.start.clone().unwrap();
         start.call(&mut store)
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
-        let start = ctx.data(&store).inner().thread_spawn.clone().unwrap();
+        let start = unsafe { ctx.data(&store).inner() }
+            .thread_spawn
+            .clone()
+            .unwrap();
         start.call(&mut store, 0, 0)
     };
     if let Err(err) = err {
@@ -289,13 +276,20 @@ fn run<M: MemorySize>(
                 let respawn = {
                     let tasks = tasks.clone();
                     let rewind_state = deep.rewind;
-                    move |ctx, store, trigger_res| {
-                        run::<M>(ctx, store, child_handle, Some((rewind_state, trigger_res)));
+                    move |ctx, store, rewind_result| {
+                        run::<M>(
+                            ctx,
+                            store,
+                            child_handle,
+                            Some((rewind_state, rewind_result)),
+                        );
                     }
                 };
 
                 /// Spawns the WASM process after a trigger
-                tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger);
+                unsafe {
+                    tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                };
                 return Errno::Success.into();
             }
             _ => {}
@@ -304,7 +298,7 @@ fn run<M: MemorySize>(
     trace!(%pid, %tid, "child exited (code = {})", ret);
 
     // Clean up the environment and return the result
-    ctx.cleanup((&mut store), Some(ret));
+    unsafe { ctx.cleanup((&mut store), Some(ret)) };
 
     // We drop the handle at the last moment which will close the thread
     drop(child_handle);

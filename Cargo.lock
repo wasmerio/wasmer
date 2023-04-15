@@ -5273,6 +5273,7 @@ version = "3.2.0-beta.2"
 dependencies = [
  "anyhow",
  "atty",
+ "bytes",
  "bytesize",
  "cargo_metadata",
  "cfg-if 1.0.0",

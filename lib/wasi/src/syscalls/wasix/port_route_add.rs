@@ -12,7 +12,7 @@ pub fn port_route_add<M: MemorySize>(
     expires_at: WasmPtr<OptionTimestamp, M>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, cidr));
     Span::current().record("cidr", &format!("{:?}", cidr));

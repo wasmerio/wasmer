@@ -334,7 +334,7 @@ impl RunWithPathBuf {
                         .instantiate(&mut store, &module, program_name, self.args.clone())
                         .with_context(|| "failed to instantiate WASI module")?;
 
-                    let capable_of_deep_sleep = ctx.data(&store).capable_of_deep_sleep();
+                    let capable_of_deep_sleep =unsafe { ctx.data(&store).capable_of_deep_sleep() };
                     ctx.data_mut(&mut store)
                         .enable_deep_sleep = capable_of_deep_sleep;
 

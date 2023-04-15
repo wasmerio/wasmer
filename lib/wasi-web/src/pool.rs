@@ -36,6 +36,7 @@ use wasmer_wasix::{
         },
         SpawnMemoryType,
     },
+    types::wasi::ExitCode,
     wasmer::{AsJs, Memory, MemoryType, Module, Store, WASM_MAX_PAGES},
     wasmer_wasix_types::wasi::Errno,
     InstanceSnapshot, VirtualTaskManager, WasiEnv, WasiFunctionEnv, WasiThreadError,
@@ -79,7 +80,7 @@ struct WasmRunCommand {
     snapshot: Option<InstanceSnapshot>,
     trigger: Option<WasmRunTrigger>,
     update_layout: bool,
-    result: Result<(), Errno>,
+    result: Option<Result<Bytes, ExitCode>>,
 }
 
 trait AssertSendSync: Send + Sync {}
@@ -320,7 +321,7 @@ impl WebThreadPool {
             module_bytes,
             snapshot,
             update_layout,
-            result: Ok(()),
+            result: None,
         });
         let task = Box::into_raw(task);
 
@@ -687,7 +688,7 @@ pub fn schedule_wasm_task(
     wasm_bindgen_futures::spawn_local(async move {
         if let Some(trigger) = trigger {
             let run = trigger.run;
-            task.result = run().await;
+            task.result = Some(run().await);
         }
 
         let task = Box::into_raw(task);

@@ -136,6 +136,7 @@ impl WasiFunctionEnv {
         )?;
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
+        let stack_pointer = new_inner.stack_pointer.clone();
 
         let env = self.data_mut(store);
         env.set_inner(new_inner);
@@ -145,7 +146,7 @@ impl WasiFunctionEnv {
         // If the stack offset and size is not set then do so
         if update_layout {
             // Set the base stack
-            let mut stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+            let mut stack_base = if let Some(stack_pointer) = stack_pointer {
                 match stack_pointer.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
@@ -190,7 +191,7 @@ impl WasiFunctionEnv {
         Ok(resolver)
     }
 
-    pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
+    pub unsafe fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup - destroying local thread variables",
             self.data(store).pid(),

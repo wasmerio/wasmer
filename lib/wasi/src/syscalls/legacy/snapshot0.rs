@@ -28,7 +28,7 @@ pub fn fd_filestat_get(
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     // TODO: understand what's happening inside this function, then do the correct thing
 
     // transmute the WasmPtr<T1> into a WasmPtr<T2> where T2 > T1, this will read extra memory.
@@ -45,7 +45,7 @@ pub fn fd_filestat_get(
 
     // reborrow memory
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     // get the values written to memory
     let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
@@ -87,7 +87,7 @@ pub fn path_filestat_get(
 
     // see `fd_filestat_get` in this file for an explanation of this strange behavior
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let new_buf: WasmPtr<Filestat, Memory32> = buf.cast();
     let new_filestat_setup: Filestat = wasi_try_mem!(new_buf.read(&memory));
@@ -97,7 +97,7 @@ pub fn path_filestat_get(
 
     // need to re-borrow
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let new_filestat = wasi_try_mem!(new_buf.deref(&memory).read());
     let old_stat = Snapshot0Filestat {
         st_dev: new_filestat.st_dev,
@@ -145,12 +145,9 @@ pub fn poll_oneoff<M: MemorySize>(
     nevents: WasmPtr<u32, Memory32>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-    if handle_rewind::<M>(&mut ctx) {
-        return Ok(Errno::Success);
-    }
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let mut subscriptions = Vec::new();
     let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());
@@ -162,17 +159,15 @@ pub fn poll_oneoff<M: MemorySize>(
         ));
     }
 
-    // We clear the number of events
-    wasi_try_mem_ok!(nevents.write(&memory, 0));
-
     // Function to invoke once the poll is finished
-    let process_events = move |memory: &'_ Memory, store: &'_ dyn AsStoreRef, triggered_events| {
+    let process_events = |ctx: &FunctionEnvMut<'_, WasiEnv>, triggered_events: Vec<Event>| {
+        let env = ctx.data();
+        let memory = unsafe { env.memory_view(&ctx) };
+
         // Process all the events that were triggered
-        let mut view = memory.view(store);
         let mut events_seen: u32 = 0;
-        let event_array = wasi_try_mem!(out_.slice(&view, nsubscriptions));
+        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions));
         for event in triggered_events {
-            let event: Event = event;
             let event = Snapshot0Event {
                 userdata: event.userdata,
                 error: event.error,
@@ -189,10 +184,13 @@ pub fn poll_oneoff<M: MemorySize>(
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
         }
-        let out_ptr = nevents.deref(&view);
+        let out_ptr = nevents.deref(&memory);
         wasi_try_mem!(out_ptr.write(events_seen));
         Errno::Success
     };
+
+    // We clear the number of events
+    wasi_try_mem_ok!(nevents.write(&memory, 0));
 
     // Poll and receive all the events that triggered
     syscalls::poll_oneoff_internal::<M, _>(ctx, subscriptions, process_events)

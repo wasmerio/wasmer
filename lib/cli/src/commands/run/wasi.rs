@@ -1,5 +1,6 @@
 use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::Result;
+use bytes::Bytes;
 use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -12,7 +13,7 @@ use wasmer::{
 use wasmer_wasix::{
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
-    rewind,
+    rewind_ext,
     runners::MappedDirectory,
     runtime::task_manager::tokio::TokioTaskManager,
     types::__WASI_STDIN_FILENO,
@@ -270,40 +271,30 @@ impl Wasi {
         run: RunProperties,
         mut store: Store,
         tx: Sender<Result<i32>>,
-        rewind_state: Option<(RewindState, Result<(), Errno>)>,
+        rewind_state: Option<(RewindState, Bytes)>,
     ) {
         // If we need to rewind then do so
         let ctx = run.ctx;
-        if let Some((mut rewind_state, trigger_res)) = rewind_state {
+        if let Some((rewind_state, rewind_result)) = rewind_state {
             if rewind_state.is_64bit {
-                if let Err(exit_code) =
-                    rewind_state.rewinding_finish::<Memory64>(&ctx, &mut store, trigger_res)
-                {
-                    tx.send(Ok(exit_code.raw())).ok();
-                    return;
-                }
-                let res = rewind::<Memory64>(
+                let res = rewind_ext::<Memory64>(
                     ctx.env.clone().into_mut(&mut store),
                     rewind_state.memory_stack,
                     rewind_state.rewind_stack,
                     rewind_state.store_data,
+                    rewind_result,
                 );
                 if res != Errno::Success {
                     tx.send(Ok(res as i32)).ok();
                     return;
                 }
             } else {
-                if let Err(exit_code) =
-                    rewind_state.rewinding_finish::<Memory32>(&ctx, &mut store, trigger_res)
-                {
-                    tx.send(Ok(exit_code.raw())).ok();
-                    return;
-                }
-                let res = rewind::<Memory32>(
+                let res = rewind_ext::<Memory32>(
                     ctx.env.clone().into_mut(&mut store),
                     rewind_state.memory_stack,
                     rewind_state.rewind_stack,
                     rewind_state.store_data,
+                    rewind_result,
                 );
                 if res != Errno::Success {
                     tx.send(Ok(res as i32)).ok();
@@ -332,7 +323,7 @@ impl Wasi {
             )
             .map(|()| 0);
 
-            ctx.cleanup(&mut store, None);
+            unsafe { ctx.cleanup(&mut store, None) };
 
             tx.send(res).unwrap();
         } else {
@@ -392,9 +383,15 @@ impl Wasi {
                         };
 
                         // Spawns the WASM process after a trigger
-                        tasks
-                            .resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-                            .unwrap();
+                        unsafe {
+                            tasks.resume_wasm_after_poller(
+                                Box::new(respawn),
+                                ctx,
+                                store,
+                                deep.trigger,
+                            )
+                        }
+                        .unwrap();
                         return;
                     }
                     Ok(err) => Err(err.into()),
@@ -403,7 +400,7 @@ impl Wasi {
             }
         };
 
-        ctx.cleanup(&mut store, None);
+        unsafe { ctx.cleanup(&mut store, None) };
 
         tx.send(ret).unwrap();
     }

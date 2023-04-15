@@ -2305,6 +2305,7 @@ dependencies = [
  "indexmap",
  "more-asserts",
  "rkyv",
+ "serde",
  "target-lexicon",
  "thiserror",
 ]
@@ -2391,6 +2392,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "num_enum",
+ "serde",
  "time",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",

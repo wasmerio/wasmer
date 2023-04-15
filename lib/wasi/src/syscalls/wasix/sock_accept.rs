@@ -40,7 +40,7 @@ pub fn sock_accept<M: MemorySize>(
     ));
 
     let env = ctx.data();
-    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {

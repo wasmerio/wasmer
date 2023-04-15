@@ -30,7 +30,7 @@ pub fn tty_get<M: MemorySize>(
         line_buffered: state.line_buffered,
     };
 
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(tty_state.write(&memory, state));
 
     Errno::Success

@@ -18,7 +18,7 @@ pub fn fd_allocate(
     len: Filesize,
 ) -> Errno {
     let env = ctx.data();
-    let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 

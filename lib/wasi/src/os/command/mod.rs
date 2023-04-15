@@ -96,10 +96,12 @@ impl Commands {
         if let Some(cmd) = self.commands.get(&path) {
             cmd.exec(parent_ctx, path.as_str(), store, builder)
         } else {
-            let _ = stderr_write(
-                parent_ctx,
-                format!("wasm command unknown - {}\r\n", path).as_bytes(),
-            );
+            unsafe {
+                let _ = stderr_write(
+                    parent_ctx,
+                    format!("wasm command unknown - {}\r\n", path).as_bytes(),
+                );
+            }
 
             let res = OwnedTaskStatus::new(TaskStatus::Finished(Ok(Errno::Noent.into())));
             Ok(res.handle())

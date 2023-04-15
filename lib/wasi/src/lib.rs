@@ -59,7 +59,7 @@ use std::{cell::RefCell, sync::atomic::AtomicU32};
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
-use syscalls::{get_memory_stack, set_memory_stack, AsyncifyFuture};
+use syscalls::AsyncifyFuture;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -67,8 +67,8 @@ pub use wasmer;
 pub use wasmer_wasix_types;
 
 use wasmer::{
-    imports, namespace, AsStoreMut, AsStoreRef, Exports, FunctionEnv, Imports, Memory32,
-    MemoryAccessError, MemorySize, RuntimeError,
+    imports, namespace, AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError,
+    MemorySize, RuntimeError,
 };
 
 pub use virtual_fs;
@@ -110,7 +110,7 @@ pub use crate::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::{rewind, types, unwind},
+    syscalls::{rewind, rewind_ext, types, unwind},
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
         store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
@@ -122,12 +122,8 @@ pub use crate::{
 /// It is possible that the process will be terminated rather
 /// than restored at this point
 pub trait RewindPostProcess {
-    fn finish(
-        &mut self,
-        env: &WasiEnv,
-        store: &dyn AsStoreRef,
-        res: Result<(), Errno>,
-    ) -> Result<(), ExitCode>;
+    /// Returns the serialized object that is returned on the rewind
+    fn finish(&mut self, res: Result<(), Errno>) -> Bytes;
 }
 
 /// The rewind state after a deep sleep
@@ -140,35 +136,6 @@ pub struct RewindState {
     pub store_data: Bytes,
     /// Flag that indicates if this rewind is 64-bit or 32-bit memory based
     pub is_64bit: bool,
-    /// This is the function that's invoked after the work is finished
-    /// and the rewind has been applied.
-    pub finish: Box<dyn RewindPostProcess + Send + Sync + 'static>,
-}
-
-impl RewindState {
-    pub fn rewinding_finish<M: MemorySize>(
-        &mut self,
-        ctx: &WasiFunctionEnv,
-        store: &mut impl AsStoreMut,
-        res: Result<(), Errno>,
-    ) -> Result<(), ExitCode> {
-        let mut ctx = ctx.env.clone().into_mut(store);
-        let (env, mut store) = ctx.data_and_store_mut();
-        set_memory_stack::<M>(env, &mut store, self.memory_stack.clone()).map_err(|err| {
-            tracing::error!("failed on rewinding_finish - {}", err);
-            ExitCode::Errno(Errno::Memviolation)
-        })?;
-        let ret = self.finish.finish(env, &store, res);
-        if ret.is_ok() {
-            self.memory_stack = get_memory_stack::<M>(env, &mut store)
-                .map_err(|err| {
-                    tracing::error!("failed on rewinding_finish - {}", err);
-                    ExitCode::Errno(Errno::Memviolation)
-                })?
-                .freeze();
-        }
-        ret
-    }
 }
 
 /// Represents the work that will be done when a thread goes to deep sleep and
@@ -345,10 +312,6 @@ pub struct WasiVFork {
     pub memory_stack: BytesMut,
     /// The mutable parts of the store
     pub store_data: Bytes,
-    /// Offset into the memory where the PID will be
-    /// written when the real fork takes places
-    pub pid_offset: u64,
-
     /// The environment before the vfork occured
     pub env: Box<WasiEnv>,
 
@@ -363,16 +326,21 @@ impl Clone for WasiVFork {
             rewind_stack: self.rewind_stack.clone(),
             memory_stack: self.memory_stack.clone(),
             store_data: self.store_data.clone(),
-            pid_offset: self.pid_offset,
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
         }
     }
 }
 
+// Contains the result of a rewind operation
+struct RewindResult {
+    memory_stack: Bytes,
+    rewind_result: Bytes,
+}
+
 // Represents the current thread ID for the executing method
 thread_local!(pub(crate) static CALLER_ID: RefCell<u32> = RefCell::new(0));
-thread_local!(pub(crate) static REWIND: RefCell<Option<bytes::Bytes>> = RefCell::new(None));
+thread_local!(pub(crate) static REWIND: RefCell<Option<RewindResult>> = RefCell::new(None));
 lazy_static::lazy_static! {
     static ref CALLER_ID_SEED: Arc<AtomicU32> = Arc::new(AtomicU32::new(1));
 }

@@ -15,7 +15,7 @@ use crate::syscalls::*;
 #[instrument(level = "debug", skip_all, fields(pid = ctx.data().process.pid().raw(), %fd), ret, err)]
 pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     wasi_try_ok!(state.fs.close_fd(fd));
 
     Ok(Errno::Success)

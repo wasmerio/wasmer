@@ -30,7 +30,7 @@ pub fn sock_recv_from<M: MemorySize>(
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
 
     let max_size = {

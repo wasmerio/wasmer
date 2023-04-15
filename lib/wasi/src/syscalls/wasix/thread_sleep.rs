@@ -20,7 +20,7 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-    if handle_rewind::<M>(&mut ctx) {
+    if let Some(()) = unsafe { handle_rewind::<M, _>(&mut ctx) } {
         return Ok(Errno::Success);
     }
 
@@ -34,21 +34,9 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     if duration > 0 {
         let duration = Duration::from_nanos(duration as u64);
         let tasks = env.tasks().clone();
-
-        __asyncify_with_deep_sleep_ext::<M, _, _, _>(
-            ctx,
-            Some(duration),
-            Duration::from_millis(50),
-            async move {
-                // using an infinite async sleep here means we don't have to write the same event
-                // handling loop code for signals and timeouts
-                InfiniteSleep::default().await;
-                unreachable!(
-                    "the timeout or signals will wake up this thread even though it waits forever"
-                )
-            },
-            |_, _, _| Ok(()),
-        )?;
+        __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
+            tasks.sleep_now(duration).await;
+        })?;
     }
     Ok(Errno::Success)
 }
