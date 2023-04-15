@@ -27,10 +27,8 @@ impl Future for FutexPoller {
             None => return Poll::Ready(Ok(())),
         };
 
-        // Register the waker if its not set
-        if waker.is_none() {
-            waker.replace(cx.waker().clone());
-        }
+        // Register the waker
+        waker.replace(cx.waker().clone());
 
         // We will now wait to be woken
         Poll::Pending
@@ -42,7 +40,9 @@ impl Drop for FutexPoller {
 
         let mut should_remove = false;
         if let Some(futex) = guard.futexes.get_mut(&self.futex_idx) {
-            futex.wakers.remove(&self.poller_idx);
+            if let Some(Some(waker)) = futex.wakers.remove(&self.poller_idx) {
+                waker.wake();
+            }
             should_remove = futex.wakers.is_empty();
         }
         if should_remove {
