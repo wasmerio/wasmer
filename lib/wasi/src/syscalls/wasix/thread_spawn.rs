@@ -91,7 +91,7 @@ pub fn thread_spawn<M: MemorySize>(
     thread_env.enable_deep_sleep = if cfg!(feature = "js") {
         false
     } else {
-        env.capable_of_deep_sleep()
+        unsafe { env.capable_of_deep_sleep() }
     };
 
     // This next function gets a context for the local thread and then

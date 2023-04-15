@@ -19,7 +19,7 @@ pub fn fd_filestat_get<M: MemorySize>(
     let stat = wasi_try!(fd_filestat_get_internal(&mut ctx, fd));
 
     let env = ctx.data();
-    let (memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let buf = buf.deref(&memory);
     wasi_try_mem!(buf.write(stat));
 
@@ -65,7 +65,7 @@ pub fn fd_filestat_get_old<M: MemorySize>(
     let stat = wasi_try!(fd_filestat_get_internal(&mut ctx, fd));
 
     let env = ctx.data();
-    let (memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let old_stat = Snapshot0Filestat {
         st_dev: stat.st_dev,
         st_ino: stat.st_ino,
