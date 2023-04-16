@@ -252,7 +252,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
 
     tasks
         .task_wasm(Box::new(task), store, thread_module, spawn_type)
-        .map_err(|err| Into::<Errno>::into(err))?;
+        .map_err(Into::<Errno>::into)?;
 
     // Success
     Ok(thread_id)
