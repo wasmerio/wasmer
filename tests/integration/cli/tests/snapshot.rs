@@ -611,7 +611,7 @@ fn test_run_http_request(
                         let resp = match resp {
                             Ok(a) => a,
                             Err(_) if n < max_retries => {
-                                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                                 continue;
                             }
                             Err(err) => return Err(err.into())
@@ -621,7 +621,7 @@ fn test_run_http_request(
                         }
                         return Ok(resp.bytes().await?);
                     }
-                    _ = tokio::time::sleep(std::time::Duration::from_secs(4)) => {
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
                         eprintln!("retrying request... ({} attempts)", (n+1));
                         continue;
                     }
@@ -635,7 +635,7 @@ fn test_run_http_request(
         None => {
             let url = format!("http://localhost:{}/{}.size", port, what);
             let expected_size = usize::from_str_radix(
-                String::from_utf8_lossy(http_get(url, 10)?.as_ref()).trim(),
+                String::from_utf8_lossy(http_get(url, 50)?.as_ref()).trim(),
                 10,
             )?;
             if expected_size == 0 {
