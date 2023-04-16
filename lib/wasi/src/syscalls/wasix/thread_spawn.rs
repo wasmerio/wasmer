@@ -7,27 +7,35 @@ use wasmer_wasix_types::wasi::ThreadStart;
 /// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same
 /// memory address space, file handles and main event loops.
-/// The function referenced by the fork call must be
-/// exported by the web assembly process.
 ///
 /// ## Parameters
 ///
-/// * `name` - Name of the function that will be invoked as a new thread
-/// * `user_data` - User data that will be supplied to the function when its called
-/// * `reactor` - Indicates if the function will operate as a reactor or
-///   as a normal thread. Reactors will be repeatable called
-///   whenever IO work is available to be processed.
+/// * `start_ptr` - Pointer to the structure that describes the thread to be launched
+/// * `ret_tid` - ID of the thread that was launched
 ///
 /// ## Return
 ///
 /// Returns the thread index of the newly created thread
-/// (indices always start from zero)
-#[instrument(level = "debug", skip_all, fields(user_data, stack_base, stack_start, reactor, tid = field::Empty), ret)]
+/// (indices always start from the same value as `pid` and increments in steps)
+#[instrument(level = "debug", skip_all, ret)]
 pub fn thread_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
+    // Create the thread
+    let tid = wasi_try!(thread_spawn_internal(&ctx, start_ptr));
+
+    // Success
+    let memory = ctx.data().memory_view(&ctx);
+    wasi_try_mem!(ret_tid.write(&memory, tid));
+    Errno::Success
+}
+
+pub(crate) fn thread_spawn_internal<M: MemorySize>(
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    start_ptr: WasmPtr<ThreadStart<M>, M>,
+) -> Result<Tid, Errno> {
     // Now we use the environment and memory references
     let env = ctx.data();
     let memory = env.memory_view(&ctx);
@@ -35,9 +43,9 @@ pub fn thread_spawn<M: MemorySize>(
     let tasks = env.tasks().clone();
 
     // Read the properties about the stack which we will use for asyncify
-    let start = wasi_try_mem!(start_ptr.read(&memory));
-    let stack_start: u64 = wasi_try!(start.stack_start.try_into().map_err(|_| Errno::Overflow));
-    let stack_size: u64 = wasi_try!(start.stack_size.try_into().map_err(|_| Errno::Overflow));
+    let start = start_ptr.read(&memory).map_err(mem_error_to_wasi)?;
+    let stack_start: u64 = start.stack_start.try_into().map_err(|_| Errno::Overflow)?;
+    let stack_size: u64 = start.stack_size.try_into().map_err(|_| Errno::Overflow)?;
     let stack_base = stack_start - stack_size;
 
     // Create the handle that represents this thread
@@ -50,7 +58,7 @@ pub fn thread_spawn<M: MemorySize>(
                 "failed to create thread handle",
             );
             // TODO: evaluate the appropriate error code, document it in the spec.
-            return Errno::Access;
+            return Err(Errno::Access);
         }
     };
     let thread_id: Tid = thread_handle.id().into();
@@ -102,14 +110,14 @@ pub fn thread_spawn<M: MemorySize>(
 
     // We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
-    let thread_memory = wasi_try!(ctx
+    let thread_memory = ctx
         .data()
         .memory()
         .clone_in_store(&ctx, &mut store)
         .ok_or_else(|| {
             error!("failed - the memory could not be cloned");
             Errno::Notcapable
-        }));
+        })?;
 
     // This function calls into the module
     let start_ptr_offset = start_ptr.offset();
@@ -227,7 +235,7 @@ pub fn thread_spawn<M: MemorySize>(
     // we can't spawn a background thread
     if env.inner().thread_spawn.is_none() {
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
-        return Errno::Notcapable;
+        return Err(Errno::Notcapable);
     }
     let spawn_type = crate::runtime::SpawnType::NewThread(thread_memory);
 
@@ -242,12 +250,10 @@ pub fn thread_spawn<M: MemorySize>(
         execute_module(&mut store, thread_module, &mut thread_memory);
     };
 
-    wasi_try!(tasks
+    tasks
         .task_wasm(Box::new(task), store, thread_module, spawn_type)
-        .map_err(|err| { Into::<Errno>::into(err) }));
+        .map_err(|err| Into::<Errno>::into(err))?;
 
     // Success
-    let memory = ctx.data().memory_view(&ctx);
-    wasi_try_mem!(ret_tid.write(&memory, thread_id));
-    Errno::Success
+    Ok(thread_id)
 }
