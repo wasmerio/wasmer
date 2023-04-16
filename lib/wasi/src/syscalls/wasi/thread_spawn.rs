@@ -20,8 +20,9 @@ use wasmer_wasix_types::wasi::ThreadStart;
 pub fn thread_spawn_legacy<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
-) -> Tid {
+) -> i32 {
     thread_spawn_internal(&ctx, start_ptr)
-        .map_err(|err| anyhow::format_err!("failed to spawn thread - {}", err))
-        .unwrap()
+        .map(|tid| tid as i32)
+        .map_err(|errno| errno as i32)
+        .unwrap_or_else(|err| -err)
 }
