@@ -311,21 +311,6 @@
 #![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
 //!
-//! The features that set defaults come in sets that are mutually exclusive.
-//!
-//! The first set is the default compiler set:
-//! - `default-cranelift`
-#![cfg_attr(feature = "default-cranelift", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-cranelift"), doc = "(disabled),")]
-//!   set Wasmer's Cranelift compiler as the default,
-//! - `default-llvm`
-#![cfg_attr(feature = "default-llvm", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-llvm"), doc = "(disabled),")]
-//!   set Wasmer's LLVM compiler as the default,
-//! - `default-singlepass`
-#![cfg_attr(feature = "default-singlepass", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-singlepass"), doc = "(disabled),")]
-//!   set Wasmer's Singlepass compiler as the default.
 #![cfg_attr(
     feature = "js",
     doc = "## Features for the `js` feature group (enabled)"
