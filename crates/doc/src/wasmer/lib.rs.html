@@ -494,21 +494,6 @@
 <span id="492">492</span>
 <span id="493">493</span>
 <span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
 </pre><pre class="rust"><code><span class="attribute">#![doc(
     html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;
@@ -706,8 +691,8 @@
 //! give them access to the outside world with [`imports!`].
 //!
 //! If you&#39;re looking for a sandboxed, POSIX-like environment to execute Wasm
-//! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
-//! the WebAssembly System Interface.
+//! in, check out the [`wasmer-wasix`] crate for our implementation of WASI,
+//! the WebAssembly System Interface, and WASIX, the Extended version of WASI.
 //!
 //! In the `wasmer` API we support functions which take their arguments and
 //! return their results dynamically, [`Function`], and functions which
@@ -746,7 +731,7 @@
 //! - [`wasmer-cache`] for caching compiled Wasm modules,
 //! - [`wasmer-emscripten`] for running Wasm modules compiled to the
 //!   Emscripten ABI,
-//! - [`wasmer-wasi`] for running Wasm modules compiled to the WASI ABI.
+//! - [`wasmer-wasix`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
 //! 1. [Engine][wasmer-compiler],
@@ -822,21 +807,6 @@
 #![cfg_attr(not(feature = <span class="string">&quot;compiler&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
 </span><span class="doccomment">//!   enables compilation with the wasmer engine.
 //!
-//! The features that set defaults come in sets that are mutually exclusive.
-//!
-//! The first set is the default compiler set:
-//! - `default-cranelift`
-</span><span class="attribute">#![cfg_attr(feature = <span class="string">&quot;default-cranelift&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;default-cranelift&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
-</span><span class="doccomment">//!   set Wasmer&#39;s Cranelift compiler as the default,
-//! - `default-llvm`
-</span><span class="attribute">#![cfg_attr(feature = <span class="string">&quot;default-llvm&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;default-llvm&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
-</span><span class="doccomment">//!   set Wasmer&#39;s LLVM compiler as the default,
-//! - `default-singlepass`
-</span><span class="attribute">#![cfg_attr(feature = <span class="string">&quot;default-singlepass&quot;</span>, doc = <span class="string">&quot;(enabled),&quot;</span>)]
-#![cfg_attr(not(feature = <span class="string">&quot;default-singlepass&quot;</span>), doc = <span class="string">&quot;(disabled),&quot;</span>)]
-</span><span class="doccomment">//!   set Wasmer&#39;s Singlepass compiler as the default.
 </span><span class="attribute">#![cfg_attr(
     feature = <span class="string">&quot;js&quot;</span>,
     doc = <span class="string">&quot;## Features for the `js` feature group (enabled)&quot;
@@ -919,7 +889,7 @@
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/
-//! [`wasmer-wasi`]: https://docs.rs/wasmer-wasi/
+//! [`wasmer-wasix`]: https://docs.rs/wasmer-wasix/
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
