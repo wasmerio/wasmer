@@ -195,8 +195,8 @@
 //! give them access to the outside world with [`imports!`].
 //!
 //! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
-//! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
-//! the WebAssembly System Interface.
+//! in, check out the [`wasmer-wasix`] crate for our implementation of WASI,
+//! the WebAssembly System Interface, and WASIX, the Extended version of WASI.
 //!
 //! In the `wasmer` API we support functions which take their arguments and
 //! return their results dynamically, [`Function`], and functions which
@@ -235,7 +235,7 @@
 //! - [`wasmer-cache`] for caching compiled Wasm modules,
 //! - [`wasmer-emscripten`] for running Wasm modules compiled to the
 //!   Emscripten ABI,
-//! - [`wasmer-wasi`] for running Wasm modules compiled to the WASI ABI.
+//! - [`wasmer-wasix`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
 //! 1. [Engine][wasmer-compiler],
@@ -393,7 +393,7 @@
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/
-//! [`wasmer-wasi`]: https://docs.rs/wasmer-wasi/
+//! [`wasmer-wasix`]: https://docs.rs/wasmer-wasix/
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
