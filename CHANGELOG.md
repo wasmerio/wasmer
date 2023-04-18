@@ -19,7 +19,8 @@ RISCV Support, new Runners (WCGI), API convergence for JS/SYS, and WASI eXtended
  * Most WAPM command are now available on the wasmer CLI directly
  * Using Wasmer on sys or js backend is more transparent now, with now support for running wasmer on JSCore
  * The WASI implementation has undergone a major refactoring, and will continue evolve significantly over the coming months.
-    - The old wasmer_wasi crate was deprecated.
+    - The old `wasmer_wasi` crate was deprecated.
+
     - To continue using WASI, please switch to the new `wasmer_wasix` crate, which follows a different versioning scheme than the main Wasmer releases.
     Major changes:
     - An async runtime is now required. The runtime is pluggable, but only tokio is officially supported at the moment.
