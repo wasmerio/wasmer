@@ -64,7 +64,7 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "5.0.0-rc.7" }
+webc = { version = "5.0" }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
@@ -82,7 +82,7 @@ wasm-coredump-builder = { version = "0.1.11" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
-wapm-targz-to-pirita = "0.2.0"
+wapm-targz-to-pirita = "0.2.1"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }

@@ -2456,7 +2456,7 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.0.0-rc.7"
+version = "5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa158c77bd41040f4b9a4b91be63446885ce9b04bc9a5bb457fa586e7a8c9815"
 dependencies = [
