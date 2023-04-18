@@ -4713,7 +4713,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5323,7 +5323,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.3.0",
+ "wasmer-registry 4.4.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5578,7 +5578,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "4.3.0"
+version = "4.4.0"
 dependencies = [
  "anyhow",
  "console",
@@ -5620,7 +5620,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "libc",
  "region",
@@ -5695,7 +5695,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5756,7 +5756,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -5770,7 +5770,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "bitflags",

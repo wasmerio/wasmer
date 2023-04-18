@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.1.1"
+version = "0.2.0"
 description = "Wasmer Virtual FileSystem"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 license = "MIT"
