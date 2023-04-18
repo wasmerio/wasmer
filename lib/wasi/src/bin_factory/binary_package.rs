@@ -6,6 +6,7 @@ use std::{
 };
 
 use derivative::*;
+use once_cell::sync::OnceCell;
 use virtual_fs::{FileSystem, TmpFileSystem};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
@@ -15,10 +16,10 @@ use crate::syscalls::platform_clock_time_get;
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackageCommand {
-    pub name: String,
+    name: String,
     #[derivative(Debug = "ignore")]
-    pub atom: Cow<'static, [u8]>,
-    hash: Option<String>,
+    atom: Cow<'static, [u8]>,
+    hash: OnceCell<String>,
     pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
 }
 
@@ -27,7 +28,7 @@ impl BinaryPackageCommand {
         Self {
             name,
             ownership: None,
-            hash: None,
+            hash: OnceCell::new(),
             atom,
         }
     }
@@ -52,12 +53,16 @@ impl BinaryPackageCommand {
         ret
     }
 
-    pub fn hash(&mut self) -> &str {
-        if self.hash.is_none() {
-            self.hash = Some(hash_of_binary(self.atom.as_ref()));
-        }
-        let hash = self.hash.as_ref().unwrap();
-        hash.as_str()
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn atom(&self) -> &[u8] {
+        &self.atom
+    }
+
+    pub fn hash(&self) -> &str {
+        self.hash.get_or_init(|| hash_of_binary(self.atom()))
     }
 }
 

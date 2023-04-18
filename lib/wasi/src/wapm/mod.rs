@@ -25,7 +25,7 @@ use crate::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
 use pirita::*;
 
 pub(crate) fn fetch_webc_task(
-    cache_dir: &str,
+    cache_dir: &Path,
     webc: &str,
     runtime: &dyn WasiRuntime,
 ) -> Result<BinaryPackage, anyhow::Error> {
@@ -34,11 +34,7 @@ pub(crate) fn fetch_webc_task(
         .context("no http client available")?
         .clone();
 
-    let f = {
-        let cache_dir = cache_dir.to_string();
-        let webc = webc.to_string();
-        async move { fetch_webc(&cache_dir, &webc, client).await }
-    };
+    let f = async move { fetch_webc(cache_dir, webc, client).await };
 
     let result = runtime
         .task_manager()
@@ -48,7 +44,7 @@ pub(crate) fn fetch_webc_task(
 }
 
 async fn fetch_webc(
-    cache_dir: &str,
+    cache_dir: &Path,
     webc: &str,
     client: DynHttpClient,
 ) -> Result<BinaryPackage, anyhow::Error> {
@@ -141,7 +137,7 @@ pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> 
 }
 
 async fn download_webc(
-    cache_dir: &str,
+    cache_dir: &Path,
     name: &str,
     pirita_download_url: String,
     client: DynHttpClient,
@@ -159,7 +155,7 @@ async fn download_webc(
             name = name_store.as_str();
         }
     }
-    let compute_path = |cache_dir: &str, name: &str| {
+    let compute_path = |cache_dir: &Path, name: &str| {
         let name = name.replace('/', "._.");
         std::path::Path::new(cache_dir).join(&name)
     };
@@ -202,11 +198,10 @@ async fn download_webc(
 
     #[cfg(feature = "sys")]
     {
-        let cache_dir = cache_dir.to_string();
-        let name = name.to_string();
-        let path = compute_path(cache_dir.as_str(), name.as_str());
-        std::fs::create_dir_all(path.parent().unwrap())
-            .with_context(|| format!("Could not create cache directory '{}'", cache_dir))?;
+        let path = compute_path(cache_dir, name);
+        std::fs::create_dir_all(path.parent().unwrap()).with_context(|| {
+            format!("Could not create cache directory '{}'", cache_dir.display())
+        })?;
 
         let mut temp_path = path.clone();
         let rand_128: u128 = rand::random();
@@ -500,4 +495,196 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     }
 
     total
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        borrow::Cow,
+        collections::{BTreeMap, HashMap},
+    };
+
+    use super::*;
+
+    const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const COREUTILS: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
+    const BASH: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
+
+    #[test]
+    fn parse_the_python_webc_file() {
+        let python = webc::compat::Container::from_bytes(PYTHON).unwrap();
+
+        let pkg = parse_static_webc(PYTHON.to_vec()).unwrap();
+
+        assert_eq!(pkg.package_name, "python");
+        assert_eq!(pkg.version, "0.1.0");
+        assert_eq!(pkg.uses, Vec::<String>::new());
+        assert_eq!(pkg.envs, HashMap::new());
+        assert_eq!(pkg.base_dir, None);
+        assert_eq!(pkg.mappings, Vec::<String>::new());
+        assert_eq!(pkg.module_memory_footprint, 4694941);
+        assert_eq!(pkg.file_system_memory_footprint, 13405790);
+        let python_atom = python.get_atom("python").unwrap();
+        assert_eq!(pkg.entry, Some(Cow::Borrowed(python_atom.as_slice())));
+        let commands = pkg.commands.read().unwrap();
+        let commands: BTreeMap<&str, &[u8]> = commands
+            .iter()
+            .map(|cmd| (cmd.name(), cmd.atom()))
+            .collect();
+        let command_names: Vec<_> = commands.keys().copied().collect();
+        assert_eq!(command_names, &["python"]);
+        assert_eq!(commands["python"], python_atom);
+    }
+
+    #[test]
+    fn parse_a_webc_with_multiple_commands() {
+        let pkg = parse_static_webc(COREUTILS.to_vec()).unwrap();
+
+        assert_eq!(pkg.package_name, "sharrattj/coreutils");
+        assert_eq!(pkg.version, "1.0.14");
+        assert_eq!(pkg.uses, Vec::<String>::new());
+        assert_eq!(pkg.envs, HashMap::new());
+        assert_eq!(pkg.base_dir, None);
+        assert_eq!(pkg.mappings, Vec::<String>::new());
+        assert_eq!(pkg.module_memory_footprint, 0);
+        assert_eq!(pkg.file_system_memory_footprint, 126);
+        assert_eq!(pkg.entry, None);
+        let commands = pkg.commands.read().unwrap();
+        let commands: BTreeMap<&str, &[u8]> = commands
+            .iter()
+            .map(|cmd| (cmd.name(), cmd.atom()))
+            .collect();
+        let command_names: Vec<_> = commands.keys().copied().collect();
+        assert_eq!(
+            command_names,
+            &[
+                "arch",
+                "base32",
+                "base64",
+                "baseenc",
+                "basename",
+                "cat",
+                "chcon",
+                "chgrp",
+                "chmod",
+                "chown",
+                "chroot",
+                "cksum",
+                "comm",
+                "cp",
+                "csplit",
+                "cut",
+                "date",
+                "dd",
+                "df",
+                "dircolors",
+                "dirname",
+                "du",
+                "echo",
+                "env",
+                "expand",
+                "expr",
+                "factor",
+                "false",
+                "fmt",
+                "fold",
+                "groups",
+                "hashsum",
+                "head",
+                "hostid",
+                "hostname",
+                "id",
+                "install",
+                "join",
+                "kill",
+                "link",
+                "ln",
+                "logname",
+                "ls",
+                "mkdir",
+                "mkfifo",
+                "mknod",
+                "mktemp",
+                "more",
+                "mv",
+                "nice",
+                "nl",
+                "nohup",
+                "nproc",
+                "numfmt",
+                "od",
+                "paste",
+                "pathchk",
+                "pinky",
+                "pr",
+                "printenv",
+                "printf",
+                "ptx",
+                "pwd",
+                "readlink",
+                "realpath",
+                "relpath",
+                "rm",
+                "rmdir",
+                "runcon",
+                "seq",
+                "sh",
+                "shred",
+                "shuf",
+                "sleep",
+                "sort",
+                "split",
+                "stat",
+                "stdbuf",
+                "sum",
+                "sync",
+                "tac",
+                "tail",
+                "tee",
+                "test",
+                "timeout",
+                "touch",
+                "tr",
+                "true",
+                "truncate",
+                "tsort",
+                "tty",
+                "uname",
+                "unexpand",
+                "uniq",
+                "unlink",
+                "uptime",
+                "users",
+                "wc",
+                "who",
+                "whoami",
+                "yes",
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_a_webc_with_dependencies() {
+        let bash = webc::compat::Container::from_bytes(BASH).unwrap();
+
+        let pkg = parse_static_webc(BASH.to_vec()).unwrap();
+
+        assert_eq!(pkg.package_name, "sharrattj/bash");
+        assert_eq!(pkg.version, "1.0.12");
+        assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.11"]);
+        assert_eq!(pkg.envs, HashMap::new());
+        assert_eq!(pkg.base_dir, None);
+        assert_eq!(pkg.mappings, Vec::<String>::new());
+        assert_eq!(pkg.module_memory_footprint, 0);
+        assert_eq!(pkg.file_system_memory_footprint, 0);
+        let bash_atom = bash.get_atom("bash").unwrap();
+        assert_eq!(pkg.entry, Some(Cow::Borrowed(bash_atom.as_slice())));
+        let commands = pkg.commands.read().unwrap();
+        let commands: BTreeMap<&str, &[u8]> = commands
+            .iter()
+            .map(|cmd| (cmd.name(), cmd.atom()))
+            .collect();
+        let command_names: Vec<_> = commands.keys().copied().collect();
+        assert_eq!(command_names, &["bash", "sh"]);
+    }
 }
