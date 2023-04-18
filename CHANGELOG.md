@@ -16,6 +16,7 @@ RISCV Support, new Runners (WCGI), API convergence for JS/SYS, and WASI eXtended
 
  * RISCV support, on both Cranelift and LLVM Compiler.
  * New Runners, with WCGI as a new one
+ * Using Wasmer on sys or js backend is more transparent now, with now support for running wasmer on JSCore
  * The WASI implementation has undergone a major refactoring, and will continue evolve significantly over the coming months.
     - The old wasmer_wasi crate was deprecated.
     - To continue using WASI, please switch to the new `wasmer_wasix` crate, which follows a different versioning scheme than the main Wasmer releases.
