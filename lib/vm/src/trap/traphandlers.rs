@@ -257,7 +257,10 @@ cfg_if::cfg_if! {
                 ))] {
                     pc = context.uc_mcontext.gregs[libc::REG_EIP as usize] as usize;
                     sp = context.uc_mcontext.gregs[libc::REG_ESP as usize] as usize;
-                } else if #[cfg(all(target_os = "freebsd", any(target_arch = "x86", target_arch = "x86_64")))] {
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                    pc = context.uc_mcontext.mc_eip as usize;
+                    sp = context.uc_mcontext.mc_esp as usize;
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
                     pc = context.uc_mcontext.mc_rip as usize;
                     sp = context.uc_mcontext.mc_rsp as usize;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
@@ -323,6 +326,13 @@ cfg_if::cfg_if! {
                     (*context.uc_mcontext).__ss.__rbp = rbp;
                     (*context.uc_mcontext).__ss.__rdi = rdi;
                     (*context.uc_mcontext).__ss.__rsi = rsi;
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                    let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
+                    context.uc_mcontext.mc_eip = eip as libc::register_t;
+                    context.uc_mcontext.mc_esp = esp as libc::register_t;
+                    context.uc_mcontext.mc_ebp = ebp as libc::register_t;
+                    context.uc_mcontext.mc_ecx = ecx as libc::register_t;
+                    context.uc_mcontext.mc_edx = edx as libc::register_t;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.mc_rip = rip as libc::register_t;
