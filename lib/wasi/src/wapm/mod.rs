@@ -305,7 +305,6 @@ fn parse_webc_v2(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
             crate::syscalls::platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
                 .unwrap() as u128,
         ),
-        ownership: None,
         entry: entry.map(Into::into),
         hash: Arc::new(Mutex::new(None)),
         webc_fs: Some(Arc::new(webc_fs)),
