@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "proc-macro2",
  "proc-quote",
@@ -4944,7 +4944,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasi-test-generator"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "glob",
  "gumdrop",
@@ -5157,7 +5157,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5207,7 +5207,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -5235,7 +5235,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "cc",
  "regex",
@@ -5245,7 +5245,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "blake3",
  "criterion",
@@ -5259,7 +5259,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "cc",
  "regex",
@@ -5269,7 +5269,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -5335,7 +5335,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "backtrace",
  "cfg-if 1.0.0",
@@ -5361,7 +5361,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cli"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -5382,7 +5382,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -5401,7 +5401,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -5423,7 +5423,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -5442,7 +5442,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -5454,7 +5454,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -5496,7 +5496,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.0.11",
@@ -5520,11 +5520,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 
 [[package]]
 name = "wasmer-middlewares"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -5533,7 +5533,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "object 0.28.4",
  "thiserror",
@@ -5651,7 +5651,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -5668,7 +5668,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -5792,7 +5792,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasm-interface"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "bincode",
  "either",
@@ -5804,7 +5804,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -5819,7 +5819,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "3.2.0-beta.2"
+version = "3.2.0"
 dependencies = [
  "anyhow",
  "build-deps",
