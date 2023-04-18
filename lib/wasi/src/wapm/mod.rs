@@ -1,17 +1,20 @@
 use anyhow::{bail, Context};
 use std::{
-    ops::Deref,
-    path::{Path, PathBuf},
-    sync::Arc,
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex, RwLock},
 };
-use virtual_fs::FileSystem;
+use virtual_fs::{FileSystem, WebcVolumeFileSystem};
+use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
-use tracing::*;
 #[allow(unused_imports)]
 use tracing::{error, warn};
 use webc::{
-    metadata::{Annotation, UrlOrManifest},
-    v1::WebC,
+    metadata::{
+        annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI},
+        UrlOrManifest,
+    },
+    Container,
 };
 
 use crate::{
@@ -59,7 +62,7 @@ async fn fetch_webc(
             .replace(WAPM_WEBC_VERSION_TAG, version.replace('\"', "'").as_str()),
         None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str()),
     };
-    debug!("request: {}", url_query);
+    tracing::debug!("request: {}", url_query);
 
     let url = format!(
         "{}{}",
@@ -83,14 +86,14 @@ async fn fetch_webc(
     let body = response.body.context("HTTP response with empty body")?;
     let data: WapmWebQuery =
         serde_json::from_slice(&body).context("Could not parse webc registry JSON data")?;
-    debug!("response: {:?}", data);
+    tracing::debug!("response: {:?}", data);
 
     let PiritaVersionedDownload {
         url: download_url,
         version,
     } = wapm_extract_version(&data).context("No pirita download URL available")?;
     let mut pkg = download_webc(cache_dir, name, download_url, client).await?;
-    pkg.version = version.into();
+    pkg.version = version;
     Ok(pkg)
 }
 
@@ -122,18 +125,8 @@ fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> 
 }
 
 pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> {
-    let options = webc::v1::ParseOptions::default();
-    match webc::v1::WebCOwned::parse(data, &options) {
-        Ok(webc) => unsafe {
-            let webc = Arc::new(webc);
-            return parse_webc(webc.as_webc_ref(), webc.clone())
-                .with_context(|| "Could not parse webc".to_string());
-        },
-        Err(err) => {
-            warn!("failed to parse WebC: {}", err);
-            Err(err.into())
-        }
-    }
+    let webc = Container::from_bytes(data)?;
+    parse_webc_v2(&webc).with_context(|| "Could not parse webc".to_string())
 }
 
 async fn download_webc(
@@ -160,23 +153,23 @@ async fn download_webc(
         std::path::Path::new(cache_dir).join(&name)
     };
 
-    // build the parse options
-    let options = webc::v1::ParseOptions::default();
-
     // fast path
     let path = compute_path(cache_dir, name);
 
     #[cfg(feature = "sys")]
     if path.exists() {
-        match webc::v1::WebCMmap::parse(path.clone(), &options) {
-            Ok(webc) => unsafe {
-                let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone()).with_context(|| {
-                    format!("could not parse webc file at path : '{}'", path.display())
-                });
-            },
+        tracing::debug!(path=%path.display(), "Parsing cached WEBC file");
+
+        match Container::from_disk(&path) {
+            Ok(webc) => {
+                return parse_webc_v2(&webc)
+                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
+            }
             Err(err) => {
-                warn!("failed to parse WebC: {}", err);
+                tracing::warn!(
+                    error = &err as &dyn std::error::Error,
+                    "failed to parse WEBC",
+                );
             }
         }
     }
@@ -212,39 +205,38 @@ async fn download_webc(
         ));
 
         if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
-            debug!(
+            tracing::debug!(
                 "failed to write webc cache file [{}] - {}",
                 temp_path.as_path().to_string_lossy(),
                 err
             );
         }
         if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
-            debug!(
+            tracing::debug!(
                 "failed to rename webc cache file [{}] - {}",
                 temp_path.as_path().to_string_lossy(),
                 err
             );
         }
 
-        match webc::v1::WebCMmap::parse(path.clone(), &options) {
-            Ok(webc) => unsafe {
-                let webc = Arc::new(webc);
-                return parse_webc(webc.as_webc_ref(), webc.clone())
-                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
-            },
-            Err(err) => {
-                warn!("failed to parse WebC: {}", err);
+        match Container::from_disk(&path) {
+            Ok(webc) => {
+                return parse_webc_v2(&webc)
+                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()))
+            }
+            Err(e) => {
+                tracing::warn!(
+                    path=%temp_path.display(),
+                    error=&e as &dyn std::error::Error,
+                    "Unable to parse temporary WEBC from disk",
+                )
             }
         }
     }
 
-    let webc_raw = webc::v1::WebCOwned::parse(data, &options)
+    let webc = Container::from_bytes(data)
         .with_context(|| format!("Failed to parse downloaded from '{pirita_download_url}'"))?;
-    let webc = Arc::new(webc_raw);
-    // FIXME: add SAFETY comment
-    let package = unsafe {
-        parse_webc(webc.as_webc_ref(), webc.clone()).context("Could not parse binary package")?
-    };
+    let package = parse_webc_v2(&webc).context("Could not parse binary package")?;
 
     Ok(package)
 }
@@ -270,201 +262,150 @@ async fn download_package(
     response.body.context("HTTP response with empty body")
 }
 
-// TODO: should return Result<_, anyhow::Error>
-unsafe fn parse_webc<'a, T>(webc: webc::v1::WebC<'a>, ownership: Arc<T>) -> Option<BinaryPackage>
-where
-    T: std::fmt::Debug + Send + Sync + 'static,
-    T: Deref<Target = WebC<'static>>,
-{
-    let package_name = webc.get_package_name();
+fn parse_webc_v2(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
+    let manifest = webc.manifest();
 
-    let mut pck = webc
-        .manifest
-        .entrypoint
+    let wapm: webc::metadata::annotations::Wapm = manifest
+        .package_annotation("wapm")?
+        .context("The package must have 'wapm' annotations")?;
+
+    let mut commands = HashMap::new();
+
+    for (name, cmd) in &manifest.commands {
+        if let Some(cmd) = load_binary_command(webc, name, cmd)? {
+            commands.insert(name.as_str(), cmd);
+        }
+    }
+
+    let entry = manifest.entrypoint.as_deref().and_then(|entry| {
+        let cmd = commands.get(entry)?;
+        Some(cmd.atom.clone())
+    });
+
+    let webc_fs = WebcVolumeFileSystem::mount_all(webc);
+
+    // List all the dependencies
+    let uses: Vec<_> = manifest
+        .use_map
+        .values()
+        .filter_map(|uses| match uses {
+            UrlOrManifest::Url(url) => Some(url.path()),
+            UrlOrManifest::Manifest(manifest) => manifest.origin.as_deref(),
+            UrlOrManifest::RegistryDependentUrl(url) => Some(url),
+        })
+        .map(String::from)
+        .collect();
+
+    let module_memory_footprint = entry.as_deref().map(|b| b.len() as u64).unwrap_or(0);
+    let file_system_memory_footprint = count_file_system(&webc_fs, Path::new("/"));
+
+    let pkg = BinaryPackage {
+        package_name: wapm.name,
+        when_cached: Some(
+            crate::syscalls::platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
+                .unwrap() as u128,
+        ),
+        ownership: None,
+        entry: entry.map(Into::into),
+        hash: Arc::new(Mutex::new(None)),
+        webc_fs: Some(Arc::new(webc_fs)),
+        commands: Arc::new(RwLock::new(commands.into_values().collect())),
+        uses,
+        version: wapm.version,
+        module_memory_footprint,
+        file_system_memory_footprint,
+    };
+
+    Ok(pkg)
+}
+
+fn load_binary_command(
+    webc: &Container,
+    name: &str,
+    cmd: &webc::metadata::Command,
+) -> Result<Option<BinaryPackageCommand>, anyhow::Error> {
+    let atom_name = match atom_name_for_command(name, cmd)? {
+        Some(name) => name,
+        None => {
+            tracing::warn!(
+                cmd.name=name,
+                cmd.runner=%cmd.runner,
+                "Skipping unsupported command",
+            );
+            return Ok(None);
+        }
+    };
+
+    let atom = webc.get_atom(&atom_name);
+
+    if atom.is_none() && cmd.annotations.is_empty() {
+        return Ok(legacy_atom_hack(webc, name));
+    }
+
+    let atom = atom
+        .with_context(|| format!("The '{name}' command uses the '{atom_name}' atom, but it isn't present in the WEBC file"))?;
+
+    let cmd = BinaryPackageCommand::new(name.to_string(), atom);
+
+    Ok(Some(cmd))
+}
+
+fn atom_name_for_command(
+    command_name: &str,
+    cmd: &webc::metadata::Command,
+) -> Result<Option<String>, anyhow::Error> {
+    use webc::metadata::annotations::{Emscripten, Wasi};
+
+    if let Some(Wasi { atom, .. }) = cmd
+        .annotation("wasi")
+        .context("Unable to deserialize 'wasi' annotations")?
+    {
+        return Ok(Some(atom));
+    }
+
+    if let Some(Emscripten {
+        atom: Some(atom), ..
+    }) = cmd
+        .annotation("emscripten")
+        .context("Unable to deserialize 'emscripten' annotations")?
+    {
+        return Ok(Some(atom));
+    }
+
+    if [WASI_RUNNER_URI, WCGI_RUNNER_URI, EMSCRIPTEN_RUNNER_URI]
         .iter()
-        .filter_map(|entry| webc.manifest.commands.get(entry).map(|a| (a, entry)))
-        .filter_map(|(cmd, entry)| {
-            let api = if cmd.runner.starts_with("https://webc.org/runner/emscripten") {
-                "emscripten"
-            } else if cmd.runner.starts_with("https://webc.org/runner/wasi") {
-                "wasi"
-            } else {
-                warn!("unsupported runner - {}", cmd.runner);
-                return None;
-            };
-            let atom = webc.get_atom_name_for_command(api, entry.as_str());
-            match atom {
-                Ok(a) => Some(a),
-                Err(err) => {
-                    warn!(
-                        "failed to find atom name for entry command({}) - {} - falling back on the command name itself",
-                        entry.as_str(),
-                        err
-                    );
-                    for (name, atom) in webc.manifest.atoms.iter() {
-                        tracing::debug!("found atom (name={}, kind={})", name, atom.kind);
-                    }
-                    Some(entry.clone())
-                }
-            }
-        })
-        .filter_map(|atom| match webc.get_atom(&package_name, atom.as_str()) {
-            Ok(a) => Some(a),
-            Err(err) => {
-                warn!("failed to find atom for atom name({}) - {}", atom, err);
-                None
-            }
-        })
-        .map(|atom| {
-            BinaryPackage::new_with_ownership(
-                package_name.as_str(),
-                Some(atom.into()),
-                ownership.clone(),
-            )
-        })
-        .next();
-
-    // Otherwise add a package without an entry point
-    if pck.is_none() {
-        pck = Some(BinaryPackage::new_with_ownership(
-            package_name.as_str(),
-            None,
-            ownership.clone(),
-        ))
-    }
-    let mut pck = pck.take().unwrap();
-
-    // Add all the dependencies
-    for uses in webc.manifest.use_map.values() {
-        let uses = match uses {
-            UrlOrManifest::Url(url) => Some(url.path().to_string()),
-            UrlOrManifest::Manifest(manifest) => manifest.origin.clone(),
-            UrlOrManifest::RegistryDependentUrl(url) => Some(url.clone()),
-        };
-        if let Some(uses) = uses {
-            pck.uses.push(uses);
-        }
+        .any(|uri| cmd.runner.starts_with(uri))
+    {
+        // Note: We use the command name as the atom name as a special case
+        // for known runner types because sometimes people will construct
+        // a manifest by hand instead of using wapm2pirita.
+        tracing::debug!(
+            command = command_name,
+            "No annotations specifying the atom name found. Falling back to the command name"
+        );
+        return Ok(Some(command_name.to_string()));
     }
 
-    // Set the version of this package
-    if let Some(Annotation::Map(wapm)) = webc.manifest.package.get("wapm") {
-        if let Some(Annotation::Text(version)) = wapm.get(&Annotation::Text("version".to_string()))
-        {
-            pck.version = version.clone().into();
-        }
-    } else if let Some(Annotation::Text(version)) = webc.manifest.package.get("version") {
-        pck.version = version.clone().into();
-    }
+    Ok(None)
+}
 
-    // Add the file system from the webc
-    let webc_fs = virtual_fs::webc_fs::WebcFileSystem::init_all(ownership.clone());
-    let top_level_dirs = webc_fs.top_level_dirs().clone();
-    pck.webc_fs = Some(Arc::new(webc_fs));
-    pck.webc_top_level_dirs = top_level_dirs;
+/// HACK: Some older packages like sharrattj/bash and sharrattj/coreutils
+/// contain commands with no annotations. Those commands worked by storing
+/// the atom as a file inside the filesystem.
+///
+/// See <https://github.com/wasmerio/wasmer/commit/258903140680716da1431d92bced67d486865aeb>
+/// for more.
+fn legacy_atom_hack(webc: &Container, command_name: &str) -> Option<BinaryPackageCommand> {
+    let (name, atom) = webc.atoms().into_iter().next()?;
 
-    // Add the memory footprint of the file system
-    if let Some(webc_fs) = pck.webc_fs.as_ref() {
-        let root_path = PathBuf::from("/");
-        pck.file_system_memory_footprint +=
-            count_file_system(webc_fs.as_ref(), root_path.as_path());
-    }
+    tracing::warn!(
+        command_name,
+        atom.name = name.as_str(),
+        atom.len = atom.len(),
+        "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
+    );
 
-    // Add all the commands
-    for (command, action) in webc.get_metadata().commands.iter() {
-        let api = if action
-            .runner
-            .starts_with("https://webc.org/runner/emscripten")
-        {
-            "emscripten"
-        } else if action.runner.starts_with("https://webc.org/runner/wasi") {
-            "wasi"
-        } else {
-            warn!("unsupported runner - {}", action.runner);
-            continue;
-        };
-        let atom = webc.get_atom_name_for_command(api, command.as_str());
-        let atom = match atom {
-            Ok(a) => Some(a),
-            Err(err) => {
-                debug!(
-                    "failed to find atom name for entry command({}) - {} - falling back on the command name itself",
-                    command.as_str(),
-                    err
-                );
-                Some(command.clone())
-            }
-        };
-
-        // Load the atom as a command
-        if let Some(atom_name) = atom {
-            match webc.get_atom(package_name.as_str(), atom_name.as_str()) {
-                Ok(atom) => {
-                    trace!(
-                        "added atom (name={}, size={}) for command [{}]",
-                        atom_name,
-                        atom.len(),
-                        command
-                    );
-                    if pck.entry.is_none() {
-                        trace!("defaulting entry to command [{}]", command);
-                        let entry: &'static [u8] = {
-                            let atom: &'_ [u8] = atom;
-                            std::mem::transmute(atom)
-                        };
-                        pck.entry = Some(entry.into());
-                    }
-
-                    let mut commands = pck.commands.write().unwrap();
-                    commands.push(BinaryPackageCommand::new_with_ownership(
-                        command.clone(),
-                        atom.into(),
-                        ownership.clone(),
-                    ));
-                }
-                Err(err) => {
-                    debug!(
-                        "Failed to find atom [{}].[{}] - {} - falling back on the first atom",
-                        package_name, atom_name, err
-                    );
-
-                    if let Ok(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
-                        if let Some(file) = files.iter().next() {
-                            if let Some(atom) = file.get_bytes() {
-                                trace!(
-                                    "added atom (name={}, size={}) for command [{}]",
-                                    atom_name,
-                                    atom.len(),
-                                    command
-                                );
-                                let mut commands = pck.commands.write().unwrap();
-                                commands.push(BinaryPackageCommand::new_with_ownership(
-                                    command.clone(),
-                                    atom.into(),
-                                    ownership.clone(),
-                                ));
-                                continue;
-                            }
-                        }
-                    }
-
-                    debug!(
-                        "Failed to find atom [{}].[{}] - {} - command will be ignored",
-                        package_name, package_name, err
-                    );
-                    for (name, atom) in webc.manifest.atoms.iter() {
-                        tracing::debug!("found atom (name={}, kind={})", name, atom.kind);
-                    }
-                    if let Ok(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
-                        for file in files.iter() {
-                            tracing::debug!("found file ({})", file.get_path().to_string_lossy());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Some(pck)
+    Some(BinaryPackageCommand::new(command_name.to_string(), atom))
 }
 
 fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
@@ -499,10 +440,7 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        borrow::Cow,
-        collections::{BTreeMap, HashMap},
-    };
+    use std::collections::BTreeMap;
 
     use super::*;
 
@@ -514,18 +452,15 @@ mod tests {
     fn parse_the_python_webc_file() {
         let python = webc::compat::Container::from_bytes(PYTHON).unwrap();
 
-        let pkg = parse_static_webc(PYTHON.to_vec()).unwrap();
+        let pkg = parse_webc_v2(&python).unwrap();
 
         assert_eq!(pkg.package_name, "python");
         assert_eq!(pkg.version, "0.1.0");
         assert_eq!(pkg.uses, Vec::<String>::new());
-        assert_eq!(pkg.envs, HashMap::new());
-        assert_eq!(pkg.base_dir, None);
-        assert_eq!(pkg.mappings, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 4694941);
-        assert_eq!(pkg.file_system_memory_footprint, 13405790);
+        assert_eq!(pkg.file_system_memory_footprint, 13387764);
         let python_atom = python.get_atom("python").unwrap();
-        assert_eq!(pkg.entry, Some(Cow::Borrowed(python_atom.as_slice())));
+        assert_eq!(pkg.entry.as_deref(), Some(python_atom.as_slice()));
         let commands = pkg.commands.read().unwrap();
         let commands: BTreeMap<&str, &[u8]> = commands
             .iter()
@@ -538,16 +473,15 @@ mod tests {
 
     #[test]
     fn parse_a_webc_with_multiple_commands() {
-        let pkg = parse_static_webc(COREUTILS.to_vec()).unwrap();
+        let coreutils = Container::from_bytes(COREUTILS).unwrap();
+
+        let pkg = parse_webc_v2(&coreutils).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/coreutils");
         assert_eq!(pkg.version, "1.0.14");
         assert_eq!(pkg.uses, Vec::<String>::new());
-        assert_eq!(pkg.envs, HashMap::new());
-        assert_eq!(pkg.base_dir, None);
-        assert_eq!(pkg.mappings, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 0);
-        assert_eq!(pkg.file_system_memory_footprint, 126);
+        assert_eq!(pkg.file_system_memory_footprint, 44);
         assert_eq!(pkg.entry, None);
         let commands = pkg.commands.read().unwrap();
         let commands: BTreeMap<&str, &[u8]> = commands
@@ -661,24 +595,24 @@ mod tests {
                 "yes",
             ]
         );
+        let coreutils_atom = coreutils.get_atom("coreutils").unwrap();
+        for (cmd, atom) in commands {
+            assert_eq!(atom.len(), coreutils_atom.len(), "{cmd}");
+            assert_eq!(atom, coreutils_atom, "{cmd}");
+        }
     }
 
     #[test]
     fn parse_a_webc_with_dependencies() {
         let bash = webc::compat::Container::from_bytes(BASH).unwrap();
 
-        let pkg = parse_static_webc(BASH.to_vec()).unwrap();
+        let pkg = parse_webc_v2(&bash).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/bash");
         assert_eq!(pkg.version, "1.0.12");
         assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.11"]);
-        assert_eq!(pkg.envs, HashMap::new());
-        assert_eq!(pkg.base_dir, None);
-        assert_eq!(pkg.mappings, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 0);
-        let bash_atom = bash.get_atom("bash").unwrap();
-        assert_eq!(pkg.entry, Some(Cow::Borrowed(bash_atom.as_slice())));
         let commands = pkg.commands.read().unwrap();
         let commands: BTreeMap<&str, &[u8]> = commands
             .iter()
@@ -686,5 +620,7 @@ mod tests {
             .collect();
         let command_names: Vec<_> = commands.keys().copied().collect();
         assert_eq!(command_names, &["bash", "sh"]);
+        assert_eq!(commands["bash"], bash.get_atom("bash").unwrap());
+        assert_eq!(commands["sh"], commands["bash"]);
     }
 }

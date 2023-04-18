@@ -757,14 +757,14 @@ impl WasiEnv {
         I: IntoIterator<Item = String>,
     {
         // Load all the containers that we inherit from
+        use std::collections::VecDeque;
         #[allow(unused_imports)]
         use std::path::Path;
-        use std::{borrow::Cow, collections::VecDeque};
 
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
-        let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
+        let mut already: HashMap<String, String> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
 
@@ -782,7 +782,7 @@ impl WasiEnv {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
                 if let Some(version) = already.get(&package_name) {
-                    if version.as_ref() != package.version.as_ref() {
+                    if version.as_str() != package.version {
                         return Err(WasiStateCreationError::WasiInheritError(format!(
                             "webc package version conflict for {} - {} vs {}",
                             use_package, version, package.version
