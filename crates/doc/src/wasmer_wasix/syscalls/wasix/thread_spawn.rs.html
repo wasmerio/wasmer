@@ -253,6 +253,12 @@
 <span id="251">251</span>
 <span id="252">252</span>
 <span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -262,27 +268,35 @@
 <span class="doccomment">/// ### `thread_spawn()`
 /// Creates a new thread by spawning that shares the same
 /// memory address space, file handles and main event loops.
-/// The function referenced by the fork call must be
-/// exported by the web assembly process.
 ///
 /// ## Parameters
 ///
-/// * `name` - Name of the function that will be invoked as a new thread
-/// * `user_data` - User data that will be supplied to the function when its called
-/// * `reactor` - Indicates if the function will operate as a reactor or
-///   as a normal thread. Reactors will be repeatable called
-///   whenever IO work is available to be processed.
+/// * `start_ptr` - Pointer to the structure that describes the thread to be launched
+/// * `ret_tid` - ID of the thread that was launched
 ///
 /// ## Return
 ///
 /// Returns the thread index of the newly created thread
-/// (indices always start from zero)
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(user_data, stack_base, stack_start, reactor, tid = field::Empty), ret)]
+/// (indices always start from the same value as `pid` and increments in steps)
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>thread_spawn&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
     ret_tid: WasmPtr&lt;Tid, M&gt;,
 ) -&gt; Errno {
+    <span class="comment">// Create the thread
+    </span><span class="kw">let </span>tid = <span class="macro">wasi_try!</span>(thread_spawn_internal(<span class="kw-2">&amp;</span>ctx, start_ptr));
+
+    <span class="comment">// Success
+    </span><span class="kw">let </span>memory = ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="macro">wasi_try_mem!</span>(ret_tid.write(<span class="kw-2">&amp;</span>memory, tid));
+    Errno::Success
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>thread_spawn_internal&lt;M: MemorySize&gt;(
+    ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Tid, Errno&gt; {
     <span class="comment">// Now we use the environment and memory references
     </span><span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
@@ -290,9 +304,9 @@
     <span class="kw">let </span>tasks = env.tasks().clone();
 
     <span class="comment">// Read the properties about the stack which we will use for asyncify
-    </span><span class="kw">let </span>start = <span class="macro">wasi_try_mem!</span>(start_ptr.read(<span class="kw-2">&amp;</span>memory));
-    <span class="kw">let </span>stack_start: u64 = <span class="macro">wasi_try!</span>(start.stack_start.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    <span class="kw">let </span>stack_size: u64 = <span class="macro">wasi_try!</span>(start.stack_size.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+    </span><span class="kw">let </span>start = start_ptr.read(<span class="kw-2">&amp;</span>memory).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+    <span class="kw">let </span>stack_start: u64 = start.stack_start.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow)<span class="question-mark">?</span>;
+    <span class="kw">let </span>stack_size: u64 = start.stack_size.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow)<span class="question-mark">?</span>;
     <span class="kw">let </span>stack_base = stack_start - stack_size;
 
     <span class="comment">// Create the handle that represents this thread
@@ -305,7 +319,7 @@
                 <span class="string">&quot;failed to create thread handle&quot;</span>,
             );
             <span class="comment">// TODO: evaluate the appropriate error code, document it in the spec.
-            </span><span class="kw">return </span>Errno::Access;
+            </span><span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
         }
     };
     <span class="kw">let </span>thread_id: Tid = thread_handle.id().into();
@@ -357,14 +371,14 @@
 
     <span class="comment">// We need a copy of the process memory and a packaged store in order to
     // launch threads and reactors
-    </span><span class="kw">let </span>thread_memory = <span class="macro">wasi_try!</span>(ctx
+    </span><span class="kw">let </span>thread_memory = ctx
         .data()
         .memory()
         .clone_in_store(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store)
         .ok_or_else(|| {
             <span class="macro">error!</span>(<span class="string">&quot;failed - the memory could not be cloned&quot;</span>);
             Errno::Notcapable
-        }));
+        })<span class="question-mark">?</span>;
 
     <span class="comment">// This function calls into the module
     </span><span class="kw">let </span>start_ptr_offset = start_ptr.offset();
@@ -482,7 +496,7 @@
     // we can&#39;t spawn a background thread
     </span><span class="kw">if </span>env.inner().thread_spawn.is_none() {
         <span class="macro">warn!</span>(<span class="string">&quot;thread failed - the program does not export a `wasi_thread_start` function&quot;</span>);
-        <span class="kw">return </span>Errno::Notcapable;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable);
     }
     <span class="kw">let </span>spawn_type = <span class="kw">crate</span>::runtime::SpawnType::NewThread(thread_memory);
 
@@ -497,14 +511,12 @@
         execute_module(<span class="kw-2">&amp;mut </span>store, thread_module, <span class="kw-2">&amp;mut </span>thread_memory);
     };
 
-    <span class="macro">wasi_try!</span>(tasks
+    tasks
         .task_wasm(Box::new(task), store, thread_module, spawn_type)
-        .map_err(|err| { Into::&lt;Errno&gt;::into(err) }));
+        .map_err(Into::&lt;Errno&gt;::into)<span class="question-mark">?</span>;
 
     <span class="comment">// Success
-    </span><span class="kw">let </span>memory = ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx);
-    <span class="macro">wasi_try_mem!</span>(ret_tid.write(<span class="kw-2">&amp;</span>memory, thread_id));
-    Errno::Success
+    </span><span class="prelude-val">Ok</span>(thread_id)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

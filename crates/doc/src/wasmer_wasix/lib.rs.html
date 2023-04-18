@@ -848,6 +848,18 @@
 <span id="846">846</span>
 <span id="847">847</span>
 <span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![deny(unused_mut)]
@@ -1218,6 +1230,14 @@
     }
 }
 
+<span class="kw">fn </span>wasi_exports_generic(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
+    <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
+    <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
+        <span class="string">&quot;thread-spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_legacy::&lt;Memory32&gt;),
+    };
+    namespace
+}
+
 <span class="kw">fn </span>wasi_unstable_exports(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
     <span class="kw">use </span>syscalls::<span class="kw-2">*</span>;
     <span class="kw">let </span>namespace = <span class="macro">namespace! </span>{
@@ -1266,6 +1286,7 @@
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
         <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
         <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
+        <span class="string">&quot;thread-spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_legacy::&lt;Memory32&gt;),
     };
     namespace
 }
@@ -1321,6 +1342,7 @@
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
         <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
         <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
+        <span class="string">&quot;thread-spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_legacy::&lt;Memory32&gt;),
     };
     namespace
 }
@@ -1592,6 +1614,7 @@
     store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; (Imports, ModuleInitializer) {
+    <span class="kw">let </span>exports_wasi_generic = wasi_exports_generic(store, env);
     <span class="kw">let </span>exports_wasi_unstable = wasi_unstable_exports(store, env);
     <span class="kw">let </span>exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     <span class="kw">let </span>exports_wasix_32v1 = wasix_exports_32(store, env);
@@ -1600,6 +1623,7 @@
     <span class="comment">// Allowed due to JS feature flag complications.
     </span><span class="attribute">#[allow(unused_mut)]
     </span><span class="kw">let </span><span class="kw-2">mut </span>imports = <span class="macro">imports! </span>{
+        <span class="string">&quot;wasi&quot; </span>=&gt; exports_wasi_generic,
         <span class="string">&quot;wasi_unstable&quot; </span>=&gt; exports_wasi_unstable,
         <span class="string">&quot;wasi_snapshot_preview1&quot; </span>=&gt; exports_wasi_snapshot_preview1,
         <span class="string">&quot;wasix_32v1&quot; </span>=&gt; exports_wasix_32v1,

@@ -87,6 +87,8 @@
 <span id="85">85</span>
 <span id="86">86</span>
 <span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
 </pre><pre class="rust"><code><span class="kw">mod </span>args_get;
 <span class="kw">mod </span>args_sizes_get;
 <span class="kw">mod </span>clock_res_get;
@@ -129,6 +131,7 @@
 <span class="kw">mod </span>proc_exit;
 <span class="kw">mod </span>proc_raise;
 <span class="kw">mod </span>random_get;
+<span class="kw">mod </span>thread_spawn;
 
 <span class="kw">pub use </span>args_get::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>args_sizes_get::<span class="kw-2">*</span>;
@@ -172,6 +175,7 @@
 <span class="kw">pub use </span>proc_exit::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>proc_raise::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>random_get::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>thread_spawn::<span class="kw-2">*</span>;
 
 <span class="kw">use </span>tracing::{debug_span, field, instrument, trace_span, Span};
 </code></pre></div>
