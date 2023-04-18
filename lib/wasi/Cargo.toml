@@ -51,7 +51,7 @@ linked_hash_set = { version = "0.1" }
 # used by feature='host-termios'
 termios = { version = "0.3", optional = true }
 http = "0.2.8"
-wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.4", features = ["tracing"] }
+wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.3.0", features = ["tracing"] }
 heapless = "0.7.16"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
