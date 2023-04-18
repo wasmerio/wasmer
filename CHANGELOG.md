@@ -9,6 +9,60 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.2.0 - 18/04/2023
+
+A lot of new features since last stable version:
+RISCV Support, new Runners (WCGI), API convergence for JS/SYS, and WASI eXtended.
+
+ * RISCV support, on both Cranelift and LLVM Compiler.
+ * New Runners, with WCGI as a new one
+ * Most WAPM command are now available on the wasmer CLI directly
+ * Using Wasmer on `sys` or `js` backend is more transparent now, with now support for running wasmer on`JavaScriptCore`
+
+ * The WASI implementation has undergone a major refactoring, and will continue evolve significantly over the coming months.
+    - The old `wasmer_wasi` crate was deprecated.
+
+    - To continue using WASI, please switch to the new `wasmer_wasix` crate, which follows a different versioning scheme than the main Wasmer releases.
+    Major changes:
+    - An async runtime is now required. The runtime is pluggable, but only tokio is officially supported at the moment.
+    - The virtual file system layer was renamed from `wasmer-vfs` to `virtual-fs`, and now is built around an async interface that builds on top of `tokio::{AsyncRead/Write}`
+
+    This refactor will unlock many exciting new features that will be announced soon!
+    Just be aware that you will have to expect some instability and frequent releases with potential breaking changes until our new implementation settles. down.
+
+## Added
+
+  - [#3706](https://github.com/wasmerio/wasmer/pull/3706) [CI] Add RISCV in test and build
+  - [#3765](https://github.com/wasmerio/wasmer/pull/3765) Added basic support to inode in filestat_get (for #3583 and #3239)
+  - [#3751](https://github.com/wasmerio/wasmer/pull/3751) Added some unit testing to singlepass compiler
+  - [#3752](https://github.com/wasmerio/wasmer/pull/3752) Added new snapshots tests that use a fixed MIO and TOKIO
+  - [#3759](https://github.com/wasmerio/wasmer/pull/3759) Added the wasmer.sh website to the main repo and a CI/CD build test
+  - [#3747](https://github.com/wasmerio/wasmer/pull/3747) Added missing crate version bump
+
+## Changed
+
+  - [#3778](https://github.com/wasmerio/wasmer/pull/3778) Upgrade to webc v5.0.0
+  - [#3775](https://github.com/wasmerio/wasmer/pull/3775) Ran Cargo update before release
+  - [#3774](https://github.com/wasmerio/wasmer/pull/3774) Wasi threads
+  - [#3772](https://github.com/wasmerio/wasmer/pull/3772) [DOC] Removed paragraph about default-compiler, as it's doesn't exist anymore
+  - [#3766](https://github.com/wasmerio/wasmer/pull/3766) deps: Upgrade memoffset
+  - [#3690](https://github.com/wasmerio/wasmer/pull/3690) Introduce a WebcVolumeFileSystem that works for any WEBC version
+  - [#3424](https://github.com/wasmerio/wasmer/pull/3424) Use "wasmer --version --verbose" in the issue template
+  - [#3757](https://github.com/wasmerio/wasmer/pull/3757) WASI without VM internals
+  - [#3758](https://github.com/wasmerio/wasmer/pull/3758) More and better snapshot tests
+  - [#3756](https://github.com/wasmerio/wasmer/pull/3756) Aarch64 stackprobe
+  - [#3753](https://github.com/wasmerio/wasmer/pull/3753) Upgrade webc from webc 5.0.0-rc.5 to webc 5.0.0-rc.6
+
+## Fixed
+
+  - [#3767](https://github.com/wasmerio/wasmer/pull/3767) Fix Snapshot0 fd_filestat_get and path_filestat_get
+  - [#3723](https://github.com/wasmerio/wasmer/pull/3723) Fix Wait/Notify opcode, the waiters hashmap is now on the Memory itself
+  - [#3749](https://github.com/wasmerio/wasmer/pull/3749) Fixed publish script with latest needed changes
+  - [#3750](https://github.com/wasmerio/wasmer/pull/3750) Fixes Chinese docs links (for #3746)
+  - [#3761](https://github.com/wasmerio/wasmer/pull/3761) Fix error in Korean translation
+
+
+
 ## 3.2.0-beta.2 - 05/04/2023
 
 Bug fixes for this beta release, and some exciting new possibilities with the `run-unstable` function from the CLI tools.

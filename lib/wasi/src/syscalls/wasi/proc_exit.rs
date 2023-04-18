@@ -23,6 +23,9 @@ pub fn proc_exit<M: MemorySize>(
         let mut wasi_env = *vfork.env;
         wasi_env.owned_handles.push(vfork.handle);
 
+        // The child environment needs to be notified as exited
+        wasi_env.thread.set_status_finished(Ok(code));
+
         // We still need to create the process that exited so that
         // the exit code can be used by the parent process
         let pid = wasi_env.process.pid();

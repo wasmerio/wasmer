@@ -648,7 +648,7 @@ fn test_run_http_request(
     println!("expected_size: {}", expected_size);
 
     let url = format!("http://localhost:{}/{}", port, what);
-    let reference_data = http_get(url.clone(), 10)?;
+    let reference_data = http_get(url.clone(), 50)?;
     for _ in 0..20 {
         let test_data = http_get(url.clone(), 2)?;
         println!("actual_size: {}", test_data.len());
@@ -874,6 +874,18 @@ fn test_snapshot_multithreading() {
         .with_name(function!())
         .debug_output(true)
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+// test for traditional wasi threads
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_wasi_threads() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .debug_output(true)
+        .enable_threads(true)
+        .run_wasm(include_bytes!("./wasm/wasi-threads.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
