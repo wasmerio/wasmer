@@ -11,6 +11,20 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 3.2.0 - 18/04/2023
 
+A lot of new features since last stable version:
+RISCV Support, new Runners (WCGI), API convergence for JS/SYS, and WASI eXtended.
+
+ * RISCV support, on both Cranelift and LLVM Compiler.
+ * New Runners, with WCGI as a new one
+ * The WASI implementation has undergone a major refactoring, and will continue evolve significantly over the coming months.
+    - The old wasmer_wasi crate was deprecated.
+    - To continue using WASI, please switch to the new `wasmer_wasix` crate, which follows a different versioning scheme than the main Wasmer releases.
+    Major changes:
+    - An async runtime is now required. The runtime is pluggable, but only tokio is officially supported at the moment.
+    - The virtual file system layer was moved to the `virtual-fs` crate, and now is built around an async interface that builds on top of tokio::{AsyncRead/Write}
+    This refactor will unlock many exciting new features that will be announced soon!
+    Just be aware that you will have to expect some instability and frequent releases with potential breaking changes until our new implementation settles. down.
+
 ## Added
 
   - [#3706](https://github.com/wasmerio/wasmer/pull/3706) [CI] Add RISCV in test and build
