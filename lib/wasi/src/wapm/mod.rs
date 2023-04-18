@@ -388,9 +388,13 @@ fn atom_name_for_command(
     Ok(None)
 }
 
-/// HACK: Some older packages like sharrattj/bash and sharrattj/coreutils
-/// contain commands with no annotations. Those commands worked by storing
-/// the atom as a file inside the filesystem.
+/// HACK: Some older packages like `sharrattj/bash` and `sharrattj/coreutils`
+/// contain commands with no annotations. When this happens, you can just assume
+/// it wants to use the first atom in the WEBC file.
+///
+/// That works because most of these packages only have a single atom (e.g. in
+/// `sharrattj/coreutils` there are commands for `ls`, `pwd`, and so on, but
+/// under the hood they all use the `coreutils` atom).
 ///
 /// See <https://github.com/wasmerio/wasmer/commit/258903140680716da1431d92bced67d486865aeb>
 /// for more.
