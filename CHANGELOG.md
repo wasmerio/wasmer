@@ -25,7 +25,8 @@ RISCV Support, new Runners (WCGI), API convergence for JS/SYS, and WASI eXtended
     - To continue using WASI, please switch to the new `wasmer_wasix` crate, which follows a different versioning scheme than the main Wasmer releases.
     Major changes:
     - An async runtime is now required. The runtime is pluggable, but only tokio is officially supported at the moment.
-    - The virtual file system layer was moved to the `virtual-fs` crate, and now is built around an async interface that builds on top of tokio::{AsyncRead/Write}
+    - The virtual file system layer was renamed from `wasmer-vfs` to `virtual-fs`, and now is built around an async interface that builds on top of `tokio::{AsyncRead/Write}`
+
     This refactor will unlock many exciting new features that will be announced soon!
     Just be aware that you will have to expect some instability and frequent releases with potential breaking changes until our new implementation settles. down.
 
