@@ -19,8 +19,6 @@ use crate::{
     WasiRuntime,
 };
 
-#[cfg(feature = "wapm-tar")]
-mod manifest;
 mod pirita;
 
 use crate::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
