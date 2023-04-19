@@ -6,7 +6,6 @@ use crate::syscalls::*;
 #[derive(Clone)]
 struct FutexPoller {
     state: Arc<WasiState>,
-    woken: Arc<Mutex<bool>>,
     poller_idx: u64,
     futex_idx: u64,
     expected: u32,
@@ -70,7 +69,6 @@ struct FutexAfter<M>
 where
     M: MemorySize,
 {
-    woken: Arc<Mutex<bool>>,
     ret_woken: WasmPtr<Bool, M>,
 }
 impl<M> RewindPostProcess for FutexAfter<M>
@@ -83,16 +81,11 @@ where
         store: &dyn AsStoreRef,
         res: Result<(), Errno>,
     ) -> Result<(), ExitCode> {
-        let woken = self.woken.lock().unwrap();
-        if *woken {
-            let view = env.memory_view(store);
-            self.ret_woken
-                .write(&view, Bool::True)
-                .map_err(mem_error_to_wasi)
-                .map_err(ExitCode::Errno)
-        } else {
-            Ok(())
-        }
+        let view = env.memory_view(store);
+        self.ret_woken
+            .write(&view, Bool::True)
+            .map_err(mem_error_to_wasi)
+            .map_err(ExitCode::Errno)
     }
 }
 
@@ -146,7 +139,6 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // it will remove itself from the lookup. It can also be
     // removed whenever the wake call is invoked (which could
     // be before the poller is polled).
-    let woken = Arc::new(Mutex::new(false));
     let poller = {
         let mut guard = env.state.futexs.lock().unwrap();
         guard.poller_seed += 1;
@@ -160,7 +152,6 @@ pub fn futex_wait<M: MemorySize + 'static>(
         Span::current().record("poller_idx", poller_idx);
         FutexPoller {
             state: env.state.clone(),
-            woken: woken.clone(),
             poller_idx,
             futex_idx,
             expected,
@@ -182,7 +173,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
 
     // Create a poller which will register ourselves against
     // this futex event and check when it has changed
-    let after = FutexAfter { woken, ret_woken };
+    let after = FutexAfter { ret_woken };
 
     // We use asyncify on the poller and potentially go into deep sleep
     __asyncify_with_deep_sleep::<M, _>(
