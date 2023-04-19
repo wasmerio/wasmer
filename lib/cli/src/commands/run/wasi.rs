@@ -238,7 +238,7 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut Store,
+        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
