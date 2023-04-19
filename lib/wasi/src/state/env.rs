@@ -805,22 +805,30 @@ impl WasiEnv {
 
                     // Add all the commands as binaries in the bin folder
 
-                    // FIXME(Michael-F-Bryan): We need to find a way to share
-                    // the atom bytes here (e.g. via some sort of
-                    // Arc<dyn AsRef<[u8]>> or using webc::compat::SharedBytes).
-                    // Using command.atom().to_vec() will create a copy of the
-                    // bytes and we don't want a simple Arc<[u8]> because that
-                    // means we can't use bytes from a memory-mapped file.
-
                     let commands = package.commands.read().unwrap();
                     if !commands.is_empty() {
                         let _ = root_fs.create_dir(Path::new("/bin"));
                         for command in commands.iter() {
                             let path = format!("/bin/{}", command.name());
                             let path = Path::new(path.as_str());
+
+                            // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                            // We should be using some sort of reference-counted
+                            // pointer to some bytes that are either on the heap
+                            // or from a memory-mapped file. However, that's not
+                            // possible here because things like memfs and
+                            // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                            // too hard to refactor those at the moment, and we
+                            // were pulling the same trick before by storing an
+                            // "ownership" object in the BinaryPackageCommand,
+                            // so as long as packages aren't removed from the
+                            // module cache it should be fine.
+                            let atom: &'static [u8] =
+                                unsafe { std::mem::transmute(command.atom()) };
+
                             if let Err(err) = root_fs
                                 .new_open_options_ext()
-                                .insert_ro_file(path, command.atom().to_vec().into())
+                                .insert_ro_file(path, atom.into())
                             {
                                 tracing::debug!(
                                     "failed to add package [{}] command [{}] - {}",
@@ -833,7 +841,7 @@ impl WasiEnv {
 
                             // Add the binary package to the bin factory (zero copy the atom)
                             let mut package = package.clone();
-                            package.entry = Some(command.atom().to_vec().into());
+                            package.entry = Some(atom.into());
                             self.bin_factory
                                 .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
                         }

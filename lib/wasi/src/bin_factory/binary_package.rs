@@ -29,6 +29,10 @@ impl BinaryPackageCommand {
         &self.name
     }
 
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom.
+    ///
+    /// The address of the returned slice is guaranteed to be stable and live as
+    /// long as the [`BinaryPackageCommand`].
     pub fn atom(&self) -> &[u8] {
         &self.atom
     }
