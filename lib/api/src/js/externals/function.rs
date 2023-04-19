@@ -7,7 +7,6 @@ use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionE
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
-use crate::StoreId;
 use std::fmt;
 use std::iter::FromIterator;
 use std::marker::PhantomData;

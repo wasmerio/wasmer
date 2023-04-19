@@ -5,7 +5,6 @@ use crate::value::Value;
 use crate::vm::{VMExtern, VMGlobal};
 use crate::GlobalType;
 use crate::Mutability;
-use crate::StoreId;
 use wasm_bindgen::JsValue;
 use wasmer_types::{RawValue, Type};
 
