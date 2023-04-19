@@ -186,9 +186,7 @@ impl RunWithPathBuf {
 
     fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
         if self.stack_size.is_some() {
-            unsafe {
-                wasmer_vm::set_stack_size(self.stack_size.unwrap());
-            }
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {

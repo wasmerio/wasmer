@@ -20,7 +20,7 @@ use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
+use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 use std::sync::{Mutex, Once};
 use wasmer_types::TrapCode;
 
@@ -29,16 +29,11 @@ use wasmer_types::TrapCode;
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
 
-static mut DEFAULT_STACK_SIZE: usize = 1024 * 1024;
+static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
 
 /// Default stack size is 1MB.
-/// # Safety
-///
-/// This function should only be called before starting any wasm process
-pub unsafe fn set_stack_size(size: usize) {
-    unsafe {
-        DEFAULT_STACK_SIZE = size.max(8 * 1024).min(100 * 1024 * 1024);
-    }
+pub fn set_stack_size(size: usize) {
+    DEFAULT_STACK_SIZE.store(size.max(8 * 1024).min(100 * 1024 * 1024), Ordering::Relaxed);
 }
 
 cfg_if::cfg_if! {
@@ -636,7 +631,12 @@ where
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
 
-    on_wasm_stack(DEFAULT_STACK_SIZE, trap_handler, closure).map_err(UnwindReason::into_trap)
+    on_wasm_stack(
+        DEFAULT_STACK_SIZE.load(Ordering::Relaxed),
+        trap_handler,
+        closure,
+    )
+    .map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:

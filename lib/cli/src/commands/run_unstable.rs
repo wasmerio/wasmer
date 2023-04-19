@@ -105,9 +105,7 @@ impl RunUnstable {
         store: &mut Store,
     ) -> Result<(), Error> {
         if self.stack_size.is_some() {
-            unsafe {
-                wasmer_vm::set_stack_size(self.stack_size.unwrap());
-            }
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
@@ -127,9 +125,7 @@ impl RunUnstable {
         store: &mut Store,
     ) -> Result<(), Error> {
         if self.stack_size.is_some() {
-            unsafe {
-                wasmer_vm::set_stack_size(self.stack_size.unwrap());
-            }
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
