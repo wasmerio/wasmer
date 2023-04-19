@@ -470,6 +470,16 @@ mod tests {
         let command_names: Vec<_> = commands.keys().copied().collect();
         assert_eq!(command_names, &["python"]);
         assert_eq!(commands["python"], python_atom);
+
+        // Note: It's important that the entry we parse doesn't allocate, so
+        // make sure it lies within the original PYTHON buffer.
+        let bounds = PYTHON.as_ptr_range();
+
+        let entry_ptr = pkg.entry.as_deref().unwrap().as_ptr();
+        assert!(bounds.start <= entry_ptr && entry_ptr < bounds.end);
+
+        let python_cmd_ptr = commands["python"].as_ptr();
+        assert!(bounds.start <= python_cmd_ptr && python_cmd_ptr < bounds.end);
     }
 
     #[test]
