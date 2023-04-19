@@ -1,5 +1,3 @@
-use wasmer_types::StoreId;
-
 #[cfg(feature = "js")]
 use crate::js::externals::table as table_impl;
 #[cfg(feature = "sys")]
@@ -108,11 +106,6 @@ impl Table {
     /// Checks whether this `Table` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
-    }
-
-    /// Returns the ID of the store this table relates to
-    pub fn store_id(&self) -> StoreId {
-        self.0.store_id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

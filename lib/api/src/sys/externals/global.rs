@@ -4,7 +4,6 @@ use crate::value::Value;
 use crate::vm::VMExternGlobal;
 use crate::GlobalType;
 use crate::Mutability;
-use wasmer_types::StoreId;
 use wasmer_vm::{StoreHandle, VMExtern, VMGlobal};
 
 #[derive(Debug, Clone)]
@@ -86,10 +85,6 @@ impl Global {
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
-    }
-
-    pub fn store_id(&self) -> StoreId {
-        self.handle.store_id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

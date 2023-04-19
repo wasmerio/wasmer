@@ -10,7 +10,7 @@ use std::mem::MaybeUninit;
 use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
-use wasmer_types::{Pages, StoreId};
+use wasmer_types::Pages;
 use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
 #[derive(Debug, Clone)]
@@ -61,11 +61,6 @@ impl Memory {
     /// Checks whether this `Memory` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
-    }
-
-    /// Returns the ID of the store this memory relates to
-    pub fn store_id(&self) -> StoreId {
-        self.handle.store_id()
     }
 
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {

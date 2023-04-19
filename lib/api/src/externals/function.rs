@@ -9,7 +9,7 @@ use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionBody, VMTrampol
 use crate::{
     Extern, FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, TypedFunction, Value,
 };
-use wasmer_types::{RawValue, StoreId};
+use wasmer_types::RawValue;
 
 use crate::native_type::WasmTypeList;
 
@@ -493,11 +493,6 @@ impl Function {
     /// Checks whether this `Function` can be used with the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
-    }
-
-    /// Returns the ID of the store this function relates to
-    pub fn store_id(&self) -> StoreId {
-        self.0.store_id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

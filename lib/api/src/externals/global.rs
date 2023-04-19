@@ -1,5 +1,3 @@
-use wasmer_types::StoreId;
-
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
@@ -156,11 +154,6 @@ impl Global {
     /// Checks whether this `Global` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
-    }
-
-    /// Returns the ID of the store this global relates to
-    pub fn store_id(&self) -> StoreId {
-        self.0.store_id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

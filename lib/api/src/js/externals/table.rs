@@ -117,8 +117,4 @@ impl Table {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
-
-    pub fn store_id(&self) -> StoreId {
-        StoreId::unknown()
-    }
 }

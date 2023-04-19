@@ -1,4 +1,4 @@
-use core::{convert::TryInto, fmt::Display};
+use core::fmt::Display;
 use std::{
     num::NonZeroUsize,
     sync::atomic::{AtomicUsize, Ordering},
@@ -11,13 +11,6 @@ use std::{
 /// correct context.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StoreId(NonZeroUsize);
-
-impl StoreId {
-    /// Represents an unknown store ID
-    pub fn unknown() -> Self {
-        Self(usize::MAX.try_into().unwrap())
-    }
-}
 
 impl Default for StoreId {
     // Allocates a unique ID for a new context.

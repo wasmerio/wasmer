@@ -11,7 +11,7 @@ use crate::Extern;
 use crate::MemoryAccessError;
 use crate::MemoryType;
 use std::mem::MaybeUninit;
-use wasmer_types::{MemoryError, Pages, StoreId};
+use wasmer_types::{MemoryError, Pages};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -126,11 +126,6 @@ impl Memory {
     /// Checks whether this `Memory` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
-    }
-
-    /// Returns the ID of the store this memory relates to
-    pub fn store_id(&self) -> StoreId {
-        self.0.store_id()
     }
 
     /// Attempts to clone this memory (if its clonable)
