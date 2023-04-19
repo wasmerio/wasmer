@@ -133,7 +133,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
                 .with_snapshot(&snapshot)
                 .with_memory(spawn_type),
         )
-        .map_err(|err| Into::<Errno>::into(err))?;
+        .map_err(Into::<Errno>::into)?;
 
     // Success
     Ok(thread_id)
