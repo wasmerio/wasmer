@@ -289,9 +289,7 @@ impl ModuleCache {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use tracing_subscriber::{
-        filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
-    };
+    use tracing_subscriber::filter::LevelFilter;
 
     use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
@@ -299,13 +297,11 @@ mod tests {
 
     #[test]
     fn test_module_cache() {
-        tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_filter(filter::LevelFilter::INFO),
-            )
-            .init();
+        let _ = tracing_subscriber::fmt()
+            .pretty()
+            .with_test_writer()
+            .with_max_level(LevelFilter::INFO)
+            .try_init();
 
         let mut cache = ModuleCache::new(None, None, true);
         cache.cache_time = std::time::Duration::from_millis(500);

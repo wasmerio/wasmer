@@ -7,8 +7,6 @@ use std::{
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
-#[allow(unused_imports)]
-use tracing::{error, warn};
 use webc::{
     metadata::{
         annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI},
@@ -401,7 +399,7 @@ fn atom_name_for_command(
 fn legacy_atom_hack(webc: &Container, command_name: &str) -> Option<BinaryPackageCommand> {
     let (name, atom) = webc.atoms().into_iter().next()?;
 
-    tracing::warn!(
+    tracing::debug!(
         command_name,
         atom.name = name.as_str(),
         atom.len = atom.len(),
