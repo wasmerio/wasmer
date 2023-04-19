@@ -1,0 +1,23 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 765
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_wasi_threads",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "debug_output": true,
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "x = 1\ny = 0\nz = 0\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

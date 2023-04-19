@@ -21,8 +21,8 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "Child pid: 2\nhi\nChild status 0\n",
-      "stderr": "",
+      "stdout": "hi\n",
+      "stderr": "Child pid: 2\nChild status 0\n",
       "exit_code": 0
     }
   }

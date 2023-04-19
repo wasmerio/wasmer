@@ -39,6 +39,7 @@ pub mod net;
 // TODO: should this be pub?
 pub mod fs;
 pub mod http;
+mod rewind;
 #[cfg(feature = "webc_runner")]
 pub mod runners;
 pub mod runtime;
@@ -48,18 +49,17 @@ mod utils;
 pub mod wapm;
 
 pub mod capabilities;
+pub use rewind::*;
 
 /// WAI based bindings.
 mod bindings;
 
-use std::pin::Pin;
 use std::sync::Arc;
 use std::{cell::RefCell, sync::atomic::AtomicU32};
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
-use syscalls::AsyncifyFuture;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -117,46 +117,6 @@ pub use crate::{
         WasiVersion,
     },
 };
-
-/// Trait that will be invoked after the rewind has finished
-/// It is possible that the process will be terminated rather
-/// than restored at this point
-pub trait RewindPostProcess {
-    /// Returns the serialized object that is returned on the rewind
-    fn finish(&mut self, res: Result<(), Errno>) -> Bytes;
-}
-
-/// The rewind state after a deep sleep
-pub struct RewindState {
-    /// Memory stack used to restore the stack trace back to where it was
-    pub memory_stack: Bytes,
-    /// Call stack used to restore the stack trace back to where it was
-    pub rewind_stack: Bytes,
-    /// All the global data stored in the store
-    pub store_data: Bytes,
-    /// Flag that indicates if this rewind is 64-bit or 32-bit memory based
-    pub is_64bit: bool,
-}
-
-/// Represents the work that will be done when a thread goes to deep sleep and
-/// includes the things needed to restore it again
-pub struct DeepSleepWork {
-    /// This is the work that will be performed before the thread is rewoken
-    pub trigger: Pin<Box<AsyncifyFuture>>,
-    /// State that the thread will be rewound to
-    pub rewind: RewindState,
-}
-impl std::fmt::Debug for DeepSleepWork {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "deep-sleep-work(memory_stack_len={}, rewind_stack_len={}, store_size={})",
-            self.rewind.memory_stack.len(),
-            self.rewind.rewind_stack.len(),
-            self.rewind.store_data.len()
-        )
-    }
-}
 
 /// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
@@ -363,6 +323,14 @@ pub fn generate_import_object_from_env(
     }
 }
 
+fn wasi_exports_generic(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
+    use syscalls::*;
+    let namespace = namespace! {
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
+    };
+    namespace
+}
+
 fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
@@ -411,6 +379,7 @@ fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<Wasi
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
     };
     namespace
 }
@@ -466,6 +435,7 @@ fn wasi_snapshot_preview1_exports(
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
     };
     namespace
 }
@@ -737,6 +707,7 @@ fn import_object_for_all_wasi_versions(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
 ) -> (Imports, ModuleInitializer) {
+    let exports_wasi_generic = wasi_exports_generic(store, env);
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     let exports_wasix_32v1 = wasix_exports_32(store, env);
@@ -745,6 +716,7 @@ fn import_object_for_all_wasi_versions(
     // Allowed due to JS feature flag complications.
     #[allow(unused_mut)]
     let mut imports = imports! {
+        "wasi" => exports_wasi_generic,
         "wasi_unstable" => exports_wasi_unstable,
         "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
         "wasix_32v1" => exports_wasix_32v1,

@@ -148,10 +148,6 @@ impl Memory {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
-
-    pub fn store_id(&self) -> StoreId {
-        StoreId::unknown()
-    }
 }
 
 impl std::cmp::PartialEq for Memory {

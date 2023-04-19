@@ -611,7 +611,7 @@ fn test_run_http_request(
                         let resp = match resp {
                             Ok(a) => a,
                             Err(_) if n < max_retries => {
-                                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                                 continue;
                             }
                             Err(err) => return Err(err.into())
@@ -621,7 +621,7 @@ fn test_run_http_request(
                         }
                         return Ok(resp.bytes().await?);
                     }
-                    _ = tokio::time::sleep(std::time::Duration::from_secs(4)) => {
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
                         eprintln!("retrying request... ({} attempts)", (n+1));
                         continue;
                     }
@@ -635,7 +635,7 @@ fn test_run_http_request(
         None => {
             let url = format!("http://localhost:{}/{}.size", port, what);
             let expected_size = usize::from_str_radix(
-                String::from_utf8_lossy(http_get(url, 10)?.as_ref()).trim(),
+                String::from_utf8_lossy(http_get(url, 50)?.as_ref()).trim(),
                 10,
             )?;
             if expected_size == 0 {
@@ -648,7 +648,7 @@ fn test_run_http_request(
     println!("expected_size: {}", expected_size);
 
     let url = format!("http://localhost:{}/{}", port, what);
-    let reference_data = http_get(url.clone(), 10)?;
+    let reference_data = http_get(url.clone(), 50)?;
     for _ in 0..20 {
         let test_data = http_get(url.clone(), 2)?;
         println!("actual_size: {}", test_data.len());
@@ -874,6 +874,18 @@ fn test_snapshot_multithreading() {
         .with_name(function!())
         .debug_output(true)
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+// test for traditional wasi threads
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_wasi_threads() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .debug_output(true)
+        .enable_threads(true)
+        .run_wasm(include_bytes!("./wasm/wasi-threads.wasm"));
     assert_json_snapshot!(snapshot);
 }
 

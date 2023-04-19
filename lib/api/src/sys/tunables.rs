@@ -6,6 +6,7 @@ pub use wasmer_compiler::BaseTunables;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(unused)]
     use crate::sys::NativeEngineExt;
     use crate::TableType;
     use std::cell::UnsafeCell;
@@ -243,6 +244,7 @@ mod tests {
         let compiler = Cranelift::default();
 
         let tunables = TinyTunables {};
+        #[allow(deprecated)]
         let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
         engine.set_tunables(tunables);
         let mut store = Store::new(engine);
