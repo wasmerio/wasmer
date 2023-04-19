@@ -29,6 +29,18 @@ use wasmer_types::TrapCode;
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
 
+static mut DEFAULT_STACK_SIZE: usize = 1024 * 1024;
+
+/// Default stack size is 1MB.
+/// # Safety
+///
+/// This function should only be called before starting any wasm process
+pub unsafe fn set_stack_size(size: usize) {
+    unsafe {
+        DEFAULT_STACK_SIZE = size.max(8 * 1024).min(100 * 1024 * 1024);
+    }
+}
+
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
@@ -624,7 +636,7 @@ where
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
 
-    on_wasm_stack(trap_handler, closure).map_err(UnwindReason::into_trap)
+    on_wasm_stack(DEFAULT_STACK_SIZE, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:
@@ -841,6 +853,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T, T>(
+    stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
@@ -851,7 +864,11 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     lazy_static::lazy_static! {
         static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
     }
-    let stack = STACK_POOL.lock().unwrap().pop().unwrap_or_default();
+    let stack = STACK_POOL
+        .lock()
+        .unwrap()
+        .pop()
+        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
 
     // Create a coroutine with a new stack to run the function on.
