@@ -80,7 +80,7 @@ impl BinFactory {
         // Check the filesystem for the file
         if name.starts_with('/') {
             if let Some(fs) = fs {
-                match load_package_from_disk(fs, name.as_ref()).await {
+                match load_package_from_filesystem(fs, name.as_ref()).await {
                     Ok(pkg) => {
                         cache.insert(name, Some(pkg.clone()));
                         return Some(pkg);
@@ -102,7 +102,7 @@ impl BinFactory {
     }
 }
 
-async fn load_package_from_disk(
+async fn load_package_from_filesystem(
     fs: &dyn FileSystem,
     path: &Path,
 ) -> Result<BinaryPackage, anyhow::Error> {
