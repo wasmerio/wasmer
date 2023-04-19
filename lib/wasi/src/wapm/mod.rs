@@ -448,6 +448,7 @@ mod tests {
     const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
     const COREUTILS: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
     const BASH: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
+    const HELLO: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc");
 
     #[test]
     fn parse_the_python_webc_file() {
@@ -633,5 +634,17 @@ mod tests {
         assert_eq!(command_names, &["bash", "sh"]);
         assert_eq!(commands["bash"], bash.get_atom("bash").unwrap());
         assert_eq!(commands["sh"], commands["bash"]);
+    }
+
+    #[test]
+    fn parse_a_webc_with_dependencies_and_no_commands() {
+        let pkg = parse_static_webc(HELLO.to_vec()).unwrap();
+
+        assert_eq!(pkg.package_name, "wasmer/hello");
+        assert_eq!(pkg.version, "0.1.0");
+        let commands = pkg.commands.read().unwrap();
+        assert!(commands.is_empty());
+        assert!(pkg.entry.is_none());
+        assert_eq!(pkg.uses, ["sharrattj/static-web-server@1"]);
     }
 }
