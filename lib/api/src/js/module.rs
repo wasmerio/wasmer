@@ -137,12 +137,13 @@ impl Module {
         imports: &Imports,
     ) -> Result<VMInstance, RuntimeError> {
         // Ensure all imports come from the same store.
-        for (_, _, import) in imports.iter() {
-            if !import.is_from_store(store) {
-                return Err(RuntimeError::user(Box::new(
-                    InstantiationError::DifferentStores,
-                )));
-            }
+        if imports
+            .into_iter()
+            .any(|(_, import)| !import.is_from_store(store))
+        {
+            return Err(RuntimeError::user(Box::new(
+                InstantiationError::DifferentStores,
+            )));
         }
 
         let imports_object = js_sys::Object::new();
