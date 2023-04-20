@@ -1,145 +1,75 @@
-use std::{
-    any::Any,
-    borrow::Cow,
-    collections::HashMap,
-    sync::{Arc, Mutex, RwLock},
-};
+use std::sync::{Arc, Mutex, RwLock};
 
 use derivative::*;
-use virtual_fs::{FileSystem, TmpFileSystem};
-use wasmer_wasix_types::wasi::Snapshot0Clockid;
+use once_cell::sync::OnceCell;
+use virtual_fs::FileSystem;
+use webc::compat::SharedBytes;
 
 use super::hash_of_binary;
-use crate::syscalls::platform_clock_time_get;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackageCommand {
-    pub name: String,
+    name: String,
     #[derivative(Debug = "ignore")]
-    pub atom: Cow<'static, [u8]>,
-    hash: Option<String>,
-    pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
+    pub(crate) atom: SharedBytes,
+    hash: OnceCell<String>,
 }
 
 impl BinaryPackageCommand {
-    pub fn new(name: String, atom: Cow<'static, [u8]>) -> Self {
+    pub fn new(name: String, atom: SharedBytes) -> Self {
         Self {
             name,
-            ownership: None,
-            hash: None,
             atom,
+            hash: OnceCell::new(),
         }
     }
 
-    /// Hold on to some arbitrary data for the lifetime of this binary pacakge.
-    ///
-    /// # Safety
-    ///
-    /// Must ensure that the atom data will be safe to use as long as the provided
-    /// ownership handle stays alive.
-    pub unsafe fn new_with_ownership<'a, T>(
-        name: String,
-        atom: Cow<'a, [u8]>,
-        ownership: Arc<T>,
-    ) -> Self
-    where
-        T: 'static,
-    {
-        let ownership: Arc<dyn Any> = ownership;
-        let mut ret = Self::new(name, std::mem::transmute(atom));
-        ret.ownership = Some(std::mem::transmute(ownership));
-        ret
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
-    pub fn hash(&mut self) -> &str {
-        if self.hash.is_none() {
-            self.hash = Some(hash_of_binary(self.atom.as_ref()));
-        }
-        let hash = self.hash.as_ref().unwrap();
-        hash.as_str()
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom.
+    ///
+    /// The address of the returned slice is guaranteed to be stable and live as
+    /// long as the [`BinaryPackageCommand`].
+    pub fn atom(&self) -> &[u8] {
+        &self.atom
+    }
+
+    pub fn hash(&self) -> &str {
+        self.hash.get_or_init(|| hash_of_binary(self.atom()))
     }
 }
 
+/// A WebAssembly package that has been loaded into memory.
+///
+/// You can crate a [`BinaryPackage`] using [`crate::bin_factory::ModuleCache`]
+/// or [`crate::wapm::parse_static_webc()`].
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {
-    pub package_name: Cow<'static, str>,
+    pub package_name: String,
     pub when_cached: Option<u128>,
-    pub ownership: Option<Arc<dyn Any + Send + Sync + 'static>>,
     #[derivative(Debug = "ignore")]
-    pub entry: Option<Cow<'static, [u8]>>,
+    pub entry: Option<SharedBytes>,
     pub hash: Arc<Mutex<Option<String>>>,
-    pub wapm: Option<String>,
-    pub base_dir: Option<String>,
-    pub tmp_fs: TmpFileSystem,
     pub webc_fs: Option<Arc<dyn FileSystem + Send + Sync + 'static>>,
-    pub webc_top_level_dirs: Vec<String>,
-    pub mappings: Vec<String>,
-    pub envs: HashMap<String, String>,
     pub commands: Arc<RwLock<Vec<BinaryPackageCommand>>>,
     pub uses: Vec<String>,
-    pub version: Cow<'static, str>,
+    pub version: String,
     pub module_memory_footprint: u64,
     pub file_system_memory_footprint: u64,
 }
 
 impl BinaryPackage {
-    pub fn new(package_name: &str, entry: Option<Cow<'static, [u8]>>) -> Self {
-        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
-        let (package_name, version) = match package_name.split_once('@') {
-            Some((a, b)) => (a.to_string(), b.to_string()),
-            None => (package_name.to_string(), "1.0.0".to_string()),
-        };
-        let module_memory_footprint = entry.as_ref().map(|a| a.len()).unwrap_or_default() as u64;
-        Self {
-            package_name: package_name.into(),
-            when_cached: Some(now),
-            ownership: None,
-            entry,
-            hash: Arc::new(Mutex::new(None)),
-            wapm: None,
-            base_dir: None,
-            tmp_fs: TmpFileSystem::new(),
-            webc_fs: None,
-            webc_top_level_dirs: Default::default(),
-            mappings: Vec::new(),
-            envs: HashMap::default(),
-            commands: Arc::new(RwLock::new(Vec::new())),
-            uses: Vec::new(),
-            version: version.into(),
-            module_memory_footprint,
-            file_system_memory_footprint: 0,
-        }
-    }
-
-    /// Hold on to some arbitrary data for the lifetime of this binary pacakge.
-    ///
-    /// # Safety
-    ///
-    /// Must ensure that the entry data will be safe to use as long as the provided
-    /// ownership handle stays alive.
-    pub unsafe fn new_with_ownership<'a, T>(
-        package_name: &str,
-        entry: Option<Cow<'a, [u8]>>,
-        ownership: Arc<T>,
-    ) -> Self
-    where
-        T: 'static,
-    {
-        let ownership: Arc<dyn Any> = ownership;
-        let mut ret = Self::new(package_name, entry.map(|a| std::mem::transmute(a)));
-        ret.ownership = Some(std::mem::transmute(ownership));
-        ret
-    }
-
     pub fn hash(&self) -> String {
         let mut hash = self.hash.lock().unwrap();
         if hash.is_none() {
             if let Some(entry) = self.entry.as_ref() {
                 hash.replace(hash_of_binary(entry.as_ref()));
             } else {
-                hash.replace(hash_of_binary(self.package_name.as_ref()));
+                hash.replace(hash_of_binary(&self.package_name));
             }
         }
         hash.as_ref().unwrap().clone()

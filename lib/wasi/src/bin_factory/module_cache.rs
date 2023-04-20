@@ -18,11 +18,11 @@ pub const DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_se
 
 #[derive(Debug)]
 pub struct ModuleCache {
-    pub(crate) cache_compile_dir: String,
+    pub(crate) cache_compile_dir: PathBuf,
     pub(crate) cached_modules: Option<RwLock<HashMap<String, Module>>>,
 
     pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
-    pub(crate) cache_webc_dir: String,
+    pub(crate) cache_webc_dir: PathBuf,
 
     pub(crate) cache_time: std::time::Duration,
 }
@@ -51,21 +51,18 @@ impl ModuleCache {
     ///
     /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
     pub fn new(
-        cache_compile_dir: Option<String>,
-        cache_webc_dir: Option<String>,
+        cache_compile_dir: Option<PathBuf>,
+        cache_webc_dir: Option<PathBuf>,
         use_shared_cache: bool,
     ) -> ModuleCache {
-        let cache_compile_dir = shellexpand::tilde(
-            cache_compile_dir
-                .as_deref()
-                .unwrap_or(DEFAULT_COMPILED_PATH),
-        )
-        .to_string();
-        let _ = std::fs::create_dir_all(PathBuf::from(cache_compile_dir.clone()));
+        let cache_compile_dir = cache_compile_dir.unwrap_or_else(|| {
+            PathBuf::from(shellexpand::tilde(DEFAULT_COMPILED_PATH).into_owned())
+        });
+        let _ = std::fs::create_dir_all(&cache_compile_dir);
 
-        let cache_webc_dir =
-            shellexpand::tilde(cache_webc_dir.as_deref().unwrap_or(DEFAULT_WEBC_PATH)).to_string();
-        let _ = std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
+        let cache_webc_dir = cache_webc_dir
+            .unwrap_or_else(|| PathBuf::from(shellexpand::tilde(DEFAULT_WEBC_PATH).into_owned()));
+        let _ = std::fs::create_dir_all(&cache_webc_dir);
 
         let cached_modules = if use_shared_cache {
             Some(RwLock::new(HashMap::default()))
@@ -145,8 +142,9 @@ impl ModuleCache {
                 .split_once(':')
                 .map(|a| a.0)
                 .unwrap_or_else(|| name.as_str());
-            let cache_webc_dir = self.cache_webc_dir.as_str();
-            if let Ok(mut data) = crate::wapm::fetch_webc_task(cache_webc_dir, wapm_name, runtime) {
+            if let Ok(mut data) =
+                crate::wapm::fetch_webc_task(&self.cache_webc_dir, wapm_name, runtime)
+            {
                 // If the binary has no entry but it inherits from another module
                 // that does have an entry then we fall back to that inherited entry point
                 // (this convention is recursive down the list of inheritance until it finds the first entry point)
@@ -221,8 +219,7 @@ impl ModuleCache {
         }
 
         // slow path
-        let path = std::path::Path::new(self.cache_compile_dir.as_str())
-            .join(format!("{}.bin", key).as_str());
+        let path = self.cache_compile_dir.join(format!("{}.bin", key).as_str());
         if let Ok(data) = std::fs::read(path.as_path()) {
             tracing::trace!("bin file found: {:?} [len={}]", path.as_path(), data.len());
             let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
@@ -277,8 +274,7 @@ impl ModuleCache {
         // We should also attempt to store it in the cache directory
         let compiled_bytes = module.serialize().unwrap();
 
-        let path = std::path::Path::new(self.cache_compile_dir.as_str())
-            .join(format!("{}.bin", key).as_str());
+        let path = self.cache_compile_dir.join(format!("{}.bin", key).as_str());
         // TODO: forward error!
         let _ = std::fs::create_dir_all(path.parent().unwrap());
         let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
@@ -293,9 +289,7 @@ impl ModuleCache {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use tracing_subscriber::{
-        filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
-    };
+    use tracing_subscriber::filter::LevelFilter;
 
     use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
@@ -303,13 +297,11 @@ mod tests {
 
     #[test]
     fn test_module_cache() {
-        tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_filter(filter::LevelFilter::INFO),
-            )
-            .init();
+        let _ = tracing_subscriber::fmt()
+            .pretty()
+            .with_test_writer()
+            .with_max_level(LevelFilter::INFO)
+            .try_init();
 
         let mut cache = ModuleCache::new(None, None, true);
         cache.cache_time = std::time::Duration::from_millis(500);
