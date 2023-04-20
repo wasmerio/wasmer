@@ -44,7 +44,7 @@
 <span class="kw">use </span>anyhow::Error;
 <span class="kw">use </span>wasmer::{Engine, Module};
 
-<span class="kw">pub type </span>CompileModule = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt;;
+<span class="kw">pub type </span>CompileModule = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + Send + Sync;
 
 <span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 </span><span class="kw">pub struct </span>MappedDirectory {

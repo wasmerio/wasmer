@@ -192,6 +192,20 @@
 <span id="190">190</span>
 <span id="191">191</span>
 <span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
@@ -235,7 +249,7 @@
     <span class="doccomment">/// Sets the compile function
     </span><span class="kw">pub fn </span>with_compile(
         <span class="kw-2">mut </span><span class="self">self</span>,
-        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
+        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Box::new(compile));
         <span class="self">self
@@ -382,6 +396,20 @@
             </span>.run(module)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>send_and_sync() {
+        <span class="kw">fn </span>assert_send&lt;T: Send&gt;() {}
+        <span class="kw">fn </span>assert_sync&lt;T: Sync&gt;() {}
+
+        assert_send::&lt;WasiRunner&gt;();
+        assert_sync::&lt;WasiRunner&gt;();
     }
 }
 </code></pre></div>

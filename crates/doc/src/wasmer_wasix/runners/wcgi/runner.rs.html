@@ -376,6 +376,20 @@
 <span id="374">374</span>
 <span id="375">375</span>
 <span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -498,7 +512,7 @@
     <span class="doccomment">/// Sets the compile function
     </span><span class="kw">pub fn </span>with_compile(
         <span class="kw-2">mut </span><span class="self">self</span>,
-        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + <span class="lifetime">&#39;static</span>,
+        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Arc::new(compile));
         <span class="self">self
@@ -752,5 +766,19 @@
 <span class="kw">struct </span>NoopCallbacks;
 
 <span class="kw">impl </span>Callbacks <span class="kw">for </span>NoopCallbacks {}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>send_and_sync() {
+        <span class="kw">fn </span>assert_send&lt;T: Send&gt;() {}
+        <span class="kw">fn </span>assert_sync&lt;T: Sync&gt;() {}
+
+        assert_send::&lt;WcgiRunner&gt;();
+        assert_sync::&lt;WcgiRunner&gt;();
+    }
+}
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>
