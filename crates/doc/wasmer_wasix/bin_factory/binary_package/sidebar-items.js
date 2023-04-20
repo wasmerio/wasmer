@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["BinaryPackage",""],["BinaryPackageCommand",""]]};
+window.SIDEBAR_ITEMS = {"struct":[["BinaryPackage","A WebAssembly package that has been loaded into memory."],["BinaryPackageCommand",""]]};

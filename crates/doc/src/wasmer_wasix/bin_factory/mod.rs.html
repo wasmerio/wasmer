@@ -106,12 +106,35 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     ops::Deref,
+    path::Path,
     sync::{Arc, RwLock},
 };
 
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
 
 <span class="kw">mod </span>binary_package;
@@ -186,15 +209,17 @@
         <span class="comment">// Check the filesystem for the file
         </span><span class="kw">if </span>name.starts_with(<span class="string">&#39;/&#39;</span>) {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(fs) = fs {
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>file) = fs.new_open_options().read(<span class="bool-val">true</span>).open(name.clone()) {
-                    <span class="comment">// Read the file
-                    </span><span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(file.size() <span class="kw">as </span>usize);
-                    <span class="comment">// TODO: log error?
-                    </span><span class="kw">if </span>file.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.is_ok() {
-                        <span class="kw">let </span>package_name = name.split(<span class="string">&#39;/&#39;</span>).last().unwrap_or(name.as_str());
-                        <span class="kw">let </span>data = BinaryPackage::new(package_name, <span class="prelude-val">Some</span>(data.into()));
-                        cache.insert(name, <span class="prelude-val">Some</span>(data.clone()));
-                        <span class="kw">return </span><span class="prelude-val">Some</span>(data);
+                <span class="kw">match </span>load_package_from_filesystem(fs, name.as_ref()).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(pkg) =&gt; {
+                        cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(pkg);
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            path = name,
+                            error = <span class="kw-2">&amp;*</span>e,
+                            <span class="string">&quot;Unable to load the package from disk&quot;
+                        </span>);
                     }
                 }
             }
@@ -204,6 +229,23 @@
         </span>cache.insert(name, <span class="prelude-val">None</span>);
         <span class="prelude-val">None
     </span>}
+}
+
+<span class="kw">async fn </span>load_package_from_filesystem(
+    fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
+    path: <span class="kw-2">&amp;</span>Path,
+) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>f = fs
+        .new_open_options()
+        .read(<span class="bool-val">true</span>)
+        .open(path)
+        .context(<span class="string">&quot;Unable to open the file&quot;</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(f.size() <span class="kw">as </span>usize);
+    f.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.context(<span class="string">&quot;Read failed&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>pkg = <span class="kw">crate</span>::wapm::parse_static_webc(data).context(<span class="string">&quot;Unable to parse the package&quot;</span>)<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(pkg)
 }
 
 <span class="kw">pub fn </span>hash_of_binary(data: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; String {

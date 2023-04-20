@@ -505,20 +505,166 @@
 <span id="503">503</span>
 <span id="504">504</span>
 <span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>std::{
-    ops::Deref,
-    path::{Path, PathBuf},
-    sync::Arc,
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, Mutex, RwLock},
 };
-<span class="kw">use </span>virtual_fs::FileSystem;
+<span class="kw">use </span>virtual_fs::{FileSystem, WebcVolumeFileSystem};
+<span class="kw">use </span>wasmer_wasix_types::wasi::Snapshot0Clockid;
 
-<span class="kw">use </span>tracing::<span class="kw-2">*</span>;
-<span class="attribute">#[allow(unused_imports)]
-</span><span class="kw">use </span>tracing::{error, warn};
 <span class="kw">use </span>webc::{
-    metadata::{Annotation, UrlOrManifest},
-    v1::WebC,
+    metadata::{
+        annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI},
+        UrlOrManifest,
+    },
+    Container,
 };
 
 <span class="kw">use crate</span>::{
@@ -526,15 +672,13 @@
     WasiRuntime,
 };
 
-<span class="attribute">#[cfg(feature = <span class="string">&quot;wapm-tar&quot;</span>)]
-</span><span class="kw">mod </span>manifest;
 <span class="kw">mod </span>pirita;
 
 <span class="kw">use </span><span class="kw">crate</span>::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
 <span class="kw">use </span>pirita::<span class="kw-2">*</span>;
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fetch_webc_task(
-    cache_dir: <span class="kw-2">&amp;</span>str,
+    cache_dir: <span class="kw-2">&amp;</span>Path,
     webc: <span class="kw-2">&amp;</span>str,
     runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
@@ -543,11 +687,7 @@
         .context(<span class="string">&quot;no http client available&quot;</span>)<span class="question-mark">?
         </span>.clone();
 
-    <span class="kw">let </span>f = {
-        <span class="kw">let </span>cache_dir = cache_dir.to_string();
-        <span class="kw">let </span>webc = webc.to_string();
-        <span class="kw">async move </span>{ fetch_webc(<span class="kw-2">&amp;</span>cache_dir, <span class="kw-2">&amp;</span>webc, client).<span class="kw">await </span>}
-    };
+    <span class="kw">let </span>f = <span class="kw">async move </span>{ fetch_webc(cache_dir, webc, client).<span class="kw">await </span>};
 
     <span class="kw">let </span>result = runtime
         .task_manager()
@@ -557,7 +697,7 @@
 }
 
 <span class="kw">async fn </span>fetch_webc(
-    cache_dir: <span class="kw-2">&amp;</span>str,
+    cache_dir: <span class="kw-2">&amp;</span>Path,
     webc: <span class="kw-2">&amp;</span>str,
     client: DynHttpClient,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
@@ -572,7 +712,7 @@
             .replace(WAPM_WEBC_VERSION_TAG, version.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str()),
         <span class="prelude-val">None </span>=&gt; WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str()),
     };
-    <span class="macro">debug!</span>(<span class="string">&quot;request: {}&quot;</span>, url_query);
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;request: {}&quot;</span>, url_query);
 
     <span class="kw">let </span>url = <span class="macro">format!</span>(
         <span class="string">&quot;{}{}&quot;</span>,
@@ -596,14 +736,14 @@
     <span class="kw">let </span>body = response.body.context(<span class="string">&quot;HTTP response with empty body&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span>data: WapmWebQuery =
         serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">&quot;Could not parse webc registry JSON data&quot;</span>)<span class="question-mark">?</span>;
-    <span class="macro">debug!</span>(<span class="string">&quot;response: {:?}&quot;</span>, data);
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;response: {:?}&quot;</span>, data);
 
     <span class="kw">let </span>PiritaVersionedDownload {
         url: download_url,
         version,
     } = wapm_extract_version(<span class="kw-2">&amp;</span>data).context(<span class="string">&quot;No pirita download URL available&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>pkg = download_webc(cache_dir, name, download_url, client).<span class="kw">await</span><span class="question-mark">?</span>;
-    pkg.version = version.into();
+    pkg.version = version;
     <span class="prelude-val">Ok</span>(pkg)
 }
 
@@ -635,22 +775,12 @@
 }
 
 <span class="kw">pub fn </span>parse_static_webc(data: Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
-    <span class="kw">let </span>options = webc::v1::ParseOptions::default();
-    <span class="kw">match </span>webc::v1::WebCOwned::parse(data, <span class="kw-2">&amp;</span>options) {
-        <span class="prelude-val">Ok</span>(webc) =&gt; <span class="kw">unsafe </span>{
-            <span class="kw">let </span>webc = Arc::new(webc);
-            <span class="kw">return </span>parse_webc(webc.as_webc_ref(), webc.clone())
-                .with_context(|| <span class="string">&quot;Could not parse webc&quot;</span>.to_string());
-        },
-        <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, err);
-            <span class="prelude-val">Err</span>(err.into())
-        }
-    }
+    <span class="kw">let </span>webc = Container::from_bytes(data)<span class="question-mark">?</span>;
+    parse_webc_v2(<span class="kw-2">&amp;</span>webc).with_context(|| <span class="string">&quot;Could not parse webc&quot;</span>.to_string())
 }
 
 <span class="kw">async fn </span>download_webc(
-    cache_dir: <span class="kw-2">&amp;</span>str,
+    cache_dir: <span class="kw-2">&amp;</span>Path,
     name: <span class="kw-2">&amp;</span>str,
     pirita_download_url: String,
     client: DynHttpClient,
@@ -668,28 +798,28 @@
             name = name_store.as_str();
         }
     }
-    <span class="kw">let </span>compute_path = |cache_dir: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str| {
+    <span class="kw">let </span>compute_path = |cache_dir: <span class="kw-2">&amp;</span>Path, name: <span class="kw-2">&amp;</span>str| {
         <span class="kw">let </span>name = name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;._.&quot;</span>);
         std::path::Path::new(cache_dir).join(<span class="kw-2">&amp;</span>name)
     };
-
-    <span class="comment">// build the parse options
-    </span><span class="kw">let </span>options = webc::v1::ParseOptions::default();
 
     <span class="comment">// fast path
     </span><span class="kw">let </span>path = compute_path(cache_dir, name);
 
     <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
     </span><span class="kw">if </span>path.exists() {
-        <span class="kw">match </span>webc::v1::WebCMmap::parse(path.clone(), <span class="kw-2">&amp;</span>options) {
-            <span class="prelude-val">Ok</span>(webc) =&gt; <span class="kw">unsafe </span>{
-                <span class="kw">let </span>webc = Arc::new(webc);
-                <span class="kw">return </span>parse_webc(webc.as_webc_ref(), webc.clone()).with_context(|| {
-                    <span class="macro">format!</span>(<span class="string">&quot;could not parse webc file at path : &#39;{}&#39;&quot;</span>, path.display())
-                });
-            },
+        <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Parsing cached WEBC file&quot;</span>);
+
+        <span class="kw">match </span>Container::from_disk(<span class="kw-2">&amp;</span>path) {
+            <span class="prelude-val">Ok</span>(webc) =&gt; {
+                <span class="kw">return </span>parse_webc_v2(<span class="kw-2">&amp;</span>webc)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not parse webc at path &#39;{}&#39;&quot;</span>, path.display()));
+            }
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, err);
+                <span class="macro">tracing::warn!</span>(
+                    error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    <span class="string">&quot;failed to parse WEBC&quot;</span>,
+                );
             }
         }
     }
@@ -711,11 +841,10 @@
 
     <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
     </span>{
-        <span class="kw">let </span>cache_dir = cache_dir.to_string();
-        <span class="kw">let </span>name = name.to_string();
-        <span class="kw">let </span>path = compute_path(cache_dir.as_str(), name.as_str());
-        std::fs::create_dir_all(path.parent().unwrap())
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not create cache directory &#39;{}&#39;&quot;</span>, cache_dir))<span class="question-mark">?</span>;
+        <span class="kw">let </span>path = compute_path(cache_dir, name);
+        std::fs::create_dir_all(path.parent().unwrap()).with_context(|| {
+            <span class="macro">format!</span>(<span class="string">&quot;Could not create cache directory &#39;{}&#39;&quot;</span>, cache_dir.display())
+        })<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>temp_path = path.clone();
         <span class="kw">let </span>rand_128: u128 = rand::random();
@@ -726,39 +855,38 @@
         ));
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::fs::write(temp_path.as_path(), <span class="kw-2">&amp;</span>data[..]) {
-            <span class="macro">debug!</span>(
+            <span class="macro">tracing::debug!</span>(
                 <span class="string">&quot;failed to write webc cache file [{}] - {}&quot;</span>,
                 temp_path.as_path().to_string_lossy(),
                 err
             );
         }
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
-            <span class="macro">debug!</span>(
+            <span class="macro">tracing::debug!</span>(
                 <span class="string">&quot;failed to rename webc cache file [{}] - {}&quot;</span>,
                 temp_path.as_path().to_string_lossy(),
                 err
             );
         }
 
-        <span class="kw">match </span>webc::v1::WebCMmap::parse(path.clone(), <span class="kw-2">&amp;</span>options) {
-            <span class="prelude-val">Ok</span>(webc) =&gt; <span class="kw">unsafe </span>{
-                <span class="kw">let </span>webc = Arc::new(webc);
-                <span class="kw">return </span>parse_webc(webc.as_webc_ref(), webc.clone())
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not parse webc at path &#39;{}&#39;&quot;</span>, path.display()));
-            },
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed to parse WebC: {}&quot;</span>, err);
+        <span class="kw">match </span>Container::from_disk(<span class="kw-2">&amp;</span>path) {
+            <span class="prelude-val">Ok</span>(webc) =&gt; {
+                <span class="kw">return </span>parse_webc_v2(<span class="kw-2">&amp;</span>webc)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not parse webc at path &#39;{}&#39;&quot;</span>, path.display()))
+            }
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::warn!</span>(
+                    path=%temp_path.display(),
+                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    <span class="string">&quot;Unable to parse temporary WEBC from disk&quot;</span>,
+                )
             }
         }
     }
 
-    <span class="kw">let </span>webc_raw = webc::v1::WebCOwned::parse(data, <span class="kw-2">&amp;</span>options)
+    <span class="kw">let </span>webc = Container::from_bytes(data)
         .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to parse downloaded from &#39;{pirita_download_url}&#39;&quot;</span>))<span class="question-mark">?</span>;
-    <span class="kw">let </span>webc = Arc::new(webc_raw);
-    <span class="comment">// FIXME: add SAFETY comment
-    </span><span class="kw">let </span>package = <span class="kw">unsafe </span>{
-        parse_webc(webc.as_webc_ref(), webc.clone()).context(<span class="string">&quot;Could not parse binary package&quot;</span>)<span class="question-mark">?
-    </span>};
+    <span class="kw">let </span>package = parse_webc_v2(<span class="kw-2">&amp;</span>webc).context(<span class="string">&quot;Could not parse binary package&quot;</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(package)
 }
@@ -784,201 +912,153 @@
     response.body.context(<span class="string">&quot;HTTP response with empty body&quot;</span>)
 }
 
-<span class="comment">// TODO: should return Result&lt;_, anyhow::Error&gt;
-</span><span class="kw">unsafe fn </span>parse_webc&lt;<span class="lifetime">&#39;a</span>, T&gt;(webc: webc::v1::WebC&lt;<span class="lifetime">&#39;a</span>&gt;, ownership: Arc&lt;T&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt;
-<span class="kw">where
-    </span>T: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
-    T: Deref&lt;Target = WebC&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
-{
-    <span class="kw">let </span>package_name = webc.get_package_name();
+<span class="kw">fn </span>parse_webc_v2(webc: <span class="kw-2">&amp;</span>Container) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+    <span class="kw">let </span>manifest = webc.manifest();
 
-    <span class="kw">let </span><span class="kw-2">mut </span>pck = webc
-        .manifest
-        .entrypoint
+    <span class="kw">let </span>wapm: webc::metadata::annotations::Wapm = manifest
+        .package_annotation(<span class="string">&quot;wapm&quot;</span>)<span class="question-mark">?
+        </span>.context(<span class="string">&quot;The package must have &#39;wapm&#39; annotations&quot;</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>commands = HashMap::new();
+
+    <span class="kw">for </span>(name, cmd) <span class="kw">in </span><span class="kw-2">&amp;</span>manifest.commands {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = load_binary_command(webc, name, cmd)<span class="question-mark">? </span>{
+            commands.insert(name.as_str(), cmd);
+        }
+    }
+
+    <span class="kw">let </span>entry = manifest.entrypoint.as_deref().and_then(|entry| {
+        <span class="kw">let </span>cmd = commands.get(entry)<span class="question-mark">?</span>;
+        <span class="prelude-val">Some</span>(cmd.atom.clone())
+    });
+
+    <span class="kw">let </span>webc_fs = WebcVolumeFileSystem::mount_all(webc);
+
+    <span class="comment">// List all the dependencies
+    </span><span class="kw">let </span>uses: Vec&lt;<span class="kw">_</span>&gt; = manifest
+        .use_map
+        .values()
+        .filter_map(|uses| <span class="kw">match </span>uses {
+            UrlOrManifest::Url(url) =&gt; <span class="prelude-val">Some</span>(url.path()),
+            UrlOrManifest::Manifest(manifest) =&gt; manifest.origin.as_deref(),
+            UrlOrManifest::RegistryDependentUrl(url) =&gt; <span class="prelude-val">Some</span>(url),
+        })
+        .map(String::from)
+        .collect();
+
+    <span class="kw">let </span>module_memory_footprint = entry.as_deref().map(|b| b.len() <span class="kw">as </span>u64).unwrap_or(<span class="number">0</span>);
+    <span class="kw">let </span>file_system_memory_footprint = count_file_system(<span class="kw-2">&amp;</span>webc_fs, Path::new(<span class="string">&quot;/&quot;</span>));
+
+    <span class="kw">let </span>pkg = BinaryPackage {
+        package_name: wapm.name,
+        when_cached: <span class="prelude-val">Some</span>(
+            <span class="kw">crate</span>::syscalls::platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>)
+                .unwrap() <span class="kw">as </span>u128,
+        ),
+        entry: entry.map(Into::into),
+        hash: Arc::new(Mutex::new(<span class="prelude-val">None</span>)),
+        webc_fs: <span class="prelude-val">Some</span>(Arc::new(webc_fs)),
+        commands: Arc::new(RwLock::new(commands.into_values().collect())),
+        uses,
+        version: wapm.version,
+        module_memory_footprint,
+        file_system_memory_footprint,
+    };
+
+    <span class="prelude-val">Ok</span>(pkg)
+}
+
+<span class="kw">fn </span>load_binary_command(
+    webc: <span class="kw-2">&amp;</span>Container,
+    name: <span class="kw-2">&amp;</span>str,
+    cmd: <span class="kw-2">&amp;</span>webc::metadata::Command,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BinaryPackageCommand&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>atom_name = <span class="kw">match </span>atom_name_for_command(name, cmd)<span class="question-mark">? </span>{
+        <span class="prelude-val">Some</span>(name) =&gt; name,
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="macro">tracing::warn!</span>(
+                cmd.name=name,
+                cmd.runner=%cmd.runner,
+                <span class="string">&quot;Skipping unsupported command&quot;</span>,
+            );
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        }
+    };
+
+    <span class="kw">let </span>atom = webc.get_atom(<span class="kw-2">&amp;</span>atom_name);
+
+    <span class="kw">if </span>atom.is_none() &amp;&amp; cmd.annotations.is_empty() {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(legacy_atom_hack(webc, name));
+    }
+
+    <span class="kw">let </span>atom = atom
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The &#39;{name}&#39; command uses the &#39;{atom_name}&#39; atom, but it isn&#39;t present in the WEBC file&quot;</span>))<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>cmd = BinaryPackageCommand::new(name.to_string(), atom);
+
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cmd))
+}
+
+<span class="kw">fn </span>atom_name_for_command(
+    command_name: <span class="kw-2">&amp;</span>str,
+    cmd: <span class="kw-2">&amp;</span>webc::metadata::Command,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, anyhow::Error&gt; {
+    <span class="kw">use </span>webc::metadata::annotations::{Emscripten, Wasi};
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(Wasi { atom, .. }) = cmd
+        .annotation(<span class="string">&quot;wasi&quot;</span>)
+        .context(<span class="string">&quot;Unable to deserialize &#39;wasi&#39; annotations&quot;</span>)<span class="question-mark">?
+    </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(atom));
+    }
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(Emscripten {
+        atom: <span class="prelude-val">Some</span>(atom), ..
+    }) = cmd
+        .annotation(<span class="string">&quot;emscripten&quot;</span>)
+        .context(<span class="string">&quot;Unable to deserialize &#39;emscripten&#39; annotations&quot;</span>)<span class="question-mark">?
+    </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(atom));
+    }
+
+    <span class="kw">if </span>[WASI_RUNNER_URI, WCGI_RUNNER_URI, EMSCRIPTEN_RUNNER_URI]
         .iter()
-        .filter_map(|entry| webc.manifest.commands.get(entry).map(|a| (a, entry)))
-        .filter_map(|(cmd, entry)| {
-            <span class="kw">let </span>api = <span class="kw">if </span>cmd.runner.starts_with(<span class="string">&quot;https://webc.org/runner/emscripten&quot;</span>) {
-                <span class="string">&quot;emscripten&quot;
-            </span>} <span class="kw">else if </span>cmd.runner.starts_with(<span class="string">&quot;https://webc.org/runner/wasi&quot;</span>) {
-                <span class="string">&quot;wasi&quot;
-            </span>} <span class="kw">else </span>{
-                <span class="macro">warn!</span>(<span class="string">&quot;unsupported runner - {}&quot;</span>, cmd.runner);
-                <span class="kw">return </span><span class="prelude-val">None</span>;
-            };
-            <span class="kw">let </span>atom = webc.get_atom_name_for_command(api, entry.as_str());
-            <span class="kw">match </span>atom {
-                <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Some</span>(a),
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">warn!</span>(
-                        <span class="string">&quot;failed to find atom name for entry command({}) - {} - falling back on the command name itself&quot;</span>,
-                        entry.as_str(),
-                        err
-                    );
-                    <span class="kw">for </span>(name, atom) <span class="kw">in </span>webc.manifest.atoms.iter() {
-                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;found atom (name={}, kind={})&quot;</span>, name, atom.kind);
-                    }
-                    <span class="prelude-val">Some</span>(entry.clone())
-                }
-            }
-        })
-        .filter_map(|atom| <span class="kw">match </span>webc.get_atom(<span class="kw-2">&amp;</span>package_name, atom.as_str()) {
-            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Some</span>(a),
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;failed to find atom for atom name({}) - {}&quot;</span>, atom, err);
-                <span class="prelude-val">None
-            </span>}
-        })
-        .map(|atom| {
-            BinaryPackage::new_with_ownership(
-                package_name.as_str(),
-                <span class="prelude-val">Some</span>(atom.into()),
-                ownership.clone(),
-            )
-        })
-        .next();
-
-    <span class="comment">// Otherwise add a package without an entry point
-    </span><span class="kw">if </span>pck.is_none() {
-        pck = <span class="prelude-val">Some</span>(BinaryPackage::new_with_ownership(
-            package_name.as_str(),
-            <span class="prelude-val">None</span>,
-            ownership.clone(),
-        ))
-    }
-    <span class="kw">let </span><span class="kw-2">mut </span>pck = pck.take().unwrap();
-
-    <span class="comment">// Add all the dependencies
-    </span><span class="kw">for </span>uses <span class="kw">in </span>webc.manifest.use_map.values() {
-        <span class="kw">let </span>uses = <span class="kw">match </span>uses {
-            UrlOrManifest::Url(url) =&gt; <span class="prelude-val">Some</span>(url.path().to_string()),
-            UrlOrManifest::Manifest(manifest) =&gt; manifest.origin.clone(),
-            UrlOrManifest::RegistryDependentUrl(url) =&gt; <span class="prelude-val">Some</span>(url.clone()),
-        };
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(uses) = uses {
-            pck.uses.push(uses);
-        }
+        .any(|uri| cmd.runner.starts_with(uri))
+    {
+        <span class="comment">// Note: We use the command name as the atom name as a special case
+        // for known runner types because sometimes people will construct
+        // a manifest by hand instead of using wapm2pirita.
+        </span><span class="macro">tracing::debug!</span>(
+            command = command_name,
+            <span class="string">&quot;No annotations specifying the atom name found. Falling back to the command name&quot;
+        </span>);
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(command_name.to_string()));
     }
 
-    <span class="comment">// Set the version of this package
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(Annotation::Map(wapm)) = webc.manifest.package.get(<span class="string">&quot;wapm&quot;</span>) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(Annotation::Text(version)) = wapm.get(<span class="kw-2">&amp;</span>Annotation::Text(<span class="string">&quot;version&quot;</span>.to_string()))
-        {
-            pck.version = version.clone().into();
-        }
-    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(Annotation::Text(version)) = webc.manifest.package.get(<span class="string">&quot;version&quot;</span>) {
-        pck.version = version.clone().into();
-    }
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+}
 
-    <span class="comment">// Add the file system from the webc
-    </span><span class="kw">let </span>webc_fs = virtual_fs::webc_fs::WebcFileSystem::init_all(ownership.clone());
-    <span class="kw">let </span>top_level_dirs = webc_fs.top_level_dirs().clone();
-    pck.webc_fs = <span class="prelude-val">Some</span>(Arc::new(webc_fs));
-    pck.webc_top_level_dirs = top_level_dirs;
+<span class="doccomment">/// HACK: Some older packages like `sharrattj/bash` and `sharrattj/coreutils`
+/// contain commands with no annotations. When this happens, you can just assume
+/// it wants to use the first atom in the WEBC file.
+///
+/// That works because most of these packages only have a single atom (e.g. in
+/// `sharrattj/coreutils` there are commands for `ls`, `pwd`, and so on, but
+/// under the hood they all use the `coreutils` atom).
+///
+/// See &lt;https://github.com/wasmerio/wasmer/commit/258903140680716da1431d92bced67d486865aeb&gt;
+/// for more.
+</span><span class="kw">fn </span>legacy_atom_hack(webc: <span class="kw-2">&amp;</span>Container, command_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackageCommand&gt; {
+    <span class="kw">let </span>(name, atom) = webc.atoms().into_iter().next()<span class="question-mark">?</span>;
 
-    <span class="comment">// Add the memory footprint of the file system
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(webc_fs) = pck.webc_fs.as_ref() {
-        <span class="kw">let </span>root_path = PathBuf::from(<span class="string">&quot;/&quot;</span>);
-        pck.file_system_memory_footprint +=
-            count_file_system(webc_fs.as_ref(), root_path.as_path());
-    }
+    <span class="macro">tracing::debug!</span>(
+        command_name,
+        atom.name = name.as_str(),
+        atom.len = atom.len(),
+        <span class="string">&quot;(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file&quot;</span>,
+    );
 
-    <span class="comment">// Add all the commands
-    </span><span class="kw">for </span>(command, action) <span class="kw">in </span>webc.get_metadata().commands.iter() {
-        <span class="kw">let </span>api = <span class="kw">if </span>action
-            .runner
-            .starts_with(<span class="string">&quot;https://webc.org/runner/emscripten&quot;</span>)
-        {
-            <span class="string">&quot;emscripten&quot;
-        </span>} <span class="kw">else if </span>action.runner.starts_with(<span class="string">&quot;https://webc.org/runner/wasi&quot;</span>) {
-            <span class="string">&quot;wasi&quot;
-        </span>} <span class="kw">else </span>{
-            <span class="macro">warn!</span>(<span class="string">&quot;unsupported runner - {}&quot;</span>, action.runner);
-            <span class="kw">continue</span>;
-        };
-        <span class="kw">let </span>atom = webc.get_atom_name_for_command(api, command.as_str());
-        <span class="kw">let </span>atom = <span class="kw">match </span>atom {
-            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Some</span>(a),
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">debug!</span>(
-                    <span class="string">&quot;failed to find atom name for entry command({}) - {} - falling back on the command name itself&quot;</span>,
-                    command.as_str(),
-                    err
-                );
-                <span class="prelude-val">Some</span>(command.clone())
-            }
-        };
-
-        <span class="comment">// Load the atom as a command
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(atom_name) = atom {
-            <span class="kw">match </span>webc.get_atom(package_name.as_str(), atom_name.as_str()) {
-                <span class="prelude-val">Ok</span>(atom) =&gt; {
-                    <span class="macro">trace!</span>(
-                        <span class="string">&quot;added atom (name={}, size={}) for command [{}]&quot;</span>,
-                        atom_name,
-                        atom.len(),
-                        command
-                    );
-                    <span class="kw">if </span>pck.entry.is_none() {
-                        <span class="macro">trace!</span>(<span class="string">&quot;defaulting entry to command [{}]&quot;</span>, command);
-                        <span class="kw">let </span>entry: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8] = {
-                            <span class="kw">let </span>atom: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>[u8] = atom;
-                            std::mem::transmute(atom)
-                        };
-                        pck.entry = <span class="prelude-val">Some</span>(entry.into());
-                    }
-
-                    <span class="kw">let </span><span class="kw-2">mut </span>commands = pck.commands.write().unwrap();
-                    commands.push(BinaryPackageCommand::new_with_ownership(
-                        command.clone(),
-                        atom.into(),
-                        ownership.clone(),
-                    ));
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">debug!</span>(
-                        <span class="string">&quot;Failed to find atom [{}].[{}] - {} - falling back on the first atom&quot;</span>,
-                        package_name, atom_name, err
-                    );
-
-                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = files.iter().next() {
-                            <span class="kw">if let </span><span class="prelude-val">Some</span>(atom) = file.get_bytes() {
-                                <span class="macro">trace!</span>(
-                                    <span class="string">&quot;added atom (name={}, size={}) for command [{}]&quot;</span>,
-                                    atom_name,
-                                    atom.len(),
-                                    command
-                                );
-                                <span class="kw">let </span><span class="kw-2">mut </span>commands = pck.commands.write().unwrap();
-                                commands.push(BinaryPackageCommand::new_with_ownership(
-                                    command.clone(),
-                                    atom.into(),
-                                    ownership.clone(),
-                                ));
-                                <span class="kw">continue</span>;
-                            }
-                        }
-                    }
-
-                    <span class="macro">debug!</span>(
-                        <span class="string">&quot;Failed to find atom [{}].[{}] - {} - command will be ignored&quot;</span>,
-                        package_name, package_name, err
-                    );
-                    <span class="kw">for </span>(name, atom) <span class="kw">in </span>webc.manifest.atoms.iter() {
-                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;found atom (name={}, kind={})&quot;</span>, name, atom.kind);
-                    }
-                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(files) = webc.atoms.get_all_files_and_directories_with_bytes() {
-                        <span class="kw">for </span>file <span class="kw">in </span>files.iter() {
-                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;found file ({})&quot;</span>, file.get_path().to_string_lossy());
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    <span class="prelude-val">Some</span>(pck)
+    <span class="prelude-val">Some</span>(BinaryPackageCommand::new(command_name.to_string(), atom))
 }
 
 <span class="kw">fn </span>count_file_system(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem, path: <span class="kw-2">&amp;</span>Path) -&gt; u64 {
@@ -1009,6 +1089,216 @@
     }
 
     total
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>std::collections::BTreeMap;
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
+    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc&quot;</span>);
+    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc&quot;</span>);
+    <span class="kw">const </span>HELLO: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc&quot;</span>);
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_the_python_webc_file() {
+        <span class="kw">let </span>python = webc::compat::Container::from_bytes(PYTHON).unwrap();
+
+        <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>python).unwrap();
+
+        <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;0.1.0&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.uses, Vec::&lt;String&gt;::new());
+        <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">4694941</span>);
+        <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">13387764</span>);
+        <span class="kw">let </span>python_atom = python.get_atom(<span class="string">&quot;python&quot;</span>).unwrap();
+        <span class="macro">assert_eq!</span>(pkg.entry.as_deref(), <span class="prelude-val">Some</span>(python_atom.as_slice()));
+        <span class="kw">let </span>commands = pkg.commands.read().unwrap();
+        <span class="kw">let </span>commands: BTreeMap&lt;<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[u8]&gt; = commands
+            .iter()
+            .map(|cmd| (cmd.name(), cmd.atom()))
+            .collect();
+        <span class="kw">let </span>command_names: Vec&lt;<span class="kw">_</span>&gt; = commands.keys().copied().collect();
+        <span class="macro">assert_eq!</span>(command_names, <span class="kw-2">&amp;</span>[<span class="string">&quot;python&quot;</span>]);
+        <span class="macro">assert_eq!</span>(commands[<span class="string">&quot;python&quot;</span>], python_atom);
+
+        <span class="comment">// Note: It&#39;s important that the entry we parse doesn&#39;t allocate, so
+        // make sure it lies within the original PYTHON buffer.
+        </span><span class="kw">let </span>bounds = PYTHON.as_ptr_range();
+
+        <span class="kw">let </span>entry_ptr = pkg.entry.as_deref().unwrap().as_ptr();
+        <span class="macro">assert!</span>(bounds.start &lt;= entry_ptr &amp;&amp; entry_ptr &lt; bounds.end);
+
+        <span class="kw">let </span>python_cmd_ptr = commands[<span class="string">&quot;python&quot;</span>].as_ptr();
+        <span class="macro">assert!</span>(bounds.start &lt;= python_cmd_ptr &amp;&amp; python_cmd_ptr &lt; bounds.end);
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_a_webc_with_multiple_commands() {
+        <span class="kw">let </span>coreutils = Container::from_bytes(COREUTILS).unwrap();
+
+        <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>coreutils).unwrap();
+
+        <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;sharrattj/coreutils&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;1.0.14&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.uses, Vec::&lt;String&gt;::new());
+        <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">44</span>);
+        <span class="macro">assert_eq!</span>(pkg.entry, <span class="prelude-val">None</span>);
+        <span class="kw">let </span>commands = pkg.commands.read().unwrap();
+        <span class="kw">let </span>commands: BTreeMap&lt;<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[u8]&gt; = commands
+            .iter()
+            .map(|cmd| (cmd.name(), cmd.atom()))
+            .collect();
+        <span class="kw">let </span>command_names: Vec&lt;<span class="kw">_</span>&gt; = commands.keys().copied().collect();
+        <span class="macro">assert_eq!</span>(
+            command_names,
+            <span class="kw-2">&amp;</span>[
+                <span class="string">&quot;arch&quot;</span>,
+                <span class="string">&quot;base32&quot;</span>,
+                <span class="string">&quot;base64&quot;</span>,
+                <span class="string">&quot;baseenc&quot;</span>,
+                <span class="string">&quot;basename&quot;</span>,
+                <span class="string">&quot;cat&quot;</span>,
+                <span class="string">&quot;chcon&quot;</span>,
+                <span class="string">&quot;chgrp&quot;</span>,
+                <span class="string">&quot;chmod&quot;</span>,
+                <span class="string">&quot;chown&quot;</span>,
+                <span class="string">&quot;chroot&quot;</span>,
+                <span class="string">&quot;cksum&quot;</span>,
+                <span class="string">&quot;comm&quot;</span>,
+                <span class="string">&quot;cp&quot;</span>,
+                <span class="string">&quot;csplit&quot;</span>,
+                <span class="string">&quot;cut&quot;</span>,
+                <span class="string">&quot;date&quot;</span>,
+                <span class="string">&quot;dd&quot;</span>,
+                <span class="string">&quot;df&quot;</span>,
+                <span class="string">&quot;dircolors&quot;</span>,
+                <span class="string">&quot;dirname&quot;</span>,
+                <span class="string">&quot;du&quot;</span>,
+                <span class="string">&quot;echo&quot;</span>,
+                <span class="string">&quot;env&quot;</span>,
+                <span class="string">&quot;expand&quot;</span>,
+                <span class="string">&quot;expr&quot;</span>,
+                <span class="string">&quot;factor&quot;</span>,
+                <span class="string">&quot;false&quot;</span>,
+                <span class="string">&quot;fmt&quot;</span>,
+                <span class="string">&quot;fold&quot;</span>,
+                <span class="string">&quot;groups&quot;</span>,
+                <span class="string">&quot;hashsum&quot;</span>,
+                <span class="string">&quot;head&quot;</span>,
+                <span class="string">&quot;hostid&quot;</span>,
+                <span class="string">&quot;hostname&quot;</span>,
+                <span class="string">&quot;id&quot;</span>,
+                <span class="string">&quot;install&quot;</span>,
+                <span class="string">&quot;join&quot;</span>,
+                <span class="string">&quot;kill&quot;</span>,
+                <span class="string">&quot;link&quot;</span>,
+                <span class="string">&quot;ln&quot;</span>,
+                <span class="string">&quot;logname&quot;</span>,
+                <span class="string">&quot;ls&quot;</span>,
+                <span class="string">&quot;mkdir&quot;</span>,
+                <span class="string">&quot;mkfifo&quot;</span>,
+                <span class="string">&quot;mknod&quot;</span>,
+                <span class="string">&quot;mktemp&quot;</span>,
+                <span class="string">&quot;more&quot;</span>,
+                <span class="string">&quot;mv&quot;</span>,
+                <span class="string">&quot;nice&quot;</span>,
+                <span class="string">&quot;nl&quot;</span>,
+                <span class="string">&quot;nohup&quot;</span>,
+                <span class="string">&quot;nproc&quot;</span>,
+                <span class="string">&quot;numfmt&quot;</span>,
+                <span class="string">&quot;od&quot;</span>,
+                <span class="string">&quot;paste&quot;</span>,
+                <span class="string">&quot;pathchk&quot;</span>,
+                <span class="string">&quot;pinky&quot;</span>,
+                <span class="string">&quot;pr&quot;</span>,
+                <span class="string">&quot;printenv&quot;</span>,
+                <span class="string">&quot;printf&quot;</span>,
+                <span class="string">&quot;ptx&quot;</span>,
+                <span class="string">&quot;pwd&quot;</span>,
+                <span class="string">&quot;readlink&quot;</span>,
+                <span class="string">&quot;realpath&quot;</span>,
+                <span class="string">&quot;relpath&quot;</span>,
+                <span class="string">&quot;rm&quot;</span>,
+                <span class="string">&quot;rmdir&quot;</span>,
+                <span class="string">&quot;runcon&quot;</span>,
+                <span class="string">&quot;seq&quot;</span>,
+                <span class="string">&quot;sh&quot;</span>,
+                <span class="string">&quot;shred&quot;</span>,
+                <span class="string">&quot;shuf&quot;</span>,
+                <span class="string">&quot;sleep&quot;</span>,
+                <span class="string">&quot;sort&quot;</span>,
+                <span class="string">&quot;split&quot;</span>,
+                <span class="string">&quot;stat&quot;</span>,
+                <span class="string">&quot;stdbuf&quot;</span>,
+                <span class="string">&quot;sum&quot;</span>,
+                <span class="string">&quot;sync&quot;</span>,
+                <span class="string">&quot;tac&quot;</span>,
+                <span class="string">&quot;tail&quot;</span>,
+                <span class="string">&quot;tee&quot;</span>,
+                <span class="string">&quot;test&quot;</span>,
+                <span class="string">&quot;timeout&quot;</span>,
+                <span class="string">&quot;touch&quot;</span>,
+                <span class="string">&quot;tr&quot;</span>,
+                <span class="string">&quot;true&quot;</span>,
+                <span class="string">&quot;truncate&quot;</span>,
+                <span class="string">&quot;tsort&quot;</span>,
+                <span class="string">&quot;tty&quot;</span>,
+                <span class="string">&quot;uname&quot;</span>,
+                <span class="string">&quot;unexpand&quot;</span>,
+                <span class="string">&quot;uniq&quot;</span>,
+                <span class="string">&quot;unlink&quot;</span>,
+                <span class="string">&quot;uptime&quot;</span>,
+                <span class="string">&quot;users&quot;</span>,
+                <span class="string">&quot;wc&quot;</span>,
+                <span class="string">&quot;who&quot;</span>,
+                <span class="string">&quot;whoami&quot;</span>,
+                <span class="string">&quot;yes&quot;</span>,
+            ]
+        );
+        <span class="kw">let </span>coreutils_atom = coreutils.get_atom(<span class="string">&quot;coreutils&quot;</span>).unwrap();
+        <span class="kw">for </span>(cmd, atom) <span class="kw">in </span>commands {
+            <span class="macro">assert_eq!</span>(atom.len(), coreutils_atom.len(), <span class="string">&quot;{cmd}&quot;</span>);
+            <span class="macro">assert_eq!</span>(atom, coreutils_atom, <span class="string">&quot;{cmd}&quot;</span>);
+        }
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_a_webc_with_dependencies() {
+        <span class="kw">let </span>bash = webc::compat::Container::from_bytes(BASH).unwrap();
+
+        <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>bash).unwrap();
+
+        <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;sharrattj/bash&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;1.0.12&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.uses, <span class="kw-2">&amp;</span>[<span class="string">&quot;sharrattj/coreutils@1.0.11&quot;</span>]);
+        <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">0</span>);
+        <span class="kw">let </span>commands = pkg.commands.read().unwrap();
+        <span class="kw">let </span>commands: BTreeMap&lt;<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[u8]&gt; = commands
+            .iter()
+            .map(|cmd| (cmd.name(), cmd.atom()))
+            .collect();
+        <span class="kw">let </span>command_names: Vec&lt;<span class="kw">_</span>&gt; = commands.keys().copied().collect();
+        <span class="macro">assert_eq!</span>(command_names, <span class="kw-2">&amp;</span>[<span class="string">&quot;bash&quot;</span>, <span class="string">&quot;sh&quot;</span>]);
+        <span class="macro">assert_eq!</span>(commands[<span class="string">&quot;bash&quot;</span>], bash.get_atom(<span class="string">&quot;bash&quot;</span>).unwrap());
+        <span class="macro">assert_eq!</span>(commands[<span class="string">&quot;sh&quot;</span>], commands[<span class="string">&quot;bash&quot;</span>]);
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>parse_a_webc_with_dependencies_and_no_commands() {
+        <span class="kw">let </span>pkg = parse_static_webc(HELLO.to_vec()).unwrap();
+
+        <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;wasmer/hello&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;0.1.0&quot;</span>);
+        <span class="kw">let </span>commands = pkg.commands.read().unwrap();
+        <span class="macro">assert!</span>(commands.is_empty());
+        <span class="macro">assert!</span>(pkg.entry.is_none());
+        <span class="macro">assert_eq!</span>(pkg.uses, [<span class="string">&quot;sharrattj/static-web-server@1&quot;</span>]);
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

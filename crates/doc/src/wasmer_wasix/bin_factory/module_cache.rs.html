@@ -321,14 +321,6 @@
 <span id="319">319</span>
 <span id="320">320</span>
 <span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -349,11 +341,11 @@
 
 <span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ModuleCache {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_compile_dir: String,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_compile_dir: PathBuf,
     <span class="kw">pub</span>(<span class="kw">crate</span>) cached_modules: <span class="prelude-ty">Option</span>&lt;RwLock&lt;HashMap&lt;String, Module&gt;&gt;&gt;,
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc: RwLock&lt;HashMap&lt;String, BinaryPackage&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc_dir: String,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc_dir: PathBuf,
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) cache_time: std::time::Duration,
 }
@@ -382,21 +374,18 @@
     ///
     /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
     </span><span class="kw">pub fn </span>new(
-        cache_compile_dir: <span class="prelude-ty">Option</span>&lt;String&gt;,
-        cache_webc_dir: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        cache_compile_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+        cache_webc_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
         use_shared_cache: bool,
     ) -&gt; ModuleCache {
-        <span class="kw">let </span>cache_compile_dir = shellexpand::tilde(
-            cache_compile_dir
-                .as_deref()
-                .unwrap_or(DEFAULT_COMPILED_PATH),
-        )
-        .to_string();
-        <span class="kw">let _ </span>= std::fs::create_dir_all(PathBuf::from(cache_compile_dir.clone()));
+        <span class="kw">let </span>cache_compile_dir = cache_compile_dir.unwrap_or_else(|| {
+            PathBuf::from(shellexpand::tilde(DEFAULT_COMPILED_PATH).into_owned())
+        });
+        <span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>cache_compile_dir);
 
-        <span class="kw">let </span>cache_webc_dir =
-            shellexpand::tilde(cache_webc_dir.as_deref().unwrap_or(DEFAULT_WEBC_PATH)).to_string();
-        <span class="kw">let _ </span>= std::fs::create_dir_all(PathBuf::from(cache_webc_dir.clone()));
+        <span class="kw">let </span>cache_webc_dir = cache_webc_dir
+            .unwrap_or_else(|| PathBuf::from(shellexpand::tilde(DEFAULT_WEBC_PATH).into_owned()));
+        <span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>cache_webc_dir);
 
         <span class="kw">let </span>cached_modules = <span class="kw">if </span>use_shared_cache {
             <span class="prelude-val">Some</span>(RwLock::new(HashMap::default()))
@@ -476,8 +465,9 @@
                 .split_once(<span class="string">&#39;:&#39;</span>)
                 .map(|a| a.<span class="number">0</span>)
                 .unwrap_or_else(|| name.as_str());
-            <span class="kw">let </span>cache_webc_dir = <span class="self">self</span>.cache_webc_dir.as_str();
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>data) = <span class="kw">crate</span>::wapm::fetch_webc_task(cache_webc_dir, wapm_name, runtime) {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>data) =
+                <span class="kw">crate</span>::wapm::fetch_webc_task(<span class="kw-2">&amp;</span><span class="self">self</span>.cache_webc_dir, wapm_name, runtime)
+            {
                 <span class="comment">// If the binary has no entry but it inherits from another module
                 // that does have an entry then we fall back to that inherited entry point
                 // (this convention is recursive down the list of inheritance until it finds the first entry point)
@@ -552,8 +542,7 @@
         }
 
         <span class="comment">// slow path
-        </span><span class="kw">let </span>path = std::path::Path::new(<span class="self">self</span>.cache_compile_dir.as_str())
-            .join(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, key).as_str());
+        </span><span class="kw">let </span>path = <span class="self">self</span>.cache_compile_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, key).as_str());
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(data) = std::fs::read(path.as_path()) {
             <span class="macro">tracing::trace!</span>(<span class="string">&quot;bin file found: {:?} [len={}]&quot;</span>, path.as_path(), data.len());
             <span class="kw">let </span><span class="kw-2">mut </span>decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
@@ -608,8 +597,7 @@
         <span class="comment">// We should also attempt to store it in the cache directory
         </span><span class="kw">let </span>compiled_bytes = module.serialize().unwrap();
 
-        <span class="kw">let </span>path = std::path::Path::new(<span class="self">self</span>.cache_compile_dir.as_str())
-            .join(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, key).as_str());
+        <span class="kw">let </span>path = <span class="self">self</span>.cache_compile_dir.join(<span class="macro">format!</span>(<span class="string">&quot;{}.bin&quot;</span>, key).as_str());
         <span class="comment">// TODO: forward error!
         </span><span class="kw">let _ </span>= std::fs::create_dir_all(path.parent().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
@@ -624,9 +612,7 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::{sync::Arc, time::Duration};
 
-    <span class="kw">use </span>tracing_subscriber::{
-        filter, prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, Layer,
-    };
+    <span class="kw">use </span>tracing_subscriber::filter::LevelFilter;
 
     <span class="kw">use crate</span>::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
@@ -634,13 +620,11 @@
 
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>test_module_cache() {
-        tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .pretty()
-                    .with_filter(filter::LevelFilter::INFO),
-            )
-            .init();
+        <span class="kw">let _ </span>= tracing_subscriber::fmt()
+            .pretty()
+            .with_test_writer()
+            .with_max_level(LevelFilter::INFO)
+            .try_init();
 
         <span class="kw">let </span><span class="kw-2">mut </span>cache = ModuleCache::new(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>);
         cache.cache_time = std::time::Duration::from_millis(<span class="number">500</span>);
