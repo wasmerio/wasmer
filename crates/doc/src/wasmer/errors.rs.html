@@ -40,13 +40,6 @@
 <span id="38">38</span>
 <span id="39">39</span>
 <span id="40">40</span>
-<span id="41">41</span>
-<span id="42">42</span>
-<span id="43">43</span>
-<span id="44">44</span>
-<span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::js::errors::{LinkError, RuntimeError};
 <span class="kw">use </span>thiserror::Error;
@@ -86,13 +79,6 @@
     /// This error occurs when an import from a different store is used.
     </span><span class="attribute">#[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;incorrect OS or architecture&quot;</span>))]
     </span>DifferentArchOS,
-}
-
-<span class="attribute">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
-</span><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>InstantiationError {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
-        <span class="macro">write!</span>(f, <span class="string">&quot;InstantiationError&quot;</span>)
-    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>
