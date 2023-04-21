@@ -1,9 +1,11 @@
 use std::{
     collections::HashMap,
     ops::Deref,
+    path::Path,
     sync::{Arc, RwLock},
 };
 
+use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 
 mod binary_package;
@@ -78,15 +80,17 @@ impl BinFactory {
         // Check the filesystem for the file
         if name.starts_with('/') {
             if let Some(fs) = fs {
-                if let Ok(mut file) = fs.new_open_options().read(true).open(name.clone()) {
-                    // Read the file
-                    let mut data = Vec::with_capacity(file.size() as usize);
-                    // TODO: log error?
-                    if file.read_to_end(&mut data).await.is_ok() {
-                        let package_name = name.split('/').last().unwrap_or(name.as_str());
-                        let data = BinaryPackage::new(package_name, Some(data.into()));
-                        cache.insert(name, Some(data.clone()));
-                        return Some(data);
+                match load_package_from_filesystem(fs, name.as_ref()).await {
+                    Ok(pkg) => {
+                        cache.insert(name, Some(pkg.clone()));
+                        return Some(pkg);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            path = name,
+                            error = &*e,
+                            "Unable to load the package from disk"
+                        );
                     }
                 }
             }
@@ -96,6 +100,23 @@ impl BinFactory {
         cache.insert(name, None);
         None
     }
+}
+
+async fn load_package_from_filesystem(
+    fs: &dyn FileSystem,
+    path: &Path,
+) -> Result<BinaryPackage, anyhow::Error> {
+    let mut f = fs
+        .new_open_options()
+        .read(true)
+        .open(path)
+        .context("Unable to open the file")?;
+
+    let mut data = Vec::with_capacity(f.size() as usize);
+    f.read_to_end(&mut data).await.context("Read failed")?;
+    let pkg = crate::wapm::parse_static_webc(data).context("Unable to parse the package")?;
+
+    Ok(pkg)
 }
 
 pub fn hash_of_binary(data: impl AsRef<[u8]>) -> String {

@@ -120,7 +120,7 @@ impl WcgiRunner {
     /// Sets the compile function
     pub fn with_compile(
         mut self,
-        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + Send + Sync + 'static,
     ) -> Self {
         self.compile = Some(Arc::new(compile));
         self
@@ -374,3 +374,17 @@ pub trait Callbacks: Send + Sync + 'static {
 struct NoopCallbacks;
 
 impl Callbacks for NoopCallbacks {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn send_and_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+
+        assert_send::<WcgiRunner>();
+        assert_sync::<WcgiRunner>();
+    }
+}

@@ -769,6 +769,18 @@ fn test_snapshot_multithreading() {
     assert_json_snapshot!(snapshot);
 }
 
+// test for traditional wasi threads
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_wasi_threads() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .debug_output(true)
+        .enable_threads(true)
+        .run_wasm(include_bytes!("./wasm/wasi-threads.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
 // multithreading with shared memory access
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
