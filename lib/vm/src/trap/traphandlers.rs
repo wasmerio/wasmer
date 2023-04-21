@@ -20,7 +20,7 @@ use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
+use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 use std::sync::{Mutex, Once};
 use wasmer_types::TrapCode;
 
@@ -28,6 +28,13 @@ use wasmer_types::TrapCode;
 // On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
+
+static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
+
+/// Default stack size is 1MB.
+pub fn set_stack_size(size: usize) {
+    DEFAULT_STACK_SIZE.store(size.max(8 * 1024).min(100 * 1024 * 1024), Ordering::Relaxed);
+}
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
@@ -624,7 +631,12 @@ where
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
 
-    on_wasm_stack(trap_handler, closure).map_err(UnwindReason::into_trap)
+    on_wasm_stack(
+        DEFAULT_STACK_SIZE.load(Ordering::Relaxed),
+        trap_handler,
+        closure,
+    )
+    .map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:
@@ -841,6 +853,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T, T>(
+    stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
@@ -851,7 +864,11 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     lazy_static::lazy_static! {
         static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
     }
-    let stack = STACK_POOL.lock().unwrap().pop().unwrap_or_default();
+    let stack = STACK_POOL
+        .lock()
+        .unwrap()
+        .pop()
+        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
 
     // Create a coroutine with a new stack to run the function on.
