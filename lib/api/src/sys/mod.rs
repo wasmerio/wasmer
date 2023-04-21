@@ -14,7 +14,7 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{Artifact, EngineBuilder, Features, FrameInfo, Tunables};
+pub use wasmer_compiler::{Artifact, EngineBuilder, Features, Tunables};
 #[cfg(feature = "cranelift")]
 pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 #[cfg(feature = "llvm")]

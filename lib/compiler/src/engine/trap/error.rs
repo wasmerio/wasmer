@@ -1,8 +1,9 @@
-use super::frame_info::{FrameInfo, GlobalFrameInfo, FRAME_INFO};
+use super::frame_info::{GlobalFrameInfo, FRAME_INFO};
 use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
+use wasmer_types::FrameInfo;
 use wasmer_vm::{Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message
@@ -44,8 +45,6 @@ struct RuntimeErrorInner {
     source: RuntimeErrorSource,
     /// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
     wasm_trace: Vec<FrameInfo>,
-    /// The native backtrace
-    native_trace: Option<Backtrace>,
 }
 
 fn _assert_trap_is_sync_and_send(t: &Trap) -> (&dyn Sync, &dyn Send) {
@@ -191,7 +190,6 @@ impl RuntimeError {
             inner: Arc::new(RuntimeErrorInner {
                 source,
                 wasm_trace,
-                native_trace: Some(native_trace),
             }),
         }
     }
@@ -257,7 +255,6 @@ impl fmt::Debug for RuntimeError {
         f.debug_struct("RuntimeError")
             .field("source", &self.inner.source)
             .field("wasm_trace", &self.inner.wasm_trace)
-            .field("native_trace", &self.inner.native_trace)
             .finish()
     }
 }

@@ -3,6 +3,7 @@ use std::fmt;
 use std::sync::Arc;
 use wasm_bindgen::{prelude::*, JsValue};
 use wasm_bindgen_downcast::DowncastJS;
+use wasmer_types::FrameInfo;
 
 pub trait CoreError: fmt::Debug + fmt::Display {
     fn source(&self) -> Option<&(dyn CoreError + 'static)> {
@@ -167,6 +168,13 @@ impl RuntimeError {
         let error = Self::user(error);
         let js_error: JsValue = error.into();
         wasm_bindgen::throw_val(js_error)
+    }
+
+    /// Returns a list of function frames in WebAssembly code that led to this
+    /// trap happening.
+    pub fn trace(&self) -> &[FrameInfo] {
+        // unimplemented!();
+        return &[];
     }
 
     /// Creates a custom user Error.

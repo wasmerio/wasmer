@@ -470,10 +470,10 @@ pub use wasmer_derive::ValueType;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
     is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
-    ExternType, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError,
-    MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError,
-    SerializeError, TableType, Target, Type, ValueType, WasmError, WasmResult, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    ExternType, FrameInfo, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex,
+    MemoryError, MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages,
+    ParseCpuFeatureError, SerializeError, TableType, Target, Type, ValueType, WasmError,
+    WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
