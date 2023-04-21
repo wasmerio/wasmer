@@ -11,7 +11,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 3.2.1 - 21/04/2023
 
-Some quick fixes for this maintenance release, mainly orianted towards Docs.
+Some quick fixes for this maintenance release, mainly oriented towards Docs.
 
 ## Added
 
