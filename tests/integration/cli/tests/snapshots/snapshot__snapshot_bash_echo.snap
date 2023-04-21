@@ -8,19 +8,7 @@ expression: snapshot
     "use_packages": [],
     "include_webcs": [],
     "cli_args": [],
-    "stdin": [
-      101,
-      99,
-      104,
-      111,
-      32,
-      104,
-      101,
-      108,
-      108,
-      111,
-      10
-    ],
+    "stdin_hash": "664d0430ee33458602e580520841a2d4",
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false

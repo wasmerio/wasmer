@@ -37,6 +37,7 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
 }
 
 impl Instance {
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -55,6 +56,7 @@ impl Instance {
         Ok((instance, exports))
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,

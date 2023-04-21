@@ -475,7 +475,7 @@ pub fn try_unpack_targz<P: AsRef<Path>>(
                 )
             })
         } else {
-            ar.unpack(&target_path).map_err(|e| {
+            ar.unpack(target_path).map_err(|e| {
                 anyhow::anyhow!(
                     "failed to unpack (with parent) {}: {e}",
                     target_targz_path.display()

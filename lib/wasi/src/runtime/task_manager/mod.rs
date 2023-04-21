@@ -6,27 +6,20 @@ use std::{pin::Pin, time::Duration};
 
 use ::tokio::runtime::Handle;
 use futures::Future;
-use wasmer::vm::VMMemory;
-use wasmer::{MemoryType, Module, Store};
-
-#[cfg(feature = "sys")]
-use wasmer_types::MemoryStyle;
+use wasmer::{Memory, MemoryType, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
 
 #[derive(Debug)]
 pub struct SpawnedMemory {
     pub ty: MemoryType,
-    // TODO: don't put behind a feature (Option<MemoryStyle>?)
-    #[cfg(feature = "sys")]
-    pub style: MemoryStyle,
 }
 
 #[derive(Debug)]
 pub enum SpawnType {
     Create,
     CreateWithType(SpawnedMemory),
-    NewThread(VMMemory, MemoryType),
+    NewThread(Memory),
 }
 
 /// An implementation of task management
@@ -36,7 +29,11 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Build a new Webassembly memory.
     ///
     /// May return `None` if the memory can just be auto-constructed.
-    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError>;
+    fn build_memory(
+        &self,
+        store: &mut StoreMut,
+        spawn_type: SpawnType,
+    ) -> Result<Option<Memory>, WasiThreadError>;
 
     /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
     /// execution environments) they will need to do asynchronous work whenever the main
@@ -64,7 +61,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// It is ok for this task to block execution and any async futures within its scope
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
         store: Store,
         module: Module,
         spawn_type: SpawnType,

@@ -11,12 +11,7 @@ expression: snapshot
       "tee",
       "/dev/stderr"
     ],
-    "stdin": [
-      98,
-      108,
-      97,
-      104
-    ],
+    "stdin_hash": "6f1ed002ab5595859014ebf0951522d9",
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false

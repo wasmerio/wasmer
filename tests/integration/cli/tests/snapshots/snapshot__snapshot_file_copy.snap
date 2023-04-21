@@ -18,10 +18,7 @@ expression: snapshot
       "/dev/stdin",
       "/dev/stdout"
     ],
-    "stdin": [
-      104,
-      105
-    ],
+    "stdin_hash": "49f68a5c8493ec2c0bf489821c21fc3b",
     "debug_output": false,
     "enable_threads": true,
     "enable_network": false

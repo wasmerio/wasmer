@@ -16,7 +16,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes transmitted.
-#[instrument(level = "trace", skip_all, fields(sock, nsent = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%sock, nsent = field::Empty), ret, err)]
 pub fn sock_send<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -43,7 +43,7 @@ pub fn sock_send<M: MemorySize>(
                     .map_err(mem_error_to_wasi)?
                     .access()
                     .map_err(mem_error_to_wasi)?;
-                sent += match socket
+                let local_sent = match socket
                     .send(env.tasks().deref(), buf.as_ref(), fd.flags)
                     .await
                 {
@@ -51,6 +51,10 @@ pub fn sock_send<M: MemorySize>(
                     Err(_) if sent > 0 => break,
                     Err(err) => return Err(err),
                 };
+                sent += local_sent;
+                if local_sent != buf.len() {
+                    break;
+                }
             }
             Ok(sent)
         })

@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///
 /// * `pid` - Handle of the child process to wait on
 /// * `sig` - Signal to send the child process
-#[instrument(level = "trace", skip_all, fields(pid, sig), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%pid, ?sig), ret, err)]
 pub fn proc_signal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid: Pid,

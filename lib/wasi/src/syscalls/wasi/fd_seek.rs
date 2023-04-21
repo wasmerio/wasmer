@@ -13,7 +13,7 @@ use crate::syscalls::*;
 /// Output:
 /// - `Filesize *fd`
 ///     The new offset relative to the start of the file
-#[instrument(level = "trace", skip_all, fields(fd, offset, whence), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, %offset, ?whence), ret)]
 pub fn fd_seek<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

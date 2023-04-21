@@ -31,6 +31,7 @@ use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug, Clone)]
 pub struct FileSystemCache {
     path: PathBuf,
     ext: Option<String>,
@@ -97,7 +98,7 @@ impl Cache for FileSystemCache {
         key: Hash,
     ) -> Result<Module, Self::DeserializeError> {
         let filename = if let Some(ref ext) = self.ext {
-            format!("{}.{}", key.to_string(), ext)
+            format!("{}.{}", key, ext)
         } else {
             key.to_string()
         };
@@ -113,7 +114,7 @@ impl Cache for FileSystemCache {
 
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {
         let filename = if let Some(ref ext) = self.ext {
-            format!("{}.{}", key.to_string(), ext)
+            format!("{}.{}", key, ext)
         } else {
             key.to_string()
         };

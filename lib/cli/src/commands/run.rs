@@ -1,6 +1,4 @@
-#[cfg(feature = "cache")]
 use crate::common::get_cache_dir;
-#[cfg(feature = "debug")]
 use crate::logging;
 use crate::package_source::PackageSource;
 use crate::store::{CompilerType, StoreOptions};
@@ -11,26 +9,20 @@ use clap::Parser;
 use std::io::Write;
 use std::ops::Deref;
 use std::path::PathBuf;
-#[cfg(feature = "cache")]
 use std::str::FromStr;
 use std::{fs::File, net::SocketAddr};
-#[cfg(feature = "emscripten")]
 use wasmer::FunctionEnv;
 use wasmer::*;
-#[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 use wasmer_types::Type as ValueType;
-#[cfg(feature = "webc_runner")]
-use wasmer_wasix::runners::{Runner, WapmContainer};
+use wasmer_wasix::runners::Runner;
 
-#[cfg(feature = "wasi")]
 mod wasi;
 
-#[cfg(feature = "wasi")]
-use wasi::Wasi;
+pub(crate) use wasi::Wasi;
 
 /// The options for the `wasmer run` subcommand, runs either a package, URL or a file
-#[derive(Debug, Parser, Clone, Default)]
+#[derive(Debug, Parser, Clone)]
 pub struct Run {
     /// File to run
     #[clap(name = "SOURCE", parse(try_from_str))]
@@ -48,7 +40,6 @@ pub struct RunWithoutFile {
     pub(crate) force_install: bool,
 
     /// Disable the cache
-    #[cfg(feature = "cache")]
     #[clap(long = "disable-cache")]
     pub(crate) disable_cache: bool,
 
@@ -65,7 +56,6 @@ pub struct RunWithoutFile {
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
-    #[cfg(feature = "cache")]
     #[clap(long = "cache-key", hide = true)]
     pub(crate) cache_key: Option<String>,
 
@@ -73,7 +63,6 @@ pub struct RunWithoutFile {
     pub(crate) store: StoreOptions,
 
     // TODO: refactor WASI structure to allow shared options with Emscripten
-    #[cfg(feature = "wasi")]
     #[clap(flatten)]
     pub(crate) wasi: Wasi,
 
@@ -83,21 +72,22 @@ pub struct RunWithoutFile {
     pub(crate) enable_experimental_io_devices: bool,
 
     /// Enable debug output
-    #[cfg(feature = "debug")]
     #[clap(long = "debug", short = 'd')]
     pub(crate) debug: bool,
 
-    #[cfg(feature = "debug")]
     #[clap(long = "verbose")]
     pub(crate) verbose: Option<u8>,
 
-    #[cfg(feature = "webc_runner")]
     #[clap(flatten)]
     pub(crate) wcgi: WcgiOptions,
 
     /// Enable coredump generation after a WebAssembly trap.
     #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
     coredump_on_trap: Option<PathBuf>,
+
+    /// The stack size (default is 1048576)
+    #[clap(long = "stack-size")]
+    pub(crate) stack_size: Option<usize>,
 
     /// Application arguments
     #[clap(value_name = "ARGS")]
@@ -131,39 +121,40 @@ impl RunWithPathBuf {
                 self_clone.command_name.as_deref(),
             )?;
 
-            #[cfg(feature = "wasi")]
-            {
-                // See https://github.com/wasmerio/wasmer/issues/3492 -
-                // we need IndexMap to have a stable ordering for the [fs] mapping,
-                // otherwise overlapping filesystem mappings might not work
-                // since we want to control the order of mounting directories from the
-                // wasmer.toml file
-                let default = indexmap::IndexMap::default();
-                let fs = manifest.fs.as_ref().unwrap_or(&default);
-                for (alias, real_dir) in fs.iter() {
-                    let real_dir = self_clone.path.join(&real_dir);
-                    if !real_dir.exists() {
-                        #[cfg(feature = "debug")]
-                        if self_clone.debug {
-                            println!(
-                                "warning: cannot map {alias:?} to {}: directory does not exist",
-                                real_dir.display()
-                            );
-                        }
-                        continue;
+            // See https://github.com/wasmerio/wasmer/issues/3492 -
+            // we need IndexMap to have a stable ordering for the [fs] mapping,
+            // otherwise overlapping filesystem mappings might not work
+            // since we want to control the order of mounting directories from the
+            // wasmer.toml file
+            let default = indexmap::IndexMap::default();
+            let fs = manifest.fs.as_ref().unwrap_or(&default);
+            for (alias, real_dir) in fs.iter() {
+                let real_dir = self_clone.path.join(real_dir);
+                if !real_dir.exists() {
+                    #[cfg(feature = "debug")]
+                    if self_clone.debug {
+                        println!(
+                            "warning: cannot map {alias:?} to {}: directory does not exist",
+                            real_dir.display()
+                        );
                     }
-
-                    self_clone.options.wasi.map_dir(alias, real_dir.clone());
+                    continue;
                 }
+
+                self_clone.options.wasi.map_dir(alias, real_dir.clone());
             }
 
             self_clone.path = pathbuf;
         }
 
-        #[cfg(feature = "debug")]
         if self.debug {
-            logging::set_up_logging(self_clone.verbose.unwrap_or(0)).unwrap();
+            let level = match self_clone.verbose {
+                Some(1) => log::LevelFilter::Debug,
+                Some(_) | None => log::LevelFilter::Trace,
+            };
+            logging::set_up_logging(level);
         }
+
         let invoke_res = self_clone.inner_execute().with_context(|| {
             format!(
                 "failed to run `{}`{}",
@@ -194,6 +185,9 @@ impl RunWithPathBuf {
     }
 
     fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
@@ -227,7 +221,7 @@ impl RunWithPathBuf {
     fn inner_execute(&self) -> Result<()> {
         #[cfg(feature = "webc_runner")]
         {
-            if let Ok(pf) = WapmContainer::from_path(self.path.clone()) {
+            if let Ok(pf) = webc::Container::from_disk(self.path.clone()) {
                 return self.run_container(pf, self.command_name.as_deref(), &self.args);
             }
         }
@@ -250,7 +244,12 @@ impl RunWithPathBuf {
                     .map_err(|e| anyhow!("{}", e))?;
                 env.as_mut(&mut store).set_data(
                     &emscripten_globals.data,
-                    self.wasi.mapped_dirs.clone().into_iter().collect(),
+                    self.wasi
+                        .mapped_dirs
+                        .clone()
+                        .into_iter()
+                        .map(|d| (d.guest, d.host))
+                        .collect(),
                 );
                 let import_object =
                     generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
@@ -379,7 +378,7 @@ impl RunWithPathBuf {
     #[cfg(feature = "webc_runner")]
     fn run_container(
         &self,
-        container: WapmContainer,
+        container: webc::Container,
         id: Option<&str>,
         args: &[String],
     ) -> Result<(), anyhow::Error> {
@@ -416,8 +415,8 @@ impl RunWithPathBuf {
             .store(store)
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.iter().map(|(g, h)| (h, g)));
-        if self.wcgi.forward_host_env {
+            .map_directories(self.wasi.mapped_dirs.clone());
+        if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
         if runner.can_run_command(id, command).unwrap_or(false) {
@@ -435,7 +434,7 @@ impl RunWithPathBuf {
         if wasmer_compiler::Artifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::EngineBuilder::headless();
             let store = Store::new(engine);
-            let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
+            let module = Module::deserialize_from_file_checked(&store, &self.path)?;
             return Ok((store, module));
         }
         let (store, compiler_type) = self.store.get_store()?;
@@ -714,16 +713,12 @@ pub(crate) struct WcgiOptions {
     /// The address to serve on.
     #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
     pub(crate) addr: SocketAddr,
-    /// Forward all host env variables to the wcgi task.
-    #[clap(long)]
-    pub(crate) forward_host_env: bool,
 }
 
 impl Default for WcgiOptions {
     fn default() -> Self {
         Self {
             addr: ([127, 0, 0, 1], 8000).into(),
-            forward_host_env: false,
         }
     }
 }

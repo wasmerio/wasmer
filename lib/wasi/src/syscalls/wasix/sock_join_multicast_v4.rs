@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// * `fd` - Socket descriptor
 /// * `multiaddr` - Multicast group to joined
 /// * `interface` - Interface that will join
-#[instrument(level = "debug", skip_all, fields(sock), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock), ret)]
 pub fn sock_join_multicast_v4<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

@@ -8,6 +8,7 @@ singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for th
 singlepass+aarch64+macos traps::test_trap_trace
 cranelift+aarch64+macos    traps::test_trap_trace
 llvm+aarch64    traps::test_trap_trace
+llvm+riscv64    traps::test_trap_trace
 singlepass+aarch64+macos traps::test_trap_stack_overflow # Need to investigate
 singlepass+aarch64+macos traps::trap_display_pretty
 llvm       traps::trap_display_pretty
@@ -24,10 +25,36 @@ singlepass+aarch64+macos traps::start_trap_pretty
 llvm       traps::start_trap_pretty
 cranelift+aarch64+macos    traps::start_trap_pretty
 
-# Also neither LLVM nor Cranelift currently implement stack probing on AArch64.
+# LLVM currently doesn't implement stack probing on AArch64, RISC-V.
 # https://github.com/wasmerio/wasmer/issues/2808
-cranelift+aarch64 spec::skip_stack_guard_page
 llvm+aarch64      spec::skip_stack_guard_page
+llvm+riscv64      spec::skip_stack_guard_page
+
+# riscv support is still early, function call ABI needs some work
+llvm+riscv64      static_function::llvm::universal
+llvm+riscv64      static_function_with_env::llvm::universal
+llvm+riscv64      static_function_with_results::llvm::universal
+llvm+riscv64      spec::f32::llvm::universal
+llvm+riscv64      spec::f64::llvm::universal
+llvm+riscv64      spec::float_misc::llvm::universal
+llvm+riscv64      spec::memory_copy::llvm::universal
+llvm+riscv64      spec::memory_init::llvm::universal
+llvm+riscv64      spec::memory_trap::llvm::universal
+llvm+riscv64      spec::multi_value::binary::llvm::universal
+llvm+riscv64      spec::multi_value::block::llvm::universal
+llvm+riscv64      spec::simd::simd_align::llvm::universal
+llvm+riscv64      spec::simd::simd_f32x4_rounding::llvm::universal
+llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm::universal
+llvm+riscv64      wasmer::nan_canonicalization::llvm::universal
+llvm+riscv64      wasmer::stack_overflow_sret::llvm::universal
+# riscv support on Cranelift is also very young
+cranelift+riscv64 spec::align::cranelift::universal
+cranelift+riscv64 spec::memory_copy::cranelift::universal
+cranelift+riscv64 spec::memory_trap::cranelift::universal
+cranelift+riscv64 spec::r#if::cranelift::universal
+
+# no SIMD on riscv, Cranelift will not handle them
+cranelift+riscv64 spec::simd
 
 # Windows doesn't overcommit and fails to allocate 4GB of memory
 windows wasmer::max_size_of_memory

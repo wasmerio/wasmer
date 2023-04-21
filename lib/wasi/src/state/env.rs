@@ -5,8 +5,6 @@ use rand::Rng;
 use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
-#[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryError, MemoryView,
     Module, TypedFunction,
@@ -377,6 +375,7 @@ impl WasiEnv {
         self.thread.tid()
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
         let process = if let Some(p) = init.process {
             p
@@ -417,6 +416,7 @@ impl WasiEnv {
     }
 
     // FIXME: use custom error type
+    #[allow(clippy::result_large_err)]
     pub(crate) fn instantiate(
         mut init: WasiEnvInit,
         module: Module,
@@ -442,28 +442,19 @@ impl WasiEnv {
             t
         } else {
             match shared_memory {
-                Some(ty) => {
-                    #[cfg(feature = "sys")]
-                    let style = store.engine().tunables().memory_style(&ty);
-                    SpawnType::CreateWithType(SpawnedMemory {
-                        ty,
-                        #[cfg(feature = "sys")]
-                        style,
-                    })
-                }
+                Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
                 None => SpawnType::Create,
             }
         };
-        let memory = tasks.build_memory(spawn_type)?;
+        let memory = tasks.build_memory(&mut store, spawn_type)?;
 
         // Let's instantiate the module with the imports.
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
         let imported_memory = if let Some(memory) = memory {
-            let imported_memory = Memory::new_from_existing(&mut store, memory);
-            import_object.define("env", "memory", imported_memory.clone());
-            Some(imported_memory)
+            import_object.define("env", "memory", memory.clone());
+            Some(memory)
         } else {
             None
         };
@@ -766,14 +757,14 @@ impl WasiEnv {
         I: IntoIterator<Item = String>,
     {
         // Load all the containers that we inherit from
+        use std::collections::VecDeque;
         #[allow(unused_imports)]
         use std::path::Path;
-        use std::{borrow::Cow, collections::VecDeque};
 
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
-        let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
+        let mut already: HashMap<String, String> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
 
@@ -791,7 +782,7 @@ impl WasiEnv {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
                 if let Some(version) = already.get(&package_name) {
-                    if version.as_ref() != package.version.as_ref() {
+                    if version.as_str() != package.version {
                         return Err(WasiStateCreationError::WasiInheritError(format!(
                             "webc package version conflict for {} - {} vs {}",
                             use_package, version, package.version
@@ -813,20 +804,36 @@ impl WasiEnv {
                     }
 
                     // Add all the commands as binaries in the bin folder
+
                     let commands = package.commands.read().unwrap();
                     if !commands.is_empty() {
                         let _ = root_fs.create_dir(Path::new("/bin"));
                         for command in commands.iter() {
-                            let path = format!("/bin/{}", command.name);
+                            let path = format!("/bin/{}", command.name());
                             let path = Path::new(path.as_str());
+
+                            // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                            // We should be using some sort of reference-counted
+                            // pointer to some bytes that are either on the heap
+                            // or from a memory-mapped file. However, that's not
+                            // possible here because things like memfs and
+                            // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                            // too hard to refactor those at the moment, and we
+                            // were pulling the same trick before by storing an
+                            // "ownership" object in the BinaryPackageCommand,
+                            // so as long as packages aren't removed from the
+                            // module cache it should be fine.
+                            let atom: &'static [u8] =
+                                unsafe { std::mem::transmute(command.atom()) };
+
                             if let Err(err) = root_fs
                                 .new_open_options_ext()
-                                .insert_ro_file(path, command.atom.clone())
+                                .insert_ro_file(path, atom.into())
                             {
                                 tracing::debug!(
                                     "failed to add package [{}] command [{}] - {}",
                                     use_package,
-                                    command.name,
+                                    command.name(),
                                     err
                                 );
                                 continue;
@@ -834,7 +841,7 @@ impl WasiEnv {
 
                             // Add the binary package to the bin factory (zero copy the atom)
                             let mut package = package.clone();
-                            package.entry = Some(command.atom.clone());
+                            package.entry = Some(atom.into());
                             self.bin_factory
                                 .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
                         }

@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///     The file descriptor to apply the new flags to
 /// - `Fdflags flags`
 ///     The flags to apply to `fd`
-#[instrument(level = "debug", skip_all, fields(fd), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%fd), ret, err)]
 pub fn fd_fdstat_set_flags(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

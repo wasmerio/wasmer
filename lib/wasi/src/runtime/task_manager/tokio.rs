@@ -1,11 +1,12 @@
-use std::{pin::Pin, time::Duration};
+use std::{
+    pin::Pin,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use futures::Future;
 use tokio::runtime::Handle;
-use wasmer::{
-    vm::{VMMemory, VMSharedMemory},
-    Module, Store,
-};
+use wasmer::{AsStoreMut, Memory, Module, Store, StoreMut};
 
 use crate::os::task::thread::WasiThreadError;
 
@@ -14,6 +15,10 @@ use super::{SpawnType, VirtualTaskManager};
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager(Handle);
+
+/// This holds the currently set shared runtime which should be accessed via
+/// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()
+static GLOBAL_RUNTIME: Mutex<Option<(Arc<tokio::runtime::Runtime>, Handle)>> = Mutex::new(None);
 
 impl TokioTaskManager {
     pub fn new(rt: Handle) -> Self {
@@ -24,35 +29,35 @@ impl TokioTaskManager {
         self.0.clone()
     }
 
+    /// Allows the caller to set the shared runtime that will be used by other
+    /// async processes within Wasmer
+    ///
+    /// The shared runtime must be set before it is used and can only be set once
+    /// otherwise this call will fail with an error.
+    pub fn set_shared(rt: Arc<tokio::runtime::Runtime>) -> Result<(), anyhow::Error> {
+        let mut guard = GLOBAL_RUNTIME.lock().unwrap();
+        if guard.is_some() {
+            return Err(anyhow::format_err!("The shared runtime has already been set or lazy initialized - it can not be overridden"));
+        }
+        guard.replace((rt.clone(), rt.handle().clone()));
+        Ok(())
+    }
+
     /// Shared tokio [`Runtime`] that is used by default.
     ///
     /// This exists because a tokio runtime is heavy, and there should not be many
     /// independent ones in a process.
     pub fn shared() -> Self {
-        static GLOBAL_RUNTIME: once_cell::sync::Lazy<(Option<tokio::runtime::Runtime>, Handle)> =
-            once_cell::sync::Lazy::new(|| {
-                if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                    (None, handle)
-                } else {
-                    #[cfg(feature = "sys")]
-                    {
-                        let rt = tokio::runtime::Runtime::new().unwrap();
-                        let handle = rt.handle().clone();
-                        (Some(rt), handle)
-                    }
-                    #[cfg(not(feature = "sys"))]
-                    {
-                        let rt = tokio::runtime::Runtime::new().unwrap();
-                        let handle = rt.handle().clone();
-                        (Some(rt), handle)
-                    }
-                }
-            });
-
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             Self(handle)
         } else {
-            Self(GLOBAL_RUNTIME.1.clone())
+            let mut guard = GLOBAL_RUNTIME.lock().unwrap();
+            let rt = guard.get_or_insert_with(|| {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                let handle = rt.handle().clone();
+                (Arc::new(rt), handle)
+            });
+            Self(rt.1.clone())
         }
     }
 }
@@ -73,15 +78,22 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 
 #[async_trait::async_trait]
 impl VirtualTaskManager for TokioTaskManager {
-    fn build_memory(&self, spawn_type: SpawnType) -> Result<Option<VMMemory>, WasiThreadError> {
+    fn build_memory(
+        &self,
+        mut store: &mut StoreMut,
+        spawn_type: SpawnType,
+    ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
-            SpawnType::CreateWithType(mem) => VMSharedMemory::new(&mem.ty, &mem.style)
-                .map_err(|err| {
-                    tracing::error!("could not create memory: {err}");
-                    WasiThreadError::MemoryCreateFailed
-                })
-                .map(|m| Some(m.into())),
-            SpawnType::NewThread(mem, _) => Ok(Some(mem)),
+            SpawnType::CreateWithType(mut mem) => {
+                mem.ty.shared = true;
+                Memory::new(&mut store, mem.ty)
+                    .map_err(|err| {
+                        tracing::error!("could not create memory: {err}");
+                        WasiThreadError::MemoryCreateFailed
+                    })
+                    .map(Some)
+            }
+            SpawnType::NewThread(mem) => Ok(Some(mem)),
             SpawnType::Create => Ok(None),
         }
     }
@@ -125,12 +137,12 @@ impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
-        task: Box<dyn FnOnce(Store, Module, Option<VMMemory>) + Send + 'static>,
-        store: Store,
+        task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,
+        mut store: Store,
         module: Module,
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
-        let memory = self.build_memory(spawn_type)?;
+        let memory = self.build_memory(&mut store.as_store_mut(), spawn_type)?;
         self.0.spawn_blocking(move || {
             // Invoke the callback
             task(store, module, memory);

@@ -60,6 +60,7 @@ fn get_runtime_size(context: &StoreObjects, extern_: &VMExtern) -> Option<u32> {
 /// a `Resolver`.
 ///
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
+#[allow(clippy::result_large_err)]
 pub fn resolve_imports(
     module: &ModuleInfo,
     imports: &[VMExtern],

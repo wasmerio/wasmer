@@ -25,7 +25,7 @@ use crate::syscalls::*;
 ///     The new file descriptor
 /// Possible Errors:
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
-#[instrument(level = "debug", skip_all, fields(dirfd, path = field::Empty, follow_symlinks = false, ret_fd = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
 pub fn path_open<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,

@@ -1,9 +1,9 @@
 [package]
 name = "wasmer-wasix"
-version = "0.1.0"
+version = "0.3.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
-keywords = ["wasm", "webassembly", "wasi", "wasix", "sandbox", "ABI"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
@@ -15,20 +15,19 @@ cfg-if = "1.0"
 thiserror = "1"
 tracing = { version = "0.1" }
 getrandom = "0.2"
-wasmer-wasix-types = { path = "../wasi-types", version = "0.1.0" }
-wasmer-types = { path = "../types", version = "=3.2.0-alpha.1", default-features = false }
-wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
-wasmer-vm = { path = "../vm", version = "=3.2.0-alpha.1", optional = true }
-virtual-fs = { path = "../vfs", version = "0.1.0", default-features = false, features = ["webc-fs"] }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.3.0" }
+wasmer-types = { path = "../types", version = "=3.2.0", default-features = false }
+wasmer = { path = "../api", version = "=3.2.0", default-features = false, features = ["wat", "js-serializable-module"] }
+virtual-fs = { path = "../vfs", version = "0.2.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../vnet", version = "0.1.0", default-features = false }
-wasmer-emscripten = { path = "../emscripten", version = "=3.2.0-alpha.1", optional = true }
+wasmer-emscripten = { path = "../emscripten", version = "=3.2.0", optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 bincode = { version = "1.3" }
 chrono = { version = "^0.4", default-features = false, features = [ "wasmbind", "std", "clock" ], optional = true }
 derivative = { version = "^2" }
 bytes = "1"
-webc = { version = "5.0.0-rc.5", default-features = false }
+webc = { version = "5.0", default-features = false }
 serde_cbor = { version = "0.11.2", optional = true }
 anyhow = { version = "1.0.66" }
 lazy_static = "1.4"
@@ -49,22 +48,30 @@ weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 term_size = { version = "0.3" }
 linked_hash_set = { version = "0.1" }
-# the various compilers
-wasmer-compiler = { version = "=3.2.0-alpha.1", path = "../compiler", features = [ "translator" ], optional = true }
+# used by feature='host-termios'
+termios = { version = "0.3", optional = true }
 http = "0.2.8"
-wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.2.3", features = ["tracing"] }
+wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.3.0", features = ["tracing"] }
 heapless = "0.7.16"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
 # Used by the WCGI runner
 hyper = { version = "0.14", features = ["server", "stream"], optional = true }
-wcgi = { version = "0.1.1", optional = true }
-wcgi-host = { version = "0.1.0", optional = true }
+wcgi = { version = "0.1.2", optional = true }
+wcgi-host = { version = "0.1.2", optional = true }
+tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "cors"], optional = true }
+tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 
-[dependencies.reqwest]
+[target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
 default-features = false
 features = ["rustls-tls", "json"]
+optional = true
+
+[target.'cfg(target_arch = "riscv64")'.dependencies.reqwest]
+version = "0.11"
+default-features = false
+features = ["native-tls", "json"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]
@@ -78,8 +85,9 @@ winapi = "0.3"
 wasm-bindgen = "0.2.74"
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer = { path = "../api", version = "=3.2.0", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
+tempfile = "3.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
@@ -87,28 +95,29 @@ tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.2" }
-wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
+wasmer = { path = "../api", version = "=3.2.0", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
 
 [features]
 default = ["sys-default"]
 
 time = ["tokio/time"]
 
-webc_runner = ["serde_cbor", "wasmer/compiler"]
+webc_runner = ["serde_cbor"]
 webc_runner_rt_wasi = []
-webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host"]
+webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
-sys = ["wasmer/sys", "wasmer-wasix-types/sys", "webc/mmap", "wasmer-vm", "time"]
-sys-default = ["wasmer/wat", "wasmer/compiler", "sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
+sys = ["webc/mmap", "time", "wasmer/sys"]
+sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
-compiler = [ "wasmer/compiler", "wasmer-compiler"]
+# Deprecated. Kept it for compatibility
+compiler = []
 
-js = ["wasmer/js", "virtual-fs/no-time", "getrandom/js", "chrono", "wasmer-wasix-types/js"]
-js-default = ["js", "wasmer/js-default"]
-test-js = ["js", "wasmer/js-default", "wasmer/wat"]
+js = ["virtual-fs/no-time", "getrandom/js", "chrono"]
+js-default = ["js"]
+test-js = ["js", "wasmer/wat"]
 
 host-vnet = [ "virtual-net/host-net" ]
 host-threads = []

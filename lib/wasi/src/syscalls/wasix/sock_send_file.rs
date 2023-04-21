@@ -15,7 +15,7 @@ use crate::{syscalls::*, WasiInodes};
 /// ## Return
 ///
 /// Number of bytes transmitted.
-#[instrument(level = "debug", skip_all, fields(sock, in_fd, offset, count, nsent = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%sock, %in_fd, %offset, %count, nsent = field::Empty), ret, err)]
 pub fn sock_send_file<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

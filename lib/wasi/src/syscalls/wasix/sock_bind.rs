@@ -9,7 +9,7 @@ use crate::syscalls::*;
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `addr` - Address to bind the socket to
-#[instrument(level = "debug", skip_all, fields(sock, addr = field::Empty), ret)]
+#[instrument(level = "debug", skip_all, fields(%sock, addr = field::Empty), ret)]
 pub fn sock_bind<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

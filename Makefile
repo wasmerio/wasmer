@@ -14,7 +14,7 @@ SHELL=/usr/bin/env bash
 # |------------|----------|--------------|-------|
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
-# | Singlepass | Windows  |              |       |
+# | Singlepass | Windows  | riscv        |       |
 # |------------|----------|--------------|-------|
 #
 # Here is what works and what doesn't:
@@ -22,13 +22,16 @@ SHELL=/usr/bin/env bash
 # * Cranelift works everywhere,
 #
 # * LLVM works on Linux+Darwin/`amd64`,
-#   but it doesn't work on */`aarch64` or Windows/*.
+#   and linux+`aarch64`, linux+`riscv`
+#   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
 #
-# * Singlepass works on Linux+Darwin/`amd64`, but
-#   it doesn't work on */`aarch64` or Windows/*.
+# * Singlepass works on Linux+Darwin+Windows/`amd64`, 
+#   and Linux+Darwin/`aarch64`
+#   it doesn't work on */`riscv`.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
 #   working, but it might possibly be.
+# * The Only target for `riscv` familly of processor is the RV64, with the `GC` extensions
 
 
 #####
@@ -45,6 +48,7 @@ IS_FREEBSD := 0
 IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
+IS_RISCV64 := 0
 
 # Test Windows apart because it doesn't support `uname -s`.
 ifeq ($(OS), Windows_NT)
@@ -75,11 +79,13 @@ else
 		IS_AMD64 := 1
 	else ifneq (, $(filter $(uname), aarch64 arm64))
 		IS_AARCH64 := 1
+	else ifneq (, $(filter $(uname), riscv64))
+		IS_RISCV64 := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
 		# target and it will fail.
-                $(error Unrecognized architecture, expect `x86_64`, `aarch64` or `arm64`)
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64`, `arm64`, 'riscv64')
 	endif
 
 	# Libc
@@ -116,8 +122,16 @@ compilers :=
 
 # If the user didn't disable the Cranelift compiler…
 ifneq ($(ENABLE_CRANELIFT), 0)
-	# … then it can always be enabled.
-	compilers += cranelift
+        # … then maybe the user forced to enable the Cranelift compiler.
+        ifeq ($(ENABLE_CRANELIFT), 1)
+                compilers += cranelift
+        # … otherwise, we try to check whether Cranelift works on this host.
+        else
+                compilers += cranelift
+        endif
+endif
+
+ifneq (, $(findstring cranelift,$(compilers)))
 	ENABLE_CRANELIFT := 1
 endif
 
@@ -234,6 +248,8 @@ ifeq ($(ENABLE_LLVM), 1)
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-universal
+		else ifeq ($(IS_RISCV64), 1)
 			compilers_engines += llvm-universal
 		endif
 	endif
@@ -382,6 +398,13 @@ check-capi:
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
 
+install-wasi-web:
+	cd lib/wasi-web && npm install || true
+	cd lib/wasi-web && npm run build
+
+build-wasi-web:
+	cd lib/wasi-web && npm run build
+
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features "webc_runner,debug"  --bin wasmer
 
@@ -405,7 +428,7 @@ build-wasmer-wasm:
 # rpath = false
 build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
-	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features sys,headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip target/$(HOST_TARGET)/release/wasmer-headless
 else ifeq ($(IS_WINDOWS), 1)
@@ -416,6 +439,9 @@ endif
 
 build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
+
+build-docs-api:
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --manifest-path lib/api/Cargo.toml --features compiler,core,cranelift,engine,jit,singlepass,static-artifact-create,static-artifact-load,sys,sys-default,wasmer-artifact-create,wasmer-artifact-load
 
 build-docs-capi:
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
@@ -518,7 +544,7 @@ test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
 test-js-wasi:
-	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
 
 #####
 #
@@ -576,7 +602,7 @@ test-integration-cli: build-wasmer build-capi package-capi-headless package dist
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
 	rustup target add wasm32-wasi
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1 || $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios

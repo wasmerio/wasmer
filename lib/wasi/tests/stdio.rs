@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
 use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, PluggableRuntimeImplementation, WasiEnv};
+use wasmer_wasix::{Pipe, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -76,11 +74,8 @@ async fn test_stdout() {
     // Create the `WasiEnv`.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
-    let rt = PluggableRuntimeImplementation::default();
-
     let builder = WasiEnv::builder("command-name")
-        .runtime(Arc::new(rt))
-        .args(&["Gordon"])
+        .args(["Gordon"])
         .stdout(Box::new(stdout_tx));
 
     #[cfg(feature = "js")]
@@ -112,14 +107,11 @@ async fn test_env() {
         builder.build()
     });
 
-    let rt = PluggableRuntimeImplementation::default();
-
     // Create the `WasiEnv`.
     let (pipe_tx, mut pipe_rx) = Pipe::channel();
 
     let builder = WasiEnv::builder("command-name")
-        .runtime(Arc::new(rt))
-        .args(&["Gordon"])
+        .args(["Gordon"])
         .env("DOG", "X")
         .env("TEST", "VALUE")
         .env("TEST2", "VALUE2")
@@ -157,11 +149,7 @@ async fn test_stdin() {
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe_tx.write_all(&buf[..]).await.unwrap();
 
-    let rt = PluggableRuntimeImplementation::default();
-
-    let builder = WasiEnv::builder("command-name")
-        .runtime(Arc::new(rt))
-        .stdin(Box::new(pipe_rx));
+    let builder = WasiEnv::builder("command-name").stdin(Box::new(pipe_rx));
 
     #[cfg(feature = "js")]
     {

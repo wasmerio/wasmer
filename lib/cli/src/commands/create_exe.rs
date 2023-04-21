@@ -826,7 +826,7 @@ fn write_volume_obj(
         object_name,
     )?;
 
-    let mut writer = BufWriter::new(File::create(&output_path)?);
+    let mut writer = BufWriter::new(File::create(output_path)?);
     volumes_object
         .write_stream(&mut writer)
         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -1136,7 +1136,7 @@ fn link_exe_from_dir(
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("could not find zig in $PATH {}", directory.display()))?;
 
-    let mut cmd = Command::new(&zig_binary_path);
+    let mut cmd = Command::new(zig_binary_path);
     cmd.arg("build-exe");
     cmd.arg("--verbose-cc");
     cmd.arg("--verbose-link");
@@ -1796,7 +1796,7 @@ pub(super) mod utils {
         let path_var = std::env::var("PATH").unwrap_or_default();
         #[cfg(unix)]
         let system_path_var = std::process::Command::new("getconf")
-            .args(&["PATH"])
+            .args(["PATH"])
             .output()
             .map(|output| output.stdout)
             .unwrap_or_default();
@@ -2012,7 +2012,6 @@ mod http_fetch {
             .context("Could not lookup wasmer repository on Github.")?;
 
         if response.status_code() != StatusCode::new(200) {
-            #[cfg(feature = "debug")]
             log::warn!(
                 "Warning: Github API replied with non-200 status code: {}. Response: {}",
                 response.status_code(),
@@ -2134,7 +2133,6 @@ mod http_fetch {
         let download_path = download_tempdir.path().join(&filename);
 
         let mut file = std::fs::File::create(&download_path)?;
-        #[cfg(feature = "debug")]
         log::debug!(
             "Downloading {} to {}",
             browser_download_url,
@@ -2189,7 +2187,7 @@ mod http_fetch {
 
     pub(crate) fn list_dir(target: &Path) -> Vec<PathBuf> {
         use walkdir::WalkDir;
-        WalkDir::new(&target)
+        WalkDir::new(target)
             .into_iter()
             .filter_map(|e| e.ok())
             .map(|entry| entry.path().to_path_buf())

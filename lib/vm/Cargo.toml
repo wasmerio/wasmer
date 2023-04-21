@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vm"
-version = "3.2.0-alpha.1"
+version = "3.2.0"
 description = "Runtime library support for Wasmer"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
@@ -11,9 +11,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=3.2.0-alpha.1" }
+wasmer-types = { path = "../types", version = "=3.2.0" }
 libc = { version = "^0.2", default-features = false }
-memoffset = "0.6"
+memoffset = "0.8.0"
 indexmap = { version = "1.6" }
 thiserror = "1.0"
 more-asserts = "0.2"
@@ -26,6 +26,8 @@ lazy_static = "1.4.0"
 region = { version = "3.0" }
 corosensei = { version = "0.1.2" }
 derivative = { version = "^2" }
+dashmap = { version = "5.4" }
+fnv = "1.0.3"
 # - Optional shared dependencies.
 tracing = { version = "0.1", optional = true }
 
