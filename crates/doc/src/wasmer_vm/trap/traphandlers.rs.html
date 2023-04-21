@@ -1055,6 +1055,16 @@
 <span id="1055">1055</span>
 <span id="1056">1056</span>
 <span id="1057">1057</span>
+<span id="1058">1058</span>
+<span id="1059">1059</span>
+<span id="1060">1060</span>
+<span id="1061">1061</span>
+<span id="1062">1062</span>
+<span id="1063">1063</span>
+<span id="1064">1064</span>
+<span id="1065">1065</span>
+<span id="1066">1066</span>
+<span id="1067">1067</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1321,7 +1331,10 @@
                 ))] </span>{
                     pc = context.uc_mcontext.gregs[libc::REG_EIP <span class="kw">as </span>usize] <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.gregs[libc::REG_ESP <span class="kw">as </span>usize] <span class="kw">as </span>usize;
-                } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, any(target_arch = <span class="string">&quot;x86&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)))] </span>{
+                } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86&quot;</span>))] </span>{
+                    pc = context.uc_mcontext.mc_eip <span class="kw">as </span>usize;
+                    sp = context.uc_mcontext.mc_esp <span class="kw">as </span>usize;
+                } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
                     pc = context.uc_mcontext.mc_rip <span class="kw">as </span>usize;
                     sp = context.uc_mcontext.mc_rsp <span class="kw">as </span>usize;
                 } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_vendor = <span class="string">&quot;apple&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
@@ -1387,6 +1400,13 @@
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rbp = rbp;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rdi = rdi;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__rsi = rsi;
+                } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86&quot;</span>))] </span>{
+                    <span class="kw">let </span>TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
+                    context.uc_mcontext.mc_eip = eip <span class="kw">as </span>libc::register_t;
+                    context.uc_mcontext.mc_esp = esp <span class="kw">as </span>libc::register_t;
+                    context.uc_mcontext.mc_ebp = ebp <span class="kw">as </span>libc::register_t;
+                    context.uc_mcontext.mc_ecx = ecx <span class="kw">as </span>libc::register_t;
+                    context.uc_mcontext.mc_edx = edx <span class="kw">as </span>libc::register_t;
                 } <span class="kw">else if </span><span class="attribute">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>))] </span>{
                     <span class="kw">let </span>TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.mc_rip = rip <span class="kw">as </span>libc::register_t;
