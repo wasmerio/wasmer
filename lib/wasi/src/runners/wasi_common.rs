@@ -251,7 +251,6 @@ mod tests {
         );
     }
 
-    /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
     #[test]
     fn mix_env_vars_from_the_webc_and_user() {
         let args = CommonWasiOptions {
