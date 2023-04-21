@@ -85,6 +85,10 @@ pub struct RunWithoutFile {
     #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
     coredump_on_trap: Option<PathBuf>,
 
+    /// The stack size (default is 1048576)
+    #[clap(long = "stack-size")]
+    pub(crate) stack_size: Option<usize>,
+
     /// Application arguments
     #[clap(value_name = "ARGS")]
     pub(crate) args: Vec<String>,
@@ -181,6 +185,9 @@ impl RunWithPathBuf {
     }
 
     fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = instance.exports.get_function("_initialize") {
             initialize
