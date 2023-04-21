@@ -9,6 +9,27 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.2.1 - 21/04/2023
+
+## Added
+
+  - [#3782](https://github.com/wasmerio/wasmer/pull/3782) Add FreeBSD x86 support
+
+## Changed
+
+  - [#3786](https://github.com/wasmerio/wasmer/pull/3786) Made Stack Size parametrable (for #3760)
+  - [#3805](https://github.com/wasmerio/wasmer/pull/3805) Wasi runner args
+  - [#3795](https://github.com/wasmerio/wasmer/pull/3795) Make sure the compile function passed to runners is Send+Sync
+  - [#3777](https://github.com/wasmerio/wasmer/pull/3777) Use webc's compat layer in more places
+
+## Fixed
+
+  - [#3806](https://github.com/wasmerio/wasmer/pull/3806) Fixed FunctionEnv migration doc to 3.0
+  - [#3804](https://github.com/wasmerio/wasmer/pull/3804) Fixed doc comment in memory_view.rs
+  - [#3791](https://github.com/wasmerio/wasmer/pull/3791) Fix doc api
+
+
+
 ## 3.2.0 - 18/04/2023
 
 A lot of new features since last stable version:
