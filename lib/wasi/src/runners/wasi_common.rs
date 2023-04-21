@@ -25,8 +25,6 @@ impl CommonWasiOptions {
         container_fs: Arc<dyn FileSystem>,
         wasi: &WasiAnnotation,
     ) -> Result<(), anyhow::Error> {
-        builder.add_args(&self.args);
-
         let fs = prepare_filesystem(&self.mapped_dirs, container_fs, |path| {
             builder.add_preopen_dir(path).map_err(Error::from)
         })?;
