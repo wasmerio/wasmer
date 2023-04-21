@@ -4827,7 +4827,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4922,7 +4922,7 @@ dependencies = [
  "url",
  "validator",
  "wapm-toml",
- "wasmer-registry 4.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 4.4.0",
  "webc",
 ]
 
@@ -5329,7 +5329,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.4.0",
+ "wasmer-registry 4.4.1",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5549,6 +5549,42 @@ dependencies = [
 [[package]]
 name = "wasmer-registry"
 version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9b3beaca8e29bea7a295f186bb27bc9e8c8f43af7882c4b3fd931930b957e33"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "fs_extra",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "regex",
+ "reqwest",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "tldextract",
+ "tokio",
+ "toml",
+ "url",
+ "wasmer-toml",
+ "webc",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
+version = "4.4.1"
 dependencies = [
  "anyhow",
  "console",
@@ -5589,44 +5625,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-registry"
-version = "4.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9b3beaca8e29bea7a295f186bb27bc9e8c8f43af7882c4b3fd931930b957e33"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "fs_extra",
- "futures-util",
- "graphql_client",
- "hex",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "regex",
- "reqwest",
- "semver 1.0.17",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "tldextract",
- "tokio",
- "toml",
- "url",
- "wasmer-toml",
- "webc",
- "whoami",
-]
-
-[[package]]
 name = "wasmer-sys-utils"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "libc",
  "region",
@@ -5701,7 +5701,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5762,7 +5762,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -5776,7 +5776,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "bitflags",
