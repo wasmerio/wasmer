@@ -717,6 +717,13 @@
 <span id="715">715</span>
 <span id="716">716</span>
 <span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
+<span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::common::get_cache_dir;
 <span class="kw">use </span><span class="kw">crate</span>::logging;
 <span class="kw">use </span><span class="kw">crate</span>::package_source::PackageSource;
@@ -803,6 +810,10 @@
     <span class="doccomment">/// Enable coredump generation after a WebAssembly trap.
     </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long = <span class="string">&quot;coredump-on-trap&quot;</span>, parse(from_os_str))]
     </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
+    <span class="doccomment">/// The stack size (default is 1048576)
+    </span><span class="attribute">#[clap(long = <span class="string">&quot;stack-size&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 
     <span class="doccomment">/// Application arguments
     </span><span class="attribute">#[clap(value_name = <span class="string">&quot;ARGS&quot;</span>)]
@@ -900,6 +911,9 @@
     }
 
     <span class="kw">fn </span>inner_module_run(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store, instance: Instance) -&gt; <span class="prelude-ty">Result</span>&lt;i32&gt; {
+        <span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
+            wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
+        }
         <span class="comment">// If this module exports an _initialize function, run that first.
         </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = instance.exports.get_function(<span class="string">&quot;_initialize&quot;</span>) {
             initialize

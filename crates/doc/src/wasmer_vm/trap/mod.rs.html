@@ -27,8 +27,8 @@
 
 <span class="kw">pub use </span>trap::Trap;
 <span class="kw">pub use </span>traphandlers::{
-    catch_traps, on_host_stack, raise_lib_trap, raise_user_trap, wasmer_call_trampoline,
-    TrapHandlerFn,
+    catch_traps, on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size,
+    wasmer_call_trampoline, TrapHandlerFn,
 };
 <span class="kw">pub use </span>traphandlers::{init_traps, resume_panic};
 <span class="kw">pub use </span>wasmer_types::TrapCode;

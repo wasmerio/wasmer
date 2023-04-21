@@ -1038,6 +1038,23 @@
 <span id="1038">1038</span>
 <span id="1039">1039</span>
 <span id="1040">1040</span>
+<span id="1041">1041</span>
+<span id="1042">1042</span>
+<span id="1043">1043</span>
+<span id="1044">1044</span>
+<span id="1045">1045</span>
+<span id="1046">1046</span>
+<span id="1047">1047</span>
+<span id="1048">1048</span>
+<span id="1049">1049</span>
+<span id="1050">1050</span>
+<span id="1051">1051</span>
+<span id="1052">1052</span>
+<span id="1053">1053</span>
+<span id="1054">1054</span>
+<span id="1055">1055</span>
+<span id="1056">1056</span>
+<span id="1057">1057</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1060,7 +1077,7 @@
 <span class="attribute">#[cfg(unix)]
 </span><span class="kw">use </span>std::mem::MaybeUninit;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
-<span class="kw">use </span>std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
+<span class="kw">use </span>std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 <span class="kw">use </span>std::sync::{Mutex, Once};
 <span class="kw">use </span>wasmer_types::TrapCode;
 
@@ -1068,6 +1085,13 @@
 // On x86_64, 0xC? select a &quot;Register&quot; for the Mod R/M part of &quot;ud1&quot; (so with no other bytes after)
 // On Arm64, the udf alows for a 16bits values, so we&#39;ll use the same 0xC? to store the trapinfo
 </span><span class="kw">static </span>MAGIC: u8 = <span class="number">0xc0</span>;
+
+<span class="kw">static </span>DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(<span class="number">1024 </span>* <span class="number">1024</span>);
+
+<span class="doccomment">/// Default stack size is 1MB.
+</span><span class="kw">pub fn </span>set_stack_size(size: usize) {
+    DEFAULT_STACK_SIZE.store(size.max(<span class="number">8 </span>* <span class="number">1024</span>).min(<span class="number">100 </span>* <span class="number">1024 </span>* <span class="number">1024</span>), Ordering::Relaxed);
+}
 
 <span class="macro">cfg_if::cfg_if! </span>{
     <span class="kw">if </span><span class="attribute">#[cfg(unix)] </span>{
@@ -1664,7 +1688,12 @@
     <span class="comment">// Ensure that per-thread initialization is done.
     </span>lazy_per_thread_init()<span class="question-mark">?</span>;
 
-    on_wasm_stack(trap_handler, closure).map_err(UnwindReason::into_trap)
+    on_wasm_stack(
+        DEFAULT_STACK_SIZE.load(Ordering::Relaxed),
+        trap_handler,
+        closure,
+    )
+    .map_err(UnwindReason::into_trap)
 }
 
 <span class="comment">// We need two separate thread-local variables here:
@@ -1881,6 +1910,7 @@
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 </span><span class="kw">fn </span>on_wasm_stack&lt;F: FnOnce() -&gt; T, T&gt;(
+    stack_size: usize,
     trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
     f: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;T, UnwindReason&gt; {
@@ -1891,7 +1921,11 @@
     </span><span class="macro">lazy_static::lazy_static! </span>{
         <span class="kw">static </span><span class="kw-2">ref </span>STACK_POOL: Mutex&lt;Vec&lt;DefaultStack&gt;&gt; = Mutex::new(<span class="macro">vec!</span>[]);
     }
-    <span class="kw">let </span>stack = STACK_POOL.lock().unwrap().pop().unwrap_or_default();
+    <span class="kw">let </span>stack = STACK_POOL
+        .lock()
+        .unwrap()
+        .pop()
+        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
     <span class="kw">let </span><span class="kw-2">mut </span>stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
 
     <span class="comment">// Create a coroutine with a new stack to run the function on.
