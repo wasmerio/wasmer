@@ -25,8 +25,6 @@ impl CommonWasiOptions {
         container_fs: Arc<dyn FileSystem>,
         wasi: &WasiAnnotation,
     ) -> Result<(), anyhow::Error> {
-        builder.add_args(&self.args);
-
         let fs = prepare_filesystem(&self.mapped_dirs, container_fs, |path| {
             builder.add_preopen_dir(path).map_err(Error::from)
         })?;
@@ -217,6 +215,66 @@ mod tests {
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
+
+    /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
+    #[test]
+    fn mix_args_from_the_webc_and_user() {
+        let args = CommonWasiOptions {
+            args: vec!["extra".to_string(), "args".to_string()],
+            ..Default::default()
+        };
+        let mut builder = WasiEnvBuilder::new("program-name");
+        let fs = Arc::new(virtual_fs::EmptyFileSystem::default());
+        let mut annotations = WasiAnnotation::new("some-atom");
+        annotations.main_args = Some(vec![
+            "hard".to_string(),
+            "coded".to_string(),
+            "args".to_string(),
+        ]);
+
+        args.prepare_webc_env(&mut builder, fs, &annotations)
+            .unwrap();
+
+        assert_eq!(
+            builder.get_args(),
+            [
+                // the program name from
+                "program-name",
+                // from the WEBC's annotations
+                "hard",
+                "coded",
+                "args",
+                // from the user
+                "extra",
+                "args",
+            ]
+        );
+    }
+
+    #[test]
+    fn mix_env_vars_from_the_webc_and_user() {
+        let args = CommonWasiOptions {
+            env: vec![("EXTRA".to_string(), "envs".to_string())]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+        let mut builder = WasiEnvBuilder::new("python");
+        let fs = Arc::new(virtual_fs::EmptyFileSystem::default());
+        let mut annotations = WasiAnnotation::new("python");
+        annotations.env = Some(vec!["HARD_CODED=env-vars".to_string()]);
+
+        args.prepare_webc_env(&mut builder, fs, &annotations)
+            .unwrap();
+
+        assert_eq!(
+            builder.get_env(),
+            [
+                ("HARD_CODED".to_string(), b"env-vars".to_vec()),
+                ("EXTRA".to_string(), b"envs".to_vec()),
+            ]
+        );
+    }
 
     #[test]
     fn python_use_case() {
