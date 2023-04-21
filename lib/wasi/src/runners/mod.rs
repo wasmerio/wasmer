@@ -14,7 +14,7 @@ pub use self::runner::Runner;
 use anyhow::Error;
 use wasmer::{Engine, Module};
 
-pub type CompileModule = dyn Fn(&Engine, &[u8]) -> Result<Module, Error>;
+pub type CompileModule = dyn Fn(&Engine, &[u8]) -> Result<Module, Error> + Send + Sync;
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MappedDirectory {

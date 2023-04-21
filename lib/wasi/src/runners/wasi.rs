@@ -41,7 +41,7 @@ impl WasiRunner {
     /// Sets the compile function
     pub fn with_compile(
         mut self,
-        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + 'static,
+        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + Send + Sync + 'static,
     ) -> Self {
         self.compile = Some(Box::new(compile));
         self
@@ -188,5 +188,19 @@ impl crate::runners::Runner for WasiRunner {
             .run(module)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn send_and_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+
+        assert_send::<WasiRunner>();
+        assert_sync::<WasiRunner>();
     }
 }

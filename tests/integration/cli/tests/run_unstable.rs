@@ -17,8 +17,14 @@ use wasmer_integration_tests_cli::get_wasmer_path;
 const RUST_LOG: &str = "info,wasmer_wasi::runners=debug,virtual_fs::trace_fs=trace";
 
 fn wasmer_run_unstable() -> std::process::Command {
-    let mut cmd = std::process::Command::new(get_wasmer_path());
-    cmd.env("RUST_LOG", RUST_LOG).arg("run-unstable");
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.arg("run")
+        .arg("--quiet")
+        .arg("--package=wasmer-cli")
+        .arg("--features=singlepass")
+        .arg("--")
+        .arg("run-unstable");
+    cmd.env("RUST_LOG", RUST_LOG);
     cmd
 }
 

@@ -38,10 +38,3 @@ pub enum InstantiationError {
     #[cfg_attr(feature = "std", error("incorrect OS or architecture"))]
     DifferentArchOS,
 }
-
-#[cfg(feature = "core")]
-impl std::fmt::Display for InstantiationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "InstantiationError")
-    }
-}
