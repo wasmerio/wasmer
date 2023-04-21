@@ -580,6 +580,7 @@ test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crat
 # compilers first
 test-capi: build-capi package-capi test-capi-ci
 
+test-capi-jsc: build-capi-jsc package-capi test-capi-integration-jsc
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
