@@ -1,6 +1,6 @@
-mod error;
 mod frame_info;
-pub use error::RuntimeError;
+mod stack;
 pub use frame_info::{
     register as register_frame_info, FunctionExtent, GlobalFrameInfoRegistration, FRAME_INFO,
 };
+pub use stack::get_trace_and_trapcode;

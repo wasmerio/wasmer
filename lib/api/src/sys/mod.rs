@@ -1,4 +1,5 @@
 pub(crate) mod engine;
+pub(crate) mod errors;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
 pub(crate) mod instance;

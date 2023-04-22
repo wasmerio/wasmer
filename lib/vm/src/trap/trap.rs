@@ -40,6 +40,10 @@ pub enum Trap {
     },
 }
 
+fn _assert_trap_is_sync_and_send(t: &Trap) -> (&dyn Sync, &dyn Send) {
+    (t, t)
+}
+
 impl Trap {
     /// Construct a new Error with the given a user error.
     ///
@@ -106,6 +110,15 @@ impl Trap {
         match self {
             Trap::User(err) => err.is::<T>(),
             _ => false,
+        }
+    }
+}
+
+impl std::error::Error for Trap {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self {
+            Trap::User(err) => Some(&**err),
+            _ => None,
         }
     }
 }
