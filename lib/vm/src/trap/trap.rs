@@ -82,6 +82,32 @@ impl Trap {
         let backtrace = Backtrace::new_unresolved();
         Self::OOM { backtrace }
     }
+
+    /// Attempts to downcast the `Trap` to a concrete type.
+    pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
+        match self {
+            // We only try to downcast user errors
+            Trap::User(err) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
+            _ => Err(self),
+        }
+    }
+
+    /// Attempts to downcast the `Trap` to a concrete type.
+    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
+        match &self {
+            // We only try to downcast user errors
+            Trap::User(err) if err.is::<T>() => err.downcast_ref::<T>(),
+            _ => None,
+        }
+    }
+
+    /// Returns true if the `RuntimeError` is the same as T
+    pub fn is<T: Error + 'static>(&self) -> bool {
+        match self {
+            Trap::User(err) => err.is::<T>(),
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Display for Trap {

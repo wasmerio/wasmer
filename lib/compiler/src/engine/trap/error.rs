@@ -56,16 +56,15 @@ impl RuntimeError {
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new<I: Into<String>>(message: I) -> Self {
-        let info = FRAME_INFO.read().unwrap();
         let msg = message.into();
         let source = RuntimeStringError::new(msg);
-        Self::new_with_trace(&info, Trap::user(Box::new(source)))
+        Self::user(Box::new(source))
     }
 
     /// Creates `RuntimeError` from an error and a WasmTrace
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let wasm_trace = vec![wasmer_types::FrameInfo {
     ///   module_name: "my_module".to_string(),
     ///   func_index: 0,
@@ -179,33 +178,6 @@ impl RuntimeError {
         &self.inner.wasm_trace
     }
 
-    /// Attempts to downcast the `RuntimeError` to a concrete type.
-    pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
-        match Arc::try_unwrap(self.inner) {
-            // We only try to downcast user errors
-            Ok(RuntimeErrorInner {
-                source: Trap::User(err),
-                ..
-            }) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
-            Ok(inner) => Err(Self {
-                inner: Arc::new(inner),
-            }),
-            Err(inner) => Err(Self { inner }),
-        }
-    }
-
-    /// Attempts to downcast the `RuntimeError` to a concrete type.
-    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
-        match self.inner.as_ref() {
-            // We only try to downcast user errors
-            RuntimeErrorInner {
-                source: Trap::User(err),
-                ..
-            } if err.is::<T>() => err.downcast_ref::<T>(),
-            _ => None,
-        }
-    }
-
     /// Returns trap code, if it's a Trap
     pub fn to_trap(self) -> Option<TrapCode> {
         match self.inner.source {
@@ -224,12 +196,25 @@ impl RuntimeError {
         }
     }
 
+    /// Attempts to downcast the `RuntimeError` to a concrete type.
+    pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
+        match Arc::try_unwrap(self.inner) {
+            Ok(inner) if inner.source.is::<T>() => Ok(inner.source.downcast::<T>().unwrap()),
+            Ok(inner) => Err(Self {
+                inner: Arc::new(inner),
+            }),
+            Err(inner) => Err(Self { inner }),
+        }
+    }
+
+    /// Attempts to downcast the `RuntimeError` to a concrete type.
+    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
+        self.inner.as_ref().source.downcast_ref::<T>()
+    }
+
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
-        match &self.inner.source {
-            Trap::User(err) => err.is::<T>(),
-            _ => false,
-        }
+        self.inner.source.is::<T>()
     }
 }
 
