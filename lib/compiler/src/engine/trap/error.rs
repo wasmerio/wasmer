@@ -77,7 +77,7 @@ impl RuntimeError {
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new_from_source(source: Trap, wasm_trace: Vec<FrameInfo>) -> Self {
-        println!("CREATING ERROR FROM TRAP {}", source);
+        // println!("CREATING ERROR FROM TRAP {}", source);
         Self {
             inner: Arc::new(RuntimeErrorInner { source, wasm_trace }),
         }
@@ -88,10 +88,10 @@ impl RuntimeError {
     /// This error object can be passed through Wasm frames and later retrieved
     /// using the `downcast` method.
     pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {
-        // if error.is::<RuntimeError>() {
-        //     return *error.downcast::<RuntimeError>().unwrap();
-        // }
-        error.into()
+        match error.downcast::<Self>() {
+            Ok(err) => *err,
+            Err(error) => error.into(),
+        }
     }
 
     /// Returns a reference the `message` stored in `Trap`.
@@ -235,6 +235,7 @@ impl TryInto<TrapCode> for RuntimeError {
                     });
                 Ok(code)
             }
+            Trap::Lib { trap_code, .. } => Ok(trap_code),
             _ => Err(self),
         }
     }
