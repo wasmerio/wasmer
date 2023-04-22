@@ -162,9 +162,9 @@ impl RuntimeError {
     /// Returns a reference the `message` stored in `Trap`.
     pub fn message(&self) -> String {
         if let Some(trap_code) = self.inner.trap_code {
-            return trap_code.message().to_string();
+            trap_code.message().to_string()
         } else {
-            return self.inner.source.to_string();
+            self.inner.source.to_string()
         }
     }
 

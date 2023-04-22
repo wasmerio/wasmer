@@ -526,7 +526,7 @@ impl Artifact {
             imports,
             self.signatures().clone(),
         )
-        .map_err(|trap| InstantiationError::Start(trap.into()))?;
+        .map_err(InstantiationError::Start)?;
         Ok(handle)
     }
 
@@ -551,7 +551,7 @@ impl Artifact {
             .collect::<Vec<_>>();
         handle
             .finish_instantiation(trap_handler, &data_initializers)
-            .map_err(|trap| InstantiationError::Start(trap.into()))
+            .map_err(InstantiationError::Start)
     }
 
     #[allow(clippy::type_complexity)]

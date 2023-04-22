@@ -29,7 +29,7 @@ pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>)
         Trap::Lib {
             trap_code,
             backtrace,
-        } => (wasm_trace(&info, None, backtrace), Some(trap_code.clone())),
+        } => (wasm_trace(&info, None, backtrace), Some(*trap_code)),
     }
 }
 
