@@ -17,10 +17,32 @@ pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any {}
 
 impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T {}
 
+#[derive(Debug)]
+struct RuntimeStringError {
+    details: String,
+}
+
+impl RuntimeStringError {
+    fn new(msg: String) -> RuntimeStringError {
+        RuntimeStringError { details: msg }
+    }
+}
+
+impl fmt::Display for RuntimeStringError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for RuntimeStringError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
 /// The source of the `RuntimeError`.
 #[derive(Debug)]
 enum RuntimeErrorSource {
-    Generic(String),
     OutOfMemory,
     #[cfg(feature = "std")]
     User(Box<dyn Error + Send + Sync>),
@@ -32,7 +54,6 @@ enum RuntimeErrorSource {
 impl fmt::Display for RuntimeErrorSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Generic(s) => write!(f, "{}", s),
             Self::User(s) => write!(f, "{}", s),
             Self::OutOfMemory => write!(f, "Wasmer VM out of memory"),
             Self::Trap(s) => write!(f, "{}", s.message()),
@@ -62,10 +83,11 @@ impl RuntimeError {
     pub fn new<I: Into<String>>(message: I) -> Self {
         let info = FRAME_INFO.read().unwrap();
         let msg = message.into();
+        let source = RuntimeStringError::new(msg);
         Self::new_with_trace(
             &info,
             None,
-            RuntimeErrorSource::Generic(msg),
+            RuntimeErrorSource::User(Box::new(source)),
             Backtrace::new_unresolved(),
         )
     }
