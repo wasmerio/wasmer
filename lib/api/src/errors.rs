@@ -1,9 +1,11 @@
+#[cfg(feature = "js")]
+use crate::js::trap::Trap;
 use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{FrameInfo, TrapCode};
 #[cfg(feature = "sys")]
-pub use wasmer_vm::Trap;
+use wasmer_vm::Trap;
 
 use wasmer_types::ImportError;
 
@@ -68,7 +70,7 @@ pub enum InstantiationError {
 /// indicating the cause.
 #[derive(Clone)]
 pub struct RuntimeError {
-    inner: Arc<RuntimeErrorInner>,
+    pub(crate) inner: Arc<RuntimeErrorInner>,
 }
 
 #[derive(Debug)]
@@ -94,9 +96,9 @@ impl std::error::Error for RuntimeStringError {
     }
 }
 
-struct RuntimeErrorInner {
+pub(crate) struct RuntimeErrorInner {
     /// The source error
-    source: Trap,
+    pub(crate) source: Trap,
     /// The trap code (if any)
     trap_code: Option<TrapCode>,
     /// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
@@ -177,6 +179,11 @@ impl RuntimeError {
         self.inner.trap_code
     }
 
+    // /// Returns trap code, if it's a Trap
+    // pub fn to_source(self) -> &'static Trap {
+    //     &self.inner.as_ref().source
+    // }
+
     /// Attempts to downcast the `RuntimeError` to a concrete type.
     pub fn downcast<T: std::error::Error + 'static>(self) -> Result<T, Self> {
         match Arc::try_unwrap(self.inner) {
@@ -241,10 +248,7 @@ impl fmt::Display for RuntimeError {
 
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match &self.inner.source {
-            Trap::User(err) => Some(&**err),
-            _ => None,
-        }
+        self.inner.source.source()
     }
 }
 

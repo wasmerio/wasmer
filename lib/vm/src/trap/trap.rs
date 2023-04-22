@@ -105,7 +105,7 @@ impl Trap {
         }
     }
 
-    /// Returns true if the `RuntimeError` is the same as T
+    /// Returns true if the `Trap` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match self {
             Trap::User(err) => err.is::<T>(),
