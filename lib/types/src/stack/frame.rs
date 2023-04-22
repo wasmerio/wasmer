@@ -11,15 +11,15 @@ use crate::SourceLoc;
 #[derive(Debug, Clone)]
 pub struct FrameInfo {
     /// The name of the module
-    pub module_name: String,
+    module_name: String,
     /// The index of the function in the module
-    pub func_index: u32,
+    func_index: u32,
     /// The function name, if one is available.
-    pub function_name: Option<String>,
+    function_name: Option<String>,
     /// The source location of the function
-    pub func_start: SourceLoc,
+    func_start: SourceLoc,
     /// The source location of the instruction
-    pub instr: SourceLoc,
+    instr: SourceLoc,
 }
 
 impl FrameInfo {

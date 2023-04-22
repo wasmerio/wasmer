@@ -1,6 +1,5 @@
 use super::frame_info::{GlobalFrameInfo, FRAME_INFO};
 use backtrace::Backtrace;
-use std::convert::TryInto;
 use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
@@ -68,13 +67,13 @@ impl RuntimeError {
     ///
     /// # Example
     /// ```ignore
-    /// let wasm_trace = vec![wasmer_types::FrameInfo {
-    ///   module_name: "my_module".to_string(),
-    ///   func_index: 0,
-    ///   function_name: Some("my_function".to_string()),
-    ///   func_start: 0.into(),
-    ///   instr: 2.into()
-    /// }];
+    /// let wasm_trace = vec![wasmer_types::FrameInfo::new(
+    ///   "my_module".to_string(),
+    ///   0,
+    ///   Some("my_function".to_string()),
+    ///   0.into(),
+    ///   2.into()
+    /// )];
     /// let trap = wasmer_compiler::RuntimeError::new(my_error, wasm_trace);
     /// assert_eq!("unexpected error", trap.message());
     /// ```

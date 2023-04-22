@@ -130,13 +130,13 @@ impl GlobalFrameInfo {
             None => instr_map.start_srcloc,
         };
         let func_index = module.module.func_index(func.local_index);
-        Some(FrameInfo {
-            module_name: module.module.name(),
-            func_index: func_index.index() as u32,
-            function_name: module.module.function_names.get(&func_index).cloned(),
+        Some(FrameInfo::new(
+            module.module.name(),
+            func_index.index() as u32,
+            module.module.function_names.get(&func_index).cloned(),
+            instr_map.start_srcloc,
             instr,
-            func_start: instr_map.start_srcloc,
-        })
+        ))
     }
 
     /// Fetches trap information about a program counter in a backtrace.
