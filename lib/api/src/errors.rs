@@ -110,7 +110,7 @@ impl RuntimeError {
     ///
     /// # Example
     /// ```
-    /// let trap = wasmer_compiler::RuntimeError::new("unexpected error");
+    /// let trap = wasmer::RuntimeError::new("unexpected error");
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new<I: Into<String>>(message: I) -> Self {
@@ -130,7 +130,7 @@ impl RuntimeError {
     ///   0.into(),
     ///   2.into()
     /// )];
-    /// let trap = wasmer_compiler::RuntimeError::new(my_error, wasm_trace);
+    /// let trap = wasmer::RuntimeError::new_from_source(my_error, wasm_trace, None);
     /// assert_eq!("unexpected error", trap.message());
     /// ```
     pub fn new_from_source(
@@ -252,20 +252,8 @@ impl std::error::Error for RuntimeError {
     }
 }
 
-#[cfg(feature = "std")]
 impl From<Box<dyn std::error::Error + Send + Sync>> for RuntimeError {
     fn from(error: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        match error.downcast::<Self>() {
-            // The error is already a RuntimeError, we return it directly
-            Ok(runtime_error) => *runtime_error,
-            Err(error) => Trap::user(error).into(),
-        }
-    }
-}
-
-#[cfg(feature = "core")]
-impl From<Box<dyn CoreError + Send + Sync>> for RuntimeError {
-    fn from(error: Box<dyn Error + Send + Sync>) -> Self {
         match error.downcast::<Self>() {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,

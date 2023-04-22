@@ -1,6 +1,6 @@
 use crate::SourceLoc;
 
-/// Description of a frame in a backtrace for a [`RuntimeError::trace`](crate::RuntimeError::trace).
+/// Description of a frame in a backtrace for a [`RuntimeError`](crate::RuntimeError).
 ///
 /// Whenever a WebAssembly trap occurs an instance of [`RuntimeError`]
 /// is created. Each [`RuntimeError`] has a backtrace of the
