@@ -70,48 +70,6 @@ impl RuntimeError {
         )
     }
 
-    /// Create a new RuntimeError from a Trap.
-    pub fn from_trap(trap: Trap) -> Self {
-        let info = FRAME_INFO.read().unwrap();
-        match trap {
-            // A user error
-            Trap::User(error) => {
-                match error.downcast::<Self>() {
-                    // The error is already a RuntimeError, we return it directly
-                    Ok(runtime_error) => *runtime_error,
-                    Err(e) => Self::new_with_trace(
-                        &info,
-                        None,
-                        RuntimeErrorSource::User(e),
-                        Backtrace::new_unresolved(),
-                    ),
-                }
-            }
-            // A trap caused by the VM being Out of Memory
-            Trap::OOM { backtrace } => {
-                Self::new_with_trace(&info, None, RuntimeErrorSource::OutOfMemory, backtrace)
-            }
-            // A trap caused by an error on the generated machine code for a Wasm function
-            Trap::Wasm {
-                pc,
-                signal_trap,
-                backtrace,
-            } => {
-                let code = info
-                    .lookup_trap_info(pc)
-                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
-                        info.trap_code
-                    });
-                Self::new_with_trace(&info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
-            }
-            // A trap triggered manually from the Wasmer runtime
-            Trap::Lib {
-                trap_code,
-                backtrace,
-            } => Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
-        }
-    }
-
     /// Creates a custom user Error.
     ///
     /// This error object can be passed through Wasm frames and later retrieved
@@ -187,10 +145,7 @@ impl RuntimeError {
             .collect::<Vec<_>>();
 
         Self {
-            inner: Arc::new(RuntimeErrorInner {
-                source,
-                wasm_trace,
-            }),
+            inner: Arc::new(RuntimeErrorInner { source, wasm_trace }),
         }
     }
 
@@ -302,6 +257,43 @@ impl std::error::Error for RuntimeError {
 
 impl From<Trap> for RuntimeError {
     fn from(trap: Trap) -> Self {
-        Self::from_trap(trap)
+        let info = FRAME_INFO.read().unwrap();
+        match trap {
+            // A user error
+            Trap::User(error) => {
+                match error.downcast::<Self>() {
+                    // The error is already a RuntimeError, we return it directly
+                    Ok(runtime_error) => *runtime_error,
+                    Err(e) => Self::new_with_trace(
+                        &info,
+                        None,
+                        RuntimeErrorSource::User(e),
+                        Backtrace::new_unresolved(),
+                    ),
+                }
+            }
+            // A trap caused by the VM being Out of Memory
+            Trap::OOM { backtrace } => {
+                Self::new_with_trace(&info, None, RuntimeErrorSource::OutOfMemory, backtrace)
+            }
+            // A trap caused by an error on the generated machine code for a Wasm function
+            Trap::Wasm {
+                pc,
+                signal_trap,
+                backtrace,
+            } => {
+                let code = info
+                    .lookup_trap_info(pc)
+                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
+                        info.trap_code
+                    });
+                Self::new_with_trace(&info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
+            }
+            // A trap triggered manually from the Wasmer runtime
+            Trap::Lib {
+                trap_code,
+                backtrace,
+            } => Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
+        }
     }
 }

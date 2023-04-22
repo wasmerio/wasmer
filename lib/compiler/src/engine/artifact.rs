@@ -8,7 +8,7 @@ use crate::Features;
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, RuntimeError, Tunables,
+    InstantiationError, Tunables,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
@@ -526,7 +526,7 @@ impl Artifact {
             imports,
             self.signatures().clone(),
         )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
+        .map_err(|trap| InstantiationError::Start(trap.into()))?;
         Ok(handle)
     }
 
@@ -551,7 +551,7 @@ impl Artifact {
             .collect::<Vec<_>>();
         handle
             .finish_instantiation(trap_handler, &data_initializers)
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+            .map_err(|trap| InstantiationError::Start(trap.into()))
     }
 
     #[allow(clippy::type_complexity)]
