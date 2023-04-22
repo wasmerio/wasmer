@@ -13,10 +13,6 @@ pub struct RuntimeError {
     inner: Arc<RuntimeErrorInner>,
 }
 
-pub trait CoreError: fmt::Debug + fmt::Display + core::any::Any {}
-
-impl<T: fmt::Debug + fmt::Display + core::any::Any> CoreError for T {}
-
 #[derive(Debug)]
 struct RuntimeStringError {
     details: String,
@@ -40,30 +36,9 @@ impl Error for RuntimeStringError {
     }
 }
 
-/// The source of the `RuntimeError`.
-#[derive(Debug)]
-enum RuntimeErrorSource {
-    OutOfMemory,
-    #[cfg(feature = "std")]
-    User(Box<dyn Error + Send + Sync>),
-    #[cfg(feature = "core")]
-    User(Box<dyn CoreError + Send + Sync>),
-    Trap(TrapCode),
-}
-
-impl fmt::Display for RuntimeErrorSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::User(s) => write!(f, "{}", s),
-            Self::OutOfMemory => write!(f, "Wasmer VM out of memory"),
-            Self::Trap(s) => write!(f, "{}", s.message()),
-        }
-    }
-}
-
 struct RuntimeErrorInner {
     /// The source error (this can be a custom user `Error` or a [`TrapCode`])
-    source: RuntimeErrorSource,
+    source: Trap,
     /// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
     wasm_trace: Vec<FrameInfo>,
 }
@@ -84,12 +59,27 @@ impl RuntimeError {
         let info = FRAME_INFO.read().unwrap();
         let msg = message.into();
         let source = RuntimeStringError::new(msg);
-        Self::new_with_trace(
-            &info,
-            None,
-            RuntimeErrorSource::User(Box::new(source)),
-            Backtrace::new_unresolved(),
-        )
+        Self::new_with_trace(&info, Trap::user(Box::new(source)))
+    }
+
+    /// Creates `RuntimeError` from an error and a WasmTrace
+    ///
+    /// # Example
+    /// ```
+    /// let wasm_trace = vec![wasmer_types::FrameInfo {
+    ///   module_name: "my_module".to_string(),
+    ///   func_index: 0,
+    ///   function_name: Some("my_function".to_string()),
+    ///   func_start: 0.into(),
+    ///   instr: 2.into()
+    /// }];
+    /// let trap = wasmer_compiler::RuntimeError::new(my_error, wasm_trace);
+    /// assert_eq!("unexpected error", trap.message());
+    /// ```
+    pub fn new_from_source(source: Trap, wasm_trace: Vec<FrameInfo>) -> Self {
+        Self {
+            inner: Arc::new(RuntimeErrorInner { source, wasm_trace }),
+        }
     }
 
     /// Creates a custom user Error.
@@ -103,12 +93,7 @@ impl RuntimeError {
             Ok(runtime_error) => *runtime_error,
             Err(error) => {
                 let info = FRAME_INFO.read().unwrap();
-                Self::new_with_trace(
-                    &info,
-                    None,
-                    RuntimeErrorSource::User(error),
-                    Backtrace::new_unresolved(),
-                )
+                Self::new_with_trace(&info, Trap::user(error))
             }
         }
     }
@@ -124,24 +109,18 @@ impl RuntimeError {
             Ok(runtime_error) => *runtime_error,
             Err(error) => {
                 let info = FRAME_INFO.read().unwrap();
-                Self::new_with_trace(
-                    &info,
-                    None,
-                    RuntimeErrorSource::User(error),
-                    Backtrace::new_unresolved(),
-                )
+                Self::new_with_trace(&info, Trap::user(error))
             }
         }
     }
 
-    fn new_with_trace(
+    fn wasm_trace(
         info: &GlobalFrameInfo,
         trap_pc: Option<usize>,
-        source: RuntimeErrorSource,
-        native_trace: Backtrace,
-    ) -> Self {
+        backtrace: &Backtrace,
+    ) -> Vec<FrameInfo> {
         // Let's construct the trace
-        let wasm_trace = native_trace
+        backtrace
             .frames()
             .iter()
             .filter_map(|frame| {
@@ -164,11 +143,29 @@ impl RuntimeError {
                 }
             })
             .filter_map(|pc| info.lookup_frame_info(pc))
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>()
+    }
 
-        Self {
-            inner: Arc::new(RuntimeErrorInner { source, wasm_trace }),
-        }
+    fn new_with_trace(info: &GlobalFrameInfo, source: Trap) -> Self {
+        let wasm_trace: Vec<FrameInfo> = match &source {
+            // A user error
+            Trap::User(_) => Self::wasm_trace(info, None, &Backtrace::new_unresolved()),
+            // A trap caused by the VM being Out of Memory
+            Trap::OOM { backtrace } => Self::wasm_trace(info, None, backtrace),
+            // A trap caused by an error on the generated machine code for a Wasm function
+            Trap::Wasm {
+                pc,
+                signal_trap: _,
+                backtrace,
+            } => Self::wasm_trace(info, Some(*pc), backtrace),
+            // A trap triggered manually from the Wasmer runtime
+            Trap::Lib {
+                trap_code: _,
+                backtrace,
+            } => Self::wasm_trace(info, None, backtrace),
+        };
+
+        Self::new_from_source(source, wasm_trace)
     }
 
     /// Returns a reference the `message` stored in `Trap`.
@@ -187,7 +184,7 @@ impl RuntimeError {
         match Arc::try_unwrap(self.inner) {
             // We only try to downcast user errors
             Ok(RuntimeErrorInner {
-                source: RuntimeErrorSource::User(err),
+                source: Trap::User(err),
                 ..
             }) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
             Ok(inner) => Err(Self {
@@ -202,7 +199,7 @@ impl RuntimeError {
         match self.inner.as_ref() {
             // We only try to downcast user errors
             RuntimeErrorInner {
-                source: RuntimeErrorSource::User(err),
+                source: Trap::User(err),
                 ..
             } if err.is::<T>() => err.downcast_ref::<T>(),
             _ => None,
@@ -211,17 +208,26 @@ impl RuntimeError {
 
     /// Returns trap code, if it's a Trap
     pub fn to_trap(self) -> Option<TrapCode> {
-        if let RuntimeErrorSource::Trap(trap_code) = self.inner.source {
-            Some(trap_code)
-        } else {
-            None
+        match self.inner.source {
+            Trap::Wasm {
+                pc, signal_trap, ..
+            } => {
+                let info = FRAME_INFO.read().unwrap();
+                let code: TrapCode = info
+                    .lookup_trap_info(pc)
+                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
+                        info.trap_code
+                    });
+                Some(code)
+            }
+            _ => None,
         }
     }
 
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match &self.inner.source {
-            RuntimeErrorSource::User(err) => err.is::<T>(),
+            Trap::User(err) => err.is::<T>(),
             _ => false,
         }
     }
@@ -270,8 +276,8 @@ impl fmt::Display for RuntimeError {
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.inner.source {
-            RuntimeErrorSource::User(err) => Some(&**err),
-            RuntimeErrorSource::Trap(err) => Some(err),
+            Trap::User(err) => Some(&**err),
+            // RuntimeErrorSource::Trap(err) => Some(err),
             _ => None,
         }
     }
@@ -280,42 +286,6 @@ impl std::error::Error for RuntimeError {
 impl From<Trap> for RuntimeError {
     fn from(trap: Trap) -> Self {
         let info = FRAME_INFO.read().unwrap();
-        match trap {
-            // A user error
-            Trap::User(error) => {
-                match error.downcast::<Self>() {
-                    // The error is already a RuntimeError, we return it directly
-                    Ok(runtime_error) => *runtime_error,
-                    Err(e) => Self::new_with_trace(
-                        &info,
-                        None,
-                        RuntimeErrorSource::User(e),
-                        Backtrace::new_unresolved(),
-                    ),
-                }
-            }
-            // A trap caused by the VM being Out of Memory
-            Trap::OOM { backtrace } => {
-                Self::new_with_trace(&info, None, RuntimeErrorSource::OutOfMemory, backtrace)
-            }
-            // A trap caused by an error on the generated machine code for a Wasm function
-            Trap::Wasm {
-                pc,
-                signal_trap,
-                backtrace,
-            } => {
-                let code = info
-                    .lookup_trap_info(pc)
-                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
-                        info.trap_code
-                    });
-                Self::new_with_trace(&info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
-            }
-            // A trap triggered manually from the Wasmer runtime
-            Trap::Lib {
-                trap_code,
-                backtrace,
-            } => Self::new_with_trace(&info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
-        }
+        Self::new_with_trace(&info, trap)
     }
 }

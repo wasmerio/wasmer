@@ -1,5 +1,6 @@
 use backtrace::Backtrace;
 use std::error::Error;
+use std::fmt;
 use wasmer_types::TrapCode;
 
 /// Stores trace message with backtrace.
@@ -40,6 +41,13 @@ pub enum Trap {
 }
 
 impl Trap {
+    /// Construct a new Error with the given a user error.
+    ///
+    /// Internally saves a backtrace when constructed.
+    pub fn user(err: Box<dyn Error + Send + Sync>) -> Self {
+        Self::User(err)
+    }
+
     /// Construct a new Wasm trap with the given source location and backtrace.
     ///
     /// Internally saves a backtrace when constructed.
@@ -49,6 +57,11 @@ impl Trap {
             backtrace,
             signal_trap,
         }
+    }
+
+    /// Returns trap code, if it's a Trap
+    pub fn to_trap(self) -> Option<TrapCode> {
+        unimplemented!()
     }
 
     /// Construct a new Wasm trap with the given trap code.
@@ -68,5 +81,16 @@ impl Trap {
     pub fn oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
         Self::OOM { backtrace }
+    }
+}
+
+impl fmt::Display for Trap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::User(e) => write!(f, "{}", e),
+            Self::Lib { .. } => write!(f, "lib"),
+            Self::Wasm { .. } => write!(f, "wasm"),
+            Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),
+        }
     }
 }
