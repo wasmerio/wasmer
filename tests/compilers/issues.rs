@@ -277,11 +277,10 @@ fn test_start(mut config: crate::Config) -> Result<()> {
     assert!(instance.is_err());
     if let InstantiationError::Start(err) = instance.unwrap_err() {
         assert_eq!(err.message(), "unreachable");
-    }
-    else {
+    } else {
         panic!("_start should have failed with an unreachable error")
     }
-    
+
     Ok(())
 }
 
