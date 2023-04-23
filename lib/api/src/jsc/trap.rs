@@ -73,7 +73,11 @@ impl fmt::Display for Trap {
 
 impl From<JSValue> for RuntimeError {
     fn from(original: JSValue) -> Self {
-        unimplemented!("TODO: implement Trap::from(JSValue) for RuntimeError");
+        let trap = Trap {
+            inner: InnerTrap::JSC(original),
+        };
+        trap.into()
+        // unimplemented!("TODO: implement Trap::from(JSValue) for RuntimeError");
         // // We try to downcast the error and see if it's
         // // an instance of RuntimeError instead, so we don't need
         // // to re-wrap it.
