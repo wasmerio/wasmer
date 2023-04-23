@@ -168,7 +168,7 @@ impl Module {
                         &context,
                         import_type.module().into(),
                         import_namespace.to_jsvalue(),
-                    );
+                    ).unwrap();
                 }
             } else {
                 #[cfg(feature = "tracing")]

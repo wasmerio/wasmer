@@ -1,4 +1,4 @@
-use rusty_jsc::JSValue;
+use rusty_jsc::{JSValue, JSObject, JSContext};
 
 use crate::RuntimeError;
 use std::error::Error;
@@ -49,6 +49,20 @@ impl Trap {
         match &self.inner {
             InnerTrap::User(err) => err.is::<T>(),
             _ => false,
+        }
+    }
+
+    pub(crate) fn into_jsvalue(self, ctx: &JSContext) -> JSValue {
+        match self.inner {
+            InnerTrap::User(err) => {
+                let obj = JSObject::new(ctx);
+                let err_ptr = Box::leak(Box::new(err));
+                let wasmer_error_ptr = JSValue::number(&ctx, err_ptr as *mut _ as usize as _);
+                obj.set_property(&ctx, "wasmer_error_ptr".to_string(), wasmer_error_ptr).unwrap();
+                obj.to_jsvalue()
+                // JSValue::string(&ctx, format!("{:?}", err)).unwrap()
+            }
+            InnerTrap::JSC(value) => value,
         }
     }
 }

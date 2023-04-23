@@ -140,7 +140,7 @@ impl RuntimeError {
         wasm_trace: Vec<FrameInfo>,
         trap_code: Option<TrapCode>,
     ) -> Self {
-        // println!("CREATING ERROR FROM TRAP {}", source);
+        println!("CREATING ERROR FROM TRAP {}", source);
         Self {
             inner: Arc::new(RuntimeErrorInner {
                 source,

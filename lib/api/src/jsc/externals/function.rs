@@ -2,6 +2,7 @@ use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::jsc::as_js::{param_from_js, AsJs};
+use crate::jsc::trap::Trap;
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
 use crate::jsc::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
@@ -197,7 +198,7 @@ impl Function {
         _store: &mut impl AsStoreMut,
         _params: Vec<RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
-        // There is no optimal call_raw in JS, so we just
+        // There is no optimal call_raw in JSC, so we just
         // simply rely the call
         // self.call(store, params)
         unimplemented!();
@@ -448,16 +449,20 @@ macro_rules! impl_host_function {
                             #[cfg(feature = "std")]
                             #[allow(deprecated)]
                             Ok(Err(trap)) => {
-                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
+                                let err = Err(Trap::user(Box::new(trap)).into_jsvalue(&ctx));
+                                println!("ERROR CONSTRUCTED");
+                                err
                                 // RuntimeError::raise(Box::new(trap))
                             },
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
                             Ok(Err(trap)) => {
-                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
+                                println!("ERROR CONSTRUCTED");
+                                Err(Trap::user(Box::new(trap)).to_jsvalue(&ctx))
                                 // RuntimeError::raise(Box::new(trap))
                             },
                             Err(panic) => {
+                                println!("BASE PANIC");
                                 Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
                                 // We can't just resume the unwind, because it will put
                                 // JavacriptCore in a bad state, so we need to transform
