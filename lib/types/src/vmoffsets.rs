@@ -4,7 +4,7 @@
 //! Offsets and sizes of various structs in wasmer-vm's vmcontext
 //! module.
 
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,

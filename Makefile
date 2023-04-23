@@ -443,6 +443,9 @@ endif
 build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
+build-docs-api:
+	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --manifest-path lib/api/Cargo.toml --features compiler,core,cranelift,engine,jit,singlepass,static-artifact-create,static-artifact-load,sys,sys-default,wasmer-artifact-create,wasmer-artifact-load
+
 build-docs-capi:
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
 	# when generating the documentation, we rename it to its

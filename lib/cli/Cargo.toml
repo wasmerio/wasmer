@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cli"
-version = "3.2.0-beta.2"
+version = "3.2.1"
 description = "Wasmer CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
@@ -31,21 +31,21 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
-wasmer = { version = "=3.2.0-beta.2", path = "../api", default-features = false }
-wasmer-compiler = { version = "=3.2.0-beta.2", path = "../compiler", features = ["compiler"], optional = true }
-wasmer-compiler-cranelift = { version = "=3.2.0-beta.2", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=3.2.0-beta.2", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=3.2.0-beta.2", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=3.2.0-beta.2", path = "../emscripten" }
-wasmer-vm = { version = "=3.2.0-beta.2", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.2.0", path = "../wasi", features = ["logging", "webc_runner", "webc_runner_rt_wcgi", "webc_runner_rt_wasi", "webc_runner_rt_emscripten", "host-fs"] }
-wasmer-wasix-experimental-io-devices = { version = "0.2.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
-wasmer-wast = { version = "=3.2.0-beta.2", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=3.2.0-beta.2", path = "../cache", features = ["blake3-pure"] }
-wasmer-types = { version = "=3.2.0-beta.2", path = "../types", features = ["enable-serde"] }
+wasmer = { version = "=3.2.1", path = "../api", default-features = false }
+wasmer-compiler = { version = "=3.2.1", path = "../compiler", features = ["compiler"], optional = true }
+wasmer-compiler-cranelift = { version = "=3.2.1", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=3.2.1", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=3.2.1", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=3.2.1", path = "../emscripten" }
+wasmer-vm = { version = "=3.2.1", path = "../vm", optional = true }
+wasmer-wasix = { version = "0.3.0", path = "../wasi", features = ["logging", "webc_runner", "webc_runner_rt_wcgi", "webc_runner_rt_wasi", "webc_runner_rt_emscripten", "host-fs"] }
+wasmer-wasix-experimental-io-devices = { version = "0.3.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
+wasmer-wast = { version = "=3.2.1", path = "../../tests/lib/wast", optional = true }
+wasmer-cache = { version = "=3.2.1", path = "../cache", features = ["blake3-pure"] }
+wasmer-types = { version = "=3.2.1", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "4.2.0", path = "../registry", features = ["build-package"]  }
-wasmer-object = { version = "=3.2.0-beta.2", path = "../object", optional = true }
-virtual-fs  = { version = "0.1.0", path = "../vfs", default-features = false, features = ["host-fs"] }
+wasmer-object = { version = "=3.2.1", path = "../object", optional = true }
+virtual-fs  = { version = "0.2.0", path = "../vfs", default-features = false, features = ["host-fs"] }
 virtual-net  = { version = "0.1.0", path = "../vnet" }
 atty = "0.2"
 colored = "2.0"
@@ -70,7 +70,7 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "5.0.0-rc.7" }
+webc = { version = "5.0" }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
@@ -88,7 +88,7 @@ wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "1"
-wapm-targz-to-pirita = "0.2.0"
+wapm-targz-to-pirita = "0.2.1"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
 http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }

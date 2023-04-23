@@ -49,6 +49,9 @@ pub struct RunUnstable {
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
     wcgi: WcgiOptions,
+    /// The stack size (default is 1048576)
+    #[clap(long = "stack-size")]
+    stack_size: Option<usize>,
     /// The function or command to invoke.
     #[clap(short, long, aliases = &["command", "invoke"])]
     entrypoint: Option<String>,
@@ -103,6 +106,9 @@ impl RunUnstable {
         module: &Module,
         store: &mut Store,
     ) -> Result<(), Error> {
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
@@ -120,6 +126,9 @@ impl RunUnstable {
         mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
             None => infer_webc_entrypoint(container.manifest())?,

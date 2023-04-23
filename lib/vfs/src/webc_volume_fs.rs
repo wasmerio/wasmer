@@ -10,7 +10,7 @@ use std::{
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
-    v2::{PathSegmentError, PathSegments, ToPathSegments},
+    PathSegmentError, PathSegments, ToPathSegments,
 };
 
 use crate::{

@@ -40,6 +40,7 @@ mod poll_oneoff;
 mod proc_exit;
 mod proc_raise;
 mod random_get;
+mod thread_spawn;
 
 pub use args_get::*;
 pub use args_sizes_get::*;
@@ -83,5 +84,6 @@ pub use poll_oneoff::*;
 pub use proc_exit::*;
 pub use proc_raise::*;
 pub use random_get::*;
+pub use thread_spawn::*;
 
 use tracing::{debug_span, field, instrument, trace_span, Span};

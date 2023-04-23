@@ -235,7 +235,7 @@ impl From<MiddlewareError> for WasmError {
 }
 
 /// The error that can happen while parsing a `str`
-/// to retrieve a [`CpuFeature`](crate::target::CpuFeature).
+/// to retrieve a [`CpuFeature`](crate::CpuFeature).
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum ParseCpuFeatureError {

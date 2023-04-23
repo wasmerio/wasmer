@@ -195,8 +195,8 @@
 //! give them access to the outside world with [`imports!`].
 //!
 //! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
-//! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
-//! the WebAssembly System Interface.
+//! in, check out the [`wasmer-wasix`] crate for our implementation of WASI,
+//! the WebAssembly System Interface, and WASIX, the Extended version of WASI.
 //!
 //! In the `wasmer` API we support functions which take their arguments and
 //! return their results dynamically, [`Function`], and functions which
@@ -235,7 +235,7 @@
 //! - [`wasmer-cache`] for caching compiled Wasm modules,
 //! - [`wasmer-emscripten`] for running Wasm modules compiled to the
 //!   Emscripten ABI,
-//! - [`wasmer-wasi`] for running Wasm modules compiled to the WASI ABI.
+//! - [`wasmer-wasix`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
 //! 1. [Engine][wasmer-compiler],
@@ -311,21 +311,6 @@
 #![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
 //!
-//! The features that set defaults come in sets that are mutually exclusive.
-//!
-//! The first set is the default compiler set:
-//! - `default-cranelift`
-#![cfg_attr(feature = "default-cranelift", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-cranelift"), doc = "(disabled),")]
-//!   set Wasmer's Cranelift compiler as the default,
-//! - `default-llvm`
-#![cfg_attr(feature = "default-llvm", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-llvm"), doc = "(disabled),")]
-//!   set Wasmer's LLVM compiler as the default,
-//! - `default-singlepass`
-#![cfg_attr(feature = "default-singlepass", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-singlepass"), doc = "(disabled),")]
-//!   set Wasmer's Singlepass compiler as the default.
 #![cfg_attr(
     feature = "js",
     doc = "## Features for the `js` feature group (enabled)"
@@ -408,7 +393,7 @@
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/
-//! [`wasmer-wasi`]: https://docs.rs/wasmer-wasi/
+//! [`wasmer-wasix`]: https://docs.rs/wasmer-wasix/
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
@@ -504,10 +489,10 @@ pub use wasmer_derive::ValueType;
 // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
 pub use wasmer_types::{
     is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
-    ExternType, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError,
-    MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages, ParseCpuFeatureError,
-    SerializeError, TableType, Target, Triple, Type, ValueType, WasmError, WasmResult,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    ExternType, FrameInfo, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex,
+    MemoryError, MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages,
+    ParseCpuFeatureError, SerializeError, TableType, Target, Type, ValueType, WasmError,
+    WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;

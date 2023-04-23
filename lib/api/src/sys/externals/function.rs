@@ -301,7 +301,7 @@ impl Function {
             r
         };
         if let Err(error) = result {
-            return Err(RuntimeError::from_trap(error));
+            return Err(error.into());
         }
 
         // Load the return values out of `values_vec`.

@@ -368,6 +368,14 @@ pub fn generate_import_object_from_env(
     }
 }
 
+fn wasi_exports_generic(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
+    use syscalls::*;
+    let namespace = namespace! {
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
+    };
+    namespace
+}
+
 fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
@@ -416,6 +424,7 @@ fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<Wasi
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
     };
     namespace
 }
@@ -471,6 +480,7 @@ fn wasi_snapshot_preview1_exports(
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
     };
     namespace
 }
@@ -742,6 +752,7 @@ fn import_object_for_all_wasi_versions(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
 ) -> (Imports, ModuleInitializer) {
+    let exports_wasi_generic = wasi_exports_generic(store, env);
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     let exports_wasix_32v1 = wasix_exports_32(store, env);
@@ -750,6 +761,7 @@ fn import_object_for_all_wasi_versions(
     // Allowed due to JS feature flag complications.
     #[allow(unused_mut)]
     let mut imports = imports! {
+        "wasi" => exports_wasi_generic,
         "wasi_unstable" => exports_wasi_unstable,
         "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
         "wasix_32v1" => exports_wasix_32v1,
