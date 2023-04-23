@@ -35,6 +35,6 @@ pub(crate) mod mem_access;
 pub(crate) mod module;
 mod module_info_polyfill;
 pub(crate) mod store;
-mod trap;
+pub(crate) mod trap;
 pub(crate) mod typed_function;
 pub(crate) mod vm;

@@ -75,9 +75,6 @@ impl Function {
             + Sync,
     {
         let store = store.as_store_mut();
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
         // let function = WasmFunction::<Args, Rets>::new(func);
         let context = store.engine().0.context();
         // let callback = function.callback(&context);

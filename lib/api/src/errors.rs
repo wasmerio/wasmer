@@ -1,5 +1,7 @@
 #[cfg(feature = "js")]
 use crate::js::trap::Trap;
+#[cfg(feature = "jsc")]
+use crate::jsc::trap::Trap;
 use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;
