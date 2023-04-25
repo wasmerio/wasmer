@@ -141,10 +141,10 @@ coverage = []
 name = "static_and_dynamic_functions"
 harness = false
 
-# [[example]]
-# name = "early-exit"
-# path = "examples/early_exit.rs"
-# required-features = []
+[[example]]
+name = "early-exit"
+path = "examples/early_exit.rs"
+required-features = []
 
 [[example]]
 name = "engine"
