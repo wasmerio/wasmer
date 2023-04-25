@@ -161,7 +161,7 @@ fn test_ok() {
                 println!();
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to invoke vcvars64.bat {test}");
             }
 
@@ -203,7 +203,7 @@ fn test_ok() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 println!("output: {:#?}", output);
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
 
@@ -225,7 +225,7 @@ fn test_ok() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 println!("output: {:#?}", output);
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
 
@@ -275,7 +275,7 @@ fn test_ok() {
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
 
-            print_wasmer_root_to_stdout(&config);
+            // print_wasmer_root_to_stdout(&config);
 
             println!("compile: {command:#?}");
             // compile
@@ -288,7 +288,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}: {command:#?}");
             }
 
@@ -303,7 +303,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}: {command:#?}");
             }
         }

@@ -34,7 +34,7 @@ pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
 pub(crate) mod store;
-mod trap;
+pub(crate) mod trap;
 pub(crate) mod typed_function;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
