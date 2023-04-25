@@ -73,7 +73,11 @@ impl AsJs for Value {
         let context = engine.engine().0.context();
         match self {
             Self::I32(i) => JSValue::number(&context, *i as _),
-            Self::I64(i) => JSValue::number(&context, *i as _),
+            // JavascriptCore will fail with:
+            // new WebAssembly.Global({value: "i64", mutable: false}, 3);
+            // But will succeed with
+            // new WebAssembly.Global({value: "i64", mutable: false}, "3");
+            Self::I64(i) => JSValue::string(&context, (*i).to_string()).unwrap(),
             Self::F32(f) => JSValue::number(&context, *f as _),
             Self::F64(f) => JSValue::number(&context, *f),
             Self::V128(v) => JSValue::number(&context, *v as _),

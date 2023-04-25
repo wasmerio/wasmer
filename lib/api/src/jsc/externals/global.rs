@@ -41,12 +41,15 @@ impl Global {
         let context = engine.0.context();
 
         let mut descriptor = JSObject::new(&context);
-        let (type_str, value) = match val {
-            Value::I32(i) => ("i32", JSValue::number(&context, i as _)),
-            Value::I64(i) => ("i64", JSValue::number(&context, i as _)),
-            Value::F32(f) => ("f32", JSValue::number(&context, f as _)),
-            Value::F64(f) => ("f64", JSValue::number(&context, f)),
-            _ => unimplemented!("The type is not yet supported in the JS Global API"),
+        let type_str = match val.ty() {
+            Type::I32 => "i32",
+            Type::I64 => "i64",
+            Type::F32 => "f32",
+            Type::F64 => "f64",
+            ty => unimplemented!(
+                "The type: {:?} is not yet supported in the JS Global API",
+                ty
+            ),
         };
         // This is the value type as string, even though is incorrectly called "value"
         // in the JS API.
@@ -61,6 +64,7 @@ impl Global {
             JSValue::boolean(&context, mutability.is_mutable()),
         );
 
+        let value: JSValue = val.as_jsvalue(&store_mut);
         let js_global = engine
             .0
             .wasm_global_type()
