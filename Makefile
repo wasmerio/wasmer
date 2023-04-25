@@ -484,7 +484,7 @@ build-capi-llvm-universal:
 
 build-capi-jsc:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jsc
+		--no-default-features --features wat,jsc,wasi
 
 # Headless (we include the minimal to be able to run)
 
