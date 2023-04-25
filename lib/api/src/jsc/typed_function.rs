@@ -8,6 +8,7 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
 use crate::jsc::as_js::{param_from_js, AsJs};
+use crate::jsc::trap::Trap;
 use crate::native_type::NativeWasmTypeInto;
 use crate::Value;
 use crate::{AsStoreMut, TypedFunction};
@@ -67,13 +68,22 @@ macro_rules! impl_native_traits {
                             match callback(store_mut) {
                                 Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
                                 Ok(wasmer_types::OnCalledAction::Finish) => { break; }
-                                Ok(wasmer_types::OnCalledAction::Trap(trap)) => { return Err(RuntimeError::user(trap)) },
-                                Err(trap) => { return Err(RuntimeError::user(trap)) },
+                                Ok(wasmer_types::OnCalledAction::Trap(trap)) => { let err = Err(RuntimeError::user(trap));
+                                    println!("GOT ERR");
+                                    return err;
+                                },
+                                Err(trap) => {
+                                    println!("GOT TRAP");
+                                    return Err(RuntimeError::user(trap))
+                                },
                             }
                         }
                         break;
                     }
-                    r?
+                    println!("GOT RESULTS");
+                    let store_mut = store.as_store_mut();
+                    let context = store_mut.engine().0.context();
+                    r.map_err(|e| Trap::from_jsvalue(context, e))?
                 };
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;

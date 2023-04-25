@@ -164,11 +164,13 @@ impl Module {
                         import_type.name().into(),
                         import.as_jsvalue(&store.as_store_ref()),
                     );
-                    imports_object.set_property(
-                        &context,
-                        import_type.module().into(),
-                        import_namespace.to_jsvalue(),
-                    ).unwrap();
+                    imports_object
+                        .set_property(
+                            &context,
+                            import_type.module().into(),
+                            import_namespace.to_jsvalue(),
+                        )
+                        .unwrap();
                 }
             } else {
                 #[cfg(feature = "tracing")]

@@ -2,8 +2,8 @@ use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::jsc::as_js::{param_from_js, AsJs};
-use crate::jsc::trap::Trap;
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
+use crate::jsc::trap::Trap;
 use crate::jsc::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
@@ -447,19 +447,14 @@ macro_rules! impl_host_function {
                                 }
                             },
                             #[cfg(feature = "std")]
-                            #[allow(deprecated)]
-                            Ok(Err(trap)) => {
-                                let err = Err(Trap::user(Box::new(trap)).into_jsvalue(&ctx));
-                                println!("ERROR CONSTRUCTED");
-                                err
-                                // RuntimeError::raise(Box::new(trap))
+                            Ok(Err(err)) => {
+                                let trap: Trap = Trap::user(Box::new(err));
+                                Err(trap.into_jsvalue(&ctx))
                             },
                             #[cfg(feature = "core")]
-                            #[allow(deprecated)]
-                            Ok(Err(trap)) => {
-                                println!("ERROR CONSTRUCTED");
-                                Err(Trap::user(Box::new(trap)).to_jsvalue(&ctx))
-                                // RuntimeError::raise(Box::new(trap))
+                            Ok(Err(err)) => {
+                                let trap: Trap = Trap::user(Box::new(err));
+                                Err(trap.into_jsvalue(&ctx))
                             },
                             Err(panic) => {
                                 println!("BASE PANIC");
@@ -554,16 +549,14 @@ macro_rules! impl_host_function {
                                 }
                             },
                             #[cfg(feature = "std")]
-                            #[allow(deprecated)]
-                            Ok(Err(trap)) => {
-                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
-                                // RuntimeError::raise(Box::new(trap))
+                            Ok(Err(err)) => {
+                                let trap: Trap = Trap::user(Box::new(err));
+                                Err(trap.into_jsvalue(&ctx))
                             },
                             #[cfg(feature = "core")]
-                            #[allow(deprecated)]
-                            Ok(Err(trap)) => {
-                                Err(JSValue::string(&ctx, format!("{:?}", trap)).unwrap())
-                                // RuntimeError::raise(Box::new(trap))
+                            Ok(Err(err)) => {
+                                let trap: Trap = Trap::user(Box::new(err));
+                                Err(trap.into_jsvalue(&ctx))
                             },
                             Err(panic) => {
                                 Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
