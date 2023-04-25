@@ -85,6 +85,7 @@ pub struct RunWithoutFile {
     #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
     coredump_on_trap: Option<PathBuf>,
 
+    #[cfg(feature = "sys")]
     /// The stack size (default is 1048576)
     #[clap(long = "stack-size")]
     pub(crate) stack_size: Option<usize>,
@@ -189,6 +190,7 @@ impl RunWithPathBuf {
     }
 
     fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
+        #[cfg(feature = "sys")]
         if self.stack_size.is_some() {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
