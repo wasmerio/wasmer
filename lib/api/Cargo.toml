@@ -48,9 +48,8 @@ wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=3.2.1", optional
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
-# rusty_jsc = { path="../../../rusty_jsc", optional = true }
-rusty_jsc = { git = "https://github.com/wasmerio/rusty_jsc.git", branch = "updated-api", optional = true }
-# rusty_jsc = { path="../../../rusty_jsc", optional = true }
+# rusty_jsc = { git = "https://github.com/wasmerio/rusty_jsc.git", branch = "updated-api", optional = true }
+rusty_jsc = { path="../../../rusty_jsc", optional = true }
 wasmparser = { version = "0.83", default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.

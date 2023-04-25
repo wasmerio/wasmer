@@ -4,6 +4,8 @@ use std::sync::Arc;
 #[derive(Debug)]
 struct InnerEngine {
     context: JSContext,
+    global_wasm: JSObject,
+    wasm_validate_type: JSObject,
     wasm_module_type: JSObject,
     wasm_instance_type: JSObject,
     wasm_global_type: JSObject,
@@ -17,6 +19,10 @@ impl Default for InnerEngine {
         let mut global = context.get_global_object();
         let mut global_wasm = global
             .get_property(&context, "WebAssembly".to_string())
+            .to_object(&context);
+
+        let mut wasm_validate_type = global_wasm
+            .get_property(&context, "validate".to_string())
             .to_object(&context);
 
         let mut wasm_module_type = global_wasm
@@ -41,6 +47,8 @@ impl Default for InnerEngine {
 
         Self {
             context,
+            global_wasm,
+            wasm_validate_type,
             wasm_module_type,
             wasm_instance_type,
             wasm_global_type,
@@ -77,8 +85,18 @@ impl Engine {
     }
 
     #[inline]
+    pub(crate) fn global_wasm(&self) -> &JSObject {
+        &self.inner.global_wasm
+    }
+
+    #[inline]
     pub(crate) fn wasm_module_type(&self) -> &JSObject {
         &self.inner.wasm_module_type
+    }
+
+    #[inline]
+    pub(crate) fn wasm_validate_type(&self) -> &JSObject {
+        &self.inner.wasm_validate_type
     }
 
     #[inline]

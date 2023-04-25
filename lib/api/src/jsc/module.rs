@@ -39,9 +39,6 @@ use wasmer_types::{
 pub struct Module {
     module: JSObject,
     name: Option<String>,
-    // WebAssembly type hints
-    // type_hints: Option<ModuleTypeHints>,
-    #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
     info: ModuleInfo,
 }
@@ -105,24 +102,33 @@ impl Module {
         Self {
             module,
             name: info.name.clone(),
-            // type_hints,
-            #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary.into_bytes()),
             info,
         }
     }
 
-    pub fn validate(_engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
-        unimplemented!();
-        // let js_bytes = unsafe { Uint8Array::view(binary) };
-        // // Annotation is here to prevent spurious IDE warnings.
-        // #[allow(unused_unsafe)]
-        // unsafe {
-        //     match WebAssembly::validate(&js_bytes.into()) {
-        //         Ok(true) => Ok(()),
-        //         _ => Err(CompileError::Validate("Invalid Wasm file".to_owned())),
-        //     }
-        // }
+    pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
+        let engine = engine.as_engine_ref();
+        let context = engine.engine().0.context();
+        let mut binary = binary.to_vec();
+        let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
+
+        let global_wasm = engine.engine().0.global_wasm();
+        let validate_type = engine.engine().0.wasm_validate_type();
+
+        match validate_type.call(&context, global_wasm.clone(), &[bytes.to_jsvalue()]) {
+            Ok(val) => {
+                if val.to_bool(&context) {
+                    Ok(())
+                } else {
+                    Err(CompileError::Validate(format!("Not a valid wasm binary")))
+                }
+            }
+            Err(e) => Err(CompileError::Validate(format!(
+                "Error while validating: {}",
+                e.to_string(&context)
+            ))),
+        }
     }
 
     pub(crate) fn instantiate(
@@ -197,30 +203,17 @@ impl Module {
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        unimplemented!();
-        // #[cfg(feature = "js-serializable-module")]
-        // return self.raw_bytes.clone().ok_or(SerializeError::Generic(
-        //     "Not able to serialize module".to_string(),
-        // ));
-
-        // #[cfg(not(feature = "js-serializable-module"))]
-        // return Err(SerializeError::Generic(
-        //     "You need to enable the `js-serializable-module` feature flag to serialize a `Module`"
-        //         .to_string(),
-        // ));
+        return self.raw_bytes.clone().ok_or(SerializeError::Generic(
+            "Not able to serialize module".to_string(),
+        ));
     }
 
     pub unsafe fn deserialize(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        unimplemented!();
-        // #[cfg(feature = "js-serializable-module")]
-        // return Self::from_binary(_engine, &_bytes.into_bytes())
-        //     .map_err(|e| DeserializeError::Compiler(e));
-
-        // #[cfg(not(feature = "js-serializable-module"))]
-        // return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
+        return Self::from_binary(_engine, &_bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
     }
 
     pub fn deserialize_checked(
