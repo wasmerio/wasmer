@@ -80,7 +80,6 @@ macro_rules! impl_native_traits {
                         }
                         break;
                     }
-                    println!("GOT RESULTS");
                     let store_mut = store.as_store_mut();
                     let context = store_mut.engine().0.context();
                     r.map_err(|e| Trap::from_jsvalue(context, e))?
