@@ -145,6 +145,8 @@ fn fd_write_internal<M: MemorySize>(
                                         break;
                                     }
                                 }
+                                handle.flush().await.map_err(map_io_err)?;
+
                                 Ok(written)
                             }
                         )?
