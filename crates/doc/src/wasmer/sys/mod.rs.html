@@ -37,7 +37,9 @@
 <span id="35">35</span>
 <span id="36">36</span>
 <span id="37">37</span>
+<span id="38">38</span>
 </pre><pre class="rust"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>engine;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>errors;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>extern_ref;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>externals;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>instance;
@@ -53,7 +55,7 @@
 </span><span class="kw">pub use </span>wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-<span class="kw">pub use </span>wasmer_compiler::{Artifact, EngineBuilder, Features, FrameInfo, Tunables};
+<span class="kw">pub use </span>wasmer_compiler::{Artifact, EngineBuilder, Features, Tunables};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)]
 </span><span class="kw">pub use </span>wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]

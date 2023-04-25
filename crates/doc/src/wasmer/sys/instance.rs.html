@@ -121,8 +121,8 @@
 <span class="kw">impl </span>From&lt;wasmer_compiler::InstantiationError&gt; <span class="kw">for </span>InstantiationError {
     <span class="kw">fn </span>from(other: wasmer_compiler::InstantiationError) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>other {
-            wasmer_compiler::InstantiationError::Link(e) =&gt; <span class="self">Self</span>::Link(e),
-            wasmer_compiler::InstantiationError::Start(e) =&gt; <span class="self">Self</span>::Start(e),
+            wasmer_compiler::InstantiationError::Link(e) =&gt; <span class="self">Self</span>::Link(e.into()),
+            wasmer_compiler::InstantiationError::Start(e) =&gt; <span class="self">Self</span>::Start(e.into()),
             wasmer_compiler::InstantiationError::CpuFeature(e) =&gt; <span class="self">Self</span>::CpuFeature(e),
         }
     }

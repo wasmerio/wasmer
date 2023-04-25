@@ -275,6 +275,7 @@
 <span class="kw">mod </span>memory;
 <span class="kw">mod </span>module;
 <span class="kw">mod </span>serialize;
+<span class="kw">mod </span>stack;
 <span class="kw">mod </span>store_id;
 <span class="kw">mod </span>table;
 <span class="kw">mod </span>trapcode;
@@ -338,11 +339,10 @@
     Functions,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::module::CompileModuleInfo;
-<span class="kw">pub use </span><span class="kw">crate</span>::compilation::sourceloc::SourceLoc;
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::symbols::{Symbol, SymbolRegistry};
-<span class="kw">pub use </span><span class="kw">crate</span>::compilation::trap::TrapInformation;
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::unwind::CompiledFunctionUnwindInfo;
 
+<span class="kw">pub use </span><span class="kw">crate</span>::stack::{FrameInfo, SourceLoc, TrapInformation};
 <span class="kw">pub use </span><span class="kw">crate</span>::store_id::StoreId;
 
 <span class="doccomment">/// Offset in bytes from the beginning of the function.

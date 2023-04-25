@@ -165,7 +165,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::TableType;
 <span class="kw">use </span><span class="kw">crate</span>::Value;
 <span class="kw">use crate</span>::{vm::VMExternTable, ExternRef, Function, RuntimeError};
-<span class="kw">use </span>wasmer_vm::{StoreHandle, TableElement, VMExtern, VMTable};
+<span class="kw">use </span>wasmer_vm::{StoreHandle, TableElement, Trap, VMExtern, VMTable};
 
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Table {
@@ -293,7 +293,7 @@
             );
             VMTable::copy(dst_table, src_table, dst_index, src_index, len)
         }
-        .map_err(RuntimeError::from_trap)<span class="question-mark">?</span>;
+        .map_err(Into::&lt;Trap&gt;::into)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 

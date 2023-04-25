@@ -70,8 +70,72 @@
 <span id="70">70</span>
 <span id="71">71</span>
 <span id="72">72</span>
+<span id="73">73</span>
+<span id="74">74</span>
+<span id="75">75</span>
+<span id="76">76</span>
+<span id="77">77</span>
+<span id="78">78</span>
+<span id="79">79</span>
+<span id="80">80</span>
+<span id="81">81</span>
+<span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
+<span id="98">98</span>
+<span id="99">99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
 </pre><pre class="rust"><code><span class="kw">use </span>backtrace::Backtrace;
 <span class="kw">use </span>std::error::Error;
+<span class="kw">use </span>std::fmt;
 <span class="kw">use </span>wasmer_types::TrapCode;
 
 <span class="doccomment">/// Stores trace message with backtrace.
@@ -111,7 +175,18 @@
     },
 }
 
+<span class="kw">fn </span>_assert_trap_is_sync_and_send(t: <span class="kw-2">&amp;</span>Trap) -&gt; (<span class="kw-2">&amp;</span><span class="kw">dyn </span>Sync, <span class="kw-2">&amp;</span><span class="kw">dyn </span>Send) {
+    (t, t)
+}
+
 <span class="kw">impl </span>Trap {
+    <span class="doccomment">/// Construct a new Error with the given a user error.
+    ///
+    /// Internally saves a backtrace when constructed.
+    </span><span class="kw">pub fn </span>user(err: Box&lt;<span class="kw">dyn </span>Error + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::User(err)
+    }
+
     <span class="doccomment">/// Construct a new Wasm trap with the given source location and backtrace.
     ///
     /// Internally saves a backtrace when constructed.
@@ -121,6 +196,11 @@
             backtrace,
             signal_trap,
         }
+    }
+
+    <span class="doccomment">/// Returns trap code, if it&#39;s a Trap
+    </span><span class="kw">pub fn </span>to_trap(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;TrapCode&gt; {
+        <span class="macro">unimplemented!</span>()
     }
 
     <span class="doccomment">/// Construct a new Wasm trap with the given trap code.
@@ -140,6 +220,52 @@
     </span><span class="kw">pub fn </span>oom() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>backtrace = Backtrace::new_unresolved();
         <span class="self">Self</span>::OOM { backtrace }
+    }
+
+    <span class="doccomment">/// Attempts to downcast the `Trap` to a concrete type.
+    </span><span class="kw">pub fn </span>downcast&lt;T: Error + <span class="lifetime">&#39;static</span>&gt;(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;T, <span class="self">Self</span>&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="comment">// We only try to downcast user errors
+            </span>Trap::User(err) <span class="kw">if </span>err.is::&lt;T&gt;() =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>err.downcast::&lt;T&gt;().unwrap()),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="self">self</span>),
+        }
+    }
+
+    <span class="doccomment">/// Attempts to downcast the `Trap` to a concrete type.
+    </span><span class="kw">pub fn </span>downcast_ref&lt;T: Error + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>T&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            <span class="comment">// We only try to downcast user errors
+            </span>Trap::User(err) <span class="kw">if </span>err.is::&lt;T&gt;() =&gt; err.downcast_ref::&lt;T&gt;(),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="doccomment">/// Returns true if the `Trap` is the same as T
+    </span><span class="kw">pub fn </span>is&lt;T: Error + <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            Trap::User(err) =&gt; err.is::&lt;T&gt;(),
+            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>std::error::Error <span class="kw">for </span>Trap {
+    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self </span>{
+            Trap::User(err) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;**</span>err),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>fmt::Display <span class="kw">for </span>Trap {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::User(e) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, e),
+            <span class="self">Self</span>::Lib { .. } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;lib&quot;</span>),
+            <span class="self">Self</span>::Wasm { .. } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;wasm&quot;</span>),
+            <span class="self">Self</span>::OOM { .. } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Wasmer VM out of memory&quot;</span>),
+        }
     }
 }
 </code></pre></div>

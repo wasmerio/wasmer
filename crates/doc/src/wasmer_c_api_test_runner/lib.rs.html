@@ -612,8 +612,8 @@
                 <span class="macro">println!</span>();
                 <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
                 <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
-                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to invoke vcvars64.bat {test}&quot;</span>);
+                <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
+                </span><span class="macro">panic!</span>(<span class="string">&quot;failed to invoke vcvars64.bat {test}&quot;</span>);
             }
 
             <span class="kw">let </span><span class="kw-2">mut </span>command = compiler.to_command();
@@ -654,8 +654,8 @@
                 <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
                 <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
                 <span class="macro">println!</span>(<span class="string">&quot;output: {:#?}&quot;</span>, output);
-                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {test}&quot;</span>);
+                <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
+                </span><span class="macro">panic!</span>(<span class="string">&quot;failed to compile {test}&quot;</span>);
             }
 
             <span class="kw">if </span>std::path::Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}.exe&quot;</span>)).exists() {
@@ -676,8 +676,8 @@
                 <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
                 <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
                 <span class="macro">println!</span>(<span class="string">&quot;output: {:#?}&quot;</span>, output);
-                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to execute {test}&quot;</span>);
+                <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
+                </span><span class="macro">panic!</span>(<span class="string">&quot;failed to execute {test}&quot;</span>);
             }
 
             <span class="comment">// cc -g -IC:/Users/felix/Development/wasmer/lib/c-api/tests/
@@ -726,9 +726,9 @@
             command.arg(<span class="string">&quot;-o&quot;</span>);
             command.arg(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{manifest_dir}/../{test}&quot;</span>));
 
-            print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
+            <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
 
-            <span class="macro">println!</span>(<span class="string">&quot;compile: {command:#?}&quot;</span>);
+            </span><span class="macro">println!</span>(<span class="string">&quot;compile: {command:#?}&quot;</span>);
             <span class="comment">// compile
             </span><span class="kw">let </span>output = command
                 .stdout(Stdio::inherit())
@@ -739,8 +739,8 @@
             <span class="kw">if </span>!output.status.success() {
                 <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
                 <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
-                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to compile {test}: {command:#?}&quot;</span>);
+                <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
+                </span><span class="macro">panic!</span>(<span class="string">&quot;failed to compile {test}: {command:#?}&quot;</span>);
             }
 
             <span class="comment">// execute
@@ -754,8 +754,8 @@
             <span class="kw">if </span>!output.status.success() {
                 <span class="macro">println!</span>(<span class="string">&quot;stdout: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout));
                 <span class="macro">println!</span>(<span class="string">&quot;stderr: {}&quot;</span>, String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr));
-                print_wasmer_root_to_stdout(<span class="kw-2">&amp;</span>config);
-                <span class="macro">panic!</span>(<span class="string">&quot;failed to execute {test}: {command:#?}&quot;</span>);
+                <span class="comment">// print_wasmer_root_to_stdout(&amp;config);
+                </span><span class="macro">panic!</span>(<span class="string">&quot;failed to execute {test}: {command:#?}&quot;</span>);
             }
         }
     }

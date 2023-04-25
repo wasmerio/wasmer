@@ -51,10 +51,10 @@
 <span id="51">51</span>
 <span id="52">52</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors
-</span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">use </span><span class="kw">crate</span>::engine::trap::RuntimeError;
-<span class="kw">use </span>thiserror::Error;
+</span><span class="kw">use </span>thiserror::Error;
 <span class="kw">pub use </span>wasmer_types::{DeserializeError, ImportError, SerializeError};
+<span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="kw">use </span>wasmer_vm::Trap;
 
 <span class="doccomment">/// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).
@@ -71,8 +71,8 @@
 
     <span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     </span><span class="doccomment">/// A trap ocurred during linking.
-    </span><span class="attribute">#[error(<span class="string">&quot;RuntimeError occurred during linking: {0}&quot;</span>)]
-    </span>Trap(<span class="attribute">#[source] </span>RuntimeError),
+    </span><span class="attribute">#[error(<span class="string">&quot;Trap occurred during linking: {0}&quot;</span>)]
+    </span>Trap(<span class="attribute">#[source] </span>Trap),
 
     <span class="doccomment">/// Insufficient resources available for linking.
     </span><span class="attribute">#[error(<span class="string">&quot;Insufficient resources: {0}&quot;</span>)]
@@ -100,7 +100,7 @@
     <span class="doccomment">/// A runtime error occured while invoking the start function
     </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     #[error(transparent)]
-    </span>Start(RuntimeError),
+    </span>Start(Trap),
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

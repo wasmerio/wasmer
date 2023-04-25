@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["Trap","Stores trace message with backtrace."]]};
+window.SIDEBAR_ITEMS = {"enum":[["Trap","Stores trace message with backtrace."]],"fn":[["_assert_trap_is_sync_and_send",""]]};

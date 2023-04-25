@@ -960,7 +960,7 @@
             r
         };
         <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = result {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::from_trap(error));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(error.into());
         }
 
         <span class="comment">// Load the return values out of `values_vec`.

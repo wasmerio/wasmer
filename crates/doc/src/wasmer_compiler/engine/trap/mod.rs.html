@@ -4,13 +4,11 @@
 <span id="4">4</span>
 <span id="5">5</span>
 <span id="6">6</span>
-<span id="7">7</span>
-</pre><pre class="rust"><code><span class="kw">mod </span>error;
-<span class="kw">mod </span>frame_info;
-<span class="kw">pub use </span>error::RuntimeError;
+</pre><pre class="rust"><code><span class="kw">mod </span>frame_info;
+<span class="kw">mod </span>stack;
 <span class="kw">pub use </span>frame_info::{
-    register <span class="kw">as </span>register_frame_info, FrameInfo, FunctionExtent, GlobalFrameInfoRegistration,
-    FRAME_INFO,
+    register <span class="kw">as </span>register_frame_info, FunctionExtent, GlobalFrameInfoRegistration, FRAME_INFO,
 };
+<span class="kw">pub use </span>stack::get_trace_and_trapcode;
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

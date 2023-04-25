@@ -46,8 +46,8 @@
 </pre><pre class="rust"><code><span class="doccomment">//! Data structures to provide transformation of the source
 </span><span class="comment">// addresses of a WebAssembly module into the native code.
 
-</span><span class="kw">use </span><span class="kw">super</span>::sourceloc::SourceLoc;
-<span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
+</span><span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
+<span class="kw">use </span><span class="kw">crate</span>::SourceLoc;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};

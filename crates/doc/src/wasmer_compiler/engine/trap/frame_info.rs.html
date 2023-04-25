@@ -241,99 +241,6 @@
 <span id="241">241</span>
 <span id="242">242</span>
 <span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.
 //! Once the Compiler has compiled the ModuleInfo, and we have a set of
 //! compiled functions (addresses and function index) and a module,
@@ -351,8 +258,9 @@
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::sync::{Arc, RwLock};
 <span class="kw">use </span>wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
-<span class="kw">use </span>wasmer_types::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
-<span class="kw">use </span>wasmer_types::{LocalFunctionIndex, ModuleInfo};
+<span class="kw">use </span>wasmer_types::{
+    CompiledFunctionFrameInfo, FrameInfo, LocalFunctionIndex, ModuleInfo, TrapInformation,
+};
 <span class="kw">use </span>wasmer_vm::FunctionBodyPtr;
 
 <span class="macro">lazy_static::lazy_static! </span>{
@@ -465,13 +373,13 @@
             </span><span class="prelude-val">None </span>=&gt; instr_map.start_srcloc,
         };
         <span class="kw">let </span>func_index = module.module.func_index(func.local_index);
-        <span class="prelude-val">Some</span>(FrameInfo {
-            module_name: module.module.name(),
-            func_index: func_index.index() <span class="kw">as </span>u32,
-            function_name: module.module.function_names.get(<span class="kw-2">&amp;</span>func_index).cloned(),
+        <span class="prelude-val">Some</span>(FrameInfo::new(
+            module.module.name(),
+            func_index.index() <span class="kw">as </span>u32,
+            module.module.function_names.get(<span class="kw-2">&amp;</span>func_index).cloned(),
+            instr_map.start_srcloc,
             instr,
-            func_start: instr_map.start_srcloc,
-        })
+        ))
     }
 
     <span class="doccomment">/// Fetches trap information about a program counter in a backtrace.
@@ -575,100 +483,6 @@
     );
     <span class="macro">assert!</span>(prev.is_none());
     <span class="prelude-val">Some</span>(GlobalFrameInfoRegistration { key: max })
-}
-
-<span class="doccomment">/// Description of a frame in a backtrace for a [`RuntimeError::trace`](crate::RuntimeError::trace).
-///
-/// Whenever a WebAssembly trap occurs an instance of [`RuntimeError`]
-/// is created. Each [`RuntimeError`] has a backtrace of the
-/// WebAssembly frames that led to the trap, and each frame is
-/// described by this structure.
-///
-/// [`RuntimeError`]: crate::RuntimeError
-</span><span class="attribute">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>FrameInfo {
-    module_name: String,
-    func_index: u32,
-    function_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    func_start: SourceLoc,
-    instr: SourceLoc,
-}
-
-<span class="kw">impl </span>FrameInfo {
-    <span class="doccomment">/// Creates a new [FrameInfo], useful for testing.
-    </span><span class="kw">pub fn </span>new(
-        module_name: String,
-        func_index: u32,
-        function_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-        func_start: SourceLoc,
-        instr: SourceLoc,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            module_name,
-            func_index,
-            function_name,
-            func_start,
-            instr,
-        }
-    }
-
-    <span class="doccomment">/// Returns the WebAssembly function index for this frame.
-    ///
-    /// This function index is the index in the function index space of the
-    /// WebAssembly module that this frame comes from.
-    </span><span class="kw">pub fn </span>func_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-        <span class="self">self</span>.func_index
-    }
-
-    <span class="doccomment">/// Returns the identifer of the module that this frame is for.
-    ///
-    /// ModuleInfo identifiers are present in the `name` section of a WebAssembly
-    /// binary, but this may not return the exact item in the `name` section.
-    /// ModuleInfo names can be overwritten at construction time or perhaps inferred
-    /// from file names. The primary purpose of this function is to assist in
-    /// debugging and therefore may be tweaked over time.
-    ///
-    /// This function returns `None` when no name can be found or inferred.
-    </span><span class="kw">pub fn </span>module_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.module_name
-    }
-
-    <span class="doccomment">/// Returns a descriptive name of the function for this frame, if one is
-    /// available.
-    ///
-    /// The name of this function may come from the `name` section of the
-    /// WebAssembly binary, or wasmer may try to infer a better name for it if
-    /// not available, for example the name of the export if it&#39;s exported.
-    ///
-    /// This return value is primarily used for debugging and human-readable
-    /// purposes for things like traps. Note that the exact return value may be
-    /// tweaked over time here and isn&#39;t guaranteed to be something in
-    /// particular about a wasm module due to its primary purpose of assisting
-    /// in debugging.
-    ///
-    /// This function returns `None` when no name could be inferred.
-    </span><span class="kw">pub fn </span>function_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
-        <span class="self">self</span>.function_name.as_deref()
-    }
-
-    <span class="doccomment">/// Returns the offset within the original wasm module this frame&#39;s program
-    /// counter was at.
-    ///
-    /// The offset here is the offset from the beginning of the original wasm
-    /// module to the instruction that this frame points to.
-    </span><span class="kw">pub fn </span>module_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.instr.bits() <span class="kw">as </span>usize
-    }
-
-    <span class="doccomment">/// Returns the offset from the original wasm module&#39;s function to this
-    /// frame&#39;s program counter.
-    ///
-    /// The offset here is the offset from the beginning of the defining
-    /// function of this frame (within the wasm module) to the instruction this
-    /// frame points to.
-    </span><span class="kw">pub fn </span>func_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        (<span class="self">self</span>.instr.bits() - <span class="self">self</span>.func_start.bits()) <span class="kw">as </span>usize
-    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_compiler" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

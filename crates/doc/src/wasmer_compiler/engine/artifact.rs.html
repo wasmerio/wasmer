@@ -893,7 +893,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::ModuleEnvironment;
 <span class="kw">use crate</span>::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, RuntimeError, Tunables,
+    InstantiationError, Tunables,
 };
 <span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">use crate</span>::{Compiler, FunctionBodyData, ModuleTranslationState};
@@ -1411,7 +1411,7 @@
             imports,
             <span class="self">self</span>.signatures().clone(),
         )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))<span class="question-mark">?</span>;
+        .map_err(InstantiationError::Start)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(handle)
     }
 
@@ -1436,7 +1436,7 @@
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         handle
             .finish_instantiation(trap_handler, <span class="kw-2">&amp;</span>data_initializers)
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+            .map_err(InstantiationError::Start)
     }
 
     <span class="attribute">#[allow(clippy::type_complexity)]
