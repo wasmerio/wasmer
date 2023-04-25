@@ -22,7 +22,6 @@ serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6"
 
 backtrace = "0.3"
-rustc-demangle = "0.1"
 memmap2 = "0.5"
 more-asserts = "0.2"
 lazy_static = "1.4"

@@ -2,7 +2,7 @@ use crate::store::{AsStoreMut, AsStoreRef};
 use crate::TableType;
 use crate::Value;
 use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
-use wasmer_vm::{StoreHandle, TableElement, VMExtern, VMTable};
+use wasmer_vm::{StoreHandle, TableElement, Trap, VMExtern, VMTable};
 
 #[derive(Debug, Clone)]
 pub struct Table {
@@ -130,7 +130,7 @@ impl Table {
             );
             VMTable::copy(dst_table, src_table, dst_index, src_index, len)
         }
-        .map_err(RuntimeError::from_trap)?;
+        .map_err(Into::<Trap>::into)?;
         Ok(())
     }
 
