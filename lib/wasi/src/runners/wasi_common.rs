@@ -26,14 +26,13 @@ impl CommonWasiOptions {
         container_fs: Arc<dyn FileSystem + Send + Sync>,
         wasi: &WasiAnnotation,
     ) -> Result<(), anyhow::Error> {
-        let fs = prepare_filesystem(&self.mapped_dirs, container_fs, |path| {
-            builder.add_preopen_dir(path).map_err(Error::from)
-        })?;
+        let fs = prepare_filesystem(&self.mapped_dirs, container_fs, builder)?;
 
         builder.add_preopen_dir("/")?;
-        if fs.read_dir(".".as_ref()).is_ok() {
-            // Sometimes "." won't be mounted so preopening will fail.
-            builder.add_preopen_dir(".")?;
+
+        if self.mapped_dirs.iter().all(|m| m.guest != ".") {
+            // The user hasn't mounted "." to anything, so let's map it to "/"
+            builder.add_map_dir(".", "/")?;
         }
 
         builder.set_fs(fs);
@@ -82,7 +81,7 @@ impl CommonWasiOptions {
 fn prepare_filesystem(
     mapped_dirs: &[MappedDirectory],
     container_fs: Arc<dyn FileSystem>,
-    mut preopen: impl FnMut(&Path) -> Result<(), Error>,
+    builder: &mut WasiEnvBuilder,
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     let root_fs = RootFileSystemBuilder::default().build();
 
@@ -91,12 +90,17 @@ fn prepare_filesystem(
 
         for dir in mapped_dirs {
             let MappedDirectory { host, guest } = dir;
-            let guest = PathBuf::from(guest);
+            let mut guest = PathBuf::from(guest);
             tracing::debug!(
                 guest=%guest.display(),
                 host=%host.display(),
                 "Mounting host folder",
             );
+
+            if guest.is_relative() {
+                guest = apply_relative_path_mounting_hack(&guest, builder)
+                    .context("Relative path quickfix failed")?;
+            }
 
             if let Some(parent) = guest.parent() {
                 create_dir_all(&root_fs, parent).with_context(|| {
@@ -114,7 +118,8 @@ fn prepare_filesystem(
                     )
                 })?;
 
-            preopen(&guest)
+            builder
+                .add_preopen_dir(&guest)
                 .with_context(|| format!("Unable to preopen \"{}\"", guest.display()))?;
         }
     }
@@ -130,6 +135,35 @@ fn prepare_filesystem(
     let container_fs = RelativeOrAbsolutePathHack(container_fs);
 
     Ok(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
+}
+
+/// HACK: We need this so users can mount host directories at relative paths.
+/// It works by telling the mounting code to mount the original host directory
+/// to a directory under "/" and then using map_dir() to make it visible in the
+/// right place.
+///
+/// In the long term, we should remove this nonsense and come up with a better
+/// solution for mounting relative directories.
+///
+/// See <https://github.com/wasmerio/wasmer/issues/3794> for more.
+fn apply_relative_path_mounting_hack(
+    original: &Path,
+    builder: &mut WasiEnvBuilder,
+) -> Result<PathBuf, Error> {
+    debug_assert!(original.is_relative());
+
+    let mapped_path = Path::new("/.__wasmer_internal").join(original);
+
+    tracing::debug!(
+        original_path=%original.display(),
+        remapped_path=%mapped_path.display(),
+        "Remapping a relative path"
+    );
+
+    let alias = original.display().to_string();
+    builder.add_map_dir(&alias, &mapped_path)?;
+
+    Ok(mapped_path)
 }
 
 fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
@@ -293,8 +327,9 @@ mod tests {
         }];
         let container = Container::from_bytes(PYTHON).unwrap();
         let webc_fs = WebcVolumeFileSystem::mount_all(&container);
+        let mut builder = WasiEnvBuilder::new("");
 
-        let fs = prepare_filesystem(&mapping, Arc::new(webc_fs), |_| Ok(())).unwrap();
+        let fs = prepare_filesystem(&mapping, Arc::new(webc_fs), &mut builder).unwrap();
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());

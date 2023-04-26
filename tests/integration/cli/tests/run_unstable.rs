@@ -233,18 +233,17 @@ mod webc_on_disk {
     )]
     fn issue_3794_unable_to_mount_relative_paths() {
         let temp = TempDir::new().unwrap();
-        std::fs::copy(fixtures::python(), temp.path().join("python.webc")).unwrap();
+        std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
 
         let assert = wasmer_run_unstable()
-            .arg("wasmer/wapm2pirita@1.0.31")
-            .arg(format!("--mapdir=.:{}", temp.path().display()))
+            .arg(fixtures::coreutils())
+            .arg(format!("--mapdir=./some-dir/:{}", temp.path().display()))
+            .arg("--command-name=cat")
             .arg("--")
-            .arg("dump")
-            .arg("manifest")
-            .arg("./python.webc")
+            .arg("./some-dir/message.txt")
             .assert();
 
-        assert.success().stdout(contains("\"name\": \"python\""));
+        assert.success().stdout(contains("Hello, World!"));
     }
 }
 
@@ -419,6 +418,13 @@ mod fixtures {
     /// A WEBC file containing the Python interpreter, compiled to WASI.
     pub fn python() -> PathBuf {
         Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
+    }
+
+    pub fn coreutils() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("webc")
+            .join("coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc")
     }
 
     /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful

@@ -71,7 +71,7 @@ pub struct RunUnstable {
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
     /// The function or command to invoke.
-    #[clap(short, long, aliases = &["command", "invoke"])]
+    #[clap(short, long, aliases = &["command", "invoke", "command-name"])]
     entrypoint: Option<String>,
     /// Generate a coredump at this path if a WebAssembly trap occurs
     #[clap(name = "COREDUMP PATH", long)]
