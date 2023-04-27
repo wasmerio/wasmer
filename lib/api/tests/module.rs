@@ -40,7 +40,7 @@ fn imports() -> Result<(), String> {
 )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(
-        module.imports(&store).collect::<Vec<_>>(),
+        module.imports().collect::<Vec<_>>(),
         vec![
             ImportType::new(
                 "host",
@@ -67,7 +67,7 @@ fn imports() -> Result<(), String> {
 
     // Now we test the iterators
     assert_eq!(
-        module.imports(&store).functions().collect::<Vec<_>>(),
+        module.imports().functions().collect::<Vec<_>>(),
         vec![ImportType::new(
             "host",
             "func",
@@ -75,7 +75,7 @@ fn imports() -> Result<(), String> {
         ),]
     );
     assert_eq!(
-        module.imports(&store).memories().collect::<Vec<_>>(),
+        module.imports().memories().collect::<Vec<_>>(),
         vec![ImportType::new(
             "host",
             "memory",
@@ -83,7 +83,7 @@ fn imports() -> Result<(), String> {
         ),]
     );
     assert_eq!(
-        module.imports(&store).tables().collect::<Vec<_>>(),
+        module.imports().tables().collect::<Vec<_>>(),
         vec![ImportType::new(
             "host",
             "table",
@@ -91,7 +91,7 @@ fn imports() -> Result<(), String> {
         ),]
     );
     assert_eq!(
-        module.imports(&store).globals().collect::<Vec<_>>(),
+        module.imports().globals().collect::<Vec<_>>(),
         vec![ImportType::new(
             "host",
             "global",
@@ -281,7 +281,7 @@ fn module_custom_sections() -> Result<(), String> {
     let store = Store::default();
     let custom_section_wasm_bytes = include_bytes!("simple-name-section.wasm");
     let module = Module::new(&store, custom_section_wasm_bytes).map_err(|e| format!("{e:?}"))?;
-    let sections = module.custom_sections(&store, "name");
+    let sections = module.custom_sections("name");
     let sections_vec: Vec<Box<[u8]>> = sections.collect();
     assert_eq!(sections_vec.len(), 1);
     assert_eq!(
