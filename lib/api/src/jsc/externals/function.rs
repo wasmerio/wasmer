@@ -229,11 +229,7 @@ impl Function {
                 let store_mut = store.as_store_mut();
                 let engine = store_mut.engine();
                 let context = engine.0.context();
-                r = self.handle.function.call(
-                    &context,
-                    None,
-                    &params_list,
-                );
+                r = self.handle.function.call(&context, None, &params_list);
                 if let Some(callback) = store_mut.inner.on_called.take() {
                     match callback(store_mut) {
                         Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
