@@ -660,6 +660,8 @@ endif
 
 package-capi-headless: build-capi-headless package-capi
 
+package-capi-jsc: build-capi-jsc package-capi
+
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
