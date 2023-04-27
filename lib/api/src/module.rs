@@ -403,10 +403,7 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn imports<'a>(
-        &'a self,
-        // engine: &'a impl AsEngineRef,
-    ) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+    pub fn imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType> + '_> {
         self.0.imports()
     }
 
@@ -433,10 +430,7 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn exports<'a>(
-        &'a self,
-        // engine: &'a impl AsEngineRef,
-    ) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+    pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType> + '_> {
         self.0.exports()
     }
 

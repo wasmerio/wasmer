@@ -6,11 +6,13 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+#[cfg(feature = "coredump")]
+use std::fs::File;
 use std::io::Write;
+use std::net::SocketAddr;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{fs::File, net::SocketAddr};
 use wasmer::FunctionEnv;
 use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
