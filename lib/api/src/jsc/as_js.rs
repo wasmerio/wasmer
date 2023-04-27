@@ -30,17 +30,6 @@ pub fn param_from_js(context: &JSContext, ty: &Type, js_val: &JSValue) -> Value 
     match ty {
         Type::I32 => Value::I32(js_val.to_number(&context).unwrap() as _),
         Type::I64 => {
-            // TODO: use to_number as error
-            // let number = js_val.as_f64().map(|f| f as i64).unwrap_or_else(|| {
-            //     if js_val.is_bigint() {
-            //         // To support BigInt
-            //         let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
-            //         big_num as i64
-            //     } else {
-            //         (js_sys::Number::from(js_val.clone()).as_f64().unwrap()) as i64
-            //     }
-            // });
-            // println!("Param from js: {}, {}", ty, js_val.to_string(&context));
             let number = if js_val.is_number(&context) {
                 js_val.to_number(&context).unwrap() as _
             } else {
@@ -108,87 +97,6 @@ impl AsJs for Value {
     }
 }
 
-// impl AsJs for Imports {
-//     type DefinitionType = crate::module::Module;
-
-//     // Annotation is here to prevent spurious IDE warnings.
-//     #[allow(unused_unsafe)]
-//     fn as_jsvalue(&self, store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-//         let imports_object = js_sys::Object::new();
-//         for (namespace, name, extern_) in self.iter() {
-//             let val = unsafe { js_sys::Reflect::get(&imports_object, &namespace.into()).unwrap() };
-//             if !val.is_undefined() {
-//                 // If the namespace is already set
-
-//                 // Annotation is here to prevent spurious IDE warnings.
-//                 #[allow(unused_unsafe)]
-//                 unsafe {
-//                     js_sys::Reflect::set(
-//                         &val,
-//                         &name.into(),
-//                         &extern_.as_jsvalue(&store.as_store_ref()),
-//                     )
-//                     .unwrap();
-//                 }
-//             } else {
-//                 // If the namespace doesn't exist
-//                 let import_namespace = js_sys::Object::new();
-//                 #[allow(unused_unsafe)]
-//                 unsafe {
-//                     js_sys::Reflect::set(
-//                         &import_namespace,
-//                         &name.into(),
-//                         &extern_.as_jsvalue(&store.as_store_ref()),
-//                     )
-//                     .unwrap();
-//                     js_sys::Reflect::set(
-//                         &imports_object,
-//                         &namespace.into(),
-//                         &import_namespace.into(),
-//                     )
-//                     .unwrap();
-//                 }
-//             }
-//         }
-//         imports_object.into()
-//     }
-
-//     fn from_jsvalue(
-//         store: &mut impl AsStoreMut,
-//         module: &Self::DefinitionType,
-//         value: &JsValue,
-//     ) -> Result<Self, JsError> {
-//         let module_imports: HashMap<(String, String), ExternType> = module
-//             .imports()
-//             .map(|import| {
-//                 (
-//                     (import.module().to_string(), import.name().to_string()),
-//                     import.ty().clone(),
-//                 )
-//             })
-//             .collect::<HashMap<(String, String), ExternType>>();
-
-//         let mut map: HashMap<(String, String), Extern> = HashMap::new();
-//         let object: js_sys::Object = value.clone().into();
-//         for module_entry in js_sys::Object::entries(&object).iter() {
-//             let module_entry: js_sys::Array = module_entry.into();
-//             let module_name = module_entry.get(0).as_string().unwrap().to_string();
-//             let module_import_object: js_sys::Object = module_entry.get(1).into();
-//             for import_entry in js_sys::Object::entries(&module_import_object).iter() {
-//                 let import_entry: js_sys::Array = import_entry.into();
-//                 let import_name = import_entry.get(0).as_string().unwrap().to_string();
-//                 let import_js: wasm_bindgen::JsValue = import_entry.get(1);
-//                 let key = (module_name.clone(), import_name);
-//                 let extern_type = module_imports.get(&key).unwrap();
-//                 let extern_ = Extern::from_jsvalue(store, extern_type, &import_js)?;
-//                 map.insert(key, extern_);
-//             }
-//         }
-
-//         Ok(Self { map })
-//     }
-// }
-
 impl AsJs for Extern {
     type DefinitionType = ExternType;
 
@@ -243,25 +151,3 @@ impl AsJs for Extern {
         }
     }
 }
-
-// impl AsJs for Instance {
-//     type DefinitionType = crate::module::Module;
-//     fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
-//         self._inner._handle.clone().into()
-//     }
-
-//     fn from_jsvalue(
-//         store: &mut impl AsStoreMut,
-//         module: &Self::DefinitionType,
-//         value: &JsValue,
-//     ) -> Result<Self, JsError> {
-//         let js_instance: js_sys::WebAssembly::Instance = value.clone().into();
-//         let (instance, exports) = JsInstance::from_module_and_instance(store, module, js_instance)
-//             .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))?;
-//         Ok(Instance {
-//             _inner: instance,
-//             module: module.clone(),
-//             exports,
-//         })
-//     }
-// }
