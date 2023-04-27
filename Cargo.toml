@@ -76,8 +76,7 @@ rustc_version = "0.4"
 
 [dev-dependencies]
 wasmer = { version = "=3.2.1", path = "lib/api", default-features = false, features = [
-    "jsc",
-    # "cranelift",
+    "cranelift",
 ] }
 anyhow = "1.0"
 criterion = "0.3"
