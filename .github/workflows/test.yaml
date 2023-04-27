@@ -135,9 +135,10 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.65
+          toolchain: nightly
           target: x86_64-unknown-linux-gnu
-      - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+      # cargo-workspaces and toml-cli are required to run `make test-build-docs-rs`
+      - run: cargo install cargo-workspaces toml-cli
       - name: make test-build-docs-rs
         run: make test-build-docs-rs
 

@@ -441,24 +441,14 @@ build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
 test-build-docs-rs:
-	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
-	for manifest_path in lib/*/Cargo.toml; do \
-		if [ "$$manifest_path" !=  "lib/wasi-web/Cargo.toml" ]; then \
-			toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
-			if [ $$? -ne 0 ]; then \
-				features=""; \
-			else \
-				features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
-			fi; \
-			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-			if [ -z "$$features" ]; then \
-				$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
-			else \
-				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
-			fi; \
-		fi; \
-	done
+	cargo workspaces exec bash -c '\
+		printf "\n*** Building doc for package $$(pwd) ***\n"; \
+		features=$$(toml get Cargo.toml "package.metadata.docs.rs.features" || echo ""); \
+		features=$$(echo "$$features" | sed "s/\[//; s/\]//; s/\"\\([^\\\"]*\\)\"/\\1/g"); \
+		if [ -n "$$features" ]; then echo "Following features are inferred from Cargo.toml: $$features"; else echo "No features for docs.rs are inferred"; fi; \
+		printf "\n\n\n"; \
+		$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --features "$$features"; \
+	'
 
 build-docs-capi:
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
