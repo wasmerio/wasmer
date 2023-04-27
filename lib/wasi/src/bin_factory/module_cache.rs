@@ -20,10 +20,9 @@ pub const DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_se
 pub struct ModuleCache {
     pub(crate) cache_compile_dir: PathBuf,
     pub(crate) cached_modules: Option<RwLock<HashMap<String, Module>>>,
-
     pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
     pub(crate) cache_webc_dir: PathBuf,
-
+    /// How long items should be cached for.
     pub(crate) cache_time: std::time::Duration,
 }
 
