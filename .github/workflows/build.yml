@@ -64,6 +64,17 @@ jobs:
             use_sccache: true
             use_llvm: false
             build_wasm: false
+          - build: macos-x64
+            os: macos-11
+            artifact_name: 'wasmer-darwin-amd64-jsc'
+            use_sccache: true
+            build_jsc: true
+          - build: macos-arm64
+            os: macos-11.0
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-darwin-arm64-jsc'
+            use_sccache: true
+            build_jsc: true
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
@@ -189,33 +200,51 @@ jobs:
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
       - name: Build C API headless
-        if: matrix.build != 'macos-arm64'
+        if: matrix.build != 'macos-arm64' && matrix.build_jsc != true
         shell: bash
         run: |
           make package-capi-headless
       - name: Build C API headless
-        if: matrix.build == 'macos-arm64'
+        if: matrix.build == 'macos-arm64' && matrix.build_jsc != true
         run: |
           make package-capi-headless
         env:
           TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
+      - name: Build C API headless
+        if: matrix.build != 'macos-arm64' && matrix.build_jsc
+        shell: bash
+        run: |
+          make package-capi-jsc
+      - name: Build C API headless
+        if: matrix.build == 'macos-arm64' && matrix.build_jsc
+        run: |
+          make package-capi-jsc
+        env:
+          TARGET: aarch64-apple-darwin
+          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Build C API
         shell: bash
+        if: matrix.build_jsc != true
         run: |
           make build-capi
       - name: Build Wasmer binary with LLVM
-        if: matrix.use_llvm
+        if: matrix.use_llvm && matrix.build_jsc != true
         shell: bash
         run: |
           make build-wasmer
         env:
           ENABLE_LLVM: 1
       - name: Build Wasmer binary without LLVM
-        if: matrix.use_llvm != true
+        if: matrix.use_llvm != true && matrix.build_jsc != true
         shell: bash
         run: |
           make build-wasmer
+      - name: Build Wasmer JSC binary
+        if: matrix.build_jsc
+        shell: bash
+        run: |
+          make build-wasmer-jsc
      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
      #  if: matrix.build_wasm
      #  shell: bash
