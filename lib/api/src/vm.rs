@@ -3,7 +3,7 @@
 #[cfg(feature = "js")]
 pub(crate) use crate::js::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionBody, VMFunctionEnvironment, VMInstance, VMTrampoline,
+    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
 };
 
 #[cfg(feature = "jsc")]

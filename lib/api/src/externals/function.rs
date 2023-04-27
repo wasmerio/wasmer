@@ -17,8 +17,8 @@ use crate::native_type::WasmTypeList;
 
 /// The `HostFunction` trait represents the set of functions that
 /// can be used as host function. To uphold this statement, it is
-/// necessary for a function to be transformed into a pointer to
-/// `VMFunctionBody`.
+/// necessary for a function to be transformed into a
+/// `VMFunctionCallback`.
 pub trait HostFunction<T, Args, Rets, Kind>
 where
     Args: WasmTypeList,

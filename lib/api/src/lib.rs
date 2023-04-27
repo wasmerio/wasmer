@@ -480,6 +480,7 @@ pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
 pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
+#[cfg(any(feature = "sys", feature = "jsc"))]
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use typed_function::TypedFunction;
 pub use value::Value;

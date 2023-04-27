@@ -364,8 +364,6 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                type Callback = VMFunctionCallback;
-
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
                     /// This is a function that wraps the real host
@@ -420,8 +418,6 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
-                type Callback = VMFunctionCallback;
-
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
                     /// This is a function that wraps the real host

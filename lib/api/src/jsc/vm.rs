@@ -238,9 +238,6 @@ impl VMExternRef {
     }
 }
 
-#[repr(C)]
-pub struct VMFunctionBody(u8);
-
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct VMFuncRef;
