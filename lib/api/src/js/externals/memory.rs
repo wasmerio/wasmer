@@ -175,16 +175,6 @@ impl Memory {
         true
     }
 
-    pub fn duplicate_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
-    }
-
     #[allow(unused)]
     pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate()

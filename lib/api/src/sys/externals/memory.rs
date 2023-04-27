@@ -102,16 +102,6 @@ impl Memory {
         mem.try_clone().map(|mem| mem.into())
     }
 
-    pub fn duplicate_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
-    }
-
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Memory(self.handle.internal_handle())

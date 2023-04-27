@@ -169,7 +169,10 @@ impl Memory {
             // We should only be able to duplicate in a new store if the memory is shared
             return None;
         }
-        self.0.duplicate_in_store(store, new_store).map(Self)
+        self.0
+            .try_clone(&store)
+            .and_then(|mut memory| memory.duplicate().ok())
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 
     /// To `VMExtern`.
