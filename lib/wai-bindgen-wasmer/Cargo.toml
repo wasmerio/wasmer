@@ -33,3 +33,6 @@ async = ["async-trait", "wai-bindgen-wasmer-impl/async"]
 # Wasmer features
 js = ["wasmer/js", "wasmer/std"]
 sys = ["wasmer/sys"]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]
