@@ -25,7 +25,7 @@ SHELL=/usr/bin/env bash
 #   and linux+`aarch64`, linux+`riscv`
 #   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
 #
-# * Singlepass works on Linux+Darwin+Windows/`amd64`, 
+# * Singlepass works on Linux+Darwin+Windows/`amd64`,
 #   and Linux+Darwin/`aarch64`
 #   it doesn't work on */`riscv`.
 #
@@ -100,7 +100,7 @@ endif
 #####
 
 CARGO_BINARY ?= cargo
-CARGO_TARGET ?= 
+CARGO_TARGET ?=
 CARGO_TARGET_FLAG ?=
 
 ifneq ($(CARGO_TARGET),)
@@ -114,7 +114,7 @@ ENABLE_LLVM ?=
 ENABLE_SINGLEPASS ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
-compilers := 
+compilers :=
 
 ##
 # Cranelift
@@ -286,7 +286,7 @@ comma := ,
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
-capi_compilers_engines_exclude := 
+capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
 # LLVM for the moment because it causes the linker to fail since LLVM is not statically linked.
@@ -440,8 +440,18 @@ endif
 build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api
 
-build-docs-api:
-	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --manifest-path lib/api/Cargo.toml --features compiler,core,cranelift,engine,jit,singlepass,static-artifact-create,static-artifact-load,sys,sys-default,wasmer-artifact-create,wasmer-artifact-load
+test-build-docs-rs:
+	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
+	for manifest_path in lib/*/Cargo.toml; do \
+		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
+		if [ $$? -ne 0 ]; then \
+			continue; \
+		fi; \
+		features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
+		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+		printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
+		$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
+	done
 
 build-docs-capi:
 	# `wasmer-c-api` lib's name is `wasmer`. To avoid a conflict
@@ -515,7 +525,7 @@ test-stage-4-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/vfs/Cargo.toml --release
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
-# test examples 
+# test examples
 test-stage-5-test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) $(compiler_features) --features wasi --examples
 test-stage-6-test-examples-release:
@@ -663,7 +673,7 @@ package-capi:
 	if [ -f $(TARGET_DIR)/wasmer.dll ]; then \
 		cp $(TARGET_DIR)/wasmer.dll package/lib/wasmer.dll ;\
 	fi
-	
+
 	if [ -f target/headless/$(CARGO_TARGET)/release/wasmer.dll ]; then \
 		cp target/headless/$(CARGO_TARGET)/release/wasmer.dll package/lib/wasmer-headless.dll ;\
 	fi
@@ -735,7 +745,7 @@ package-capi:
 	if [ -f target/$(HOST_TARGET)/release/wasmer.dll ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer.dll package/lib/wasmer.dll ;\
 	fi
-	
+
 	if [ -f target/$(HOST_TARGET)/release/wasmer.dll.lib ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer.dll.lib package/lib/wasmer.dll.lib ;\
 	fi
