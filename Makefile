@@ -445,20 +445,17 @@ test-build-docs-rs:
 	for manifest_path in lib/*/Cargo.toml; do \
 		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
 		if [ $$? -ne 0 ]; then \
-			continue; \
-		fi; \
-		features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
-		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-		printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-		$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
-	done
-	for manifest_path in lib/*/Cargo.toml; do \
-		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
-		if [ $$? -eq 0 ]; then \
-			continue; \
+			features=""; \
+		else \
+			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
 		fi; \
 		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-		$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
+		if [ -z "$$features" ]; then \
+			$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
+		else \
+			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
+			$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
+		fi; \
 	done
 
 build-docs-capi:
