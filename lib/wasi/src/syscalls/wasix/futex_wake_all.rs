@@ -6,7 +6,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `futex` - Memory location that holds a futex that others may be waiting on
-//#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, woken = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, woken = field::Empty), ret)]
 pub fn futex_wake_all<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,

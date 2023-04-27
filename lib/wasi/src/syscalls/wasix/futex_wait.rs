@@ -6,7 +6,6 @@ use crate::syscalls::*;
 /// Poller returns true if its triggered and false if it times out
 struct FutexPoller {
     state: Arc<WasiState>,
-    woken: Arc<Mutex<bool>>,
     poller_idx: u64,
     futex_idx: u64,
     expected: u32,
@@ -112,7 +111,6 @@ pub fn futex_wait<M: MemorySize + 'static>(
     // it will remove itself from the lookup. It can also be
     // removed whenever the wake call is invoked (which could
     // be before the poller is polled).
-    let woken = Arc::new(Mutex::new(false));
     let poller = {
         let mut guard = env.state.futexs.lock().unwrap();
         guard.poller_seed += 1;
@@ -129,7 +127,6 @@ pub fn futex_wait<M: MemorySize + 'static>(
         Span::current().record("poller_idx", poller_idx);
         FutexPoller {
             state: env.state.clone(),
-            woken,
             poller_idx,
             futex_idx,
             expected,
