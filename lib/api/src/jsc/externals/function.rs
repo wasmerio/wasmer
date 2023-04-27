@@ -92,7 +92,8 @@ impl Function {
             let global = ctx.get_global_object();
             let store_ptr = global
                 .get_property(&ctx, "__store_ptr".to_string())
-                .to_number(&ctx);
+                .to_number(&ctx)
+                .unwrap();
 
             let mut store = unsafe { StoreMut::from_raw(store_ptr as usize as *mut _) };
 
@@ -106,7 +107,7 @@ impl Function {
                 .collect::<Vec<_>>();
             let results = func(env, &wasm_arguments).map_err(|e| {
                 let value = format!("{}", e);
-                JSValue::string(&ctx, value).unwrap()
+                JSValue::string(&ctx, value)
             })?;
             match new_function_type.results().len() {
                 0 => Ok(JSValue::undefined(&ctx)),
@@ -117,12 +118,12 @@ impl Function {
                         .into_iter()
                         .map(|result| result.as_jsvalue(&mut store))
                         .collect::<Vec<_>>(),
-                )
+                )?
                 .to_jsvalue()),
             }
         });
 
-        let vm_function = VMFunction::new(callback.to_object(&context), function_type);
+        let vm_function = VMFunction::new(callback.to_object(&context).unwrap(), function_type);
         Self {
             handle: vm_function,
         }
@@ -136,9 +137,6 @@ impl Function {
         Rets: WasmTypeList,
     {
         let store = store.as_store_mut();
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
         let function = WasmFunction::<Args, Rets>::new(func);
         let callback = function.callback(store.engine().0.context());
 
@@ -160,27 +158,26 @@ impl Function {
         Rets: WasmTypeList,
     {
         let store = store.as_store_mut();
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
         let context = store.engine().0.context();
         let function = WasmFunction::<Args, Rets>::new(func);
         let callback = function.callback(store.engine().0.context());
 
         let bind = callback
-            .get_property(&context, "bind".into())
-            .to_object(&context);
+            .get_property(&context, "bind".to_string())
+            .to_object(&context)
+            .unwrap();
         let callback_with_env = bind
             .call(
                 &context,
-                callback,
+                Some(&callback),
                 &[
                     JSValue::undefined(&context),
                     JSValue::number(&context, env.handle.internal_handle().index() as f64),
                 ],
             )
             .unwrap()
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let ty = function.ty();
         let vm_function = VMFunction::new(callback_with_env, ty);
@@ -234,7 +231,7 @@ impl Function {
                 let context = engine.0.context();
                 r = self.handle.function.call(
                     &context,
-                    JSValue::undefined(&context).to_object(&context),
+                    None,
                     &params_list,
                 );
                 if let Some(callback) = store_mut.inner.on_called.take() {
@@ -266,7 +263,7 @@ impl Function {
                 Ok(vec![value].into_boxed_slice())
             }
             n => {
-                let result = result.to_object(&context);
+                let result = result.to_object(&context).unwrap();
                 Ok((0..n)
                     .map(|i| {
                         let js_val = result.get_property_at_index(&context, i as _).unwrap();
@@ -291,11 +288,6 @@ impl Function {
         _funcref: VMFuncRef,
     ) -> Self {
         unimplemented!();
-    }
-
-    #[track_caller]
-    fn closures_unsupported_panic() -> ! {
-        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 
     /// Checks whether this `Function` can be used with the given context.
@@ -391,13 +383,13 @@ macro_rules! impl_host_function {
 
                         let func: &Func = &*(&() as *const () as *const Func);
                         let global = ctx.get_global_object();
-                        let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx);
+                        let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
                         if store_ptr.is_nan() {
                             panic!("Store pointer is invalid. Received {}", store_ptr as usize)
                         }
                         let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
 
-                        let handle_index = arguments[0].to_number(&ctx) as usize;
+                        let handle_index = arguments[0].to_number(&ctx).unwrap() as usize;
                         let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
                         let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store);
 
@@ -410,10 +402,10 @@ macro_rules! impl_host_function {
                                 // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
                                 // so the only thing we can do is parse from the string repr
                                 if $x.is_number(&ctx) {
-                                    $x.to_number(&ctx) as _
+                                    $x.to_number(&ctx).unwrap() as _
                                 }
                                 else {
-                                    $x.to_string(&ctx).parse::<u128>().unwrap()
+                                    $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
                                 }
                             } }) ) ),* ).into_result()
                         }));
@@ -442,7 +434,7 @@ macro_rules! impl_host_function {
                                             let raw = arr.as_mut()[i];
                                             Value::from_raw(&mut store, *ret_type, raw).as_jsvalue(&mut store)
                                         }).collect::<Vec<_>>();
-                                        Ok(JSObject::new_array(&ctx, &result_values).to_jsvalue())
+                                        Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
                                     }
                                 }
                             },
@@ -458,7 +450,7 @@ macro_rules! impl_host_function {
                             },
                             Err(panic) => {
                                 println!("BASE PANIC");
-                                Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
+                                Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
                                 // We can't just resume the unwind, because it will put
                                 // JavacriptCore in a bad state, so we need to transform
                                 // the error
@@ -505,7 +497,7 @@ macro_rules! impl_host_function {
 
                         let func: &Func = &*(&() as *const () as *const Func);
                         let global = ctx.get_global_object();
-                        let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx);
+                        let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
                         if store_ptr.is_nan() {
                             panic!("Store pointer is invalid. Received {}", store_ptr as usize)
                         }
@@ -519,10 +511,10 @@ macro_rules! impl_host_function {
                                 // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
                                 // so the only thing we can do is parse from the string repr
                                 if $x.is_number(&ctx) {
-                                    $x.to_number(&ctx) as _
+                                    $x.to_number(&ctx).unwrap() as _
                                 }
                                 else {
-                                    $x.to_string(&ctx).parse::<u128>().unwrap()
+                                    $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
                                 }
                             } }) ) ),* ).into_result()
                         }));
@@ -544,7 +536,7 @@ macro_rules! impl_host_function {
                                             let raw = arr.as_mut()[i];
                                             Value::from_raw(&mut store, *ret_type, raw).as_jsvalue(&mut store)
                                         }).collect::<Vec<_>>();
-                                        Ok(JSObject::new_array(&ctx, &result_values).to_jsvalue())
+                                        Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
                                     }
                                 }
                             },
@@ -559,7 +551,7 @@ macro_rules! impl_host_function {
                                 Err(trap.into_jsvalue(&ctx))
                             },
                             Err(panic) => {
-                                Err(JSValue::string(&ctx, format!("panic: {:?}", panic)).unwrap())
+                                Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
                                 // We can't just resume the unwind, because it will put
                                 // JavacriptCore in a bad state, so we need to transform
                                 // the error

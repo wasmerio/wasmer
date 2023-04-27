@@ -33,8 +33,9 @@ impl<'a> MemoryView<'a> {
         let context = engine.0.context();
 
         let buffer = memory
-            .get_property(&context, "buffer".into())
-            .to_object(&context);
+            .get_property(&context, "buffer".to_string())
+            .to_object(&context)
+            .unwrap();
         let typed_buffer = JSObject::create_typed_array_from_buffer(&context, buffer).unwrap();
 
         let mut buffer_data = typed_buffer.get_typed_array_buffer(&context).unwrap();

@@ -52,7 +52,8 @@ impl Instance {
 
         let mut instance_exports = instance
             .get_property(&context, "exports".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let exports_ty = module.exports().collect::<Vec<_>>();
 
@@ -64,7 +65,7 @@ impl Instance {
                 let context = store.engine().0.context();
                 let extern_type = export_type.ty();
                 // Annotation is here to prevent spurious IDE warnings.
-                let js_export = instance_exports.get_property(&context, name.into());
+                let js_export = instance_exports.get_property(&context, name.to_string());
                 let extern_ = Extern::from_jsvalue(&mut store, extern_type, &js_export).unwrap();
                 Ok((name.to_string(), extern_))
             })

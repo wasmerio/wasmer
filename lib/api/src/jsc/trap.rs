@@ -61,19 +61,17 @@ impl Trap {
                 obj.set_property(&ctx, "wasmer_error_ptr".to_string(), wasmer_error_ptr)
                     .unwrap();
                 obj.to_jsvalue()
-                // JSValue::string(&ctx, format!("{:?}", err)).unwrap()
             }
             InnerTrap::JSC(value) => value,
         }
     }
 
     pub(crate) fn from_jsvalue(ctx: &JSContext, val: JSValue) -> Self {
-        println!("obj_val: {:?}", val.to_string(ctx));
-        let obj_val = val.to_object(ctx);
+        let obj_val = val.to_object(ctx).unwrap();
         let wasmer_error_ptr = obj_val.get_property(&ctx, "wasmer_error_ptr".to_string());
         if wasmer_error_ptr.is_number(ctx) {
-            let err_ptr =
-                wasmer_error_ptr.to_number(ctx) as usize as *mut Box<dyn Error + Send + Sync>;
+            let err_ptr = wasmer_error_ptr.to_number(ctx).unwrap() as usize
+                as *mut Box<dyn Error + Send + Sync>;
             let err = unsafe { Box::from_raw(err_ptr) };
             return Self::user(*err);
         }

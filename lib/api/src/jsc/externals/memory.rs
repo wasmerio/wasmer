@@ -53,19 +53,19 @@ impl Memory {
         let mut descriptor = JSObject::new(&context);
         descriptor.set_property(
             &context,
-            "initial".into(),
+            "initial".to_string(),
             JSValue::number(&context, ty.minimum.0.into()),
         );
         if let Some(max) = ty.maximum {
             descriptor.set_property(
                 &context,
-                "maximum".into(),
+                "maximum".to_string(),
                 JSValue::number(&context, max.0.into()),
             );
         }
         descriptor.set_property(
             &context,
-            "shared".into(),
+            "shared".to_string(),
             JSValue::boolean(&context, ty.shared),
         );
 
@@ -108,14 +108,15 @@ impl Memory {
         let func = self
             .handle
             .memory
-            .get_property(&context, "grow".into())
-            .to_object(&context);
+            .get_property(&context, "grow".to_string())
+            .to_object(&context)
+            .unwrap();
         match func.call(
             &context,
-            self.handle.memory.clone(),
+            Some(&self.handle.memory),
             &[JSValue::number(&context, pages.0 as _)],
         ) {
-            Ok(val) => Ok(Pages(val.to_number(&context) as _)),
+            Ok(val) => Ok(Pages(val.to_number(&context).unwrap() as _)),
             Err(e) => {
                 let old_pages = pages;
                 Err(MemoryError::CouldNotGrow {

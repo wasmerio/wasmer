@@ -55,12 +55,12 @@ impl Global {
         // in the JS API.
         descriptor.set_property(
             &context,
-            "value".into(),
-            JSValue::string(&context, type_str.into()).unwrap(),
+            "value".to_string(),
+            JSValue::string(&context, type_str.to_string()),
         );
         descriptor.set_property(
             &context,
-            "mutable".into(),
+            "mutable".to_string(),
             JSValue::boolean(&context, mutability.is_mutable()),
         );
 
@@ -82,7 +82,10 @@ impl Global {
         let store_mut = store.as_store_mut();
         let engine = store_mut.engine();
         let context = engine.0.context();
-        let value = self.handle.global.get_property(&context, "value".into());
+        let value = self
+            .handle
+            .global
+            .get_property(&context, "value".to_string());
         param_from_js(&context, &self.handle.ty.ty, &value)
     }
 
@@ -93,7 +96,7 @@ impl Global {
         let context = engine.0.context();
         self.handle
             .global
-            .set_property(&context, "value".into(), new_value)
+            .set_property(&context, "value".to_string(), new_value)
             .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))
     }
 

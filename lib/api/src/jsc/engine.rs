@@ -19,31 +19,38 @@ impl Default for InnerEngine {
         let mut global = context.get_global_object();
         let mut global_wasm = global
             .get_property(&context, "WebAssembly".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let mut wasm_validate_type = global_wasm
             .get_property(&context, "validate".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let mut wasm_module_type = global_wasm
             .get_property(&context, "Module".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let mut wasm_instance_type = global_wasm
             .get_property(&context, "Instance".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let mut wasm_global_type = global_wasm
             .get_property(&context, "Global".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let mut wasm_table_type = global_wasm
             .get_property(&context, "Table".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         let mut wasm_memory_type = global_wasm
             .get_property(&context, "Memory".to_string())
-            .to_object(&context);
+            .to_object(&context)
+            .unwrap();
 
         Self {
             context,

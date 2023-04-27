@@ -28,7 +28,7 @@ pub trait AsJs: Sized {
 #[inline]
 pub fn param_from_js(context: &JSContext, ty: &Type, js_val: &JSValue) -> Value {
     match ty {
-        Type::I32 => Value::I32(js_val.to_number(&context) as _),
+        Type::I32 => Value::I32(js_val.to_number(&context).unwrap() as _),
         Type::I64 => {
             // TODO: use to_number as error
             // let number = js_val.as_f64().map(|f| f as i64).unwrap_or_else(|| {
@@ -42,19 +42,29 @@ pub fn param_from_js(context: &JSContext, ty: &Type, js_val: &JSValue) -> Value 
             // });
             // println!("Param from js: {}, {}", ty, js_val.to_string(&context));
             let number = if js_val.is_number(&context) {
-                js_val.to_number(&context) as _
+                js_val.to_number(&context).unwrap() as _
             } else {
-                js_val.to_string(&context).parse().unwrap()
+                js_val
+                    .to_string(&context)
+                    .unwrap()
+                    .to_string()
+                    .parse()
+                    .unwrap()
             };
             Value::I64(number)
         }
-        Type::F32 => Value::F32(js_val.to_number(&context) as _),
-        Type::F64 => Value::F64(js_val.to_number(&context)),
+        Type::F32 => Value::F32(js_val.to_number(&context).unwrap() as _),
+        Type::F64 => Value::F64(js_val.to_number(&context).unwrap()),
         Type::V128 => {
             let number = if js_val.is_number(&context) {
-                js_val.to_number(&context) as _
+                js_val.to_number(&context).unwrap() as _
             } else {
-                js_val.to_string(&context).parse().unwrap()
+                js_val
+                    .to_string(&context)
+                    .unwrap()
+                    .to_string()
+                    .parse()
+                    .unwrap()
             };
             Value::V128(number)
         }
@@ -77,7 +87,7 @@ impl AsJs for Value {
             // new WebAssembly.Global({value: "i64", mutable: false}, 3);
             // But will succeed with
             // new WebAssembly.Global({value: "i64", mutable: false}, "3");
-            Self::I64(i) => JSValue::string(&context, (*i).to_string()).unwrap(),
+            Self::I64(i) => JSValue::string(&context, (*i).to_string()),
             Self::F32(f) => JSValue::number(&context, *f as _),
             Self::F64(f) => JSValue::number(&context, *f),
             Self::V128(v) => JSValue::number(&context, *v as _),
@@ -203,28 +213,28 @@ impl AsJs for Extern {
         let context = engine.engine().0.context();
         match extern_type {
             ExternType::Function(function_type) => {
-                let obj_val = val.to_object(&context);
+                let obj_val = val.to_object(&context).unwrap();
                 Ok(Self::Function(Function::from_vm_extern(
                     store,
                     VMFunction::new(obj_val, function_type.clone()),
                 )))
             }
             ExternType::Global(global_type) => {
-                let obj_val = val.to_object(&context);
+                let obj_val = val.to_object(&context).unwrap();
                 Ok(Self::Global(Global::from_vm_extern(
                     store,
                     VMGlobal::new(obj_val, global_type.clone()),
                 )))
             }
             ExternType::Memory(memory_type) => {
-                let obj_val = val.to_object(&context);
+                let obj_val = val.to_object(&context).unwrap();
                 Ok(Self::Memory(Memory::from_vm_extern(
                     store,
                     VMMemory::new(obj_val, memory_type.clone()),
                 )))
             }
             ExternType::Table(table_type) => {
-                let obj_val = val.to_object(&context);
+                let obj_val = val.to_object(&context).unwrap();
                 Ok(Self::Table(Table::from_vm_extern(
                     store,
                     VMTable::new(obj_val, table_type.clone()),

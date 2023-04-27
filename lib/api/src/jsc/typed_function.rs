@@ -55,13 +55,12 @@ macro_rules! impl_native_traits {
 
                         let store_mut = store.as_store_mut();
                         let context = store_mut.engine().0.context();
-
                         r = self.func.0.handle.function
-                        .call(
-                            &context,
-                            JSValue::undefined(&context).to_object(&context),
-                            &params_list,
-                        );
+                            .call(
+                                &context,
+                                None,
+                                &params_list,
+                            );
 
                         // let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {
@@ -69,11 +68,9 @@ macro_rules! impl_native_traits {
                                 Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
                                 Ok(wasmer_types::OnCalledAction::Finish) => { break; }
                                 Ok(wasmer_types::OnCalledAction::Trap(trap)) => { let err = Err(RuntimeError::user(trap));
-                                    println!("GOT ERR");
                                     return err;
                                 },
                                 Err(trap) => {
-                                    println!("GOT TRAP");
                                     return Err(RuntimeError::user(trap))
                                 },
                             }
@@ -99,7 +96,7 @@ macro_rules! impl_native_traits {
                         if !results.is_array(&context) {
                             panic!("Expected results to be an array.")
                         }
-                        let results = results.to_object(&context);
+                        let results = results.to_object(&context).unwrap();
                         for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
                             let store_mut = store.as_store_mut();
                             let context = store_mut.engine().0.context();

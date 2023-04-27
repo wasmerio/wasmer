@@ -45,20 +45,20 @@ impl Table {
         let mut descriptor = JSObject::new(&context);
         descriptor.set_property(
             &context,
-            "initial".into(),
+            "initial".to_string(),
             JSValue::number(&context, ty.minimum.into()),
         );
         if let Some(max) = ty.maximum {
             descriptor.set_property(
                 &context,
-                "maximum".into(),
+                "maximum".to_string(),
                 JSValue::number(&context, max.into()),
             );
         }
         descriptor.set_property(
             &context,
-            "element".into(),
-            JSValue::string(&context, "anyfunc".into()).unwrap(),
+            "element".to_string(),
+            JSValue::string(&context, "anyfunc".to_string()),
         );
 
         let js_table = engine
@@ -107,8 +107,9 @@ impl Table {
         let context = engine.0.context();
         self.handle
             .table
-            .get_property(&context, "length".into())
-            .to_number(&context) as _
+            .get_property(&context, "length".to_string())
+            .to_number(&context)
+            .unwrap() as _
     }
 
     pub fn grow(
@@ -123,14 +124,15 @@ impl Table {
         let func = self
             .handle
             .table
-            .get_property(&context, "grow".into())
-            .to_object(&context);
+            .get_property(&context, "grow".to_string())
+            .to_object(&context)
+            .unwrap();
         match func.call(
             &context,
-            self.handle.table.clone(),
+            Some(&self.handle.table),
             &[JSValue::number(&context, delta as _)],
         ) {
-            Ok(val) => Ok(val.to_number(&context) as _),
+            Ok(val) => Ok(val.to_number(&context).unwrap() as _),
             Err(e) => Err(<JSValue as Into<RuntimeError>>::into(e)),
         }
     }

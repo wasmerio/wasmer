@@ -66,14 +66,21 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
+        println!("Module::from_binary_unchecked");
         let mut binary = binary.to_vec();
         let engine = engine.as_engine_ref();
         let context = engine.engine().0.context();
         let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
         let module_type = engine.engine().0.wasm_module_type();
+        let global_wasm = engine.engine().0.global_wasm();
+        println!("Module::module construct");
+        println!(
+            "Module::module global wasm: {:?}",
+            global_wasm.to_jsvalue().to_string(&context)
+        );
         let module = module_type
             .construct(&context, &[bytes.to_jsvalue()])
-            .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context))))?;
+            .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context).unwrap())))?;
 
         Ok(Self::from_js_module(module, binary))
     }
@@ -81,6 +88,7 @@ impl Module {
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
     ///
     pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
+        println!("Module::from_js_module");
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         let info = crate::jsc::module_info_polyfill::translate_module(&binary[..])
@@ -116,7 +124,7 @@ impl Module {
         let global_wasm = engine.engine().0.global_wasm();
         let validate_type = engine.engine().0.wasm_validate_type();
 
-        match validate_type.call(&context, global_wasm.clone(), &[bytes.to_jsvalue()]) {
+        match validate_type.call(&context, Some(&global_wasm), &[bytes.to_jsvalue()]) {
             Ok(val) => {
                 if val.to_bool(&context) {
                     Ok(())
@@ -126,7 +134,7 @@ impl Module {
             }
             Err(e) => Err(CompileError::Validate(format!(
                 "Error while validating: {}",
-                e.to_string(&context)
+                e.to_string(&context).unwrap()
             ))),
         }
     }
@@ -136,6 +144,7 @@ impl Module {
         store: &mut impl AsStoreMut,
         imports: &Imports,
     ) -> Result<VMInstance, RuntimeError> {
+        println!("Module::instantiate");
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -153,13 +162,13 @@ impl Module {
         for import_type in self.imports() {
             let resolved_import = imports.get_export(import_type.module(), import_type.name());
             if let Some(import) = resolved_import {
-                let val = imports_object.get_property(&context, import_type.module().into());
+                let val = imports_object.get_property(&context, import_type.module().to_string());
                 if !val.is_undefined(&context) {
                     // If the namespace is already set
-                    let mut obj_val = val.to_object(&context);
+                    let mut obj_val = val.to_object(&context).unwrap();
                     obj_val.set_property(
                         &context,
-                        import_type.name().into(),
+                        import_type.name().to_string(),
                         import.as_jsvalue(&store.as_store_ref()),
                     );
                 } else {
@@ -167,13 +176,13 @@ impl Module {
                     let mut import_namespace = JSObject::new(&context);
                     import_namespace.set_property(
                         &context,
-                        import_type.name().into(),
+                        import_type.name().to_string(),
                         import.as_jsvalue(&store.as_store_ref()),
                     );
                     imports_object
                         .set_property(
                             &context,
-                            import_type.module().into(),
+                            import_type.module().to_string(),
                             import_namespace.to_jsvalue(),
                         )
                         .unwrap();
