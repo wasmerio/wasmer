@@ -6,23 +6,23 @@ use crate::{
     runtime::resolver::{types::ResolverError, types::WebcIdentifier, PackageResolver},
 };
 
-/// The default package resolver, backed by WAPM.
+/// The builtin package resolver, backed by WAPM.
 ///
 /// Any downloaded assets will be cached on disk.
 #[derive(Debug, Clone)]
-pub struct DefaultResolver {
+pub struct BuiltinResolver {
     cache_dir: PathBuf,
 }
 
-impl DefaultResolver {
+impl BuiltinResolver {
     pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
-        DefaultResolver {
+        BuiltinResolver {
             cache_dir: cache_dir.into(),
         }
     }
 }
 
-impl Default for DefaultResolver {
+impl Default for BuiltinResolver {
     fn default() -> Self {
         // TODO: Reuse the same logic as wasmer-cli
         let wasmer_home = std::env::var_os("WASMER_HOME")
@@ -33,12 +33,12 @@ impl Default for DefaultResolver {
             })
             .unwrap();
 
-        DefaultResolver::new(wasmer_home)
+        BuiltinResolver::new(wasmer_home)
     }
 }
 
 #[async_trait::async_trait]
-impl PackageResolver for DefaultResolver {
+impl PackageResolver for BuiltinResolver {
     async fn resolve_package(
         &self,
         pkg: WebcIdentifier,

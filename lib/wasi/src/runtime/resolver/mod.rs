@@ -1,9 +1,9 @@
-mod default;
-mod types;
+mod builtin;
 mod cache;
+mod types;
 
 pub use self::{
-    default::DefaultResolver,
+    builtin::BuiltinResolver,
     cache::InMemoryCache,
     types::{
         FileSystemMapping, Locator, PackageResolver, ResolvedCommand, ResolvedPackage,

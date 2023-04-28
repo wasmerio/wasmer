@@ -286,7 +286,7 @@ mod tests {
 
     use crate::{
         http::{reqwest::ReqwestHttpClient, HttpClient},
-        runtime::{resolver::DefaultResolver, task_manager::tokio::TokioTaskManager},
+        runtime::{resolver::BuiltinResolver, task_manager::tokio::TokioTaskManager},
         PluggableRuntime,
     };
 
@@ -297,7 +297,7 @@ mod tests {
         task_manager: Arc<dyn crate::VirtualTaskManager>,
         temp: TempDir,
         client: Arc<dyn HttpClient + Send + Sync>,
-        resolver: Arc<DefaultResolver>,
+        resolver: Arc<BuiltinResolver>,
         _tokio_runtime: tokio::runtime::Runtime,
     }
 
@@ -306,7 +306,7 @@ mod tests {
             let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
             let task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
             let temp = TempDir::new().unwrap();
-            let resolver = DefaultResolver::new(temp.path());
+            let resolver = BuiltinResolver::new(temp.path());
             let client = ReqwestHttpClient::default();
             DummyRuntime {
                 _tokio_runtime: tokio_runtime,

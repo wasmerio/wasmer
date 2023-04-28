@@ -18,32 +18,12 @@ use webc::{
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     http::HttpClient,
-    WasiRuntime,
 };
 
 mod pirita;
 
 use crate::http::{HttpRequest, HttpRequestOptions};
 use pirita::*;
-
-pub(crate) fn fetch_webc_task(
-    cache_dir: &Path,
-    webc: &str,
-    runtime: &dyn WasiRuntime,
-) -> Result<BinaryPackage, anyhow::Error> {
-    let client = runtime
-        .http_client()
-        .context("no http client available")?
-        .clone();
-
-    let f = async move { fetch_webc(cache_dir, webc, &*client).await };
-
-    let result = runtime
-        .task_manager()
-        .block_on(f)
-        .context("webc fetch task has died");
-    result.with_context(|| format!("could not fetch webc '{webc}'"))
-}
 
 pub(crate) async fn fetch_webc(
     cache_dir: &Path,

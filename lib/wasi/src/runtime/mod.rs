@@ -14,7 +14,7 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use crate::{
     http::DynHttpClient,
     os::TtyBridge,
-    runtime::resolver::{DefaultResolver, PackageResolver},
+    runtime::resolver::{BuiltinResolver, PackageResolver},
     WasiTtyState,
 };
 
@@ -112,7 +112,7 @@ impl PluggableRuntime {
             http_client,
             engine: None,
             tty: None,
-            resolver: Arc::new(DefaultResolver::default()),
+            resolver: Arc::new(BuiltinResolver::default()),
         }
     }
 
