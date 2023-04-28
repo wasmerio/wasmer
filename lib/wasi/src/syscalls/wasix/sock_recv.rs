@@ -1,4 +1,6 @@
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, task::Waker};
+
+use wasmer_wasix_types::wasi::WakerId;
 
 use super::*;
 use crate::syscalls::*;
@@ -16,7 +18,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty), ret, err)]
+//#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty), ret, err)]
 pub fn sock_recv<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -37,8 +39,18 @@ pub fn sock_recv<M: MemorySize>(
         ri_flags,
         ro_data_len,
         ro_flags,
+        None,
     )?;
 
+    sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
+}
+
+pub(super) fn sock_recv_internal_handler<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    res: Result<usize, Errno>,
+    ro_data_len: WasmPtr<M::Offset, M>,
+    ro_flags: WasmPtr<RoFlags, M>,
+) -> Result<Errno, WasiError> {
     let mut ret = Errno::Success;
     let bytes_read = match res {
         Ok(bytes_read) => {
@@ -46,6 +58,10 @@ pub fn sock_recv<M: MemorySize>(
                 %bytes_read,
             );
             bytes_read
+        }
+        Err(Errno::Pending) => {
+            ret = Errno::Pending;
+            0
         }
         Err(err) => {
             let socket_err = err.name();
@@ -81,7 +97,7 @@ pub fn sock_recv<M: MemorySize>(
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-fn sock_recv_internal<M: MemorySize>(
+pub(super) fn sock_recv_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
@@ -89,8 +105,9 @@ fn sock_recv_internal<M: MemorySize>(
     ri_flags: RiFlags,
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
+    waker: Option<&Waker>,
 ) -> Result<Result<usize, Errno>, WasiError> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
+    wasi_try_ok_ok!(WasiEnv::process_signals_and_wakes_and_exit(ctx)?);
 
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };
@@ -99,6 +116,7 @@ fn sock_recv_internal<M: MemorySize>(
         env,
         sock,
         Rights::SOCK_RECV,
+        waker,
         |socket, fd| async move {
             let iovs_arr = ri_data
                 .slice(&memory, ri_data_len)
@@ -127,7 +145,7 @@ fn sock_recv_internal<M: MemorySize>(
                 }
             }
             Ok(total_read)
-        },
+        }
     ));
     Ok(Ok(data))
 }

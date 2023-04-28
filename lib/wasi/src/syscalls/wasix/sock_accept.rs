@@ -1,3 +1,5 @@
+use std::task::Waker;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -15,19 +17,31 @@ use crate::syscalls::*;
 /// New socket connection
 #[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret, err)]
 pub fn sock_accept<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    fd_flags: Fdflags,
+    ro_fd: WasmPtr<WasiFd, M>,
+    ro_addr: WasmPtr<__wasi_addr_port_t, M>,
+) -> Result<Errno, WasiError> {
+    sock_accept_internal(ctx, sock, fd_flags, ro_fd, ro_addr, None)
+}
+
+pub(super) fn sock_accept_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     mut fd_flags: Fdflags,
     ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
+    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let tasks = ctx.data().tasks().clone();
     let (child, addr, fd_flags) = wasi_try_ok!(__sock_asyncify(
         ctx.data(),
         sock,
         Rights::SOCK_ACCEPT,
+        waker,
         move |socket, fd| async move {
             if fd.flags.contains(Fdflags::NONBLOCK) {
                 fd_flags.set(Fdflags::NONBLOCK, true);

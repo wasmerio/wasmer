@@ -1,3 +1,5 @@
+use std::task::Waker;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -32,7 +34,7 @@ pub fn fd_write<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset, nwritten, true)
+    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset, nwritten, true, None)
 }
 
 /// ### `fd_pwrite()`
@@ -58,7 +60,16 @@ pub fn fd_pwrite<M: MemorySize>(
     offset: Filesize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nwritten, false)
+    fd_write_internal::<M>(
+        ctx,
+        fd,
+        iovs,
+        iovs_len,
+        offset as usize,
+        nwritten,
+        false,
+        None,
+    )
 }
 
 /// ### `fd_pwrite()`
@@ -75,7 +86,7 @@ pub fn fd_pwrite<M: MemorySize>(
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
-fn fd_write_internal<M: MemorySize>(
+pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
@@ -83,8 +94,9 @@ fn fd_write_internal<M: MemorySize>(
     offset: usize,
     nwritten: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
+    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let state = env.state.clone();
@@ -119,6 +131,7 @@ fn fd_write_internal<M: MemorySize>(
                             } else {
                                 None
                             },
+                            waker,
                             async {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
@@ -163,7 +176,7 @@ fn fd_write_internal<M: MemorySize>(
                     drop(guard);
 
                     let tasks = env.tasks().clone();
-                    let written = wasi_try_ok!(__asyncify_light(env, None, async move {
+                    let written = wasi_try_ok!(__asyncify_light(env, None, waker, async move {
                         let mut sent = 0usize;
                         for iovs in iovs_arr.iter() {
                             let buf = WasmPtr::<u8, M>::new(iovs.buf)

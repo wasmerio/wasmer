@@ -24,7 +24,7 @@ pub fn sock_send_file<M: MemorySize>(
     mut count: Filesize,
     ret_sent: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let net = env.net();
@@ -180,6 +180,7 @@ pub fn sock_send_file<M: MemorySize>(
                 &mut ctx,
                 sock,
                 Rights::SOCK_SEND,
+                None,
                 |socket, fd| async move { socket.send(tasks.deref(), &data, fd.flags).await },
             ));
             env = ctx.data();

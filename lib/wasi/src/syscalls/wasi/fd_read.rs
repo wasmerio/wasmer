@@ -38,29 +38,9 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
+    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true, None)?;
 
-    let mut ret = Errno::Success;
-    let bytes_read = match res {
-        Ok(bytes_read) => bytes_read,
-        Err(err) => {
-            ret = err;
-            0
-        }
-    };
-    Span::current().record("nread", bytes_read);
-
-    let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
-
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-    let nread_ref = nread.deref(&memory);
-    wasi_try_mem_ok!(nread_ref.write(bytes_read));
-
-    Ok(ret)
+    fd_read_internal_handler(ctx, res, nread)
 }
 
 /// ### `fd_pread()`
@@ -90,8 +70,25 @@ pub fn fd_pread<M: MemorySize>(
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
-    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;
+    let res = fd_read_internal::<M>(
+        &mut ctx,
+        fd,
+        iovs,
+        iovs_len,
+        offset as usize,
+        nread,
+        false,
+        None,
+    )?;
 
+    fd_read_internal_handler::<M>(ctx, res, nread)
+}
+
+pub(crate) fn fd_read_internal_handler<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    res: Result<usize, Errno>,
+    nread: WasmPtr<M::Offset, M>,
+) -> Result<Errno, WasiError> {
     let mut ret = Errno::Success;
     let bytes_read = match res {
         Ok(bytes_read) => bytes_read,
@@ -115,7 +112,7 @@ pub fn fd_pread<M: MemorySize>(
     Ok(ret)
 }
 
-fn fd_read_internal<M: MemorySize>(
+pub(crate) fn fd_read_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     iovs: WasmPtr<__wasi_iovec_t<M>, M>,
@@ -123,8 +120,9 @@ fn fd_read_internal<M: MemorySize>(
     offset: usize,
     nread: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
+    waker: Option<&Waker>,
 ) -> Result<Result<usize, Errno>, WasiError> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
+    wasi_try_ok_ok!(WasiEnv::process_signals_and_wakes_and_exit(ctx)?);
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
@@ -157,6 +155,7 @@ fn fd_read_internal<M: MemorySize>(
                             } else {
                                 None
                             },
+                            waker,
                             async move {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
@@ -225,6 +224,7 @@ fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
+                        waker,
                         async {
                             let mut total_read = 0usize;
 
@@ -273,6 +273,7 @@ fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
+                        waker,
                         async move {
                             let mut total_read = 0usize;
 
@@ -335,11 +336,13 @@ fn fd_read_internal<M: MemorySize>(
 
                     // Yield until the notifications are triggered
                     let tasks_inner = env.tasks().clone();
-                    let val = wasi_try_ok_ok!(__asyncify_light(env, None, async { poller.await })?
-                        .map_err(|err| match err {
-                            Errno::Timedout => Errno::Again,
-                            a => a,
-                        }));
+                    let val = wasi_try_ok_ok!(__asyncify_light(env, None, waker, async {
+                        poller.await
+                    })?
+                    .map_err(|err| match err {
+                        Errno::Timedout => Errno::Again,
+                        a => a,
+                    }));
 
                     let mut memory = unsafe { env.memory_view(ctx) };
                     let reader = val.to_ne_bytes();

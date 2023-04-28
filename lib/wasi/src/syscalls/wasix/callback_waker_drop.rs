@@ -1,14 +1,15 @@
 use super::*;
 use crate::syscalls::*;
 
-/// ### `callback_signal()`
-/// Sets the callback to invoke signals
+/// ### `callback_waker_wake()`
+///
+/// Sets the callback to drop events for task wakers
 ///
 /// ### Parameters
 ///
 /// * `name` - Name of the function that will be invoked
 #[instrument(level = "trace", skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret, err)]
-pub fn callback_signal<M: MemorySize>(
+pub fn callback_waker_drop<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
@@ -36,8 +37,7 @@ pub fn callback_signal<M: MemorySize>(
 
     {
         let mut inner = ctx.data_mut().try_inner_mut().unwrap();
-        inner.signal = funct;
-        inner.signal_set = true;
+        inner.waker_drop = funct;
     }
 
     let _ = unsafe { WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)? };

@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
 use crate::syscalls::*;
@@ -18,46 +18,72 @@ use crate::syscalls::*;
 /// Number of bytes transmitted.
 #[instrument(level = "trace", skip_all, fields(%sock, nsent = field::Empty), ret, err)]
 pub fn sock_send<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
     si_flags: SiFlags,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    sock_send_internal(
+        ctx,
+        sock,
+        si_data,
+        si_data_len,
+        si_flags,
+        ret_data_len,
+        None,
+    )
+}
+
+pub(super) fn sock_send_internal<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
+    si_data_len: M::Offset,
+    si_flags: SiFlags,
+    ret_data_len: WasmPtr<M::Offset, M>,
+    waker: Option<&Waker>,
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let runtime = env.runtime.clone();
 
     let res = {
-        __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
-            let iovs_arr = si_data
-                .slice(&memory, si_data_len)
-                .map_err(mem_error_to_wasi)?;
-            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-
-            let mut sent = 0usize;
-            for iovs in iovs_arr.iter() {
-                let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                    .slice(&memory, iovs.buf_len)
-                    .map_err(mem_error_to_wasi)?
-                    .access()
+        __sock_asyncify(
+            env,
+            sock,
+            Rights::SOCK_SEND,
+            waker,
+            |socket, fd| async move {
+                let iovs_arr = si_data
+                    .slice(&memory, si_data_len)
                     .map_err(mem_error_to_wasi)?;
-                let local_sent = match socket
-                    .send(env.tasks().deref(), buf.as_ref(), fd.flags)
-                    .await
-                {
-                    Ok(s) => s,
-                    Err(_) if sent > 0 => break,
-                    Err(err) => return Err(err),
-                };
-                sent += local_sent;
-                if local_sent != buf.len() {
-                    break;
+                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+                let mut sent = 0usize;
+                for iovs in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                        .slice(&memory, iovs.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    let local_sent = match socket
+                        .send(env.tasks().deref(), buf.as_ref(), fd.flags)
+                        .await
+                    {
+                        Ok(s) => s,
+                        Err(_) if sent > 0 => break,
+                        Err(err) => return Err(err),
+                    };
+                    sent += local_sent;
+                    if local_sent != buf.len() {
+                        break;
+                    }
                 }
-            }
-            Ok(sent)
-        })
+                Ok(sent)
+            },
+        )
     };
 
     let mut ret = Errno::Success;

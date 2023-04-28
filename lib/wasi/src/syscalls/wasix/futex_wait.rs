@@ -72,13 +72,24 @@ impl Drop for FutexPoller {
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
 //#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait<M: MemorySize + 'static>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
     timeout: WasmPtr<OptionTimestamp, M>,
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    futex_wait_internal(ctx, futex_ptr, expected, timeout, ret_woken, None)
+}
+
+pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    futex_ptr: WasmPtr<u32, M>,
+    expected: u32,
+    timeout: WasmPtr<OptionTimestamp, M>,
+    ret_woken: WasmPtr<Bool, M>,
+    waker: Option<&Waker>,
+) -> Result<Errno, WasiError> {
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     // If we were just restored then we were woken after a deep sleep
     // and thus we repeat all the checks again, we do not immediately
@@ -148,8 +159,15 @@ pub fn futex_wait<M: MemorySize + 'static>(
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
     // We use asyncify on the poller and potentially go into deep sleep
-    let res =
-        __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), Box::pin(poller))?;
+    let res = __asyncify_with_deep_sleep::<M, _, _>(
+        ctx,
+        Duration::from_millis(50),
+        waker,
+        Box::pin(poller),
+    )?;
+    if let &AsyncifyAction::Pending = &res {
+        return Ok(Errno::Pending);
+    }
     if let AsyncifyAction::Finish(ctx, res) = res {
         let mut env = ctx.data();
         let memory = unsafe { env.memory_view(&ctx) };

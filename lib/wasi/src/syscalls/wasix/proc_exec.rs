@@ -25,7 +25,7 @@ pub fn proc_exec<M: MemorySize>(
     args: WasmPtr<u8, M>,
     args_len: M::Offset,
 ) -> Result<(), WasiError> {
-    WasiEnv::process_signals_and_exit(&mut ctx)?;
+    WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?;
 
     // If we were just restored the stack then we were woken after a deep sleep
     if let Some(exit_code) = unsafe { handle_rewind::<M, i32>(&mut ctx) } {
@@ -229,6 +229,7 @@ pub fn proc_exec<M: MemorySize>(
                 let res = __asyncify_with_deep_sleep::<M, _, _>(
                     ctx,
                     Duration::from_millis(50),
+                    None,
                     async move {
                         process
                             .wait_finished()
@@ -242,8 +243,14 @@ pub fn proc_exec<M: MemorySize>(
                         // When we arrive here the process should already be terminated
                         let exit_code = ExitCode::from_native(result);
                         ctx.data().process.terminate(exit_code);
-                        WasiEnv::process_signals_and_exit(&mut ctx)?;
+                        WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?;
                         Err(WasiError::Exit(Errno::Unknown.into()))
+                    }
+                    AsyncifyAction::Pending => {
+                        warn!(
+                            "failed to execve as the process poll is pending when we did not poll not be spawned (fork)"
+                        );
+                        Err(WasiError::Exit(Errno::Noexec.into()))
                     }
                     AsyncifyAction::Unwind => Ok(()),
                 }
