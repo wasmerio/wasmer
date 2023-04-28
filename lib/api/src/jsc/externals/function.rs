@@ -100,7 +100,7 @@ impl Function {
             }
         });
 
-        let vm_function = VMFunction::new(callback.to_object(&context).unwrap(), function_type);
+        let vm_function = VMFunction::new(callback, function_type);
         Self {
             handle: vm_function,
         }
