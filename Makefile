@@ -513,7 +513,7 @@ test-stage-0-wast:
 
 # test packages
 test-stage-1-test-all:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features)
 test-stage-2-test-compiler-cranelift-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
 test-stage-3-test-compiler-singlepass-nostd:
