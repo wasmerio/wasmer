@@ -445,7 +445,6 @@ macro_rules! impl_host_function {
                                 Err(trap.into_jsvalue(&ctx))
                             },
                             Err(panic) => {
-                                println!("BASE PANIC");
                                 Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
                                 // We can't just resume the unwind, because it will put
                                 // JavacriptCore in a bad state, so we need to transform

@@ -20,7 +20,7 @@ impl Default for InnerEngine {
         let mut global_wasm = global
             .get_property(&context, "WebAssembly".to_string())
             .to_object(&context)
-            .unwrap();
+            .expect("WebAssembly is not available in JavascriptCore");
 
         let mut wasm_validate_type = global_wasm
             .get_property(&context, "validate".to_string())

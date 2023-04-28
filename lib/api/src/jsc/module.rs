@@ -18,23 +18,6 @@ use wasmer_types::{
     ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
 };
 
-// /// JavascriptCore doesn't yet output the descriptor/types
-// /// corresponding to each extern (import and export).
-// ///
-// /// This should be fixed once the JS-Types Wasm proposal is adopted
-// /// by the browsers:
-// /// https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
-// ///
-// /// Until that happens, we annotate the module with the expected
-// /// types so we can built on top of them at runtime.
-// #[derive(Clone, PartialEq, Eq)]
-// pub struct ModuleTypeHints {
-//     /// The type hints for the imported types
-//     pub imports: Vec<ExternType>,
-//     /// The type hints for the exported types
-//     pub exports: Vec<ExternType>,
-// }
-
 #[derive(Clone, PartialEq, Eq)]
 pub struct Module {
     module: JSObject,
@@ -66,18 +49,12 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        println!("Module::from_binary_unchecked");
         let mut binary = binary.to_vec();
         let engine = engine.as_engine_ref();
         let context = engine.engine().0.context();
         let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
         let module_type = engine.engine().0.wasm_module_type();
         let global_wasm = engine.engine().0.global_wasm();
-        println!("Module::module construct");
-        println!(
-            "Module::module global wasm: {:?}",
-            global_wasm.to_jsvalue().to_string(&context)
-        );
         let module = module_type
             .construct(&context, &[bytes.to_jsvalue()])
             .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context).unwrap())))?;
@@ -88,24 +65,11 @@ impl Module {
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
     ///
     pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
-        println!("Module::from_js_module");
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
         let info = crate::jsc::module_info_polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
-
-        // #[cfg(feature = "wasm-types-polyfill")]
-        // let type_hints = ModuleTypeHints {
-        //     imports: info
-        //         .imports()
-        //         .map(|import| import.ty().clone())
-        //         .collect::<Vec<_>>(),
-        //     exports: info
-        //         .exports()
-        //         .map(|export| export.ty().clone())
-        //         .collect::<Vec<_>>(),
-        // };
 
         Self {
             module,
@@ -144,7 +108,6 @@ impl Module {
         store: &mut impl AsStoreMut,
         imports: &Imports,
     ) -> Result<VMInstance, RuntimeError> {
-        println!("Module::instantiate");
         // Ensure all imports come from the same store.
         if imports
             .into_iter()
@@ -253,228 +216,16 @@ impl Module {
         true
     }
 
-    pub fn imports<'a>(
-        &'a self,
-        // engine: &impl AsEngineRef,
-    ) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
         self.info().imports()
-        // let imports = self.type_hints.as_ref().unwrap().imports;
-        // ImportsIterator::new(imports.iter(), imports.len())
-        // let engine = engine.as_engine_ref();
-        // let context = engine.engine().0.context();
-        // let module_type = engine.engine().0.wasm_module_type();
-        // let custom_sections_func = module_type.get_property(&context, "imports".to_string());
-        // let imports = custom_sections_func
-        //     .to_object(&context)
-        //     .call(
-        //         &context,
-        //         module_type.clone(),
-        //         &[self.module.clone().to_jsvalue()],
-        //     )
-        //     .unwrap()
-        //     .to_object(&context);
-        // let length = imports
-        //     .get_property(&context, "length".to_string())
-        //     .to_number(&context) as u32;
-        // let iter = (0..length)
-        //     .map(|i| {
-        //         let val = imports
-        //             .get_property_at_index(&context, i)
-        //             .unwrap()
-        //             .to_object(&context);
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         unsafe {
-        //             let module = val
-        //                 .get_property(&context, "module".to_string())
-        //                 .to_string(&context);
-        //             let field = val
-        //                 .get_property(&context, "name".to_string())
-        //                 .to_string(&context);
-        //             let kind = val
-        //                 .get_property(&context, "kind".to_string())
-        //                 .to_string(&context);
-        //             let type_hint: Option<ExternType> = self
-        //                 .type_hints
-        //                 .as_ref()
-        //                 .map(|hints| hints.imports[i as usize].clone());
-        //             let extern_type = if let Some(hint) = type_hint {
-        //                 hint
-        //             } else {
-        //                 match kind.as_str() {
-        //                     "function" => {
-        //                         let func_type = FunctionType::new(vec![], vec![]);
-        //                         ExternType::Function(func_type)
-        //                     }
-        //                     "global" => {
-        //                         let global_type = GlobalType::new(Type::I32, Mutability::Const);
-        //                         ExternType::Global(global_type)
-        //                     }
-        //                     "memory" => {
-        //                         // The javascript API does not yet expose these properties so without
-        //                         // the type_hints we don't know what memory to import.
-        //                         let memory_type = MemoryType::new(Pages(1), None, false);
-        //                         ExternType::Memory(memory_type)
-        //                     }
-        //                     "table" => {
-        //                         let table_type = TableType::new(Type::FuncRef, 1, None);
-        //                         ExternType::Table(table_type)
-        //                     }
-        //                     _ => unimplemented!(),
-        //                 }
-        //             };
-        //             ImportType::new(&module, &field, extern_type)
-        //         }
-        //     })
-        //     .collect::<Vec<_>>()
-        //     .into_iter();
-        // ImportsIterator::new(iter, length as usize)
     }
 
-    // /// Set the type hints for this module.
-    // ///
-    // /// Returns an error if the hints doesn't match the shape of
-    // /// import or export types of the module.
-    // #[allow(unused)]
-    // pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
-    //     // let exports = WebAssembly::Module::exports(&self.module);
-    //     // // Check exports
-    //     // if exports.length() as usize != type_hints.exports.len() {
-    //     //     return Err("The exports length must match the type hints lenght".to_owned());
-    //     // }
-    //     // for (i, val) in exports.iter().enumerate() {
-    //     //     // Annotation is here to prevent spurious IDE warnings.
-    //     //     #[allow(unused_unsafe)]
-    //     //     let kind = unsafe {
-    //     //         Reflect::get(val.as_ref(), &"kind".into())
-    //     //             .unwrap()
-    //     //             .as_string()
-    //     //             .unwrap()
-    //     //     };
-    //     //     // It is safe to unwrap as we have already checked for the exports length
-    //     //     let type_hint = type_hints.exports.get(i).unwrap();
-    //     //     let expected_kind = match type_hint {
-    //     //         ExternType::Function(_) => "function",
-    //     //         ExternType::Global(_) => "global",
-    //     //         ExternType::Memory(_) => "memory",
-    //     //         ExternType::Table(_) => "table",
-    //     //     };
-    //     //     if expected_kind != kind.as_str() {
-    //     //         return Err(format!("The provided type hint for the export {} is {} which doesn't match the expected kind: {}", i, kind.as_str(), expected_kind));
-    //     //     }
-    //     // }
-    //     self.type_hints = Some(type_hints);
-    //     Ok(())
-    // }
-
-    pub fn exports<'a>(
-        &'a self,
-        // engine: &impl AsEngineRef,
-    ) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
         self.info().exports()
-        // let exports = self.type_hints.as_ref().unwrap().exports;
-        // ExportsIterator::new(exports.iter(), exports.len())
-        // let engine = engine.as_engine_ref();
-        // let context = engine.engine().0.context();
-        // let module_type = engine.engine().0.wasm_module_type();
-        // let custom_sections_func = module_type.get_property(&context, "exports".to_string());
-        // let exports = custom_sections_func
-        //     .to_object(&context)
-        //     .call(
-        //         &context,
-        //         module_type.clone(),
-        //         &[self.module.clone().to_jsvalue()],
-        //     )
-        //     .unwrap()
-        //     .to_object(&context);
-        // let length = exports
-        //     .get_property(&context, "length".to_string())
-        //     .to_number(&context) as u32;
-        // let iter = (0..length)
-        //     .map(|i| {
-        //         let val = exports
-        //             .get_property_at_index(&context, i)
-        //             .unwrap()
-        //             .to_object(&context);
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         let field = unsafe {
-        //             val.get_property(&context, "name".to_string())
-        //                 .to_string(&context)
-        //         };
-        //         // Annotation is here to prevent spurious IDE warnings.
-        //         #[allow(unused_unsafe)]
-        //         let kind = unsafe {
-        //             val.get_property(&context, "kind".to_string())
-        //                 .to_string(&context)
-        //         };
-        //         let type_hint: Option<ExternType> = self
-        //             .type_hints
-        //             .as_ref()
-        //             .map(|hints| hints.exports[i as usize].clone());
-        //         let extern_type = if let Some(hint) = type_hint {
-        //             hint
-        //         } else {
-        //             // The default types
-        //             match kind.as_str() {
-        //                 "function" => {
-        //                     let func_type = FunctionType::new(vec![], vec![]);
-        //                     ExternType::Function(func_type)
-        //                 }
-        //                 "global" => {
-        //                     let global_type = GlobalType::new(Type::I32, Mutability::Const);
-        //                     ExternType::Global(global_type)
-        //                 }
-        //                 "memory" => {
-        //                     let memory_type = MemoryType::new(Pages(1), None, false);
-        //                     ExternType::Memory(memory_type)
-        //                 }
-        //                 "table" => {
-        //                     let table_type = TableType::new(Type::FuncRef, 1, None);
-        //                     ExternType::Table(table_type)
-        //                 }
-        //                 _ => unimplemented!(),
-        //             }
-        //         };
-        //         ExportType::new(&field, extern_type)
-        //     })
-        //     .collect::<Vec<_>>()
-        //     .into_iter();
-        // ExportsIterator::new(iter, length as usize)
     }
 
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
         self.info().custom_sections(name)
-        // let engine = engine.as_engine_ref();
-        // let context = engine.engine().0.context();
-        // let module_type = engine.engine().0.wasm_module_type();
-        // let custom_sections_func = module_type.get_property(&context, "customSections".to_string());
-        // let name = JSString::from_utf8(name.to_string())
-        //     .unwrap()
-        //     .to_jsvalue(&context);
-        // let results = custom_sections_func
-        //     .to_object(&context)
-        //     .call(
-        //         &context,
-        //         module_type.clone(),
-        //         &[self.module.clone().to_jsvalue(), name],
-        //     )
-        //     .unwrap()
-        //     .to_object(&context);
-        // let length = results
-        //     .get_property(&context, "length".to_string())
-        //     .to_number(&context) as u32;
-
-        // let array_buffers = (0..length).map(|i| {
-        //     let array_buffer = results.get_property_at_index(&context, i).unwrap();
-        //     array_buffer
-        //         .to_object(&context)
-        //         .get_array_buffer(&context)
-        //         .unwrap()
-        //         .to_owned()
-        //         .into_boxed_slice()
-        // });
-        // array_buffers.collect::<Vec<Box<[u8]>>>().into_iter()
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
