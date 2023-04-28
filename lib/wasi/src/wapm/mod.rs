@@ -17,12 +17,13 @@ use webc::{
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
+    http::HttpClient,
     WasiRuntime,
 };
 
 mod pirita;
 
-use crate::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
+use crate::http::{HttpRequest, HttpRequestOptions};
 use pirita::*;
 
 pub(crate) fn fetch_webc_task(
@@ -35,7 +36,7 @@ pub(crate) fn fetch_webc_task(
         .context("no http client available")?
         .clone();
 
-    let f = async move { fetch_webc(cache_dir, webc, client).await };
+    let f = async move { fetch_webc(cache_dir, webc, &*client).await };
 
     let result = runtime
         .task_manager()
@@ -44,10 +45,10 @@ pub(crate) fn fetch_webc_task(
     result.with_context(|| format!("could not fetch webc '{webc}'"))
 }
 
-async fn fetch_webc(
+pub(crate) async fn fetch_webc(
     cache_dir: &Path,
     webc: &str,
-    client: DynHttpClient,
+    client: &(dyn HttpClient + Send + Sync),
 ) -> Result<BinaryPackage, anyhow::Error> {
     let name = webc.split_once(':').map(|a| a.0).unwrap_or_else(|| webc);
     let (name, version) = match name.split_once('@') {
@@ -131,7 +132,7 @@ async fn download_webc(
     cache_dir: &Path,
     name: &str,
     pirita_download_url: String,
-    client: DynHttpClient,
+    client: &(dyn HttpClient + Send + Sync),
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut name_comps = pirita_download_url
         .split('/')
@@ -241,7 +242,7 @@ async fn download_webc(
 
 async fn download_package(
     download_url: &str,
-    client: DynHttpClient,
+    client: &(dyn HttpClient + Send + Sync),
 ) -> Result<Vec<u8>, anyhow::Error> {
     let request = HttpRequest {
         url: download_url.to_string(),

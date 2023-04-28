@@ -103,7 +103,9 @@ impl CmdWasmer {
     }
 
     pub fn get_package(&self, name: String) -> Option<BinaryPackage> {
-        self.cache.get_webc(name.as_str(), self.runtime.deref())
+        self.cache
+            .get_webc(name.as_str(), self.runtime.deref())
+            .ok()
     }
 }
 
