@@ -8,6 +8,7 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
 use crate::jsc::as_js::{param_from_js, AsJs};
+use crate::jsc::engine::JSC;
 use crate::jsc::trap::Trap;
 use crate::native_type::NativeWasmTypeInto;
 use crate::Value;
@@ -42,7 +43,7 @@ macro_rules! impl_native_traits {
                 };
 
                 let store_mut = store.as_store_mut();
-                let context = store_mut.engine().0.context();
+                let context = store_mut.jsc().context();
 
                 let global = context.get_global_object();
                 let store_ptr = store_mut.as_raw() as usize;
@@ -54,7 +55,7 @@ macro_rules! impl_native_traits {
                     loop {
 
                         let store_mut = store.as_store_mut();
-                        let context = store_mut.engine().0.context();
+                        let context = store_mut.jsc().context();
                         r = self.func.0.handle.function
                             .call(
                                 &context,
@@ -78,13 +79,13 @@ macro_rules! impl_native_traits {
                         break;
                     }
                     let store_mut = store.as_store_mut();
-                    let context = store_mut.engine().0.context();
+                    let context = store_mut.jsc().context();
                     r.map_err(|e| Trap::from_jsvalue(context, e))?
                 };
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
                 let store_mut = store.as_store_mut();
-                let context = store_mut.engine().0.context();
+                let context = store_mut.jsc().context();
                 match Rets::size() {
                     0 => {},
                     1 => unsafe {
@@ -99,7 +100,7 @@ macro_rules! impl_native_traits {
                         let results = results.to_object(&context).unwrap();
                         for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
                             let store_mut = store.as_store_mut();
-                            let context = store_mut.engine().0.context();
+                            let context = store_mut.jsc().context();
                             let ret = results.get_property_at_index(&context, i as _).unwrap();
                             unsafe {
                                 let val = param_from_js(&context, &ret_type, &ret);

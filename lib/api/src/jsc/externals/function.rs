@@ -2,6 +2,7 @@ use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::jsc::as_js::{param_from_js, AsJs};
+use crate::jsc::engine::JSC;
 use crate::jsc::store::{InternalStoreHandle, StoreHandle};
 use crate::jsc::trap::Trap;
 use crate::jsc::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
@@ -17,28 +18,6 @@ use wasmer_types::{FunctionType, RawValue};
 use rusty_jsc::{
     callback, callback_closure, JSContext, JSObject, JSObjectCallAsFunctionCallback, JSValue,
 };
-
-#[inline]
-fn result_to_js(val: &Value) -> JSValue {
-    unimplemented!();
-    // match val {
-    //     Value::I32(i) => JSValue::from_f64(*i as _),
-    //     Value::I64(i) => JSValue::from_f64(*i as _),
-    //     Value::F32(f) => JSValue::from_f64(*f as _),
-    //     Value::F64(f) => JSValue::from_f64(*f),
-    //     Value::V128(f) => JSValue::from_f64(*f as _),
-    //     val => unimplemented!(
-    //         "The value `{:?}` is not yet supported in the JS Function API",
-    //         val
-    //     ),
-    // }
-}
-
-#[inline]
-fn results_to_js_array(values: &[Value]) -> JSValue {
-    unimplemented!();
-    // JSValue::from_iter(values.iter().map(result_to_js))
-}
 
 #[derive(Clone, PartialEq)]
 pub struct Function {
@@ -76,9 +55,7 @@ impl Function {
             + Sync,
     {
         let store = store.as_store_mut();
-        // let function = WasmFunction::<Args, Rets>::new(func);
-        let context = store.engine().0.context();
-        // let callback = function.callback(&context);
+        let context = store.jsc().context();
         let function_type = ty.into();
 
         let new_function_type = function_type.clone();
@@ -138,7 +115,7 @@ impl Function {
     {
         let store = store.as_store_mut();
         let function = WasmFunction::<Args, Rets>::new(func);
-        let callback = function.callback(store.engine().0.context());
+        let callback = function.callback(store.jsc().context());
 
         let ty = function.ty();
         let vm_function = VMFunction::new(callback, ty);
@@ -158,9 +135,9 @@ impl Function {
         Rets: WasmTypeList,
     {
         let store = store.as_store_mut();
-        let context = store.engine().0.context();
+        let context = store.jsc().context();
         let function = WasmFunction::<Args, Rets>::new(func);
-        let callback = function.callback(store.engine().0.context());
+        let callback = function.callback(store.jsc().context());
 
         let bind = callback
             .get_property(&context, "bind".to_string())

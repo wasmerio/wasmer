@@ -2,6 +2,7 @@ use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::imports::Imports;
 use crate::jsc::as_js::AsJs;
+use crate::jsc::engine::JSC;
 use crate::jsc::vm::VMInstance;
 use crate::module::Module;
 use crate::store::AsStoreMut;
@@ -48,7 +49,7 @@ impl Instance {
         instance: VMInstance,
     ) -> Result<(Self, Exports), InstantiationError> {
         let engine = store.as_store_mut();
-        let context = engine.engine().0.context();
+        let context = engine.jsc().context();
 
         let mut instance_exports = instance
             .get_property(&context, "exports".to_string())
@@ -62,7 +63,7 @@ impl Instance {
             .map(|export_type| {
                 let name = export_type.name();
                 let mut store = store.as_store_mut();
-                let context = store.engine().0.context();
+                let context = store.jsc().context();
                 let extern_type = export_type.ty();
                 // Annotation is here to prevent spurious IDE warnings.
                 let js_export = instance_exports.get_property(&context, name.to_string());

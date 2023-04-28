@@ -190,6 +190,7 @@ impl Engine {
     }
 }
 impl AsEngineRef for Engine {
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef {
         EngineRef { inner: self }
     }
@@ -231,10 +232,12 @@ impl<'a> EngineRef<'a> {
 /// Helper trait for a value that is convertible to a [`EngineRef`].
 pub trait AsEngineRef {
     /// Returns a `EngineRef` pointing to the underlying context.
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_>;
 }
 
 impl AsEngineRef for EngineRef<'_> {
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef { inner: self.inner }
     }
@@ -245,6 +248,7 @@ where
     P: Deref,
     P::Target: AsEngineRef,
 {
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_> {
         (**self).as_engine_ref()
     }

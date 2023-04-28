@@ -1,5 +1,6 @@
 use crate::imports::Imports;
 use crate::instance::Instance;
+use crate::jsc::engine::JSC;
 use crate::jsc::instance::Instance as JsInstance;
 use crate::jsc::vm::{VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::store::{AsStoreMut, AsStoreRef};
@@ -69,7 +70,7 @@ impl AsJs for Value {
 
     fn as_jsvalue(&self, store: &impl AsStoreRef) -> JSValue {
         let engine = store.as_store_ref();
-        let context = engine.engine().0.context();
+        let context = engine.jsc().context();
         match self {
             Self::I32(i) => JSValue::number(&context, *i as _),
             // JavascriptCore will fail with:
@@ -92,7 +93,7 @@ impl AsJs for Value {
         value: &JSValue,
     ) -> Result<Self, JSValue> {
         let engine = store.as_store_ref();
-        let context = engine.engine().0.context();
+        let context = engine.jsc().context();
         Ok(param_from_js(context, type_, value))
     }
 }
@@ -118,7 +119,7 @@ impl AsJs for Extern {
         // We only check the "kind" of Extern, but nothing else
         // unimplemented!();
         let engine = store.as_store_mut();
-        let context = engine.engine().0.context();
+        let context = engine.jsc().context();
         match extern_type {
             ExternType::Function(function_type) => {
                 let obj_val = val.to_object(&context).unwrap();

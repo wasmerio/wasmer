@@ -2,6 +2,7 @@ use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
 use crate::jsc::as_js::AsJs;
+use crate::jsc::engine::JSC;
 use crate::store::AsStoreMut;
 use crate::store::AsStoreRef;
 use crate::vm::VMInstance;
@@ -51,10 +52,11 @@ impl Module {
     ) -> Result<Self, CompileError> {
         let mut binary = binary.to_vec();
         let engine = engine.as_engine_ref();
-        let context = engine.engine().0.context();
+        let jsc = engine.jsc();
+        let context = jsc.context();
         let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
-        let module_type = engine.engine().0.wasm_module_type();
-        let global_wasm = engine.engine().0.global_wasm();
+        let module_type = jsc.wasm_module_type();
+        let global_wasm = jsc.global_wasm();
         let module = module_type
             .construct(&context, &[bytes.to_jsvalue()])
             .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context).unwrap())))?;
@@ -81,12 +83,13 @@ impl Module {
 
     pub fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
         let engine = engine.as_engine_ref();
-        let context = engine.engine().0.context();
+        let jsc = engine.jsc();
+        let context = jsc.context();
         let mut binary = binary.to_vec();
         let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
 
-        let global_wasm = engine.engine().0.global_wasm();
-        let validate_type = engine.engine().0.wasm_validate_type();
+        let global_wasm = jsc.global_wasm();
+        let validate_type = jsc.wasm_validate_type();
 
         match validate_type.call(&context, Some(&global_wasm), &[bytes.to_jsvalue()]) {
             Ok(val) => {
@@ -119,7 +122,7 @@ impl Module {
         }
 
         let store = store.as_store_mut();
-        let context = store.engine().0.context();
+        let context = store.jsc().context();
 
         let mut imports_object = JSObject::new(&context);
         for import_type in self.imports() {
@@ -162,7 +165,7 @@ impl Module {
             // the error for us, so we don't need to handle it
         }
 
-        let instance_type = store.engine().0.wasm_instance_type();
+        let instance_type = store.jsc().wasm_instance_type();
         let instance = instance_type.construct(
             &context,
             &[self.module.to_jsvalue(), imports_object.to_jsvalue()],
