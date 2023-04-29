@@ -29,13 +29,14 @@ pub(crate) fn fetch_webc_task(
     cache_dir: &Path,
     webc: &str,
     runtime: &dyn WasiRuntime,
+    auth_token: Option<String>,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let client = runtime
         .http_client()
         .context("no http client available")?
         .clone();
 
-    let f = async move { fetch_webc(cache_dir, webc, client).await };
+    let f = async move { fetch_webc(cache_dir, webc, client, auth_token).await };
 
     let result = runtime
         .task_manager()
@@ -48,6 +49,7 @@ async fn fetch_webc(
     cache_dir: &Path,
     webc: &str,
     client: DynHttpClient,
+    auth_token: Option<String>,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let name = webc.split_once(':').map(|a| a.0).unwrap_or_else(|| webc);
     let (name, version) = match name.split_once('@') {
@@ -90,7 +92,7 @@ async fn fetch_webc(
         url: download_url,
         version,
     } = wapm_extract_version(&data).context("No pirita download URL available")?;
-    let mut pkg = download_webc(cache_dir, name, download_url, client).await?;
+    let mut pkg = download_webc(cache_dir, name, download_url, client, auth_token).await?;
     pkg.version = version;
     Ok(pkg)
 }
@@ -132,6 +134,7 @@ async fn download_webc(
     name: &str,
     pirita_download_url: String,
     client: DynHttpClient,
+    auth_token: Option<String>,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut name_comps = pirita_download_url
         .split('/')
@@ -178,7 +181,7 @@ async fn download_webc(
     }
 
     // slow path
-    let data = download_package(&pirita_download_url, client)
+    let data = download_package(&pirita_download_url, client, auth_token)
         .await
         .with_context(|| {
             format!(
@@ -242,11 +245,18 @@ async fn download_webc(
 async fn download_package(
     download_url: &str,
     client: DynHttpClient,
+    auth_token: Option<String>,
 ) -> Result<Vec<u8>, anyhow::Error> {
+    let headers = if let Some(token) = auth_token {
+        vec![("Authorization".to_string(), format!("Bearer {}", token))]
+    } else {
+        vec![]
+    };
+
     let request = HttpRequest {
         url: download_url.to_string(),
         method: "GET".to_string(),
-        headers: vec![],
+        headers,
         body: None,
         options: HttpRequestOptions {
             gzip: true,

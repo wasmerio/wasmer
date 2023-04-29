@@ -25,6 +25,9 @@ pub struct ModuleCache {
     pub(crate) cache_webc_dir: PathBuf,
 
     pub(crate) cache_time: std::time::Duration,
+
+    /// Auth token used for downloading packages.
+    registry_auth_token: Option<String>,
 }
 
 // FIXME: remove impls!
@@ -76,6 +79,14 @@ impl ModuleCache {
             cache_webc: RwLock::new(HashMap::default()),
             cache_webc_dir,
             cache_time: DEFAULT_CACHE_TIME,
+            registry_auth_token: None,
+        }
+    }
+
+    pub fn with_auth_token(self, auth_token: Option<String>) -> Self {
+        Self {
+            registry_auth_token: auth_token,
+            ..self
         }
     }
 
@@ -142,9 +153,12 @@ impl ModuleCache {
                 .split_once(':')
                 .map(|a| a.0)
                 .unwrap_or_else(|| name.as_str());
-            if let Ok(mut data) =
-                crate::wapm::fetch_webc_task(&self.cache_webc_dir, wapm_name, runtime)
-            {
+            if let Ok(mut data) = crate::wapm::fetch_webc_task(
+                &self.cache_webc_dir,
+                wapm_name,
+                runtime,
+                self.registry_auth_token.clone(),
+            ) {
                 // If the binary has no entry but it inherits from another module
                 // that does have an entry then we fall back to that inherited entry point
                 // (this convention is recursive down the list of inheritance until it finds the first entry point)
@@ -294,6 +308,29 @@ mod tests {
     use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
     use super::*;
+
+    /// Test package downloads with auth token.
+    /// NOTE: This test requires the WEBC_REGISTRY_AUTH_TOKEN env var to be set.
+    /// Will be skipped if not set.
+    #[test]
+    fn test_module_cache_with_auth_token() {
+        let token = match std::env::var("WEBC_REGISTRY_AUTH_TOKEN") {
+            Ok(token) => token,
+            Err(_) => {
+                dbg!("Skipping test test_module_cache_with_auth_token due to missing WEBC_REGISTRY_AUTH_TOKEN env var");
+                return;
+            }
+        };
+
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut cache =
+            ModuleCache::new(None, Some(dir.path().to_owned()), true).with_auth_token(Some(token));
+        cache.cache_time = std::time::Duration::from_millis(500);
+
+        let rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        let _webc = cache.get_webc("sharrattj/dash", &rt).unwrap();
+    }
 
     #[test]
     fn test_module_cache() {
