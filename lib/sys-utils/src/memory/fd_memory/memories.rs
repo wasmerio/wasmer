@@ -344,6 +344,7 @@ impl LinearMemory for VMOwnedMemory {
 
     /// Owned memory can not be cloned (this will always return None)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+        tracing::warn!("trying to clone owned memory");
         None
     }
 
