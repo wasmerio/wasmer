@@ -114,7 +114,7 @@ pub enum Locator {
     /// A package on the current machine.
     Local(PathBuf),
     /// An exact URL.
-    Url(reqwest::Url),
+    Url(url::Url),
 }
 
 #[derive(Debug, thiserror::Error)]

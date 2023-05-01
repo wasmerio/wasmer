@@ -59,6 +59,7 @@ wcgi = { version = "0.1.2", optional = true }
 wcgi-host = { version = "0.1.2", optional = true }
 tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "cors"], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
+url = "2.3.1"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"

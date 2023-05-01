@@ -1,10 +1,10 @@
 use anyhow::{bail, Context};
-use reqwest::Url;
 use std::{
     collections::HashMap,
     path::Path,
     sync::{Arc, Mutex, RwLock},
 };
+use url::Url;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 

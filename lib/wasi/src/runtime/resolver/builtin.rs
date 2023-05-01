@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use reqwest::Url;
+use url::Url;
 
 use crate::{
     bin_factory::BinaryPackage,
