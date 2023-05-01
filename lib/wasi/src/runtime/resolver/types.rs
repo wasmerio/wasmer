@@ -1,21 +1,38 @@
-use std::{collections::BTreeMap, ops::Deref, path::PathBuf, str::FromStr};
+use std::{collections::BTreeMap, fmt::Display, ops::Deref, path::PathBuf, str::FromStr};
 
-use crate::{bin_factory::BinaryPackage, http::HttpClient, runtime::resolver::InMemoryCache};
+use crate::{
+    bin_factory::BinaryPackage,
+    http::HttpClient,
+    runtime::resolver::{cache::CacheConfig, InMemoryCache},
+};
 
 #[async_trait::async_trait]
 pub trait PackageResolver: std::fmt::Debug + Send + Sync {
     /// Resolve a package, loading all dependencies.
     async fn resolve_package(
         &self,
-        pkg: WebcIdentifier,
+        pkg: &WebcIdentifier,
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError>;
 
+    /// Wrap the [`PackageResolver`] in an in-memory LRU cache.
+    ///
+    /// This is just a shortcut for calling
+    /// [`PackageResolver::with_cache_and_config()`] using
+    /// [`CacheConfig::default()`].
     fn with_cache(self) -> InMemoryCache<Self>
     where
         Self: Sized,
     {
-        InMemoryCache::new(self)
+        self.with_cache_and_config(CacheConfig::default())
+    }
+
+    /// Wrap the [`PackageResolver`] in an in-memory LRU cache.
+    fn with_cache_and_config(self, cfg: CacheConfig) -> InMemoryCache<Self>
+    where
+        Self: Sized,
+    {
+        InMemoryCache::new(self, cfg)
     }
 }
 
@@ -28,7 +45,7 @@ where
     /// Resolve a package, loading all dependencies.
     async fn resolve_package(
         &self,
-        pkg: WebcIdentifier,
+        pkg: &WebcIdentifier,
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError> {
         (**self).resolve_package(pkg, client).await
@@ -40,7 +57,7 @@ pub struct WebcIdentifier {
     /// The package's full name (i.e. `wasmer/wapm2pirita`).
     pub full_name: String,
     pub locator: Locator,
-    /// A version constraint.
+    /// A semver-compliant version constraint.
     pub version: String,
 }
 
@@ -70,6 +87,26 @@ impl FromStr for WebcIdentifier {
     }
 }
 
+impl Display for WebcIdentifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let WebcIdentifier {
+            full_name,
+            locator,
+            version,
+        } = self;
+
+        write!(f, "{full_name}@{version}")?;
+
+        match locator {
+            Locator::Registry => {}
+            Locator::Local(path) => write!(f, " ({})", path.display())?,
+            Locator::Url(url) => write!(f, " ({url})")?,
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Locator {
     /// The current registry.
@@ -82,6 +119,8 @@ pub enum Locator {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ResolverError {
+    #[error("Unknown package, {_0}")]
+    UnknownPackage(WebcIdentifier),
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }

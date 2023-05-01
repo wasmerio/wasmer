@@ -51,7 +51,7 @@ impl BuiltinResolver {
 impl PackageResolver for BuiltinResolver {
     async fn resolve_package(
         &self,
-        pkg: WebcIdentifier,
+        pkg: &WebcIdentifier,
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError> {
         crate::wapm::fetch_webc(

@@ -132,7 +132,7 @@ impl ModuleCache {
         let ident = webc.parse().context("Unable to parse the package name")?;
         let http_client = runtime.http_client().context("No http client available")?;
         let resolver = runtime.package_resolver();
-        let fut = resolver.resolve_package(ident, http_client);
+        let fut = resolver.resolve_package(&ident, http_client);
 
         match runtime.task_manager().block_on(fut) {
             Ok(mut data) => {
