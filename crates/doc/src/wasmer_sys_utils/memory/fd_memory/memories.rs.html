@@ -589,6 +589,24 @@
 <span id="589">589</span>
 <span id="590">590</span>
 <span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Memory management for linear memories.
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
@@ -604,7 +622,9 @@
 
 <span class="kw">use </span>wasmer::{Bytes, MemoryError, MemoryType, Pages};
 <span class="kw">use </span>wasmer_types::MemoryStyle;
-<span class="kw">use </span>wasmer_vm::{LinearMemory, MaybeInstanceOwned, Trap, VMMemoryDefinition};
+<span class="kw">use </span>wasmer_vm::{
+    LinearMemory, MaybeInstanceOwned, ThreadConditions, Trap, VMMemoryDefinition, WaiterError,
+};
 
 <span class="kw">use </span><span class="kw">super</span>::fd_mmap::FdMmap;
 
@@ -888,6 +908,7 @@
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(<span class="self">self</span>.mmap)),
             config: <span class="self">self</span>.config,
+            conditions: ThreadConditions::new(),
         }
     }
 
@@ -932,6 +953,7 @@
 
     <span class="doccomment">/// Owned memory can not be cloned (this will always return None)
     </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="macro">tracing::warn!</span>(<span class="string">&quot;trying to clone owned memory&quot;</span>);
         <span class="prelude-val">None
     </span>}
 
@@ -949,6 +971,7 @@
     </span>mmap: Arc&lt;RwLock&lt;WasmMmap&gt;&gt;,
     <span class="comment">// Configuration of this memory
     </span>config: VMMemoryConfig,
+    conditions: ThreadConditions,
 }
 
 <span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMSharedMemory {}
@@ -984,6 +1007,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             mmap: Arc::new(RwLock::new(guard.duplicate()<span class="question-mark">?</span>)),
             config: <span class="self">self</span>.config.clone(),
+            conditions: ThreadConditions::new(),
         })
     }
 }
@@ -1033,6 +1057,18 @@
     </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
         <span class="kw">let </span>forked = <span class="self">Self</span>::duplicate(<span class="self">self</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Box::new(forked))
+    }
+
+    <span class="kw">fn </span>do_wait(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        dst: wasmer_vm::NotifyLocation,
+        timeout: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, WaiterError&gt; {
+        <span class="self">self</span>.conditions.do_wait(dst, timeout)
+    }
+
+    <span class="kw">fn </span>do_notify(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dst: wasmer_vm::NotifyLocation, count: u32) -&gt; u32 {
+        <span class="self">self</span>.conditions.do_notify(dst, count)
     }
 }
 

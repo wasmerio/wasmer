@@ -222,6 +222,8 @@
 <span id="222">222</span>
 <span id="223">223</span>
 <span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
 </pre><pre class="rust"><code><span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>fnv::FnvBuildHasher;
 <span class="kw">use </span>std::sync::Arc;
@@ -229,8 +231,10 @@
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>thiserror::Error;
 
-<span class="doccomment">/// Wait/Notify error type
+<span class="doccomment">/// Error that can occur during wait/notify calls.
 </span><span class="attribute">#[derive(Debug, Error)]
+</span><span class="comment">// Non-exhaustive to allow for future variants without breaking changes!
+</span><span class="attribute">#[non_exhaustive]
 </span><span class="kw">pub enum </span>WaiterError {
     <span class="doccomment">/// Wait/Notify is not implemented for this memory
     </span>Unimplemented,

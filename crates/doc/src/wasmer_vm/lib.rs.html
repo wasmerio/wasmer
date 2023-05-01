@@ -152,6 +152,9 @@
 <span id="152">152</span>
 <span id="153">153</span>
 <span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.
 
 </span><span class="attribute">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
@@ -210,6 +213,9 @@
 <span class="kw">pub use </span><span class="kw">crate</span>::sig_registry::SignatureRegistry;
 <span class="kw">pub use </span><span class="kw">crate</span>::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 <span class="kw">pub use </span><span class="kw">crate</span>::table::{TableElement, VMTable};
+<span class="attribute">#[doc(hidden)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::threadconditions::ThreadConditions;
+<span class="kw">pub use </span><span class="kw">crate</span>::threadconditions::WaiterError;
 <span class="kw">pub use </span><span class="kw">crate</span>::trap::<span class="kw-2">*</span>;
 <span class="kw">pub use </span><span class="kw">crate</span>::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
