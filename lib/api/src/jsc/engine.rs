@@ -81,7 +81,6 @@ impl From<&crate::engine::Engine> for Engine {
 }
 
 pub(crate) trait JSC {
-    #[inline]
     fn jsc(&self) -> &JSCEngine;
 }
 

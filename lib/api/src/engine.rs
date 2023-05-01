@@ -232,7 +232,6 @@ impl<'a> EngineRef<'a> {
 /// Helper trait for a value that is convertible to a [`EngineRef`].
 pub trait AsEngineRef {
     /// Returns a `EngineRef` pointing to the underlying context.
-    #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_>;
 }
 
