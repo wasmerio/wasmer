@@ -191,7 +191,7 @@ mod tests {
             .with_max_level(LevelFilter::INFO)
             .try_init();
 
-        let mut cache = ModuleCache::new(None, true);
+        let cache = ModuleCache::new(None, true);
 
         let rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
         let tasks = rt.task_manager();

@@ -49,11 +49,6 @@ pub struct Wasi {
     #[clap(long = "use", name = "USE")]
     uses: Vec<String>,
 
-    /// List of webc packages that are explicitely included for execution
-    /// Note: these packages will be used instead of those in the registry
-    #[clap(long = "include-webc", name = "WEBC")]
-    include_webcs: Vec<String>,
-
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
     map_commands: Vec<String>,
@@ -147,7 +142,7 @@ impl Wasi {
         if !self.no_tty {
             let tty = Arc::new(SysTty::default());
             tty.reset();
-            rt.set_tty(tty)
+            rt.set_tty(tty);
         }
 
         let engine = store.as_store_mut().engine().clone();
@@ -158,7 +153,6 @@ impl Wasi {
             .args(args)
             .envs(self.env_vars.clone())
             .uses(self.uses.clone())
-            .include_webcs(self.include_webcs.clone())
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasix::is_wasix_module(module) {

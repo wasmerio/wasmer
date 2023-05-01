@@ -73,7 +73,7 @@ where
         ident: &WebcIdentifier,
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError> {
-        if let Some(cached) = self.lookup(&ident) {
+        if let Some(cached) = self.lookup(ident) {
             // Cache hit!
             tracing::debug!(package=?ident, "The resolved package was already cached");
             return Ok(cached);
