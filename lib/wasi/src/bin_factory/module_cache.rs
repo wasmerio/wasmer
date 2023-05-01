@@ -1,28 +1,17 @@
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    ops::DerefMut,
-    path::PathBuf,
-    sync::RwLock,
-};
+use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
 use anyhow::Context;
 use wasmer::Module;
-use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
 use super::BinaryPackage;
-use crate::{syscalls::platform_clock_time_get, WasiRuntime};
+use crate::WasiRuntime;
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
-pub const DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_secs(30);
 
 #[derive(Debug)]
 pub struct ModuleCache {
     pub(crate) cache_compile_dir: PathBuf,
     pub(crate) cached_modules: Option<RwLock<HashMap<String, Module>>>,
-    pub(crate) cache_webc: RwLock<HashMap<String, BinaryPackage>>,
-    /// How long items should be cached for.
-    pub(crate) cache_time: std::time::Duration,
 }
 
 // FIXME: remove impls!
@@ -63,120 +52,27 @@ impl ModuleCache {
         ModuleCache {
             cached_modules,
             cache_compile_dir,
-            cache_webc: RwLock::new(HashMap::default()),
-            cache_time: DEFAULT_CACHE_TIME,
         }
     }
 
-    /// Adds a package manually to the module cache
-    pub fn add_webc(&self, webc: &str, package: BinaryPackage) {
-        let mut cache = self.cache_webc.write().unwrap();
-        cache.insert(webc.to_string(), package);
-    }
-
-    // TODO: should return Result<_, anyhow::Error>
     pub fn get_webc(
         &self,
         webc: &str,
         runtime: &dyn WasiRuntime,
     ) -> Result<BinaryPackage, anyhow::Error> {
-        let name = webc.to_string();
-
-        // Fast path
-        {
-            let cache = self.cache_webc.read().unwrap();
-            if let Some(data) = cache.get(&name) {
-                if let Some(when_cached) = data.when_cached.as_ref() {
-                    /* get the current platform time at this point because of the lock conflict
-                     * now time remains the same and the lock from a differnt thread can cause when_cached to go ahead
-                     * and cause a panic
-                     */
-                    let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
-                        .unwrap() as u128;
-                    let delta = now.saturating_sub(*when_cached); //saturating sub for delta and  to prevent panic
-                    if delta <= self.cache_time.as_nanos() {
-                        return Ok(data.clone());
-                    }
-                } else {
-                    return Ok(data.clone());
-                }
-            }
-        }
-
-        // Slow path
-        let mut cache = self.cache_webc.write().unwrap();
-        self.get_webc_slow(webc, runtime, cache.deref_mut())
-    }
-
-    fn get_webc_slow(
-        &self,
-        webc: &str,
-        runtime: &dyn WasiRuntime,
-        cache: &mut HashMap<String, BinaryPackage>,
-    ) -> Result<BinaryPackage, anyhow::Error> {
-        let name = webc.to_string();
-        let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
-
-        // Check the cache (again)
-        if let Some(data) = cache.get(&name) {
-            if let Some(when_cached) = data.when_cached.as_ref() {
-                let delta = now - *when_cached;
-                if delta <= self.cache_time.as_nanos() {
-                    return Ok(data.clone());
-                }
-            } else {
-                return Ok(data.clone());
-            }
-        }
-
         let ident = webc.parse().context("Unable to parse the package name")?;
-        let http_client = runtime.http_client().context("No http client available")?;
         let resolver = runtime.package_resolver();
-        let fut = resolver.resolve_package(&ident, http_client);
+        let client = runtime
+            .http_client()
+            .context("No HTTP client available")?
+            .clone();
 
-        match runtime.task_manager().block_on(fut) {
-            Ok(mut data) => {
-                // If the binary has no entry but it inherits from another module
-                // that does have an entry then we fall back to that inherited entry point
-                // (this convention is recursive down the list of inheritance until it finds the first entry point)
-                let mut already: HashSet<String> = Default::default();
-                while data.entry.is_none() {
-                    let mut inherits = data.uses.iter().filter_map(|webc| {
-                        if !already.contains(webc) {
-                            already.insert(webc.clone());
-                            dbg!(self.get_webc_slow(webc, runtime, cache)).ok()
-                        } else {
-                            None
-                        }
-                    });
-                    if let Some(inherits) = inherits.next() {
-                        data.entry = inherits.entry.clone();
-                    } else {
-                        break;
-                    }
-                }
-
-                // If the package is the same then don't replace it
-                // as we don't want to duplicate the memory usage
-                if let Some(existing) = cache.get_mut(&name) {
-                    if existing.hash() == data.hash() && existing.version == data.version {
-                        existing.when_cached = Some(now);
-                        return Ok(existing.clone());
-                    }
-                }
-                cache.insert(name, data.clone());
-                Ok(data)
-            }
-            Err(e) => {
-                // If we have an old one that use that (ignoring the TTL)
-                if let Some(data) = cache.get(&name) {
-                    return Ok(data.clone());
-                }
-
-                // Otherwise, return the original error
-                Err(e.into())
-            }
-        }
+        runtime.task_manager().block_on(async move {
+            resolver
+                .resolve_package(&ident, &*client)
+                .await
+                .with_context(|| format!("An error occurred while fetching \"{webc}\""))
+        })
     }
 
     pub fn get_compiled_module(
@@ -279,67 +175,13 @@ impl ModuleCache {
 #[cfg(test)]
 #[cfg(feature = "sys")]
 mod tests {
-    use std::{path::Path, sync::Arc, time::Duration};
+    use std::{sync::Arc, time::Duration};
 
-    use tempfile::TempDir;
     use tracing_subscriber::filter::LevelFilter;
 
-    use crate::{
-        http::{reqwest::ReqwestHttpClient, HttpClient},
-        runtime::{resolver::BuiltinResolver, task_manager::tokio::TokioTaskManager},
-        PluggableRuntime,
-    };
+    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
     use super::*;
-
-    #[derive(Debug)]
-    struct DummyRuntime {
-        task_manager: Arc<dyn crate::VirtualTaskManager>,
-        temp: TempDir,
-        client: Arc<dyn HttpClient + Send + Sync>,
-        resolver: Arc<BuiltinResolver>,
-        _tokio_runtime: tokio::runtime::Runtime,
-    }
-
-    impl Default for DummyRuntime {
-        fn default() -> Self {
-            let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
-            let task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
-            let temp = TempDir::new().unwrap();
-            let resolver = BuiltinResolver::new(
-                temp.path(),
-                BuiltinResolver::WAPM_DEV_ENDPOINT.parse().unwrap(),
-            );
-            let client = ReqwestHttpClient::default();
-            DummyRuntime {
-                _tokio_runtime: tokio_runtime,
-                task_manager: Arc::new(task_manager),
-                temp,
-                resolver: Arc::new(resolver),
-                client: Arc::new(client),
-            }
-        }
-    }
-
-    impl WasiRuntime for DummyRuntime {
-        fn networking(&self) -> &virtual_net::DynVirtualNetworking {
-            todo!()
-        }
-
-        fn task_manager(&self) -> &Arc<dyn crate::VirtualTaskManager> {
-            &self.task_manager
-        }
-
-        fn package_resolver(
-            &self,
-        ) -> Arc<dyn crate::runtime::resolver::PackageResolver + Send + Sync> {
-            self.resolver.clone()
-        }
-
-        fn http_client(&self) -> Option<&crate::http::DynHttpClient> {
-            Some(&self.client)
-        }
-    }
 
     #[test]
     fn test_module_cache() {
@@ -350,7 +192,6 @@ mod tests {
             .try_init();
 
         let mut cache = ModuleCache::new(None, true);
-        cache.cache_time = std::time::Duration::from_millis(500);
 
         let rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
         let tasks = rt.task_manager();
@@ -363,83 +204,5 @@ mod tests {
                 .runtime()
                 .block_on(tasks.sleep_now(Duration::from_secs(1)));
         }
-    }
-
-    fn list_dir(dir: impl AsRef<Path>) -> Vec<String> {
-        let mut items = Vec::new();
-
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            let filename = path.file_name().and_then(|p| p.to_str()).unwrap();
-            items.push(filename.to_string());
-        }
-
-        items.sort();
-
-        items
-    }
-
-    #[test]
-    fn load_webc_from_a_cold_cache() {
-        let rt = DummyRuntime::default();
-        let cache = ModuleCache::new(None, false);
-
-        let pkg = cache.get_webc("wasmer/hello", &rt).unwrap();
-
-        assert_eq!(pkg.package_name, "wasmer/hello");
-        assert_eq!(pkg.version, "0.1.0");
-        // The in-memory cache has now been warmed
-        let mut cached_packages = cache
-            .cache_webc
-            .read()
-            .unwrap()
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>();
-        cached_packages.sort();
-        assert_eq!(
-            cached_packages,
-            ["sharrattj/static-web-server@1", "wasmer/hello"]
-        );
-        // Ww've also saved to disk
-        assert_eq!(
-            list_dir(rt.temp.path()),
-            [
-                "sharrattj_static-web-server_static-web-server-1.0.95-08d28770-d510-4149-9645-b44419b48bbb.webc",
-                "wasmer_hello_hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc",
-            ],
-        );
-    }
-
-    fn dummy_package(name: impl Into<String>) -> BinaryPackage {
-        BinaryPackage {
-            package_name: name.into(),
-            version: "0.0.0".to_string(),
-            when_cached: None,
-            entry: None,
-            hash: Arc::default(),
-            webc_fs: None,
-            commands: Arc::default(),
-            uses: Vec::new(),
-            module_memory_footprint: 0,
-            file_system_memory_footprint: 0,
-        }
-    }
-
-    #[test]
-    fn load_webc_from_a_warm_cache() {
-        let rt = DummyRuntime::default();
-        let cache = ModuleCache::new(None, false);
-        // artificially warm the cache
-        cache.add_webc("wasmer/hello", dummy_package("dummy"));
-
-        let pkg = cache.get_webc("wasmer/hello", &rt).unwrap();
-
-        assert_eq!(pkg.package_name, "dummy");
-        // The in-memory cache has now been warmed
-        let cached_webc = cache.cache_webc.read().unwrap();
-        assert!(cached_webc.contains_key("wasmer/hello"));
-        // But we didn't need to re-download and save to disk
-        assert!(list_dir(rt.temp.path()).is_empty());
     }
 }
