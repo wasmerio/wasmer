@@ -106,29 +106,43 @@ impl PluggableRuntime {
             }
         }
 
+        let resolver =
+            BuiltinResolver::from_env().expect("Loading the builtin resolver should never fail");
+
         Self {
             rt,
             networking,
             http_client,
             engine: None,
             tty: None,
-            resolver: Arc::new(BuiltinResolver::default()),
+            resolver: Arc::new(resolver),
         }
     }
 
-    pub fn set_networking_implementation<I>(&mut self, net: I)
+    pub fn set_networking_implementation<I>(&mut self, net: I) -> &mut Self
     where
         I: VirtualNetworking + Sync,
     {
-        self.networking = Arc::new(net)
+        self.networking = Arc::new(net);
+        self
     }
 
-    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
+    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) -> &mut Self {
         self.engine = engine;
+        self
     }
 
-    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> &mut Self {
         self.tty = Some(tty);
+        self
+    }
+
+    pub fn set_resolver(
+        &mut self,
+        resolver: impl PackageResolver + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.resolver = Arc::new(resolver);
+        self
     }
 }
 

@@ -1,4 +1,5 @@
 use anyhow::{bail, Context};
+use reqwest::Url;
 use std::{
     collections::HashMap,
     path::Path,
@@ -29,29 +30,27 @@ pub(crate) async fn fetch_webc(
     cache_dir: &Path,
     webc: &str,
     client: &(dyn HttpClient + Send + Sync),
+    registry_endpoint: &Url,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let name = webc.split_once(':').map(|a| a.0).unwrap_or_else(|| webc);
     let (name, version) = match name.split_once('@') {
         Some((name, version)) => (name, Some(version)),
         None => (name, None),
     };
-    let url_query = match version {
+    let query = match version {
         Some(version) => WAPM_WEBC_QUERY_SPECIFIC
             .replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str())
             .replace(WAPM_WEBC_VERSION_TAG, version.replace('\"', "'").as_str()),
         None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str()),
     };
-    tracing::debug!("request: {}", url_query);
+    tracing::debug!(query = query.as_str(), "Preparing GraphQL query");
 
-    let url = format!(
-        "{}{}",
-        WAPM_WEBC_URL,
-        urlencoding::encode(url_query.as_str())
-    );
+    let mut url = registry_endpoint.clone();
+    url.query_pairs_mut().append_pair("query", &query);
 
     let response = client
         .request(HttpRequest {
-            url,
+            url: url.to_string(),
             method: "GET".to_string(),
             headers: vec![],
             body: None,

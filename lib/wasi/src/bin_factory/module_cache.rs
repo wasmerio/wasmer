@@ -306,7 +306,10 @@ mod tests {
             let tokio_runtime = tokio::runtime::Runtime::new().unwrap();
             let task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
             let temp = TempDir::new().unwrap();
-            let resolver = BuiltinResolver::new(temp.path());
+            let resolver = BuiltinResolver::new(
+                temp.path(),
+                BuiltinResolver::WAPM_DEV_ENDPOINT.parse().unwrap(),
+            );
             let client = ReqwestHttpClient::default();
             DummyRuntime {
                 _tokio_runtime: tokio_runtime,
