@@ -3,11 +3,7 @@ use std::{collections::BTreeMap, fmt::Display, ops::Deref, path::PathBuf, str::F
 use anyhow::Context;
 use semver::VersionReq;
 
-use crate::{
-    bin_factory::BinaryPackage,
-    http::HttpClient,
-    runtime::resolver::{fallback::FallbackResolver, InMemoryCache},
-};
+use crate::{bin_factory::BinaryPackage, http::HttpClient, runtime::resolver::InMemoryCache};
 
 #[async_trait::async_trait]
 pub trait PackageResolver: std::fmt::Debug + Send + Sync {
@@ -24,16 +20,6 @@ pub trait PackageResolver: std::fmt::Debug + Send + Sync {
         Self: Sized,
     {
         InMemoryCache::new(self)
-    }
-
-    /// Append another resolver that will be queried if
-    /// [`PackageResolver::resolve_package()`] fails.
-    fn with_fallback<R>(self, other: R) -> FallbackResolver<Self, R>
-    where
-        Self: Sized,
-        R: PackageResolver,
-    {
-        FallbackResolver::new(self, other)
     }
 }
 

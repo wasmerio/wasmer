@@ -14,7 +14,7 @@ use wasmer_wasix::{
     os::{tty_sys::SysTty, TtyBridge},
     runners::MappedDirectory,
     runtime::{
-        resolver::{PackageResolver, PreloadedResolver, RegistryResolver},
+        resolver::{PackageResolver, RegistryResolver},
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
@@ -273,20 +273,15 @@ impl Wasi {
     }
 
     fn prepare_resolver(&self) -> Result<impl PackageResolver> {
-        let resolver = PreloadedResolver::new(self.preload_webcs()?)
-            .with_fallback(wapm_resolver()?)
-            .with_cache();
+        let mut resolver = wapm_resolver()?;
 
-        Ok(resolver)
-    }
+        for path in &self.include_webcs {
+            let pkg = preload_webc(path)
+                .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
+            resolver.add_preload(pkg);
+        }
 
-    fn preload_webcs(&self) -> std::result::Result<Vec<BinaryPackage>, anyhow::Error> {
-        self.include_webcs
-            .iter()
-            .map(|path| {
-                preload_webc(path).with_context(|| format!("Unable to load \"{}\"", path.display()))
-            })
-            .collect::<Result<Vec<_>>>()
+        Ok(resolver.with_cache())
     }
 }
 

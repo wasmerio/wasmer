@@ -17,6 +17,11 @@ use crate::{
 pub struct RegistryResolver {
     cache_dir: PathBuf,
     registry_endpoint: Url,
+    /// A list of [`BinaryPackage`]s that have already been loaded into memory
+    /// by the user.
+    // TODO: Remove this "preload" hack and update the snapshot tests to
+    // use a local registry instead of "--include-webc"
+    preloaded: Vec<BinaryPackage>,
 }
 
 impl RegistryResolver {
@@ -27,6 +32,7 @@ impl RegistryResolver {
         RegistryResolver {
             cache_dir: cache_dir.into(),
             registry_endpoint,
+            preloaded: Vec::new(),
         }
     }
 
@@ -46,6 +52,26 @@ impl RegistryResolver {
 
         Ok(RegistryResolver::new(wasmer_home, endpoint))
     }
+
+    /// Add a preloaded [`BinaryPackage`] to the list of preloaded packages.
+    ///
+    /// The [`RegistryResolver`] adds a mechanism that allows you to "preload" a
+    /// [`BinaryPackage`] that already exists in memory. The
+    /// [`PackageResolver::resolve_package()`] method will first check this list
+    /// for a compatible package before checking WAPM.
+    ///
+    /// **This mechanism should only be used for testing**. Expect it to be
+    /// removed in future versions in favour of a local registry.
+    pub fn add_preload(&mut self, pkg: BinaryPackage) -> &mut Self {
+        self.preloaded.push(pkg);
+        self
+    }
+
+    fn lookup_preloaded(&self, pkg: &WebcIdentifier) -> Option<&BinaryPackage> {
+        self.preloaded.iter().find(|candidate| {
+            candidate.package_name == pkg.full_name && pkg.version.matches(&candidate.version)
+        })
+    }
 }
 
 #[async_trait::async_trait]
@@ -55,6 +81,10 @@ impl PackageResolver for RegistryResolver {
         pkg: &WebcIdentifier,
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError> {
+        if let Some(preloaded) = self.lookup_preloaded(pkg) {
+            return Ok(preloaded.clone());
+        }
+
         crate::wapm::fetch_webc(
             &self.cache_dir,
             &pkg.full_name,
