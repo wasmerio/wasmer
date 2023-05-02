@@ -568,7 +568,7 @@ impl WasiEnvBuilder {
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    /// can be used to construct a new [`WasiEnv`].
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     ///
