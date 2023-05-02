@@ -87,7 +87,7 @@ mod tests {
         let pkg = resolver.resolve_package(&ident, &client).await.unwrap();
 
         assert_eq!(pkg.package_name, "wasmer/sha2");
-        assert_eq!(pkg.version, "0.1.0");
+        assert_eq!(pkg.version.to_string(), "0.1.0");
         let filenames: Vec<_> = temp
             .path()
             .read_dir()

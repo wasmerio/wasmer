@@ -2,6 +2,7 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Dura
 
 use derivative::Derivative;
 use rand::Rng;
+use semver::Version;
 use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
@@ -764,7 +765,7 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
-        let mut already: HashMap<String, String> = HashMap::new();
+        let mut already: HashMap<String, Version> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
 
@@ -782,7 +783,7 @@ impl WasiEnv {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
                 if let Some(version) = already.get(&package_name) {
-                    if version.as_str() != package.version {
+                    if *version != package.version {
                         return Err(WasiStateCreationError::WasiInheritError(format!(
                             "webc package version conflict for {} - {} vs {}",
                             use_package, version, package.version

@@ -1,5 +1,7 @@
 use std::{collections::HashMap, sync::RwLock};
 
+use semver::VersionReq;
+
 use crate::{
     bin_factory::BinaryPackage,
     http::HttpClient,
@@ -10,7 +12,7 @@ use crate::{
 #[derive(Debug)]
 pub struct InMemoryCache<R> {
     resolver: R,
-    packages: RwLock<HashMap<WebcIdentifier, BinaryPackage>>,
+    packages: RwLock<HashMap<String, Vec<BinaryPackage>>>,
 }
 
 impl<R> InMemoryCache<R> {
@@ -33,13 +35,24 @@ impl<R> InMemoryCache<R> {
         self.resolver
     }
 
-    fn lookup(&self, ident: &WebcIdentifier) -> Option<BinaryPackage> {
-        self.packages.read().unwrap().get(ident).cloned()
+    fn lookup(&self, package_name: &str, version_constraint: &VersionReq) -> Option<BinaryPackage> {
+        let packages = self.packages.read().unwrap();
+        let candidates = packages.get(package_name)?;
+
+        let pkg = candidates
+            .iter()
+            .find(|pkg| version_constraint.matches(&pkg.version))?;
+
+        Some(pkg.clone())
     }
 
-    fn save(&self, ident: &WebcIdentifier, pkg: BinaryPackage) {
+    fn save(&self, pkg: BinaryPackage) {
         let mut packages = self.packages.write().unwrap();
-        packages.insert(ident.clone(), pkg);
+        let candidates = packages.entry(pkg.package_name.clone()).or_default();
+        candidates.push(pkg);
+        // Note: We want to sort in descending order so lookups will always
+        // yield the most recent compatible version.
+        candidates.sort_by(|left, right| right.version.cmp(&left.version));
     }
 }
 
@@ -53,7 +66,7 @@ where
         ident: &WebcIdentifier,
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError> {
-        if let Some(cached) = self.lookup(ident) {
+        if let Some(cached) = self.lookup(&ident.full_name, &ident.version) {
             // Cache hit!
             tracing::debug!(package=?ident, "The resolved package was already cached");
             return Ok(cached);
@@ -64,12 +77,12 @@ where
 
         tracing::debug!(
             request.name = ident.full_name.as_str(),
-            request.version = ident.version.as_str(),
+            request.version = %ident.version,
             resolved.name = pkg.package_name.as_str(),
-            resolved.version = pkg.version.as_str(),
+            resolved.version = %pkg.version,
             "Adding resolved package to the cache",
         );
-        self.save(ident, pkg.clone());
+        self.save(pkg.clone());
 
         Ok(pkg)
     }
@@ -98,10 +111,10 @@ mod tests {
         }
     }
 
-    fn dummy_pkg(name: impl Into<String>) -> BinaryPackage {
+    fn dummy_pkg(name: &str, version: &str) -> BinaryPackage {
         BinaryPackage {
             package_name: name.into(),
-            version: "0.0.0".to_string(),
+            version: version.parse().unwrap(),
             when_cached: None,
             entry: None,
             hash: Arc::default(),
@@ -131,14 +144,40 @@ mod tests {
         let resolver = DummyResolver::default();
         let cache = InMemoryCache::new(resolver);
         let ident: WebcIdentifier = "python/python".parse().unwrap();
-        cache.save(&ident, dummy_pkg("python/python"));
+        cache.save(dummy_pkg("python/python", "0.0.0"));
 
         let pkg = cache
             .resolve_package(&ident, &DummyHttpClient)
             .await
             .unwrap();
 
-        assert_eq!(pkg.version, "0.0.0");
+        assert_eq!(pkg.version.to_string(), "0.0.0");
+    }
+
+    #[tokio::test]
+    async fn semver_allows_wiggle_room_with_version_numbers() {
+        let resolver = DummyResolver::default();
+        let cache = InMemoryCache::new(resolver);
+        cache.save(dummy_pkg("python/python", "1.0.0"));
+        cache.save(dummy_pkg("python/python", "1.1.0"));
+        cache.save(dummy_pkg("python/python", "2.0.0"));
+
+        let pkg = cache
+            .resolve_package(&"python/python@^1.0.5".parse().unwrap(), &DummyHttpClient)
+            .await
+            .unwrap();
+        assert_eq!(pkg.version.to_string(), "1.1.0");
+
+        let pkg = cache
+            .resolve_package(&"python/python@1".parse().unwrap(), &DummyHttpClient)
+            .await
+            .unwrap();
+        assert_eq!(pkg.version.to_string(), "1.1.0");
+
+        let result = cache
+            .resolve_package(&"python/python@=2.0.1".parse().unwrap(), &DummyHttpClient)
+            .await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]
@@ -146,7 +185,6 @@ mod tests {
         let resolver = DummyResolver::default();
         let cache = InMemoryCache::new(resolver);
         let ident: WebcIdentifier = "python/python".parse().unwrap();
-        assert!(cache.lookup(&ident).is_none());
 
         let expected_err = cache
             .resolve_package(&ident, &DummyHttpClient)

@@ -71,7 +71,7 @@ pub(crate) async fn fetch_webc(
         version,
     } = wapm_extract_version(&data).context("No pirita download URL available")?;
     let mut pkg = download_webc(cache_dir, name, download_url, client).await?;
-    pkg.version = version;
+    pkg.version = version.parse()?;
     Ok(pkg)
 }
 
@@ -288,7 +288,7 @@ fn parse_webc_v2(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
         webc_fs: Some(Arc::new(webc_fs)),
         commands: Arc::new(RwLock::new(commands.into_values().collect())),
         uses,
-        version: wapm.version,
+        version: wapm.version.parse()?,
         module_memory_footprint,
         file_system_memory_footprint,
     };
@@ -437,7 +437,7 @@ mod tests {
         let pkg = parse_webc_v2(&python).unwrap();
 
         assert_eq!(pkg.package_name, "python");
-        assert_eq!(pkg.version, "0.1.0");
+        assert_eq!(pkg.version.to_string(), "0.1.0");
         assert_eq!(pkg.uses, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 4694941);
         assert_eq!(pkg.file_system_memory_footprint, 13387764);
@@ -470,7 +470,7 @@ mod tests {
         let pkg = parse_webc_v2(&coreutils).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/coreutils");
-        assert_eq!(pkg.version, "1.0.14");
+        assert_eq!(pkg.version.to_string(), "1.0.14");
         assert_eq!(pkg.uses, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 44);
@@ -601,7 +601,7 @@ mod tests {
         let pkg = parse_webc_v2(&bash).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/bash");
-        assert_eq!(pkg.version, "1.0.12");
+        assert_eq!(pkg.version.to_string(), "1.0.12");
         assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.11"]);
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 0);
@@ -621,7 +621,7 @@ mod tests {
         let pkg = parse_static_webc(HELLO.to_vec()).unwrap();
 
         assert_eq!(pkg.package_name, "wasmer/hello");
-        assert_eq!(pkg.version, "0.1.0");
+        assert_eq!(pkg.version.to_string(), "0.1.0");
         let commands = pkg.commands.read().unwrap();
         assert!(commands.is_empty());
         assert!(pkg.entry.is_none());

@@ -1,5 +1,8 @@
 use std::{collections::BTreeMap, fmt::Display, ops::Deref, path::PathBuf, str::FromStr};
 
+use anyhow::Context;
+use semver::VersionReq;
+
 use crate::{
     bin_factory::BinaryPackage,
     http::HttpClient,
@@ -56,7 +59,7 @@ pub struct WebcIdentifier {
     pub full_name: String,
     pub locator: Locator,
     /// A semver-compliant version constraint.
-    pub version: String,
+    pub version: VersionReq,
 }
 
 impl WebcIdentifier {
@@ -83,10 +86,14 @@ impl FromStr for WebcIdentifier {
             anyhow::bail!("Invalid character, {c:?}, at offset {index}");
         }
 
+        let version = version
+            .parse()
+            .with_context(|| format!("Invalid version number, \"{version}\""))?;
+
         Ok(WebcIdentifier {
             full_name: full_name.to_string(),
             locator: Locator::Registry,
-            version: version.to_string(),
+            version,
         })
     }
 }
@@ -172,7 +179,7 @@ pub(crate) mod tests {
                 WebcIdentifier {
                     full_name: "first".to_string(),
                     locator: Locator::Registry,
-                    version: "*".to_string(),
+                    version: VersionReq::STAR,
                 },
             ),
             (
@@ -180,15 +187,15 @@ pub(crate) mod tests {
                 WebcIdentifier {
                     full_name: "namespace/package".to_string(),
                     locator: Locator::Registry,
-                    version: "*".to_string(),
+                    version: VersionReq::STAR,
                 },
             ),
             (
-                "namespace/package@version",
+                "namespace/package@1.0.0",
                 WebcIdentifier {
                     full_name: "namespace/package".to_string(),
                     locator: Locator::Registry,
-                    version: "version".to_string(),
+                    version: "1.0.0".parse().unwrap(),
                 },
             ),
         ];

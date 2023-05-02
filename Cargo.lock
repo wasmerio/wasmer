@@ -5740,6 +5740,7 @@ dependencies = [
  "pin-project",
  "rand",
  "reqwest",
+ "semver 1.0.17",
  "serde",
  "serde_cbor",
  "serde_derive",

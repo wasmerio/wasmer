@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use derivative::*;
 use once_cell::sync::OnceCell;
+use semver::Version;
 use virtual_fs::FileSystem;
 use webc::compat::SharedBytes;
 
@@ -57,7 +58,7 @@ pub struct BinaryPackage {
     pub webc_fs: Option<Arc<dyn FileSystem + Send + Sync + 'static>>,
     pub commands: Arc<RwLock<Vec<BinaryPackageCommand>>>,
     pub uses: Vec<String>,
-    pub version: String,
+    pub version: Version,
     pub module_memory_footprint: u64,
     pub file_system_memory_footprint: u64,
 }
