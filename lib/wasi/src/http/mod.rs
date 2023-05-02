@@ -15,6 +15,7 @@ pub fn default_http_client() -> Option<impl HttpClient + Send + Sync + 'static> 
             // Note: We need something to use with turbofish otherwise returning
             // a plain None will complain about not being able to infer the "T"
             // in Option<T>
+            #[derive(Debug)]
             enum Unimplemented {}
             impl HttpClient for Unimplemented {
                 fn request(&self, request: HttpRequest) -> futures::future::BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
