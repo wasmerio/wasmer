@@ -34,9 +34,24 @@ where
 
     fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync>;
 
+    /// Get a [`wasmer::Engine`] for module compilation.
+    fn engine(&self) -> Option<wasmer::Engine> {
+        None
+    }
+
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
-        wasmer::Store::default()
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "sys")] {
+                if let Some(engine) = self.engine() {
+                    wasmer::Store::new(engine)
+                } else {
+                    wasmer::Store::default()
+                }
+            } else {
+                wasmer::Store::default()
+            }
+        }
     }
 
     /// Returns a HTTP client
