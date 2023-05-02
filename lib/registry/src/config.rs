@@ -303,6 +303,7 @@ mod tests {
             // We don't automatically prepend the domain name with
             // "registry", but we will make sure "/" gets turned into "/graphql"
             ("https://wapm.dev/", "https://wapm.dev/graphql"),
+            ("https://wapm.dev", "https://wapm.dev/graphql"),
             // local development
             (
                 "http://localhost:8000/graphql",
