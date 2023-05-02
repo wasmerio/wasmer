@@ -135,7 +135,7 @@ mod tests {
             _request: crate::http::HttpRequest,
         ) -> futures::future::BoxFuture<'_, Result<crate::http::HttpResponse, anyhow::Error>>
         {
-            todo!()
+            unreachable!()
         }
     }
 

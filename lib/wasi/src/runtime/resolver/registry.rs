@@ -39,7 +39,10 @@ impl RegistryResolver {
     /// Create a [`RegistryResolver`] using the current Wasmer toolchain
     /// installation.
     pub fn from_env() -> Result<Self, anyhow::Error> {
-        // FIXME: respect active registry setting in wasmer.toml
+        // FIXME: respect active registry setting in wasmer.toml... We currently
+        // do things the hard way because pulling in the wasmer-registry crate
+        // would add loads of extra dependencies and make it harder to build
+        // wasmer-wasix when "js" is enabled.
         let wasmer_home = std::env::var_os("WASMER_HOME")
             .map(PathBuf::from)
             .or_else(|| {

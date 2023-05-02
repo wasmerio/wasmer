@@ -6,7 +6,7 @@ use std::{
     sync::Arc,
 };
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
+use wasmer::{AsStoreMut, Engine, Instance, Module, RuntimeError, Value};
 use wasmer_registry::WasmerConfig;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
@@ -141,8 +141,10 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
+        let engine = store.as_store_mut().engine().clone();
+
         let rt = self
-            .prepare_runtime(store)
+            .prepare_runtime(engine)
             .context("Unable to prepare the wasi runtime")?;
 
         let builder = WasiEnv::builder(program_name)
@@ -203,7 +205,7 @@ impl Wasi {
         Ok(builder)
     }
 
-    fn prepare_runtime(&self, store: &mut impl AsStoreMut) -> Result<PluggableRuntime> {
+    fn prepare_runtime(&self, engine: Engine) -> Result<PluggableRuntime> {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
 
         if self.networking {
@@ -218,7 +220,6 @@ impl Wasi {
             rt.set_tty(tty);
         }
 
-        let engine = store.as_store_mut().engine().clone();
         rt.set_engine(Some(engine));
 
         let resolver = self
@@ -286,16 +287,20 @@ impl Wasi {
 }
 
 fn wapm_resolver() -> Result<RegistryResolver, anyhow::Error> {
+    // FIXME(Michael-F-Bryan): Ideally, all of this would in the
+    // RegistryResolver::from_env() constructor, but we don't want to add
+    // wasmer-registry as a dependency of wasmer-wasix just yet.
     let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
     let cache_dir = wasmer_registry::get_webc_dir(&wasmer_home);
     let config =
         wasmer_registry::WasmerConfig::from_file(&wasmer_home).map_err(anyhow::Error::msg)?;
+
     let registry = config.registry.get_graphql_url();
     let registry = registry
         .parse()
         .with_context(|| format!("Unable to parse \"{registry}\" as a URL"))?;
-    let wapm = RegistryResolver::new(cache_dir, registry);
-    Ok(wapm)
+
+    Ok(RegistryResolver::new(cache_dir, registry))
 }
 
 fn preload_webc(path: &Path) -> Result<BinaryPackage> {
