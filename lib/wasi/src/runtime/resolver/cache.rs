@@ -1,4 +1,4 @@
-use std::{sync::Mutex, time::Instant};
+use std::{collections::HashMap, sync::RwLock};
 
 use crate::{
     bin_factory::BinaryPackage,
@@ -10,16 +10,14 @@ use crate::{
 #[derive(Debug)]
 pub struct InMemoryCache<R> {
     resolver: R,
-    packages: Mutex<Vec<CacheEntry>>,
-    config: CacheConfig,
+    packages: RwLock<HashMap<WebcIdentifier, BinaryPackage>>,
 }
 
 impl<R> InMemoryCache<R> {
-    pub fn new(resolver: R, config: CacheConfig) -> Self {
+    pub fn new(resolver: R) -> Self {
         InMemoryCache {
             resolver,
-            packages: Mutex::new(Vec::new()),
-            config,
+            packages: RwLock::new(HashMap::new()),
         }
     }
 
@@ -36,30 +34,12 @@ impl<R> InMemoryCache<R> {
     }
 
     fn lookup(&self, ident: &WebcIdentifier) -> Option<BinaryPackage> {
-        let mut packages = self.packages.lock().unwrap();
-
-        let now = Instant::now();
-        let entry = packages.iter_mut().find(|entry| entry.ident == *ident)?;
-        entry.last_touched = now;
-        let pkg = entry.pkg.clone();
-
-        self.config.prune(&mut packages, now);
-
-        Some(pkg)
+        self.packages.read().unwrap().get(ident).cloned()
     }
 
     fn save(&self, ident: &WebcIdentifier, pkg: BinaryPackage) {
-        let mut packages = self.packages.lock().unwrap();
-        packages.insert(
-            0,
-            CacheEntry {
-                last_touched: Instant::now(),
-                ident: ident.clone(),
-                pkg,
-            },
-        );
-
-        self.config.prune(&mut packages, Instant::now());
+        let mut packages = self.packages.write().unwrap();
+        packages.insert(ident.clone(), pkg);
     }
 }
 
@@ -95,52 +75,9 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
-struct CacheEntry {
-    last_touched: Instant,
-    ident: WebcIdentifier,
-    pkg: BinaryPackage,
-}
-
-impl CacheEntry {
-    fn approximate_memory_usage(&self) -> u64 {
-        self.pkg.file_system_memory_footprint + self.pkg.module_memory_footprint
-    }
-}
-
-/// Configuration for the [`InMemoryCache`].
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct CacheConfig {
-    /// The maximum amount of data that should be held in memory before dropping
-    /// cached artefacts.
-    pub max_memory_usage: Option<u64>,
-}
-
-impl CacheConfig {
-    fn prune(&self, packages: &mut Vec<CacheEntry>, now: Instant) {
-        // Note that we run this function while the cache lock is held, so we
-        // should prefer faster cache invalidation strategies over more accurate
-        // ones. It's also important to not block.
-
-        packages.sort_by_key(|entry| now.duration_since(entry.last_touched));
-
-        if let Some(limit) = self.max_memory_usage {
-            let mut memory_used = 0;
-
-            // Note: retain()'s closure is guaranteed to be run on each entry in
-            // order.
-            packages.retain(|entry| {
-                memory_used += entry.approximate_memory_usage();
-                memory_used < limit
-            });
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
 
     use super::*;
 
@@ -192,13 +129,9 @@ mod tests {
     #[tokio::test]
     async fn cache_hit() {
         let resolver = DummyResolver::default();
-        let cache = InMemoryCache::new(resolver, CacheConfig::default());
+        let cache = InMemoryCache::new(resolver);
         let ident: WebcIdentifier = "python/python".parse().unwrap();
-        cache.packages.lock().unwrap().push(CacheEntry {
-            last_touched: Instant::now(),
-            ident: ident.clone(),
-            pkg: dummy_pkg("python/python"),
-        });
+        cache.save(&ident, dummy_pkg("python/python"));
 
         let pkg = cache
             .resolve_package(&ident, &DummyHttpClient)
@@ -211,9 +144,9 @@ mod tests {
     #[tokio::test]
     async fn cache_miss() {
         let resolver = DummyResolver::default();
-        let cache = InMemoryCache::new(resolver, CacheConfig::default());
+        let cache = InMemoryCache::new(resolver);
         let ident: WebcIdentifier = "python/python".parse().unwrap();
-        assert!(cache.packages.lock().unwrap().is_empty());
+        assert!(cache.lookup(&ident).is_none());
 
         let expected_err = cache
             .resolve_package(&ident, &DummyHttpClient)

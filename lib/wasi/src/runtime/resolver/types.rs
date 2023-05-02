@@ -1,10 +1,6 @@
 use std::{collections::BTreeMap, fmt::Display, ops::Deref, path::PathBuf, str::FromStr};
 
-use crate::{
-    bin_factory::BinaryPackage,
-    http::HttpClient,
-    runtime::resolver::{cache::CacheConfig, InMemoryCache},
-};
+use crate::{bin_factory::BinaryPackage, http::HttpClient, runtime::resolver::InMemoryCache};
 
 #[async_trait::async_trait]
 pub trait PackageResolver: std::fmt::Debug + Send + Sync {
@@ -15,24 +11,12 @@ pub trait PackageResolver: std::fmt::Debug + Send + Sync {
         client: &(dyn HttpClient + Send + Sync),
     ) -> Result<BinaryPackage, ResolverError>;
 
-    /// Wrap the [`PackageResolver`] in an in-memory LRU cache.
-    ///
-    /// This is just a shortcut for calling
-    /// [`PackageResolver::with_cache_and_config()`] using
-    /// [`CacheConfig::default()`].
+    /// Wrap the [`PackageResolver`] in basic in-memory cache.
     fn with_cache(self) -> InMemoryCache<Self>
     where
         Self: Sized,
     {
-        self.with_cache_and_config(CacheConfig::default())
-    }
-
-    /// Wrap the [`PackageResolver`] in an in-memory LRU cache.
-    fn with_cache_and_config(self, cfg: CacheConfig) -> InMemoryCache<Self>
-    where
-        Self: Sized,
-    {
-        InMemoryCache::new(self, cfg)
+        InMemoryCache::new(self)
     }
 }
 

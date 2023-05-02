@@ -4,7 +4,7 @@ mod types;
 
 pub use self::{
     builtin::BuiltinResolver,
-    cache::{CacheConfig, InMemoryCache},
+    cache::{InMemoryCache},
     types::{
         FileSystemMapping, Locator, PackageResolver, ResolvedCommand, ResolvedPackage,
         ResolverError, WebcIdentifier,
