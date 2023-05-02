@@ -18,8 +18,8 @@ pub fn default_http_client() -> Option<impl HttpClient + Send + Sync + 'static> 
             #[derive(Debug)]
             enum Unimplemented {}
             impl HttpClient for Unimplemented {
-                fn request(&self, request: HttpRequest) -> futures::future::BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
-                    match self {}
+                fn request(&self, _request: HttpRequest) -> futures::future::BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+                    match *self {}
                 }
             }
 
