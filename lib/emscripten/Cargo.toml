@@ -21,3 +21,6 @@ wasmer-types = { path = "../types", version = "=3.2.1" }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.2"
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]

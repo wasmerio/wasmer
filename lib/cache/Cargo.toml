@@ -26,3 +26,6 @@ wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.2.
 default = ["filesystem"]
 filesystem = []
 blake3-pure = ["blake3/pure"]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]
