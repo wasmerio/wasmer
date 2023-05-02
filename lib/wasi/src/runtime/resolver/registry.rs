@@ -30,10 +30,10 @@ impl RegistryResolver {
         }
     }
 
-    /// Create a [`BuiltinResolver`] using the current Wasmer toolchain
+    /// Create a [`RegistryResolver`] using the current Wasmer toolchain
     /// installation.
     pub fn from_env() -> Result<Self, anyhow::Error> {
-        // TODO: Reuse the same logic as wasmer-cli
+        // FIXME: respect active registry setting in wasmer.toml
         let wasmer_home = std::env::var_os("WASMER_HOME")
             .map(PathBuf::from)
             .or_else(|| {
