@@ -9,21 +9,22 @@ use crate::{
     runtime::resolver::{types::ResolverError, types::WebcIdentifier, PackageResolver},
 };
 
-/// The builtin package resolver, backed by WAPM.
+/// A [`PackageResolver`] that will resolve packages by fetching them from the
+/// WAPM registry.
 ///
 /// Any downloaded assets will be cached on disk.
 #[derive(Debug, Clone)]
-pub struct BuiltinResolver {
+pub struct RegistryResolver {
     cache_dir: PathBuf,
     registry_endpoint: Url,
 }
 
-impl BuiltinResolver {
+impl RegistryResolver {
     pub const WAPM_DEV_ENDPOINT: &str = "https://registry.wapm.dev/graphql";
     pub const WAPM_PROD_ENDPOINT: &str = "https://registry.wapm.io/graphql";
 
     pub fn new(cache_dir: impl Into<PathBuf>, registry_endpoint: Url) -> Self {
-        BuiltinResolver {
+        RegistryResolver {
             cache_dir: cache_dir.into(),
             registry_endpoint,
         }
@@ -41,14 +42,14 @@ impl BuiltinResolver {
             })
             .context("Unable to determine Wasmer's home directory")?;
 
-        let endpoint = BuiltinResolver::WAPM_PROD_ENDPOINT.parse()?;
+        let endpoint = RegistryResolver::WAPM_PROD_ENDPOINT.parse()?;
 
-        Ok(BuiltinResolver::new(wasmer_home, endpoint))
+        Ok(RegistryResolver::new(wasmer_home, endpoint))
     }
 }
 
 #[async_trait::async_trait]
-impl PackageResolver for BuiltinResolver {
+impl PackageResolver for RegistryResolver {
     async fn resolve_package(
         &self,
         pkg: &WebcIdentifier,
@@ -62,5 +63,41 @@ impl PackageResolver for BuiltinResolver {
         )
         .await
         .map_err(|e| ResolverError::Other(e.into()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use crate::http::reqwest::ReqwestHttpClient;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn resolved_webc_files_are_cached_locally() {
+        let temp = TempDir::new().unwrap();
+        let resolver = RegistryResolver::new(
+            temp.path(),
+            RegistryResolver::WAPM_PROD_ENDPOINT.parse().unwrap(),
+        );
+        let client = ReqwestHttpClient::default();
+        let ident = WebcIdentifier::parse("wasmer/sha2@0.1.0").unwrap();
+
+        let pkg = resolver.resolve_package(&ident, &client).await.unwrap();
+
+        assert_eq!(pkg.package_name, "wasmer/sha2");
+        assert_eq!(pkg.version, "0.1.0");
+        let filenames: Vec<_> = temp
+            .path()
+            .read_dir()
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(
+            filenames,
+            ["wasmer_sha2_sha2-0.1.0-2ada887a-9bb8-11ed-82ff-b2315a79a72a.webc"]
+        );
     }
 }

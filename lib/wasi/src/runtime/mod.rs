@@ -14,7 +14,7 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use crate::{
     http::DynHttpClient,
     os::TtyBridge,
-    runtime::resolver::{BuiltinResolver, PackageResolver},
+    runtime::resolver::{PackageResolver, RegistryResolver},
     WasiTtyState,
 };
 
@@ -107,7 +107,7 @@ impl PluggableRuntime {
         }
 
         let resolver =
-            BuiltinResolver::from_env().expect("Loading the builtin resolver should never fail");
+            RegistryResolver::from_env().expect("Loading the builtin resolver should never fail");
 
         Self {
             rt,

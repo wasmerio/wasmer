@@ -1,5 +1,5 @@
 use crate::utils::{parse_envvar, parse_mapdir};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -7,11 +7,16 @@ use std::{
 };
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
+use wasmer_registry::WasmerConfig;
 use wasmer_wasix::{
+    bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
     runners::MappedDirectory,
-    runtime::task_manager::tokio::TokioTaskManager,
+    runtime::{
+        resolver::{PackageResolver, PreloadedResolver, RegistryResolver},
+        task_manager::tokio::TokioTaskManager,
+    },
     types::__WASI_STDIN_FILENO,
     PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiVersion,
 };
@@ -48,6 +53,11 @@ pub struct Wasi {
     /// List of other containers this module depends on
     #[clap(long = "use", name = "USE")]
     uses: Vec<String>,
+
+    /// List of webc packages that are explicitly included for execution
+    /// Note: these packages will be used instead of those in the registry
+    #[clap(long = "include-webc", name = "WEBC")]
+    include_webcs: Vec<PathBuf>,
 
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
@@ -131,22 +141,9 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
-
-        if self.networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
-        } else {
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
-        }
-
-        if !self.no_tty {
-            let tty = Arc::new(SysTty::default());
-            tty.reset();
-            rt.set_tty(tty);
-        }
-
-        let engine = store.as_store_mut().engine().clone();
-        rt.set_engine(Some(engine));
+        let rt = self
+            .prepare_runtime(store)
+            .context("Unable to prepare the wasi runtime")?;
 
         let builder = WasiEnv::builder(program_name)
             .runtime(Arc::new(rt))
@@ -206,6 +203,32 @@ impl Wasi {
         Ok(builder)
     }
 
+    fn prepare_runtime(&self, store: &mut impl AsStoreMut) -> Result<PluggableRuntime> {
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+
+        if self.networking {
+            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+        } else {
+            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+        }
+
+        if !self.no_tty {
+            let tty = Arc::new(SysTty::default());
+            tty.reset();
+            rt.set_tty(tty);
+        }
+
+        let engine = store.as_store_mut().engine().clone();
+        rt.set_engine(Some(engine));
+
+        let resolver = self
+            .prepare_resolver()
+            .context("Unable to prepare the package resolver")?;
+        rt.set_resolver(resolver);
+
+        Ok(rt)
+    }
+
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
@@ -248,4 +271,40 @@ impl Wasi {
             ..Self::default()
         })
     }
+
+    fn prepare_resolver(&self) -> Result<impl PackageResolver> {
+        let resolver = PreloadedResolver::new(self.preload_webcs()?)
+            .with_fallback(wapm_resolver()?)
+            .with_cache();
+
+        Ok(resolver)
+    }
+
+    fn preload_webcs(&self) -> std::result::Result<Vec<BinaryPackage>, anyhow::Error> {
+        self.include_webcs
+            .iter()
+            .map(|path| {
+                preload_webc(path).with_context(|| format!("Unable to load \"{}\"", path.display()))
+            })
+            .collect::<Result<Vec<_>>>()
+    }
+}
+
+fn wapm_resolver() -> Result<RegistryResolver, anyhow::Error> {
+    let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+    let cache_dir = wasmer_registry::get_webc_dir(&wasmer_home);
+    let config =
+        wasmer_registry::WasmerConfig::from_file(&wasmer_home).map_err(anyhow::Error::msg)?;
+    let registry = config.registry.get_graphql_url();
+    let registry = registry
+        .parse()
+        .with_context(|| format!("Unable to parse \"{registry}\" as a URL"))?;
+    let wapm = RegistryResolver::new(cache_dir, registry);
+    Ok(wapm)
+}
+
+fn preload_webc(path: &Path) -> Result<BinaryPackage> {
+    let bytes = std::fs::read(path)?;
+    let webc = wasmer_wasix::wapm::parse_static_webc(bytes)?;
+    Ok(webc)
 }

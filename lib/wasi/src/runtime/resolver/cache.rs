@@ -6,7 +6,7 @@ use crate::{
     runtime::resolver::{PackageResolver, ResolverError, WebcIdentifier},
 };
 
-/// A resolver that wraps a [`PackageResolver`] in an in-memory LRU cache.
+/// A resolver that wraps a [`PackageResolver`] with an in-memory cache.
 #[derive(Debug)]
 pub struct InMemoryCache<R> {
     resolver: R,
