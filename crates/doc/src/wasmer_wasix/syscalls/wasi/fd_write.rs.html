@@ -280,6 +280,9 @@
 <span id="278">278</span>
 <span id="279">279</span>
 <span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -426,6 +429,9 @@
                                     <span class="kw">if </span>local_written != buf.len() {
                                         <span class="kw">break</span>;
                                     }
+                                }
+                                <span class="kw">if </span>is_stdio {
+                                    handle.flush().<span class="kw">await</span>.map_err(map_io_err)<span class="question-mark">?</span>;
                                 }
                                 <span class="prelude-val">Ok</span>(written)
                             }
