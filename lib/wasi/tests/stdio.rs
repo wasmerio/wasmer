@@ -52,13 +52,13 @@ async fn test_stdout() {
         (export "memory" (memory 0))
 
         ;; Write 'hello world\n' to memory at an offset of 8 bytes
-        ;; Note the trailing newline which is required for the text to appear
-        (data (i32.const 8) "hello world\n")
+        ;; No trailing newline is required since all stdio writes are flushing
+        (data (i32.const 8) "hello world")
 
         (func $main (export "_start")
             ;; Creating a new io vector within linear memory
             (i32.store (i32.const 0) (i32.const 8))  ;; iov.iov_base - This is a pointer to the start of the 'hello world\n' string
-            (i32.store (i32.const 4) (i32.const 12))  ;; iov.iov_len - The length of the 'hello world\n' string
+            (i32.store (i32.const 4) (i32.const 11))  ;; iov.iov_len - The length of the 'hello world\n' string
 
             (call $fd_write
                 (i32.const 1) ;; file_descriptor - 1 for stdout
@@ -93,7 +93,7 @@ async fn test_stdout() {
     let mut stdout_str = String::new();
     stdout_rx.read_to_string(&mut stdout_str).await.unwrap();
     let stdout_as_str = stdout_str.as_str();
-    assert_eq!(stdout_as_str, "hello world\n");
+    assert_eq!(stdout_as_str, "hello world");
 }
 
 async fn test_env() {
