@@ -111,15 +111,8 @@ impl PluggableRuntime {
                 let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "host-reqwest")] {
-                let http_client = Some(Arc::new(
-                    crate::http::reqwest::ReqwestHttpClient::default()) as DynHttpClient
-                );
-            } else {
-                let http_client = None;
-            }
-        }
+        let http_client =
+            crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
         let resolver =
             RegistryResolver::from_env().expect("Loading the builtin resolver should never fail");

@@ -100,18 +100,17 @@ impl PackageResolver for RegistryResolver {
 mod tests {
     use tempfile::TempDir;
 
-    use crate::http::reqwest::ReqwestHttpClient;
-
     use super::*;
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "host-reqwest"), ignore = "Requires a HTTP client")]
     async fn resolved_webc_files_are_cached_locally() {
         let temp = TempDir::new().unwrap();
         let resolver = RegistryResolver::new(
             temp.path(),
             RegistryResolver::WAPM_PROD_ENDPOINT.parse().unwrap(),
         );
-        let client = ReqwestHttpClient::default();
+        let client = crate::http::default_http_client().expect("This test requires a HTTP client");
         let ident = WebcIdentifier::parse("wasmer/sha2@0.1.0").unwrap();
 
         let pkg = resolver.resolve_package(&ident, &client).await.unwrap();
