@@ -264,8 +264,63 @@
 <span id="264">264</span>
 <span id="265">265</span>
 <span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>url::Url;
 
 <span class="kw">pub static </span>GLOBAL_CONFIG_DATABASE_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.sqlite&quot;</span>;
 
@@ -331,22 +386,37 @@
 }
 
 <span class="kw">pub fn </span>format_graphql(registry: <span class="kw-2">&amp;</span>str) -&gt; String {
-    <span class="kw">let </span><span class="kw-2">mut </span>registry = registry.to_string();
-    <span class="kw">if </span>registry.contains(<span class="string">&quot;wapm.dev&quot;</span>) {
-        registry = <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string();
-    } <span class="kw">else if </span>registry.contains(<span class="string">&quot;wapm.io&quot;</span>) {
-        registry = <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>.to_string();
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>url) = Url::parse(registry) {
+        <span class="comment">// Looks like we&#39;ve got a valid URL. Let&#39;s try to use it as-is.
+        </span><span class="kw">if </span>url.has_host() {
+            <span class="kw">if </span>url.path() == <span class="string">&quot;/&quot; </span>{
+                <span class="comment">// make sure we convert http://registry.wapm.io/ to
+                // http://registry.wapm.io/graphql
+                </span>url.set_path(<span class="string">&quot;/graphql&quot;</span>);
+            }
+
+            <span class="kw">return </span>url.to_string();
+        }
     }
-    <span class="kw">if </span>!registry.starts_with(<span class="string">&quot;https://&quot;</span>) {
-        registry = <span class="macro">format!</span>(<span class="string">&quot;https://{registry}&quot;</span>);
+
+    <span class="kw">if </span>!registry.contains(<span class="string">&quot;://&quot;</span>) &amp;&amp; !registry.contains(<span class="string">&#39;/&#39;</span>) {
+        <span class="kw">return </span>endpoint_from_domain_name(registry);
     }
-    <span class="kw">if </span>registry.ends_with(<span class="string">&quot;/graphql&quot;</span>) {
-        registry
-    } <span class="kw">else if </span>registry.ends_with(<span class="string">&#39;/&#39;</span>) {
-        <span class="macro">format!</span>(<span class="string">&quot;{}graphql&quot;</span>, registry)
-    } <span class="kw">else </span>{
-        <span class="macro">format!</span>(<span class="string">&quot;{}/graphql&quot;</span>, registry)
+
+    <span class="comment">// looks like we&#39;ve received something we can&#39;t deal with. Just pass it
+    // through as-is and hopefully it&#39;ll either work or the end user can figure
+    // it out
+    </span>registry.to_string()
+}
+
+<span class="doccomment">/// By convention, something like `&quot;wapm.io&quot;` should be converted to
+/// `&quot;https://registry.wapm.io/graphql&quot;`.
+</span><span class="kw">fn </span>endpoint_from_domain_name(domain_name: <span class="kw-2">&amp;</span>str) -&gt; String {
+    <span class="kw">if </span>domain_name.contains(<span class="string">&quot;localhost&quot;</span>) {
+        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">&quot;http://{domain_name}/graphql&quot;</span>);
     }
+
+    <span class="macro">format!</span>(<span class="string">&quot;https://registry.{domain_name}/graphql&quot;</span>)
 }
 
 <span class="kw">fn </span>test_if_registry_present(registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
@@ -359,40 +429,6 @@
 </span><span class="kw">pub enum </span>UpdateRegistry {
     Update,
     LeaveAsIs,
-}
-
-<span class="attribute">#[test]
-</span><span class="kw">fn </span>test_registries_switch_token() {
-    <span class="kw">let </span><span class="kw-2">mut </span>registries = MultiRegistry::default();
-
-    registries.set_current_registry(<span class="string">&quot;https://registry.wapm.dev&quot;</span>);
-    <span class="macro">assert_eq!</span>(
-        registries.get_current_registry(),
-        <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
-    );
-    registries.set_login_token_for_registry(
-        <span class="string">&quot;https://registry.wapm.io&quot;</span>,
-        <span class="string">&quot;token1&quot;</span>,
-        UpdateRegistry::LeaveAsIs,
-    );
-    <span class="macro">assert_eq!</span>(
-        registries.get_current_registry(),
-        <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
-    );
-    <span class="macro">assert_eq!</span>(
-        registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
-        <span class="prelude-val">None
-    </span>);
-    registries.set_current_registry(<span class="string">&quot;https://registry.wapm.io&quot;</span>);
-    <span class="macro">assert_eq!</span>(
-        registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
-        <span class="prelude-val">Some</span>(<span class="string">&quot;token1&quot;</span>.to_string())
-    );
-    registries.clear_current_registry_token();
-    <span class="macro">assert_eq!</span>(
-        registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
-        <span class="prelude-val">None
-    </span>);
 }
 
 <span class="kw">impl </span>MultiRegistry {
@@ -528,6 +564,78 @@
 
     <span class="kw">pub fn </span>get_database_file_path(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
         wasmer_dir.join(GLOBAL_CONFIG_DATABASE_FILE_NAME)
+    }
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_registries_switch_token() {
+        <span class="kw">let </span><span class="kw-2">mut </span>registries = MultiRegistry::default();
+
+        registries.set_current_registry(<span class="string">&quot;https://registry.wapm.dev&quot;</span>);
+        <span class="macro">assert_eq!</span>(
+            registries.get_current_registry(),
+            <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
+        );
+        registries.set_login_token_for_registry(
+            <span class="string">&quot;https://registry.wapm.io&quot;</span>,
+            <span class="string">&quot;token1&quot;</span>,
+            UpdateRegistry::LeaveAsIs,
+        );
+        <span class="macro">assert_eq!</span>(
+            registries.get_current_registry(),
+            <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
+        );
+        <span class="macro">assert_eq!</span>(
+            registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
+            <span class="prelude-val">None
+        </span>);
+        registries.set_current_registry(<span class="string">&quot;https://registry.wapm.io&quot;</span>);
+        <span class="macro">assert_eq!</span>(
+            registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
+            <span class="prelude-val">Some</span>(<span class="string">&quot;token1&quot;</span>.to_string())
+        );
+        registries.clear_current_registry_token();
+        <span class="macro">assert_eq!</span>(
+            registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
+            <span class="prelude-val">None
+        </span>);
+    }
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>format_registry_urls() {
+        <span class="kw">let </span>inputs = [
+            <span class="comment">// Domain names work
+            </span>(<span class="string">&quot;wapm.io&quot;</span>, <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>),
+            (<span class="string">&quot;wapm.dev&quot;</span>, <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>),
+            <span class="comment">// Plain URLs
+            </span>(
+                <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>,
+                <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>,
+            ),
+            (
+                <span class="string">&quot;https://registry.wapm.dev/something/else&quot;</span>,
+                <span class="string">&quot;https://registry.wapm.dev/something/else&quot;</span>,
+            ),
+            <span class="comment">// We don&#39;t automatically prepend the domain name with
+            // &quot;registry&quot;, but we will make sure &quot;/&quot; gets turned into &quot;/graphql&quot;
+            </span>(<span class="string">&quot;https://wapm.dev/&quot;</span>, <span class="string">&quot;https://wapm.dev/graphql&quot;</span>),
+            (<span class="string">&quot;https://wapm.dev&quot;</span>, <span class="string">&quot;https://wapm.dev/graphql&quot;</span>),
+            <span class="comment">// local development
+            </span>(
+                <span class="string">&quot;http://localhost:8000/graphql&quot;</span>,
+                <span class="string">&quot;http://localhost:8000/graphql&quot;</span>,
+            ),
+            (<span class="string">&quot;localhost:8000&quot;</span>, <span class="string">&quot;http://localhost:8000/graphql&quot;</span>),
+        ];
+
+        <span class="kw">for </span>(input, expected) <span class="kw">in </span>inputs {
+            <span class="kw">let </span>url = format_graphql(input);
+            <span class="macro">assert_eq!</span>(url, expected);
+        }
     }
 }
 </code></pre></div>
