@@ -9,6 +9,12 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## Fixed
+
+  - [#3796](https://github.com/wasmerio/wasmer/pull/3796) Fix returning negative i64 values on web target
+
+
+
 ## 3.2.1 - 21/04/2023
 
 Some quick fixes for this maintenance release, mainly oriented towards Docs.
