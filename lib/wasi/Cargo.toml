@@ -48,8 +48,6 @@ weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 term_size = { version = "0.3" }
 linked_hash_set = { version = "0.1" }
-# used by feature='host-termios'
-termios = { version = "0.3", optional = true }
 http = "0.2.8"
 wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.3.0", features = ["tracing"] }
 heapless = "0.7.16"
@@ -76,6 +74,8 @@ optional = true
 
 [target.'cfg(unix)'.dependencies]
 libc = { version = "^0.2", default-features = false }
+
+[target.'cfg(all(unix, not(target_os="ios")))'.dependencies]
 termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
@@ -107,7 +107,7 @@ webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
-sys = ["webc/mmap", "time", "wasmer/sys"]
+sys = ["webc/mmap", "time"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
@@ -135,3 +135,5 @@ enable-serde = [
     "wasmer-wasix-types/enable-serde",
 ]
 
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]

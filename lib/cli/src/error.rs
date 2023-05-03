@@ -19,6 +19,7 @@ macro_rules! warning {
     })
 }
 
+#[cfg(not(feature = "jsc"))]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after
@@ -39,6 +40,24 @@ impl PrettyError {
                     Some(_) => 128 + libc::SIGABRT,
                     _ => 1,
                 }
+            }
+        });
+    }
+}
+
+#[cfg(feature = "jsc")]
+impl PrettyError {
+    /// Process a `Result` printing any errors and exiting
+    /// the process after
+    pub fn report<T>(result: Result<T, Error>) -> ! {
+        std::process::exit(match result {
+            Ok(_t) => 0,
+            Err(error) => {
+                eprintln!("{:?}", PrettyError { error });
+                // we don't use process:abort() here to avoid message from rust
+                // that could interfer with testing tools
+                // but still exit with the expected error code
+                1
             }
         });
     }

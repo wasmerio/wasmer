@@ -1,5 +1,7 @@
 #[cfg(feature = "js")]
 use crate::js::trap::Trap;
+#[cfg(feature = "jsc")]
+use crate::jsc::trap::Trap;
 use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;
@@ -138,7 +140,6 @@ impl RuntimeError {
         wasm_trace: Vec<FrameInfo>,
         trap_code: Option<TrapCode>,
     ) -> Self {
-        // println!("CREATING ERROR FROM TRAP {}", source);
         Self {
             inner: Arc::new(RuntimeErrorInner {
                 source,

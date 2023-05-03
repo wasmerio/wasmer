@@ -75,7 +75,8 @@ impl Module {
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
-        let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
+        let module = WebAssembly::Module::new(&js_bytes.into())
+            .map_err(|e| CompileError::Validate(format!("{}", e.as_string().unwrap())))?;
         Ok(Self::from_js_module(module, binary))
     }
 

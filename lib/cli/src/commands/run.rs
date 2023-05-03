@@ -6,11 +6,13 @@ use crate::suggestions::suggest_function_exports;
 use crate::warning;
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+#[cfg(feature = "coredump")]
+use std::fs::File;
 use std::io::Write;
+use std::net::SocketAddr;
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::{fs::File, net::SocketAddr};
 use wasmer::FunctionEnv;
 use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
@@ -85,6 +87,7 @@ pub struct RunWithoutFile {
     #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
     coredump_on_trap: Option<PathBuf>,
 
+    #[cfg(feature = "sys")]
     /// The stack size (default is 1048576)
     #[clap(long = "stack-size")]
     pub(crate) stack_size: Option<usize>,
@@ -168,6 +171,7 @@ impl RunWithPathBuf {
         });
 
         if let Err(err) = invoke_res {
+            #[cfg(feature = "coredump")]
             if let Some(coredump_path) = self.coredump_on_trap.as_ref() {
                 let source_name = self.path.to_str().unwrap_or("unknown");
                 if let Err(coredump_err) = generate_coredump(&err, source_name, coredump_path) {
@@ -179,12 +183,16 @@ impl RunWithPathBuf {
             } else {
                 Err(err)
             }
+
+            #[cfg(not(feature = "coredump"))]
+            Err(err)
         } else {
             invoke_res
         }
     }
 
     fn inner_module_run(&self, store: &mut Store, instance: Instance) -> Result<i32> {
+        #[cfg(feature = "sys")]
         if self.stack_size.is_some() {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
@@ -431,6 +439,7 @@ impl RunWithPathBuf {
 
     fn get_store_module(&self) -> Result<(Store, Module)> {
         let contents = std::fs::read(self.path.clone())?;
+        #[cfg(not(feature = "jsc"))]
         if wasmer_compiler::Artifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::EngineBuilder::headless();
             let store = Store::new(engine);
@@ -664,6 +673,7 @@ impl Run {
     }
 }
 
+#[cfg(feature = "coredump")]
 fn generate_coredump(
     err: &anyhow::Error,
     source_name: &str,

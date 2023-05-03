@@ -67,7 +67,7 @@ impl TtyBridge for SysTty {
 }
 
 #[allow(unused_mut)]
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "ios")))]
 mod sys {
     #![allow(unused_imports)]
     use {
@@ -220,7 +220,7 @@ mod sys {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(any(not(unix), target_os = "ios"))]
 mod sys {
     pub fn reset() -> Result<(), anyhow::Error> {
         Ok(())

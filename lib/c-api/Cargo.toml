@@ -56,11 +56,10 @@ default = [
     "cranelift",
     "compiler",
     "wasi",
-    "sys",
     "middlewares",
 ]
-sys = ["wasmer-api/sys"]
-
+sys = []
+jsc = ["wasmer-api/jsc", "wasmer-api/std"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
 middlewares = [
@@ -68,6 +67,7 @@ middlewares = [
     "wasmer-middlewares",
 ]
 compiler = [
+    "wasmer-compiler",
     "wasmer-api/compiler",
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler",

@@ -14,6 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
+wasmer = { version = "3.2.1", path = "../api", default-features=false }
 wasmer-wasix = { version = "0.3.1", path = "../wasi", default-features=false }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.3.1" }
 tracing = "0.1"
@@ -37,3 +38,6 @@ enable-serde = [
 link_external_libs = [
     "minifb"
 ]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]

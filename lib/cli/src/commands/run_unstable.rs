@@ -24,6 +24,7 @@ use wasmer::{
     Value,
 };
 use wasmer_cache::Cache;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::wcgi::AbortHandle;
@@ -48,6 +49,7 @@ pub struct RunUnstable {
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
     wcgi: WcgiOptions,
+    #[cfg(feature = "sys")]
     /// The stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
@@ -84,6 +86,7 @@ impl RunUnstable {
         };
 
         if let Err(e) = &result {
+            #[cfg(feature = "coredump")]
             if let Some(coredump) = &self.coredump_on_trap {
                 if let Err(e) = generate_coredump(e, target.path(), coredump) {
                     tracing::warn!(
@@ -104,6 +107,7 @@ impl RunUnstable {
         module: &Module,
         store: &mut Store,
     ) -> Result<(), Error> {
+        #[cfg(feature = "sys")]
         if self.stack_size.is_some() {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
@@ -124,6 +128,7 @@ impl RunUnstable {
         mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
+        #[cfg(feature = "sys")]
         if self.stack_size.is_some() {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
@@ -452,11 +457,13 @@ impl TargetOnDisk {
             Ok(TargetOnDisk::WebAssemblyBinary(path))
         } else if webc::detect(leading_bytes).is_ok() {
             Ok(TargetOnDisk::Webc(path))
-        } else if ArtifactBuild::is_deserializable(leading_bytes) {
-            Ok(TargetOnDisk::Artifact(path))
         } else if path.extension() == Some("wat".as_ref()) {
             Ok(TargetOnDisk::Wat(path))
         } else {
+            #[cfg(feature = "compiler")]
+            if ArtifactBuild::is_deserializable(leading_bytes) {
+                return Ok(TargetOnDisk::Artifact(path));
+            }
             anyhow::bail!("Unable to determine how to execute \"{}\"", path.display());
         }
     }
@@ -576,6 +583,7 @@ enum ExecutableTarget {
     Webc(Container),
 }
 
+#[cfg(feature = "coredump")]
 fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result<(), Error> {
     let err: &wasmer::RuntimeError = match err.downcast_ref() {
         Some(e) => e,
