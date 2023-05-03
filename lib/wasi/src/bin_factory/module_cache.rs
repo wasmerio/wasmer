@@ -1,18 +1,15 @@
-use std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
+use std::path::PathBuf;
 
 use anyhow::Context;
 use wasmer::Module;
 
 use super::BinaryPackage;
-use crate::WasiRuntime;
+use crate::{runtime::module_cache::CompiledModuleCache, VirtualTaskManager, WasiRuntime};
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
 
 #[derive(Debug)]
-pub struct ModuleCache {
-    pub(crate) cache_compile_dir: PathBuf,
-    pub(crate) cached_modules: Option<RwLock<HashMap<String, Module>>>,
-}
+pub struct ModuleCache(Box<dyn CompiledModuleCache>);
 
 // FIXME: remove impls!
 // Added as a stopgap to get the crate to compile again with the "js" feature.
@@ -28,31 +25,18 @@ impl Default for ModuleCache {
     }
 }
 
-thread_local! {
-    static THREAD_LOCAL_CACHED_MODULES: std::cell::RefCell<HashMap<String, Module>>
-        = RefCell::new(HashMap::new());
-}
-
 impl ModuleCache {
     /// Create a new [`ModuleCache`].
     ///
     /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
-    pub fn new(cache_compile_dir: Option<PathBuf>, use_shared_cache: bool) -> ModuleCache {
+    pub fn new(cache_compile_dir: Option<PathBuf>, _use_shared_cache: bool) -> ModuleCache {
         let cache_compile_dir = cache_compile_dir.unwrap_or_else(|| {
             PathBuf::from(shellexpand::tilde(DEFAULT_COMPILED_PATH).into_owned())
         });
-        let _ = std::fs::create_dir_all(&cache_compile_dir);
 
-        let cached_modules = if use_shared_cache {
-            Some(RwLock::new(HashMap::default()))
-        } else {
-            None
-        };
+        let cache = crate::runtime::module_cache::default_cache(&cache_compile_dir);
 
-        ModuleCache {
-            cached_modules,
-            cache_compile_dir,
-        }
+        ModuleCache(Box::new(cache))
     }
 
     pub fn get_webc(
@@ -75,99 +59,37 @@ impl ModuleCache {
         })
     }
 
-    pub fn get_compiled_module(
+    pub async fn get_compiled_module(
         &self,
         engine: &impl wasmer::AsEngineRef,
         data_hash: &str,
         compiler: &str,
+        task_manager: &dyn VirtualTaskManager,
     ) -> Option<Module> {
         let key = format!("{}-{}", data_hash, compiler);
 
-        // fastest path
-        {
-            let module = THREAD_LOCAL_CACHED_MODULES.with(|cache| {
-                let cache = cache.borrow();
-                cache.get(&key).cloned()
-            });
-            if let Some(module) = module {
-                return Some(module);
-            }
-        }
-
-        // fast path
-        if let Some(cache) = &self.cached_modules {
-            let cache = cache.read().unwrap();
-            if let Some(module) = cache.get(&key) {
-                THREAD_LOCAL_CACHED_MODULES.with(|cache| {
-                    let mut cache = cache.borrow_mut();
-                    cache.insert(key.clone(), module.clone());
-                });
-                return Some(module.clone());
-            }
-        }
-
-        // slow path
-        let path = self.cache_compile_dir.join(format!("{}.bin", key).as_str());
-        if let Ok(data) = std::fs::read(path.as_path()) {
-            tracing::trace!("bin file found: {:?} [len={}]", path.as_path(), data.len());
-            let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
-            if let Ok(data) = decoder.decode(&data[..]) {
-                let module_bytes = bytes::Bytes::from(data);
-
-                // Load the module
-                let module = match Module::deserialize_checked(engine, &module_bytes[..]) {
-                    Ok(m) => m,
-                    Err(err) => {
-                        tracing::error!(
-                            "failed to deserialize module with hash '{data_hash}': {err}"
-                        );
-                        return None;
-                    }
-                };
-
-                if let Some(cache) = &self.cached_modules {
-                    let mut cache = cache.write().unwrap();
-                    cache.insert(key.clone(), module.clone());
-                }
-
-                THREAD_LOCAL_CACHED_MODULES.with(|cache| {
-                    let mut cache = cache.borrow_mut();
-                    cache.insert(key.clone(), module.clone());
-                });
-                return Some(module);
-            }
-        }
-
-        // Not found
-        tracing::trace!("bin file not found: {:?}", path);
-        None
+        self.0
+            .load(&key, engine.as_engine_ref().engine(), task_manager)
+            .await
+            .ok()
     }
 
-    pub fn set_compiled_module(&self, data_hash: &str, compiler: &str, module: &Module) {
+    pub async fn set_compiled_module(
+        &self,
+        data_hash: &str,
+        compiler: &str,
+        module: &Module,
+        task_manager: &dyn VirtualTaskManager,
+    ) {
         let key = format!("{}-{}", data_hash, compiler);
 
-        // Add the module to the local thread cache
-        THREAD_LOCAL_CACHED_MODULES.with(|cache| {
-            let mut cache = cache.borrow_mut();
-            let cache = cache.deref_mut();
-            cache.insert(key.clone(), module.clone());
-        });
-
-        // Serialize the compiled module into bytes and insert it into the cache
-        if let Some(cache) = &self.cached_modules {
-            let mut cache = cache.write().unwrap();
-            cache.insert(key.clone(), module.clone());
-        }
-
-        // We should also attempt to store it in the cache directory
-        let compiled_bytes = module.serialize().unwrap();
-
-        let path = self.cache_compile_dir.join(format!("{}.bin", key).as_str());
-        // TODO: forward error!
-        let _ = std::fs::create_dir_all(path.parent().unwrap());
-        let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
-        if let Ok(compiled_bytes) = encoder.encode(&compiled_bytes[..]) {
-            let _ = std::fs::write(path, &compiled_bytes[..]);
+        if let Err(e) = self.0.save(&key, module, task_manager).await {
+            tracing::warn!(
+                data_hash,
+                compiler,
+                error = &e as &dyn std::error::Error,
+                "Unable to cache the module",
+            );
         }
     }
 }

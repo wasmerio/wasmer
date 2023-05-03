@@ -26,7 +26,15 @@ pub fn spawn_exec(
     // The deterministic id for this engine
     let compiler = store.engine().deterministic_id();
 
-    let module = compiled_modules.get_compiled_module(&store, binary.hash().as_str(), compiler);
+    let tasks = runtime.task_manager();
+
+    let module = tasks.block_on(compiled_modules.get_compiled_module(
+        &store,
+        binary.hash().as_str(),
+        compiler,
+        &**tasks,
+    ));
+
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
@@ -43,7 +51,13 @@ pub fn spawn_exec(
                 env.blocking_cleanup(Some(Errno::Noexec.into()));
             }
             let module = module?;
-            compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
+
+            tasks.block_on(compiled_modules.set_compiled_module(
+                binary.hash().as_str(),
+                compiler,
+                &module,
+                &**tasks,
+            ));
             module
         }
         (None, None) => {
