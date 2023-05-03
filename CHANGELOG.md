@@ -9,6 +9,30 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 3.3.0 - 03/05/2023
+
+## Added
+
+  - [#3825](https://github.com/wasmerio/wasmer/pull/3825) Added support for JavascriptCore
+  - [#3837](https://github.com/wasmerio/wasmer/pull/3837) Cleaned up the GraphQL endpoint logic and added tests
+  - [#3833](https://github.com/wasmerio/wasmer/pull/3833) Fix Missing WaiterError export + Add notify/wait to fd_mmap memory
+  - [#3819](https://github.com/wasmerio/wasmer/pull/3819) ci: add docs.ts test builds
+  - [#3782](https://github.com/wasmerio/wasmer/pull/3782) Add FreeBSD x86 support
+
+## Changed
+
+  - [#3838](https://github.com/wasmerio/wasmer/pull/3838) Re-export `wasmer::EngineRef`
+  - [#3820](https://github.com/wasmerio/wasmer/pull/3820) fd_write: Flush on every write to a file
+  - [#3813](https://github.com/wasmerio/wasmer/pull/3813) Better errors
+
+## Fixed
+
+  - [#3796](https://github.com/wasmerio/wasmer/pull/3796) Fix returning negative i64 values on web target
+  - [#3836](https://github.com/wasmerio/wasmer/pull/3836) Fixed Chinese README example
+  - [#3827](https://github.com/wasmerio/wasmer/pull/3827) Made test-build-docs-rs tests docs generation for all crates under libs, and fixed broken ones
+
+
+
 ## Fixed
 
   - [#3796](https://github.com/wasmerio/wasmer/pull/3796) Fix returning negative i64 values on web target
