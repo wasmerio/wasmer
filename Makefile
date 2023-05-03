@@ -399,7 +399,7 @@ build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
 
 build-wasmer-jsc:
-	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat,wasi,webc_runner" --bin wasmer-jsc
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat,wasi,webc_runner" --bin wasmer
 
 install-wasi-web:
 	cd lib/wasi-web && npm install || true

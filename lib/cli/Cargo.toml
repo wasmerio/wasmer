@@ -16,13 +16,7 @@ build = "build.rs"
 name = "wasmer"
 path = "src/bin/wasmer.rs"
 doc = false
-required-features = ["compiler"]
-
-[[bin]]
-name = "wasmer-jsc"
-path = "src/bin/wasmer-jsc.rs"
-doc = false
-required-features = ["jsc"]
+required-features = ["backend"]
 
 [[bin]]
 name = "wasmer-headless"
@@ -119,6 +113,7 @@ default = [
     "static-artifact-create",
     "webc_runner",
 ]
+backend = []
 coredump = [
     "wasm-coredump-builder",
 ]
@@ -126,11 +121,16 @@ sys = [
     "compiler",
     "wasmer-vm",
 ]
-jsc = ["wasmer/jsc", "wasmer/std"]
+jsc = [
+    "backend",
+    "wasmer/jsc",
+    "wasmer/std"
+]
 wast = ["wasmer-wast"]
 host-net = [ "virtual-net/host-net" ]
 wat = ["wasmer/wat"]
 compiler = [
+    "backend",
     "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-compiler/compiler"
