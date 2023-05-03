@@ -252,6 +252,18 @@ https://mitchellh.com/writing/contributing-to-complex-projects
 Check our docs on how to [build Wasmer from
 source](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) or [test your changes](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
+## Bounties
+
+For some issues we offer paid bounties. You'll get paid automatically as soon as your PR solving the issue is merged!
+
+<a href="https://console.algora.io/org/wasmerio/bounties?status=open">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://console.algora.io/api/og/wasmerio/bounties.png?p=0&status=open&theme=dark">
+    <img alt="Bounties of wasmerio" src="https://console.algora.io/api/og/wasmerio/bounties.png?p=0&status=open&theme=light">
+  </picture>
+</a>
+
+
 ## Community
 
 Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋

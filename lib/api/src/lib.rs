@@ -465,7 +465,7 @@ pub use jsc::*;
 
 pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
 pub use access::WasmSliceAccess;
-pub use engine::{AsEngineRef, Engine};
+pub use engine::{AsEngineRef, Engine, EngineRef};
 pub use errors::{InstantiationError, LinkError, RuntimeError};
 pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use extern_ref::ExternRef;
