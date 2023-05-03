@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 3.3.0 - 03/05/2023
 
+Along a few important bugfixes, this version introduce JavaScriptCore support, with full WASI support.
+
 ## Added
 
   - [#3825](https://github.com/wasmerio/wasmer/pull/3825) Added support for JavascriptCore
@@ -30,11 +32,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
   - [#3796](https://github.com/wasmerio/wasmer/pull/3796) Fix returning negative i64 values on web target
   - [#3836](https://github.com/wasmerio/wasmer/pull/3836) Fixed Chinese README example
   - [#3827](https://github.com/wasmerio/wasmer/pull/3827) Made test-build-docs-rs tests docs generation for all crates under libs, and fixed broken ones
-
-
-
-## Fixed
-
   - [#3796](https://github.com/wasmerio/wasmer/pull/3796) Fix returning negative i64 values on web target
 
 
