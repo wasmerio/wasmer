@@ -1,3 +1,4 @@
+pub mod module_cache;
 pub mod resolver;
 pub mod task_manager;
 
