@@ -4,7 +4,7 @@ use anyhow::Context;
 use wasmer::Module;
 
 use super::BinaryPackage;
-use crate::{runtime::module_cache::CompiledModuleCache, VirtualTaskManager, WasiRuntime};
+use crate::{runtime::module_cache::CompiledModuleCache, WasiRuntime};
 
 pub const DEFAULT_COMPILED_PATH: &str = "~/.wasmer/compiled";
 
@@ -59,31 +59,34 @@ impl ModuleCache {
         })
     }
 
-    pub async fn get_compiled_module(
+    pub fn get_compiled_module(
         &self,
-        engine: &impl wasmer::AsEngineRef,
+        runtime: &dyn WasiRuntime,
         data_hash: &str,
         compiler: &str,
-        task_manager: &dyn VirtualTaskManager,
     ) -> Option<Module> {
         let key = format!("{}-{}", data_hash, compiler);
+        let engine = runtime.engine()?;
 
-        self.0
-            .load(&key, engine.as_engine_ref().engine(), task_manager)
-            .await
+        let tasks = runtime.task_manager();
+        tasks
+            .block_on(async { self.0.load(&key, &engine, tasks).await })
             .ok()
     }
 
-    pub async fn set_compiled_module(
+    pub fn set_compiled_module(
         &self,
+        runtime: &dyn WasiRuntime,
         data_hash: &str,
         compiler: &str,
         module: &Module,
-        task_manager: &dyn VirtualTaskManager,
     ) {
         let key = format!("{}-{}", data_hash, compiler);
 
-        if let Err(e) = self.0.save(&key, module, task_manager).await {
+        let tasks = runtime.task_manager();
+        let result = tasks.block_on(async { self.0.save(&key, module, tasks).await });
+
+        if let Err(e) = result {
             tracing::warn!(
                 data_hash,
                 compiler,
