@@ -18,7 +18,6 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, Value};
-use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -36,10 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // Create a Store.
-    // Note that we don't need to specify the engine/compiler if we want to use
-    // the default provided by Wasmer.
-    // You can use `Store::default()` for that.
-    let mut store = Store::new(Cranelift::default());
+    let mut store = Store::default();
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

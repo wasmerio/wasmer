@@ -18,6 +18,9 @@ pub use wasmer_vm::{StoreHandle, StoreObjects};
 #[cfg(feature = "js")]
 pub use crate::js::store::{StoreHandle, StoreObjects};
 
+#[cfg(feature = "jsc")]
+pub use crate::jsc::store::{StoreHandle, StoreObjects};
+
 /// Call handler for a store.
 // TODO: better documentation!
 pub type OnCalledHandler = Box<

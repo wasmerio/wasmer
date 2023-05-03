@@ -398,6 +398,9 @@ check-capi:
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
 
+build-wasmer-jsc:
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat,wasi,webc_runner" --bin wasmer
+
 install-wasi-web:
 	cd lib/wasi-web && npm install || true
 	cd lib/wasi-web && npm run build
@@ -496,6 +499,10 @@ build-capi-llvm-universal:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner
 
+build-capi-jsc:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jsc,wasi
+
 # Headless (we include the minimal to be able to run)
 
 build-capi-headless:
@@ -523,7 +530,7 @@ test-stage-0-wast:
 
 # test packages
 test-stage-1-test-all:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features)
 test-stage-2-test-compiler-cranelift-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
 test-stage-3-test-compiler-singlepass-nostd:
@@ -593,6 +600,7 @@ test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crat
 # compilers first
 test-capi: build-capi package-capi test-capi-ci
 
+test-capi-jsc: build-capi-jsc package-capi test-capi-integration-jsc
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
@@ -668,6 +676,8 @@ endif
 endif
 
 package-capi-headless: build-capi-headless package-capi
+
+package-capi-jsc: build-capi-jsc package-capi
 
 package-capi:
 	mkdir -p "package/include"

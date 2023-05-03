@@ -48,6 +48,9 @@ wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=3.2.1", optional
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
+rusty_jsc = { version = "0.1.0", optional = true }
+# rusty_jsc = { path="../../../rusty_jsc", optional = true }
+wasmparser = { version = "0.83", default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
@@ -120,7 +123,13 @@ jit = ["engine"]
 js = ["wasm-bindgen", "js-sys"]
 js-default = ["js", "std", "wasm-types-polyfill"]
 
-wasm-types-polyfill = ["js", "wasmparser"]
+wasm-types-polyfill = ["wasmparser"]
+
+jsc = [
+  "rusty_jsc",
+  "wasm-types-polyfill",
+  "wasmparser",
+]
 
 js-serializable-module = []
 

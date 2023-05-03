@@ -1,11 +1,13 @@
 #[cfg(feature = "js")]
 use crate::js::externals::function as function_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::function as function_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::function as function_impl;
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionBody, VMTrampoline};
+use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionCallback, VMTrampoline};
 use crate::{
     Extern, FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, TypedFunction, Value,
 };
@@ -15,8 +17,8 @@ use crate::native_type::WasmTypeList;
 
 /// The `HostFunction` trait represents the set of functions that
 /// can be used as host function. To uphold this statement, it is
-/// necessary for a function to be transformed into a pointer to
-/// `VMFunctionBody`.
+/// necessary for a function to be transformed into a
+/// `VMFunctionCallback`.
 pub trait HostFunction<T, Args, Rets, Kind>
 where
     Args: WasmTypeList,
@@ -24,7 +26,7 @@ where
     Kind: HostFunctionKind,
 {
     /// Get the pointer to the function body.
-    fn function_body_ptr(&self) -> *const VMFunctionBody;
+    fn function_callback(&self) -> VMFunctionCallback;
 
     /// Get the pointer to the function call trampoline.
     fn call_trampoline_address() -> VMTrampoline {

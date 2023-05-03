@@ -10,7 +10,6 @@ pub(crate) mod typed_function;
 
 pub use crate::sys::engine::NativeEngineExt;
 pub use crate::sys::tunables::BaseTunables;
-pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
@@ -35,4 +34,6 @@ pub(crate) mod vm {
     pub(crate) type VMExternMemory = InternalStoreHandle<VMMemory>;
     pub(crate) type VMExternGlobal = InternalStoreHandle<VMGlobal>;
     pub(crate) type VMExternFunction = InternalStoreHandle<VMFunction>;
+
+    pub type VMFunctionCallback = *const VMFunctionBody;
 }
