@@ -102,7 +102,10 @@ default = [
     "emscripten",
     "middlewares",
 ]
-jsc = ["wasmer/jsc", "wat", "wasmer/std"]
+# exec means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
+# That means: that is able to execute modules
+exec = []
+jsc = ["wasmer/jsc", "exec", "wat", "wasmer/std"]
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]
@@ -110,10 +113,10 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasix"]
 emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
-compiler = ["wasmer/compiler", "wasmer-compiler/translator"]
-singlepass = ["wasmer-compiler-singlepass", "compiler"]
-cranelift = ["wasmer-compiler-cranelift", "compiler"]
-llvm = ["wasmer-compiler-llvm", "compiler"]
+compiler = ["wasmer/compiler", "exec", "wasmer-compiler/translator"]
+singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]
+cranelift = ["compiler", "wasmer-compiler-cranelift", "wasmer/cranelift"]
+llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm"]
 middlewares = ["wasmer-middlewares"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
@@ -141,7 +144,7 @@ harness = false
 [[example]]
 name = "early-exit"
 path = "examples/early_exit.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "engine"
@@ -181,27 +184,27 @@ required-features = ["llvm"]
 [[example]]
 name = "exported-function"
 path = "examples/exports_function.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "exported-global"
 path = "examples/exports_global.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "exported-memory"
 path = "examples/exports_memory.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "imported-function"
 path = "examples/imports_function.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "imported-global"
 path = "examples/imports_global.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "tunables-limit-memory"
@@ -211,32 +214,32 @@ required-features = ["cranelift"]
 [[example]]
 name = "wasi"
 path = "examples/wasi.rs"
-required-features = ["wasi"]
+required-features = ["exec", "wasi"]
 
 [[example]]
 name = "wasi-manual-setup"
 path = "examples/wasi_manual_setup.rs"
-required-features = ["wasi"]
+required-features = ["exec", "wasi"]
 
 [[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
-required-features = ["wasi"]
+required-features = ["exec", "wasi"]
 
 [[example]]
 name = "table"
 path = "examples/table.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "memory"
 path = "examples/memory.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "instance"
 path = "examples/instance.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "errors"
@@ -246,17 +249,17 @@ required-features = ["sys"]
 [[example]]
 name = "imported-function-env"
 path = "examples/imports_function_env.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "imported-function-env-global"
 path = "examples/imports_function_env_global.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "hello-world"
 path = "examples/hello_world.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "metering"
@@ -266,7 +269,7 @@ required-features = ["cranelift"]
 [[example]]
 name = "imports-exports"
 path = "examples/imports_exports.rs"
-required-features = []
+required-features = ["exec"]
 
 [[example]]
 name = "features"
