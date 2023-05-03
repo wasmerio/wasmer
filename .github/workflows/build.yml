@@ -336,6 +336,74 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  darwin_aarch64_jsc:
+    name: macOS aarch64 (JSC)
+    runs-on: macos-11.0
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: aarch64-apple-darwin
+      - name: Install Rust nightly (to build capi-headless)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          target: aarch64-apple-darwin
+      - name: Build Wasmer C-API (JSC)
+        shell: bash
+        run: |
+          make build-capi-jsc
+        env:
+          RUSTFLAGS: -Cpanic=abort
+          CARGO_TARGET: aarch64-apple-darwin
+      - name: Dist
+        run: |
+          make distribution
+        env: 
+          CARGO_TARGET: aarch64-apple-darwin
+          TARGET_DIR: target/aarch64-apple-darwin/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: 'aarch64-apple-darwin-jsc'
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
+
+  darwin_x86_64_jsc:
+    name: macOS x86_64 (JSC)
+    runs-on: macos-11.0
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: x86_64-apple-darwin
+      - name: Install Rust nightly (to build capi-headless)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          target: x86_64-apple-darwin
+      - name: Build Wasmer C-API (JSC)
+        shell: bash
+        run: |
+          make build-capi-jsc
+        env:
+          RUSTFLAGS: -Cpanic=abort
+          CARGO_TARGET: x86_64-apple-darwin
+      - name: Dist
+        run: |
+          make distribution
+        env: 
+          CARGO_TARGET: x86_64-apple-darwin
+          TARGET_DIR: target/x86_64-apple-darwin/release
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: 'x86_64-apple-darwin-jsc'
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
+
   linux_aarch64:
     name: Linux aarch64
     runs-on: ubuntu-latest
