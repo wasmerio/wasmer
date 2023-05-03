@@ -135,3 +135,5 @@ enable-serde = [
     "wasmer-wasix-types/enable-serde",
 ]
 
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]
