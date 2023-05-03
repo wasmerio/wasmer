@@ -253,6 +253,16 @@
 <span id="251">251</span>
 <span id="252">252</span>
 <span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::memory_view::MemoryView;
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 <span class="kw">use </span><span class="kw">crate</span>::vm::VMExternMemory;
@@ -355,6 +365,16 @@
     <span class="kw">pub fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;VMMemory&gt; {
         <span class="kw">let </span>mem = <span class="self">self</span>.handle.get(store.as_store_ref().objects());
         mem.try_clone().map(|mem| mem.into())
+    }
+
+    <span class="kw">pub fn </span>duplicate_in_store(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="self">self</span>.try_clone(<span class="kw-2">&amp;</span>store)
+            .and_then(|<span class="kw-2">mut </span>memory| memory.duplicate().ok())
+            .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory.into()))
     }
 
     <span class="doccomment">/// To `VMExtern`.

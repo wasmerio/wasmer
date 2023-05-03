@@ -31,18 +31,33 @@
 <span id="29">29</span>
 <span id="30">30</span>
 <span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The `vm` module re-exports wasmer-vm types.
 
 </span><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::js::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionBody, VMFunctionEnvironment, VMInstance, VMTrampoline,
+    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
+};
+
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::jsc::vm::{
+    VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
+    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
 };
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::sys::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
-    VMFuncRef, VMFunctionBody, VMFunctionEnvironment, VMInstance, VMTrampoline,
+    VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
 };
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
@@ -50,6 +65,9 @@
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">pub use </span>wasmer_vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::jsc::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
 
 <span class="comment">// Needed for tunables customization (those are public types now)
 </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]

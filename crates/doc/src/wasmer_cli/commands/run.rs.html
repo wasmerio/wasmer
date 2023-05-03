@@ -724,6 +724,16 @@
 <span id="722">722</span>
 <span id="723">723</span>
 <span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::common::get_cache_dir;
 <span class="kw">use </span><span class="kw">crate</span>::logging;
 <span class="kw">use </span><span class="kw">crate</span>::package_source::PackageSource;
@@ -732,11 +742,13 @@
 <span class="kw">use </span><span class="kw">crate</span>::warning;
 <span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+</span><span class="kw">use </span>std::fs::File;
 <span class="kw">use </span>std::io::Write;
+<span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::ops::Deref;
 <span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::str::FromStr;
-<span class="kw">use </span>std::{fs::File, net::SocketAddr};
 <span class="kw">use </span>wasmer::FunctionEnv;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_cache::{Cache, FileSystemCache, Hash};
@@ -811,7 +823,8 @@
     </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long = <span class="string">&quot;coredump-on-trap&quot;</span>, parse(from_os_str))]
     </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-    <span class="doccomment">/// The stack size (default is 1048576)
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+    </span><span class="doccomment">/// The stack size (default is 1048576)
     </span><span class="attribute">#[clap(long = <span class="string">&quot;stack-size&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
 
@@ -894,7 +907,8 @@
         });
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = invoke_res {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(coredump_path) = <span class="self">self</span>.coredump_on_trap.as_ref() {
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump_path) = <span class="self">self</span>.coredump_on_trap.as_ref() {
                 <span class="kw">let </span>source_name = <span class="self">self</span>.path.to_str().unwrap_or(<span class="string">&quot;unknown&quot;</span>);
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(coredump_err) = generate_coredump(<span class="kw-2">&amp;</span>err, source_name, coredump_path) {
                     <span class="macro">eprintln!</span>(<span class="string">&quot;warning: coredump failed to generate: {}&quot;</span>, coredump_err);
@@ -905,13 +919,17 @@
             } <span class="kw">else </span>{
                 <span class="prelude-val">Err</span>(err)
             }
+
+            <span class="attribute">#[cfg(not(feature = <span class="string">&quot;coredump&quot;</span>))]
+            </span><span class="prelude-val">Err</span>(err)
         } <span class="kw">else </span>{
             invoke_res
         }
     }
 
     <span class="kw">fn </span>inner_module_run(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span>Store, instance: Instance) -&gt; <span class="prelude-ty">Result</span>&lt;i32&gt; {
-        <span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+        </span><span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
         <span class="comment">// If this module exports an _initialize function, run that first.
@@ -1157,7 +1175,8 @@
 
     <span class="kw">fn </span>get_store_module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Store, Module)&gt; {
         <span class="kw">let </span>contents = std::fs::read(<span class="self">self</span>.path.clone())<span class="question-mark">?</span>;
-        <span class="kw">if </span>wasmer_compiler::Artifact::is_deserializable(<span class="kw-2">&amp;</span>contents) {
+        <span class="attribute">#[cfg(not(feature = <span class="string">&quot;jsc&quot;</span>))]
+        </span><span class="kw">if </span>wasmer_compiler::Artifact::is_deserializable(<span class="kw-2">&amp;</span>contents) {
             <span class="kw">let </span>engine = wasmer_compiler::EngineBuilder::headless();
             <span class="kw">let </span>store = Store::new(engine);
             <span class="kw">let </span>module = Module::deserialize_from_file_checked(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>;
@@ -1390,7 +1409,8 @@
     }
 }
 
-<span class="kw">fn </span>generate_coredump(
+<span class="attribute">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+</span><span class="kw">fn </span>generate_coredump(
     err: <span class="kw-2">&amp;</span>anyhow::Error,
     source_name: <span class="kw-2">&amp;</span>str,
     coredump_path: <span class="kw-2">&amp;</span>PathBuf,

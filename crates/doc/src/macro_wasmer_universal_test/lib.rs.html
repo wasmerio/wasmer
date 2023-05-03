@@ -64,7 +64,7 @@
         #[cfg_attr(feature = <span class="string">&quot;js&quot;</span>, wasm_bindgen_test)]
         </span><span class="kw">fn </span>#function_name_js() { #function_name_normal().unwrap(); }
 
-        <span class="attribute">#[cfg_attr(feature = <span class="string">&quot;sys&quot;</span>, test)]
+        <span class="attribute">#[cfg_attr(any(feature = <span class="string">&quot;sys&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>), test)]
         </span>#parsed
     };
 

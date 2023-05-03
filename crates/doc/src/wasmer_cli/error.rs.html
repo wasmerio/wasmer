@@ -126,6 +126,25 @@
 <span id="124">124</span>
 <span id="125">125</span>
 <span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
 </span><span class="kw">use </span>anyhow::{Chain, Error};
@@ -147,7 +166,8 @@
     })
 }
 
-<span class="kw">impl </span>PrettyError {
+<span class="attribute">#[cfg(not(feature = <span class="string">&quot;jsc&quot;</span>))]
+</span><span class="kw">impl </span>PrettyError {
     <span class="doccomment">/// Process a `Result` printing any errors and exiting
     /// the process after
     </span><span class="kw">pub fn </span>report&lt;T&gt;(result: <span class="prelude-ty">Result</span>&lt;T, Error&gt;) -&gt; ! {
@@ -168,6 +188,24 @@
                     <span class="kw">_ </span>=&gt; <span class="number">1</span>,
                 }
             }
+        });
+    }
+}
+
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">impl </span>PrettyError {
+    <span class="doccomment">/// Process a `Result` printing any errors and exiting
+    /// the process after
+    </span><span class="kw">pub fn </span>report&lt;T&gt;(result: <span class="prelude-ty">Result</span>&lt;T, Error&gt;) -&gt; ! {
+        std::process::exit(<span class="kw">match </span>result {
+            <span class="prelude-val">Ok</span>(_t) =&gt; <span class="number">0</span>,
+            <span class="prelude-val">Err</span>(error) =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{:?}&quot;</span>, PrettyError { error });
+                <span class="comment">// we don&#39;t use process:abort() here to avoid message from rust
+                // that could interfer with testing tools
+                // but still exit with the expected error code
+                </span><span class="number">1
+            </span>}
         });
     }
 }

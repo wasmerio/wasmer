@@ -512,14 +512,18 @@
 <span id="510">510</span>
 <span id="511">511</span>
 <span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::function <span class="kw">as </span>function_impl;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::jsc::externals::function <span class="kw">as </span>function_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::externals::function <span class="kw">as </span>function_impl;
 
 <span class="kw">use </span><span class="kw">crate</span>::exports::{ExportError, Exportable};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
-<span class="kw">use </span><span class="kw">crate</span>::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionBody, VMTrampoline};
+<span class="kw">use </span><span class="kw">crate</span>::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionCallback, VMTrampoline};
 <span class="kw">use crate</span>::{
     Extern, FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, TypedFunction, Value,
 };
@@ -529,8 +533,8 @@
 
 <span class="doccomment">/// The `HostFunction` trait represents the set of functions that
 /// can be used as host function. To uphold this statement, it is
-/// necessary for a function to be transformed into a pointer to
-/// `VMFunctionBody`.
+/// necessary for a function to be transformed into a
+/// `VMFunctionCallback`.
 </span><span class="kw">pub trait </span>HostFunction&lt;T, Args, Rets, Kind&gt;
 <span class="kw">where
     </span>Args: WasmTypeList,
@@ -538,7 +542,7 @@
     Kind: HostFunctionKind,
 {
     <span class="doccomment">/// Get the pointer to the function body.
-    </span><span class="kw">fn </span>function_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody;
+    </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMFunctionCallback;
 
     <span class="doccomment">/// Get the pointer to the function call trampoline.
     </span><span class="kw">fn </span>call_trampoline_address() -&gt; VMTrampoline {

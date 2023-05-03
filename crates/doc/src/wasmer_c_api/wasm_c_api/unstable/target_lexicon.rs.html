@@ -313,6 +313,7 @@
 <span id="311">311</span>
 <span id="312">312</span>
 <span id="313">313</span>
+<span id="314">314</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains everything
 //! to create a target with a triple and CPU features.
 //!
@@ -383,7 +384,8 @@
 </span><span class="attribute">#[derive(Debug)]
 #[allow(non_camel_case_types)]
 </span><span class="kw">pub struct </span>wasmer_target_t {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) inner: Target,
+    <span class="attribute">#[allow(unused)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) inner: Target,
 }
 
 <span class="doccomment">/// Creates a new [`wasmer_target_t`].

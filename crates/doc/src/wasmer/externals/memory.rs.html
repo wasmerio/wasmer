@@ -215,9 +215,10 @@
 <span id="213">213</span>
 <span id="214">214</span>
 <span id="215">215</span>
-<span id="216">216</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::memory <span class="kw">as </span>memory_impl;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::jsc::externals::memory <span class="kw">as </span>memory_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::externals::memory <span class="kw">as </span>memory_impl;
 
@@ -385,10 +386,7 @@
             <span class="comment">// We should only be able to duplicate in a new store if the memory is shared
             </span><span class="kw">return </span><span class="prelude-val">None</span>;
         }
-        <span class="self">self</span>.<span class="number">0
-            </span>.try_clone(<span class="kw-2">&amp;</span>store)
-            .and_then(|<span class="kw-2">mut </span>memory| memory.duplicate().ok())
-            .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory.into()))
+        <span class="self">self</span>.<span class="number">0</span>.duplicate_in_store(store, new_store).map(<span class="self">Self</span>)
     }
 
     <span class="doccomment">/// To `VMExtern`.

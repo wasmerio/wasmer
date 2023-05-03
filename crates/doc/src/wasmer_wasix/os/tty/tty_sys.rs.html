@@ -345,7 +345,7 @@
 }
 
 <span class="attribute">#[allow(unused_mut)]
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = <span class="string">&quot;ios&quot;</span>)))]
 </span><span class="kw">mod </span>sys {
     <span class="attribute">#![allow(unused_imports)]
     </span><span class="kw">use </span>{
@@ -498,7 +498,7 @@
     }
 }
 
-<span class="attribute">#[cfg(not(unix))]
+<span class="attribute">#[cfg(any(not(unix), target_os = <span class="string">&quot;ios&quot;</span>))]
 </span><span class="kw">mod </span>sys {
     <span class="kw">pub fn </span>reset() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="prelude-val">Ok</span>(())

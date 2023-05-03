@@ -922,6 +922,50 @@
 <span id="920">920</span>
 <span id="921">921</span>
 <span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
+<span id="946">946</span>
+<span id="947">947</span>
+<span id="948">948</span>
+<span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
@@ -979,6 +1023,28 @@
     }
 }
 
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>u32 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { i32: <span class="self">self </span><span class="kw">as _ </span>}
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.i32 <span class="kw">as _
+    </span>}
+}
+
 <span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>i64 {
     <span class="attribute">#[inline]
     </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
@@ -999,6 +1065,28 @@
     </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
         raw.i64
     }
+}
+
+<span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>u64 {
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_abi(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, abi: <span class="self">Self</span>::Abi) -&gt; <span class="self">Self </span>{
+        abi
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_abi(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="self">Self</span>::Abi {
+        <span class="self">self
+    </span>}
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">fn </span>into_raw(<span class="self">self</span>, _store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; RawValue {
+        RawValue { i64: <span class="self">self </span><span class="kw">as _ </span>}
+    }
+
+    <span class="attribute">#[inline]
+    </span><span class="kw">unsafe fn </span>from_raw(_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, raw: RawValue) -&gt; <span class="self">Self </span>{
+        raw.i64 <span class="kw">as _
+    </span>}
 }
 
 <span class="kw">impl </span>NativeWasmTypeInto <span class="kw">for </span>f32 {

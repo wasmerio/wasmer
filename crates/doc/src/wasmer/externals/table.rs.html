@@ -144,8 +144,12 @@
 <span id="142">142</span>
 <span id="143">143</span>
 <span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::table <span class="kw">as </span>table_impl;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::jsc::externals::table <span class="kw">as </span>table_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::externals::table <span class="kw">as </span>table_impl;
 

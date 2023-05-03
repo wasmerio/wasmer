@@ -660,7 +660,7 @@
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::externals::function::{HostFunction, WithEnv, WithoutEnv};
 <span class="kw">use </span><span class="kw">crate</span>::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
-<span class="kw">use </span><span class="kw">crate</span>::vm::VMExternFunction;
+<span class="kw">use </span><span class="kw">crate</span>::vm::{VMExternFunction, VMFunctionCallback};
 <span class="kw">use crate</span>::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
 <span class="kw">use </span>std::panic::{<span class="self">self</span>, AssertUnwindSafe};
 <span class="kw">use </span>std::{cell::UnsafeCell, cmp::max, ffi::c_void};
@@ -668,7 +668,7 @@
 <span class="kw">use </span>wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMExtern, VMFuncRef,
-    VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
+    VMFunction, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
 <span class="attribute">#[derive(Debug, Clone, PartialEq, Eq)]
@@ -739,7 +739,7 @@
         <span class="comment">// We don&#39;t yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
-        </span><span class="kw">let </span>func_ptr = std::ptr::null() <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody;
+        </span><span class="kw">let </span>func_ptr = std::ptr::null() <span class="kw">as </span>VMFunctionCallback;
         <span class="kw">let </span>type_index = store
             .as_store_mut()
             .engine()
@@ -775,7 +775,7 @@
         Rets: WasmTypeList,
     {
         <span class="kw">let </span>env = FunctionEnv::new(store, ());
-        <span class="kw">let </span>func_ptr = func.function_body_ptr();
+        <span class="kw">let </span>func_ptr = func.function_callback();
         <span class="kw">let </span>host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
             env,
@@ -821,7 +821,7 @@
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        <span class="kw">let </span>func_ptr = func.function_body_ptr();
+        <span class="kw">let </span>func_ptr = func.function_callback();
         <span class="kw">let </span>host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() <span class="kw">as </span><span class="kw-2">*mut </span>u8,
             env: env.clone(),
@@ -1087,8 +1087,8 @@
         }
     }
 
-    <span class="kw">fn </span>func_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody {
-        <span class="self">Self</span>::func_wrapper <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody
+    <span class="kw">fn </span>func_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMFunctionCallback {
+        <span class="self">Self</span>::func_wrapper <span class="kw">as </span>VMFunctionCallback
     }
 
     <span class="kw">fn </span>call_trampoline_address(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMTrampoline {
@@ -1097,10 +1097,10 @@
 
     <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>call_trampoline(
         vmctx: <span class="kw-2">*mut </span>VMContext,
-        _body: <span class="kw-2">*const </span>VMFunctionBody,
+        _body: VMFunctionCallback,
         args: <span class="kw-2">*mut </span>RawValue,
     ) {
-        <span class="comment">// The VMFunctionBody pointer is null here: it is only filled in later
+        <span class="comment">// The VMFunctionCallback is null here: it is only filled in later
         // by the engine linker.
         </span><span class="kw">let </span>dynamic_function = <span class="kw-2">&amp;mut *</span>(vmctx <span class="kw">as </span><span class="kw-2">*mut </span>VMDynamicFunctionContext&lt;<span class="self">Self</span>&gt;);
         <span class="self">Self</span>::func_wrapper(dynamic_function, args);
@@ -1135,7 +1135,7 @@
                 Func: Fn(FunctionEnvMut&lt;T&gt;, $( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
             {
                 <span class="attribute">#[allow(non_snake_case)]
-                </span><span class="kw">fn </span>function_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody {
+                </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMFunctionCallback {
                     <span class="doccomment">/// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -1172,7 +1172,7 @@
                         }
                     }
 
-                    func_wrapper::&lt; T, $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, <span class="self">Self </span>&gt; <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody
+                    func_wrapper::&lt; T, $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, <span class="self">Self </span>&gt; <span class="kw">as </span>VMFunctionCallback
                 }
 
                 <span class="attribute">#[allow(non_snake_case)]
@@ -1182,7 +1182,7 @@
                         Rets: WasmTypeList,
                     &gt;(
                         vmctx: <span class="kw-2">*mut </span>VMContext,
-                        body: <span class="kw-2">*const </span>VMFunctionBody,
+                        body: VMFunctionCallback,
                         args: <span class="kw-2">*mut </span>RawValue,
                     ) {
                             <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(
@@ -1219,7 +1219,7 @@
                 Func: Fn($( <span class="macro-nonterminal">$x </span>, )<span class="kw-2">*</span>) -&gt; RetsAsResult + <span class="lifetime">&#39;static</span>,
             {
                 <span class="attribute">#[allow(non_snake_case)]
-                </span><span class="kw">fn </span>function_body_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*const </span>VMFunctionBody {
+                </span><span class="kw">fn </span>function_callback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMFunctionCallback {
                     <span class="doccomment">/// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -1249,7 +1249,7 @@
                         }
                     }
 
-                    func_wrapper::&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, <span class="self">Self </span>&gt; <span class="kw">as </span><span class="kw-2">*const </span>VMFunctionBody
+                    func_wrapper::&lt; $( <span class="macro-nonterminal">$x</span>, )* Rets, RetsAsResult, <span class="self">Self </span>&gt; <span class="kw">as </span>VMFunctionCallback
                 }
 
                 <span class="attribute">#[allow(non_snake_case)]
@@ -1259,7 +1259,7 @@
                         Rets: WasmTypeList,
                     &gt;(
                         vmctx: <span class="kw-2">*mut </span>VMContext,
-                        body: <span class="kw-2">*const </span>VMFunctionBody,
+                        body: VMFunctionCallback,
                         args: <span class="kw-2">*mut </span>RawValue,
                     ) {
                             <span class="kw">let </span>body: <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(

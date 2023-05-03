@@ -111,6 +111,8 @@
 <span id="109">109</span>
 <span id="110">110</span>
 <span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::exports::Exports;
 <span class="kw">use </span><span class="kw">crate</span>::module::Module;
 <span class="kw">use crate</span>::{Extern, InstantiationError};
@@ -121,6 +123,8 @@
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::instance <span class="kw">as </span>instance_imp;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::jsc::instance <span class="kw">as </span>instance_imp;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::instance <span class="kw">as </span>instance_imp;
 

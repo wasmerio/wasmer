@@ -342,6 +342,9 @@
 <span id="340">340</span>
 <span id="341">341</span>
 <span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::{AsEngineRef, Engine, EngineRef};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
@@ -361,6 +364,9 @@
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::js::store::{StoreHandle, StoreObjects};
+
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">pub use </span><span class="kw">crate</span>::jsc::store::{StoreHandle, StoreObjects};
 
 <span class="doccomment">/// Call handler for a store.
 </span><span class="comment">// TODO: better documentation!

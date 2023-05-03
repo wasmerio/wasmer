@@ -38,6 +38,7 @@
 <span id="36">36</span>
 <span id="37">37</span>
 <span id="38">38</span>
+<span id="39">39</span>
 </pre><pre class="rust"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>engine;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>errors;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>extern_ref;
@@ -50,7 +51,6 @@
 
 <span class="kw">pub use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
 <span class="kw">pub use </span><span class="kw">crate</span>::sys::tunables::BaseTunables;
-<span class="kw">pub use </span>target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">pub use </span>wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
@@ -75,6 +75,8 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VMExternMemory = InternalStoreHandle&lt;VMMemory&gt;;
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VMExternGlobal = InternalStoreHandle&lt;VMGlobal&gt;;
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VMExternFunction = InternalStoreHandle&lt;VMFunction&gt;;
+
+    <span class="kw">pub type </span>VMFunctionCallback = <span class="kw-2">*const </span>VMFunctionBody;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

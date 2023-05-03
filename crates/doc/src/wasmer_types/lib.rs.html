@@ -211,6 +211,16 @@
 <span id="211">211</span>
 <span id="212">212</span>
 <span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This are the common types and utility tools for using WebAssembly
 //! in a Rust environment.
 //!
@@ -382,12 +392,22 @@
         </span><span class="kw">const </span>WASM_TYPE: Type;
     }
 
+    <span class="kw">impl </span>NativeWasmType <span class="kw">for </span>u32 {
+        <span class="kw">const </span>WASM_TYPE: Type = Type::I32;
+        <span class="kw">type </span>Abi = <span class="self">Self</span>;
+    }
+
     <span class="kw">impl </span>NativeWasmType <span class="kw">for </span>i32 {
         <span class="kw">const </span>WASM_TYPE: Type = Type::I32;
         <span class="kw">type </span>Abi = <span class="self">Self</span>;
     }
 
     <span class="kw">impl </span>NativeWasmType <span class="kw">for </span>i64 {
+        <span class="kw">const </span>WASM_TYPE: Type = Type::I64;
+        <span class="kw">type </span>Abi = <span class="self">Self</span>;
+    }
+
+    <span class="kw">impl </span>NativeWasmType <span class="kw">for </span>u64 {
         <span class="kw">const </span>WASM_TYPE: Type = Type::I64;
         <span class="kw">type </span>Abi = <span class="self">Self</span>;
     }

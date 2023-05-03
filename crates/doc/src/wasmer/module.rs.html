@@ -470,6 +470,8 @@
 <span id="468">468</span>
 <span id="469">469</span>
 <span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
 </pre><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::fs;
@@ -489,6 +491,8 @@
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::module <span class="kw">as </span>module_imp;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::jsc::module <span class="kw">as </span>module_imp;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::sys::module <span class="kw">as </span>module_imp;
 

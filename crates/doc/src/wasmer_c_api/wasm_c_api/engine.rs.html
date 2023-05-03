@@ -465,6 +465,27 @@
 <span id="463">463</span>
 <span id="464">464</span>
 <span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">pub use </span><span class="kw">super</span>::unstable::engine::wasmer_is_compiler_available;
 <span class="kw">pub use </span><span class="kw">super</span>::unstable::engine::{wasm_config_set_features, wasm_config_set_target};
@@ -476,7 +497,10 @@
 <span class="kw">use </span><span class="kw">super</span>::unstable::target_lexicon::wasmer_target_t;
 <span class="kw">use </span><span class="kw">crate</span>::error::update_last_error;
 <span class="kw">use </span>cfg_if::cfg_if;
-<span class="kw">use </span>wasmer_compiler::{Engine, EngineBuilder};
+<span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;compiler-headless&quot;</span>)))]
+</span><span class="kw">use </span>wasmer_api::Engine;
+<span class="attribute">#[cfg(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;compiler-headless&quot;</span>))]
+</span><span class="kw">use </span>wasmer_compiler::{Engine, EngineBuilder};
 
 <span class="doccomment">/// Kind of compilers that can be used by the engines.
 ///
@@ -762,6 +786,19 @@
             <span class="kw">let </span>engine: Engine = EngineBuilder::headless().engine();
             Box::new(wasm_engine_t { inner: engine })
         }
+    } <span class="kw">else if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)] </span>{
+        <span class="doccomment">/// Creates the JavascriptCore Engine.
+        ///
+        /// # Example
+        ///
+        /// See [`wasm_engine_delete`].
+        ///
+        /// cbindgen:ignore
+        </span><span class="attribute">#[no_mangle]
+        </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasm_engine_new() -&gt; Box&lt;wasm_engine_t&gt; {
+            <span class="kw">let </span>engine: Engine = Engine::default();
+            Box::new(wasm_engine_t { inner: engine })
+        }
     } <span class="kw">else </span>{
         <span class="doccomment">/// Creates a new unknown engine, i.e. it will panic with an error message.
         ///
@@ -825,7 +862,8 @@
         <span class="prelude-val">None
     </span>}
 
-    <span class="kw">let </span>config = config<span class="question-mark">?</span>;
+    <span class="attribute">#[allow(unused)]
+    </span><span class="kw">let </span>config = config<span class="question-mark">?</span>;
     <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;compiler-headless&quot;</span>)))]
     </span><span class="kw">return </span>return_with_error(<span class="string">&quot;Wasmer has not been compiled with the `compiler` feature.&quot;</span>);
     <span class="macro">cfg_if! </span>{
@@ -886,7 +924,8 @@
                         };
             <span class="prelude-val">Some</span>(Box::new(wasm_engine_t { inner }))
         } <span class="kw">else </span>{
-            <span class="kw">let </span>inner: Engine =
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;compiler-headless&quot;</span>)]
+            </span><span class="kw">let </span>inner: Engine =
                      {
                             <span class="kw">let </span><span class="kw-2">mut </span>builder = EngineBuilder::headless();
 
@@ -900,6 +939,9 @@
 
                             builder.engine()
                     };
+            <span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;compiler-headless&quot;</span>, feature=<span class="string">&quot;compiler&quot;</span>)))]
+            </span><span class="kw">let </span>inner: Engine = Engine::default();
+
             <span class="prelude-val">Some</span>(Box::new(wasm_engine_t { inner }))
         }
     }

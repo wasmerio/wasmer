@@ -263,8 +263,11 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::trap::Trap;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::jsc::trap::Trap;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>thiserror::Error;
@@ -403,8 +406,7 @@
         wasm_trace: Vec&lt;FrameInfo&gt;,
         trap_code: <span class="prelude-ty">Option</span>&lt;TrapCode&gt;,
     ) -&gt; <span class="self">Self </span>{
-        <span class="comment">// println!(&quot;CREATING ERROR FROM TRAP {}&quot;, source);
-        </span><span class="self">Self </span>{
+        <span class="self">Self </span>{
             inner: Arc::new(RuntimeErrorInner {
                 source,
                 wasm_trace,

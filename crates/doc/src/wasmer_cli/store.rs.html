@@ -355,6 +355,16 @@
 <span id="353">353</span>
 <span id="354">354</span>
 <span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -371,7 +381,8 @@
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::CompilerConfig;
-<span class="kw">use </span>wasmer_compiler::Engine;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span>wasmer_compiler::Engine;
 
 <span class="attribute">#[derive(Debug, Clone, Parser, Default)]
 </span><span class="doccomment">/// The compiler options
@@ -696,10 +707,10 @@
 }
 
 <span class="comment">// If we don&#39;t have a compiler, but we have an engine
-</span><span class="attribute">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
+</span><span class="attribute">#[cfg(not(any(feature = <span class="string">&quot;compiler&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>)))]
 </span><span class="kw">impl </span>StoreOptions {
-    <span class="kw">fn </span>get_engine_headless(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Engine&gt; {
-        <span class="kw">let </span>engine: Engine = wasmer_compiler::EngineBuilder::headless().engine();
+    <span class="kw">fn </span>get_engine_headless(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_compiler::Engine&gt; {
+        <span class="kw">let </span>engine: wasmer_compiler::Engine = wasmer_compiler::EngineBuilder::headless().engine();
         <span class="prelude-val">Ok</span>(engine)
     }
 
@@ -707,6 +718,15 @@
     </span><span class="kw">pub fn </span>get_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Store, CompilerType)&gt; {
         <span class="kw">let </span>engine = <span class="self">self</span>.get_engine_headless()<span class="question-mark">?</span>;
         <span class="kw">let </span>store = Store::new(engine);
+        <span class="prelude-val">Ok</span>((store, CompilerType::Headless))
+    }
+}
+
+<span class="attribute">#[cfg(all(not(feature = <span class="string">&quot;compiler&quot;</span>), feature = <span class="string">&quot;jsc&quot;</span>))]
+</span><span class="kw">impl </span>StoreOptions {
+    <span class="doccomment">/// Get the store (headless engine)
+    </span><span class="kw">pub fn </span>get_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Store, CompilerType)&gt; {
+        <span class="kw">let </span>store = Store::default();
         <span class="prelude-val">Ok</span>((store, CompilerType::Headless))
     }
 }

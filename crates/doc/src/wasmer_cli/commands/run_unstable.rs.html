@@ -663,6 +663,14 @@
 <span id="661">661</span>
 <span id="662">662</span>
 <span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(missing_docs, unused)]
 
 </span><span class="kw">use </span>std::{
@@ -689,7 +697,8 @@
     Value,
 };
 <span class="kw">use </span>wasmer_cache::Cache;
-<span class="kw">use </span>wasmer_compiler::ArtifactBuild;
+<span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span>wasmer_compiler::ArtifactBuild;
 <span class="kw">use </span>wasmer_registry::Package;
 <span class="kw">use </span>wasmer_wasix::runners::wcgi::AbortHandle;
 <span class="kw">use </span>wasmer_wasix::runners::{MappedDirectory, Runner};
@@ -713,7 +722,8 @@
     </span>wasi: <span class="kw">crate</span>::commands::run::Wasi,
     <span class="attribute">#[clap(flatten)]
     </span>wcgi: WcgiOptions,
-    <span class="doccomment">/// The stack size (default is 1048576)
+    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+    </span><span class="doccomment">/// The stack size (default is 1048576)
     </span><span class="attribute">#[clap(long = <span class="string">&quot;stack-size&quot;</span>)]
     </span>stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="doccomment">/// The function or command to invoke.
@@ -749,7 +759,8 @@
         };
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap {
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(coredump) = <span class="kw-2">&amp;</span><span class="self">self</span>.coredump_on_trap {
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = generate_coredump(e, target.path(), coredump) {
                     <span class="macro">tracing::warn!</span>(
                         error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
@@ -769,7 +780,8 @@
         module: <span class="kw-2">&amp;</span>Module,
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+        </span><span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
         <span class="kw">if </span>wasmer_emscripten::is_emscripten_module(module) {
@@ -789,7 +801,8 @@
         <span class="kw-2">mut </span>cache: ModuleCache,
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
+        <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+        </span><span class="kw">if </span><span class="self">self</span>.stack_size.is_some() {
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
         <span class="kw">let </span>id = <span class="kw">match </span><span class="self">self</span>.entrypoint.as_deref() {
@@ -1117,11 +1130,13 @@
             <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary(path))
         } <span class="kw">else if </span>webc::detect(leading_bytes).is_ok() {
             <span class="prelude-val">Ok</span>(TargetOnDisk::Webc(path))
-        } <span class="kw">else if </span>ArtifactBuild::is_deserializable(leading_bytes) {
-            <span class="prelude-val">Ok</span>(TargetOnDisk::Artifact(path))
         } <span class="kw">else if </span>path.extension() == <span class="prelude-val">Some</span>(<span class="string">&quot;wat&quot;</span>.as_ref()) {
             <span class="prelude-val">Ok</span>(TargetOnDisk::Wat(path))
         } <span class="kw">else </span>{
+            <span class="attribute">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+            </span><span class="kw">if </span>ArtifactBuild::is_deserializable(leading_bytes) {
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(TargetOnDisk::Artifact(path));
+            }
             <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Unable to determine how to execute \&quot;{}\&quot;&quot;</span>, path.display());
         }
     }
@@ -1241,7 +1256,8 @@
     Webc(Container),
 }
 
-<span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source: <span class="kw-2">&amp;</span>Path, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<span class="attribute">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
+</span><span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source: <span class="kw-2">&amp;</span>Path, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
     <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
         <span class="prelude-val">Some</span>(e) =&gt; e,
         <span class="prelude-val">None </span>=&gt; {
