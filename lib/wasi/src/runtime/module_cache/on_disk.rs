@@ -2,10 +2,7 @@ use std::path::{Path, PathBuf};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::{
-    module_cache::{CacheError, CompiledModuleCache},
-    VirtualTaskManager,
-};
+use crate::runtime::module_cache::{CacheError, CompiledModuleCache};
 
 /// A cache that saves modules to a folder on disk using
 /// [`Module::serialize()`].
@@ -35,74 +32,34 @@ impl OnDiskCache {
 
 #[async_trait::async_trait]
 impl CompiledModuleCache for OnDiskCache {
-    async fn load(
-        &self,
-        key: &str,
-        engine: &Engine,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<Module, CacheError> {
+    async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key);
 
-        // Note: engine is reference-counted so it's cheap to clone
-        let engine = engine.clone();
-
-        let result = task_manager
-            .runtime()
-            .spawn_blocking(move || {
-                Module::deserialize_from_file_checked(&engine, &path)
-                    .map_err(|e| deserialize_error(e, path))
-            })
-            .await;
-
-        propagate_panic(result)
+        // FIXME: Use spawn_blocking() to avoid blocking the thread
+        Module::deserialize_from_file_checked(&engine, &path)
+            .map_err(|e| deserialize_error(e, path))
     }
 
-    async fn save(
-        &self,
-        key: &str,
-        module: &Module,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<(), CacheError> {
+    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
         let path = self.path(key);
 
-        // Note: module is reference-counted so it's cheap to clone
-        let module = module.clone();
+        // FIXME: Use spawn_blocking() to avoid blocking the thread
 
-        let result = task_manager
-            .runtime()
-            .spawn_blocking(move || {
-                if let Some(parent) = path.parent() {
-                    if let Err(e) = std::fs::create_dir_all(parent) {
-                        tracing::warn!(
-                            dir=%parent.display(),
-                            error=&e as &dyn std::error::Error,
-                            "Unable to create the cache dir",
-                        );
-                    }
-                }
+        if let Some(parent) = path.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                tracing::warn!(
+                    dir=%parent.display(),
+                    error=&e as &dyn std::error::Error,
+                    "Unable to create the cache dir",
+                );
+            }
+        }
 
-                // PERF: We can reduce disk usage by using the weezl crate to
-                // LZW-encode the serialized module.
-                module
-                    .serialize_to_file(&path)
-                    .map_err(|e| CacheError::Other(Box::new(SerializeError { path, inner: e })))
-            })
-            .await;
-
-        propagate_panic(result)
-    }
-}
-
-/// Resume any panics that may have occurred inside a spawned task.
-fn propagate_panic<Ret>(
-    result: Result<Result<Ret, CacheError>, tokio::task::JoinError>,
-) -> Result<Ret, CacheError> {
-    match result {
-        Ok(ret) => ret,
-        Err(e) => match e.try_into_panic() {
-            Ok(payload) => std::panic::resume_unwind(payload),
-            Err(e) => Err(CacheError::Other(e.into())),
-        },
+        // PERF: We can reduce disk usage by using the weezl crate to
+        // LZW-encode the serialized module.
+        module
+            .serialize_to_file(&path)
+            .map_err(|e| CacheError::Other(Box::new(SerializeError { path, inner: e })))
     }
 }
 
@@ -136,7 +93,6 @@ mod tests {
     use tempfile::TempDir;
 
     use super::*;
-    use crate::runtime::task_manager::tokio::TokioTaskManager;
 
     const ADD_WAT: &[u8] = br#"(
         module
@@ -150,21 +106,19 @@ mod tests {
 
     #[tokio::test]
     async fn save_to_disk() {
-        let task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = OnDiskCache::new(temp.path());
         let key = "wat";
 
-        cache.save(key, &module, &task_manager).await.unwrap();
+        cache.save(key, &module).await.unwrap();
 
         assert!(temp.path().join(key).with_extension("bin").exists());
     }
 
     #[tokio::test]
     async fn create_cache_dir_automatically() {
-        let task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
@@ -173,27 +127,25 @@ mod tests {
         let cache = OnDiskCache::new(&cache_dir);
         let key = "wat";
 
-        cache.save(key, &module, &task_manager).await.unwrap();
+        cache.save(key, &module).await.unwrap();
 
         assert!(cache_dir.is_dir());
     }
 
     #[tokio::test]
     async fn missing_file() {
-        let task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let key = "wat";
         let cache = OnDiskCache::new(temp.path());
 
-        let err = cache.load(key, &engine, &task_manager).await.unwrap_err();
+        let err = cache.load(key, &engine).await.unwrap_err();
 
         assert!(matches!(err, CacheError::NotFound));
     }
 
     #[tokio::test]
     async fn load_from_disk() {
-        let task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
@@ -203,7 +155,7 @@ mod tests {
             .unwrap();
         let cache = OnDiskCache::new(temp.path());
 
-        let module = cache.load(key, &engine, &task_manager).await.unwrap();
+        let module = cache.load(key, &engine).await.unwrap();
 
         let exports: Vec<_> = module
             .exports()

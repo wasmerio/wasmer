@@ -68,21 +68,13 @@ impl ModuleCache {
         let key = format!("{}-{}", data_hash, compiler);
         let engine = runtime.engine()?;
 
-        let tasks = runtime.task_manager();
-        self.0.load(&key, &engine, tasks).await.ok()
+        self.0.load(&key, &engine).await.ok()
     }
 
-    pub async fn set_compiled_module(
-        &self,
-        runtime: &dyn WasiRuntime,
-        data_hash: &str,
-        compiler: &str,
-        module: &Module,
-    ) {
+    pub async fn set_compiled_module(&self, data_hash: &str, compiler: &str, module: &Module) {
         let key = format!("{}-{}", data_hash, compiler);
 
-        let tasks = runtime.task_manager();
-        let result = self.0.save(&key, module, tasks).await;
+        let result = self.0.save(&key, module).await;
 
         if let Err(e) = result {
             tracing::warn!(

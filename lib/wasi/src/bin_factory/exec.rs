@@ -49,7 +49,7 @@ pub async fn spawn_exec(
             let module = module?;
 
             compiled_modules
-                .set_compiled_module(&**runtime, binary.hash().as_str(), compiler, &module)
+                .set_compiled_module(binary.hash().as_str(), compiler, &module)
                 .await;
             module
         }

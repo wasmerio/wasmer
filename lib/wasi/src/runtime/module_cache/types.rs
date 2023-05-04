@@ -2,7 +2,7 @@ use std::{fmt::Debug, ops::Deref};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::{module_cache::AndThen, VirtualTaskManager};
+use crate::runtime::module_cache::AndThen;
 
 /// A cache for compiled WebAssembly modules.
 ///
@@ -16,19 +16,9 @@ use crate::runtime::{module_cache::AndThen, VirtualTaskManager};
 /// their caching strategy accordingly.
 #[async_trait::async_trait]
 pub trait CompiledModuleCache: Debug + Send + Sync {
-    async fn load(
-        &self,
-        key: &str,
-        engine: &Engine,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<Module, CacheError>;
+    async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError>;
 
-    async fn save(
-        &self,
-        key: &str,
-        module: &Module,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<(), CacheError>;
+    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError>;
 
     /// Chain a second cache onto this one.
     ///
@@ -59,21 +49,12 @@ where
     D: Deref<Target = C> + Debug + Send + Sync,
     C: CompiledModuleCache + ?Sized,
 {
-    async fn load(
-        &self,
-        key: &str,
-        engine: &Engine,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<Module, CacheError> {
-        (**self).load(key, engine, task_manager).await
+    async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
+        (**self).load(key, engine).await
     }
-    async fn save(
-        &self,
-        key: &str,
-        module: &Module,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<(), CacheError> {
-        (**self).save(key, module, task_manager).await
+
+    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
+        (**self).save(key, module).await
     }
 }
 

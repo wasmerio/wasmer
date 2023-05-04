@@ -1,9 +1,6 @@
 use wasmer::{Engine, Module};
 
-use crate::{
-    runtime::module_cache::{CacheError, CompiledModuleCache},
-    VirtualTaskManager,
-};
+use crate::runtime::module_cache::{CacheError, CompiledModuleCache};
 
 /// A [`CompiledModuleCache`] combinator which will try operations on one cache
 /// and fall back to a secondary cache if they fail.
@@ -48,21 +45,16 @@ where
     Primary: CompiledModuleCache + Send + Sync,
     Secondary: CompiledModuleCache + Send + Sync,
 {
-    async fn load(
-        &self,
-        key: &str,
-        engine: &Engine,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<Module, CacheError> {
-        let primary_error = match self.primary.load(key, engine, task_manager).await {
+    async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
+        let primary_error = match self.primary.load(key, engine).await {
             Ok(m) => return Ok(m),
             Err(e) => e,
         };
 
-        if let Ok(m) = self.secondary.load(key, engine, task_manager).await {
+        if let Ok(m) = self.secondary.load(key, engine).await {
             // Now we've got a module, let's make sure it ends up in the primary
             // cache too.
-            if let Err(e) = self.primary.save(key, &m, task_manager).await {
+            if let Err(e) = self.primary.save(key, &m).await {
                 tracing::warn!(
                     key,
                     error = &e as &dyn std::error::Error,
@@ -76,15 +68,10 @@ where
         Err(primary_error)
     }
 
-    async fn save(
-        &self,
-        key: &str,
-        module: &Module,
-        task_manager: &dyn VirtualTaskManager,
-    ) -> Result<(), CacheError> {
+    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
         futures::try_join!(
-            self.primary.save(key, module, task_manager),
-            self.secondary.save(key, module, task_manager)
+            self.primary.save(key, module,),
+            self.secondary.save(key, module,)
         )?;
         Ok(())
     }
