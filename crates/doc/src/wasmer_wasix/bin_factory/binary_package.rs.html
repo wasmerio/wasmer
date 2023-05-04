@@ -77,10 +77,12 @@
 <span id="75">75</span>
 <span id="76">76</span>
 <span id="77">77</span>
+<span id="78">78</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::{Arc, Mutex, RwLock};
 
 <span class="kw">use </span>derivative::<span class="kw-2">*</span>;
 <span class="kw">use </span>once_cell::sync::OnceCell;
+<span class="kw">use </span>semver::Version;
 <span class="kw">use </span>virtual_fs::FileSystem;
 <span class="kw">use </span>webc::compat::SharedBytes;
 
@@ -136,7 +138,7 @@
     <span class="kw">pub </span>webc_fs: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
     <span class="kw">pub </span>commands: Arc&lt;RwLock&lt;Vec&lt;BinaryPackageCommand&gt;&gt;&gt;,
     <span class="kw">pub </span>uses: Vec&lt;String&gt;,
-    <span class="kw">pub </span>version: String,
+    <span class="kw">pub </span>version: Version,
     <span class="kw">pub </span>module_memory_footprint: u64,
     <span class="kw">pub </span>file_system_memory_footprint: u64,
 }

@@ -992,51 +992,6 @@
 <span id="990">990</span>
 <span id="991">991</span>
 <span id="992">992</span>
-<span id="993">993</span>
-<span id="994">994</span>
-<span id="995">995</span>
-<span id="996">996</span>
-<span id="997">997</span>
-<span id="998">998</span>
-<span id="999">999</span>
-<span id="1000">1000</span>
-<span id="1001">1001</span>
-<span id="1002">1002</span>
-<span id="1003">1003</span>
-<span id="1004">1004</span>
-<span id="1005">1005</span>
-<span id="1006">1006</span>
-<span id="1007">1007</span>
-<span id="1008">1008</span>
-<span id="1009">1009</span>
-<span id="1010">1010</span>
-<span id="1011">1011</span>
-<span id="1012">1012</span>
-<span id="1013">1013</span>
-<span id="1014">1014</span>
-<span id="1015">1015</span>
-<span id="1016">1016</span>
-<span id="1017">1017</span>
-<span id="1018">1018</span>
-<span id="1019">1019</span>
-<span id="1020">1020</span>
-<span id="1021">1021</span>
-<span id="1022">1022</span>
-<span id="1023">1023</span>
-<span id="1024">1024</span>
-<span id="1025">1025</span>
-<span id="1026">1026</span>
-<span id="1027">1027</span>
-<span id="1028">1028</span>
-<span id="1029">1029</span>
-<span id="1030">1030</span>
-<span id="1031">1031</span>
-<span id="1032">1032</span>
-<span id="1033">1033</span>
-<span id="1034">1034</span>
-<span id="1035">1035</span>
-<span id="1036">1036</span>
-<span id="1037">1037</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1058,7 +1013,6 @@
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
@@ -1105,9 +1059,6 @@
     <span class="doccomment">/// List of webc dependencies to be injected.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) uses: Vec&lt;String&gt;,
 
-    <span class="doccomment">/// List ofsupplied webc packages to use instead of downloading from the registry.
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) include_webcs: Vec&lt;String&gt;,
-
     <span class="doccomment">/// List of host commands to map into the WASI instance.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: HashMap&lt;String, PathBuf&gt;,
 
@@ -1122,7 +1073,6 @@
             .field(<span class="string">&quot;envs&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.envs)
             .field(<span class="string">&quot;preopens&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.preopens)
             .field(<span class="string">&quot;uses&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.uses)
-            .field(<span class="string">&quot;include_webcs&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs)
             .field(<span class="string">&quot;setup_fs_fn exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.setup_fs_fn.is_some())
             .field(<span class="string">&quot;stdout_override exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stdout.is_some())
             .field(<span class="string">&quot;stderr_override exists&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stderr.is_some())
@@ -1330,26 +1280,6 @@
     {
         uses.into_iter().for_each(|inherit| {
             <span class="self">self</span>.uses.push(inherit);
-        });
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Includes a webc package to use instead of downloading them from the registry
-    </span><span class="kw">pub fn </span>include_webc&lt;Name&gt;(<span class="kw-2">mut </span><span class="self">self</span>, webc: Name) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>Name: AsRef&lt;str&gt;,
-    {
-        <span class="self">self</span>.include_webcs.push(webc.as_ref().to_string());
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Adds a list of webc packages to use instead of downloading them from the registry
-    </span><span class="kw">pub fn </span>include_webcs&lt;I&gt;(<span class="kw-2">mut </span><span class="self">self</span>, webcs: I) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>I: IntoIterator&lt;Item = String&gt;,
-    {
-        webcs.into_iter().for_each(|webc| {
-            <span class="self">self</span>.include_webcs.push(webc);
         });
         <span class="self">self
     </span>}
@@ -1632,7 +1562,7 @@
     }
 
     <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    /// can be used to construct a new [`WasiEnv`].
     ///
     /// Returns the error from `WasiFs::new` if there&#39;s an error
     ///
@@ -1767,26 +1697,6 @@
 
         <span class="comment">// TODO: this method should not exist - must have unified construction flow!
         </span><span class="kw">let </span>module_cache = <span class="self">self</span>.compiled_modules.unwrap_or_default();
-
-        <span class="comment">// Add the supplied webc packages to the module cache
-        </span><span class="kw">for </span>include_webc <span class="kw">in </span><span class="self">self</span>.include_webcs.iter() {
-            <span class="kw">let </span>data = std::fs::read(include_webc.as_str())
-                .map_err(|err| WasiStateCreationError::WasiIncludePackageError(err.to_string()))<span class="question-mark">?</span>;
-            <span class="kw">let </span>package = parse_static_webc(data)
-                .map_err(|err| WasiStateCreationError::WasiIncludePackageError(err.to_string()))<span class="question-mark">?</span>;
-
-            <span class="kw">let </span><span class="kw-2">mut </span>package_name = package.package_name.to_string();
-            module_cache.add_webc(package_name.as_ref(), package.clone());
-            <span class="kw">for </span>version_part <span class="kw">in </span>package.version.split(<span class="string">&#39;.&#39;</span>) {
-                <span class="kw">if </span>!package_name.contains(<span class="string">&#39;@&#39;</span>) {
-                    package_name.push(<span class="string">&#39;@&#39;</span>);
-                } <span class="kw">else </span>{
-                    package_name.push(<span class="string">&#39;.&#39;</span>);
-                }
-                package_name.push_str(version_part);
-                module_cache.add_webc(package_name.as_ref(), package.clone());
-            }
-        }
 
         <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
             <span class="attribute">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]

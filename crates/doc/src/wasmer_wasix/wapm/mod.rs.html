@@ -630,32 +630,13 @@
 <span id="628">628</span>
 <span id="629">629</span>
 <span id="630">630</span>
-<span id="631">631</span>
-<span id="632">632</span>
-<span id="633">633</span>
-<span id="634">634</span>
-<span id="635">635</span>
-<span id="636">636</span>
-<span id="637">637</span>
-<span id="638">638</span>
-<span id="639">639</span>
-<span id="640">640</span>
-<span id="641">641</span>
-<span id="642">642</span>
-<span id="643">643</span>
-<span id="644">644</span>
-<span id="645">645</span>
-<span id="646">646</span>
-<span id="647">647</span>
-<span id="648">648</span>
-<span id="649">649</span>
-<span id="650">650</span>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>std::{
     collections::HashMap,
     path::Path,
     sync::{Arc, Mutex, RwLock},
 };
+<span class="kw">use </span>url::Url;
 <span class="kw">use </span>virtual_fs::{FileSystem, WebcVolumeFileSystem};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Snapshot0Clockid;
 
@@ -669,60 +650,39 @@
 
 <span class="kw">use crate</span>::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
-    WasiRuntime,
+    http::HttpClient,
 };
 
 <span class="kw">mod </span>pirita;
 
-<span class="kw">use </span><span class="kw">crate</span>::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
+<span class="kw">use </span><span class="kw">crate</span>::http::{HttpRequest, HttpRequestOptions};
 <span class="kw">use </span>pirita::<span class="kw-2">*</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fetch_webc_task(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fetch_webc(
     cache_dir: <span class="kw-2">&amp;</span>Path,
     webc: <span class="kw-2">&amp;</span>str,
-    runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
-    <span class="kw">let </span>client = runtime
-        .http_client()
-        .context(<span class="string">&quot;no http client available&quot;</span>)<span class="question-mark">?
-        </span>.clone();
-
-    <span class="kw">let </span>f = <span class="kw">async move </span>{ fetch_webc(cache_dir, webc, client).<span class="kw">await </span>};
-
-    <span class="kw">let </span>result = runtime
-        .task_manager()
-        .block_on(f)
-        .context(<span class="string">&quot;webc fetch task has died&quot;</span>);
-    result.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not fetch webc &#39;{webc}&#39;&quot;</span>))
-}
-
-<span class="kw">async fn </span>fetch_webc(
-    cache_dir: <span class="kw-2">&amp;</span>Path,
-    webc: <span class="kw-2">&amp;</span>str,
-    client: DynHttpClient,
+    client: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>HttpClient + Send + Sync),
+    registry_endpoint: <span class="kw-2">&amp;</span>Url,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
     <span class="kw">let </span>name = webc.split_once(<span class="string">&#39;:&#39;</span>).map(|a| a.<span class="number">0</span>).unwrap_or_else(|| webc);
     <span class="kw">let </span>(name, version) = <span class="kw">match </span>name.split_once(<span class="string">&#39;@&#39;</span>) {
         <span class="prelude-val">Some</span>((name, version)) =&gt; (name, <span class="prelude-val">Some</span>(version)),
         <span class="prelude-val">None </span>=&gt; (name, <span class="prelude-val">None</span>),
     };
-    <span class="kw">let </span>url_query = <span class="kw">match </span>version {
+    <span class="kw">let </span>query = <span class="kw">match </span>version {
         <span class="prelude-val">Some</span>(version) =&gt; WAPM_WEBC_QUERY_SPECIFIC
             .replace(WAPM_WEBC_QUERY_TAG, name.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str())
             .replace(WAPM_WEBC_VERSION_TAG, version.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str()),
         <span class="prelude-val">None </span>=&gt; WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace(<span class="string">&#39;\&quot;&#39;</span>, <span class="string">&quot;&#39;&quot;</span>).as_str()),
     };
-    <span class="macro">tracing::debug!</span>(<span class="string">&quot;request: {}&quot;</span>, url_query);
+    <span class="macro">tracing::debug!</span>(query = query.as_str(), <span class="string">&quot;Preparing GraphQL query&quot;</span>);
 
-    <span class="kw">let </span>url = <span class="macro">format!</span>(
-        <span class="string">&quot;{}{}&quot;</span>,
-        WAPM_WEBC_URL,
-        urlencoding::encode(url_query.as_str())
-    );
+    <span class="kw">let </span><span class="kw-2">mut </span>url = registry_endpoint.clone();
+    url.query_pairs_mut().append_pair(<span class="string">&quot;query&quot;</span>, <span class="kw-2">&amp;</span>query);
 
     <span class="kw">let </span>response = client
         .request(HttpRequest {
-            url,
+            url: url.to_string(),
             method: <span class="string">&quot;GET&quot;</span>.to_string(),
             headers: <span class="macro">vec!</span>[],
             body: <span class="prelude-val">None</span>,
@@ -743,7 +703,7 @@
         version,
     } = wapm_extract_version(<span class="kw-2">&amp;</span>data).context(<span class="string">&quot;No pirita download URL available&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>pkg = download_webc(cache_dir, name, download_url, client).<span class="kw">await</span><span class="question-mark">?</span>;
-    pkg.version = version;
+    pkg.version = version.parse()<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(pkg)
 }
 
@@ -783,7 +743,7 @@
     cache_dir: <span class="kw-2">&amp;</span>Path,
     name: <span class="kw-2">&amp;</span>str,
     pirita_download_url: String,
-    client: DynHttpClient,
+    client: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>HttpClient + Send + Sync),
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>name_comps = pirita_download_url
         .split(<span class="string">&#39;/&#39;</span>)
@@ -893,7 +853,7 @@
 
 <span class="kw">async fn </span>download_package(
     download_url: <span class="kw-2">&amp;</span>str,
-    client: DynHttpClient,
+    client: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>HttpClient + Send + Sync),
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, anyhow::Error&gt; {
     <span class="kw">let </span>request = HttpRequest {
         url: download_url.to_string(),
@@ -960,7 +920,7 @@
         webc_fs: <span class="prelude-val">Some</span>(Arc::new(webc_fs)),
         commands: Arc::new(RwLock::new(commands.into_values().collect())),
         uses,
-        version: wapm.version,
+        version: wapm.version.parse()<span class="question-mark">?</span>,
         module_memory_footprint,
         file_system_memory_footprint,
     };
@@ -1109,7 +1069,7 @@
         <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>python).unwrap();
 
         <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;python&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;0.1.0&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;0.1.0&quot;</span>);
         <span class="macro">assert_eq!</span>(pkg.uses, Vec::&lt;String&gt;::new());
         <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">4694941</span>);
         <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">13387764</span>);
@@ -1142,7 +1102,7 @@
         <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>coreutils).unwrap();
 
         <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;sharrattj/coreutils&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;1.0.14&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;1.0.14&quot;</span>);
         <span class="macro">assert_eq!</span>(pkg.uses, Vec::&lt;String&gt;::new());
         <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">44</span>);
@@ -1273,7 +1233,7 @@
         <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>bash).unwrap();
 
         <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;sharrattj/bash&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;1.0.12&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;1.0.12&quot;</span>);
         <span class="macro">assert_eq!</span>(pkg.uses, <span class="kw-2">&amp;</span>[<span class="string">&quot;sharrattj/coreutils@1.0.11&quot;</span>]);
         <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">0</span>);
@@ -1293,7 +1253,7 @@
         <span class="kw">let </span>pkg = parse_static_webc(HELLO.to_vec()).unwrap();
 
         <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;wasmer/hello&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.version, <span class="string">&quot;0.1.0&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;0.1.0&quot;</span>);
         <span class="kw">let </span>commands = pkg.commands.read().unwrap();
         <span class="macro">assert!</span>(commands.is_empty());
         <span class="macro">assert!</span>(pkg.entry.is_none());

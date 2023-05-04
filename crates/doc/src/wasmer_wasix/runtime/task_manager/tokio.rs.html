@@ -165,8 +165,6 @@
 <span id="163">163</span>
 <span id="164">164</span>
 <span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     pin::Pin,
     sync::{Arc, Mutex},
@@ -292,16 +290,14 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
     </span>}
 
-    <span class="doccomment">/// See [`VirtualTaskManager::block_on`].
-    </span><span class="attribute">#[allow(dyn_drop)]
+    <span class="attribute">#[allow(dyn_drop)]
     </span><span class="kw">fn </span>runtime_enter&lt;<span class="lifetime">&#39;g</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>std::ops::Drop + <span class="lifetime">&#39;g</span>&gt; {
         Box::new(TokioRuntimeGuard {
             inner: <span class="self">self</span>.<span class="number">0</span>.enter(),
         })
     }
 
-    <span class="doccomment">/// See [`VirtualTaskManager::enter`].
-    </span><span class="kw">fn </span>task_wasm(
+    <span class="kw">fn </span>task_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;Memory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
         <span class="kw-2">mut </span>store: Store,

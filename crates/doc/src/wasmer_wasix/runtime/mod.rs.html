@@ -160,9 +160,32 @@
 <span id="158">158</span>
 <span id="159">159</span>
 <span id="160">160</span>
-</pre><pre class="rust"><code><span class="kw">pub mod </span>task_manager;
-
-<span class="kw">use crate</span>::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+</pre><pre class="rust"><code><span class="kw">pub mod </span>resolver;
+<span class="kw">pub mod </span>task_manager;
 
 <span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
@@ -173,6 +196,13 @@
 
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
+
+<span class="kw">use crate</span>::{
+    http::DynHttpClient,
+    os::TtyBridge,
+    runtime::resolver::{PackageResolver, RegistryResolver},
+    WasiTtyState,
+};
 
 <span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
@@ -187,6 +217,8 @@
 
     <span class="doccomment">/// Retrieve the active [`VirtualTaskManager`].
     </span><span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;;
+
+    <span class="kw">fn </span>package_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt;;
 
     <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.
     </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
@@ -249,6 +281,7 @@
     <span class="kw">pub </span>rt: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
     <span class="kw">pub </span>networking: DynVirtualNetworking,
     <span class="kw">pub </span>http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
+    <span class="kw">pub </span>resolver: Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt;,
     <span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
@@ -264,15 +297,11 @@
                 <span class="kw">let </span>networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
-        <span class="macro">cfg_if::cfg_if! </span>{
-            <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;host-reqwest&quot;</span>)] </span>{
-                <span class="kw">let </span>http_client = <span class="prelude-val">Some</span>(Arc::new(
-                    <span class="kw">crate</span>::http::reqwest::ReqwestHttpClient::default()) <span class="kw">as </span>DynHttpClient
-                );
-            } <span class="kw">else </span>{
-                <span class="kw">let </span>http_client = <span class="prelude-val">None</span>;
-            }
-        }
+        <span class="kw">let </span>http_client =
+            <span class="kw">crate</span>::http::default_http_client().map(|client| Arc::new(client) <span class="kw">as </span>DynHttpClient);
+
+        <span class="kw">let </span>resolver =
+            RegistryResolver::from_env().expect(<span class="string">&quot;Loading the builtin resolver should never fail&quot;</span>);
 
         <span class="self">Self </span>{
             rt,
@@ -280,23 +309,35 @@
             http_client,
             engine: <span class="prelude-val">None</span>,
             tty: <span class="prelude-val">None</span>,
+            resolver: Arc::new(resolver),
         }
     }
 
-    <span class="kw">pub fn </span>set_networking_implementation&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, net: I)
-    <span class="kw">where
+    <span class="kw">pub fn </span>set_networking_implementation&lt;I&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, net: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
+    </span><span class="kw">where
         </span>I: VirtualNetworking + Sync,
     {
-        <span class="self">self</span>.networking = Arc::new(net)
-    }
+        <span class="self">self</span>.networking = Arc::new(net);
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;) {
+    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.engine = engine;
-    }
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub fn </span>set_tty(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tty: Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;) {
+    <span class="kw">pub fn </span>set_tty(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tty: Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.tty = <span class="prelude-val">Some</span>(tty);
-    }
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_resolver(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        resolver: <span class="kw">impl </span>PackageResolver + Send + Sync + <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.resolver = Arc::new(resolver);
+        <span class="self">self
+    </span>}
 }
 
 <span class="kw">impl </span>WasiRuntime <span class="kw">for </span>PluggableRuntime {
@@ -308,8 +349,15 @@
         <span class="self">self</span>.http_client.as_ref()
     }
 
-    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
-        <span class="self">self</span>.engine.clone()
+    <span class="kw">fn </span>package_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt; {
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.resolver)
+    }
+
+    <span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {
+        <span class="self">self</span>.engine
+            .clone()
+            .map(wasmer::Store::new)
+            .unwrap_or_default()
     }
 
     <span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt; {

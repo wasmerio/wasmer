@@ -257,20 +257,78 @@
 <span id="255">255</span>
 <span id="256">256</span>
 <span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
-<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     sync::Arc,
 };
 <span class="kw">use </span>virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-<span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module, RuntimeError, Value};
+<span class="kw">use </span>wasmer::{AsStoreMut, Engine, Instance, Module, RuntimeError, Value};
+<span class="kw">use </span>wasmer_registry::WasmerConfig;
 <span class="kw">use </span>wasmer_wasix::{
+    bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
     runners::MappedDirectory,
-    runtime::task_manager::tokio::TokioTaskManager,
+    runtime::{
+        resolver::{PackageResolver, RegistryResolver},
+        task_manager::tokio::TokioTaskManager,
+    },
     types::__WASI_STDIN_FILENO,
     PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiVersion,
 };
@@ -308,10 +366,10 @@
     </span><span class="attribute">#[clap(long = <span class="string">&quot;use&quot;</span>, name = <span class="string">&quot;USE&quot;</span>)]
     </span>uses: Vec&lt;String&gt;,
 
-    <span class="doccomment">/// List of webc packages that are explicitely included for execution
+    <span class="doccomment">/// List of webc packages that are explicitly included for execution
     /// Note: these packages will be used instead of those in the registry
     </span><span class="attribute">#[clap(long = <span class="string">&quot;include-webc&quot;</span>, name = <span class="string">&quot;WEBC&quot;</span>)]
-    </span>include_webcs: Vec&lt;String&gt;,
+    </span>include_webcs: Vec&lt;PathBuf&gt;,
 
     <span class="doccomment">/// List of injected atoms
     </span><span class="attribute">#[clap(long = <span class="string">&quot;map-command&quot;</span>, name = <span class="string">&quot;MAPCMD&quot;</span>)]
@@ -395,29 +453,17 @@
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
-
-        <span class="kw">if </span><span class="self">self</span>.networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
-        } <span class="kw">else </span>{
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
-        }
-
-        <span class="kw">if </span>!<span class="self">self</span>.no_tty {
-            <span class="kw">let </span>tty = Arc::new(SysTty::default());
-            tty.reset();
-            rt.set_tty(tty)
-        }
-
         <span class="kw">let </span>engine = store.as_store_mut().engine().clone();
-        rt.set_engine(<span class="prelude-val">Some</span>(engine));
+
+        <span class="kw">let </span>rt = <span class="self">self
+            </span>.prepare_runtime(engine)
+            .context(<span class="string">&quot;Unable to prepare the wasi runtime&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>builder = WasiEnv::builder(program_name)
             .runtime(Arc::new(rt))
             .args(args)
             .envs(<span class="self">self</span>.env_vars.clone())
             .uses(<span class="self">self</span>.uses.clone())
-            .include_webcs(<span class="self">self</span>.include_webcs.clone())
             .map_commands(map_commands);
 
         <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="kw">if </span>wasmer_wasix::is_wasix_module(module) {
@@ -471,6 +517,31 @@
         <span class="prelude-val">Ok</span>(builder)
     }
 
+    <span class="kw">fn </span>prepare_runtime(<span class="kw-2">&amp;</span><span class="self">self</span>, engine: Engine) -&gt; <span class="prelude-ty">Result</span>&lt;PluggableRuntime&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+
+        <span class="kw">if </span><span class="self">self</span>.networking {
+            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+        } <span class="kw">else </span>{
+            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+        }
+
+        <span class="kw">if </span>!<span class="self">self</span>.no_tty {
+            <span class="kw">let </span>tty = Arc::new(SysTty::default());
+            tty.reset();
+            rt.set_tty(tty);
+        }
+
+        rt.set_engine(<span class="prelude-val">Some</span>(engine));
+
+        <span class="kw">let </span>resolver = <span class="self">self
+            </span>.prepare_resolver()
+            .context(<span class="string">&quot;Unable to prepare the package resolver&quot;</span>)<span class="question-mark">?</span>;
+        rt.set_resolver(resolver);
+
+        <span class="prelude-val">Ok</span>(rt)
+    }
+
     <span class="doccomment">/// Helper function for instantiating a module with Wasi imports for the `Run` command.
     </span><span class="kw">pub fn </span>instantiate(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -513,6 +584,41 @@
             ..<span class="self">Self</span>::default()
         })
     }
+
+    <span class="kw">fn </span>prepare_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageResolver&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>resolver = wapm_resolver()<span class="question-mark">?</span>;
+
+        <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
+            <span class="kw">let </span>pkg = preload_webc(path)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+            resolver.add_preload(pkg);
+        }
+
+        <span class="prelude-val">Ok</span>(resolver.with_cache())
+    }
+}
+
+<span class="kw">fn </span>wapm_resolver() -&gt; <span class="prelude-ty">Result</span>&lt;RegistryResolver, anyhow::Error&gt; {
+    <span class="comment">// FIXME(Michael-F-Bryan): Ideally, all of this would in the
+    // RegistryResolver::from_env() constructor, but we don&#39;t want to add
+    // wasmer-registry as a dependency of wasmer-wasix just yet.
+    </span><span class="kw">let </span>wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+    <span class="kw">let </span>cache_dir = wasmer_registry::get_webc_dir(<span class="kw-2">&amp;</span>wasmer_home);
+    <span class="kw">let </span>config =
+        wasmer_registry::WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_home).map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>registry = config.registry.get_graphql_url();
+    <span class="kw">let </span>registry = registry
+        .parse()
+        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{registry}\&quot; as a URL&quot;</span>))<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(RegistryResolver::new(cache_dir, registry))
+}
+
+<span class="kw">fn </span>preload_webc(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage&gt; {
+    <span class="kw">let </span>bytes = std::fs::read(path)<span class="question-mark">?</span>;
+    <span class="kw">let </span>webc = wasmer_wasix::wapm::parse_static_webc(bytes)<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(webc)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_cli" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

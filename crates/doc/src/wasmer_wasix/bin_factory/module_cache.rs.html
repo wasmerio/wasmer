@@ -208,146 +208,20 @@
 <span id="206">206</span>
 <span id="207">207</span>
 <span id="208">208</span>
-<span id="209">209</span>
-<span id="210">210</span>
-<span id="211">211</span>
-<span id="212">212</span>
-<span id="213">213</span>
-<span id="214">214</span>
-<span id="215">215</span>
-<span id="216">216</span>
-<span id="217">217</span>
-<span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    ops::DerefMut,
-    path::PathBuf,
-    sync::RwLock,
-};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{cell::RefCell, collections::HashMap, ops::DerefMut, path::PathBuf, sync::RwLock};
 
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>wasmer::Module;
-<span class="kw">use </span>wasmer_wasix_types::wasi::Snapshot0Clockid;
 
 <span class="kw">use </span><span class="kw">super</span>::BinaryPackage;
-<span class="kw">use crate</span>::{syscalls::platform_clock_time_get, WasiRuntime};
+<span class="kw">use </span><span class="kw">crate</span>::WasiRuntime;
 
 <span class="kw">pub const </span>DEFAULT_COMPILED_PATH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;~/.wasmer/compiled&quot;</span>;
-<span class="kw">pub const </span>DEFAULT_WEBC_PATH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;~/.wasmer/webc&quot;</span>;
-<span class="kw">pub const </span>DEFAULT_CACHE_TIME: std::time::Duration = std::time::Duration::from_secs(<span class="number">30</span>);
 
 <span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ModuleCache {
     <span class="kw">pub</span>(<span class="kw">crate</span>) cache_compile_dir: PathBuf,
     <span class="kw">pub</span>(<span class="kw">crate</span>) cached_modules: <span class="prelude-ty">Option</span>&lt;RwLock&lt;HashMap&lt;String, Module&gt;&gt;&gt;,
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc: RwLock&lt;HashMap&lt;String, BinaryPackage&gt;&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_webc_dir: PathBuf,
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) cache_time: std::time::Duration,
 }
 
 <span class="comment">// FIXME: remove impls!
@@ -360,7 +234,7 @@
 
 <span class="kw">impl </span>Default <span class="kw">for </span>ModuleCache {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        ModuleCache::new(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
+        ModuleCache::new(<span class="prelude-val">None</span>, <span class="bool-val">true</span>)
     }
 }
 
@@ -373,19 +247,11 @@
     <span class="doccomment">/// Create a new [`ModuleCache`].
     ///
     /// use_shared_cache enables a shared cache of modules in addition to a thread-local cache.
-    </span><span class="kw">pub fn </span>new(
-        cache_compile_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-        cache_webc_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-        use_shared_cache: bool,
-    ) -&gt; ModuleCache {
+    </span><span class="kw">pub fn </span>new(cache_compile_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;, use_shared_cache: bool) -&gt; ModuleCache {
         <span class="kw">let </span>cache_compile_dir = cache_compile_dir.unwrap_or_else(|| {
             PathBuf::from(shellexpand::tilde(DEFAULT_COMPILED_PATH).into_owned())
         });
         <span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>cache_compile_dir);
-
-        <span class="kw">let </span>cache_webc_dir = cache_webc_dir
-            .unwrap_or_else(|| PathBuf::from(shellexpand::tilde(DEFAULT_WEBC_PATH).into_owned()));
-        <span class="kw">let _ </span>= std::fs::create_dir_all(<span class="kw-2">&amp;</span>cache_webc_dir);
 
         <span class="kw">let </span>cached_modules = <span class="kw">if </span>use_shared_cache {
             <span class="prelude-val">Some</span>(RwLock::new(HashMap::default()))
@@ -396,119 +262,28 @@
         ModuleCache {
             cached_modules,
             cache_compile_dir,
-            cache_webc: RwLock::new(HashMap::default()),
-            cache_webc_dir,
-            cache_time: DEFAULT_CACHE_TIME,
         }
     }
 
-    <span class="doccomment">/// Adds a package manually to the module cache
-    </span><span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;</span><span class="self">self</span>, webc: <span class="kw-2">&amp;</span>str, package: BinaryPackage) {
-        <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.cache_webc.write().unwrap();
-        cache.insert(webc.to_string(), package);
-    }
-
-    <span class="comment">// TODO: should return Result&lt;_, anyhow::Error&gt;
-    </span><span class="kw">pub fn </span>get_webc(<span class="kw-2">&amp;</span><span class="self">self</span>, webc: <span class="kw-2">&amp;</span>str, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
-        <span class="kw">let </span>name = webc.to_string();
-
-        <span class="comment">// Fast path
-        </span>{
-            <span class="kw">let </span>cache = <span class="self">self</span>.cache_webc.read().unwrap();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(when_cached) = data.when_cached.as_ref() {
-                    <span class="comment">/* get the current platform time at this point because of the lock conflict
-                     * now time remains the same and the lock from a differnt thread can cause when_cached to go ahead
-                     * and cause a panic
-                     */
-                    </span><span class="kw">let </span>now = platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>)
-                        .unwrap() <span class="kw">as </span>u128;
-                    <span class="kw">let </span>delta = now.saturating_sub(<span class="kw-2">*</span>when_cached); <span class="comment">//saturating sub for delta and  to prevent panic
-                    </span><span class="kw">if </span>delta &lt;= <span class="self">self</span>.cache_time.as_nanos() {
-                        <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
-                    }
-                } <span class="kw">else </span>{
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
-                }
-            }
-        }
-
-        <span class="comment">// Slow path
-        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.cache_webc.write().unwrap();
-        <span class="self">self</span>.get_webc_slow(webc, runtime, cache.deref_mut())
-    }
-
-    <span class="kw">fn </span>get_webc_slow(
+    <span class="kw">pub fn </span>get_webc(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         webc: <span class="kw-2">&amp;</span>str,
         runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
-        cache: <span class="kw-2">&amp;mut </span>HashMap&lt;String, BinaryPackage&gt;,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
-        <span class="kw">let </span>name = webc.to_string();
-        <span class="kw">let </span>now = platform_clock_time_get(Snapshot0Clockid::Monotonic, <span class="number">1_000_000</span>).unwrap() <span class="kw">as </span>u128;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+        <span class="kw">let </span>ident = webc.parse().context(<span class="string">&quot;Unable to parse the package name&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>resolver = runtime.package_resolver();
+        <span class="kw">let </span>client = runtime
+            .http_client()
+            .context(<span class="string">&quot;No HTTP client available&quot;</span>)<span class="question-mark">?
+            </span>.clone();
 
-        <span class="comment">// Check the cache (again)
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(when_cached) = data.when_cached.as_ref() {
-                <span class="kw">let </span>delta = now - <span class="kw-2">*</span>when_cached;
-                <span class="kw">if </span>delta &lt;= <span class="self">self</span>.cache_time.as_nanos() {
-                    <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
-                }
-            } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
-            }
-        }
-
-        <span class="comment">// Now try for the WebC
-        </span>{
-            <span class="kw">let </span>wapm_name = name
-                .split_once(<span class="string">&#39;:&#39;</span>)
-                .map(|a| a.<span class="number">0</span>)
-                .unwrap_or_else(|| name.as_str());
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>data) =
-                <span class="kw">crate</span>::wapm::fetch_webc_task(<span class="kw-2">&amp;</span><span class="self">self</span>.cache_webc_dir, wapm_name, runtime)
-            {
-                <span class="comment">// If the binary has no entry but it inherits from another module
-                // that does have an entry then we fall back to that inherited entry point
-                // (this convention is recursive down the list of inheritance until it finds the first entry point)
-                </span><span class="kw">let </span><span class="kw-2">mut </span>already: HashSet&lt;String&gt; = Default::default();
-                <span class="kw">while </span>data.entry.is_none() {
-                    <span class="kw">let </span><span class="kw-2">mut </span>inherits = data.uses.iter().filter_map(|webc| {
-                        <span class="kw">if </span>!already.contains(webc) {
-                            already.insert(webc.clone());
-                            <span class="self">self</span>.get_webc_slow(webc, runtime, cache)
-                        } <span class="kw">else </span>{
-                            <span class="prelude-val">None
-                        </span>}
-                    });
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(inherits) = inherits.next() {
-                        data.entry = inherits.entry.clone();
-                    } <span class="kw">else </span>{
-                        <span class="kw">break</span>;
-                    }
-                }
-
-                <span class="comment">// If the package is the same then don&#39;t replace it
-                // as we don&#39;t want to duplicate the memory usage
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = cache.get_mut(<span class="kw-2">&amp;</span>name) {
-                    <span class="kw">if </span>existing.hash() == data.hash() &amp;&amp; existing.version == data.version {
-                        existing.when_cached = <span class="prelude-val">Some</span>(now);
-                        <span class="kw">return </span><span class="prelude-val">Some</span>(existing.clone());
-                    }
-                }
-                cache.insert(name, data.clone());
-                <span class="kw">return </span><span class="prelude-val">Some</span>(data);
-            }
-        }
-
-        <span class="comment">// If we have an old one that use that (ignoring the TTL)
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-            <span class="kw">return </span><span class="prelude-val">Some</span>(data.clone());
-        }
-
-        <span class="comment">// Otherwise - its not found
-        </span><span class="prelude-val">None
-    </span>}
+        runtime.task_manager().block_on(<span class="kw">async move </span>{
+            resolver
+                .resolve_package(<span class="kw-2">&amp;</span>ident, <span class="kw-2">&amp;*</span>client)
+                .<span class="kw">await
+                </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;An error occurred while fetching \&quot;{webc}\&quot;&quot;</span>))
+        })
+    }
 
     <span class="kw">pub fn </span>get_compiled_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -626,8 +401,7 @@
             .with_max_level(LevelFilter::INFO)
             .try_init();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>cache = ModuleCache::new(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>, <span class="bool-val">true</span>);
-        cache.cache_time = std::time::Duration::from_millis(<span class="number">500</span>);
+        <span class="kw">let </span>cache = ModuleCache::new(<span class="prelude-val">None</span>, <span class="bool-val">true</span>);
 
         <span class="kw">let </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
         <span class="kw">let </span>tasks = rt.task_manager();

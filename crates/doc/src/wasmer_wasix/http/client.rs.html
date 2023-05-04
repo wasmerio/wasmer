@@ -99,7 +99,18 @@
 <span id="97">97</span>
 <span id="98">98</span>
 <span id="99">99</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, sync::Arc};
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, ops::Deref, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
 
@@ -194,7 +205,18 @@
 
 <span class="kw">pub trait </span>HttpClient: std::fmt::Debug {
     <span class="comment">// TODO: use custom error type!
-    </span><span class="kw">fn </span>request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: HttpRequest) -&gt; BoxFuture&lt;<span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt;;
+    </span><span class="kw">fn </span>request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: HttpRequest) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt;;
+}
+
+<span class="kw">impl</span>&lt;D, C&gt; HttpClient <span class="kw">for </span>D
+<span class="kw">where
+    </span>D: Deref&lt;Target = C&gt; + std::fmt::Debug,
+    C: HttpClient + <span class="question-mark">?</span>Sized + <span class="lifetime">&#39;static</span>,
+{
+    <span class="kw">fn </span>request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: HttpRequest) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
+        <span class="kw">let </span>client = <span class="kw-2">&amp;**</span><span class="self">self</span>;
+        client.request(request)
+    }
 }
 
 <span class="kw">pub type </span>DynHttpClient = Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync + <span class="lifetime">&#39;static</span>&gt;;

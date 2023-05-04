@@ -480,22 +480,22 @@
             tasks.block_on(<span class="self">self</span>.draw_welcome());
         }
 
-        <span class="kw">let </span>binary =
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(binary) = <span class="self">self</span>.compiled_modules.get_webc(webc, <span class="self">self</span>.runtime.deref()) {
-                binary
-            } <span class="kw">else </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
-                tasks.block_on(<span class="kw">async </span>{
-                    virtual_fs::AsyncWriteExt::write_all(
-                        <span class="kw-2">&amp;mut </span>stderr,
-                        <span class="macro">format!</span>(<span class="string">&quot;package not found [{}]\r\n&quot;</span>, webc).as_bytes(),
-                    )
-                    .<span class="kw">await
-                    </span>.ok();
-                });
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, webc);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(VirtualBusError::NotFound);
-            };
+        <span class="kw">let </span>binary = <span class="kw">if let </span><span class="prelude-val">Ok</span>(binary) = <span class="self">self</span>.compiled_modules.get_webc(webc, <span class="self">self</span>.runtime.deref())
+        {
+            binary
+        } <span class="kw">else </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
+            tasks.block_on(<span class="kw">async </span>{
+                virtual_fs::AsyncWriteExt::write_all(
+                    <span class="kw-2">&amp;mut </span>stderr,
+                    <span class="macro">format!</span>(<span class="string">&quot;package not found [{}]\r\n&quot;</span>, webc).as_bytes(),
+                )
+                .<span class="kw">await
+                </span>.ok();
+            });
+            <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, webc);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(VirtualBusError::NotFound);
+        };
 
         <span class="kw">let </span>wasi_process = env.process.clone();
 

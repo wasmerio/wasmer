@@ -154,6 +154,8 @@
 <span id="152">152</span>
 <span id="153">153</span>
 <span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{any::Any, ops::Deref, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -259,7 +261,9 @@ ARGS:
     }
 
     <span class="kw">pub fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
-        <span class="self">self</span>.cache.get_webc(name.as_str(), <span class="self">self</span>.runtime.deref())
+        <span class="self">self</span>.cache
+            .get_webc(name.as_str(), <span class="self">self</span>.runtime.deref())
+            .ok()
     }
 }
 
