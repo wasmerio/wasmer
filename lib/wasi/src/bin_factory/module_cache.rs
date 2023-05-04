@@ -59,7 +59,7 @@ impl ModuleCache {
         })
     }
 
-    pub fn get_compiled_module(
+    pub async fn get_compiled_module(
         &self,
         runtime: &dyn WasiRuntime,
         data_hash: &str,
@@ -69,12 +69,10 @@ impl ModuleCache {
         let engine = runtime.engine()?;
 
         let tasks = runtime.task_manager();
-        tasks
-            .block_on(async { self.0.load(&key, &engine, tasks).await })
-            .ok()
+        self.0.load(&key, &engine, tasks).await.ok()
     }
 
-    pub fn set_compiled_module(
+    pub async fn set_compiled_module(
         &self,
         runtime: &dyn WasiRuntime,
         data_hash: &str,
@@ -84,7 +82,7 @@ impl ModuleCache {
         let key = format!("{}-{}", data_hash, compiler);
 
         let tasks = runtime.task_manager();
-        let result = tasks.block_on(async { self.0.save(&key, module, tasks).await });
+        let result = self.0.save(&key, module, tasks).await;
 
         if let Err(e) = result {
             tracing::warn!(

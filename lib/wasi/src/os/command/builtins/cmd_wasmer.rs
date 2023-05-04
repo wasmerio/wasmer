@@ -81,7 +81,9 @@ impl CmdWasmer {
             // Get the binary
             if let Some(binary) = self.get_package(what.clone()) {
                 // Now run the module
-                spawn_exec(binary, name, store, env, &self.runtime, &self.cache)
+                parent_ctx.data().tasks().block_on(async {
+                    spawn_exec(binary, name, store, env, &self.runtime, &self.cache).await
+                })
             } else {
                 parent_ctx.data().tasks().block_on(async move {
                     let _ = stderr_write(

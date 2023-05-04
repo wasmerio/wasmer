@@ -242,14 +242,14 @@ impl Console {
 
         // Build the config
         // Run the binary
-        let process = spawn_exec(
+        let process = tasks.block_on(spawn_exec(
             binary,
             prog,
             store,
             env,
             &self.runtime,
             self.compiled_modules.as_ref(),
-        )?;
+        ))?;
 
         // Return the process
         Ok((process, wasi_process))

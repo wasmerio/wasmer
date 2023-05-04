@@ -15,7 +15,8 @@ use crate::{
     WasiFunctionEnv, WasiRuntime,
 };
 
-pub fn spawn_exec(
+#[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
+pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
     store: Store,
@@ -26,7 +27,9 @@ pub fn spawn_exec(
     // The deterministic id for this engine
     let compiler = store.engine().deterministic_id();
 
-    let module = compiled_modules.get_compiled_module(&**runtime, binary.hash().as_str(), compiler);
+    let module = compiled_modules
+        .get_compiled_module(&**runtime, binary.hash().as_str(), compiler)
+        .await;
 
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
@@ -45,12 +48,9 @@ pub fn spawn_exec(
             }
             let module = module?;
 
-            compiled_modules.set_compiled_module(
-                &**runtime,
-                binary.hash().as_str(),
-                compiler,
-                &module,
-            );
+            compiled_modules
+                .set_compiled_module(&**runtime, binary.hash().as_str(), compiler, &module)
+                .await;
             module
         }
         (None, None) => {
@@ -220,6 +220,7 @@ impl BinFactory {
                 &self.runtime,
                 &self.cache,
             )
+            .await
         })
     }
 
