@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         build-what: [
           {
             key: capi,
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         build-what: [
           {
             key: capi,
@@ -259,7 +259,7 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
-  build: 
+  build:
     name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
@@ -279,10 +279,10 @@ jobs:
           }
         ]
         metadata: [
-          { 
-            build: linux-x64, 
-            os: ubuntu-22.04, 
-            target: x86_64-unknown-linux-gnu,  
+          {
+            build: linux-x64,
+            os: ubuntu-22.04,
+            target: x86_64-unknown-linux-gnu,
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           },
           {
@@ -329,6 +329,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: |
+            apk update
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
@@ -478,7 +479,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 2
 
-  test: 
+  test:
     name: ${{ matrix.stage.description }} on ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
@@ -487,12 +488,12 @@ jobs:
       matrix:
         stage: [
           {
-            description: 'Run wast test suite for all compilers', 
+            description: 'Run wast test suite for all compilers',
             make: 'test-stage-0-wast',
           },
           {
             description: 'Unit-test packages on std',
-            make: 'test-stage-1-test-all', 
+            make: 'test-stage-1-test-all',
           },
           {
             description: 'Unit-test cranelift on no-std',
@@ -504,19 +505,19 @@ jobs:
           },
           {
             description: 'Unit-test wasmer-cli',
-            make: 'test-stage-4-wasmer-cli', 
+            make: 'test-stage-4-wasmer-cli',
           },
           {
             description: 'Unit-test examples',
-            make: 'test-stage-5-test-examples', 
+            make: 'test-stage-5-test-examples',
           }
         ]
         metadata: [
           # We cannot test on macos-arm since we don't have ARM runners
-          { 
-            build: linux-x64, 
-            os: ubuntu-22.04, 
-            target: x86_64-unknown-linux-gnu,  
+          {
+            build: linux-x64,
+            os: ubuntu-22.04,
+            target: x86_64-unknown-linux-gnu,
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           },
           {
@@ -553,6 +554,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: |
+            apk update
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - name: Set up dependencies for Mac OS
         run: |
@@ -612,7 +614,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
 
-  test_integration_cli: 
+  test_integration_cli:
     name: CLI integration tests on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: [build, build_linux_aarch64, build_linux_riscv64]
@@ -651,6 +653,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: |
+            apk update
             apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
       - uses: actions/download-artifact@v3
         id: download

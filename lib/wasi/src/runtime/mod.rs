@@ -1,6 +1,5 @@
+pub mod resolver;
 pub mod task_manager;
-
-use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
 
 pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
 
@@ -11,6 +10,13 @@ use std::{
 
 use derivative::Derivative;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
+
+use crate::{
+    http::DynHttpClient,
+    os::TtyBridge,
+    runtime::resolver::{PackageResolver, RegistryResolver},
+    WasiTtyState,
+};
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
@@ -25,6 +31,8 @@ where
 
     /// Retrieve the active [`VirtualTaskManager`].
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
+
+    fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
     fn engine(&self) -> Option<wasmer::Engine> {
@@ -87,6 +95,7 @@ pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
+    pub resolver: Arc<dyn PackageResolver + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
@@ -102,15 +111,11 @@ impl PluggableRuntime {
                 let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "host-reqwest")] {
-                let http_client = Some(Arc::new(
-                    crate::http::reqwest::ReqwestHttpClient::default()) as DynHttpClient
-                );
-            } else {
-                let http_client = None;
-            }
-        }
+        let http_client =
+            crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
+
+        let resolver =
+            RegistryResolver::from_env().expect("Loading the builtin resolver should never fail");
 
         Self {
             rt,
@@ -118,22 +123,34 @@ impl PluggableRuntime {
             http_client,
             engine: None,
             tty: None,
+            resolver: Arc::new(resolver),
         }
     }
 
-    pub fn set_networking_implementation<I>(&mut self, net: I)
+    pub fn set_networking_implementation<I>(&mut self, net: I) -> &mut Self
     where
         I: VirtualNetworking + Sync,
     {
-        self.networking = Arc::new(net)
+        self.networking = Arc::new(net);
+        self
     }
 
-    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) {
+    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) -> &mut Self {
         self.engine = engine;
+        self
     }
 
-    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> &mut Self {
         self.tty = Some(tty);
+        self
+    }
+
+    pub fn set_resolver(
+        &mut self,
+        resolver: impl PackageResolver + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.resolver = Arc::new(resolver);
+        self
     }
 }
 
@@ -146,8 +163,15 @@ impl WasiRuntime for PluggableRuntime {
         self.http_client.as_ref()
     }
 
-    fn engine(&self) -> Option<wasmer::Engine> {
-        self.engine.clone()
+    fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync> {
+        Arc::clone(&self.resolver)
+    }
+
+    fn new_store(&self) -> wasmer::Store {
+        self.engine
+            .clone()
+            .map(wasmer::Store::new)
+            .unwrap_or_default()
     }
 
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {

@@ -123,7 +123,6 @@ impl VirtualTaskManager for TokioTaskManager {
         &self.0
     }
 
-    /// See [`VirtualTaskManager::block_on`].
     #[allow(dyn_drop)]
     fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
         Box::new(TokioRuntimeGuard {
@@ -131,7 +130,6 @@ impl VirtualTaskManager for TokioTaskManager {
         })
     }
 
-    /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
         task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,

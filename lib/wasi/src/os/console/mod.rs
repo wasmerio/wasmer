@@ -203,22 +203,22 @@ impl Console {
             tasks.block_on(self.draw_welcome());
         }
 
-        let binary =
-            if let Some(binary) = self.compiled_modules.get_webc(webc, self.runtime.deref()) {
-                binary
-            } else {
-                let mut stderr = self.stderr.clone();
-                tasks.block_on(async {
-                    virtual_fs::AsyncWriteExt::write_all(
-                        &mut stderr,
-                        format!("package not found [{}]\r\n", webc).as_bytes(),
-                    )
-                    .await
-                    .ok();
-                });
-                tracing::debug!("failed to get webc dependency - {}", webc);
-                return Err(VirtualBusError::NotFound);
-            };
+        let binary = if let Ok(binary) = self.compiled_modules.get_webc(webc, self.runtime.deref())
+        {
+            binary
+        } else {
+            let mut stderr = self.stderr.clone();
+            tasks.block_on(async {
+                virtual_fs::AsyncWriteExt::write_all(
+                    &mut stderr,
+                    format!("package not found [{}]\r\n", webc).as_bytes(),
+                )
+                .await
+                .ok();
+            });
+            tracing::debug!("failed to get webc dependency - {}", webc);
+            return Err(VirtualBusError::NotFound);
+        };
 
         let wasi_process = env.process.clone();
 
