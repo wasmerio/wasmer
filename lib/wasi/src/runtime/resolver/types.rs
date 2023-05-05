@@ -12,7 +12,7 @@ use semver::VersionReq;
 use crate::{bin_factory::BinaryPackage, http::HttpClient, runtime::resolver::InMemoryCache};
 
 #[async_trait::async_trait]
-pub trait PackageResolver: Debug + Send + Sync {
+pub trait PackageResolver: Debug {
     /// Resolve a package, loading all dependencies.
     async fn resolve_package(
         &self,
@@ -33,7 +33,7 @@ pub trait PackageResolver: Debug + Send + Sync {
 impl<D, R> PackageResolver for D
 where
     D: Deref<Target = R> + Debug + Send + Sync,
-    R: PackageResolver + ?Sized,
+    R: PackageResolver + Send + Sync + ?Sized,
 {
     /// Resolve a package, loading all dependencies.
     async fn resolve_package(

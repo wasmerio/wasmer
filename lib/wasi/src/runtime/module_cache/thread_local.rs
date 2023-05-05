@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, CompiledModuleCache};
+use crate::runtime::module_cache::{CacheError, ModuleCache};
 
 std::thread_local! {
     static CACHED_MODULES: RefCell<HashMap<String, Module>>
@@ -25,7 +25,7 @@ impl ThreadLocalCache {
 }
 
 #[async_trait::async_trait]
-impl CompiledModuleCache for ThreadLocalCache {
+impl ModuleCache for ThreadLocalCache {
     async fn load(&self, key: &str, _engine: &Engine) -> Result<Module, CacheError> {
         self.lookup(key).ok_or(CacheError::NotFound)
     }

@@ -59,7 +59,7 @@ impl<R> InMemoryCache<R> {
 #[async_trait::async_trait]
 impl<R> PackageResolver for InMemoryCache<R>
 where
-    R: PackageResolver,
+    R: PackageResolver + Send + Sync,
 {
     async fn resolve_package(
         &self,

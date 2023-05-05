@@ -15,7 +15,7 @@ use crate::runtime::module_cache::AndThen;
 /// be called more often than [`CompiledModuleCache::save()`] and optimise
 /// their caching strategy accordingly.
 #[async_trait::async_trait]
-pub trait CompiledModuleCache: Debug + Send + Sync {
+pub trait ModuleCache: Debug {
     async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError>;
 
     async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError>;
@@ -37,17 +37,17 @@ pub trait CompiledModuleCache: Debug + Send + Sync {
     fn and_then<C>(self, other: C) -> AndThen<Self, C>
     where
         Self: Sized,
-        C: CompiledModuleCache,
+        C: ModuleCache,
     {
         AndThen::new(self, other)
     }
 }
 
 #[async_trait::async_trait]
-impl<D, C> CompiledModuleCache for D
+impl<D, C> ModuleCache for D
 where
     D: Deref<Target = C> + Debug + Send + Sync,
-    C: CompiledModuleCache + ?Sized,
+    C: ModuleCache + Send + Sync + ?Sized,
 {
     async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
         (**self).load(key, engine).await
@@ -73,6 +73,6 @@ mod tests {
 
     #[test]
     fn is_object_safe() {
-        let _: Option<Box<dyn CompiledModuleCache>> = None;
+        let _: Option<Box<dyn ModuleCache>> = None;
     }
 }

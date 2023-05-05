@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, CompiledModuleCache};
+use crate::runtime::module_cache::{CacheError, ModuleCache};
 
-/// A [`CompiledModuleCache`] based on a
+/// A [`ModuleCache`] based on a
 /// <code>[Arc]<[RwLock]<[HashMap]<[String], [Module]>>></code> that can be
 /// shared.
 #[derive(Debug, Default, Clone)]
@@ -24,7 +24,7 @@ impl SharedCache {
 }
 
 #[async_trait::async_trait]
-impl CompiledModuleCache for SharedCache {
+impl ModuleCache for SharedCache {
     async fn load(&self, key: &str, _engine: &Engine) -> Result<Module, CacheError> {
         let modules = self.modules.read().await;
 

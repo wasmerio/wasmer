@@ -15,7 +15,10 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use crate::{
     http::DynHttpClient,
     os::TtyBridge,
-    runtime::resolver::{PackageResolver, RegistryResolver},
+    runtime::{
+        module_cache::{ModuleCache, SharedCache},
+        resolver::{PackageResolver, RegistryResolver},
+    },
     WasiTtyState,
 };
 
@@ -34,6 +37,13 @@ where
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
     fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync>;
+
+    /// A cache for compiled modules.
+    ///
+    /// Caching is disabled by default.
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        Arc::new(module_cache::Disabled)
+    }
 
     /// Get a [`wasmer::Engine`] for module compilation.
     fn engine(&self) -> Option<wasmer::Engine> {
@@ -98,6 +108,7 @@ pub struct PluggableRuntime {
     pub http_client: Option<DynHttpClient>,
     pub resolver: Arc<dyn PackageResolver + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
+    pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
 }
@@ -125,6 +136,7 @@ impl PluggableRuntime {
             engine: None,
             tty: None,
             resolver: Arc::new(resolver),
+            module_cache: Arc::new(SharedCache::default()),
         }
     }
 
@@ -181,5 +193,9 @@ impl WasiRuntime for PluggableRuntime {
 
     fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         self.tty.as_deref()
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        self.module_cache.clone()
     }
 }

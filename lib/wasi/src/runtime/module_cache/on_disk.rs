@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, CompiledModuleCache};
+use crate::runtime::module_cache::{CacheError, ModuleCache};
 
 /// A cache that saves modules to a folder on disk using
 /// [`Module::serialize()`].
@@ -31,7 +31,7 @@ impl OnDiskCache {
 }
 
 #[async_trait::async_trait]
-impl CompiledModuleCache for OnDiskCache {
+impl ModuleCache for OnDiskCache {
     async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key);
 

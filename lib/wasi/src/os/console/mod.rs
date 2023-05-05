@@ -26,9 +26,10 @@ use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
 
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
-    bin_factory::{spawn_exec, BinFactory, ModuleCache},
+    bin_factory::{spawn_exec, BinFactory},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
+    runtime::resolver::WebcIdentifier,
     VirtualBusError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -46,7 +47,6 @@ pub struct Console {
     prompt: String,
     env: HashMap<String, String>,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    compiled_modules: Arc<ModuleCache>,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -57,7 +57,6 @@ impl Console {
     pub fn new(
         webc_boot_package: &str,
         runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-        compiled_modules: Arc<ModuleCache>,
     ) -> Self {
         let prog = webc_boot_package
             .split_once(' ')
@@ -78,7 +77,6 @@ impl Console {
             env: HashMap::new(),
             runtime,
             prompt: "wasmer.sh".to_string(),
-            compiled_modules,
             stdin: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             stdout: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             stderr: ArcBoxFile::new(Box::new(Pipe::channel().0)),
@@ -186,7 +184,6 @@ impl Console {
             .unwrap()
             .stdout(Box::new(self.stdout.clone()))
             .stderr(Box::new(self.stderr.clone()))
-            .compiled_modules(self.compiled_modules.clone())
             .runtime(self.runtime.clone())
             .capabilities(self.capabilities.clone())
             .build_init()
@@ -203,8 +200,25 @@ impl Console {
             tasks.block_on(self.draw_welcome());
         }
 
-        let binary = if let Ok(binary) = self.compiled_modules.get_webc(webc, self.runtime.deref())
-        {
+        let webc_ident: WebcIdentifier = match webc.parse() {
+            Ok(ident) => ident,
+            Err(e) => {
+                tracing::debug!(webc, error = &*e, "Unable to parse the WEBC identifier");
+                return Err(VirtualBusError::BadRequest);
+            }
+        };
+        let client = self
+            .runtime
+            .http_client()
+            .ok_or(VirtualBusError::UnknownError)?;
+
+        let resolved_package = tasks.block_on(
+            self.runtime
+                .package_resolver()
+                .resolve_package(&webc_ident, &client),
+        );
+
+        let binary = if let Ok(binary) = resolved_package {
             binary
         } else {
             let mut stderr = self.stderr.clone();
@@ -242,14 +256,7 @@ impl Console {
 
         // Build the config
         // Run the binary
-        let process = tasks.block_on(spawn_exec(
-            binary,
-            prog,
-            store,
-            env,
-            &self.runtime,
-            self.compiled_modules.as_ref(),
-        ))?;
+        let process = tasks.block_on(spawn_exec(binary, prog, store, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))

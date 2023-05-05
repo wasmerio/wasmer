@@ -1,8 +1,8 @@
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, CompiledModuleCache};
+use crate::runtime::module_cache::{CacheError, ModuleCache};
 
-/// A [`CompiledModuleCache`] combinator which will try operations on one cache
+/// A [`ModuleCache`] combinator which will try operations on one cache
 /// and fall back to a secondary cache if they fail.
 ///
 /// Constructed via [`CompiledModuleCache::and_then()`].
@@ -40,10 +40,10 @@ impl<Primary, Secondary> AndThen<Primary, Secondary> {
 }
 
 #[async_trait::async_trait]
-impl<Primary, Secondary> CompiledModuleCache for AndThen<Primary, Secondary>
+impl<Primary, Secondary> ModuleCache for AndThen<Primary, Secondary>
 where
-    Primary: CompiledModuleCache + Send + Sync,
-    Secondary: CompiledModuleCache + Send + Sync,
+    Primary: ModuleCache + Send + Sync,
+    Secondary: ModuleCache + Send + Sync,
 {
     async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
         let primary_error = match self.primary.load(key, engine).await {
