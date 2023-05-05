@@ -43,7 +43,7 @@ impl TokioTaskManager {
         Ok(())
     }
 
-    /// Shared tokio [`Runtime`] that is used by default.
+    /// Shared tokio [`VirtualTaskManager`] that is used by default.
     ///
     /// This exists because a tokio runtime is heavy, and there should not be many
     /// independent ones in a process.

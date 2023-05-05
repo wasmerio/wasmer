@@ -99,9 +99,9 @@ pub struct WasiThread {
 /// A guard that ensures a thread is marked as terminated when dropped.
 ///
 /// Normally the thread result should be manually registered with
-/// [`Thread::set_status_running`] or [`Thread::set_status_finished`], but
-/// this guard can ensure that the thread is marked as terminated even if this
-/// is forgotten or a panic occurs.
+/// [`WasiThread::set_status_running`] or [`WasiThread::set_status_finished`],
+/// but this guard can ensure that the thread is marked as terminated even if
+/// this is forgotten or a panic occurs.
 pub struct WasiThreadRunGuard {
     pub thread: WasiThread,
 }

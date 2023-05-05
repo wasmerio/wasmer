@@ -349,9 +349,7 @@ pub fn current_caller_id() -> WasiCallingId {
         .into()
 }
 
-/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
-/// needs a [`WasiState`], that can be constructed from a
-/// [`WasiEnvBuilder`](state::WasiEnvBuilder).
+/// Create an [`Imports`] with an existing [`WasiEnv`].
 pub fn generate_import_object_from_env(
     store: &mut impl AsStoreMut,
     ctx: &FunctionEnv<WasiEnv>,

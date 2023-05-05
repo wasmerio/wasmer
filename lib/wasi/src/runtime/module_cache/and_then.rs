@@ -5,7 +5,7 @@ use crate::runtime::module_cache::{CacheError, Key, ModuleCache};
 /// A [`ModuleCache`] combinator which will try operations on one cache
 /// and fall back to a secondary cache if they fail.
 ///
-/// Constructed via [`CompiledModuleCache::and_then()`].
+/// Constructed via [`ModuleCache::and_then()`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AndThen<Primary, Secondary> {
     primary: Primary,

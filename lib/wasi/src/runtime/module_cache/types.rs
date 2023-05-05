@@ -15,8 +15,8 @@ use crate::runtime::module_cache::AndThen;
 /// Implementations can assume that cache keys are unique and that using the
 /// same key to load or save will always result in the "same" module.
 ///
-/// Implementations can also assume that [`CompiledModuleCache::load()`] will
-/// be called more often than [`CompiledModuleCache::save()`] and optimise
+/// Implementations can also assume that [`ModuleCache::load()`] will
+/// be called more often than [`ModuleCache::save()`] and optimise
 /// their caching strategy accordingly.
 #[async_trait::async_trait]
 pub trait ModuleCache: Debug {
@@ -31,11 +31,10 @@ pub trait ModuleCache: Debug {
     ///
     /// ```rust
     /// use wasmer_wasix::runtime::module_cache::{
-    ///     CompiledModuleCache, ThreadLocalCache, OnDiskCache, SharedCache,
+    ///     ModuleCache, ThreadLocalCache, OnDiskCache, SharedCache,
     /// };
     ///
-    /// let cache = ThreadLocalCache::default()
-    ///     .and_then(SharedCache::default())
+    /// let cache = SharedCache::default()
     ///     .and_then(OnDiskCache::new("~/.local/cache"));
     /// ```
     fn and_then<C>(self, other: C) -> AndThen<Self, C>
