@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache};
+use crate::runtime::module_cache::{CacheError, Key, ModuleCache};
 
 /// A cache that saves modules to a folder on disk using
 /// [`Module::serialize()`].
@@ -22,17 +22,14 @@ impl OnDiskCache {
         &self.cache_dir
     }
 
-    fn path(&self, key: &str) -> PathBuf {
-        let illegal_path_characters = ['/', '\\', ':', '.'];
-        let sanitized_key = key.replace(illegal_path_characters, "_");
-
-        self.cache_dir.join(sanitized_key).with_extension("bin")
+    fn path(&self, key: Key) -> PathBuf {
+        self.cache_dir.join(key.to_string()).with_extension("bin")
     }
 }
 
 #[async_trait::async_trait]
 impl ModuleCache for OnDiskCache {
-    async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
+    async fn load(&self, key: Key, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key);
 
         // FIXME: Use spawn_blocking() to avoid blocking the thread
@@ -40,7 +37,7 @@ impl ModuleCache for OnDiskCache {
             .map_err(|e| deserialize_error(e, path))
     }
 
-    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
+    async fn save(&self, key: Key, module: &Module) -> Result<(), CacheError> {
         let path = self.path(key);
 
         // FIXME: Use spawn_blocking() to avoid blocking the thread
@@ -110,11 +107,15 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = OnDiskCache::new(temp.path());
-        let key = "wat";
+        let key = Key::new([0; 32]);
 
         cache.save(key, &module).await.unwrap();
 
-        assert!(temp.path().join(key).with_extension("bin").exists());
+        assert!(temp
+            .path()
+            .join(key.to_string())
+            .with_extension("bin")
+            .exists());
     }
 
     #[tokio::test]
@@ -125,7 +126,7 @@ mod tests {
         let cache_dir = temp.path().join("this").join("doesn't").join("exist");
         assert!(!cache_dir.exists());
         let cache = OnDiskCache::new(&cache_dir);
-        let key = "wat";
+        let key = Key::new([0; 32]);
 
         cache.save(key, &module).await.unwrap();
 
@@ -136,7 +137,7 @@ mod tests {
     async fn missing_file() {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
-        let key = "wat";
+        let key = Key::new([0; 32]);
         let cache = OnDiskCache::new(temp.path());
 
         let err = cache.load(key, &engine).await.unwrap_err();
@@ -149,9 +150,9 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = "wat";
+        let key = Key::new([0; 32]);
         module
-            .serialize_to_file(temp.path().join(key).with_extension("bin"))
+            .serialize_to_file(temp.path().join(key.to_string()).with_extension("bin"))
             .unwrap();
         let cache = OnDiskCache::new(temp.path());
 

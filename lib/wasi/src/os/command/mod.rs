@@ -5,9 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasix_types::wasi::Errno;
 
-use crate::{
-    syscalls::stderr_write, VirtualBusError, WasiEnv, WasiRuntime,
-};
+use crate::{syscalls::stderr_write, VirtualBusError, WasiEnv, WasiRuntime};
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 

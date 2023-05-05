@@ -27,10 +27,10 @@ pub async fn spawn_exec(
     // The deterministic id for this engine
     let compiler = store.engine().deterministic_id();
 
-    let key = format!("{}-{}", binary.hash().as_str(), compiler);
+    let key = binary.hash().combined_with(compiler);
 
     let compiled_modules = runtime.module_cache();
-    let module = compiled_modules.load(&key, store.engine()).await.ok();
+    let module = compiled_modules.load(key, store.engine()).await.ok();
 
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
@@ -49,7 +49,7 @@ pub async fn spawn_exec(
             }
             let module = module?;
 
-            if let Err(e) = compiled_modules.save(&key, &module).await {
+            if let Err(e) = compiled_modules.save(key, &module).await {
                 tracing::debug!(
                     %key,
                     package_name=%binary.package_name,

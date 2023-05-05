@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use derivative::*;
 use once_cell::sync::OnceCell;
@@ -6,7 +6,7 @@ use semver::Version;
 use virtual_fs::FileSystem;
 use webc::compat::SharedBytes;
 
-use super::hash_of_binary;
+use crate::runtime::module_cache::Key;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -14,7 +14,7 @@ pub struct BinaryPackageCommand {
     name: String,
     #[derivative(Debug = "ignore")]
     pub(crate) atom: SharedBytes,
-    hash: OnceCell<String>,
+    hash: OnceCell<Key>,
 }
 
 impl BinaryPackageCommand {
@@ -38,8 +38,8 @@ impl BinaryPackageCommand {
         &self.atom
     }
 
-    pub fn hash(&self) -> &str {
-        self.hash.get_or_init(|| hash_of_binary(self.atom()))
+    pub fn hash(&self) -> &Key {
+        self.hash.get_or_init(|| Key::sha256(self.atom()))
     }
 }
 
@@ -54,7 +54,7 @@ pub struct BinaryPackage {
     pub when_cached: Option<u128>,
     #[derivative(Debug = "ignore")]
     pub entry: Option<SharedBytes>,
-    pub hash: Arc<Mutex<Option<String>>>,
+    pub hash: OnceCell<Key>,
     pub webc_fs: Option<Arc<dyn FileSystem + Send + Sync + 'static>>,
     pub commands: Arc<RwLock<Vec<BinaryPackageCommand>>>,
     pub uses: Vec<String>,
@@ -64,15 +64,13 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
-    pub fn hash(&self) -> String {
-        let mut hash = self.hash.lock().unwrap();
-        if hash.is_none() {
+    pub fn hash(&self) -> Key {
+        *self.hash.get_or_init(|| {
             if let Some(entry) = self.entry.as_ref() {
-                hash.replace(hash_of_binary(entry.as_ref()));
+                Key::sha256(entry)
             } else {
-                hash.replace(hash_of_binary(&self.package_name));
+                Key::sha256(self.package_name.as_bytes())
             }
-        }
-        hash.as_ref().unwrap().clone()
+        })
     }
 }

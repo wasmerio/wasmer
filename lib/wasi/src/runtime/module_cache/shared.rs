@@ -1,12 +1,12 @@
 use dashmap::DashMap;
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache};
+use crate::runtime::module_cache::{CacheError, Key, ModuleCache};
 
-/// A [`ModuleCache`] based on a <code>[DashMap]<[String], [Module]></code>.
+/// A [`ModuleCache`] based on a <code>[DashMap]<[Key], [Module]></code>.
 #[derive(Debug, Default, Clone)]
 pub struct SharedCache {
-    modules: DashMap<String, Module>,
+    modules: DashMap<Key, Module>,
 }
 
 impl SharedCache {
@@ -17,15 +17,15 @@ impl SharedCache {
 
 #[async_trait::async_trait]
 impl ModuleCache for SharedCache {
-    async fn load(&self, key: &str, _engine: &Engine) -> Result<Module, CacheError> {
+    async fn load(&self, key: Key, _engine: &Engine) -> Result<Module, CacheError> {
         self.modules
-            .get(key)
+            .get(&key)
             .map(|m| m.value().clone())
             .ok_or(CacheError::NotFound)
     }
 
-    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
-        self.modules.insert(key.to_string(), module.clone());
+    async fn save(&self, key: Key, module: &Module) -> Result<(), CacheError> {
+        self.modules.insert(key, module.clone());
 
         Ok(())
     }

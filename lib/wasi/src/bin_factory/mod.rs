@@ -11,8 +11,6 @@ use virtual_fs::{AsyncReadExt, FileSystem};
 mod binary_package;
 mod exec;
 
-use sha2::*;
-
 pub use self::{
     binary_package::*,
     exec::{spawn_exec, spawn_exec_module},
@@ -110,11 +108,4 @@ async fn load_package_from_filesystem(
     let pkg = crate::wapm::parse_static_webc(data).context("Unable to parse the package")?;
 
     Ok(pkg)
-}
-
-pub fn hash_of_binary(data: impl AsRef<[u8]>) -> String {
-    let mut hasher = Sha256::default();
-    hasher.update(data.as_ref());
-    let hash = hasher.finalize();
-    hex::encode(&hash[..])
 }

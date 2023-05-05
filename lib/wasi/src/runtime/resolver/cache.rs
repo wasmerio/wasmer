@@ -92,6 +92,8 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use once_cell::sync::OnceCell;
+
     use super::*;
 
     #[derive(Debug, Default)]
@@ -117,7 +119,7 @@ mod tests {
             version: version.parse().unwrap(),
             when_cached: None,
             entry: None,
-            hash: Arc::default(),
+            hash: OnceCell::new(),
             webc_fs: None,
             commands: Arc::default(),
             uses: Vec::new(),

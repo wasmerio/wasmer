@@ -1,6 +1,6 @@
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache};
+use crate::runtime::module_cache::{CacheError, Key, ModuleCache};
 
 /// A [`ModuleCache`] combinator which will try operations on one cache
 /// and fall back to a secondary cache if they fail.
@@ -45,7 +45,7 @@ where
     Primary: ModuleCache + Send + Sync,
     Secondary: ModuleCache + Send + Sync,
 {
-    async fn load(&self, key: &str, engine: &Engine) -> Result<Module, CacheError> {
+    async fn load(&self, key: Key, engine: &Engine) -> Result<Module, CacheError> {
         let primary_error = match self.primary.load(key, engine).await {
             Ok(m) => return Ok(m),
             Err(e) => e,
@@ -56,7 +56,7 @@ where
             // cache too.
             if let Err(e) = self.primary.save(key, &m).await {
                 tracing::warn!(
-                    key,
+                    %key,
                     error = &e as &dyn std::error::Error,
                     "Unable to save a module to the primary cache",
                 );
@@ -68,10 +68,10 @@ where
         Err(primary_error)
     }
 
-    async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
+    async fn save(&self, key: Key, module: &Module) -> Result<(), CacheError> {
         futures::try_join!(
-            self.primary.save(key, module,),
-            self.secondary.save(key, module,)
+            self.primary.save(key, module),
+            self.secondary.save(key, module)
         )?;
         Ok(())
     }

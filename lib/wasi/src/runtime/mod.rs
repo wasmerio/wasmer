@@ -16,7 +16,7 @@ use crate::{
     http::DynHttpClient,
     os::TtyBridge,
     runtime::{
-        module_cache::{ModuleCache, SharedCache},
+        module_cache::ModuleCache,
         resolver::{PackageResolver, RegistryResolver},
     },
     WasiTtyState,
