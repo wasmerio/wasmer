@@ -1,13 +1,13 @@
 mod and_then;
 mod disabled;
-mod on_disk;
+mod filesystem;
 mod shared;
 mod thread_local;
 mod types;
 
 pub use self::{
     and_then::AndThen,
-    on_disk::OnDiskCache,
+    filesystem::FileSystemCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,
     types::{CacheError, Key, ModuleCache},

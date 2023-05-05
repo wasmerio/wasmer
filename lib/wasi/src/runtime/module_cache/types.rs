@@ -1,6 +1,7 @@
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Deref,
+    path::PathBuf,
 };
 
 use sha2::{Digest, Sha256};
@@ -31,11 +32,11 @@ pub trait ModuleCache: Debug {
     ///
     /// ```rust
     /// use wasmer_wasix::runtime::module_cache::{
-    ///     ModuleCache, ThreadLocalCache, OnDiskCache, SharedCache,
+    ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
     /// };
     ///
     /// let cache = SharedCache::default()
-    ///     .and_then(OnDiskCache::new("~/.local/cache"));
+    ///     .and_then(FileSystemCache::new("~/.local/cache"));
     /// ```
     fn and_then<C>(self, other: C) -> AndThen<Self, C>
     where
@@ -63,11 +64,33 @@ where
 
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
+    #[error("Unable to serialize the module")]
+    Serialize(#[from] wasmer::SerializeError),
+    #[error("Unable to deserialize the module")]
+    Deserialize(#[from] wasmer::DeserializeError),
+    #[error("Unable to read from \"{}\"", path.display())]
+    Read {
+        path: PathBuf,
+        #[source]
+        error: std::io::Error,
+    },
+    #[error("Unable to write to \"{}\"", path.display())]
+    Write {
+        path: PathBuf,
+        #[source]
+        error: std::io::Error,
+    },
     /// The item was not found.
     #[error("Not found")]
     NotFound,
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl CacheError {
+    pub fn other(error: impl std::error::Error + Send + Sync + 'static) -> Self {
+        CacheError::Other(Box::new(error))
+    }
 }
 
 /// A 256-bit key used for caching.
