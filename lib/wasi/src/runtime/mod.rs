@@ -136,7 +136,7 @@ impl PluggableRuntime {
             engine: None,
             tty: None,
             resolver: Arc::new(resolver),
-            module_cache: Arc::new(SharedCache::default()),
+            module_cache: Arc::new(module_cache::in_memory()),
         }
     }
 

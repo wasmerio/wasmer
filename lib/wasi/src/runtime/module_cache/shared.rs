@@ -3,9 +3,7 @@ use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache};
 
-/// A [`ModuleCache`] based on a
-/// <code>[Arc]<[RwLock]<[HashMap]<[String], [Module]>>></code> that can be
-/// shared.
+/// A [`ModuleCache`] based on a <code>[DashMap]<[String], [Module]></code>.
 #[derive(Debug, Default, Clone)]
 pub struct SharedCache {
     modules: DashMap<String, Module>,

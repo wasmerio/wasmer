@@ -15,13 +15,21 @@ pub use self::{
 
 pub(crate) use self::disabled::Disabled;
 
-/// Get a [`ModuleCache`] which should be good enough for most use
+/// Get a [`ModuleCache`] which should be good enough for most in-memory use
 /// cases.
 ///
-/// The returned object will use a mix of in-memory and on-disk caching
-/// strategies.
-pub fn default_cache(cache_dir: &std::path::Path) -> impl ModuleCache + Send + Sync {
-    ThreadLocalCache::default()
-        .and_then(SharedCache::default())
-        .and_then(OnDiskCache::new(cache_dir))
+/// # Platform-specific Notes
+///
+/// This will use the [`ThreadLocalCache`] when running in the browser because
+/// threads are run in separate workers. If you wish to share compiled modules
+/// between threads, you will need to use a custom [`ModuleCache`]
+/// implementation.
+pub fn in_memory() -> impl ModuleCache + Send + Sync {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "js")] {
+            ThreadLocalCache::default()
+        } else {
+            SharedCache::default()
+        }
+    }
 }
