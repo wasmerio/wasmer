@@ -1,6 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
-
-use tokio::sync::RwLock;
+use dashmap::DashMap;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache};
@@ -10,32 +8,26 @@ use crate::runtime::module_cache::{CacheError, ModuleCache};
 /// shared.
 #[derive(Debug, Default, Clone)]
 pub struct SharedCache {
-    modules: Arc<RwLock<HashMap<String, Module>>>,
+    modules: DashMap<String, Module>,
 }
 
 impl SharedCache {
     pub fn new() -> SharedCache {
         SharedCache::default()
     }
-
-    pub fn from_existing_modules(modules: Arc<RwLock<HashMap<String, Module>>>) -> Self {
-        SharedCache { modules }
-    }
 }
 
 #[async_trait::async_trait]
 impl ModuleCache for SharedCache {
     async fn load(&self, key: &str, _engine: &Engine) -> Result<Module, CacheError> {
-        let modules = self.modules.read().await;
-
-        modules.get(key).cloned().ok_or(CacheError::NotFound)
+        self.modules
+            .get(key)
+            .map(|m| m.value().clone())
+            .ok_or(CacheError::NotFound)
     }
 
     async fn save(&self, key: &str, module: &Module) -> Result<(), CacheError> {
-        let module = module.clone();
-        let key = key.to_string();
-
-        self.modules.write().await.insert(key, module);
+        self.modules.insert(key.to_string(), module.clone());
 
         Ok(())
     }
