@@ -1,5 +1,4 @@
 mod and_then;
-mod disabled;
 mod filesystem;
 mod shared;
 mod thread_local;
@@ -12,8 +11,6 @@ pub use self::{
     thread_local::ThreadLocalCache,
     types::{CacheError, Key, ModuleCache},
 };
-
-pub(crate) use self::disabled::Disabled;
 
 /// Get a [`ModuleCache`] which should be good enough for most in-memory use
 /// cases.

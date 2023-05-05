@@ -39,11 +39,7 @@ where
     fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync>;
 
     /// A cache for compiled modules.
-    ///
-    /// Caching is disabled by default.
-    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
-        Arc::new(module_cache::Disabled)
-    }
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
     fn engine(&self) -> Option<wasmer::Engine> {
