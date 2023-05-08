@@ -53,6 +53,9 @@ wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.4.0", featur
 heapless = "0.7.16"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
+semver = "1.0.17"
+dashmap = "5.4.0"
+tempfile = "3.4.0"
 # Used by the WCGI runner
 hyper = { version = "0.14", features = ["server", "stream"], optional = true }
 wcgi = { version = "0.1.2", optional = true }
@@ -60,8 +63,6 @@ wcgi-host = { version = "0.1.2", optional = true }
 tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "cors"], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
-semver = "1.0.17"
-dashmap = "5.4.0"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
@@ -90,7 +91,6 @@ wasm-bindgen = "0.2.74"
 [dev-dependencies]
 wasmer = { path = "../api", version = "=3.3.0", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
-tempfile = "3.4.0"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

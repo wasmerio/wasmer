@@ -1,9 +1,6 @@
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::path::{Path, PathBuf};
 
+use tempfile::NamedTempFile;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
@@ -84,50 +81,39 @@ impl ModuleCache for FileSystemCache {
         // background.
         // https://github.com/wasmerio/wasmer/issues/3851
 
-        if let Some(parent) = path.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                tracing::warn!(
-                    dir=%parent.display(),
-                    error=&e as &dyn std::error::Error,
-                    "Unable to create the cache directory",
-                );
-            }
+        let parent = path
+            .parent()
+            .expect("Unreachable - always created by joining onto cache_dir");
+
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            tracing::warn!(
+                dir=%parent.display(),
+                error=&e as &dyn std::error::Error,
+                "Unable to create the cache directory",
+            );
         }
 
-        // Note: We'll first save to a temporary file in the same folder, then
-        // rename it when we are done serializing. Try to use a unique extension
-        // just in case we have concurrent saves of the same module.
-        static UNIQUE_ID: AtomicU64 = AtomicU64::new(0);
-        let extension = format!("tmp{}", UNIQUE_ID.fetch_add(1, Ordering::Relaxed));
-
-        let tmp = path.with_extension(extension);
-
+        // Note: We save to a temporary file and persist() it at the end so
+        // concurrent readers won't see a partially written module.
+        let mut f = NamedTempFile::new_in(parent).map_err(CacheError::other)?;
         let serialized = module.serialize()?;
-        if let Err(e) = save_compressed(&tmp, &serialized) {
-            if let Err(e) = std::fs::remove_file(&tmp) {
-                tracing::warn!(
-                    path=%path.display(),
-                    key=%key,
-                    error=&e as &dyn std::error::Error,
-                    "Unable to remove the temporary file",
-                );
-            }
 
+        if let Err(e) = save_compressed(&mut f, &serialized) {
             return Err(CacheError::FileWrite { path, error: e });
         }
 
-        std::fs::rename(&tmp, &path).map_err(|error| CacheError::FileWrite { path, error })
+        f.persist(&path).map_err(CacheError::other)?;
+
+        Ok(())
     }
 }
 
-fn save_compressed(path: &Path, data: &[u8]) -> Result<(), std::io::Error> {
-    let mut f = File::create(path)?;
+fn save_compressed(writer: impl std::io::Write, data: &[u8]) -> Result<(), std::io::Error> {
     let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
     encoder
-        .into_stream(&mut f)
+        .into_stream(writer)
         .encode_all(std::io::Cursor::new(data))
         .status?;
-    f.sync_all()?;
 
     Ok(())
 }
@@ -159,6 +145,8 @@ fn read_compressed(path: &Path) -> Result<Vec<u8>, CacheError> {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+
     use tempfile::TempDir;
 
     use super::*;
@@ -224,7 +212,7 @@ mod tests {
         let expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
-        save_compressed(&expected_path, &serialized).unwrap();
+        save_compressed(File::create(&expected_path).unwrap(), &serialized).unwrap();
 
         let module = cache.load(key, &engine).await.unwrap();
 
