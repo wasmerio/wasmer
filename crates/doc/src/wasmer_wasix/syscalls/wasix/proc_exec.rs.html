@@ -265,8 +265,6 @@
 <span id="263">263</span>
 <span id="264">264</span>
 <span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     os::task::{OwnedTaskStatus, TaskStatus},
@@ -370,18 +368,13 @@
                     <span class="kw">let </span>new_store = new_store.take().unwrap();
                     <span class="kw">let </span>env = config.take().unwrap();
 
-                    tasks.block_on(<span class="kw">async </span>{
-                        <span class="kw">let </span>name_inner = name.clone();
-                        <span class="kw">let </span>ret = bin_factory.spawn(
-                                name_inner,
-                                new_store,
-                                env,
-                            )
-                            .<span class="kw">await</span>;
+                    <span class="kw">let </span>name_inner = name.clone();
+                    __asyncify_light(ctx.data(), <span class="prelude-val">None</span>, <span class="kw">async </span>{
+                        <span class="kw">let </span>ret = bin_factory.spawn(name_inner, new_store, env).<span class="kw">await</span>;
                         <span class="kw">match </span>ret {
                             <span class="prelude-val">Ok</span>(ret) =&gt; {
                                 <span class="macro">trace!</span>(%child_pid, <span class="string">&quot;spawned sub-process&quot;</span>);
-                            },
+                            }
                             <span class="prelude-val">Err</span>(err) =&gt; {
                                 err_exit_code = conv_bus_err_to_exit_code(err);
 
@@ -396,10 +389,13 @@
                                     <span class="kw-2">&amp;</span>ctx,
                                     <span class="macro">format!</span>(<span class="string">&quot;wasm execute failed [{}] - {}\n&quot;</span>, name.as_str(), err)
                                         .as_bytes(),
-                                ).<span class="kw">await</span>;
+                                )
+                                .<span class="kw">await</span>;
                             }
                         }
-                    })
+
+                        <span class="prelude-val">Ok</span>(())
+                    });
                 }
             }
         };

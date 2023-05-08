@@ -106,11 +106,67 @@
 <span id="104">104</span>
 <span id="105">105</span>
 <span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
 
-<span class="kw">use </span>std::{pin::Pin, time::Duration};
+<span class="kw">use </span>std::{ops::Deref, pin::Pin, time::Duration};
 
 <span class="kw">use </span>::tokio::runtime::Handle;
 <span class="kw">use </span>futures::Future;
@@ -187,6 +243,64 @@
     </span><span class="kw">fn </span>thread_parallelism(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, WasiThreadError&gt;;
 }
 
+<span class="attribute">#[async_trait::async_trait]
+</span><span class="kw">impl</span>&lt;D, T&gt; VirtualTaskManager <span class="kw">for </span>D
+<span class="kw">where
+    </span>D: Deref&lt;Target = T&gt; + std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
+    T: VirtualTaskManager + <span class="question-mark">?</span>Sized,
+{
+    <span class="kw">fn </span>build_memory(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;mut </span>StoreMut,
+        spawn_type: SpawnType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Memory&gt;, WasiThreadError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).build_memory(store, spawn_type)
+    }
+
+    <span class="kw">async fn </span>sleep_now(<span class="kw-2">&amp;</span><span class="self">self</span>, time: Duration) {
+        (<span class="kw-2">**</span><span class="self">self</span>).sleep_now(time).<span class="kw">await
+    </span>}
+
+    <span class="kw">fn </span>task_shared(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        task: Box&lt;
+            <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
+        &gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).task_shared(task)
+    }
+
+    <span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Handle {
+        (<span class="kw-2">**</span><span class="self">self</span>).runtime()
+    }
+
+    <span class="attribute">#[allow(dyn_drop)]
+    </span><span class="kw">fn </span>runtime_enter&lt;<span class="lifetime">&#39;g</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>std::ops::Drop + <span class="lifetime">&#39;g</span>&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).runtime_enter()
+    }
+
+    <span class="kw">fn </span>task_wasm(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;Memory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
+        store: Store,
+        module: Module,
+        spawn_type: SpawnType,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).task_wasm(task, store, module, spawn_type)
+    }
+
+    <span class="kw">fn </span>task_dedicated(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).task_dedicated(task)
+    }
+
+    <span class="kw">fn </span>thread_parallelism(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, WasiThreadError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).thread_parallelism()
+    }
+}
+
 <span class="kw">impl dyn </span>VirtualTaskManager {
     <span class="doccomment">/// Execute a future and return the output.
     /// This method blocks until the future is complete.
@@ -201,14 +315,12 @@
     <span class="kw">fn </span>block_on&lt;<span class="lifetime">&#39;a</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;a</span>) -&gt; A;
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T: VirtualTaskManager&gt; VirtualTaskManagerExt <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T {
-    <span class="kw">fn </span>block_on&lt;<span class="lifetime">&#39;x</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;x</span>) -&gt; A {
-        <span class="self">self</span>.runtime().block_on(task)
-    }
-}
-
-<span class="kw">impl</span>&lt;T: VirtualTaskManager + <span class="question-mark">?</span>Sized&gt; VirtualTaskManagerExt <span class="kw">for </span>std::sync::Arc&lt;T&gt; {
-    <span class="kw">fn </span>block_on&lt;<span class="lifetime">&#39;x</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;x</span>) -&gt; A {
+<span class="kw">impl</span>&lt;D, T&gt; VirtualTaskManagerExt <span class="kw">for </span>D
+<span class="kw">where
+    </span>D: Deref&lt;Target = T&gt;,
+    T: VirtualTaskManager + <span class="question-mark">?</span>Sized,
+{
+    <span class="kw">fn </span>block_on&lt;<span class="lifetime">&#39;a</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;a</span>) -&gt; A {
         <span class="self">self</span>.runtime().block_on(task)
     }
 }

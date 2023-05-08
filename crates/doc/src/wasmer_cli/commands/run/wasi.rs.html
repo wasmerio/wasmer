@@ -310,6 +310,11 @@
 <span id="308">308</span>
 <span id="309">309</span>
 <span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>std::{
@@ -326,6 +331,7 @@
     os::{tty_sys::SysTty, TtyBridge},
     runners::MappedDirectory,
     runtime::{
+        module_cache::{FileSystemCache, ModuleCache},
         resolver::{PackageResolver, RegistryResolver},
         task_manager::tokio::TokioTaskManager,
     },
@@ -532,12 +538,17 @@
             rt.set_tty(tty);
         }
 
-        rt.set_engine(<span class="prelude-val">Some</span>(engine));
+        <span class="kw">let </span>wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>resolver = <span class="self">self
-            </span>.prepare_resolver()
+            </span>.prepare_resolver(<span class="kw-2">&amp;</span>wasmer_home)
             .context(<span class="string">&quot;Unable to prepare the package resolver&quot;</span>)<span class="question-mark">?</span>;
-        rt.set_resolver(resolver);
+        <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
+            .and_then(FileSystemCache::new(wasmer_home.join(<span class="string">&quot;compiled&quot;</span>)));
+
+        rt.set_resolver(resolver)
+            .set_module_cache(module_cache)
+            .set_engine(<span class="prelude-val">Some</span>(engine));
 
         <span class="prelude-val">Ok</span>(rt)
     }
@@ -585,8 +596,8 @@
         })
     }
 
-    <span class="kw">fn </span>prepare_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageResolver&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>resolver = wapm_resolver()<span class="question-mark">?</span>;
+    <span class="kw">fn </span>prepare_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>, wasmer_home: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageResolver&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>resolver = wapm_resolver(wasmer_home)<span class="question-mark">?</span>;
 
         <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
             <span class="kw">let </span>pkg = preload_webc(path)
@@ -598,14 +609,13 @@
     }
 }
 
-<span class="kw">fn </span>wapm_resolver() -&gt; <span class="prelude-ty">Result</span>&lt;RegistryResolver, anyhow::Error&gt; {
+<span class="kw">fn </span>wapm_resolver(wasmer_home: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;RegistryResolver, anyhow::Error&gt; {
     <span class="comment">// FIXME(Michael-F-Bryan): Ideally, all of this would in the
     // RegistryResolver::from_env() constructor, but we don&#39;t want to add
     // wasmer-registry as a dependency of wasmer-wasix just yet.
-    </span><span class="kw">let </span>wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
-    <span class="kw">let </span>cache_dir = wasmer_registry::get_webc_dir(<span class="kw-2">&amp;</span>wasmer_home);
+    </span><span class="kw">let </span>cache_dir = wasmer_registry::get_webc_dir(wasmer_home);
     <span class="kw">let </span>config =
-        wasmer_registry::WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_home).map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+        wasmer_registry::WasmerConfig::from_file(wasmer_home).map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>registry = config.registry.get_graphql_url();
     <span class="kw">let </span>registry = registry

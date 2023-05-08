@@ -630,11 +630,13 @@
 <span id="628">628</span>
 <span id="629">629</span>
 <span id="630">630</span>
+<span id="631">631</span>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
+<span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>std::{
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>virtual_fs::{FileSystem, WebcVolumeFileSystem};
@@ -916,7 +918,7 @@
                 .unwrap() <span class="kw">as </span>u128,
         ),
         entry: entry.map(Into::into),
-        hash: Arc::new(Mutex::new(<span class="prelude-val">None</span>)),
+        hash: OnceCell::new(),
         webc_fs: <span class="prelude-val">Some</span>(Arc::new(webc_fs)),
         commands: Arc::new(RwLock::new(commands.into_values().collect())),
         uses,

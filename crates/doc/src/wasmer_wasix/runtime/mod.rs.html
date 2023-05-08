@@ -184,7 +184,29 @@
 <span id="182">182</span>
 <span id="183">183</span>
 <span id="184">184</span>
-</pre><pre class="rust"><code><span class="kw">pub mod </span>resolver;
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+</pre><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
+<span class="kw">pub mod </span>resolver;
 <span class="kw">pub mod </span>task_manager;
 
 <span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
@@ -200,7 +222,10 @@
 <span class="kw">use crate</span>::{
     http::DynHttpClient,
     os::TtyBridge,
-    runtime::resolver::{PackageResolver, RegistryResolver},
+    runtime::{
+        module_cache::ModuleCache,
+        resolver::{PackageResolver, RegistryResolver},
+    },
     WasiTtyState,
 };
 
@@ -219,6 +244,9 @@
     </span><span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;;
 
     <span class="kw">fn </span>package_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt;;
+
+    <span class="doccomment">/// A cache for compiled modules.
+    </span><span class="kw">fn </span>module_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;;
 
     <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.
     </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
@@ -283,6 +311,7 @@
     <span class="kw">pub </span>http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
     <span class="kw">pub </span>resolver: Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt;,
     <span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
+    <span class="kw">pub </span>module_cache: Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
 }
@@ -310,6 +339,7 @@
             engine: <span class="prelude-val">None</span>,
             tty: <span class="prelude-val">None</span>,
             resolver: Arc::new(resolver),
+            module_cache: Arc::new(module_cache::in_memory()),
         }
     }
 
@@ -328,6 +358,14 @@
 
     <span class="kw">pub fn </span>set_tty(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tty: Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.tty = <span class="prelude-val">Some</span>(tty);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_module_cache&lt;M&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, module_cache: M) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
+    </span><span class="kw">where
+        </span>M: ModuleCache + Send + Sync + <span class="lifetime">&#39;static</span>,
+    {
+        <span class="self">self</span>.module_cache = Arc::new(module_cache);
         <span class="self">self
     </span>}
 
@@ -366,6 +404,10 @@
 
     <span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>TtyBridge + Send + Sync)&gt; {
         <span class="self">self</span>.tty.as_deref()
+    }
+
+    <span class="kw">fn </span>module_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt; {
+        <span class="self">self</span>.module_cache.clone()
     }
 }
 </code></pre></div>

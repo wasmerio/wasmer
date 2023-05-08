@@ -199,6 +199,8 @@
 <span id="197">197</span>
 <span id="198">198</span>
 <span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::RwLock};
 
 <span class="kw">use </span>semver::VersionReq;
@@ -260,7 +262,7 @@
 <span class="attribute">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;R&gt; PackageResolver <span class="kw">for </span>InMemoryCache&lt;R&gt;
 <span class="kw">where
-    </span>R: PackageResolver,
+    </span>R: PackageResolver + Send + Sync,
 {
     <span class="kw">async fn </span>resolve_package(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -293,6 +295,8 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::sync::{Arc, Mutex};
 
+    <span class="kw">use </span>once_cell::sync::OnceCell;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attribute">#[derive(Debug, Default)]
@@ -318,7 +322,7 @@
             version: version.parse().unwrap(),
             when_cached: <span class="prelude-val">None</span>,
             entry: <span class="prelude-val">None</span>,
-            hash: Arc::default(),
+            hash: OnceCell::new(),
             webc_fs: <span class="prelude-val">None</span>,
             commands: Arc::default(),
             uses: Vec::new(),

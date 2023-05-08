@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["FrameInfo","Description of a frame in a backtrace for a `RuntimeError`."]]};
+window.SIDEBAR_ITEMS = {"struct":[["FrameInfo","Description of a frame in a backtrace."]]};

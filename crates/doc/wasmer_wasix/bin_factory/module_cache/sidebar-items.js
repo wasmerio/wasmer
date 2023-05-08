@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":[["DEFAULT_COMPILED_PATH",""],["THREAD_LOCAL_CACHED_MODULES",""]],"struct":[["ModuleCache",""]]};

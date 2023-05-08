@@ -94,20 +94,12 @@
 <span id="94">94</span>
 <span id="95">95</span>
 <span id="96">96</span>
-<span id="97">97</span>
-<span id="98">98</span>
-<span id="99">99</span>
-<span id="100">100</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::SourceLoc;
 
-<span class="doccomment">/// Description of a frame in a backtrace for a [`RuntimeError`](crate::RuntimeError).
+<span class="doccomment">/// Description of a frame in a backtrace.
 ///
-/// Whenever a WebAssembly trap occurs an instance of [`RuntimeError`]
-/// is created. Each [`RuntimeError`] has a backtrace of the
-/// WebAssembly frames that led to the trap, and each frame is
-/// described by this structure.
-///
-/// [`RuntimeError`]: crate::RuntimeError
+/// Each runtime error includes a backtrace of the WebAssembly frames that led
+/// to the trap, and each frame is described by this structure.
 </span><span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>FrameInfo {
     <span class="doccomment">/// The name of the module

@@ -194,7 +194,19 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, fmt::Display, ops::Deref, path::PathBuf, str::FromStr};
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    ops::Deref,
+    path::PathBuf,
+    str::FromStr,
+};
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>semver::VersionReq;
@@ -202,7 +214,7 @@
 <span class="kw">use crate</span>::{bin_factory::BinaryPackage, http::HttpClient, runtime::resolver::InMemoryCache};
 
 <span class="attribute">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>PackageResolver: std::fmt::Debug + Send + Sync {
+</span><span class="kw">pub trait </span>PackageResolver: Debug {
     <span class="doccomment">/// Resolve a package, loading all dependencies.
     </span><span class="kw">async fn </span>resolve_package(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -222,8 +234,8 @@
 <span class="attribute">#[async_trait::async_trait]
 </span><span class="kw">impl</span>&lt;D, R&gt; PackageResolver <span class="kw">for </span>D
 <span class="kw">where
-    </span>D: Deref&lt;Target = R&gt; + std::fmt::Debug + Send + Sync,
-    R: PackageResolver + <span class="question-mark">?</span>Sized,
+    </span>D: Deref&lt;Target = R&gt; + Debug + Send + Sync,
+    R: PackageResolver + Send + Sync + <span class="question-mark">?</span>Sized,
 {
     <span class="doccomment">/// Resolve a package, loading all dependencies.
     </span><span class="kw">async fn </span>resolve_package(

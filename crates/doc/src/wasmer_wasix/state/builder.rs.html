@@ -980,18 +980,6 @@
 <span id="978">978</span>
 <span id="979">979</span>
 <span id="980">980</span>
-<span id="981">981</span>
-<span id="982">982</span>
-<span id="983">983</span>
-<span id="984">984</span>
-<span id="985">985</span>
-<span id="986">986</span>
-<span id="987">987</span>
-<span id="988">988</span>
-<span id="989">989</span>
-<span id="990">990</span>
-<span id="991">991</span>
-<span id="992">992</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1009,7 +997,7 @@
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::PluggableRuntime;
 <span class="kw">use crate</span>::{
-    bin_factory::{BinFactory, ModuleCache},
+    bin_factory::BinFactory,
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
@@ -1046,7 +1034,6 @@
     </span><span class="kw">pub</span>(<span class="kw">super</span>) preopens: Vec&lt;PreopenedDir&gt;,
     <span class="doccomment">/// Pre-opened virtual directories that will be accessible from WASI.
     </span>vfs_preopens: Vec&lt;String&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) compiled_modules: <span class="prelude-ty">Option</span>&lt;Arc&lt;ModuleCache&gt;&gt;,
     <span class="attribute">#[allow(clippy::type_complexity)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) setup_fs_fn:
         <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>WasiInodes, <span class="kw-2">&amp;mut </span>WasiFs) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; + Send&gt;&gt;,
@@ -1541,13 +1528,6 @@
         <span class="self">self</span>.runtime = <span class="prelude-val">Some</span>(runtime);
     }
 
-    <span class="doccomment">/// Sets the compiled modules to use with this builder (sharing the
-    /// cached modules is better for performance and memory consumption)
-    </span><span class="kw">pub fn </span>compiled_modules(<span class="kw-2">mut </span><span class="self">self</span>, compiled_modules: Arc&lt;ModuleCache&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.compiled_modules = <span class="prelude-val">Some</span>(compiled_modules);
-        <span class="self">self
-    </span>}
-
     <span class="kw">pub fn </span>capabilities(<span class="kw-2">mut </span><span class="self">self</span>, capabilities: Capabilities) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.set_capabilities(capabilities);
         <span class="self">self
@@ -1695,9 +1675,6 @@
             envs,
         };
 
-        <span class="comment">// TODO: this method should not exist - must have unified construction flow!
-        </span><span class="kw">let </span>module_cache = <span class="self">self</span>.compiled_modules.unwrap_or_default();
-
         <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
             <span class="attribute">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
             </span>{
@@ -1713,7 +1690,7 @@
         <span class="kw">let </span>uses = <span class="self">self</span>.uses;
         <span class="kw">let </span>map_commands = <span class="self">self</span>.map_commands;
 
-        <span class="kw">let </span>bin_factory = BinFactory::new(module_cache.clone(), runtime.clone());
+        <span class="kw">let </span>bin_factory = BinFactory::new(runtime.clone());
 
         <span class="kw">let </span>capabilities = <span class="self">self</span>.capabilites;
 
@@ -1725,7 +1702,6 @@
         <span class="kw">let </span>init = WasiEnvInit {
             state,
             runtime,
-            module_cache,
             webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,
@@ -1763,7 +1739,7 @@
     }
 
     <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    /// can be used to construct a new [`WasiEnv`].
     ///
     /// Returns the error from `WasiFs::new` if there&#39;s an error
     </span><span class="comment">// FIXME: use a proper custom error type

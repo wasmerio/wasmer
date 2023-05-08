@@ -151,12 +151,7 @@
 <span id="149">149</span>
 <span id="150">150</span>
 <span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{any::Any, ops::Deref, sync::Arc};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{any::Any, sync::Arc};
 
 <span class="kw">use crate</span>::{
     os::task::{OwnedTaskStatus, TaskJoinHandle},
@@ -166,7 +161,7 @@
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
 <span class="kw">use crate</span>::{
-    bin_factory::{spawn_exec, BinaryPackage, ModuleCache},
+    bin_factory::{spawn_exec, BinaryPackage},
     syscalls::stderr_write,
     VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
@@ -194,25 +189,18 @@ ARGS:
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>CmdWasmer {
     runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    cache: Arc&lt;ModuleCache&gt;,
 }
 
 <span class="kw">impl </span>CmdWasmer {
     <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer&quot;</span>;
 
-    <span class="kw">pub fn </span>new(
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-        compiled_modules: Arc&lt;ModuleCache&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            runtime,
-            cache: compiled_modules,
-        }
+    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ runtime }
     }
 }
 
 <span class="kw">impl </span>CmdWasmer {
-    <span class="kw">fn </span>run&lt;<span class="lifetime">&#39;a</span>&gt;(
+    <span class="kw">async fn </span>run&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;,
         name: <span class="kw-2">&amp;</span>str,
@@ -236,34 +224,31 @@ ARGS:
             state.args = args;
             env.state = Arc::new(state);
 
-            <span class="comment">// Get the binary
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(binary) = <span class="self">self</span>.get_package(what.clone()) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(binary) = <span class="self">self</span>.get_package(what.clone()).<span class="kw">await </span>{
                 <span class="comment">// Now run the module
-                </span>spawn_exec(binary, name, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime, <span class="kw-2">&amp;</span><span class="self">self</span>.cache)
-            } <span class="kw">else </span>{
-                parent_ctx.data().tasks().block_on(<span class="kw">async move </span>{
-                    <span class="kw">let _ </span>= stderr_write(
-                        parent_ctx,
-                        <span class="macro">format!</span>(<span class="string">&quot;package not found - {}\r\n&quot;</span>, what).as_bytes(),
-                    )
-                    .<span class="kw">await</span>;
-                });
+                </span>spawn_exec(binary, name, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+            </span>} <span class="kw">else </span>{
+                <span class="kw">let _ </span>= stderr_write(
+                    parent_ctx,
+                    <span class="macro">format!</span>(<span class="string">&quot;package not found - {}\r\n&quot;</span>, what).as_bytes(),
+                )
+                .<span class="kw">await</span>;
                 <span class="kw">let </span>handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
                 <span class="prelude-val">Ok</span>(handle)
             }
-        } <span class="kw">else </span>{
-            parent_ctx.data().tasks().block_on(<span class="kw">async move </span>{
-                <span class="kw">let _ </span>= stderr_write(parent_ctx, HELP_RUN.as_bytes()).<span class="kw">await</span>;
-            });
+            <span class="comment">// Get the binary
+        </span>} <span class="kw">else </span>{
+            <span class="kw">let _ </span>= stderr_write(parent_ctx, HELP_RUN.as_bytes()).<span class="kw">await</span>;
             <span class="kw">let </span>handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
             <span class="prelude-val">Ok</span>(handle)
         }
     }
 
-    <span class="kw">pub fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
-        <span class="self">self</span>.cache
-            .get_webc(name.as_str(), <span class="self">self</span>.runtime.deref())
-            .ok()
+    <span class="kw">pub async fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
+        <span class="kw">let </span>resolver = <span class="self">self</span>.runtime.package_resolver();
+        <span class="kw">let </span>client = <span class="self">self</span>.runtime.http_client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>pkg = name.parse().ok()<span class="question-mark">?</span>;
+        resolver.resolve_package(<span class="kw-2">&amp;</span>pkg, <span class="kw-2">&amp;</span>client).<span class="kw">await</span>.ok()
     }
 }
 
@@ -285,31 +270,36 @@ ARGS:
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
         <span class="comment">// Read the command we want to run
         </span><span class="kw">let </span>env_inner = env.as_ref().ok_or(VirtualBusError::UnknownError)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>args = env_inner.state.args.iter().map(|a| a.as_str());
+        <span class="kw">let </span>args = env_inner.state.args.clone();
+        <span class="kw">let </span><span class="kw-2">mut </span>args = args.iter().map(|s| s.as_str());
         <span class="kw">let </span>_alias = args.next();
         <span class="kw">let </span>cmd = args.next();
 
         <span class="comment">// Check the command
-        </span><span class="kw">match </span>cmd {
-            <span class="prelude-val">Some</span>(<span class="string">&quot;run&quot;</span>) =&gt; {
-                <span class="kw">let </span>what = args.next().map(|a| a.to_string());
-                <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
-                <span class="self">self</span>.run(parent_ctx, name, store, env, what, args)
+        </span><span class="kw">let </span>fut = <span class="kw">async </span>{
+            <span class="kw">match </span>cmd {
+                <span class="prelude-val">Some</span>(<span class="string">&quot;run&quot;</span>) =&gt; {
+                    <span class="kw">let </span>what = args.next().map(|a| a.to_string());
+                    <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
+                    <span class="self">self</span>.run(parent_ctx, name, store, env, what, args).<span class="kw">await
+                </span>}
+                <span class="prelude-val">Some</span>(<span class="string">&quot;--help&quot;</span>) | <span class="prelude-val">None </span>=&gt; {
+                    parent_ctx.data().tasks().block_on(<span class="kw">async move </span>{
+                        <span class="kw">let _ </span>= stderr_write(parent_ctx, HELP.as_bytes()).<span class="kw">await</span>;
+                    });
+                    <span class="kw">let </span>handle =
+                        OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+                    <span class="prelude-val">Ok</span>(handle)
+                }
+                <span class="prelude-val">Some</span>(what) =&gt; {
+                    <span class="kw">let </span>what = <span class="prelude-val">Some</span>(what.to_string());
+                    <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
+                    <span class="self">self</span>.run(parent_ctx, name, store, env, what, args).<span class="kw">await
+                </span>}
             }
-            <span class="prelude-val">Some</span>(<span class="string">&quot;--help&quot;</span>) | <span class="prelude-val">None </span>=&gt; {
-                parent_ctx.data().tasks().block_on(<span class="kw">async move </span>{
-                    <span class="kw">let _ </span>= stderr_write(parent_ctx, HELP.as_bytes()).<span class="kw">await</span>;
-                });
-                <span class="kw">let </span>handle =
-                    OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
-                <span class="prelude-val">Ok</span>(handle)
-            }
-            <span class="prelude-val">Some</span>(what) =&gt; {
-                <span class="kw">let </span>what = <span class="prelude-val">Some</span>(what.to_string());
-                <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
-                <span class="self">self</span>.run(parent_ctx, name, store, env, what, args)
-            }
-        }
+        };
+
+        parent_ctx.data().tasks().block_on(fut)
     }
 }
 </code></pre></div>

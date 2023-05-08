@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["SharedCache","A [`ModuleCache`] based on a [DashMap]<[ModuleHash], [Module]>."]]};

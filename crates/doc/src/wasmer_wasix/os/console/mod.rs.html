@@ -275,6 +275,13 @@
 <span id="273">273</span>
 <span id="274">274</span>
 <span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -303,9 +310,10 @@
 
 <span class="kw">use super</span>::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
 <span class="kw">use crate</span>::{
-    bin_factory::{spawn_exec, BinFactory, ModuleCache},
+    bin_factory::{spawn_exec, BinFactory},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
+    runtime::resolver::WebcIdentifier,
     VirtualBusError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -323,7 +331,6 @@
     prompt: String,
     env: HashMap&lt;String, String&gt;,
     runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    compiled_modules: Arc&lt;ModuleCache&gt;,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -334,7 +341,6 @@
     <span class="kw">pub fn </span>new(
         webc_boot_package: <span class="kw-2">&amp;</span>str,
         runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-        compiled_modules: Arc&lt;ModuleCache&gt;,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>prog = webc_boot_package
             .split_once(<span class="string">&#39; &#39;</span>)
@@ -355,7 +361,6 @@
             env: HashMap::new(),
             runtime,
             prompt: <span class="string">&quot;wasmer.sh&quot;</span>.to_string(),
-            compiled_modules,
             stdin: ArcBoxFile::new(Box::new(Pipe::channel().<span class="number">0</span>)),
             stdout: ArcBoxFile::new(Box::new(Pipe::channel().<span class="number">0</span>)),
             stderr: ArcBoxFile::new(Box::new(Pipe::channel().<span class="number">0</span>)),
@@ -463,7 +468,6 @@
             .unwrap()
             .stdout(Box::new(<span class="self">self</span>.stdout.clone()))
             .stderr(Box::new(<span class="self">self</span>.stderr.clone()))
-            .compiled_modules(<span class="self">self</span>.compiled_modules.clone())
             .runtime(<span class="self">self</span>.runtime.clone())
             .capabilities(<span class="self">self</span>.capabilities.clone())
             .build_init()
@@ -480,8 +484,25 @@
             tasks.block_on(<span class="self">self</span>.draw_welcome());
         }
 
-        <span class="kw">let </span>binary = <span class="kw">if let </span><span class="prelude-val">Ok</span>(binary) = <span class="self">self</span>.compiled_modules.get_webc(webc, <span class="self">self</span>.runtime.deref())
-        {
+        <span class="kw">let </span>webc_ident: WebcIdentifier = <span class="kw">match </span>webc.parse() {
+            <span class="prelude-val">Ok</span>(ident) =&gt; ident,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::debug!</span>(webc, error = <span class="kw-2">&amp;*</span>e, <span class="string">&quot;Unable to parse the WEBC identifier&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(VirtualBusError::BadRequest);
+            }
+        };
+        <span class="kw">let </span>client = <span class="self">self
+            </span>.runtime
+            .http_client()
+            .ok_or(VirtualBusError::UnknownError)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>resolved_package = tasks.block_on(
+            <span class="self">self</span>.runtime
+                .package_resolver()
+                .resolve_package(<span class="kw-2">&amp;</span>webc_ident, <span class="kw-2">&amp;</span>client),
+        );
+
+        <span class="kw">let </span>binary = <span class="kw">if let </span><span class="prelude-val">Ok</span>(binary) = resolved_package {
             binary
         } <span class="kw">else </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
@@ -519,14 +540,7 @@
 
         <span class="comment">// Build the config
         // Run the binary
-        </span><span class="kw">let </span>process = spawn_exec(
-            binary,
-            prog,
-            store,
-            env,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.runtime,
-            <span class="self">self</span>.compiled_modules.as_ref(),
-        )<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>process = tasks.block_on(spawn_exec(binary, prog, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
 
         <span class="comment">// Return the process
         </span><span class="prelude-val">Ok</span>((process, wasi_process))

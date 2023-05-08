@@ -238,10 +238,14 @@
 <span id="236">236</span>
 <span id="237">237</span>
 <span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
+    runtime::module_cache::ModuleCache,
     VirtualBusError, WasiRuntimeError,
 };
 <span class="kw">use </span>futures::Future;
@@ -249,24 +253,25 @@
 <span class="kw">use </span>wasmer::{FunctionEnvMut, Instance, Memory, Module, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use super</span>::{BinFactory, BinaryPackage, ModuleCache};
+<span class="kw">use super</span>::{BinFactory, BinaryPackage};
 <span class="kw">use crate</span>::{
     import_object_for_all_wasi_versions, runtime::SpawnType, SpawnedMemory, WasiEnv,
     WasiFunctionEnv, WasiRuntime,
 };
 
-<span class="kw">pub fn </span>spawn_exec(
+<span class="attribute">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%name, %binary.package_name))]
+</span><span class="kw">pub async fn </span>spawn_exec(
     binary: BinaryPackage,
     name: <span class="kw-2">&amp;</span>str,
     store: Store,
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    compiled_modules: <span class="kw-2">&amp;</span>ModuleCache,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
-    <span class="comment">// The deterministic id for this engine
-    </span><span class="kw">let </span>compiler = store.engine().deterministic_id();
+    <span class="kw">let </span>key = binary.hash();
 
-    <span class="kw">let </span>module = compiled_modules.get_compiled_module(<span class="kw-2">&amp;</span>store, binary.hash().as_str(), compiler);
+    <span class="kw">let </span>compiled_modules = runtime.module_cache();
+    <span class="kw">let </span>module = compiled_modules.load(key, store.engine()).<span class="kw">await</span>.ok();
+
     <span class="kw">let </span>module = <span class="kw">match </span>(module, binary.entry.as_ref()) {
         (<span class="prelude-val">Some</span>(a), <span class="kw">_</span>) =&gt; a,
         (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(entry)) =&gt; {
@@ -283,7 +288,15 @@
                 env.blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
             }
             <span class="kw">let </span>module = module<span class="question-mark">?</span>;
-            compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, <span class="kw-2">&amp;</span>module);
+
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = compiled_modules.save(key, store.engine(), <span class="kw-2">&amp;</span>module).<span class="kw">await </span>{
+                <span class="macro">tracing::debug!</span>(
+                    %key,
+                    package_name=%binary.package_name,
+                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    <span class="string">&quot;Unable to save the compiled module&quot;</span>,
+                );
+            }
             module
         }
         (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
@@ -445,15 +458,8 @@
             <span class="kw">let </span>binary = binary<span class="question-mark">?</span>;
 
             <span class="comment">// Execute
-            </span>spawn_exec(
-                binary,
-                name.as_str(),
-                store,
-                env,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.runtime,
-                <span class="kw-2">&amp;</span><span class="self">self</span>.cache,
-            )
-        })
+            </span>spawn_exec(binary, name.as_str(), store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+        </span>})
     }
 
     <span class="kw">pub fn </span>try_built_in(

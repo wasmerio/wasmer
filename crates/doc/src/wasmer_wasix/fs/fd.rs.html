@@ -159,7 +159,7 @@
     <span class="kw">pub </span>offset: Arc&lt;AtomicU64&gt;,
     <span class="doccomment">/// Flags that determine how the [`Fd`] can be used.
     ///
-    /// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.
+    /// Used when reopening a [`VirtualFile`] during deserialization.
     </span><span class="kw">pub </span>open_flags: u16,
     <span class="kw">pub </span>inode: InodeGuard,
     <span class="kw">pub </span>is_stdio: bool,
@@ -176,12 +176,12 @@
     <span class="doccomment">/// This [`Fd`] will delete everything before writing. Note that truncate
     /// permissions require the write permission.
     ///
-    /// This permission is currently unused when deserializing [`WasiState`].
+    /// This permission is currently unused when deserializing.
     </span><span class="kw">pub const </span>TRUNCATE: u16 = <span class="number">8</span>;
     <span class="doccomment">/// This [`Fd`] may create a file before writing to it. Note that create
     /// permissions require write permissions.
     ///
-    /// This permission is currently unused when deserializing [`WasiState`].
+    /// This permission is currently unused when deserializing.
     </span><span class="kw">pub const </span>CREATE: u16 = <span class="number">16</span>;
 }
 

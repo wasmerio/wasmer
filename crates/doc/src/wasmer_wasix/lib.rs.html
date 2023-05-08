@@ -857,8 +857,6 @@
 <span id="855">855</span>
 <span id="856">856</span>
 <span id="857">857</span>
-<span id="858">858</span>
-<span id="859">859</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -1210,9 +1208,7 @@
         .into()
 }
 
-<span class="doccomment">/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
-/// needs a [`WasiState`], that can be constructed from a
-/// [`WasiEnvBuilder`](state::WasiEnvBuilder).
+<span class="doccomment">/// Create an [`Imports`] with an existing [`WasiEnv`].
 </span><span class="kw">pub fn </span>generate_import_object_from_env(
     store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ctx: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,

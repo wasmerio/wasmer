@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["CACHED_MODULES",""]],"struct":[["ThreadLocalCache","A cache that will cache modules in a thread-local variable."]]};

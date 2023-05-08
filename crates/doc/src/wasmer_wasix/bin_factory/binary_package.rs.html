@@ -77,8 +77,7 @@
 <span id="75">75</span>
 <span id="76">76</span>
 <span id="77">77</span>
-<span id="78">78</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::sync::{Arc, Mutex, RwLock};
+</pre><pre class="rust"><code><span class="kw">use </span>std::sync::{Arc, RwLock};
 
 <span class="kw">use </span>derivative::<span class="kw-2">*</span>;
 <span class="kw">use </span>once_cell::sync::OnceCell;
@@ -86,7 +85,7 @@
 <span class="kw">use </span>virtual_fs::FileSystem;
 <span class="kw">use </span>webc::compat::SharedBytes;
 
-<span class="kw">use </span><span class="kw">super</span>::hash_of_binary;
+<span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::ModuleHash;
 
 <span class="attribute">#[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -94,7 +93,7 @@
     name: String,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) atom: SharedBytes,
-    hash: OnceCell&lt;String&gt;,
+    hash: OnceCell&lt;ModuleHash&gt;,
 }
 
 <span class="kw">impl </span>BinaryPackageCommand {
@@ -118,15 +117,16 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.atom
     }
 
-    <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="self">self</span>.hash.get_or_init(|| hash_of_binary(<span class="self">self</span>.atom()))
+    <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleHash {
+        <span class="self">self</span>.hash.get_or_init(|| ModuleHash::sha256(<span class="self">self</span>.atom()))
     }
 }
 
 <span class="doccomment">/// A WebAssembly package that has been loaded into memory.
 ///
-/// You can crate a [`BinaryPackage`] using [`crate::bin_factory::ModuleCache`]
-/// or [`crate::wapm::parse_static_webc()`].
+/// You can crate a [`BinaryPackage`] using a
+/// [`crate::runtime::resolver::PackageResolver`] or
+/// [`crate::wapm::parse_static_webc()`].
 </span><span class="attribute">#[derive(Derivative, Clone)]
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>BinaryPackage {
@@ -134,7 +134,7 @@
     <span class="kw">pub </span>when_cached: <span class="prelude-ty">Option</span>&lt;u128&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub </span>entry: <span class="prelude-ty">Option</span>&lt;SharedBytes&gt;,
-    <span class="kw">pub </span>hash: Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;&gt;,
+    <span class="kw">pub </span>hash: OnceCell&lt;ModuleHash&gt;,
     <span class="kw">pub </span>webc_fs: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
     <span class="kw">pub </span>commands: Arc&lt;RwLock&lt;Vec&lt;BinaryPackageCommand&gt;&gt;&gt;,
     <span class="kw">pub </span>uses: Vec&lt;String&gt;,
@@ -144,16 +144,14 @@
 }
 
 <span class="kw">impl </span>BinaryPackage {
-    <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="kw">let </span><span class="kw-2">mut </span>hash = <span class="self">self</span>.hash.lock().unwrap();
-        <span class="kw">if </span>hash.is_none() {
+    <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ModuleHash {
+        <span class="kw-2">*</span><span class="self">self</span>.hash.get_or_init(|| {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.entry.as_ref() {
-                hash.replace(hash_of_binary(entry.as_ref()));
+                ModuleHash::sha256(entry)
             } <span class="kw">else </span>{
-                hash.replace(hash_of_binary(<span class="kw-2">&amp;</span><span class="self">self</span>.package_name));
+                ModuleHash::sha256(<span class="self">self</span>.package_name.as_bytes())
             }
-        }
-        hash.as_ref().unwrap().clone()
+        })
     }
 }
 </code></pre></div>
