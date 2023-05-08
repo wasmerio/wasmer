@@ -9,7 +9,7 @@ pub use self::{
     filesystem::FileSystemCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,
-    types::{CacheError, Key, ModuleCache},
+    types::{CacheError, ModuleCache, ModuleHash},
 };
 
 /// Get a [`ModuleCache`] which should be good enough for most in-memory use

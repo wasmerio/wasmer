@@ -6,7 +6,7 @@ use semver::Version;
 use virtual_fs::FileSystem;
 use webc::compat::SharedBytes;
 
-use crate::runtime::module_cache::Key;
+use crate::runtime::module_cache::ModuleHash;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -14,7 +14,7 @@ pub struct BinaryPackageCommand {
     name: String,
     #[derivative(Debug = "ignore")]
     pub(crate) atom: SharedBytes,
-    hash: OnceCell<Key>,
+    hash: OnceCell<ModuleHash>,
 }
 
 impl BinaryPackageCommand {
@@ -38,8 +38,8 @@ impl BinaryPackageCommand {
         &self.atom
     }
 
-    pub fn hash(&self) -> &Key {
-        self.hash.get_or_init(|| Key::sha256(self.atom()))
+    pub fn hash(&self) -> &ModuleHash {
+        self.hash.get_or_init(|| ModuleHash::sha256(self.atom()))
     }
 }
 
@@ -55,7 +55,7 @@ pub struct BinaryPackage {
     pub when_cached: Option<u128>,
     #[derivative(Debug = "ignore")]
     pub entry: Option<SharedBytes>,
-    pub hash: OnceCell<Key>,
+    pub hash: OnceCell<ModuleHash>,
     pub webc_fs: Option<Arc<dyn FileSystem + Send + Sync + 'static>>,
     pub commands: Arc<RwLock<Vec<BinaryPackageCommand>>>,
     pub uses: Vec<String>,
@@ -65,12 +65,12 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
-    pub fn hash(&self) -> Key {
+    pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
             if let Some(entry) = self.entry.as_ref() {
-                Key::sha256(entry)
+                ModuleHash::sha256(entry)
             } else {
-                Key::sha256(self.package_name.as_bytes())
+                ModuleHash::sha256(self.package_name.as_bytes())
             }
         })
     }

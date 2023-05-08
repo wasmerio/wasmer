@@ -24,10 +24,7 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, VirtualBusError> {
-    // The deterministic id for this engine
-    let compiler = store.engine().deterministic_id();
-
-    let key = binary.hash().combined_with(compiler);
+    let key = binary.hash();
 
     let compiled_modules = runtime.module_cache();
     let module = compiled_modules.load(key, store.engine()).await.ok();

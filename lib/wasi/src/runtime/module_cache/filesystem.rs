@@ -6,7 +6,7 @@ use std::{
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, Key, ModuleCache};
+use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
 
 /// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
@@ -26,7 +26,7 @@ impl FileSystemCache {
         &self.cache_dir
     }
 
-    fn path(&self, key: Key) -> PathBuf {
+    fn path(&self, key: ModuleHash) -> PathBuf {
         let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
         let dir = format!("artifact-v{artifact_version}");
         self.cache_dir
@@ -38,7 +38,7 @@ impl FileSystemCache {
 
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
-    async fn load(&self, key: Key, engine: &Engine) -> Result<Module, CacheError> {
+    async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key);
 
         // FIXME: This will all block the thread at the moment. Ideally,
@@ -71,7 +71,7 @@ impl ModuleCache for FileSystemCache {
         }
     }
 
-    async fn save(&self, key: Key, module: &Module) -> Result<(), CacheError> {
+    async fn save(&self, key: ModuleHash, module: &Module) -> Result<(), CacheError> {
         let path = self.path(key);
 
         // FIXME: This will all block the thread at the moment. Ideally,
@@ -173,7 +173,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path());
-        let key = Key::new([0; 32]);
+        let key = ModuleHash::new([0; 32]);
         let expected_path = cache.path(key);
 
         cache.save(key, &module).await.unwrap();
@@ -189,7 +189,7 @@ mod tests {
         let cache_dir = temp.path().join("this").join("doesn't").join("exist");
         assert!(!cache_dir.exists());
         let cache = FileSystemCache::new(&cache_dir);
-        let key = Key::new([0; 32]);
+        let key = ModuleHash::new([0; 32]);
 
         cache.save(key, &module).await.unwrap();
 
@@ -200,7 +200,7 @@ mod tests {
     async fn missing_file() {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
-        let key = Key::new([0; 32]);
+        let key = ModuleHash::new([0; 32]);
         let cache = FileSystemCache::new(temp.path());
 
         let err = cache.load(key, &engine).await.unwrap_err();
@@ -213,7 +213,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = Key::new([0; 32]);
+        let key = ModuleHash::new([0; 32]);
         let cache = FileSystemCache::new(temp.path());
         let expected_path = cache.path(key);
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
