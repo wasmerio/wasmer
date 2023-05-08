@@ -14,6 +14,7 @@ use wasmer_wasix::{
     os::{tty_sys::SysTty, TtyBridge},
     runners::MappedDirectory,
     runtime::{
+        module_cache::{FileSystemCache, ModuleCache},
         resolver::{PackageResolver, RegistryResolver},
         task_manager::tokio::TokioTaskManager,
     },
@@ -220,12 +221,17 @@ impl Wasi {
             rt.set_tty(tty);
         }
 
-        rt.set_engine(Some(engine));
+        let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
 
         let resolver = self
-            .prepare_resolver()
+            .prepare_resolver(&wasmer_home)
             .context("Unable to prepare the package resolver")?;
-        rt.set_resolver(resolver);
+        let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
+            .and_then(FileSystemCache::new(wasmer_home.join("compiled")));
+
+        rt.set_resolver(resolver)
+            .set_module_cache(module_cache)
+            .set_engine(Some(engine));
 
         Ok(rt)
     }
@@ -273,8 +279,8 @@ impl Wasi {
         })
     }
 
-    fn prepare_resolver(&self) -> Result<impl PackageResolver> {
-        let mut resolver = wapm_resolver()?;
+    fn prepare_resolver(&self, wasmer_home: &Path) -> Result<impl PackageResolver> {
+        let mut resolver = wapm_resolver(wasmer_home)?;
 
         for path in &self.include_webcs {
             let pkg = preload_webc(path)
@@ -286,14 +292,13 @@ impl Wasi {
     }
 }
 
-fn wapm_resolver() -> Result<RegistryResolver, anyhow::Error> {
+fn wapm_resolver(wasmer_home: &Path) -> Result<RegistryResolver, anyhow::Error> {
     // FIXME(Michael-F-Bryan): Ideally, all of this would in the
     // RegistryResolver::from_env() constructor, but we don't want to add
     // wasmer-registry as a dependency of wasmer-wasix just yet.
-    let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
-    let cache_dir = wasmer_registry::get_webc_dir(&wasmer_home);
+    let cache_dir = wasmer_registry::get_webc_dir(wasmer_home);
     let config =
-        wasmer_registry::WasmerConfig::from_file(&wasmer_home).map_err(anyhow::Error::msg)?;
+        wasmer_registry::WasmerConfig::from_file(wasmer_home).map_err(anyhow::Error::msg)?;
 
     let registry = config.registry.get_graphql_url();
     let registry = registry
