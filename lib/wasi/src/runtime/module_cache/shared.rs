@@ -37,3 +37,35 @@ impl ModuleCache for SharedCache {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ADD_WAT: &[u8] = br#"(
+        module
+            (func
+                (export "add")
+                (param $x i64)
+                (param $y i64)
+                (result i64)
+                (i64.add (local.get $x) (local.get $y)))
+        )"#;
+
+    #[tokio::test]
+    async fn round_trip_via_cache() {
+        let engine = Engine::default();
+        let module = Module::new(&engine, ADD_WAT).unwrap();
+        let cache = SharedCache::default();
+        let key = ModuleHash::from_raw([0; 32]);
+
+        cache.save(key, &engine, &module).await.unwrap();
+        let round_tripped = cache.load(key, &engine).await.unwrap();
+
+        let exports: Vec<_> = round_tripped
+            .exports()
+            .map(|export| export.name().to_string())
+            .collect();
+        assert_eq!(exports, ["add"]);
+    }
+}

@@ -154,6 +154,14 @@ impl PluggableRuntime {
         self
     }
 
+    pub fn set_module_cache<M>(&mut self, module_cache: M) -> &mut Self
+    where
+        M: ModuleCache + Send + Sync + 'static,
+    {
+        self.module_cache = Arc::new(module_cache);
+        self
+    }
+
     pub fn set_resolver(
         &mut self,
         resolver: impl PackageResolver + Send + Sync + 'static,

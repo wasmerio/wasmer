@@ -11,6 +11,11 @@ use crate::runtime::module_cache::AndThen;
 
 /// A cache for compiled WebAssembly modules.
 ///
+/// ## Deterministic ID
+///
+/// Implementations are encouraged to take the [`Engine::deterministic_id()`]
+/// into account when saving and loading cached a [`Module`].
+///
 /// ## Assumptions
 ///
 /// Implementations can assume that cache keys are unique and that using the
@@ -19,10 +24,20 @@ use crate::runtime::module_cache::AndThen;
 /// Implementations can also assume that [`ModuleCache::load()`] will
 /// be called more often than [`ModuleCache::save()`] and optimise
 /// their caching strategy accordingly.
+///
 #[async_trait::async_trait]
 pub trait ModuleCache: Debug {
+    /// Load a module based on its hash.
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError>;
 
+    /// Save a module so it can be retrieved with [`ModuleCache::load()`] at a
+    /// later time.
+    ///
+    /// # Panics
+    ///
+    /// Implementations are free to assume the [`Module`] being passed in was
+    /// compiled using the provided [`Engine`], and may panic if this isn't the
+    /// case.
     async fn save(
         &self,
         key: ModuleHash,
@@ -72,6 +87,7 @@ where
     }
 }
 
+/// Possible errors that may occur during [`ModuleCache`] operations.
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
     #[error("Unable to serialize the module")]
@@ -104,12 +120,13 @@ impl CacheError {
     }
 }
 
-/// The 256-bit hash of a WebAssembly module.
+/// The SHA-256 hash of a WebAssembly module.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ModuleHash([u8; 32]);
 
 impl ModuleHash {
-    pub fn new(key: [u8; 32]) -> Self {
+    /// Create a new [`ModuleHash`] from the raw SHA-256 hash.
+    pub fn from_raw(key: [u8; 32]) -> Self {
         ModuleHash(key)
     }
 
@@ -123,11 +140,11 @@ impl ModuleHash {
 
         let mut hasher = Sha256::default();
         hasher.update(wasm);
-        ModuleHash::new(hasher.finalize().into())
+        ModuleHash::from_raw(hasher.finalize().into())
     }
 
-    /// Get the raw bytes for.
-    pub fn as_bytes(self) -> [u8; 32] {
+    /// Get the raw SHA-256 hash.
+    pub fn as_raw(self) -> [u8; 32] {
         self.0
     }
 }
@@ -153,7 +170,7 @@ mod tests {
 
     #[test]
     fn key_is_displayed_as_hex() {
-        let key = ModuleHash::new([
+        let key = ModuleHash::from_raw([
             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
             0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
             0x1c, 0x1d, 0x1e, 0x1f,
@@ -165,5 +182,19 @@ mod tests {
             repr,
             "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
         );
+    }
+
+    #[test]
+    fn module_hash_is_just_sha_256() {
+        let wasm = b"\0asm...";
+        let raw = [
+            0x5a, 0x39, 0xfe, 0xef, 0x52, 0xe5, 0x3b, 0x8f, 0xfe, 0xdf, 0xd7, 0x05, 0x15, 0x56,
+            0xec, 0x10, 0x5e, 0xd8, 0x69, 0x82, 0xf1, 0x22, 0xa0, 0x5d, 0x27, 0x28, 0xd9, 0x67,
+            0x78, 0xe4, 0xeb, 0x96,
+        ];
+
+        let hash = ModuleHash::sha256(wasm);
+
+        assert_eq!(hash.as_raw(), raw);
     }
 }
