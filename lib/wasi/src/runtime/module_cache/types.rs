@@ -133,10 +133,6 @@ impl ModuleHash {
     /// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.
     pub fn sha256(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
-        debug_assert!(
-            wasm.starts_with(b"\0asm"),
-            "It only makes sense to compute a module hash for a WebAssembly module",
-        );
 
         let mut hasher = Sha256::default();
         hasher.update(wasm);
