@@ -46,7 +46,7 @@ pub async fn spawn_exec(
             }
             let module = module?;
 
-            if let Err(e) = compiled_modules.save(key, &module).await {
+            if let Err(e) = compiled_modules.save(key, store.engine(), &module).await {
                 tracing::debug!(
                     %key,
                     package_name=%binary.package_name,

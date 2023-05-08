@@ -26,11 +26,10 @@ impl FileSystemCache {
         &self.cache_dir
     }
 
-    fn path(&self, key: ModuleHash) -> PathBuf {
+    fn path(&self, key: ModuleHash, deterministic_id: &str) -> PathBuf {
         let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
-        let dir = format!("artifact-v{artifact_version}");
         self.cache_dir
-            .join(dir)
+            .join(format!("{deterministic_id}-v{artifact_version}"))
             .join(key.to_string())
             .with_extension("bin")
     }
@@ -39,11 +38,12 @@ impl FileSystemCache {
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        let path = self.path(key);
+        let path = self.path(key, engine.deterministic_id());
 
         // FIXME: This will all block the thread at the moment. Ideally,
         // deserializing and uncompressing would happen on a thread pool in the
         // background.
+        // https://github.com/wasmerio/wasmer/issues/3851
 
         let uncompressed = read_compressed(&path)?;
 
@@ -71,12 +71,18 @@ impl ModuleCache for FileSystemCache {
         }
     }
 
-    async fn save(&self, key: ModuleHash, module: &Module) -> Result<(), CacheError> {
-        let path = self.path(key);
+    async fn save(
+        &self,
+        key: ModuleHash,
+        engine: &Engine,
+        module: &Module,
+    ) -> Result<(), CacheError> {
+        let path = self.path(key, engine.deterministic_id());
 
         // FIXME: This will all block the thread at the moment. Ideally,
         // serializing and compressing would happen on a thread pool in the
         // background.
+        // https://github.com/wasmerio/wasmer/issues/3851
 
         if let Some(parent) = path.parent() {
             if let Err(e) = std::fs::create_dir_all(parent) {
@@ -107,10 +113,10 @@ impl ModuleCache for FileSystemCache {
                 );
             }
 
-            return Err(CacheError::Write { path, error: e });
+            return Err(CacheError::FileWrite { path, error: e });
         }
 
-        std::fs::rename(&tmp, &path).map_err(|error| CacheError::Write { path, error })
+        std::fs::rename(&tmp, &path).map_err(|error| CacheError::FileWrite { path, error })
     }
 }
 
@@ -133,7 +139,7 @@ fn read_compressed(path: &Path) -> Result<Vec<u8>, CacheError> {
             return Err(CacheError::NotFound);
         }
         Err(error) => {
-            return Err(CacheError::Read {
+            return Err(CacheError::FileRead {
                 path: path.to_path_buf(),
                 error,
             });
@@ -174,9 +180,9 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path());
         let key = ModuleHash::new([0; 32]);
-        let expected_path = cache.path(key);
+        let expected_path = cache.path(key, engine.deterministic_id());
 
-        cache.save(key, &module).await.unwrap();
+        cache.save(key, &engine, &module).await.unwrap();
 
         assert!(expected_path.exists());
     }
@@ -191,7 +197,7 @@ mod tests {
         let cache = FileSystemCache::new(&cache_dir);
         let key = ModuleHash::new([0; 32]);
 
-        cache.save(key, &module).await.unwrap();
+        cache.save(key, &engine, &module).await.unwrap();
 
         assert!(cache_dir.is_dir());
     }
@@ -215,7 +221,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::new([0; 32]);
         let cache = FileSystemCache::new(temp.path());
-        let expected_path = cache.path(key);
+        let expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         save_compressed(&expected_path, &serialized).unwrap();

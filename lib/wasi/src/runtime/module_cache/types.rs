@@ -23,7 +23,12 @@ use crate::runtime::module_cache::AndThen;
 pub trait ModuleCache: Debug {
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError>;
 
-    async fn save(&self, key: ModuleHash, module: &Module) -> Result<(), CacheError>;
+    async fn save(
+        &self,
+        key: ModuleHash,
+        engine: &Engine,
+        module: &Module,
+    ) -> Result<(), CacheError>;
 
     /// Chain a second cache onto this one.
     ///
@@ -57,8 +62,13 @@ where
         (**self).load(key, engine).await
     }
 
-    async fn save(&self, key: ModuleHash, module: &Module) -> Result<(), CacheError> {
-        (**self).save(key, module).await
+    async fn save(
+        &self,
+        key: ModuleHash,
+        engine: &Engine,
+        module: &Module,
+    ) -> Result<(), CacheError> {
+        (**self).save(key, engine, module).await
     }
 }
 
@@ -69,13 +79,13 @@ pub enum CacheError {
     #[error("Unable to deserialize the module")]
     Deserialize(#[from] wasmer::DeserializeError),
     #[error("Unable to read from \"{}\"", path.display())]
-    Read {
+    FileRead {
         path: PathBuf,
         #[source]
         error: std::io::Error,
     },
     #[error("Unable to write to \"{}\"", path.display())]
-    Write {
+    FileWrite {
         path: PathBuf,
         #[source]
         error: std::io::Error,
@@ -83,6 +93,7 @@ pub enum CacheError {
     /// The item was not found.
     #[error("Not found")]
     NotFound,
+    /// A catch-all variant for any other errors that may occur.
     #[error(transparent)]
     Other(Box<dyn std::error::Error + Send + Sync>),
 }

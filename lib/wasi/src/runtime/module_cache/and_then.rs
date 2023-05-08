@@ -54,7 +54,7 @@ where
         if let Ok(m) = self.secondary.load(key, engine).await {
             // Now we've got a module, let's make sure it ends up in the primary
             // cache too.
-            if let Err(e) = self.primary.save(key, &m).await {
+            if let Err(e) = self.primary.save(key, engine, &m).await {
                 tracing::warn!(
                     %key,
                     error = &e as &dyn std::error::Error,
@@ -68,10 +68,15 @@ where
         Err(primary_error)
     }
 
-    async fn save(&self, key: ModuleHash, module: &Module) -> Result<(), CacheError> {
+    async fn save(
+        &self,
+        key: ModuleHash,
+        engine: &Engine,
+        module: &Module,
+    ) -> Result<(), CacheError> {
         futures::try_join!(
-            self.primary.save(key, module),
-            self.secondary.save(key, module)
+            self.primary.save(key, engine, module),
+            self.secondary.save(key, engine, module)
         )?;
         Ok(())
     }
