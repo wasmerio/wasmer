@@ -989,7 +989,7 @@ impl Drop for VMInstance {
 }
 
 impl VMInstance {
-    /// Create a new `VMInstance` pointing at a new [`InstanceRef`].
+    /// Create a new `VMInstance` pointing at a new [`Instance`].
     ///
     /// # Safety
     ///

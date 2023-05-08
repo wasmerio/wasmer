@@ -454,17 +454,24 @@ impl TargetOnDisk {
         let leading_bytes = &buffer[..bytes_read];
 
         if wasmer::is_wasm(leading_bytes) {
-            Ok(TargetOnDisk::WebAssemblyBinary(path))
-        } else if webc::detect(leading_bytes).is_ok() {
-            Ok(TargetOnDisk::Webc(path))
-        } else if path.extension() == Some("wat".as_ref()) {
-            Ok(TargetOnDisk::Wat(path))
-        } else {
-            #[cfg(feature = "compiler")]
-            if ArtifactBuild::is_deserializable(leading_bytes) {
-                return Ok(TargetOnDisk::Artifact(path));
-            }
-            anyhow::bail!("Unable to determine how to execute \"{}\"", path.display());
+            return Ok(TargetOnDisk::WebAssemblyBinary(path));
+        }
+
+        if webc::detect(leading_bytes).is_ok() {
+            return Ok(TargetOnDisk::Webc(path));
+        }
+
+        #[cfg(feature = "compiler")]
+        if ArtifactBuild::is_deserializable(leading_bytes) {
+            return Ok(TargetOnDisk::Artifact(path));
+        }
+
+        // If we can't figure out the file type based on its content, fall back
+        // to checking the extension.
+
+        match path.extension().and_then(|s| s.to_str()) {
+            Some("wat") => Ok(TargetOnDisk::Wat(path)),
+            _ => anyhow::bail!("Unable to determine how to execute \"{}\"", path.display()),
         }
     }
 

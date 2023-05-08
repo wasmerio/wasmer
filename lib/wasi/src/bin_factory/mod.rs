@@ -10,14 +10,10 @@ use virtual_fs::{AsyncReadExt, FileSystem};
 
 mod binary_package;
 mod exec;
-mod module_cache;
-
-use sha2::*;
 
 pub use self::{
     binary_package::*,
     exec::{spawn_exec, spawn_exec_module},
-    module_cache::ModuleCache,
 };
 use crate::{os::command::Commands, WasiRuntime};
 
@@ -25,19 +21,14 @@ use crate::{os::command::Commands, WasiRuntime};
 pub struct BinFactory {
     pub(crate) commands: Commands,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    pub(crate) cache: Arc<ModuleCache>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
 }
 
 impl BinFactory {
-    pub fn new(
-        compiled_modules: Arc<ModuleCache>,
-        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    ) -> BinFactory {
+    pub fn new(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>) -> BinFactory {
         BinFactory {
-            commands: Commands::new_with_builtins(runtime.clone(), compiled_modules.clone()),
+            commands: Commands::new_with_builtins(runtime.clone()),
             runtime,
-            cache: compiled_modules,
             local: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -117,11 +108,4 @@ async fn load_package_from_filesystem(
     let pkg = crate::wapm::parse_static_webc(data).context("Unable to parse the package")?;
 
     Ok(pkg)
-}
-
-pub fn hash_of_binary(data: impl AsRef<[u8]>) -> String {
-    let mut hasher = Sha256::default();
-    hasher.update(data.as_ref());
-    let hash = hasher.finalize();
-    hex::encode(&hash[..])
 }

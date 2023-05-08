@@ -1,8 +1,9 @@
 use anyhow::{bail, Context};
+use once_cell::sync::OnceCell;
 use std::{
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
 use url::Url;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
@@ -284,7 +285,7 @@ fn parse_webc_v2(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
                 .unwrap() as u128,
         ),
         entry: entry.map(Into::into),
-        hash: Arc::new(Mutex::new(None)),
+        hash: OnceCell::new(),
         webc_fs: Some(Arc::new(webc_fs)),
         commands: Arc::new(RwLock::new(commands.into_values().collect())),
         uses,

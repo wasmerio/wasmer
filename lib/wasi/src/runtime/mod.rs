@@ -1,3 +1,4 @@
+pub mod module_cache;
 pub mod resolver;
 pub mod task_manager;
 
@@ -14,7 +15,10 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use crate::{
     http::DynHttpClient,
     os::TtyBridge,
-    runtime::resolver::{PackageResolver, RegistryResolver},
+    runtime::{
+        module_cache::ModuleCache,
+        resolver::{PackageResolver, RegistryResolver},
+    },
     WasiTtyState,
 };
 
@@ -33,6 +37,9 @@ where
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
     fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync>;
+
+    /// A cache for compiled modules.
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
     fn engine(&self) -> Option<wasmer::Engine> {
@@ -97,6 +104,7 @@ pub struct PluggableRuntime {
     pub http_client: Option<DynHttpClient>,
     pub resolver: Arc<dyn PackageResolver + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
+    pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
 }
@@ -124,6 +132,7 @@ impl PluggableRuntime {
             engine: None,
             tty: None,
             resolver: Arc::new(resolver),
+            module_cache: Arc::new(module_cache::in_memory()),
         }
     }
 
@@ -142,6 +151,14 @@ impl PluggableRuntime {
 
     pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> &mut Self {
         self.tty = Some(tty);
+        self
+    }
+
+    pub fn set_module_cache<M>(&mut self, module_cache: M) -> &mut Self
+    where
+        M: ModuleCache + Send + Sync + 'static,
+    {
+        self.module_cache = Arc::new(module_cache);
         self
     }
 
@@ -180,5 +197,9 @@ impl WasiRuntime for PluggableRuntime {
 
     fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         self.tty.as_deref()
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        self.module_cache.clone()
     }
 }

@@ -15,7 +15,7 @@ use wasmer_wasix_types::wasi::Errno;
 #[cfg(feature = "sys")]
 use crate::PluggableRuntime;
 use crate::{
-    bin_factory::{BinFactory, ModuleCache},
+    bin_factory::BinFactory,
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
@@ -52,7 +52,6 @@ pub struct WasiEnvBuilder {
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
-    pub(super) compiled_modules: Option<Arc<ModuleCache>>,
     #[allow(clippy::type_complexity)]
     pub(super) setup_fs_fn:
         Option<Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
@@ -547,13 +546,6 @@ impl WasiEnvBuilder {
         self.runtime = Some(runtime);
     }
 
-    /// Sets the compiled modules to use with this builder (sharing the
-    /// cached modules is better for performance and memory consumption)
-    pub fn compiled_modules(mut self, compiled_modules: Arc<ModuleCache>) -> Self {
-        self.compiled_modules = Some(compiled_modules);
-        self
-    }
-
     pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
         self.set_capabilities(capabilities);
         self
@@ -701,9 +693,6 @@ impl WasiEnvBuilder {
             envs,
         };
 
-        // TODO: this method should not exist - must have unified construction flow!
-        let module_cache = self.compiled_modules.unwrap_or_default();
-
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
@@ -719,7 +708,7 @@ impl WasiEnvBuilder {
         let uses = self.uses;
         let map_commands = self.map_commands;
 
-        let bin_factory = BinFactory::new(module_cache.clone(), runtime.clone());
+        let bin_factory = BinFactory::new(runtime.clone());
 
         let capabilities = self.capabilites;
 
@@ -731,7 +720,6 @@ impl WasiEnvBuilder {
         let init = WasiEnvInit {
             state,
             runtime,
-            module_cache,
             webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,
@@ -769,7 +757,7 @@ impl WasiEnvBuilder {
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    /// can be used to construct a new [`WasiEnv`].
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     // FIXME: use a proper custom error type

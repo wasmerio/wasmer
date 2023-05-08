@@ -272,7 +272,7 @@ pub struct VMGlobalImport {
 /// # Safety
 /// This data is safe to share between threads because it's plain data that
 /// is the user's responsibility to synchronize. Additionally, all operations
-/// on `from` are thread-safe through the use of a mutex in [`Global`].
+/// on `from` are thread-safe through the use of a mutex in [`VMGlobal`].
 unsafe impl Send for VMGlobalImport {}
 /// # Safety
 /// This data is safe to share between threads because it's plain data that
