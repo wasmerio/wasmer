@@ -27,7 +27,11 @@ use wasmer_cache::Cache;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::wcgi::AbortHandle;
+use wasmer_wasix::runners::{
+    emscripten::EmscriptenRunner,
+    wasi::WasiRunner,
+    wcgi::{AbortHandle, WcgiRunner},
+};
 use wasmer_wasix::runners::{MappedDirectory, Runner};
 use webc::{metadata::Manifest, v1::DirOrFile, Container};
 
@@ -150,66 +154,83 @@ impl RunUnstable {
             .map(|(base, version)| base)
             .unwrap_or_else(|| command.runner.as_str());
 
+        let (store, _compiler_type) = self.store.get_store()?;
+
+        if WcgiRunner::can_run_command(command)? {
+            self.run_wcgi(id, &container, cache)
+        } else if WasiRunner::can_run_command(command)? {
+            self.run_wasi(id, &container, cache)
+        } else if EmscriptenRunner::can_run_command(command)? {
+            self.run_emscripten(id, &container)
+        } else {
+            anyhow::bail!(
+                "Unable to find a runner that supports \"{}\"",
+                command.runner
+            );
+        }
+    }
+
+    fn run_wasi(
+        &self,
+        command_name: &str,
+        container: &Container,
+        cache: ModuleCache,
+    ) -> Result<(), Error> {
+        let (store, _compiler_type) = self.store.get_store()?;
         let cache = Mutex::new(cache);
 
-        match runner_base {
-            webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI => {
-                let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
-                runner.set_args(self.args.clone());
-                if runner.can_run_command(id, command).unwrap_or(false) {
-                    return runner
-                        .run_cmd(&container, id)
-                        .context("Emscripten runner failed");
-                }
-            }
-            webc::metadata::annotations::WCGI_RUNNER_URI => {
-                let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id).with_compile(
-                    move |engine, bytes| {
-                        let mut cache = cache.lock().unwrap();
-                        compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
-                    },
-                );
-
-                runner
-                    .config()
-                    .args(self.args.clone())
-                    .store(store)
-                    .addr(self.wcgi.addr)
-                    .envs(self.wasi.env_vars.clone())
-                    .map_directories(self.wasi.mapped_dirs.clone())
-                    .callbacks(Callbacks::new(self.wcgi.addr));
-                if self.wasi.forward_host_env {
-                    runner.config().forward_host_env();
-                }
-                if runner.can_run_command(id, command).unwrap_or(false) {
-                    return runner.run_cmd(&container, id).context("WCGI runner failed");
-                }
-            }
-            // TODO: Add this on the webc annotation itself
-            "https://webc.org/runner/wasi/command"
-            | webc::metadata::annotations::WASI_RUNNER_URI => {
-                let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
-                    .with_compile(move |engine, bytes| {
-                        let mut cache = cache.lock().unwrap();
-                        compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
-                    })
-                    .with_args(self.args.clone())
-                    .with_envs(self.wasi.env_vars.clone())
-                    .with_mapped_directories(self.wasi.mapped_dirs.clone());
-                if self.wasi.forward_host_env {
-                    runner.set_forward_host_env();
-                }
-                if runner.can_run_command(id, command).unwrap_or(false) {
-                    return runner.run_cmd(&container, id).context("WASI runner failed");
-                }
-            }
-            _ => {}
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
+            .with_compile(move |engine, bytes| {
+                let mut cache = cache.lock().unwrap();
+                compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
+            })
+            .with_args(self.args.clone())
+            .with_envs(self.wasi.env_vars.clone())
+            .with_mapped_directories(self.wasi.mapped_dirs.clone());
+        if self.wasi.forward_host_env {
+            runner.set_forward_host_env();
         }
 
-        anyhow::bail!(
-            "Unable to find a runner that supports \"{}\"",
-            command.runner
+        runner.run_command(command_name, container)
+    }
+
+    fn run_wcgi(
+        &self,
+        command_name: &str,
+        container: &Container,
+        cache: ModuleCache,
+    ) -> Result<(), Error> {
+        let (store, _compiler_type) = self.store.get_store()?;
+        let cache = Mutex::new(cache);
+
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(command_name).with_compile(
+            move |engine, bytes| {
+                let mut cache = cache.lock().unwrap();
+                compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
+            },
         );
+
+        runner
+            .config()
+            .args(self.args.clone())
+            .store(store)
+            .addr(self.wcgi.addr)
+            .envs(self.wasi.env_vars.clone())
+            .map_directories(self.wasi.mapped_dirs.clone())
+            .callbacks(Callbacks::new(self.wcgi.addr));
+        if self.wasi.forward_host_env {
+            runner.config().forward_host_env();
+        }
+        runner.run_command(command_name, container)
+    }
+
+    fn run_emscripten(&self, command_name: &str, container: &Container) -> Result<(), Error> {
+        let (store, _compiler_type) = self.store.get_store()?;
+
+        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+        runner.set_args(self.args.clone());
+
+        runner.run_command(command_name, container)
     }
 
     #[tracing::instrument(skip_all)]

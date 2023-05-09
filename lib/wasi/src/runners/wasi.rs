@@ -153,21 +153,24 @@ impl WasiRunner {
 }
 
 impl crate::runners::Runner for WasiRunner {
-    type Output = ();
-
-    fn can_run_command(&self, _command_name: &str, command: &Command) -> Result<bool, Error> {
+    fn can_run_command(command: &Command) -> Result<bool, Error> {
         Ok(command
             .runner
             .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
-    #[tracing::instrument(skip(self, command, container))]
+    #[tracing::instrument(skip(self, container))]
     fn run_command(
         &mut self,
         command_name: &str,
-        command: &Command,
         container: &Container,
-    ) -> Result<Self::Output, Error> {
+    ) -> Result<(), Error> {
+        let command = container
+            .manifest()
+            .commands
+            .get(command_name)
+            .context("Command not found")?;
+
         let wasi = command
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
