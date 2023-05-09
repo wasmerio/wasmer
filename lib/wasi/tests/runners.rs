@@ -20,12 +20,10 @@ mod wasi {
     #[tokio::test]
     async fn can_run_wat2wasm() {
         let webc = download_cached("https://wapm.io/wasmer/wabt").await;
-        let store = Store::default();
         let container = Container::from_bytes(webc).unwrap();
-        let runner = WasiRunner::new(store);
         let command = &container.manifest().commands["wat2wasm"];
 
-        assert!(runner.can_run_command("wat2wasm", command).unwrap());
+        assert!(WasiRunner::can_run_command(command).unwrap());
     }
 
     #[tokio::test]
@@ -41,7 +39,7 @@ mod wasi {
             WasiRunner::new(store)
                 .with_task_manager(tasks)
                 .with_args(["--version"])
-                .run_cmd(&container, "wat2wasm")
+                .run_command("wat2wasm", &container)
         });
         let err = handle.join().unwrap().unwrap_err();
         dbg!(&err);
@@ -68,7 +66,7 @@ mod wasi {
             WasiRunner::new(store)
                 .with_task_manager(tasks)
                 .with_args(["-c", "import sys; sys.exit(42)"])
-                .run_cmd(&container, "python")
+                .run_command("python", &container)
         });
         let err = handle.join().unwrap().unwrap_err();
 
@@ -99,12 +97,9 @@ mod wcgi {
     async fn can_run_staticserver() {
         let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
         let container = Container::from_bytes(webc).unwrap();
-        let runner = WcgiRunner::new("staticserver");
 
         let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
-        assert!(runner
-            .can_run_command(entrypoint, &container.manifest().commands[entrypoint])
-            .unwrap());
+        assert!(WcgiRunner::can_run_command(&container.manifest().commands[entrypoint]).unwrap());
     }
 
     #[tokio::test]
@@ -123,7 +118,7 @@ mod wcgi {
 
         // The server blocks so we need to start it on a background thread.
         let join_handle = std::thread::spawn(move || {
-            runner.run(&container).unwrap();
+            runner.run_command("serve", &container).unwrap();
         });
 
         // wait for the server to have started

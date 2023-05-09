@@ -38,12 +38,6 @@ pub struct WcgiRunner {
 // TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
 // make the "Runner" trait contain just these two methods.
 impl WcgiRunner {
-    fn supports(cmd: &Command) -> Result<bool, Error> {
-        Ok(cmd
-            .runner
-            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
-    }
-
     #[tracing::instrument(skip(self, ctx))]
     fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
         let wasi: Wasi = ctx
@@ -231,18 +225,18 @@ impl RunnerContext<'_> {
 }
 
 impl crate::runners::Runner for WcgiRunner {
-    type Output = ();
-
-    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Error> {
-        WcgiRunner::supports(command)
+    fn can_run_command(command: &Command) -> Result<bool, Error> {
+        Ok(command
+            .runner
+            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
     }
 
-    fn run_command(
-        &mut self,
-        command_name: &str,
-        command: &Command,
-        container: &Container,
-    ) -> Result<Self::Output, Error> {
+    fn run_command(&mut self, command_name: &str, container: &Container) -> Result<(), Error> {
+        let command = container
+            .manifest()
+            .commands
+            .get(command_name)
+            .context("Command not found")?;
         let store = self.config.store.clone().unwrap_or_default();
 
         let ctx = RunnerContext {

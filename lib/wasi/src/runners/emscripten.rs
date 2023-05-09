@@ -46,21 +46,20 @@ impl EmscriptenRunner {
 }
 
 impl crate::runners::Runner for EmscriptenRunner {
-    type Output = ();
-
-    fn can_run_command(&self, _: &str, command: &Command) -> Result<bool, Error> {
+    fn can_run_command(command: &Command) -> Result<bool, Error> {
         Ok(command
             .runner
             .starts_with(webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI))
     }
 
     #[allow(unreachable_code, unused_variables)]
-    fn run_command(
-        &mut self,
-        command_name: &str,
-        command: &Command,
-        container: &Container,
-    ) -> Result<Self::Output, Error> {
+    fn run_command(&mut self, command_name: &str, container: &Container) -> Result<(), Error> {
+        let command = container
+            .manifest()
+            .commands
+            .get(command_name)
+            .context("Command not found")?;
+
         let Emscripten {
             atom: atom_name,
             main_args,

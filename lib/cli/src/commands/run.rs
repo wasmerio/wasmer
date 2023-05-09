@@ -416,6 +416,10 @@ impl RunWithPathBuf {
         id: Option<&str>,
         args: &[String],
     ) -> Result<(), anyhow::Error> {
+        use wasmer_wasix::runners::{
+            emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner,
+        };
+
         let id = id
             .or_else(|| container.manifest().entrypoint.as_deref())
             .context("No command specified")?;
@@ -426,35 +430,39 @@ impl RunWithPathBuf {
             .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
         let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
-        runner.set_args(args.to_vec());
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(&container, id).context("WASI runner failed");
+
+        if WasiRunner::can_run_command(command).unwrap_or(false) {
+            let mut runner = WasiRunner::new(store);
+            runner.set_args(args.to_vec());
+            return runner
+                .run_command(id, &container)
+                .context("WASI runner failed");
         }
 
-        let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
-        runner.set_args(args.to_vec());
-        if runner.can_run_command(id, command).unwrap_or(false) {
+        if EmscriptenRunner::can_run_command(command).unwrap_or(false) {
+            let mut runner = EmscriptenRunner::new(store);
+            runner.set_args(args.to_vec());
             return runner
-                .run_cmd(&container, id)
+                .run_command(id, &container)
                 .context("Emscripten runner failed");
         }
 
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
-        let (store, _compiler_type) = self.store.get_store()?;
-        runner
-            .config()
-            .args(args)
-            .store(store)
-            .addr(self.wcgi.addr)
-            .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone());
-        if self.wasi.forward_host_env {
-            runner.config().forward_host_env();
-        }
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(&container, id).context("WCGI runner failed");
+        if WcgiRunner::can_run_command(command).unwrap_or(false) {
+            let mut runner = WcgiRunner::new(id);
+            runner
+                .config()
+                .args(args)
+                .store(store)
+                .addr(self.wcgi.addr)
+                .envs(self.wasi.env_vars.clone())
+                .map_directories(self.wasi.mapped_dirs.clone());
+            if self.wasi.forward_host_env {
+                runner.config().forward_host_env();
+            }
+
+            return runner
+                .run_command(id, &container)
+                .context("WCGI runner failed");
         }
 
         anyhow::bail!(
