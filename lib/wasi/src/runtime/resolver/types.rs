@@ -1,4 +1,10 @@
-use std::{collections::BTreeMap, fmt::Display, ops::Deref, path::PathBuf, str::FromStr};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+    ops::Deref,
+    path::PathBuf,
+    str::FromStr,
+};
 
 use anyhow::Context;
 use semver::VersionReq;
@@ -6,7 +12,7 @@ use semver::VersionReq;
 use crate::{bin_factory::BinaryPackage, http::HttpClient, runtime::resolver::InMemoryCache};
 
 #[async_trait::async_trait]
-pub trait PackageResolver: std::fmt::Debug + Send + Sync {
+pub trait PackageResolver: Debug {
     /// Resolve a package, loading all dependencies.
     async fn resolve_package(
         &self,
@@ -26,8 +32,8 @@ pub trait PackageResolver: std::fmt::Debug + Send + Sync {
 #[async_trait::async_trait]
 impl<D, R> PackageResolver for D
 where
-    D: Deref<Target = R> + std::fmt::Debug + Send + Sync,
-    R: PackageResolver + ?Sized,
+    D: Deref<Target = R> + Debug + Send + Sync,
+    R: PackageResolver + Send + Sync + ?Sized,
 {
     /// Resolve a package, loading all dependencies.
     async fn resolve_package(

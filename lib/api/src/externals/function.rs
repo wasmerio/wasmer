@@ -60,7 +60,7 @@ mod private {
     //! Sealing the HostFunctionKind because it shouldn't be implemented
     //! by any type outside.
     //! See:
-    //! https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
+    //! <https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed>
     pub trait HostFunctionKindSealed {}
     impl HostFunctionKindSealed for super::WithEnv {}
     impl HostFunctionKindSealed for super::WithoutEnv {}
