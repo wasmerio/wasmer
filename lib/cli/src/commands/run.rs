@@ -416,6 +416,8 @@ impl RunWithPathBuf {
         id: Option<&str>,
         args: &[String],
     ) -> Result<(), anyhow::Error> {
+        use std::sync::Arc;
+
         use wasmer_wasix::runners::{
             emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner,
         };
@@ -430,29 +432,29 @@ impl RunWithPathBuf {
             .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
         let (store, _compiler_type) = self.store.get_store()?;
+        let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone())?);
 
         if WasiRunner::can_run_command(command).unwrap_or(false) {
-            let mut runner = WasiRunner::new(store);
+            let mut runner = WasiRunner::new();
             runner.set_args(args.to_vec());
             return runner
-                .run_command(id, &container)
+                .run_command(id, &container, runtime)
                 .context("WASI runner failed");
         }
 
         if EmscriptenRunner::can_run_command(command).unwrap_or(false) {
-            let mut runner = EmscriptenRunner::new(store);
+            let mut runner = EmscriptenRunner::new();
             runner.set_args(args.to_vec());
             return runner
-                .run_command(id, &container)
+                .run_command(id, &container, runtime)
                 .context("Emscripten runner failed");
         }
 
         if WcgiRunner::can_run_command(command).unwrap_or(false) {
-            let mut runner = WcgiRunner::new(id);
+            let mut runner = WcgiRunner::new();
             runner
                 .config()
                 .args(args)
-                .store(store)
                 .addr(self.wcgi.addr)
                 .envs(self.wasi.env_vars.clone())
                 .map_directories(self.wasi.mapped_dirs.clone());
@@ -461,7 +463,7 @@ impl RunWithPathBuf {
             }
 
             return runner
-                .run_command(id, &container)
+                .run_command(id, &container, runtime)
                 .context("WCGI runner failed");
         }
 

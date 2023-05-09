@@ -26,7 +26,7 @@ use wasmer_wasix::{
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
     PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiVersion,
+    WasiRuntime, WasiVersion,
 };
 
 use clap::Parser;
@@ -227,7 +227,7 @@ impl Wasi {
         Ok(builder)
     }
 
-    fn prepare_runtime(&self, engine: Engine) -> Result<PluggableRuntime> {
+    pub fn prepare_runtime(&self, engine: Engine) -> Result<impl WasiRuntime + Send + Sync> {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
 
         if self.networking {

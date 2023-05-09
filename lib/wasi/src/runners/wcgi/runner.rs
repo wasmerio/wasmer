@@ -8,13 +8,11 @@ use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
-use wasmer::{Engine, Module, Store};
 use wcgi_host::CgiDialect;
 use webc::{
-    compat::SharedBytes,
     metadata::{
         annotations::{Wasi, Wcgi},
-        Command, Manifest,
+        Command,
     },
     Container,
 };
@@ -23,35 +21,95 @@ use crate::{
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        CompileModule, MappedDirectory,
+        MappedDirectory,
     },
-    runtime::task_manager::tokio::TokioTaskManager,
-    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
+    WasiEnvBuilder, WasiRuntime,
 };
 
+#[derive(Debug, Default)]
 pub struct WcgiRunner {
-    program_name: String,
     config: Config,
-    compile: Option<Arc<CompileModule>>,
 }
 
-// TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
-// make the "Runner" trait contain just these two methods.
 impl WcgiRunner {
-    #[tracing::instrument(skip(self, ctx))]
-    fn run(&mut self, command_name: &str, ctx: &RunnerContext<'_>) -> Result<(), Error> {
-        let wasi: Wasi = ctx
-            .command()
+    pub fn new() -> Self {
+        WcgiRunner::default()
+    }
+
+    pub fn config(&mut self) -> &mut Config {
+        &mut self.config
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn prepare_handler(
+        &mut self,
+        container: &Container,
+        command_name: &str,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    ) -> Result<Handler, Error> {
+        let command = container
+            .manifest()
+            .commands
+            .get(command_name)
+            .context("Command not found")?;
+
+        let wasi: Wasi = command
             .annotation("wasi")
             .context("Unable to retrieve the WASI metadata")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = self
-            .load_module(&wasi, ctx)
-            .context("Couldn't load the module")?;
+        let atom_name = &wasi.atom;
+        let atom = container
+            .get_atom(atom_name)
+            .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
+        let module = crate::runtime::compile_module(&atom, &*runtime)?;
 
-        let handler = self.create_handler(module, &wasi, ctx)?;
-        let task_manager = Arc::clone(&handler.task_manager);
+        let Wcgi { dialect, .. } = command.annotation("wcgi")?.unwrap_or_default();
+        let dialect = match dialect {
+            Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
+            None => CgiDialect::Wcgi,
+        };
+
+        let container_fs: Arc<dyn FileSystem> =
+            Arc::new(WebcVolumeFileSystem::mount_all(container));
+
+        let wasi_common = self.config.wasi.clone();
+        let wasi = wasi.clone();
+        let rt = Arc::clone(&runtime);
+        let setup_builder = move |builder: &mut WasiEnvBuilder| {
+            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
+            builder.set_runtime(Arc::clone(&rt));
+
+            Ok(())
+        };
+
+        let shared = SharedState {
+            module,
+            dialect,
+            program_name: atom_name.clone(),
+            setup_builder: Box::new(setup_builder),
+            callbacks: Arc::clone(&self.config.callbacks),
+            runtime,
+        };
+
+        Ok(Handler::new(shared))
+    }
+}
+
+impl crate::runners::Runner for WcgiRunner {
+    fn can_run_command(command: &Command) -> Result<bool, Error> {
+        Ok(command
+            .runner
+            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+    }
+
+    fn run_command(
+        &mut self,
+        command_name: &str,
+        container: &Container,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let handler = self.prepare_handler(container, command_name, Arc::clone(&runtime))?;
         let callbacks = Arc::clone(&self.config.callbacks);
 
         let service = ServiceBuilder::new()
@@ -77,7 +135,8 @@ impl WcgiRunner {
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
 
-        task_manager
+        runtime
+            .task_manager()
             .block_on(async {
                 let (shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::<()>());
@@ -98,176 +157,16 @@ impl WcgiRunner {
     }
 }
 
-impl WcgiRunner {
-    pub fn new(program_name: impl Into<String>) -> Self {
-        WcgiRunner {
-            program_name: program_name.into(),
-            config: Config::default(),
-            compile: None,
-        }
-    }
-
-    pub fn config(&mut self) -> &mut Config {
-        &mut self.config
-    }
-
-    /// Sets the compile function
-    pub fn with_compile(
-        mut self,
-        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + Send + Sync + 'static,
-    ) -> Self {
-        self.compile = Some(Arc::new(compile));
-        self
-    }
-
-    fn load_module(&mut self, wasi: &Wasi, ctx: &RunnerContext<'_>) -> Result<Module, Error> {
-        let atom_name = &wasi.atom;
-        let atom = ctx
-            .get_atom(atom_name)
-            .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
-
-        let module = ctx.compile(&atom).context("Unable to compile the atom")?;
-
-        Ok(module)
-    }
-
-    fn create_handler(
-        &self,
-        module: Module,
-        wasi: &Wasi,
-        ctx: &RunnerContext<'_>,
-    ) -> Result<Handler, Error> {
-        let Wcgi { dialect, .. } = ctx.command().annotation("wcgi")?.unwrap_or_default();
-
-        let dialect = match dialect {
-            Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
-            None => CgiDialect::Wcgi,
-        };
-
-        let shared = SharedState {
-            module,
-            dialect,
-            program_name: self.program_name.clone(),
-            setup_builder: Box::new(self.setup_builder(ctx, wasi)),
-            callbacks: Arc::clone(&self.config.callbacks),
-            task_manager: self
-                .config
-                .task_manager
-                .clone()
-                .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
-        };
-
-        Ok(Handler::new(shared))
-    }
-
-    fn setup_builder(
-        &self,
-        ctx: &RunnerContext<'_>,
-        wasi: &Wasi,
-    ) -> impl Fn(&mut WasiEnvBuilder) -> Result<(), Error> + Send + Sync {
-        let container_fs = ctx.container_fs();
-        let wasi_common = self.config.wasi.clone();
-        let wasi = wasi.clone();
-        let tasks = self.config.task_manager.clone();
-
-        move |builder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
-
-            if let Some(tasks) = &tasks {
-                let rt = PluggableRuntime::new(Arc::clone(tasks));
-                builder.set_runtime(Arc::new(rt));
-            }
-
-            Ok(())
-        }
-    }
-}
-
-// TODO(Michael-F-Bryan): Pass this to Runner::run() as a "&dyn RunnerContext"
-// when we rewrite the "Runner" trait.
-struct RunnerContext<'a> {
-    container: &'a Container,
-    command: &'a Command,
-    compile: Option<Arc<CompileModule>>,
-    engine: Engine,
-    store: Arc<Store>,
-}
-
-#[allow(dead_code)]
-impl RunnerContext<'_> {
-    fn command(&self) -> &Command {
-        self.command
-    }
-
-    fn manifest(&self) -> &Manifest {
-        self.container.manifest()
-    }
-
-    fn store(&self) -> &Store {
-        &self.store
-    }
-
-    fn get_atom(&self, name: &str) -> Option<SharedBytes> {
-        self.container.atoms().remove(name)
-    }
-
-    fn container_fs(&self) -> Arc<dyn FileSystem> {
-        Arc::new(WebcVolumeFileSystem::mount_all(self.container))
-    }
-
-    fn compile(&self, wasm: &[u8]) -> Result<Module, Error> {
-        let compile = self
-            .compile
-            .as_deref()
-            .unwrap_or(&crate::runners::default_compile);
-        compile(&self.engine, wasm)
-    }
-}
-
-impl crate::runners::Runner for WcgiRunner {
-    fn can_run_command(command: &Command) -> Result<bool, Error> {
-        Ok(command
-            .runner
-            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
-    }
-
-    fn run_command(&mut self, command_name: &str, container: &Container) -> Result<(), Error> {
-        let command = container
-            .manifest()
-            .commands
-            .get(command_name)
-            .context("Command not found")?;
-        let store = self.config.store.clone().unwrap_or_default();
-
-        let ctx = RunnerContext {
-            container,
-            command,
-            engine: store.engine().clone(),
-            store,
-            compile: self.compile.clone(),
-        };
-
-        WcgiRunner::run(self, command_name, &ctx)
-    }
-}
-
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub struct Config {
-    task_manager: Option<Arc<dyn VirtualTaskManager>>,
     wasi: CommonWasiOptions,
     addr: SocketAddr,
     #[derivative(Debug = "ignore")]
     callbacks: Arc<dyn Callbacks>,
-    store: Option<Arc<Store>>,
 }
 
 impl Config {
-    pub fn task_manager(&mut self, task_manager: impl VirtualTaskManager) -> &mut Self {
-        self.task_manager = Some(Arc::new(task_manager));
-        self
-    }
-
     pub fn addr(&mut self, addr: SocketAddr) -> &mut Self {
         self.addr = addr;
         self
@@ -333,21 +232,14 @@ impl Config {
         self.callbacks = Arc::new(callbacks);
         self
     }
-
-    pub fn store(&mut self, store: Store) -> &mut Self {
-        self.store = Some(Arc::new(store));
-        self
-    }
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
-            task_manager: None,
             addr: ([127, 0, 0, 1], 8000).into(),
             wasi: CommonWasiOptions::default(),
             callbacks: Arc::new(NoopCallbacks),
-            store: None,
         }
     }
 }

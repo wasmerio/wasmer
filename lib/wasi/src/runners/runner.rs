@@ -1,5 +1,9 @@
+use std::sync::Arc;
+
 use anyhow::Error;
 use webc::{metadata::Command, Container};
+
+use crate::WasiRuntime;
 
 /// Trait that all runners have to implement
 pub trait Runner {
@@ -12,5 +16,10 @@ pub trait Runner {
     ///
     /// - use `cmd.annotations` to get the metadata for the given command
     /// - use `container.get_atom()` to get the
-    fn run_command(&mut self, command_name: &str, container: &Container) -> Result<(), Error>;
+    fn run_command(
+        &mut self,
+        command_name: &str,
+        container: &Container,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    ) -> Result<(), Error>;
 }

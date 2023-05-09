@@ -8,7 +8,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
 
@@ -27,12 +27,15 @@ use wasmer_cache::Cache;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::{
-    emscripten::EmscriptenRunner,
-    wasi::WasiRunner,
-    wcgi::{AbortHandle, WcgiRunner},
-};
 use wasmer_wasix::runners::{MappedDirectory, Runner};
+use wasmer_wasix::{
+    runners::{
+        emscripten::EmscriptenRunner,
+        wasi::WasiRunner,
+        wcgi::{AbortHandle, WcgiRunner},
+    },
+    WasiRuntime,
+};
 use webc::{metadata::Manifest, v1::DirOrFile, Container};
 
 use crate::{
@@ -177,13 +180,9 @@ impl RunUnstable {
         cache: ModuleCache,
     ) -> Result<(), Error> {
         let (store, _compiler_type) = self.store.get_store()?;
-        let cache = Mutex::new(cache);
+        let runtime = self.wasi.prepare_runtime(store.engine().clone())?;
 
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store)
-            .with_compile(move |engine, bytes| {
-                let mut cache = cache.lock().unwrap();
-                compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
-            })
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
             .with_args(self.args.clone())
             .with_envs(self.wasi.env_vars.clone())
             .with_mapped_directories(self.wasi.mapped_dirs.clone());
@@ -191,7 +190,7 @@ impl RunUnstable {
             runner.set_forward_host_env();
         }
 
-        runner.run_command(command_name, container)
+        runner.run_command(command_name, container, Arc::new(runtime))
     }
 
     fn run_wcgi(
@@ -201,19 +200,13 @@ impl RunUnstable {
         cache: ModuleCache,
     ) -> Result<(), Error> {
         let (store, _compiler_type) = self.store.get_store()?;
-        let cache = Mutex::new(cache);
+        let runtime = self.wasi.prepare_runtime(store.engine().clone())?;
 
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(command_name).with_compile(
-            move |engine, bytes| {
-                let mut cache = cache.lock().unwrap();
-                compile_wasm_cached("".to_string(), bytes, &mut cache, engine)
-            },
-        );
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
 
         runner
             .config()
             .args(self.args.clone())
-            .store(store)
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.clone())
@@ -221,16 +214,17 @@ impl RunUnstable {
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
-        runner.run_command(command_name, container)
+        runner.run_command(command_name, container, Arc::new(runtime))
     }
 
     fn run_emscripten(&self, command_name: &str, container: &Container) -> Result<(), Error> {
         let (store, _compiler_type) = self.store.get_store()?;
+        let runtime = self.wasi.prepare_runtime(store.engine().clone())?;
 
-        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
+        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
         runner.set_args(self.args.clone());
 
-        runner.run_command(command_name, container)
+        runner.run_command(command_name, container, Arc::new(runtime))
     }
 
     #[tracing::instrument(skip_all)]

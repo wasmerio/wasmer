@@ -1,19 +1,28 @@
 #![cfg(feature = "webc_runner")]
 
-use std::{path::Path, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use once_cell::sync::Lazy;
 use reqwest::Client;
-use wasmer_wasix::runners::Runner;
+use tokio::runtime::Handle;
+use wasmer::Engine;
+use wasmer_wasix::{
+    runners::Runner,
+    runtime::{
+        module_cache::{FileSystemCache, ModuleCache, SharedCache},
+        task_manager::tokio::TokioTaskManager,
+    },
+    PluggableRuntime, WasiRuntime,
+};
 use webc::Container;
 
 #[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
-    use tokio::runtime::Handle;
-    use wasmer::Store;
-    use wasmer_wasix::{
-        runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, WasiError,
-    };
+    use wasmer_wasix::{runners::wasi::WasiRunner, WasiError};
 
     use super::*;
 
@@ -29,17 +38,17 @@ mod wasi {
     #[tokio::test]
     async fn wat2wasm() {
         let webc = download_cached("https://wapm.io/wasmer/wabt").await;
-        let store = Store::default();
-        let tasks = TokioTaskManager::new(Handle::current());
         let container = Container::from_bytes(webc).unwrap();
+        let rt = runtime();
 
         // Note: we don't have any way to intercept stdin or stdout, so blindly
         // assume that everything is fine if it runs successfully.
         let handle = std::thread::spawn(move || {
-            WasiRunner::new(store)
-                .with_task_manager(tasks)
-                .with_args(["--version"])
-                .run_command("wat2wasm", &container)
+            WasiRunner::new().with_args(["--version"]).run_command(
+                "wat2wasm",
+                &container,
+                Arc::new(rt),
+            )
         });
         let err = handle.join().unwrap().unwrap_err();
         dbg!(&err);
@@ -58,15 +67,13 @@ mod wasi {
     #[tokio::test]
     async fn python() {
         let webc = download_cached("https://wapm.io/python/python").await;
-        let store = Store::default();
-        let tasks = TokioTaskManager::new(Handle::current());
+        let rt = runtime();
         let container = Container::from_bytes(webc).unwrap();
 
         let handle = std::thread::spawn(move || {
-            WasiRunner::new(store)
-                .with_task_manager(tasks)
+            WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
-                .run_command("python", &container)
+                .run_command("python", &container, Arc::new(rt))
         });
         let err = handle.join().unwrap().unwrap_err();
 
@@ -84,12 +91,12 @@ mod wasi {
 
 #[cfg(feature = "webc_runner_rt_wcgi")]
 mod wcgi {
-    use std::future::Future;
+    use std::{future::Future, sync::Arc};
 
     use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
-    use wasmer_wasix::{runners::wcgi::WcgiRunner, runtime::task_manager::tokio::TokioTaskManager};
+    use wasmer_wasix::runners::wcgi::WcgiRunner;
 
     use super::*;
 
@@ -105,20 +112,21 @@ mod wcgi {
     #[tokio::test]
     async fn staticserver() {
         let webc = download_cached("https://wapm.io/Michael-F-Bryan/staticserver").await;
-        let tasks = TokioTaskManager::new(Handle::current());
+        let rt = runtime();
         let container = Container::from_bytes(webc).unwrap();
-        let mut runner = WcgiRunner::new("staticserver");
+        let mut runner = WcgiRunner::new();
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
         let (cb, started) = callbacks(Handle::current());
         runner
             .config()
             .addr(([127, 0, 0, 1], port).into())
-            .task_manager(tasks)
             .callbacks(cb);
 
         // The server blocks so we need to start it on a background thread.
         let join_handle = std::thread::spawn(move || {
-            runner.run_command("serve", &container).unwrap();
+            runner
+                .run_command("serve", &container, Arc::new(rt))
+                .unwrap();
         });
 
         // wait for the server to have started
@@ -181,7 +189,7 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     let uri: http::Uri = url.parse().unwrap();
 
     let file_name = Path::new(uri.path()).file_name().unwrap();
-    let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(module_path!());
+    let cache_dir = tmp_dir().join("downloads");
     let cached_path = cache_dir.join(file_name);
 
     if cached_path.exists() {
@@ -218,4 +226,22 @@ fn client() -> Client {
             .unwrap()
     });
     CLIENT.clone()
+}
+
+fn runtime() -> impl WasiRuntime + Send + Sync {
+    let tasks = TokioTaskManager::new(Handle::current());
+    let mut rt = PluggableRuntime::new(Arc::new(tasks));
+
+    let cache = SharedCache::default().and_then(FileSystemCache::new(tmp_dir().join("compiled")));
+
+    rt.set_engine(Some(Engine::default()))
+        .set_module_cache(cache);
+
+    rt
+}
+
+fn tmp_dir() -> PathBuf {
+    Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(env!("CARGO_PKG_NAME"))
+        .join(module_path!())
 }

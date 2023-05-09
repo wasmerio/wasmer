@@ -14,7 +14,7 @@ use wcgi_host::CgiDialect;
 
 use crate::{
     capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
-    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
+    VirtualTaskManager, WasiEnvBuilder, WasiRuntime,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -51,8 +51,6 @@ impl Handler {
             .prepare_environment_variables(parts, &mut request_specific_env);
         builder.add_envs(request_specific_env);
 
-        let rt = PluggableRuntime::new(Arc::clone(&self.task_manager));
-
         let builder = builder
             .stdin(Box::new(req_body_receiver))
             .stdout(Box::new(res_body_sender))
@@ -61,8 +59,7 @@ impl Handler {
                 insecure_allow_all: true,
                 http_client: HttpClientCapabilityV1::new_allow_all(),
                 threading: Default::default(),
-            })
-            .runtime(Arc::new(rt));
+            });
 
         let module = self.module.clone();
 
@@ -71,14 +68,16 @@ impl Handler {
             "Calling into the WCGI executable",
         );
 
-        let done = self
-            .task_manager
+        let task_manager = self.runtime.task_manager();
+        let mut store = self.runtime.new_store();
+
+        let done = task_manager
             .runtime()
-            .spawn_blocking(move || builder.run(module))
+            .spawn_blocking(move || builder.run_with_store(module, &mut store))
             .map_err(Error::from)
             .and_then(|r| async { r.map_err(Error::from) });
 
-        let handle = self.task_manager.runtime().clone();
+        let handle = task_manager.runtime().clone();
         let callbacks = Arc::clone(&self.callbacks);
 
         handle.spawn(
@@ -88,7 +87,7 @@ impl Handler {
             .in_current_span(),
         );
 
-        self.task_manager.runtime().spawn(
+        task_manager.runtime().spawn(
             async move {
                 if let Err(e) =
                     drive_request_to_completion(&handle, done, body, req_body_sender).await
@@ -220,7 +219,7 @@ pub(crate) struct SharedState {
     #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
     #[derivative(Debug = "ignore")]
-    pub(crate) task_manager: Arc<dyn VirtualTaskManager>,
+    pub(crate) runtime: Arc<dyn WasiRuntime + Send + Sync>,
 }
 
 impl Service<Request<Body>> for Handler {
