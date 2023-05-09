@@ -232,7 +232,8 @@ fn runtime() -> impl WasiRuntime + Send + Sync {
     let tasks = TokioTaskManager::new(Handle::current());
     let mut rt = PluggableRuntime::new(Arc::new(tasks));
 
-    let cache = SharedCache::default().and_then(FileSystemCache::new(tmp_dir().join("compiled")));
+    let cache =
+        SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
 
     rt.set_engine(Some(Engine::default()))
         .set_module_cache(cache);

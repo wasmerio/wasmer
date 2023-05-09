@@ -7,7 +7,7 @@ use std::{
 use sha2::{Digest, Sha256};
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::AndThen;
+use crate::runtime::module_cache::FallbackCache;
 
 /// A cache for compiled WebAssembly modules.
 ///
@@ -45,7 +45,8 @@ pub trait ModuleCache: Debug {
         module: &Module,
     ) -> Result<(), CacheError>;
 
-    /// Chain a second cache onto this one.
+    /// Chain a second [`ModuleCache`] that will be used as a fallback if
+    /// lookups on the primary cache fail.
     ///
     /// The general assumption is that each subsequent cache in the chain will
     /// be significantly slower than the previous one.
@@ -56,14 +57,14 @@ pub trait ModuleCache: Debug {
     /// };
     ///
     /// let cache = SharedCache::default()
-    ///     .and_then(FileSystemCache::new("~/.local/cache"));
+    ///     .with_fallback(FileSystemCache::new("~/.local/cache"));
     /// ```
-    fn and_then<C>(self, other: C) -> AndThen<Self, C>
+    fn with_fallback<C>(self, other: C) -> FallbackCache<Self, C>
     where
         Self: Sized,
         C: ModuleCache,
     {
-        AndThen::new(self, other)
+        FallbackCache::new(self, other)
     }
 }
 

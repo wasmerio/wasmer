@@ -248,7 +248,7 @@ impl Wasi {
             .prepare_resolver(&wasmer_home)
             .context("Unable to prepare the package resolver")?;
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .and_then(FileSystemCache::new(wasmer_home.join("compiled")));
+            .with_fallback(FileSystemCache::new(wasmer_home.join("compiled")));
 
         rt.set_resolver(resolver)
             .set_module_cache(module_cache)
