@@ -2,6 +2,7 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Dura
 
 use derivative::Derivative;
 use rand::Rng;
+use semver::Version;
 use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
@@ -15,7 +16,7 @@ use wasmer_wasix_types::{
 };
 
 use crate::{
-    bin_factory::{BinFactory, ModuleCache},
+    bin_factory::BinFactory,
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
@@ -202,7 +203,6 @@ unsafe impl Sync for WasiInstanceHandles {}
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
-    pub module_cache: Arc<ModuleCache>,
     pub webc_dependencies: Vec<String>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -244,7 +244,6 @@ impl WasiEnvInit {
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
-            module_cache: self.module_cache.clone(),
             webc_dependencies: self.webc_dependencies.clone(),
             mapped_commands: self.mapped_commands.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -285,7 +284,6 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
 }
@@ -331,7 +329,6 @@ impl WasiEnv {
             inner: self.inner.clone(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
-            module_cache: self.module_cache.clone(),
             capabilities: self.capabilities.clone(),
         }
     }
@@ -362,7 +359,6 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
-            module_cache: self.module_cache.clone(),
         };
         Ok((new_env, handle))
     }
@@ -401,7 +397,6 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime: init.runtime,
             bin_factory: init.bin_factory,
-            module_cache: init.module_cache.clone(),
             capabilities: init.capabilities,
         };
         env.owned_handles.push(thread);
@@ -764,7 +759,7 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
-        let mut already: HashMap<String, String> = HashMap::new();
+        let mut already: HashMap<String, Version> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
 
@@ -774,15 +769,17 @@ impl WasiEnv {
             .get("/bin/wasmer")
             .and_then(|cmd| cmd.as_any().downcast_ref::<CmdWasmer>());
 
+        let tasks = self.runtime.task_manager();
+
         while let Some(use_package) = use_packages.pop_back() {
             if let Some(package) = cmd_wasmer
                 .as_ref()
-                .and_then(|cmd| cmd.get_package(use_package.clone()))
+                .and_then(|cmd| tasks.block_on(cmd.get_package(use_package.clone())))
             {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
                 if let Some(version) = already.get(&package_name) {
-                    if version.as_str() != package.version {
+                    if *version != package.version {
                         return Err(WasiStateCreationError::WasiInheritError(format!(
                             "webc package version conflict for {} - {} vs {}",
                             use_package, version, package.version

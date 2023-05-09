@@ -46,18 +46,18 @@ pub struct TestSpec {
     pub enable_network: bool,
 }
 
-static WEBC_BASH: &'static [u8] =
+static WEBC_BASH: &[u8] =
     include_bytes!("./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
-static WEBC_COREUTILS_14: &'static [u8] =
+static WEBC_COREUTILS_14: &[u8] =
     include_bytes!("./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
-static WEBC_COREUTILS_11: &'static [u8] =
+static WEBC_COREUTILS_11: &[u8] =
     include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
-static WEBC_DASH: &'static [u8] =
+static WEBC_DASH: &[u8] =
     include_bytes!("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc");
-static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &'static [u8] =
+static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
+static WEBC_WEB_SERVER: &[u8] =
     include_bytes!("./webc/static-web-server-1.0.8-a241658c-e409-4749-872c-ae8eab142ef0.webc");
-static WEBC_WASMER_SH: &'static [u8] =
+static WEBC_WASMER_SH: &[u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
 impl std::fmt::Debug for TestSpec {
@@ -299,14 +299,11 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     cmd.arg("--allow-multiple-wasi-versions");
 
     for pkg in &spec.use_packages {
-        cmd.args(&["--use", &pkg]);
+        cmd.args(["--use", &pkg]);
     }
 
     for pkg in &spec.include_webcs {
-        cmd.args(&[
-            "--include-webc",
-            pkg.webc.path().as_os_str().to_string_lossy().as_ref(),
-        ]);
+        cmd.arg("--include-webc").arg(pkg.webc.path());
     }
 
     let log_level = if spec.debug_output {

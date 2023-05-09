@@ -1,9 +1,11 @@
 use anyhow::{bail, Context};
+use once_cell::sync::OnceCell;
 use std::{
     collections::HashMap,
     path::Path,
-    sync::{Arc, Mutex, RwLock},
+    sync::{Arc, RwLock},
 };
+use url::Url;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
@@ -17,60 +19,39 @@ use webc::{
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
-    WasiRuntime,
+    http::HttpClient,
 };
 
 mod pirita;
 
-use crate::http::{DynHttpClient, HttpRequest, HttpRequestOptions};
+use crate::http::{HttpRequest, HttpRequestOptions};
 use pirita::*;
 
-pub(crate) fn fetch_webc_task(
+pub(crate) async fn fetch_webc(
     cache_dir: &Path,
     webc: &str,
-    runtime: &dyn WasiRuntime,
-) -> Result<BinaryPackage, anyhow::Error> {
-    let client = runtime
-        .http_client()
-        .context("no http client available")?
-        .clone();
-
-    let f = async move { fetch_webc(cache_dir, webc, client).await };
-
-    let result = runtime
-        .task_manager()
-        .block_on(f)
-        .context("webc fetch task has died");
-    result.with_context(|| format!("could not fetch webc '{webc}'"))
-}
-
-async fn fetch_webc(
-    cache_dir: &Path,
-    webc: &str,
-    client: DynHttpClient,
+    client: &(dyn HttpClient + Send + Sync),
+    registry_endpoint: &Url,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let name = webc.split_once(':').map(|a| a.0).unwrap_or_else(|| webc);
     let (name, version) = match name.split_once('@') {
         Some((name, version)) => (name, Some(version)),
         None => (name, None),
     };
-    let url_query = match version {
+    let query = match version {
         Some(version) => WAPM_WEBC_QUERY_SPECIFIC
             .replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str())
             .replace(WAPM_WEBC_VERSION_TAG, version.replace('\"', "'").as_str()),
         None => WAPM_WEBC_QUERY_LAST.replace(WAPM_WEBC_QUERY_TAG, name.replace('\"', "'").as_str()),
     };
-    tracing::debug!("request: {}", url_query);
+    tracing::debug!(query = query.as_str(), "Preparing GraphQL query");
 
-    let url = format!(
-        "{}{}",
-        WAPM_WEBC_URL,
-        urlencoding::encode(url_query.as_str())
-    );
+    let mut url = registry_endpoint.clone();
+    url.query_pairs_mut().append_pair("query", &query);
 
     let response = client
         .request(HttpRequest {
-            url,
+            url: url.to_string(),
             method: "GET".to_string(),
             headers: vec![],
             body: None,
@@ -91,7 +72,7 @@ async fn fetch_webc(
         version,
     } = wapm_extract_version(&data).context("No pirita download URL available")?;
     let mut pkg = download_webc(cache_dir, name, download_url, client).await?;
-    pkg.version = version;
+    pkg.version = version.parse()?;
     Ok(pkg)
 }
 
@@ -131,7 +112,7 @@ async fn download_webc(
     cache_dir: &Path,
     name: &str,
     pirita_download_url: String,
-    client: DynHttpClient,
+    client: &(dyn HttpClient + Send + Sync),
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut name_comps = pirita_download_url
         .split('/')
@@ -241,7 +222,7 @@ async fn download_webc(
 
 async fn download_package(
     download_url: &str,
-    client: DynHttpClient,
+    client: &(dyn HttpClient + Send + Sync),
 ) -> Result<Vec<u8>, anyhow::Error> {
     let request = HttpRequest {
         url: download_url.to_string(),
@@ -304,11 +285,11 @@ fn parse_webc_v2(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
                 .unwrap() as u128,
         ),
         entry: entry.map(Into::into),
-        hash: Arc::new(Mutex::new(None)),
+        hash: OnceCell::new(),
         webc_fs: Some(Arc::new(webc_fs)),
         commands: Arc::new(RwLock::new(commands.into_values().collect())),
         uses,
-        version: wapm.version,
+        version: wapm.version.parse()?,
         module_memory_footprint,
         file_system_memory_footprint,
     };
@@ -457,7 +438,7 @@ mod tests {
         let pkg = parse_webc_v2(&python).unwrap();
 
         assert_eq!(pkg.package_name, "python");
-        assert_eq!(pkg.version, "0.1.0");
+        assert_eq!(pkg.version.to_string(), "0.1.0");
         assert_eq!(pkg.uses, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 4694941);
         assert_eq!(pkg.file_system_memory_footprint, 13387764);
@@ -490,7 +471,7 @@ mod tests {
         let pkg = parse_webc_v2(&coreutils).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/coreutils");
-        assert_eq!(pkg.version, "1.0.14");
+        assert_eq!(pkg.version.to_string(), "1.0.14");
         assert_eq!(pkg.uses, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 44);
@@ -621,7 +602,7 @@ mod tests {
         let pkg = parse_webc_v2(&bash).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/bash");
-        assert_eq!(pkg.version, "1.0.12");
+        assert_eq!(pkg.version.to_string(), "1.0.12");
         assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.11"]);
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 0);
@@ -641,7 +622,7 @@ mod tests {
         let pkg = parse_static_webc(HELLO.to_vec()).unwrap();
 
         assert_eq!(pkg.package_name, "wasmer/hello");
-        assert_eq!(pkg.version, "0.1.0");
+        assert_eq!(pkg.version.to_string(), "0.1.0");
         let commands = pkg.commands.read().unwrap();
         assert!(commands.is_empty());
         assert!(pkg.entry.is_none());

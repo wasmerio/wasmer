@@ -43,7 +43,7 @@ impl TokioTaskManager {
         Ok(())
     }
 
-    /// Shared tokio [`Runtime`] that is used by default.
+    /// Shared tokio [`VirtualTaskManager`] that is used by default.
     ///
     /// This exists because a tokio runtime is heavy, and there should not be many
     /// independent ones in a process.
@@ -84,15 +84,12 @@ impl VirtualTaskManager for TokioTaskManager {
         spawn_type: SpawnType,
     ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
-            SpawnType::CreateWithType(mut mem) => {
-                mem.ty.shared = true;
-                Memory::new(&mut store, mem.ty)
-                    .map_err(|err| {
-                        tracing::error!("could not create memory: {err}");
-                        WasiThreadError::MemoryCreateFailed
-                    })
-                    .map(Some)
-            }
+            SpawnType::CreateWithType(mem) => Memory::new(&mut store, mem.ty)
+                .map_err(|err| {
+                    tracing::error!("could not create memory: {err}");
+                    WasiThreadError::MemoryCreateFailed
+                })
+                .map(Some),
             SpawnType::NewThread(mem) => Ok(Some(mem)),
             SpawnType::Create => Ok(None),
         }
@@ -126,7 +123,6 @@ impl VirtualTaskManager for TokioTaskManager {
         &self.0
     }
 
-    /// See [`VirtualTaskManager::block_on`].
     #[allow(dyn_drop)]
     fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
         Box::new(TokioRuntimeGuard {
@@ -134,7 +130,6 @@ impl VirtualTaskManager for TokioTaskManager {
         })
     }
 
-    /// See [`VirtualTaskManager::enter`].
     fn task_wasm(
         &self,
         task: Box<dyn FnOnce(Store, Module, Option<Memory>) + Send + 'static>,

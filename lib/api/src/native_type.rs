@@ -55,6 +55,28 @@ impl NativeWasmTypeInto for i32 {
     }
 }
 
+impl NativeWasmTypeInto for u32 {
+    #[inline]
+    unsafe fn from_abi(_store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { i32: self as _ }
+    }
+
+    #[inline]
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.i32 as _
+    }
+}
+
 impl NativeWasmTypeInto for i64 {
     #[inline]
     unsafe fn from_abi(_store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
@@ -74,6 +96,28 @@ impl NativeWasmTypeInto for i64 {
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
         raw.i64
+    }
+}
+
+impl NativeWasmTypeInto for u64 {
+    #[inline]
+    unsafe fn from_abi(_store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self, _store: &mut impl AsStoreMut) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn into_raw(self, _store: &mut impl AsStoreMut) -> RawValue {
+        RawValue { i64: self as _ }
+    }
+
+    #[inline]
+    unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
+        raw.i64 as _
     }
 }
 

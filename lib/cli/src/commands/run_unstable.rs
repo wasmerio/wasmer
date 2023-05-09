@@ -24,6 +24,7 @@ use wasmer::{
     Value,
 };
 use wasmer_cache::Cache;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::runners::wcgi::AbortHandle;
@@ -48,6 +49,10 @@ pub struct RunUnstable {
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
     wcgi: WcgiOptions,
+    #[cfg(feature = "sys")]
+    /// The stack size (default is 1048576)
+    #[clap(long = "stack-size")]
+    stack_size: Option<usize>,
     /// The function or command to invoke.
     #[clap(short, long, aliases = &["command", "invoke"])]
     entrypoint: Option<String>,
@@ -81,6 +86,7 @@ impl RunUnstable {
         };
 
         if let Err(e) = &result {
+            #[cfg(feature = "coredump")]
             if let Some(coredump) = &self.coredump_on_trap {
                 if let Err(e) = generate_coredump(e, target.path(), coredump) {
                     tracing::warn!(
@@ -101,6 +107,10 @@ impl RunUnstable {
         module: &Module,
         store: &mut Store,
     ) -> Result<(), Error> {
+        #[cfg(feature = "sys")]
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
@@ -118,6 +128,10 @@ impl RunUnstable {
         mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
+        #[cfg(feature = "sys")]
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
             None => infer_webc_entrypoint(container.manifest())?,
@@ -440,15 +454,24 @@ impl TargetOnDisk {
         let leading_bytes = &buffer[..bytes_read];
 
         if wasmer::is_wasm(leading_bytes) {
-            Ok(TargetOnDisk::WebAssemblyBinary(path))
-        } else if webc::detect(leading_bytes).is_ok() {
-            Ok(TargetOnDisk::Webc(path))
-        } else if ArtifactBuild::is_deserializable(leading_bytes) {
-            Ok(TargetOnDisk::Artifact(path))
-        } else if path.extension() == Some("wat".as_ref()) {
-            Ok(TargetOnDisk::Wat(path))
-        } else {
-            anyhow::bail!("Unable to determine how to execute \"{}\"", path.display());
+            return Ok(TargetOnDisk::WebAssemblyBinary(path));
+        }
+
+        if webc::detect(leading_bytes).is_ok() {
+            return Ok(TargetOnDisk::Webc(path));
+        }
+
+        #[cfg(feature = "compiler")]
+        if ArtifactBuild::is_deserializable(leading_bytes) {
+            return Ok(TargetOnDisk::Artifact(path));
+        }
+
+        // If we can't figure out the file type based on its content, fall back
+        // to checking the extension.
+
+        match path.extension().and_then(|s| s.to_str()) {
+            Some("wat") => Ok(TargetOnDisk::Wat(path)),
+            _ => anyhow::bail!("Unable to determine how to execute \"{}\"", path.display()),
         }
     }
 
@@ -567,6 +590,7 @@ enum ExecutableTarget {
     Webc(Container),
 }
 
+#[cfg(feature = "coredump")]
 fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result<(), Error> {
     let err: &wasmer::RuntimeError = match err.downcast_ref() {
         Some(e) => e,
