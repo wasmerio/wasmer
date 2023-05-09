@@ -149,7 +149,7 @@ impl crate::runners::Runner for WasiRunner {
             .get(atom_name)
             .with_context(|| format!("Unable to get the \"{atom_name}\" atom"))?;
 
-        let module = crate::runtime::compile_module(atom, &*runtime)?;
+        let module = crate::runners::compile_module(atom, &*runtime)?;
         let mut store = runtime.new_store();
 
         self.prepare_webc_env(container, atom_name, &wasi, runtime)?

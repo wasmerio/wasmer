@@ -62,7 +62,7 @@ impl WcgiRunner {
         let atom = container
             .get_atom(atom_name)
             .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
-        let module = crate::runtime::compile_module(&atom, &*runtime)?;
+        let module = crate::runners::compile_module(&atom, &*runtime)?;
 
         let Wcgi { dialect, .. } = command.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {

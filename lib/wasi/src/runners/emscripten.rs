@@ -75,7 +75,7 @@ impl crate::runners::Runner for EmscriptenRunner {
             .get(&atom_name)
             .with_context(|| format!("Unable to read the \"{atom_name}\" atom"))?;
 
-        let mut module = crate::runtime::compile_module(atom_bytes, &*runtime)?;
+        let mut module = crate::runners::compile_module(atom_bytes, &*runtime)?;
         module.set_name(&atom_name);
 
         let mut store = runtime.new_store();
