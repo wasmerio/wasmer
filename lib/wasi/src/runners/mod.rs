@@ -11,18 +11,10 @@ pub mod wcgi;
 
 pub use self::runner::Runner;
 
-use anyhow::Error;
-use wasmer::{Engine, Module};
-
-pub type CompileModule = dyn Fn(&Engine, &[u8]) -> Result<Module, Error> + Send + Sync;
-
+/// A directory that should be mapped from the host filesystem into a WASI
+/// instance (the "guest").
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MappedDirectory {
     pub host: std::path::PathBuf,
     pub guest: String,
-}
-
-pub(crate) fn default_compile(engine: &Engine, wasm: &[u8]) -> Result<Module, Error> {
-    let module = Module::new(engine, wasm)?;
-    Ok(module)
 }

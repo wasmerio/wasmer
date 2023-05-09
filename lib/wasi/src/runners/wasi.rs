@@ -5,46 +5,25 @@ use std::sync::Arc;
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
 use virtual_fs::WebcVolumeFileSystem;
-use wasmer::{Engine, Module, Store};
 use webc::{
     metadata::{annotations::Wasi, Command},
     Container,
 };
 
 use crate::{
-    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory},
-    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
+    runners::{wasi_common::CommonWasiOptions, MappedDirectory},
+    WasiEnvBuilder, WasiRuntime,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct WasiRunner {
     wasi: CommonWasiOptions,
-    #[serde(skip, default)]
-    store: Store,
-    #[serde(skip, default)]
-    pub(crate) tasks: Option<Arc<dyn VirtualTaskManager>>,
-    #[serde(skip, default)]
-    compile: Option<Box<CompileModule>>,
 }
 
 impl WasiRunner {
-    /// Constructs a new `WasiRunner` given an `Store`
-    pub fn new(store: Store) -> Self {
-        Self {
-            store,
-            wasi: CommonWasiOptions::default(),
-            tasks: None,
-            compile: None,
-        }
-    }
-
-    /// Sets the compile function
-    pub fn with_compile(
-        mut self,
-        compile: impl Fn(&Engine, &[u8]) -> Result<Module, Error> + Send + Sync + 'static,
-    ) -> Self {
-        self.compile = Some(Box::new(compile));
-        self
+    /// Constructs a new `WasiRunner`.
+    pub fn new() -> Self {
+        WasiRunner::default()
     }
 
     /// Returns the current arguments for this `WasiRunner`
@@ -123,30 +102,19 @@ impl WasiRunner {
         self
     }
 
-    pub fn with_task_manager(mut self, tasks: impl VirtualTaskManager) -> Self {
-        self.set_task_manager(tasks);
-        self
-    }
-
-    pub fn set_task_manager(&mut self, tasks: impl VirtualTaskManager) {
-        self.tasks = Some(Arc::new(tasks));
-    }
-
     fn prepare_webc_env(
         &self,
         container: &Container,
         program_name: &str,
         wasi: &Wasi,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
         let container_fs = Arc::new(WebcVolumeFileSystem::mount_all(container));
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi)?;
 
-        if let Some(tasks) = &self.tasks {
-            let rt = PluggableRuntime::new(Arc::clone(tasks));
-            builder.set_runtime(Arc::new(rt));
-        }
+        builder.set_runtime(runtime);
 
         Ok(builder)
     }
@@ -164,6 +132,7 @@ impl crate::runners::Runner for WasiRunner {
         &mut self,
         command_name: &str,
         container: &Container,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
         let command = container
             .manifest()
@@ -180,15 +149,11 @@ impl crate::runners::Runner for WasiRunner {
             .get(atom_name)
             .with_context(|| format!("Unable to get the \"{atom_name}\" atom"))?;
 
-        let compile = self
-            .compile
-            .as_deref()
-            .unwrap_or(&crate::runners::default_compile);
-        let mut module = compile(self.store.engine(), atom)?;
-        module.set_name(atom_name);
+        let module = crate::runtime::compile_module(atom, &*runtime)?;
+        let mut store = runtime.new_store();
 
-        self.prepare_webc_env(container, atom_name, &wasi)?
-            .run(module)?;
+        self.prepare_webc_env(container, atom_name, &wasi, runtime)?
+            .run_with_store(module, &mut store)?;
 
         Ok(())
     }

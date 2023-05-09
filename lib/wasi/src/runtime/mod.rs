@@ -2,8 +2,6 @@ pub mod module_cache;
 pub mod resolver;
 pub mod task_manager;
 
-use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
-
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 
 use std::{
@@ -11,12 +9,19 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use anyhow::Context;
 use derivative::Derivative;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
+use wasmer::Module;
 
-use crate::runtime::{
-    module_cache::ModuleCache,
-    resolver::{PackageResolver, RegistryResolver},
+use crate::{
+    http::DynHttpClient,
+    os::TtyBridge,
+    runtime::{
+        module_cache::{CacheError, ModuleCache, ModuleHash},
+        resolver::{PackageResolver, RegistryResolver},
+    },
+    WasiTtyState,
 };
 
 /// Represents an implementation of the WASI runtime - by default everything is
@@ -181,6 +186,10 @@ impl WasiRuntime for PluggableRuntime {
         Arc::clone(&self.resolver)
     }
 
+    fn engine(&self) -> Option<wasmer::Engine> {
+        self.engine.clone()
+    }
+
     fn new_store(&self) -> wasmer::Store {
         self.engine
             .clone()
@@ -199,4 +208,41 @@ impl WasiRuntime for PluggableRuntime {
     fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
         self.module_cache.clone()
     }
+}
+
+/// Compile a module, trying to use a pre-compiled version if possible.
+pub(crate) fn compile_module(
+    wasm: &[u8],
+    runtime: &dyn WasiRuntime,
+) -> Result<Module, anyhow::Error> {
+    let engine = runtime.engine().context("No engine provided")?;
+    let task_manager = runtime.task_manager().clone();
+    let module_cache = runtime.module_cache();
+
+    let hash = ModuleHash::sha256(wasm);
+    let result = task_manager.block_on(module_cache.load(hash, &engine));
+
+    match result {
+        Ok(module) => return Ok(module),
+        Err(CacheError::NotFound) => {}
+        Err(other) => {
+            tracing::warn!(
+                %hash,
+                error=&other as &dyn std::error::Error,
+                "Unable to load the cached module",
+            );
+        }
+    }
+
+    let module = Module::new(&engine, wasm)?;
+
+    if let Err(e) = task_manager.block_on(module_cache.save(hash, &engine, &module)) {
+        tracing::warn!(
+            %hash,
+            error=&e as &dyn std::error::Error,
+            "Unable to cache the compiled module",
+        );
+    }
+
+    Ok(module)
 }

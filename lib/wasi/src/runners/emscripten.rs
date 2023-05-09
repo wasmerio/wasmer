@@ -1,5 +1,7 @@
 //! WebC container support for running Emscripten modules
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context, Error};
 use serde::{Deserialize, Serialize};
 use wasmer::{FunctionEnv, Instance, Module, Store};
@@ -12,20 +14,17 @@ use webc::{
     Container,
 };
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+use crate::WasiRuntime;
+
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
     args: Vec<String>,
-    #[serde(skip, default)]
-    store: Store,
 }
 
 impl EmscriptenRunner {
     /// Constructs a new `EmscriptenRunner` given an `Store`
-    pub fn new(store: Store) -> Self {
-        Self {
-            args: Vec::new(),
-            store,
-        }
+    pub fn new() -> Self {
+        EmscriptenRunner::default()
     }
 
     /// Returns the current arguments for this `EmscriptenRunner`
@@ -53,7 +52,12 @@ impl crate::runners::Runner for EmscriptenRunner {
     }
 
     #[allow(unreachable_code, unused_variables)]
-    fn run_command(&mut self, command_name: &str, container: &Container) -> Result<(), Error> {
+    fn run_command(
+        &mut self,
+        command_name: &str,
+        container: &Container,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    ) -> Result<(), Error> {
         let command = container
             .manifest()
             .commands
@@ -71,13 +75,14 @@ impl crate::runners::Runner for EmscriptenRunner {
             .get(&atom_name)
             .with_context(|| format!("Unable to read the \"{atom_name}\" atom"))?;
 
-        let mut module = Module::new(&self.store, atom_bytes)?;
+        let mut module = crate::runtime::compile_module(atom_bytes, &*runtime)?;
         module.set_name(&atom_name);
 
-        let (mut globals, env) = prepare_emscripten_env(&mut self.store, &module, &atom_name)?;
+        let mut store = runtime.new_store();
+        let (mut globals, env) = prepare_emscripten_env(&mut store, &module, &atom_name)?;
 
         exec_module(
-            &mut self.store,
+            &mut store,
             &module,
             &mut globals,
             env,
