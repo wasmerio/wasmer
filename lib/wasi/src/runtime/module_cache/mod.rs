@@ -1,11 +1,11 @@
-mod and_then;
+mod fallback;
 mod filesystem;
 mod shared;
 mod thread_local;
 mod types;
 
 pub use self::{
-    and_then::AndThen,
+    fallback::FallbackCache,
     filesystem::FileSystemCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,

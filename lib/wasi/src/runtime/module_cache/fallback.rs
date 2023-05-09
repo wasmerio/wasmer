@@ -2,19 +2,36 @@ use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
 
-/// A [`ModuleCache`] combinator which will try operations on one cache
-/// and fall back to a secondary cache if they fail.
+/// [`FallbackCache`] is a combinator for the [`ModuleCache`] trait that enables
+/// the chaining of two caching strategies together, typically via
+/// [`ModuleCache::with_fallback()`].
 ///
-/// Constructed via [`ModuleCache::and_then()`].
+/// All operations are attempted using primary cache first, and if that fails,
+/// falls back to using the fallback cache. By chaining different caches
+/// together with [`FallbackCache`], you can create a caching hierarchy tailored
+/// to your application's specific needs, balancing performance, resource usage,
+/// and persistence.
+///
+/// A key assumption of [`FallbackCache`] is that **all operations on the
+/// fallback implementation will be significantly slower than the primary one**.
+///
+/// ## Cache Promotion
+///
+/// Whenever there is a cache miss on the primary cache and the fallback is
+/// able to load a module, that module is automatically added to the primary
+/// cache to improve the speed of future lookups.
+///
+/// This "cache promotion" strategy helps keep frequently accessed modules in
+/// the faster primary cache.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AndThen<Primary, Secondary> {
+pub struct FallbackCache<Primary, Fallback> {
     primary: Primary,
-    secondary: Secondary,
+    fallback: Fallback,
 }
 
-impl<Primary, Secondary> AndThen<Primary, Secondary> {
-    pub(crate) fn new(primary: Primary, secondary: Secondary) -> Self {
-        AndThen { primary, secondary }
+impl<Primary, Fallback> FallbackCache<Primary, Fallback> {
+    pub(crate) fn new(primary: Primary, fallback: Fallback) -> Self {
+        FallbackCache { primary, fallback }
     }
 
     pub fn primary(&self) -> &Primary {
@@ -25,25 +42,25 @@ impl<Primary, Secondary> AndThen<Primary, Secondary> {
         &mut self.primary
     }
 
-    pub fn secondary(&self) -> &Secondary {
-        &self.secondary
+    pub fn fallback(&self) -> &Fallback {
+        &self.fallback
     }
 
-    pub fn secondary_mut(&mut self) -> &mut Secondary {
-        &mut self.secondary
+    pub fn fallback_mut(&mut self) -> &mut Fallback {
+        &mut self.fallback
     }
 
-    pub fn into_inner(self) -> (Primary, Secondary) {
-        let AndThen { primary, secondary } = self;
-        (primary, secondary)
+    pub fn into_inner(self) -> (Primary, Fallback) {
+        let FallbackCache { primary, fallback } = self;
+        (primary, fallback)
     }
 }
 
 #[async_trait::async_trait]
-impl<Primary, Secondary> ModuleCache for AndThen<Primary, Secondary>
+impl<Primary, Fallback> ModuleCache for FallbackCache<Primary, Fallback>
 where
     Primary: ModuleCache + Send + Sync,
-    Secondary: ModuleCache + Send + Sync,
+    Fallback: ModuleCache + Send + Sync,
 {
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let primary_error = match self.primary.load(key, engine).await {
@@ -51,14 +68,14 @@ where
             Err(e) => e,
         };
 
-        if let Ok(m) = self.secondary.load(key, engine).await {
-            // Now we've got a module, let's make sure it ends up in the primary
-            // cache too.
+        if let Ok(m) = self.fallback.load(key, engine).await {
+            // Now we've got a module, let's make sure it is promoted to the
+            // primary cache.
             if let Err(e) = self.primary.save(key, engine, &m).await {
                 tracing::warn!(
                     %key,
                     error = &e as &dyn std::error::Error,
-                    "Unable to save a module to the primary cache",
+                    "Unable to promote a module to the primary cache",
                 );
             }
 
@@ -76,7 +93,7 @@ where
     ) -> Result<(), CacheError> {
         futures::try_join!(
             self.primary.save(key, engine, module),
-            self.secondary.save(key, engine, module)
+            self.fallback.save(key, engine, module)
         )?;
         Ok(())
     }
@@ -164,11 +181,11 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::from_raw([0; 32]);
         let primary = SharedCache::default();
-        let secondary = SharedCache::default();
+        let fallback = SharedCache::default();
         primary.save(key, &engine, &module).await.unwrap();
         let primary = Spy::new(primary);
-        let secondary = Spy::new(secondary);
-        let cache = AndThen::new(&primary, &secondary);
+        let fallback = Spy::new(fallback);
+        let cache = FallbackCache::new(&primary, &fallback);
 
         let got = cache.load(key, &engine).await.unwrap();
 
@@ -176,32 +193,32 @@ mod tests {
         assert_eq!(module, got);
         assert_eq!(primary.success(), 1);
         assert_eq!(primary.failures(), 0);
-        // but the secondary wasn't touched at all
-        assert_eq!(secondary.success(), 0);
-        assert_eq!(secondary.failures(), 0);
-        // And the secondary still doesn't have our module
-        assert!(secondary.load(key, &engine).await.is_err());
+        // but the fallback wasn't touched at all
+        assert_eq!(fallback.success(), 0);
+        assert_eq!(fallback.failures(), 0);
+        // And the fallback still doesn't have our module
+        assert!(fallback.load(key, &engine).await.is_err());
     }
 
     #[tokio::test]
-    async fn loading_from_secondary_also_populates_primary() {
+    async fn loading_from_fallback_also_populates_primary() {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::from_raw([0; 32]);
         let primary = SharedCache::default();
-        let secondary = SharedCache::default();
-        secondary.save(key, &engine, &module).await.unwrap();
+        let fallback = SharedCache::default();
+        fallback.save(key, &engine, &module).await.unwrap();
         let primary = Spy::new(primary);
-        let secondary = Spy::new(secondary);
-        let cache = AndThen::new(&primary, &secondary);
+        let fallback = Spy::new(fallback);
+        let cache = FallbackCache::new(&primary, &fallback);
 
         let got = cache.load(key, &engine).await.unwrap();
 
         // We should have received the same module
         assert_eq!(module, got);
-        // We got a hit on the secondary
-        assert_eq!(secondary.success(), 1);
-        assert_eq!(secondary.failures(), 0);
+        // We got a hit on the fallback
+        assert_eq!(fallback.success(), 1);
+        assert_eq!(fallback.failures(), 0);
         // the load() on our primary failed
         assert_eq!(primary.failures(), 1);
         // but afterwards, we updated the primary cache with our module
@@ -215,12 +232,12 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::from_raw([0; 32]);
         let primary = SharedCache::default();
-        let secondary = SharedCache::default();
-        let cache = AndThen::new(&primary, &secondary);
+        let fallback = SharedCache::default();
+        let cache = FallbackCache::new(&primary, &fallback);
 
         cache.save(key, &engine, &module).await.unwrap();
 
         assert_eq!(primary.load(key, &engine).await.unwrap(), module);
-        assert_eq!(secondary.load(key, &engine).await.unwrap(), module);
+        assert_eq!(fallback.load(key, &engine).await.unwrap(), module);
     }
 }
