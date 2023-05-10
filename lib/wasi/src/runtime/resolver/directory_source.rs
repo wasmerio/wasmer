@@ -8,7 +8,7 @@ use crate::runtime::resolver::{PackageSpecifier, Source, SourceId, SourceKind, S
 /// A [`Source`] which uses the `*.webc` files in a particular directory to
 /// resolve dependencies.
 ///
-/// This is typically used during testing to inject well-known packages into the
+/// This is typically used during testing to inject certain packages into the
 /// dependency resolution process.
 #[derive(Debug, Clone)]
 pub struct DirectorySource {
