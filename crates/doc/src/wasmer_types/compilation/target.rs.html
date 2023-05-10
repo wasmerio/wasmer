@@ -210,6 +210,7 @@
 <span id="210">210</span>
 <span id="211">211</span>
 <span id="212">212</span>
+<span id="213">213</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Target configuration
 
 </span><span class="comment">// The clippy::use_self exception is due to a false positive indicating that
@@ -217,7 +218,8 @@
 // type itself has no effect, therefore it&#39;s disabled for the whole module.
 // Feel free to remove this allow attribute once the bug is fixed.
 // See https://github.com/rust-lang/rust-clippy/issues/6902
-</span><span class="attribute">#![allow(clippy::use_self)]
+// Same things is now happening with unused-unit for the EnumSetType derivative
+</span><span class="attribute">#![allow(clippy::unused_unit, clippy::use_self)]
 
 </span><span class="kw">use </span><span class="kw">crate</span>::error::ParseCpuFeatureError;
 <span class="kw">use </span>enumset::{EnumSet, EnumSetType};
