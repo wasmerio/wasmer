@@ -13,6 +13,10 @@ pub struct WapmSource {
 impl WapmSource {
     pub const WAPM_DEV_ENDPOINT: &str = "https://registry.wapm.dev/graphql";
     pub const WAPM_PROD_ENDPOINT: &str = "https://registry.wapm.io/graphql";
+
+    pub fn new(registry_endpoint: Url) -> Self {
+        WapmSource { registry_endpoint }
+    }
 }
 
 #[async_trait::async_trait]
