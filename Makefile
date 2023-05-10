@@ -18,15 +18,15 @@ SHELL=/usr/bin/env bash
 #
 # Here is what works and what doesn't:
 #
-# * Cranelift works everywhere,
+# * Cranelift works everywhere except */`loongarch64`,
 #
 # * LLVM works on Linux+Darwin/`amd64`,
-#   and linux+`aarch64`, linux+`riscv`
+#   and linux+`aarch64`, linux+`riscv`, linux+`loongarch64`
 #   but it doesn't work on Darwin/`aarch64` or Windows/`aarch64`.
 #
 # * Singlepass works on Linux+Darwin+Windows/`amd64`,
 #   and Linux+Darwin/`aarch64`
-#   it doesn't work on */`riscv`.
+#   it doesn't work on */`riscv` or */`loongarch64`.
 #
 # * Windows isn't tested on `aarch64`, that's why we consider it's not
 #   working, but it might possibly be.
@@ -48,6 +48,7 @@ IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
 IS_RISCV64 := 0
+IS_LOONGARCH64 := 0
 
 # Test Windows apart because it doesn't support `uname -s`.
 ifeq ($(OS), Windows_NT)
@@ -80,11 +81,13 @@ else
 		IS_AARCH64 := 1
 	else ifneq (, $(filter $(uname), riscv64))
 		IS_RISCV64 := 1
+	else ifneq (, $(filter $(uname), loongarch64))
+		IS_LOONGARCH64 := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
 		# otherwise it's considered as a command outside a
 		# target and it will fail.
-                $(error Unrecognized architecture, expect `x86_64`, `aarch64`, `arm64`, 'riscv64')
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64`, `arm64`, 'riscv64', 'loongarch64')
 	endif
 
 	# Libc
@@ -242,6 +245,8 @@ ifeq ($(ENABLE_LLVM), 1)
 		else ifeq ($(IS_AARCH64), 1)
 			compilers_engines += llvm-universal
 		else ifeq ($(IS_RISCV64), 1)
+			compilers_engines += llvm-universal
+		else ifeq ($(IS_LOONGARCH64), 1)
 			compilers_engines += llvm-universal
 		endif
 	endif

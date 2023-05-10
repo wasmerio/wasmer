@@ -187,7 +187,7 @@ clap = { version = "4.2.7", default-features = false, features = [
   "env",
 ] }
 
-[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
+[target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies]
 reqwest = { version = "^0.11", default-features = false, features = [
   "rustls-tls",
   "json",
@@ -195,7 +195,7 @@ reqwest = { version = "^0.11", default-features = false, features = [
   "gzip",
 ] }
 
-[target.'cfg(target_arch = "riscv64")'.dependencies]
+[target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
 reqwest = { version = "^0.11", default-features = false, features = [
   "native-tls",
   "json",
