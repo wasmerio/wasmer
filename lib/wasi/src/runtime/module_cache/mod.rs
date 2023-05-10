@@ -1,3 +1,36 @@
+//! Cache pre-compiled [`wasmer::Module`]s.
+//!
+//! The core of this module is the [`ModuleCache`] trait, which is designed to
+//! be implemented by different cache storage strategies, such as in-memory
+//! caches ([`SharedCache`] and [`ThreadLocalCache`]), file-based caches
+//! ([`FileSystemCache`]), or distributed caches. Implementing custom caching
+//! strategies allows you to optimize for your specific use case.
+//!
+//! ## Assumptions and Requirements
+//!
+//! The `module_cache` module makes several assumptions:
+//!
+//! - Cache keys are unique, typically derived from the original `*.wasm` or
+//!   `*.wat` file, and using the same key to load or save will always result in
+//!   the "same" module.
+//! - The [`ModuleCache::load()`] method will be called more often than the
+//!   [`ModuleCache::save()`] method, allowing for cache implementations to
+//!   optimize their strategy accordingly.
+//!
+//! Cache implementations are encouraged to take [`Engine::deterministic_id()`]
+//! into account when saving and loading cached modules to ensure correct module
+//! retrieval.
+//!
+//! Cache implementations should choose a suitable eviction policy and implement
+//! invalidation transparently as part of [`ModuleCache::load()`] or
+//! [`ModuleCache::save()`].
+//!
+//! ## Combinators
+//!
+//! The `module_cache` module provides combinators for extending and combining
+//! caching strategies. For example, you could use the [`FallbackCache`] to
+//! chain a fast in-memory cache with a slower file-based cache as a fallback.
+
 mod fallback;
 mod filesystem;
 mod shared;

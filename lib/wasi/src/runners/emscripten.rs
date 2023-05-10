@@ -16,7 +16,7 @@ use webc::{
 
 use crate::WasiRuntime;
 
-#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
     args: Vec<String>,
 }
