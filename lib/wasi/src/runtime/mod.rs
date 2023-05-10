@@ -17,7 +17,7 @@ use crate::{
     os::TtyBridge,
     runtime::{
         module_cache::ModuleCache,
-        resolver::{PackageResolver, RegistryResolver},
+        resolver::{LegacyResolver, PackageResolver},
     },
     WasiTtyState,
 };
@@ -123,7 +123,7 @@ impl PluggableRuntime {
             crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
         let resolver =
-            RegistryResolver::from_env().expect("Loading the builtin resolver should never fail");
+            LegacyResolver::from_env().expect("Loading the builtin resolver should never fail");
 
         Self {
             rt,
