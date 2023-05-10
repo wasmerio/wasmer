@@ -20,7 +20,7 @@ use wasmer_wasix::{
     runners::MappedDirectory,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
-        resolver::{PackageResolver, RegistryResolver},
+        resolver::{LegacyResolver, PackageResolver},
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
@@ -448,11 +448,11 @@ impl Wasi {
             resolver.add_preload(pkg);
         }
 
-        Ok(resolver.with_cache())
+        Ok(resolver)
     }
 }
 
-fn wapm_resolver(wasmer_home: &Path) -> Result<RegistryResolver, anyhow::Error> {
+fn wapm_resolver(wasmer_home: &Path) -> Result<LegacyResolver, anyhow::Error> {
     // FIXME(Michael-F-Bryan): Ideally, all of this would in the
     // RegistryResolver::from_env() constructor, but we don't want to add
     // wasmer-registry as a dependency of wasmer-wasix just yet.
@@ -465,7 +465,9 @@ fn wapm_resolver(wasmer_home: &Path) -> Result<RegistryResolver, anyhow::Error> 
         .parse()
         .with_context(|| format!("Unable to parse \"{registry}\" as a URL"))?;
 
-    Ok(RegistryResolver::new(cache_dir, registry))
+    let client = wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
+
+    Ok(LegacyResolver::new(cache_dir, registry, Arc::new(client)))
 }
 
 fn preload_webc(path: &Path) -> Result<BinaryPackage> {

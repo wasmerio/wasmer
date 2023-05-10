@@ -95,9 +95,8 @@ impl CmdWasmer {
 
     pub async fn get_package(&self, name: String) -> Option<BinaryPackage> {
         let resolver = self.runtime.package_resolver();
-        let client = self.runtime.http_client()?;
         let pkg = name.parse().ok()?;
-        resolver.resolve_package(&pkg, &client).await.ok()
+        resolver.load_package(&pkg).await.ok()
     }
 }
 

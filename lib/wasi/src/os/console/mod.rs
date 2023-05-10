@@ -29,7 +29,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::WebcIdentifier,
+    runtime::resolver::PackageSpecifier,
     SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -222,20 +222,16 @@ impl Console {
             tasks.block_on(self.draw_welcome());
         }
 
-        let webc_ident: WebcIdentifier = match webc.parse() {
+        let webc_ident: PackageSpecifier = match webc.parse() {
             Ok(ident) => ident,
             Err(e) => {
                 tracing::debug!(webc, error = &*e, "Unable to parse the WEBC identifier");
                 return Err(SpawnError::BadRequest);
             }
         };
-        let client = self.runtime.http_client().ok_or(SpawnError::UnknownError)?;
 
-        let resolved_package = tasks.block_on(
-            self.runtime
-                .package_resolver()
-                .resolve_package(&webc_ident, &client),
-        );
+        let resolved_package =
+            tasks.block_on(self.runtime.package_resolver().load_package(&webc_ident));
 
         let binary = if let Ok(binary) = resolved_package {
             binary

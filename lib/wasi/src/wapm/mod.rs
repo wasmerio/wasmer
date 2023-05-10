@@ -105,7 +105,7 @@ fn wapm_extract_version(data: &WapmWebQuery) -> Option<PiritaVersionedDownload> 
 
 pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> {
     let webc = Container::from_bytes(data)?;
-    parse_webc_v2(&webc).with_context(|| "Could not parse webc".to_string())
+    parse_webc(&webc).with_context(|| "Could not parse webc".to_string())
 }
 
 async fn download_webc(
@@ -141,7 +141,7 @@ async fn download_webc(
 
         match Container::from_disk(&path) {
             Ok(webc) => {
-                return parse_webc_v2(&webc)
+                return parse_webc(&webc)
                     .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
             }
             Err(err) => {
@@ -200,7 +200,7 @@ async fn download_webc(
 
         match Container::from_disk(&path) {
             Ok(webc) => {
-                return parse_webc_v2(&webc)
+                return parse_webc(&webc)
                     .with_context(|| format!("Could not parse webc at path '{}'", path.display()))
             }
             Err(e) => {
@@ -215,7 +215,7 @@ async fn download_webc(
 
     let webc = Container::from_bytes(data)
         .with_context(|| format!("Failed to parse downloaded from '{pirita_download_url}'"))?;
-    let package = parse_webc_v2(&webc).context("Could not parse binary package")?;
+    let package = parse_webc(&webc).context("Could not parse binary package")?;
 
     Ok(package)
 }
@@ -241,7 +241,7 @@ async fn download_package(
     response.body.context("HTTP response with empty body")
 }
 
-fn parse_webc_v2(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
+pub(crate) fn parse_webc(webc: &Container) -> Result<BinaryPackage, anyhow::Error> {
     let manifest = webc.manifest();
 
     let wapm: webc::metadata::annotations::Wapm = manifest
@@ -435,7 +435,7 @@ mod tests {
     fn parse_the_python_webc_file() {
         let python = webc::compat::Container::from_bytes(PYTHON).unwrap();
 
-        let pkg = parse_webc_v2(&python).unwrap();
+        let pkg = parse_webc(&python).unwrap();
 
         assert_eq!(pkg.package_name, "python");
         assert_eq!(pkg.version.to_string(), "0.1.0");
@@ -468,7 +468,7 @@ mod tests {
     fn parse_a_webc_with_multiple_commands() {
         let coreutils = Container::from_bytes(COREUTILS).unwrap();
 
-        let pkg = parse_webc_v2(&coreutils).unwrap();
+        let pkg = parse_webc(&coreutils).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/coreutils");
         assert_eq!(pkg.version.to_string(), "1.0.16");
@@ -599,7 +599,7 @@ mod tests {
     fn parse_a_webc_with_dependencies() {
         let bash = webc::compat::Container::from_bytes(BASH).unwrap();
 
-        let pkg = parse_webc_v2(&bash).unwrap();
+        let pkg = parse_webc(&bash).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/bash");
         assert_eq!(pkg.version.to_string(), "1.0.16");
