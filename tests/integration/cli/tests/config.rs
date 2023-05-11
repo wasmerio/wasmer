@@ -65,17 +65,16 @@ fn wasmer_config_error() -> anyhow::Result<()> {
         .map(|s| s.trim().to_string())
         .collect::<Vec<_>>();
     #[cfg(not(windows))]
-    let expected_1 = "wasmer config --bindir --cflags";
+    let expected_1 = "Usage: wasmer config --bindir --cflags";
     #[cfg(windows)]
-    let expected_1 = "wasmer.exe config --bindir --cflags";
+    let expected_1 = "Usage: wasmer.exe config --bindir --cflags";
 
     let expected = vec![
-        "error: The argument '--bindir' cannot be used with '--pkg-config'",
+        "error: the argument '--bindir' cannot be used with '--pkg-config'",
         "",
-        "USAGE:",
         expected_1,
         "",
-        "For more information try --help",
+        "For more information, try '--help'.",
     ];
 
     assert_eq!(lines, expected);

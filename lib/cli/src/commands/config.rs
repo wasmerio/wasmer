@@ -20,31 +20,31 @@ pub struct Config {
 #[derive(Debug, Parser)]
 pub struct Flags {
     /// Print the installation prefix.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     prefix: bool,
 
     /// Directory containing Wasmer executables.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     bindir: bool,
 
     /// Directory containing Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     includedir: bool,
 
     /// Directory containing Wasmer libraries.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libdir: bool,
 
     /// Libraries needed to link against Wasmer components.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libs: bool,
 
     /// C compiler flags for files that include Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     cflags: bool,
 
     /// Print the path to the wasmer configuration file where all settings are stored
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     config_path: bool,
 
     /// Outputs the necessary details for compiling
