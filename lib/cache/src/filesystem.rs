@@ -103,7 +103,7 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        let ret = Module::deserialize_from_file(engine, path.clone());
+        let ret = Module::deserialize_from_file_checked(engine, path.clone());
         if ret.is_err() {
             // If an error occurs while deserializing then we can not trust it anymore
             // so delete the cache file
