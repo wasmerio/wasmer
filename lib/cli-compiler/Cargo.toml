@@ -23,7 +23,7 @@ wasmer-types = { version = "=3.3.0", path = "../types" }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
-clap = { version = "3.1", features = ["derive"] }
+clap = { version = "4.2.7", features = ["derive"] }
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand

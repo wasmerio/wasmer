@@ -27,7 +27,7 @@ pub(crate) use wasi::Wasi;
 #[derive(Debug, Parser, Clone)]
 pub struct Run {
     /// File to run
-    #[clap(name = "SOURCE", parse(try_from_str))]
+    #[clap(name = "SOURCE")]
     pub(crate) path: PackageSource,
     /// Options to run the file / package / URL with
     #[clap(flatten)]
@@ -84,7 +84,7 @@ pub struct RunWithoutFile {
     pub(crate) wcgi: WcgiOptions,
 
     /// Enable coredump generation after a WebAssembly trap.
-    #[clap(name = "COREDUMP PATH", long = "coredump-on-trap", parse(from_os_str))]
+    #[clap(name = "COREDUMP PATH", long = "coredump-on-trap")]
     coredump_on_trap: Option<PathBuf>,
 
     #[cfg(feature = "sys")]

@@ -57,7 +57,7 @@ pub struct RunUnstable {
     #[clap(short, long, aliases = &["command", "invoke"])]
     entrypoint: Option<String>,
     /// Generate a coredump at this path if a WebAssembly trap occurs
-    #[clap(name = "COREDUMP PATH", long, parse(from_os_str))]
+    #[clap(name = "COREDUMP PATH", long)]
     coredump_on_trap: Option<PathBuf>,
     /// The file, URL, or package to run.
     #[clap(value_parser = PackageSource::infer)]

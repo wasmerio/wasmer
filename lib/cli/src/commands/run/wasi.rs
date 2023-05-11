@@ -35,7 +35,7 @@ pub struct Wasi {
     #[clap(
         long = "mapdir",
         name = "GUEST_DIR:HOST_DIR",
-        parse(try_from_str = parse_mapdir),
+        value_parser=parse_mapdir,
     )]
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
 
@@ -43,7 +43,7 @@ pub struct Wasi {
     #[clap(
         long = "env",
         name = "KEY=VALUE",
-        parse(try_from_str = parse_envvar),
+        value_parser=parse_envvar,
     )]
     pub(crate) env_vars: Vec<(String, String)>,
 

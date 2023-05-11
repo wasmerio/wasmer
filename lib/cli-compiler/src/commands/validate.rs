@@ -9,7 +9,7 @@ use wasmer_types::{is_wasm, CpuFeature, Target, Triple};
 /// The options for the `wasmer validate` subcommand
 pub struct Validate {
     /// File to validate as WebAssembly
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     #[clap(flatten)]

@@ -15,14 +15,14 @@ use crate::commands::{
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
-use clap::{CommandFactory, ErrorKind, Parser};
+use clap::{error::ErrorKind, CommandFactory, Parser};
 
 #[derive(Parser, Debug)]
 #[cfg_attr(
     not(feature = "headless"),
     clap(
         name = "wasmer",
-        about = "WebAssembly standalone runtime.",
+        about = concat!("wasmer ", env!("CARGO_PKG_VERSION")),
         version,
         author
     )
@@ -31,7 +31,7 @@ use clap::{CommandFactory, ErrorKind, Parser};
     feature = "headless",
     clap(
         name = "wasmer-headless",
-        about = "WebAssembly standalone runtime (headless).",
+        about = concat!("wasmer ", env!("CARGO_PKG_VERSION")),
         version,
         author
     )
