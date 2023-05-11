@@ -26,16 +26,16 @@ const LINK_SYSTEM_LIBRARIES_UNIX: &[&str] = &["dl", "m", "pthread"];
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Optional directorey used for debugging: if present, will output the zig command
     /// for reproducing issues in a debug directory
-    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
     /// Prefix for every input file, e.g. "wat2wasm:sha256abc123" would
@@ -73,7 +73,7 @@ pub struct CreateExe {
     #[clap(long, name = "URL_OR_RELEASE_VERSION")]
     use_wasmer_release: Option<String>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     /// Additional libraries to link against.

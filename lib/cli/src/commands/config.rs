@@ -124,7 +124,9 @@ pub struct SetRegistryToken {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub struct SetUpdateNotificationsEnabled {
     /// Whether to enable update notifications
-    #[clap(name = "ENABLED", possible_values = ["true", "false"])]
+    ///
+    /// ("true" | "false")
+    #[clap(name = "ENABLED")]
     pub enabled: BoolString,
 }
 
@@ -143,7 +145,9 @@ impl std::str::FromStr for BoolString {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub struct SetTelemetryEnabled {
     /// Whether to enable telemetry
-    #[clap(name = "ENABLED", possible_values = ["true", "false"])]
+    ///
+    /// ("true" | "false")
+    #[clap(name = "ENABLED")]
     pub enabled: BoolString,
 }
 
