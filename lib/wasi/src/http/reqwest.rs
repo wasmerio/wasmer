@@ -55,7 +55,7 @@ impl ReqwestHttpClient {
 }
 
 impl super::HttpClient for ReqwestHttpClient {
-    fn request(&self, request: HttpRequest) -> BoxFuture<Result<HttpResponse, anyhow::Error>> {
+    fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
         let client = self.clone();
         let f = async move { client.request(request).await };
         Box::pin(f)

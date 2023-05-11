@@ -3,7 +3,7 @@ use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, Withou
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::js::as_js::{param_from_js, AsJs}; /* ValFuncRef */
 use crate::js::store::{InternalStoreHandle, StoreHandle};
-use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionEnvironment};
+use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
@@ -308,7 +308,7 @@ impl fmt::Debug for Function {
 /// more.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WasmFunction<Args = (), Rets = ()> {
-    address: *const VMFunctionBody,
+    address: VMFunctionCallback,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -327,7 +327,7 @@ where
         T: Sized,
     {
         Self {
-            address: function.function_body_ptr(),
+            address: function.function_callback(),
             _phantom: PhantomData,
         }
     }
@@ -340,7 +340,7 @@ where
 
     /// Get the address of this `WasmFunction`.
     #[allow(dead_code)]
-    pub fn address(&self) -> *const VMFunctionBody {
+    pub fn address(&self) -> VMFunctionCallback {
         self.address
     }
 }
@@ -365,7 +365,7 @@ macro_rules! impl_host_function {
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(&self) -> *const VMFunctionBody {
+                fn function_callback(&self) -> VMFunctionCallback {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -394,15 +394,15 @@ macro_rules! impl_host_function {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),
                             #[allow(deprecated)]
                             #[cfg(feature = "std")]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
                             Err(_panic) => unimplemented!(),
                         }
                     }
 
-                    func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                    func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as VMFunctionCallback
                 }
             }
 
@@ -419,7 +419,7 @@ macro_rules! impl_host_function {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(&self) -> *const VMFunctionBody {
+                fn function_callback(&self) -> VMFunctionCallback {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -442,15 +442,15 @@ macro_rules! impl_host_function {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),
                             #[cfg(feature = "std")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => RuntimeError::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
                             Err(_panic) => unimplemented!(),
                         }
                     }
 
-                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as VMFunctionCallback
                 }
             }
         };

@@ -68,6 +68,7 @@ use wasmer_api::{CpuFeature, Target, Triple};
 #[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasmer_target_t {
+    #[allow(unused)]
     pub(crate) inner: Target,
 }
 

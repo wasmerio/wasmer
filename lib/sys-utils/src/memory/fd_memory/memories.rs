@@ -13,7 +13,9 @@ use std::{
 
 use wasmer::{Bytes, MemoryError, MemoryType, Pages};
 use wasmer_types::MemoryStyle;
-use wasmer_vm::{LinearMemory, MaybeInstanceOwned, Trap, VMMemoryDefinition};
+use wasmer_vm::{
+    LinearMemory, MaybeInstanceOwned, ThreadConditions, Trap, VMMemoryDefinition, WaiterError,
+};
 
 use super::fd_mmap::FdMmap;
 
@@ -297,6 +299,7 @@ impl VMOwnedMemory {
         VMSharedMemory {
             mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
+            conditions: ThreadConditions::new(),
         }
     }
 
@@ -341,6 +344,7 @@ impl LinearMemory for VMOwnedMemory {
 
     /// Owned memory can not be cloned (this will always return None)
     fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+        tracing::warn!("trying to clone owned memory");
         None
     }
 
@@ -358,6 +362,7 @@ pub struct VMSharedMemory {
     mmap: Arc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
+    conditions: ThreadConditions,
 }
 
 unsafe impl Send for VMSharedMemory {}
@@ -393,6 +398,7 @@ impl VMSharedMemory {
         Ok(Self {
             mmap: Arc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
+            conditions: ThreadConditions::new(),
         })
     }
 }
@@ -442,6 +448,18 @@ impl LinearMemory for VMSharedMemory {
     fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
+    }
+
+    fn do_wait(
+        &mut self,
+        dst: wasmer_vm::NotifyLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, WaiterError> {
+        self.conditions.do_wait(dst, timeout)
+    }
+
+    fn do_notify(&mut self, dst: wasmer_vm::NotifyLocation, count: u32) -> u32 {
+        self.conditions.do_notify(dst, count)
     }
 }
 

@@ -3,7 +3,7 @@
 //! Note that you will need to manually compile the `wasmer` CLI in release mode
 //! before running any of these tests.
 use std::{
-    io::Read,
+    io::{ErrorKind, Read},
     process::Stdio,
     time::{Duration, Instant},
 };
@@ -15,10 +15,17 @@ use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 const RUST_LOG: &str = "info,wasmer_wasi::runners=debug,virtual_fs::trace_fs=trace";
+const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn wasmer_run_unstable() -> std::process::Command {
-    let mut cmd = std::process::Command::new(get_wasmer_path());
-    cmd.env("RUST_LOG", RUST_LOG).arg("run-unstable");
+    let mut cmd = std::process::Command::new("cargo");
+    cmd.arg("run")
+        .arg("--quiet")
+        .arg("--package=wasmer-cli")
+        .arg("--features=singlepass,cranelift")
+        .arg("--")
+        .arg("run-unstable");
+    cmd.env("RUST_LOG", RUST_LOG);
     cmd
 }
 
@@ -122,7 +129,10 @@ mod webc_on_disk {
         let mut cmd = wasmer_run_unstable();
         cmd.arg(format!("--addr=127.0.0.1:{port}"))
             .arg(fixtures::static_server());
-        let child = JoinableChild::spawn(cmd);
+
+        // Let's run the command and wait until the server has started
+        let mut child = JoinableChild::spawn(cmd);
+        child.wait_for_stdout("WCGI Server running");
 
         // make the request
         let body = http_get(format!("http://127.0.0.1:{port}/")).unwrap();
@@ -156,7 +166,10 @@ mod webc_on_disk {
         cmd.arg(format!("--addr=127.0.0.1:{port}"))
             .arg(format!("--mapdir=/path/to:{}", temp.path().display()))
             .arg(fixtures::static_server());
-        let child = JoinableChild::spawn(cmd);
+
+        // Let's run the command and wait until the server has started
+        let mut child = JoinableChild::spawn(cmd);
+        child.wait_for_stdout("WCGI Server running");
 
         let body = http_get(format!("http://127.0.0.1:{port}/path/to/file.txt")).unwrap();
         assert!(body.contains("Hello, World!"), "{body}");
@@ -365,6 +378,28 @@ impl JoinableChild {
         JoinableChild(Some(child))
     }
 
+    /// Keep reading lines from the child's stdout until a line containing the
+    /// desired text is found.
+    fn wait_for_stdout(&mut self, text: &str) -> String {
+        let stderr = self
+            .0
+            .as_mut()
+            .and_then(|child| child.stdout.as_mut())
+            .unwrap();
+
+        let mut all_output = String::new();
+
+        loop {
+            let line = read_line(stderr).unwrap();
+            let found = line.contains(text);
+            all_output.push_str(&line);
+
+            if found {
+                return all_output;
+            }
+        }
+    }
+
     /// Kill the underlying [`std::process::Child`] and get an [`Assert`] we
     /// can use to check it.
     fn join(mut self) -> Assert {
@@ -372,6 +407,24 @@ impl JoinableChild {
         child.kill().unwrap();
         child.wait_with_output().unwrap().assert()
     }
+}
+
+fn read_line(reader: &mut dyn Read) -> Result<String, std::io::Error> {
+    let mut line = Vec::new();
+
+    while !line.ends_with(&[b'\n']) {
+        let mut buffer = [0_u8];
+        match reader.read_exact(&mut buffer) {
+            Ok(_) => {
+                line.push(buffer[0]);
+            }
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => break,
+            Err(e) => return Err(e),
+        }
+    }
+
+    let line = String::from_utf8(line).map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+    Ok(line)
 }
 
 impl Drop for JoinableChild {
@@ -389,6 +442,14 @@ impl Drop for JoinableChild {
                 }
             }
 
+            if let Some(mut stdout) = child.stdout.take() {
+                let mut buffer = String::new();
+                if stdout.read_to_string(&mut buffer).is_ok() {
+                    eprintln!("---- STDOUT ----");
+                    eprintln!("{buffer}");
+                }
+            }
+
             if !std::thread::panicking() {
                 panic!("Child was dropped before being joined");
             }
@@ -400,12 +461,11 @@ impl Drop for JoinableChild {
 /// a timeout) if there are any connection errors.
 fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
     let start = Instant::now();
-    let timeout = Duration::from_secs(5);
     let url = url.into_url().unwrap();
 
     let client = Client::new();
 
-    while start.elapsed() < timeout {
+    while start.elapsed() < HTTP_GET_TIMEOUT {
         match client.get(url.clone()).send() {
             Ok(response) => {
                 return response.error_for_status()?.text();

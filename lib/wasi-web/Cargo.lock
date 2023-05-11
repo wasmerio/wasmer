@@ -1964,7 +1964,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2057,7 +2057,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.2.5"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2241,7 +2241,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "3.2.0-beta.2"
+version = "3.2.1"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -2249,6 +2249,7 @@ dependencies = [
  "indexmap",
  "js-sys",
  "more-asserts",
+ "rustc-demangle",
  "serde",
  "serde-wasm-bindgen",
  "target-lexicon",
@@ -2266,7 +2267,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "3.2.0-beta.2"
+version = "3.2.1"
 dependencies = [
  "backtrace",
  "cfg-if",
@@ -2277,7 +2278,6 @@ dependencies = [
  "memmap2",
  "more-asserts",
  "region",
- "rustc-demangle",
  "smallvec",
  "thiserror",
  "wasmer-types",
@@ -2287,7 +2287,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "3.2.0-beta.2"
+version = "3.2.1"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2297,7 +2297,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "3.2.0-beta.2"
+version = "3.2.1"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -2311,7 +2311,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "3.2.0-beta.2"
+version = "3.2.1"
 dependencies = [
  "backtrace",
  "cc",
@@ -2336,7 +2336,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.2.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2384,7 +2384,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.2.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2484,9 +2484,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1938d2cbf3fa06c5254c27402403d24d34e1baece8edbdc2ec1ba1ebf7254803"
+checksum = "06bee486f9207604f99bfa3c95afcd03272d95db5872c6c1b11470be4390d514"
 dependencies = [
  "anyhow",
  "base64 0.21.0",

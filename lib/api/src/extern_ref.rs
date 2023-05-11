@@ -4,6 +4,8 @@ use crate::store::{AsStoreMut, AsStoreRef};
 
 #[cfg(feature = "js")]
 use crate::js::extern_ref as extern_ref_imp;
+#[cfg(feature = "jsc")]
+use crate::jsc::extern_ref as extern_ref_imp;
 #[cfg(feature = "sys")]
 use crate::sys::extern_ref as extern_ref_imp;
 use crate::vm::VMExternRef;

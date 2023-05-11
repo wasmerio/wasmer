@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, ops::Deref, sync::Arc};
 
 use futures::future::BoxFuture;
 
@@ -93,7 +93,18 @@ impl std::fmt::Debug for HttpResponse {
 
 pub trait HttpClient: std::fmt::Debug {
     // TODO: use custom error type!
-    fn request(&self, request: HttpRequest) -> BoxFuture<Result<HttpResponse, anyhow::Error>>;
+    fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>>;
+}
+
+impl<D, C> HttpClient for D
+where
+    D: Deref<Target = C> + std::fmt::Debug,
+    C: HttpClient + ?Sized + 'static,
+{
+    fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+        let client = &**self;
+        client.request(request)
+    }
 }
 
 pub type DynHttpClient = Arc<dyn HttpClient + Send + Sync + 'static>;

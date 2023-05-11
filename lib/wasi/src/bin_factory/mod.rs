@@ -1,21 +1,19 @@
 use std::{
     collections::HashMap,
     ops::Deref,
+    path::Path,
     sync::{Arc, RwLock},
 };
 
+use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 
 mod binary_package;
 mod exec;
-mod module_cache;
-
-use sha2::*;
 
 pub use self::{
     binary_package::*,
     exec::{spawn_exec, spawn_exec_module},
-    module_cache::ModuleCache,
 };
 use crate::{os::command::Commands, WasiRuntime};
 
@@ -23,19 +21,14 @@ use crate::{os::command::Commands, WasiRuntime};
 pub struct BinFactory {
     pub(crate) commands: Commands,
     runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    pub(crate) cache: Arc<ModuleCache>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
 }
 
 impl BinFactory {
-    pub fn new(
-        compiled_modules: Arc<ModuleCache>,
-        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    ) -> BinFactory {
+    pub fn new(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>) -> BinFactory {
         BinFactory {
-            commands: Commands::new_with_builtins(runtime.clone(), compiled_modules.clone()),
+            commands: Commands::new_with_builtins(runtime.clone()),
             runtime,
-            cache: compiled_modules,
             local: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -78,15 +71,17 @@ impl BinFactory {
         // Check the filesystem for the file
         if name.starts_with('/') {
             if let Some(fs) = fs {
-                if let Ok(mut file) = fs.new_open_options().read(true).open(name.clone()) {
-                    // Read the file
-                    let mut data = Vec::with_capacity(file.size() as usize);
-                    // TODO: log error?
-                    if file.read_to_end(&mut data).await.is_ok() {
-                        let package_name = name.split('/').last().unwrap_or(name.as_str());
-                        let data = BinaryPackage::new(package_name, Some(data.into()));
-                        cache.insert(name, Some(data.clone()));
-                        return Some(data);
+                match load_package_from_filesystem(fs, name.as_ref()).await {
+                    Ok(pkg) => {
+                        cache.insert(name, Some(pkg.clone()));
+                        return Some(pkg);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            path = name,
+                            error = &*e,
+                            "Unable to load the package from disk"
+                        );
                     }
                 }
             }
@@ -98,9 +93,19 @@ impl BinFactory {
     }
 }
 
-pub fn hash_of_binary(data: impl AsRef<[u8]>) -> String {
-    let mut hasher = Sha256::default();
-    hasher.update(data.as_ref());
-    let hash = hasher.finalize();
-    hex::encode(&hash[..])
+async fn load_package_from_filesystem(
+    fs: &dyn FileSystem,
+    path: &Path,
+) -> Result<BinaryPackage, anyhow::Error> {
+    let mut f = fs
+        .new_open_options()
+        .read(true)
+        .open(path)
+        .context("Unable to open the file")?;
+
+    let mut data = Vec::with_capacity(f.size() as usize);
+    f.read_to_end(&mut data).await.context("Read failed")?;
+    let pkg = crate::wapm::parse_static_webc(data).context("Unable to parse the package")?;
+
+    Ok(pkg)
 }

@@ -4,9 +4,9 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use super::trap::TrapInformation;
 use crate::entity::PrimaryMap;
 use crate::lib::std::vec::Vec;
+use crate::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap};
 use crate::{
     CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,

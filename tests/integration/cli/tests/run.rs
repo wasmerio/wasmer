@@ -663,7 +663,7 @@ fn run_test_caching_works_for_packages() -> anyhow::Result<()> {
         .output()?;
 
     if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the first time: stdout = {}, stderr = {}", 
+        panic!("failed to run https://wapm.io/python/python for the first time: stdout = {}, stderr = {}",
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
@@ -715,6 +715,8 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
         .output()?;
+
+    dbg!(&output);
 
     if output.stdout != b"hello\n".to_vec() {
         panic!("failed to run https://wapm.io/python/python for the second time");

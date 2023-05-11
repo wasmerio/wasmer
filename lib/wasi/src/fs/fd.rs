@@ -23,7 +23,7 @@ pub struct Fd {
     pub offset: Arc<AtomicU64>,
     /// Flags that determine how the [`Fd`] can be used.
     ///
-    /// Used when reopening a [`VirtualFile`] during [`WasiState`] deserialization.
+    /// Used when reopening a [`VirtualFile`] during deserialization.
     pub open_flags: u16,
     pub inode: InodeGuard,
     pub is_stdio: bool,
@@ -40,12 +40,12 @@ impl Fd {
     /// This [`Fd`] will delete everything before writing. Note that truncate
     /// permissions require the write permission.
     ///
-    /// This permission is currently unused when deserializing [`WasiState`].
+    /// This permission is currently unused when deserializing.
     pub const TRUNCATE: u16 = 8;
     /// This [`Fd`] may create a file before writing to it. Note that create
     /// permissions require write permissions.
     ///
-    /// This permission is currently unused when deserializing [`WasiState`].
+    /// This permission is currently unused when deserializing.
     pub const CREATE: u16 = 16;
 }
 
