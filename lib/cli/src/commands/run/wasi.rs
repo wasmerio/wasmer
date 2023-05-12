@@ -1,26 +1,31 @@
-use crate::anyhow::Context;
-use crate::utils::{parse_envvar, parse_mapdir};
-use anyhow::Result;
-use bytes::Bytes;
 use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc},
 };
+
+use anyhow::{Context, Result};
+use bytes::Bytes;
+use clap::Parser;
+use sha2::{Digest, Sha256};
+use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{
     AsStoreMut, Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
 };
 use wasmer_registry::WasmerConfig;
 use wasmer_wasix::{
-    bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
+    http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::MappedDirectory,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
-        resolver::{LegacyResolver, PackageResolver},
+        resolver::{
+            BuiltinLoader, MultiSourceRegistry, PackageLoader, PackageSpecifier, Registry, Source,
+            Summary, WapmSource,
+        },
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
@@ -28,8 +33,9 @@ use wasmer_wasix::{
     PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntime, WasiVersion,
 };
+use webc::Container;
 
-use clap::Parser;
+use crate::utils::{parse_envvar, parse_mapdir};
 
 use super::RunWithPathBuf;
 
@@ -244,14 +250,22 @@ impl Wasi {
 
         let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
 
-        let resolver = self
-            .prepare_resolver(&wasmer_home)
-            .context("Unable to prepare the package resolver")?;
+        let client =
+            wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
+        let client = Arc::new(client);
+
+        let package_loader = self
+            .prepare_package_loader(&wasmer_home, client.clone())
+            .context("Unable to prepare the package loader")?;
+
+        let registry = self.prepare_registry(&wasmer_home, client)?;
+
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(wasmer_home.join("compiled")));
 
-        rt.set_resolver(resolver)
+        rt.set_loader(package_loader)
             .set_module_cache(module_cache)
+            .set_registry(registry)
             .set_engine(Some(engine));
 
         Ok(rt)
@@ -439,39 +453,114 @@ impl Wasi {
         })
     }
 
-    fn prepare_resolver(&self, wasmer_home: &Path) -> Result<impl PackageResolver> {
-        let mut resolver = wapm_resolver(wasmer_home)?;
+    fn prepare_package_loader(
+        &self,
+        wasmer_home: &Path,
+        client: Arc<dyn HttpClient + Send + Sync>,
+    ) -> Result<impl PackageLoader + Send + Sync> {
+        let loader =
+            BuiltinLoader::new_with_client(wasmer_home.join("checkouts"), Arc::new(client));
+        Ok(loader)
+    }
 
-        for path in &self.include_webcs {
-            let pkg = preload_webc(path)
-                .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
-            resolver.add_preload(pkg);
+    fn prepare_registry(
+        &self,
+        wasmer_home: &Path,
+        client: Arc<dyn HttpClient + Send + Sync>,
+    ) -> Result<impl Registry + Send + Sync> {
+        // FIXME(Michael-F-Bryan): Ideally, all of this would live in some sort
+        // of from_env() constructor, but we don't want to add wasmer-registry
+        // as a dependency of wasmer-wasix just yet.
+        let config =
+            wasmer_registry::WasmerConfig::from_file(wasmer_home).map_err(anyhow::Error::msg)?;
+
+        let mut registry = MultiSourceRegistry::new();
+
+        if !self.include_webcs.is_empty() {
+            let mut source = PreloadedSource::default();
+            for path in &self.include_webcs {
+                source
+                    .add(path)
+                    .with_context(|| format!("Unable to preload \"{}\"", path.display()))?;
+            }
         }
 
-        Ok(resolver)
+        // Note:
+        let graphql_endpoint = config.registry.get_graphql_url();
+        let graphql_endpoint = graphql_endpoint
+            .parse()
+            .with_context(|| format!("Unable to parse \"{graphql_endpoint}\" as a URL"))?;
+        registry.add_source(WapmSource::new(graphql_endpoint, client));
+
+        Ok(registry)
     }
 }
 
-fn wapm_resolver(wasmer_home: &Path) -> Result<LegacyResolver, anyhow::Error> {
-    // FIXME(Michael-F-Bryan): Ideally, all of this would in the
-    // RegistryResolver::from_env() constructor, but we don't want to add
-    // wasmer-registry as a dependency of wasmer-wasix just yet.
-    let cache_dir = wasmer_registry::get_webc_dir(wasmer_home);
-    let config =
-        wasmer_registry::WasmerConfig::from_file(wasmer_home).map_err(anyhow::Error::msg)?;
-
-    let registry = config.registry.get_graphql_url();
-    let registry = registry
-        .parse()
-        .with_context(|| format!("Unable to parse \"{registry}\" as a URL"))?;
-
-    let client = wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
-
-    Ok(LegacyResolver::new(cache_dir, registry, Arc::new(client)))
+#[derive(Debug, Default, Clone)]
+struct PreloadedSource {
+    summaries: Vec<Summary>,
 }
 
-fn preload_webc(path: &Path) -> Result<BinaryPackage> {
-    let bytes = std::fs::read(path)?;
-    let webc = wasmer_wasix::wapm::parse_static_webc(bytes)?;
-    Ok(webc)
+impl PreloadedSource {
+    fn add(&mut self, path: &Path) -> Result<()> {
+        let contents = std::fs::read(path)?;
+        let hash = sha256(&contents);
+        let container = Container::from_bytes(contents)?;
+
+        let manifest = container.manifest();
+        let webc::metadata::annotations::Wapm { name, version, .. } = manifest
+            .package_annotation("wapm")?
+            .context("The package doesn't contain a \"wapm\" annotation")?;
+
+        let url = Url::from_file_path(path)
+            .map_err(|_| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
+
+        let summary = Summary {
+            package_name: name,
+            version: version.parse()?,
+            webc: url,
+            webc_sha256: hash,
+            dependencies: manifest
+                .use_map
+                .iter()
+                .map(|(_alias, _url)| {
+                    todo!();
+                })
+                .collect(),
+            commands: manifest
+                .commands
+                .iter()
+                .map(|(name, _cmd)| wasmer_wasix::runtime::resolver::Command { name: name.clone() })
+                .collect(),
+            source: self.id(),
+        };
+
+        self.summaries.push(summary);
+
+        Ok(())
+    }
+}
+
+fn sha256(bytes: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::default();
+    hasher.update(bytes);
+    hasher.finalize().into()
+}
+
+#[async_trait::async_trait]
+impl Source for PreloadedSource {
+    fn id(&self) -> wasmer_wasix::runtime::resolver::SourceId {
+        todo!()
+    }
+
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, anyhow::Error> {
+        let matches = self.summaries.iter().filter(|s| match package {
+            PackageSpecifier::Registry { full_name, version } => {
+                s.package_name == *full_name && version.matches(&s.version)
+            }
+            _ => false,
+        });
+
+        Ok(matches.cloned().collect())
+    }
 }

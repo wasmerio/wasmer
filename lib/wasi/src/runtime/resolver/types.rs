@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
+    ops::Deref,
     path::PathBuf,
     str::FromStr,
 };
@@ -10,27 +11,35 @@ use semver::{Version, VersionReq};
 use url::Url;
 use webc::{compat::Container, metadata::Manifest};
 
-use crate::bin_factory::BinaryPackage;
-
-/// Given a [`RootPackage`], resolve its dependency graph and figure out
-/// how it could be reconstituted.
-pub async fn resolve(
-    _root: &RootPackage,
-    _registry: &impl Registry,
-) -> Result<(ResolvedPackage, DependencyGraph), Error> {
-    todo!();
+#[async_trait::async_trait]
+pub trait PackageLoader: Debug {
+    async fn load(&self, summary: &Summary) -> Result<Container, Error>;
 }
 
-/// Take the results of [`resolve()`] and use the loaded packages to turn
-/// it into a runnable [`BinaryPackage`].
-pub fn reconstitute(
-    _pkg: &ResolvedPackage,
-    _graph: &DependencyGraph,
-    _packages: &HashMap<PackageId, Container>,
-) -> Result<BinaryPackage, Error> {
-    todo!();
+#[async_trait::async_trait]
+impl<D, P> PackageLoader for D
+where
+    D: Deref<Target = P> + Debug + Send + Sync,
+    P: PackageLoader + Send + Sync + ?Sized + 'static,
+{
+    async fn load(&self, summary: &Summary) -> Result<Container, Error> {
+        (**self).load(summary).await
+    }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Resolution {
+    package: ResolvedPackage,
+    graph: DependencyGraph,
+}
+
+/// A reference to *some* package somewhere that the user wants to run.
+///
+/// # Security Considerations
+///
+/// The [`PackageSpecifier::Path`] variant doesn't specify which filesystem a
+/// [`Source`] will eventually query. Consumers of [`PackageSpecifier`] should
+/// be wary of sandbox escapes.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PackageSpecifier {
     Registry {
@@ -71,23 +80,7 @@ impl FromStr for PackageSpecifier {
     }
 }
 
-/// Load a [`BinaryPackage`] from a [`PackageSpecifier`].
-///
-/// # Note for Implementations
-///
-/// Internally, you will probably want to use [`resolve()`] and
-/// [`reconstitute()`] when loading packages.
-///
-/// Package loading and intermediate artefacts should also be cached where
-/// possible.
-#[async_trait::async_trait]
-pub trait PackageResolver: Debug {
-    async fn load_package(&self, pkg: &PackageSpecifier) -> Result<BinaryPackage, Error>;
-    async fn load_webc(&self, webc: &Container) -> Result<BinaryPackage, Error>;
-}
-
-/// A component that tracks all available packages, allowing users to query
-/// dependency information.
+/// A collection of [`Source`]s.
 #[async_trait::async_trait]
 pub trait Registry: Debug {
     async fn query(&self, pkg: &PackageSpecifier) -> Result<Vec<Summary>, Error>;
@@ -97,7 +90,7 @@ pub trait Registry: Debug {
 impl<D, R> Registry for D
 where
     D: std::ops::Deref<Target = R> + Debug + Send + Sync,
-    R: Registry + Send + Sync + 'static,
+    R: Registry + Send + Sync + ?Sized + 'static,
 {
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
         (**self).query(package).await
@@ -114,6 +107,14 @@ pub struct SourceId {
 impl SourceId {
     pub fn new(kind: SourceKind, url: Url) -> Self {
         SourceId { kind, url }
+    }
+
+    pub fn kind(&self) -> &SourceKind {
+        &self.kind
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
     }
 }
 
@@ -179,30 +180,44 @@ pub struct Dependency {
     version: VersionReq,
 }
 
+impl Dependency {
+    pub fn package_name(&self) -> &str {
+        &self.package_name
+    }
+
+    pub fn alias(&self) -> Option<&str> {
+        self.alias.as_deref()
+    }
+
+    pub fn version(&self) -> &VersionReq {
+        &self.version
+    }
+}
+
 /// Some metadata a [`Source`] can provide about a package without needing
 /// to download the entire `*.webc` file.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Summary {
     /// The package's full name (i.e. `wasmer/wapm2pirita`).
-    package_name: String,
+    pub package_name: String,
     /// The package version.
-    version: Version,
+    pub version: Version,
     /// A URL that can be used to download the `*.webc` file.
-    webc: Url,
+    pub webc: Url,
     /// A SHA-256 checksum for the `*.webc` file.
-    webc_sha256: [u8; 32],
+    pub webc_sha256: [u8; 32],
     /// Any dependencies this package may have.
-    dependencies: Vec<Dependency>,
+    pub dependencies: Vec<Dependency>,
     /// Commands this package exposes to the outside world.
-    commands: Vec<Command>,
+    pub commands: Vec<Command>,
     /// The [`Source`] this [`Summary`] came from.
-    source: SourceId,
+    pub source: SourceId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command {
-    name: String,
-    atom: ItemLocation,
+    pub name: String,
+    // atom: ItemLocation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -215,7 +230,7 @@ pub enum ItemLocation {
     /// Something that is part of a dependency.
     Dependency {
         /// The name used to refer to this dependency (i.e.
-        /// [`Dependency::alias`]).
+        /// [`Dependency::alias()`]).
         alias: String,
         /// The item's name.
         name: String,
@@ -246,7 +261,7 @@ impl RootPackage {
 
     pub async fn from_registry(
         specifier: &PackageSpecifier,
-        registry: &impl Registry,
+        registry: &(impl Registry + ?Sized),
     ) -> Result<RootPackage, Error> {
         let summaries = registry.query(specifier).await?;
 
@@ -283,7 +298,7 @@ pub struct PackageId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DependencyGraph {
     root: PackageId,
-    dependencies: HashMap<PackageId, Vec<(String, PackageId)>>,
+    dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
     summaries: HashMap<PackageId, Summary>,
 }
 

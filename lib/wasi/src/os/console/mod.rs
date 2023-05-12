@@ -26,10 +26,10 @@ use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
 
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
-    bin_factory::{spawn_exec, BinFactory},
+    bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::PackageSpecifier,
+    runtime::resolver::{PackageSpecifier, RootPackage},
     SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -230,23 +230,28 @@ impl Console {
             }
         };
 
-        let resolved_package =
-            tasks.block_on(self.runtime.package_resolver().load_package(&webc_ident));
+        let resolved_package = tasks.block_on(load_package(&webc_ident, env.runtime()));
 
-        let binary = if let Ok(binary) = resolved_package {
-            binary
-        } else {
-            let mut stderr = self.stderr.clone();
-            tasks.block_on(async {
-                virtual_fs::AsyncWriteExt::write_all(
-                    &mut stderr,
-                    format!("package not found [{}]\r\n", webc).as_bytes(),
-                )
-                .await
-                .ok();
-            });
-            tracing::debug!("failed to get webc dependency - {}", webc);
-            return Err(SpawnError::NotFound);
+        let binary = match resolved_package {
+            Ok(pkg) => pkg,
+            Err(e) => {
+                let mut stderr = self.stderr.clone();
+                tasks.block_on(async {
+                    let mut buffer = Vec::new();
+                    writeln!(buffer, "Error: {e}").ok();
+                    let mut source = e.source();
+                    while let Some(s) = source {
+                        writeln!(buffer, "  Caused by: {s}").ok();
+                        source = s.source();
+                    }
+
+                    virtual_fs::AsyncWriteExt::write_all(&mut stderr, &buffer)
+                        .await
+                        .ok();
+                });
+                tracing::debug!("failed to get webc dependency - {}", webc);
+                return Err(SpawnError::NotFound);
+            }
         };
 
         let wasi_process = env.process.clone();
@@ -294,4 +299,16 @@ impl Console {
             .await
             .ok();
     }
+}
+
+async fn load_package(
+    specifier: &PackageSpecifier,
+    runtime: &dyn WasiRuntime,
+) -> Result<BinaryPackage, Box<dyn std::error::Error + Send + Sync>> {
+    let registry = runtime.registry();
+    let root_package = RootPackage::from_registry(&specifier, &registry).await?;
+    let resolution = crate::runtime::resolver::resolve(&root_package, &registry).await?;
+    let pkg = runtime.load_package_tree(&resolution).await?;
+
+    Ok(pkg)
 }
