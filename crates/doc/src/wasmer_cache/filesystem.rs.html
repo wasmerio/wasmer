@@ -127,6 +127,28 @@
 <span id="127">127</span>
 <span id="128">128</span>
 <span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
 </pre><pre class="rust"><code><span class="attribute">#![cfg_attr(not(feature = <span class="string">&quot;filesystem&quot;</span>), allow(unused))]
 </span><span class="kw">use </span><span class="kw">crate</span>::cache::Cache;
 <span class="kw">use </span><span class="kw">crate</span>::hash::Hash;
@@ -254,6 +276,28 @@
         file.write_all(<span class="kw-2">&amp;</span>buffer)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="attribute">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attribute">#[test]
+    </span><span class="kw">fn </span>test_fs_cache() {
+        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = FileSystemCache::new(dir.path()).unwrap();
+
+        <span class="kw">let </span>engine = wasmer::Engine::default();
+
+        <span class="kw">let </span>bytes = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../wasi/tests/envvar.wasm&quot;</span>);
+
+        <span class="kw">let </span>module = Module::from_binary(<span class="kw-2">&amp;</span>engine, bytes).unwrap();
+        <span class="kw">let </span>key = Hash::generate(bytes);
+
+        cache.store(key, <span class="kw-2">&amp;</span>module).unwrap();
+        <span class="kw">let </span>_restored = <span class="kw">unsafe </span>{ cache.load(<span class="kw-2">&amp;</span>engine, key).unwrap() };
     }
 }
 </code></pre></div>
