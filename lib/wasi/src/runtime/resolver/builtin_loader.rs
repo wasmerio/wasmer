@@ -15,7 +15,7 @@ use webc::{
 };
 
 use crate::{
-    http::{HttpClient, HttpRequest, HttpResponse},
+    http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
     runtime::resolver::{PackageLoader, Summary},
 };
 
@@ -65,6 +65,7 @@ impl BuiltinLoader {
         }
 
         if let Some(cached) = self.fs.lookup(hash).await? {
+            // Note: We want to propagate it to the in-memory cache, too
             self.in_memory.save(&cached, *hash);
             return Ok(Some(cached));
         }
@@ -85,7 +86,10 @@ impl BuiltinLoader {
         let request = HttpRequest {
             url: summary.webc.to_string(),
             method: "GET".to_string(),
-            headers: vec![("Accept".to_string(), "application/webc".to_string())],
+            headers: vec![
+                ("Accept".to_string(), "application/webc".to_string()),
+                ("User-Agent".to_string(), USER_AGENT.to_string()),
+            ],
             body: None,
             options: Default::default(),
         };
@@ -273,7 +277,7 @@ mod tests {
     const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     #[derive(Debug)]
-    struct DummyClient {
+    pub(crate) struct DummyClient {
         requests: Mutex<Vec<HttpRequest>>,
         responses: Mutex<VecDeque<HttpResponse>>,
     }
@@ -333,7 +337,10 @@ mod tests {
         assert_eq!(request.method, "GET");
         assert_eq!(
             request.headers,
-            [("Accept".to_string(), "application/webc".to_string())]
+            [
+                ("Accept".to_string(), "application/webc".to_string()),
+                ("User-Agent".to_string(), USER_AGENT.to_string()),
+            ]
         );
         // Make sure we got the right package
         let manifest = container.manifest();
@@ -345,20 +352,5 @@ mod tests {
         // and cached in memory for next time
         let in_memory = loader.in_memory.0.read().unwrap();
         assert!(in_memory.contains_key(&summary.webc_sha256));
-    }
-
-    fn python_summary() -> Summary {
-        Summary {
-            package_name: "python/python".to_string(),
-            version: "0.1.0".parse().unwrap(),
-            webc: "https://wapm.io/python/python".parse().unwrap(),
-            webc_sha256: [0xaa; 32],
-            dependencies: Vec::new(),
-            commands: Vec::new(),
-            source: SourceId::new(
-                SourceKind::Url,
-                "https://registry.wapm.io/graphql".parse().unwrap(),
-            ),
-        }
     }
 }

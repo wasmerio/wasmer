@@ -29,6 +29,10 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
+#[cfg(test)]
+#[macro_use]
+extern crate pretty_assertions;
+
 #[macro_use]
 mod macros;
 pub mod bin_factory;

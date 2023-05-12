@@ -6078,6 +6078,7 @@ dependencies = [
  "linked_hash_set",
  "once_cell",
  "pin-project",
+ "pretty_assertions",
  "rand",
  "reqwest",
  "semver 1.0.17",
