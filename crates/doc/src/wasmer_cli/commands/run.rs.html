@@ -763,7 +763,7 @@
 </span><span class="attribute">#[derive(Debug, Parser, Clone)]
 </span><span class="kw">pub struct </span>Run {
     <span class="doccomment">/// File to run
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;SOURCE&quot;</span>, parse(try_from_str))]
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;SOURCE&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) path: PackageSource,
     <span class="doccomment">/// Options to run the file / package / URL with
     </span><span class="attribute">#[clap(flatten)]
@@ -820,7 +820,7 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) wcgi: WcgiOptions,
 
     <span class="doccomment">/// Enable coredump generation after a WebAssembly trap.
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long = <span class="string">&quot;coredump-on-trap&quot;</span>, parse(from_os_str))]
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long = <span class="string">&quot;coredump-on-trap&quot;</span>)]
     </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]

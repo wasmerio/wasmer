@@ -112,27 +112,27 @@
 </span><span class="doccomment">/// The options for the `wasmer config` subcommand
 </span><span class="kw">pub struct </span>Config {
     <span class="doccomment">/// Print the installation prefix.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>prefix: bool,
 
     <span class="doccomment">/// Directory containing Wasmer executables.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>bindir: bool,
 
     <span class="doccomment">/// Directory containing Wasmer headers.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>includedir: bool,
 
     <span class="doccomment">/// Directory containing Wasmer libraries.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>libdir: bool,
 
     <span class="doccomment">/// Libraries needed to link against Wasmer components.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>libs: bool,
 
     <span class="doccomment">/// C compiler flags for files that include Wasmer headers.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>cflags: bool,
 
     <span class="doccomment">/// It outputs the necessary details for compiling

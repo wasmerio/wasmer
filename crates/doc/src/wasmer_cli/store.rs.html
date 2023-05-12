@@ -415,7 +415,7 @@
 
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.
     </span><span class="attribute">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]
-    #[clap(long, parse(from_os_str))]
+    #[clap(long)]
     </span>llvm_debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="attribute">#[clap(flatten)]

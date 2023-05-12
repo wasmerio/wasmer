@@ -352,7 +352,7 @@
     </span><span class="attribute">#[clap(
         long = <span class="string">&quot;mapdir&quot;</span>,
         name = <span class="string">&quot;GUEST_DIR:HOST_DIR&quot;</span>,
-        parse(try_from_str = parse_mapdir),
+        value_parser=parse_mapdir,
     )]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) mapped_dirs: Vec&lt;MappedDirectory&gt;,
 
@@ -360,7 +360,7 @@
     </span><span class="attribute">#[clap(
         long = <span class="string">&quot;env&quot;</span>,
         name = <span class="string">&quot;KEY=VALUE&quot;</span>,
-        parse(try_from_str = parse_envvar),
+        value_parser=parse_envvar,
     )]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) env_vars: Vec&lt;(String, String)&gt;,
 

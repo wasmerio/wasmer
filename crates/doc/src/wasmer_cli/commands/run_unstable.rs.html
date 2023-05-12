@@ -737,7 +737,7 @@
     </span><span class="attribute">#[clap(short, long, aliases = <span class="kw-2">&amp;</span>[<span class="string">&quot;command&quot;</span>, <span class="string">&quot;invoke&quot;</span>]</span>)]
     entrypoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Generate a coredump at this path if a WebAssembly trap occurs
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long, parse(from_os_str))]
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;COREDUMP PATH&quot;</span>, long)]
     </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
     <span class="doccomment">/// The file, URL, or package to run.
     </span><span class="attribute">#[clap(value_parser = PackageSource::infer)]

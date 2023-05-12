@@ -206,7 +206,6 @@
 <span id="204">204</span>
 <span id="205">205</span>
 <span id="206">206</span>
-<span id="207">207</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::process::{Command, Stdio};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -232,7 +231,6 @@
     </span><span class="attribute">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;py&quot;</span>]</span>)]
     pip: bool,
     <span class="doccomment">/// The packages to add (e.g. &quot;wasmer/wasmer-pack@0.5.0&quot; or &quot;python/python&quot;)
-    </span><span class="attribute">#[clap(parse(try_from_str))]
     </span>packages: Vec&lt;wasmer_registry::Package&gt;,
 }
 

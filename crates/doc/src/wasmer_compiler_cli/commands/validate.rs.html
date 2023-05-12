@@ -51,7 +51,7 @@
 </span><span class="doccomment">/// The options for the `wasmer validate` subcommand
 </span><span class="kw">pub struct </span>Validate {
     <span class="doccomment">/// File to validate as WebAssembly
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;FILE&quot;</span>, parse(from_os_str))]
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;FILE&quot;</span>)]
     </span>path: PathBuf,
 
     <span class="attribute">#[clap(flatten)]

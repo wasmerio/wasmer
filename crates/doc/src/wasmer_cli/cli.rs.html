@@ -326,14 +326,14 @@
 <span class="attribute">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::commands::{CreateObj, GenCHeader};
 <span class="kw">use </span><span class="kw">crate</span>::error::PrettyError;
-<span class="kw">use </span>clap::{CommandFactory, ErrorKind, Parser};
+<span class="kw">use </span>clap::{error::ErrorKind, CommandFactory, Parser};
 
 <span class="attribute">#[derive(Parser, Debug)]
 #[cfg_attr(
     not(feature = <span class="string">&quot;headless&quot;</span>),
     clap(
         name = <span class="string">&quot;wasmer&quot;</span>,
-        about = <span class="string">&quot;WebAssembly standalone runtime.&quot;</span>,
+        about = <span class="macro">concat!</span>(<span class="string">&quot;wasmer &quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>)),
         version,
         author
     )
@@ -342,7 +342,7 @@
     feature = <span class="string">&quot;headless&quot;</span>,
     clap(
         name = <span class="string">&quot;wasmer-headless&quot;</span>,
-        about = <span class="string">&quot;WebAssembly standalone runtime (headless).&quot;</span>,
+        about = <span class="macro">concat!</span>(<span class="string">&quot;wasmer &quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>)),
         version,
         author
     )

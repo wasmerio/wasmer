@@ -316,6 +316,10 @@
 <span id="314">314</span>
 <span id="315">315</span>
 <span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::VERSION;
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
@@ -338,31 +342,31 @@
 </span><span class="attribute">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Flags {
     <span class="doccomment">/// Print the installation prefix.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>prefix: bool,
 
     <span class="doccomment">/// Directory containing Wasmer executables.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>bindir: bool,
 
     <span class="doccomment">/// Directory containing Wasmer headers.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>includedir: bool,
 
     <span class="doccomment">/// Directory containing Wasmer libraries.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>libdir: bool,
 
     <span class="doccomment">/// Libraries needed to link against Wasmer components.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>libs: bool,
 
     <span class="doccomment">/// C compiler flags for files that include Wasmer headers.
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>cflags: bool,
 
     <span class="doccomment">/// Print the path to the wasmer configuration file where all settings are stored
-    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg-config&quot;</span>)]
+    </span><span class="attribute">#[clap(long, conflicts_with = <span class="string">&quot;pkg_config&quot;</span>)]
     </span>config_path: bool,
 
     <span class="doccomment">/// Outputs the necessary details for compiling
@@ -442,8 +446,10 @@
 </span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub struct </span>SetUpdateNotificationsEnabled {
     <span class="doccomment">/// Whether to enable update notifications
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>, possible_values = [<span class="string">&quot;true&quot;</span>, <span class="string">&quot;false&quot;</span>]</span>)]
-    <span class="kw">pub </span>enabled: BoolString,
+    ///
+    /// (&quot;true&quot; | &quot;false&quot;)
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>)]
+    </span><span class="kw">pub </span>enabled: BoolString,
 }
 
 <span class="doccomment">/// &quot;true&quot; or &quot;false&quot; for handling input in the CLI
@@ -461,8 +467,10 @@
 </span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 </span><span class="kw">pub struct </span>SetTelemetryEnabled {
     <span class="doccomment">/// Whether to enable telemetry
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>, possible_values = [<span class="string">&quot;true&quot;</span>, <span class="string">&quot;false&quot;</span>]</span>)]
-    <span class="kw">pub </span>enabled: BoolString,
+    ///
+    /// (&quot;true&quot; | &quot;false&quot;)
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;ENABLED&quot;</span>)]
+    </span><span class="kw">pub </span>enabled: BoolString,
 }
 
 <span class="doccomment">/// Set if a proxy URL should be used

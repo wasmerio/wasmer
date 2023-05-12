@@ -147,7 +147,7 @@
 </span><span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand
 </span><span class="kw">pub struct </span>GenCHeader {
     <span class="doccomment">/// Input file
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;FILE&quot;</span>, parse(from_os_str))]
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;FILE&quot;</span>)]
     </span>path: PathBuf,
 
     <span class="doccomment">/// Prefix hash (default: SHA256 of input .wasm file)
@@ -159,7 +159,7 @@
     </span>atom: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Output file
-    </span><span class="attribute">#[clap(name = <span class="string">&quot;OUTPUT PATH&quot;</span>, short = <span class="string">&#39;o&#39;</span>, parse(from_os_str))]
+    </span><span class="attribute">#[clap(name = <span class="string">&quot;OUTPUT PATH&quot;</span>, short = <span class="string">&#39;o&#39;</span>)]
     </span>output: PathBuf,
 
     <span class="doccomment">/// Compilation Target triple
@@ -177,7 +177,7 @@
     </span><span class="attribute">#[clap(long = <span class="string">&quot;target&quot;</span>)]
     </span>target_triple: <span class="prelude-ty">Option</span>&lt;Triple&gt;,
 
-    <span class="attribute">#[clap(long, short = <span class="string">&#39;m&#39;</span>, multiple = <span class="bool-val">true</span>, number_of_values = <span class="number">1</span>)]
+    <span class="attribute">#[clap(long, short = <span class="string">&#39;m&#39;</span>, number_of_values = <span class="number">1</span>)]
     </span>cpu_features: Vec&lt;CpuFeature&gt;,
 }
 
