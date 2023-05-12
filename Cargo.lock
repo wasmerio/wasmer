@@ -5570,6 +5570,7 @@ name = "wasmer-cli"
 version = "3.3.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "atty",
  "bytes",
  "bytesize",
