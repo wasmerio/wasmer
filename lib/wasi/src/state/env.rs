@@ -1,4 +1,6 @@
-use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap, convert::TryInto, ops::Deref, path::PathBuf, sync::Arc, time::Duration,
+};
 
 use derivative::Derivative;
 use rand::Rng;
@@ -88,12 +90,12 @@ pub struct WasiInstanceHandles {
     /// Represents the callback for waking an asynchronous task (name = "_waker_wake")
     /// [this takes a pointer to waker that will be woken]
     #[derivative(Debug = "ignore")]
-    pub(crate) waker_wake: Option<TypedFunction<(i32, i32), ()>>,
+    pub(crate) waker_wake: Option<TypedFunction<i32, ()>>,
 
     /// Represents the callback for dropping a waker (name = "_waker_drop")
     /// [this takes a pointer to waker that will be dropped]
     #[derivative(Debug = "ignore")]
-    pub(crate) waker_drop: Option<TypedFunction<(i32, i32), ()>>,
+    pub(crate) waker_drop: Option<TypedFunction<i32, ()>>,
 
     /// Represents the callback for destroying a local thread variable (name = "_thread_local_destroy")
     /// [this takes a pointer to the destructor and the data to be destroyed]
@@ -741,9 +743,8 @@ impl WasiEnv {
             false => inner.waker_drop.clone(),
         };
         if let Some(handler) = handler {
-            let high = id / u32::MAX as WakerId;
-            let low = id % u32::MAX as WakerId;
-            if let Err(err) = handler.call(ctx, high as i32, low as i32) {
+            if let Err(err) = handler.call(ctx, id.try_into().map_err(|_| Errno::Overflow).unwrap())
+            {
                 match err.downcast::<WasiError>() {
                     Ok(wasi_err) => {
                         warn!(
