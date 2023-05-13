@@ -115,18 +115,13 @@ pub fn proc_exec<M: MemorySize>(
                     let new_store = new_store.take().unwrap();
                     let env = config.take().unwrap();
 
-                    tasks.block_on(async {
-                        let name_inner = name.clone();
-                        let ret = bin_factory.spawn(
-                                name_inner,
-                                new_store,
-                                env,
-                            )
-                            .await;
+                    let name_inner = name.clone();
+                    __asyncify_light(ctx.data(), None, async {
+                        let ret = bin_factory.spawn(name_inner, new_store, env).await;
                         match ret {
                             Ok(ret) => {
                                 trace!(%child_pid, "spawned sub-process");
-                            },
+                            }
                             Err(err) => {
                                 err_exit_code = conv_bus_err_to_exit_code(err);
 
@@ -137,14 +132,23 @@ pub fn proc_exec<M: MemorySize>(
                                     "failed to execve as the process could not be spawned (vfork) - {}",
                                     err
                                 );
-                                let _ = unsafe { stderr_write(
-                                    &ctx,
-                                    format!("wasm execute failed [{}] - {}\n", name.as_str(), err)
+                                let _ = unsafe {
+                                    stderr_write(
+                                        &ctx,
+                                        format!(
+                                            "wasm execute failed [{}] - {}\n",
+                                            name.as_str(),
+                                            err
+                                        )
                                         .as_bytes(),
-                                ).await };
+                                    )
+                                }
+                                .await;
                             }
                         }
-                    })
+
+                        Ok(())
+                    });
                 }
             }
         };

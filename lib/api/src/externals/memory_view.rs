@@ -6,6 +6,8 @@ use wasmer_types::Pages;
 
 #[cfg(feature = "js")]
 use crate::js::externals::memory_view as memory_view_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::memory_view as memory_view_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::memory_view as memory_view_impl;
 
@@ -133,7 +135,7 @@ impl<'a> MemoryView<'a> {
         self.0.write(offset, data)
     }
 
-    /// Safely reads a single byte from memory at the given offset
+    /// Safely writes a single byte from memory at the given offset
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.

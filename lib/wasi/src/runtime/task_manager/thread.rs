@@ -158,9 +158,8 @@ impl VirtualTaskManager for ThreadTaskManager {
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
         let vm_memory: Option<Memory> = match spawn_type {
-            SpawnType::CreateWithType(mut mem) => {
-                mem.shared = true;
-                Some(Memory::new(&mut store, mem).map_err(|err| {
+            SpawnType::CreateWithType(mem) => {
+                Some(Memory::new(&mut store, mem.ty).map_err(|err| {
                     tracing::error!("failed to create memory - {}", err);
                 }).unwrap())
             },

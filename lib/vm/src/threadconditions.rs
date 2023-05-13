@@ -5,8 +5,10 @@ use std::thread::{current, park, park_timeout, Thread};
 use std::time::Duration;
 use thiserror::Error;
 
-/// Wait/Notify error type
+/// Error that can occur during wait/notify calls.
 #[derive(Debug, Error)]
+// Non-exhaustive to allow for future variants without breaking changes!
+#[non_exhaustive]
 pub enum WaiterError {
     /// Wait/Notify is not implemented for this memory
     Unimplemented,

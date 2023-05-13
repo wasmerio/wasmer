@@ -15,11 +15,10 @@ use wasmer_wasix_types::wasi::Errno;
 #[cfg(feature = "sys")]
 use crate::PluggableRuntime;
 use crate::{
-    bin_factory::{BinFactory, ModuleCache},
+    bin_factory::BinFactory,
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    parse_static_webc,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
@@ -53,7 +52,6 @@ pub struct WasiEnvBuilder {
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
-    pub(super) compiled_modules: Option<Arc<ModuleCache>>,
     #[allow(clippy::type_complexity)]
     pub(super) setup_fs_fn:
         Option<Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
@@ -65,9 +63,6 @@ pub struct WasiEnvBuilder {
 
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<String>,
-
-    /// List ofsupplied webc packages to use instead of downloading from the registry.
-    pub(super) include_webcs: Vec<String>,
 
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
@@ -83,7 +78,6 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
             .field("uses", &self.uses)
-            .field("include_webcs", &self.include_webcs)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
             .field("stdout_override exists", &self.stdout.is_some())
             .field("stderr_override exists", &self.stderr.is_some())
@@ -291,26 +285,6 @@ impl WasiEnvBuilder {
     {
         uses.into_iter().for_each(|inherit| {
             self.uses.push(inherit);
-        });
-        self
-    }
-
-    /// Includes a webc package to use instead of downloading them from the registry
-    pub fn include_webc<Name>(mut self, webc: Name) -> Self
-    where
-        Name: AsRef<str>,
-    {
-        self.include_webcs.push(webc.as_ref().to_string());
-        self
-    }
-
-    /// Adds a list of webc packages to use instead of downloading them from the registry
-    pub fn include_webcs<I>(mut self, webcs: I) -> Self
-    where
-        I: IntoIterator<Item = String>,
-    {
-        webcs.into_iter().for_each(|webc| {
-            self.include_webcs.push(webc);
         });
         self
     }
@@ -572,13 +546,6 @@ impl WasiEnvBuilder {
         self.runtime = Some(runtime);
     }
 
-    /// Sets the compiled modules to use with this builder (sharing the
-    /// cached modules is better for performance and memory consumption)
-    pub fn compiled_modules(mut self, compiled_modules: Arc<ModuleCache>) -> Self {
-        self.compiled_modules = Some(compiled_modules);
-        self
-    }
-
     pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
         self.set_capabilities(capabilities);
         self
@@ -593,7 +560,7 @@ impl WasiEnvBuilder {
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    /// can be used to construct a new [`WasiEnv`].
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     ///
@@ -725,29 +692,6 @@ impl WasiEnvBuilder {
             envs,
         };
 
-        // TODO: this method should not exist - must have unified construction flow!
-        let module_cache = self.compiled_modules.unwrap_or_default();
-
-        // Add the supplied webc packages to the module cache
-        for include_webc in self.include_webcs.iter() {
-            let data = std::fs::read(include_webc.as_str())
-                .map_err(|err| WasiStateCreationError::WasiIncludePackageError(err.to_string()))?;
-            let package = parse_static_webc(data)
-                .map_err(|err| WasiStateCreationError::WasiIncludePackageError(err.to_string()))?;
-
-            let mut package_name = package.package_name.to_string();
-            module_cache.add_webc(package_name.as_ref(), package.clone());
-            for version_part in package.version.split('.') {
-                if !package_name.contains('@') {
-                    package_name.push('@');
-                } else {
-                    package_name.push('.');
-                }
-                package_name.push_str(version_part);
-                module_cache.add_webc(package_name.as_ref(), package.clone());
-            }
-        }
-
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
@@ -763,7 +707,7 @@ impl WasiEnvBuilder {
         let uses = self.uses;
         let map_commands = self.map_commands;
 
-        let bin_factory = BinFactory::new(module_cache.clone(), runtime.clone());
+        let bin_factory = BinFactory::new(runtime.clone());
 
         let capabilities = self.capabilites;
 
@@ -776,7 +720,6 @@ impl WasiEnvBuilder {
         let init = WasiEnvInit {
             state,
             runtime,
-            module_cache,
             webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,
@@ -815,7 +758,7 @@ impl WasiEnvBuilder {
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-    /// can be used to construct a new [`WasiEnv`] with [`WasiEnv::new`].
+    /// can be used to construct a new [`WasiEnv`].
     ///
     /// Returns the error from `WasiFs::new` if there's an error
     // FIXME: use a proper custom error type

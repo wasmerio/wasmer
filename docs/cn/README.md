@@ -75,7 +75,9 @@ iwr https://win.wasmer.io -useb | iex
 ```bash
 $ wasmer qjs.wasm
 QuickJS - Type "\h" for help
-qjs >
+qjs > const i = 1 + 2;
+qjs > console.log("hello " + i);
+hello 3
 ```
 
 #### 接下来是你可以做的:

@@ -22,6 +22,10 @@ use crate::js::engine as engine_imp;
 #[cfg(feature = "js")]
 pub(crate) use crate::js::engine::default_engine;
 
+#[cfg(feature = "jsc")]
+use crate::jsc::engine as engine_imp;
+#[cfg(feature = "jsc")]
+pub(crate) use crate::jsc::engine::default_engine;
 #[cfg(feature = "sys")]
 type EngineId = str;
 
@@ -186,6 +190,7 @@ impl Engine {
     }
 }
 impl AsEngineRef for Engine {
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef {
         EngineRef { inner: self }
     }
@@ -231,6 +236,7 @@ pub trait AsEngineRef {
 }
 
 impl AsEngineRef for EngineRef<'_> {
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef { inner: self.inner }
     }
@@ -241,6 +247,7 @@ where
     P: Deref,
     P::Target: AsEngineRef,
 {
+    #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_> {
         (**self).as_engine_ref()
     }

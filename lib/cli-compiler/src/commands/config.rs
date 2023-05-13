@@ -8,27 +8,27 @@ use std::path::PathBuf;
 /// The options for the `wasmer config` subcommand
 pub struct Config {
     /// Print the installation prefix.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     prefix: bool,
 
     /// Directory containing Wasmer executables.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     bindir: bool,
 
     /// Directory containing Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     includedir: bool,
 
     /// Directory containing Wasmer libraries.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libdir: bool,
 
     /// Libraries needed to link against Wasmer components.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libs: bool,
 
     /// C compiler flags for files that include Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     cflags: bool,
 
     /// It outputs the necessary details for compiling

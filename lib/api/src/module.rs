@@ -17,6 +17,8 @@ use crate::into_bytes::IntoBytes;
 
 #[cfg(feature = "js")]
 use crate::js::module as module_imp;
+#[cfg(feature = "jsc")]
+use crate::jsc::module as module_imp;
 #[cfg(feature = "sys")]
 use crate::sys::module as module_imp;
 
