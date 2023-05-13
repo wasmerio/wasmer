@@ -48,7 +48,7 @@ pub struct CompilerOptions {
 
     /// LLVM debug directory, where IR and object files will be written to.
     #[cfg(feature = "llvm")]
-    #[clap(long, parse(from_os_str))]
+    #[clap(long)]
     llvm_debug_dir: Option<PathBuf>,
 
     #[clap(flatten)]

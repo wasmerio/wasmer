@@ -14,16 +14,16 @@ use wasmer::*;
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file or directory if the input is a pirita file
-    #[clap(name = "OUTPUT_PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT_PATH", short = 'o')]
     output: PathBuf,
 
     /// Optional directorey used for debugging: if present, will
     /// output the files to a debug instead of a temp directory
-    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
     /// Prefix for the function names in the input file in the compiled object file.
@@ -51,7 +51,7 @@ pub struct CreateObj {
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     #[clap(flatten)]

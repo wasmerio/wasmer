@@ -103,7 +103,7 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        let ret = Module::deserialize_from_file(engine, path.clone());
+        let ret = Module::deserialize_from_file_checked(engine, path.clone());
         if ret.is_err() {
             // If an error occurs while deserializing then we can not trust it anymore
             // so delete the cache file
@@ -125,5 +125,27 @@ impl Cache for FileSystemCache {
         file.write_all(&buffer)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fs_cache() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut cache = FileSystemCache::new(dir.path()).unwrap();
+
+        let engine = wasmer::Engine::default();
+
+        let bytes = include_bytes!("../../wasi/tests/envvar.wasm");
+
+        let module = Module::from_binary(&engine, bytes).unwrap();
+        let key = Hash::generate(bytes);
+
+        cache.store(key, &module).unwrap();
+        let _restored = unsafe { cache.load(&engine, key).unwrap() };
     }
 }
