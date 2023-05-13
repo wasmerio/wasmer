@@ -2,6 +2,7 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Dura
 
 use derivative::Derivative;
 use rand::Rng;
+use semver::Version;
 use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
@@ -15,7 +16,7 @@ use wasmer_wasix_types::{
 };
 
 use crate::{
-    bin_factory::{BinFactory, ModuleCache},
+    bin_factory::BinFactory,
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
@@ -241,7 +242,6 @@ impl WasiInstanceHandles {
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
-    pub module_cache: Arc<ModuleCache>,
     pub webc_dependencies: Vec<String>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -284,7 +284,6 @@ impl WasiEnvInit {
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
-            module_cache: self.module_cache.clone(),
             webc_dependencies: self.webc_dependencies.clone(),
             mapped_commands: self.mapped_commands.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -322,7 +321,6 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    pub module_cache: Arc<ModuleCache>,
 
     pub capabilities: Capabilities,
 
@@ -356,7 +354,6 @@ impl Clone for WasiEnv {
             inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
-            module_cache: self.module_cache.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
         }
@@ -394,7 +391,6 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
-            module_cache: self.module_cache.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
         };
         Ok((new_env, handle))
@@ -455,7 +451,6 @@ impl WasiEnv {
             owned_handles: Vec::new(),
             runtime: init.runtime,
             bin_factory: init.bin_factory,
-            module_cache: init.module_cache.clone(),
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
         };
@@ -927,14 +922,14 @@ impl WasiEnv {
         I: IntoIterator<Item = String>,
     {
         // Load all the containers that we inherit from
+        use std::collections::VecDeque;
         #[allow(unused_imports)]
         use std::path::Path;
-        use std::{borrow::Cow, collections::VecDeque};
 
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
-        let mut already: HashMap<String, Cow<'static, str>> = HashMap::new();
+        let mut already: HashMap<String, Version> = HashMap::new();
 
         let mut use_packages = uses.into_iter().collect::<VecDeque<_>>();
 
@@ -944,15 +939,17 @@ impl WasiEnv {
             .get("/bin/wasmer")
             .and_then(|cmd| cmd.as_any().downcast_ref::<CmdWasmer>());
 
+        let tasks = self.runtime.task_manager();
+
         while let Some(use_package) = use_packages.pop_back() {
             if let Some(package) = cmd_wasmer
                 .as_ref()
-                .and_then(|cmd| cmd.get_package(use_package.clone()))
+                .and_then(|cmd| tasks.block_on(cmd.get_package(use_package.clone())))
             {
                 // If its already been added make sure the version is correct
                 let package_name = package.package_name.to_string();
                 if let Some(version) = already.get(&package_name) {
-                    if version.as_ref() != package.version.as_ref() {
+                    if *version != package.version {
                         return Err(WasiStateCreationError::WasiInheritError(format!(
                             "webc package version conflict for {} - {} vs {}",
                             use_package, version, package.version
@@ -974,20 +971,36 @@ impl WasiEnv {
                     }
 
                     // Add all the commands as binaries in the bin folder
+
                     let commands = package.commands.read().unwrap();
                     if !commands.is_empty() {
                         let _ = root_fs.create_dir(Path::new("/bin"));
                         for command in commands.iter() {
-                            let path = format!("/bin/{}", command.name);
+                            let path = format!("/bin/{}", command.name());
                             let path = Path::new(path.as_str());
+
+                            // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                            // We should be using some sort of reference-counted
+                            // pointer to some bytes that are either on the heap
+                            // or from a memory-mapped file. However, that's not
+                            // possible here because things like memfs and
+                            // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                            // too hard to refactor those at the moment, and we
+                            // were pulling the same trick before by storing an
+                            // "ownership" object in the BinaryPackageCommand,
+                            // so as long as packages aren't removed from the
+                            // module cache it should be fine.
+                            let atom: &'static [u8] =
+                                unsafe { std::mem::transmute(command.atom()) };
+
                             if let Err(err) = root_fs
                                 .new_open_options_ext()
-                                .insert_ro_file(path, command.atom.clone())
+                                .insert_ro_file(path, atom.into())
                             {
                                 tracing::debug!(
                                     "failed to add package [{}] command [{}] - {}",
                                     use_package,
-                                    command.name,
+                                    command.name(),
                                     err
                                 );
                                 continue;
@@ -995,7 +1008,7 @@ impl WasiEnv {
 
                             // Add the binary package to the bin factory (zero copy the atom)
                             let mut package = package.clone();
-                            package.entry = Some(command.atom.clone());
+                            package.entry = Some(atom.into());
                             self.bin_factory
                                 .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
                         }

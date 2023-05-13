@@ -254,7 +254,7 @@ fn test_run() {
             println!("outputting batch to {}", path.display());
             std::fs::write(&path, vcvars_modified).unwrap();
 
-            print_wasmer_root_to_stdout(&config);
+            // print_wasmer_root_to_stdout(&config);
 
             let mut vcvars = std::process::Command::new("cmd");
             vcvars.arg("/C");
@@ -270,7 +270,7 @@ fn test_run() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
 
@@ -296,7 +296,7 @@ fn test_run() {
                 println!("{output:#?}");
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
         } else {
@@ -353,7 +353,7 @@ fn test_run() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}: {command:#?}");
             }
 
@@ -368,7 +368,7 @@ fn test_run() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stdout: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test} executable");
             }
         }

@@ -2,6 +2,7 @@
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
 
+use std::ops::Deref;
 use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
@@ -156,6 +157,60 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
 }
 
+impl<D, T> VirtualTaskManager for D
+where
+    D: Deref<Target = T> + std::fmt::Debug + Send + Sync + 'static,
+    T: VirtualTaskManager + ?Sized,
+{
+    fn build_memory(
+        &self,
+        store: &mut StoreMut,
+        spawn_type: SpawnMemoryType,
+    ) -> Result<Option<Memory>, WasiThreadError> {
+        (**self).build_memory(store, spawn_type)
+    }
+
+    fn sleep_now(
+        &self,
+        time: Duration,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
+        (**self).sleep_now(time)
+    }
+
+    fn task_shared(
+        &self,
+        task: Box<
+            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
+        >,
+    ) -> Result<(), WasiThreadError> {
+        (**self).task_shared(task)
+    }
+
+    fn runtime(&self) -> &Handle {
+        (**self).runtime()
+    }
+
+    #[allow(dyn_drop)]
+    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
+        (**self).runtime_enter()
+    }
+
+    fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
+        (**self).task_wasm(task)
+    }
+
+    fn task_dedicated(
+        &self,
+        task: Box<dyn FnOnce() + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
+        (**self).task_dedicated(task)
+    }
+
+    fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
+        (**self).thread_parallelism()
+    }
+}
+
 impl dyn VirtualTaskManager {
     /// Execute a future and return the output.
     /// This method blocks until the future is complete.
@@ -254,14 +309,12 @@ pub trait VirtualTaskManagerExt {
     fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A;
 }
 
-impl<'a, T: VirtualTaskManager> VirtualTaskManagerExt for &'a T {
-    fn block_on<'x, A>(&self, task: impl Future<Output = A> + 'x) -> A {
-        self.runtime().block_on(task)
-    }
-}
-
-impl<T: VirtualTaskManager + ?Sized> VirtualTaskManagerExt for std::sync::Arc<T> {
-    fn block_on<'x, A>(&self, task: impl Future<Output = A> + 'x) -> A {
+impl<D, T> VirtualTaskManagerExt for D
+where
+    D: Deref<Target = T>,
+    T: VirtualTaskManager + ?Sized,
+{
+    fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
         self.runtime().block_on(task)
     }
 }

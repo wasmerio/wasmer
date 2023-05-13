@@ -62,6 +62,7 @@ mod libcalls;
 mod memory;
 mod module;
 mod serialize;
+mod stack;
 mod store_id;
 mod table;
 mod trapcode;
@@ -125,11 +126,10 @@ pub use crate::compilation::function::{
     Functions,
 };
 pub use crate::compilation::module::CompileModuleInfo;
-pub use crate::compilation::sourceloc::SourceLoc;
 pub use crate::compilation::symbols::{Symbol, SymbolRegistry};
-pub use crate::compilation::trap::TrapInformation;
 pub use crate::compilation::unwind::CompiledFunctionUnwindInfo;
 
+pub use crate::stack::{FrameInfo, SourceLoc, TrapInformation};
 pub use crate::store_id::StoreId;
 
 /// Offset in bytes from the beginning of the function.
@@ -169,12 +169,22 @@ mod native {
         const WASM_TYPE: Type;
     }
 
+    impl NativeWasmType for u32 {
+        const WASM_TYPE: Type = Type::I32;
+        type Abi = Self;
+    }
+
     impl NativeWasmType for i32 {
         const WASM_TYPE: Type = Type::I32;
         type Abi = Self;
     }
 
     impl NativeWasmType for i64 {
+        const WASM_TYPE: Type = Type::I64;
+        type Abi = Self;
+    }
+
+    impl NativeWasmType for u64 {
         const WASM_TYPE: Type = Type::I64;
         type Abi = Self;
     }

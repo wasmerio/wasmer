@@ -60,7 +60,7 @@ pub struct ModuleMetadata {
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
-    /// CPU features used (See [`CpuFeature`])
+    /// CPU features used (See [`CpuFeature`](crate::CpuFeature))
     pub cpu_features: u64,
 }
 

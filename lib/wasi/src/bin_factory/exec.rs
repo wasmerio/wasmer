@@ -12,21 +12,22 @@ use tracing::*;
 use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
-use super::{BinFactory, BinaryPackage, ModuleCache};
+use super::{BinFactory, BinaryPackage};
 use crate::{runtime::SpawnMemoryType, WasiEnv, WasiFunctionEnv, WasiRuntime};
 
-pub fn spawn_exec(
+#[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
+pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
     store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    compiled_modules: &ModuleCache,
 ) -> Result<TaskJoinHandle, VirtualBusError> {
-    // The deterministic id for this engine
-    let compiler = store.engine().deterministic_id();
+    let key = binary.hash();
 
-    let module = compiled_modules.get_compiled_module(&store, binary.hash().as_str(), compiler);
+    let compiled_modules = runtime.module_cache();
+    let module = compiled_modules.load(key, store.engine()).await.ok();
+
     let module = match (module, binary.entry.as_ref()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
@@ -43,7 +44,15 @@ pub fn spawn_exec(
                 env.blocking_cleanup(Some(Errno::Noexec.into()));
             }
             let module = module?;
-            compiled_modules.set_compiled_module(binary.hash().as_str(), compiler, &module);
+
+            if let Err(e) = compiled_modules.save(key, store.engine(), &module).await {
+                tracing::debug!(
+                    %key,
+                    package_name=%binary.package_name,
+                    error=&e as &dyn std::error::Error,
+                    "Unable to save the compiled module",
+                );
+            }
             module
         }
         (None, None) => {
@@ -266,14 +275,7 @@ impl BinFactory {
             let binary = binary?;
 
             // Execute
-            spawn_exec(
-                binary,
-                name.as_str(),
-                store,
-                env,
-                &self.runtime,
-                &self.cache,
-            )
+            spawn_exec(binary, name.as_str(), store, env, &self.runtime).await
         })
     }
 

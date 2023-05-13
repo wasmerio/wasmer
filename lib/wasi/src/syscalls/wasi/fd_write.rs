@@ -158,6 +158,9 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         break;
                                     }
                                 }
+                                if is_stdio {
+                                    handle.flush().await.map_err(map_io_err)?;
+                                }
                                 Ok(written)
                             }
                         )?

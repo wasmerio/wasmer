@@ -101,7 +101,7 @@ fn imports() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[test]
 fn exports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module

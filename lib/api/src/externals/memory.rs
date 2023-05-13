@@ -1,5 +1,7 @@
 #[cfg(feature = "js")]
 use crate::js::externals::memory as memory_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::memory as memory_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::memory as memory_impl;
 

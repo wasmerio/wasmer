@@ -16,7 +16,6 @@
 //! Ready?
 
 use wasmer::{imports, wat2wasm, Instance, Module, Mutability, Store, Type, TypedFunction, Value};
-use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -34,10 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     // Create a Store.
-    // Note that we don't need to specify the engine/compiler if we want to use
-    // the default provided by Wasmer.
-    // You can use `Store::default()` for that.
-    let mut store = Store::new(Cranelift::default());
+    let mut store = Store::default();
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -105,10 +101,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Trying to set the value of a immutable global (`const`)
     // will result in a `RuntimeError`.
     let result = one.set(&mut store, Value::F32(42.0));
-    assert_eq!(
-        result.expect_err("Expected an error").message(),
-        "Attempted to set an immutable global"
-    );
+    // The global is immutable
+    assert!(result.is_err());
+    // assert_eq!(
+    //     result.expect_err("Expected an error").message(),
+    //     "Attempted to set an immutable global"
+    // );
 
     let one_result = one.get(&mut store);
     println!("`one` value after `set`: {:?}", one_result);

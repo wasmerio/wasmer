@@ -1,6 +1,5 @@
 use serde::*;
 
-pub const WAPM_WEBC_URL: &str = "https://registry.wapm.dev/graphql?query=";
 #[allow(dead_code)]
 pub const WAPM_WEBC_QUERY_ALL: &str = r#"
 {

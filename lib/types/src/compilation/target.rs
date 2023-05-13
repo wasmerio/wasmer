@@ -5,7 +5,8 @@
 // type itself has no effect, therefore it's disabled for the whole module.
 // Feel free to remove this allow attribute once the bug is fixed.
 // See https://github.com/rust-lang/rust-clippy/issues/6902
-#![allow(clippy::use_self)]
+// Same things is now happening with unused-unit for the EnumSetType derivative
+#![allow(clippy::unused_unit, clippy::use_self)]
 
 use crate::error::ParseCpuFeatureError;
 use enumset::{EnumSet, EnumSetType};

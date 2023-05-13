@@ -9,6 +9,9 @@ use super::unstable::middlewares::wasmer_middleware_t;
 use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::update_last_error;
 use cfg_if::cfg_if;
+#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
+use wasmer_api::Engine;
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_compiler::{Engine, EngineBuilder};
 
 /// Kind of compilers that can be used by the engines.
@@ -295,6 +298,19 @@ cfg_if! {
             let engine: Engine = EngineBuilder::headless().engine();
             Box::new(wasm_engine_t { inner: engine })
         }
+    } else if #[cfg(feature = "jsc")] {
+        /// Creates the JavascriptCore Engine.
+        ///
+        /// # Example
+        ///
+        /// See [`wasm_engine_delete`].
+        ///
+        /// cbindgen:ignore
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let engine: Engine = Engine::default();
+            Box::new(wasm_engine_t { inner: engine })
+        }
     } else {
         /// Creates a new unknown engine, i.e. it will panic with an error message.
         ///
@@ -358,6 +374,7 @@ pub extern "C" fn wasm_engine_new_with_config(
         None
     }
 
+    #[allow(unused)]
     let config = config?;
     #[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
     return return_with_error("Wasmer has not been compiled with the `compiler` feature.");
@@ -419,6 +436,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         };
             Some(Box::new(wasm_engine_t { inner }))
         } else {
+            #[cfg(feature = "compiler-headless")]
             let inner: Engine =
                      {
                             let mut builder = EngineBuilder::headless();
@@ -433,6 +451,9 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             builder.engine()
                     };
+            #[cfg(not(any(feature = "compiler-headless", feature="compiler")))]
+            let inner: Engine = Engine::default();
+
             Some(Box::new(wasm_engine_t { inner }))
         }
     }

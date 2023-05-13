@@ -220,7 +220,7 @@ impl Engine {
     ///
     /// # Safety
     ///
-    /// See [`crate::Module::deserialize_from_file`].
+    /// See [`Artifact::deserialize`].
     #[cfg(not(target_arch = "wasm32"))]
     pub unsafe fn deserialize_from_file(
         &self,
