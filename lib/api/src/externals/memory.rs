@@ -121,6 +121,28 @@ impl Memory {
         self.0.grow(store, delta)
     }
 
+    /// Attempts to duplicate this memory (if its clonable) in a new store
+    /// (copied memory)
+    pub fn copy_to_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Result<Self, MemoryError> {
+        if !self.ty(store).shared {
+            // We should only be able to duplicate in a new store if the memory is shared
+            return Err(MemoryError::InvalidMemory {
+                reason: "memory is not a shared memory type".to_string(),
+            });
+        }
+        self.0
+            .try_clone(&store)
+            .and_then(|mut memory| memory.copy().ok())
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+            .ok_or_else(|| {
+                MemoryError::Generic("memory is not clonable or could not be copied".to_string())
+            })
+    }
+
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
         Self(memory_impl::Memory::from_vm_extern(store, vm_extern))
     }
@@ -154,26 +176,20 @@ impl Memory {
             .ok_or_else(|| MemoryError::Generic("memory is not clonable".to_string()))
     }
 
-    /// Attempts to duplicate this memory (if its clonable) in a new store
-    /// (copied memory)
-    pub fn copy_to_store(
+    /// Attempts to clone this memory (if its clonable) in a new store
+    /// (cloned memory will be shared between those that clone it)
+    #[deprecated = "use `shared_in_store` or `copy_to_store` instead"]
+    pub fn duplicate_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
+    ) -> Option<Self> {
         if !self.ty(store).shared {
             // We should only be able to duplicate in a new store if the memory is shared
-            return Err(MemoryError::InvalidMemory {
-                reason: "memory is not a shared memory type".to_string(),
-            });
+            return None;
         }
-        self.0
-            .try_clone(&store)
-            .and_then(|mut memory| memory.copy().ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
-            .ok_or_else(|| {
-                MemoryError::Generic("memory is not clonable or could not be copied".to_string())
-            })
+        #[allow(deprecated)]
+        self.0.duplicate_in_store(store, new_store).map(Self)
     }
 
     /// To `VMExtern`.
