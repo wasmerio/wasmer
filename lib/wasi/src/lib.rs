@@ -53,9 +53,6 @@ pub use rewind::*;
 /// WAI based bindings.
 mod bindings;
 
-use std::sync::Arc;
-use std::{cell::RefCell, sync::atomic::AtomicU32};
-
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
@@ -289,19 +286,6 @@ impl Clone for WasiVFork {
             handle: self.handle.clone(),
         }
     }
-}
-
-// Contains the result of a rewind operation
-struct RewindResult {
-    memory_stack: Bytes,
-    rewind_result: Bytes,
-}
-
-// Represents the current thread ID for the executing method
-thread_local!(pub(crate) static CALLER_ID: RefCell<u32> = RefCell::new(0));
-thread_local!(pub(crate) static REWIND: RefCell<Option<RewindResult>> = RefCell::new(None));
-lazy_static::lazy_static! {
-    static ref CALLER_ID_SEED: Arc<AtomicU32> = Arc::new(AtomicU32::new(1));
 }
 
 /// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`

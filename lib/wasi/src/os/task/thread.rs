@@ -95,6 +95,21 @@ pub struct ThreadStack {
 #[derive(Clone, Debug)]
 pub struct WasiThread {
     state: Arc<WasiThreadState>,
+
+    // This is used for stack rewinds
+    rewind: Option<RewindResult>,
+}
+
+impl WasiThread {
+    /// Sets that a rewind will take place
+    pub fn set_rewind(&mut self, rewind: RewindResult) {
+        self.rewind.replace(rewind);
+    }
+
+    /// Pops any rewinds that need to take place
+    pub fn take_rewind(&mut self) -> Option<RewindResult> {
+        self.rewind.take()
+    }
 }
 
 /// A guard that ensures a thread is marked as terminated when dropped.
@@ -137,6 +152,13 @@ pub struct WasiMemoryLayout {
     pub stack_size: u64,
 }
 
+// Contains the result of a rewind operation
+#[derive(Clone, Debug)]
+pub(crate) struct RewindResult {
+    pub memory_stack: Bytes,
+    pub rewind_result: Bytes,
+}
+
 #[derive(Debug)]
 struct WasiThreadState {
     is_main: bool,
@@ -171,6 +193,7 @@ impl WasiThread {
                 stack: Mutex::new(ThreadStack::default()),
                 _task_count_guard: guard,
             }),
+            rewind: None,
         }
     }
 
