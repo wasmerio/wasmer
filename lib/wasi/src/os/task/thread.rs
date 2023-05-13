@@ -155,7 +155,10 @@ pub struct WasiMemoryLayout {
 // Contains the result of a rewind operation
 #[derive(Clone, Debug)]
 pub(crate) struct RewindResult {
+    /// Memory stack used to restore the stack trace back to where it was
     pub memory_stack: Bytes,
+    /// Generic serialized object passed back to the rewind resumption code
+    /// (uses the bincode serializer)
     pub rewind_result: Bytes,
 }
 

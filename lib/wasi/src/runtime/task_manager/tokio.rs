@@ -138,7 +138,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     run(TaskWasmRunProperties {
                         ctx,
                         store,
-                        result: Some(result),
+                        trigger_result: Some(result),
                     });
                 });
             });
@@ -149,7 +149,7 @@ impl VirtualTaskManager for TokioTaskManager {
                 run(TaskWasmRunProperties {
                     ctx,
                     store,
-                    result: None,
+                    trigger_result: None,
                 });
             });
         }

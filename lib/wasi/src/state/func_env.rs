@@ -12,7 +12,9 @@ use crate::{
     InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
 
-/// The default stack size for WASIX
+/// The default stack size for WASIX - the number itself is the default that compilers
+/// have used in the past when compiling WASM apps.
+///
 /// (this is only used for programs that have no stack pointer)
 const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;

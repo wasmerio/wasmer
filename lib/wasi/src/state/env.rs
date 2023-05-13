@@ -818,6 +818,11 @@ impl WasiEnv {
         self.state.std_dev_get(fd)
     }
 
+    /// Unsafe:
+    ///
+    /// This will access the memory of the WASM process and create a view into it which is
+    /// inherently unsafe as it could corrupt the memory. Also accessing the memory is not
+    /// thread safe.
     pub(crate) unsafe fn get_memory_and_wasi_state<'a>(
         &'a self,
         store: &'a impl AsStoreRef,
@@ -828,6 +833,11 @@ impl WasiEnv {
         (memory, state)
     }
 
+    /// Unsafe:
+    ///
+    /// This will access the memory of the WASM process and create a view into it which is
+    /// inherently unsafe as it could corrupt the memory. Also accessing the memory is not
+    /// thread safe.
     pub(crate) unsafe fn get_memory_and_wasi_state_and_inodes<'a>(
         &'a self,
         store: &'a impl AsStoreRef,
