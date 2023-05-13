@@ -223,7 +223,7 @@ impl dyn VirtualTaskManager {
 
     /// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
-    /// After the poller has successed
+    /// After the poller has succeeded
     #[doc(hidden)]
     pub unsafe fn resume_wasm_after_poller(
         &self,
