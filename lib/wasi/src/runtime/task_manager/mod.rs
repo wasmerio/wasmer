@@ -20,7 +20,9 @@ use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiTh
 pub enum SpawnMemoryType<'a> {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
+    // TODO: is there a way to get rid of the memory reference
     ShareMemory(Memory, StoreRef<'a>),
+    // TODO: is there a way to get rid of the memory reference
     CopyMemory(Memory, StoreRef<'a>),
 }
 
