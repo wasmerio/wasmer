@@ -102,12 +102,12 @@ pub struct WasiThread {
 
 impl WasiThread {
     /// Sets that a rewind will take place
-    pub fn set_rewind(&mut self, rewind: RewindResult) {
+    pub(crate) fn set_rewind(&mut self, rewind: RewindResult) {
         self.rewind.replace(rewind);
     }
 
     /// Pops any rewinds that need to take place
-    pub fn take_rewind(&mut self) -> Option<RewindResult> {
+    pub(crate) fn take_rewind(&mut self) -> Option<RewindResult> {
         self.rewind.take()
     }
 }
