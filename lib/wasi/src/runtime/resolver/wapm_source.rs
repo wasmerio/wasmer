@@ -127,6 +127,7 @@ fn decode_summary(
         dependencies,
         commands,
         source,
+        entrypoint: manifest.entrypoint,
     })
 }
 
@@ -289,6 +290,7 @@ mod tests {
                     },
                 ],
                 source: source.id(),
+                entrypoint: Some("wasmer-pack".to_string()),
             }]
         );
     }
