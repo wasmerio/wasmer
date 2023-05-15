@@ -101,180 +101,162 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 
 #[cfg(test)]
 mod tests {
-    use semver::Version;
-
-    use crate::runtime::resolver::{PackageId, PackageSpecifier, SourceId, SourceKind};
+    use crate::runtime::resolver::{
+        Dependency, InMemorySource, MultiSourceRegistry, PackageId, PackageSpecifier, Source,
+    };
 
     use super::*;
 
-    #[derive(Debug, Default)]
-    struct InMemoryRegistry {
-        packages: HashMap<String, HashMap<Version, Summary>>,
-    }
+    struct RegistryBuilder(InMemorySource);
 
-    #[async_trait::async_trait]
-    impl Registry for InMemoryRegistry {
-        async fn query(&self, pkg: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
-            let (full_name, version_constraint) = match pkg {
-                PackageSpecifier::Registry { full_name, version } => (full_name, version),
-                _ => return Ok(Vec::new()),
+    impl RegistryBuilder {
+        fn new() -> Self {
+            RegistryBuilder(InMemorySource::new())
+        }
+
+        fn register(&mut self, name: &str, version: &str) -> AddPackageVersion<'_> {
+            let summary = Summary {
+                package_name: name.to_string(),
+                version: version.parse().unwrap(),
+                webc: format!("http://localhost/{name}@{version}")
+                    .parse()
+                    .unwrap(),
+                webc_sha256: [0; 32],
+                dependencies: Vec::new(),
+                commands: Vec::new(),
+                entrypoint: None,
+                source: self.0.id(),
             };
 
-            let candidates = match self.packages.get(full_name) {
-                Some(versions) => versions
-                    .iter()
-                    .filter(|(v, _)| version_constraint.matches(v))
-                    .map(|(_, s)| s),
-                None => return Ok(Vec::new()),
-            };
+            AddPackageVersion {
+                builder: &mut self.0,
+                summary,
+            }
+        }
 
-            Ok(candidates.cloned().collect())
+        fn finish(&self) -> MultiSourceRegistry {
+            let mut registry = MultiSourceRegistry::new();
+            registry.add_source(self.0.clone());
+            registry
+        }
+
+        fn get(&self, package: &str, version: &str) -> &Summary {
+            let version = version.parse().unwrap();
+            self.0.get(package, &version).unwrap()
+        }
+
+        fn start_dependency_graph(&self) -> DependencyGraphBuilder<'_> {
+            DependencyGraphBuilder {
+                dependencies: HashMap::new(),
+                source: &self.0,
+            }
         }
     }
 
-    fn dummy_source() -> SourceId {
-        SourceId::new(
-            SourceKind::LocalRegistry,
-            "http://localhost".parse().unwrap(),
-        )
+    #[derive(Debug)]
+    struct AddPackageVersion<'builder> {
+        builder: &'builder mut InMemorySource,
+        summary: Summary,
     }
 
-    /// An incremental token muncher that will update fields on a [`Summary`]
-    /// object if they are set.
-    macro_rules! setup_summary {
-        ($summary:expr,
-            $(,)?
-            dependencies => {
-                $(
-                    $dep_alias:literal => ($dep_name:literal, $dep_constraint:literal)
-                ),*
-                $(,)?
-            }
-            $($rest:tt)*
-        ) => {
-            $(
-                $summary.dependencies.push($crate::runtime::resolver::Dependency {
-                    alias: $dep_alias.to_string(),
-                    pkg: format!("{}@{}", $dep_name, $dep_constraint).parse().unwrap(),
+    impl<'builder> AddPackageVersion<'builder> {
+        fn with_dependency(&mut self, name: &str, version_constraint: &str) -> &mut Self {
+            self.with_aliased_dependency(name, name, version_constraint)
+        }
+
+        fn with_aliased_dependency(
+            &mut self,
+            alias: &str,
+            name: &str,
+            version_constraint: &str,
+        ) -> &mut Self {
+            let pkg = PackageSpecifier::Registry {
+                full_name: name.to_string(),
+                version: version_constraint.parse().unwrap(),
+            };
+
+            self.summary.dependencies.push(Dependency {
+                alias: alias.to_string(),
+                pkg,
+            });
+
+            self
+        }
+
+        fn with_command(&mut self, name: &str) -> &mut Self {
+            self.summary
+                .commands
+                .push(crate::runtime::resolver::Command {
+                    name: name.to_string(),
                 });
-            )*
-        };
-        ($summary:expr,
-            $(,)?
-            commands => [ $($command_name:literal),* $(,)? ]
-            $($rest:tt)*
-        ) => {
-            $(
-                $summary.commands.push($crate::runtime::resolver::Command {
-                    name: $command_name.to_string(),
-                });
-            )*
-        };
-        ($summary:expr $(,)?) => {};
+            self
+        }
     }
 
-    /// Populate a [`InMemoryRegistry`], using [`setup_summary`] to configure
-    /// the [`Summary`] before it is added to the registry.
-    macro_rules! setup_registry {
-        (
-            $(
-                ($pkg_name:literal, $pkg_version:literal) => { $($summary:tt)* }
-            ),*
-            $(,)?
-        ) => {{
-            let mut registry = InMemoryRegistry::default();
-
-            $(
-                let versions = registry.packages.entry($pkg_name.to_string())
-                    .or_default();
-                let version: Version = $pkg_version.parse().unwrap();
-                let mut summary = $crate::runtime::resolver::Summary {
-                    package_name: $pkg_name.to_string(),
-                    version: version.clone(),
-                    webc: format!("https://wapm.io/{}@{}", $pkg_name, $pkg_version).parse().unwrap(),
-                    webc_sha256: [0; 32],
-                    dependencies: Vec::new(),
-                    commands: Vec::new(),
-                    entrypoint: None,
-                    source: dummy_source(),
-                };
-                setup_summary!(summary, $($summary)*);
-                versions.insert(version, summary);
-            )*
-
-            registry
-        }};
+    impl<'builder> Drop for AddPackageVersion<'builder> {
+        fn drop(&mut self) {
+            let summary = self.summary.clone();
+            self.builder.add(summary);
+        }
     }
 
-    /// Shorthand for defining [`DependencyGraph::dependencies`].
-    macro_rules! setup_dependency_graph {
-        (
-            $(
-                ($expected_name:literal, $expected_version:literal) => {
-                    $(
-                        $expected_dep_alias:literal => ($expected_dep_name:literal, $expected_dep_version:literal)
-                    ),*
-                    $(,)?
-                }
-            ),*
-            $(,)?
-        ) => {{
-            let mut dependencies: HashMap<PackageId, HashMap<String, PackageId>> = HashMap::new();
-
-            $(
-                let id = PackageId {
-                    package_name: $expected_name.to_string(),
-                    version: $expected_version.parse().unwrap(),
-                    source: dummy_source(),
-                };
-                let mut deps = HashMap::new();
-                $(
-                    let dep = PackageId {
-                        package_name: $expected_dep_name.to_string(),
-                        version: $expected_dep_version.parse().unwrap(),
-                        source: dummy_source(),
-                    };
-                    deps.insert($expected_dep_alias.to_string(), dep);
-                )*
-                dependencies.insert(id, deps);
-            )*
-
-            dependencies
-        }};
+    #[derive(Debug)]
+    struct DependencyGraphBuilder<'source> {
+        dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
+        source: &'source InMemorySource,
     }
 
-    macro_rules! resolver_test {
-        (
-            $( #[$attr:meta] )*
-            name = $name:ident,
-            root = ($root_name:literal, $root_version:literal),
-            registry { $($registry:tt)* },
-            expected {
-                dependency_graph = { $($dependency_graph:tt)* },
-                package = $resolved:expr,
-            },
-        ) => {
-            $( #[$attr] )*
-            #[tokio::test]
-            #[allow(dead_code, unused_mut)]
-            async fn $name() {
-                let registry = setup_registry!($($registry)*);
-
-                let root_version: Version = $root_version.parse().unwrap();
-                let root = registry.packages[$root_name][&root_version].clone();
-
-                let resolution = resolve(&root, &registry).await.unwrap();
-
-                let expected_dependency_graph = setup_dependency_graph!($($dependency_graph)*);
-                assert_eq!(
-                    resolution.graph.dependencies,
-                    expected_dependency_graph,
-                    "Incorrect dependency graph",
-                );
-                let package: ResolvedPackage = $resolved;
-                assert_eq!(resolution.package, package);
+    impl<'source> DependencyGraphBuilder<'source> {
+        fn insert(
+            &mut self,
+            package: &str,
+            version: &str,
+        ) -> DependencyGraphEntryBuilder<'source, '_> {
+            let version = version.parse().unwrap();
+            let pkg_id = self.source.get(package, &version).unwrap().package_id();
+            DependencyGraphEntryBuilder {
+                builder: self,
+                pkg_id,
+                dependencies: HashMap::new(),
             }
-        };
+        }
+
+        fn finish(self) -> HashMap<PackageId, HashMap<String, PackageId>> {
+            self.dependencies
+        }
+    }
+
+    #[derive(Debug)]
+    struct DependencyGraphEntryBuilder<'source, 'builder> {
+        builder: &'builder mut DependencyGraphBuilder<'source>,
+        pkg_id: PackageId,
+        dependencies: HashMap<String, PackageId>,
+    }
+
+    impl<'source, 'builder> DependencyGraphEntryBuilder<'source, 'builder> {
+        fn with_dependency(&mut self, name: &str, version: &str) -> &mut Self {
+            self.with_aliased_dependency(name, name, version)
+        }
+
+        fn with_aliased_dependency(&mut self, alias: &str, name: &str, version: &str) -> &mut Self {
+            let version = version.parse().unwrap();
+            let dep_id = self
+                .builder
+                .source
+                .get(name, &version)
+                .unwrap()
+                .package_id();
+            self.dependencies.insert(alias.to_string(), dep_id);
+            self
+        }
+    }
+
+    impl<'source, 'builder> Drop for DependencyGraphEntryBuilder<'source, 'builder> {
+        fn drop(&mut self) {
+            self.builder
+                .dependencies
+                .insert(self.pkg_id.clone(), self.dependencies.clone());
+        }
     }
 
     macro_rules! map {
@@ -292,188 +274,196 @@ mod tests {
         }
     }
 
-    fn pkg_id(name: &str, version: &str) -> PackageId {
-        PackageId {
-            package_name: name.to_string(),
-            version: version.parse().unwrap(),
-            source: dummy_source(),
-        }
-    }
+    #[tokio::test]
+    async fn no_deps_and_no_commands() {
+        let mut builder = RegistryBuilder::new();
+        builder.register("root", "1.0.0");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
 
-    resolver_test! {
-        name = no_deps_and_no_commands,
-        root = ("root", "1.0.0"),
-        registry {
-            ("root", "1.0.0") => { }
-        },
-        expected {
-            dependency_graph = {
-                ("root", "1.0.0") => {},
-            },
-            package = ResolvedPackage {
-                root_package: pkg_id("root", "1.0.0"),
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph.insert("root", "1.0.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
                 commands: BTreeMap::new(),
                 entrypoint: None,
                 filesystem: Vec::new(),
-            },
-        },
+            }
+        );
     }
 
-    resolver_test! {
-        name = no_deps_one_command,
-        root = ("root", "1.0.0"),
-        registry {
-            ("root", "1.0.0") => {
-                commands => ["asdf"],
-             }
-        },
-        expected {
-            dependency_graph = {
-                ("root", "1.0.0") => {},
-            },
-            package = ResolvedPackage {
-                root_package: pkg_id("root", "1.0.0"),
+    #[tokio::test]
+    async fn no_deps_one_command() {
+        let mut builder = RegistryBuilder::new();
+        builder.register("root", "1.0.0").with_command("asdf");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph.insert("root", "1.0.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
                 commands: map! {
                     "asdf" => ItemLocation {
                         name: "asdf".to_string(),
-                        package: pkg_id("root", "1.0.0"),
+                        package: root.package_id(),
                     },
                 },
                 entrypoint: None,
                 filesystem: Vec::new(),
-            },
-        },
+            }
+        );
     }
 
-    resolver_test! {
-        name = single_dependency,
-        root = ("root", "1.0.0"),
-        registry {
-            ("root", "1.0.0") => {
-                dependencies => {
-                    "dep" => ("dep", "=1.0.0"),
-                }
-            },
-            ("dep", "1.0.0") => { },
-        },
-        expected {
-            dependency_graph = {
-                ("root", "1.0.0") => { "dep" => ("dep", "1.0.0") },
-                ("dep", "1.0.0") => {},
-            },
-            package = ResolvedPackage {
-                root_package: pkg_id("root", "1.0.0"),
+    #[tokio::test]
+    async fn single_dependency() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("dep", "=1.0.0");
+        builder.register("dep", "1.0.0");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert("root", "1.0.0")
+            .with_dependency("dep", "1.0.0");
+        dependency_graph.insert("dep", "1.0.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
                 commands: BTreeMap::new(),
                 entrypoint: None,
                 filesystem: Vec::new(),
-            },
-        },
+            }
+        );
     }
 
-    resolver_test! {
-        name = linear_dependency_chain,
-        root = ("first", "1.0.0"),
-        registry {
-            ("first", "1.0.0") => {
-                dependencies => {
-                    "second" => ("second", "=1.0.0"),
-                }
-            },
-            ("second", "1.0.0") => {
-                dependencies => {
-                    "third" => ("third", "=1.0.0"),
-                }
-            },
-            ("third", "1.0.0") => {},
-        },
-        expected {
-            dependency_graph = {
-                ("first", "1.0.0") => { "second" => ("second", "1.0.0") },
-                ("second", "1.0.0") => { "third" => ("third", "1.0.0") },
-                ("third", "1.0.0") => {},
-            },
-            package = ResolvedPackage {
-                root_package: pkg_id("first", "1.0.0"),
+    #[tokio::test]
+    async fn linear_dependency_chain() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("first", "1.0.0")
+            .with_dependency("second", "=1.0.0");
+        builder
+            .register("second", "1.0.0")
+            .with_dependency("third", "=1.0.0");
+        builder.register("third", "1.0.0");
+        let registry = builder.finish();
+        let root = builder.get("first", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert("first", "1.0.0")
+            .with_dependency("second", "1.0.0");
+        dependency_graph
+            .insert("second", "1.0.0")
+            .with_dependency("third", "1.0.0");
+        dependency_graph.insert("third", "1.0.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
                 commands: BTreeMap::new(),
                 entrypoint: None,
                 filesystem: Vec::new(),
-            },
-        },
+            }
+        );
     }
 
-    resolver_test! {
-        name = pick_the_latest_dependency_when_multiple_are_possible,
-        root = ("root", "1.0.0"),
-        registry {
-            ("root", "1.0.0") => {
-                dependencies => {
-                    "dep" => ("dep", "^1.0.0"),
-                }
-            },
-            ("dep", "1.0.0") => {},
-            ("dep", "1.0.1") => {},
-            ("dep", "1.0.2") => {},
-        },
-        expected {
-            dependency_graph = {
-                ("root", "1.0.0") => { "dep" => ("dep", "1.0.2") },
-                ("dep", "1.0.2") => {},
-            },
-            package = ResolvedPackage {
-                root_package: pkg_id("root", "1.0.0"),
+    #[tokio::test]
+    async fn pick_the_latest_dependency_when_multiple_are_possible() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("dep", "^1.0.0");
+        builder.register("dep", "1.0.0");
+        builder.register("dep", "1.0.1");
+        builder.register("dep", "1.0.2");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert("root", "1.0.0")
+            .with_dependency("dep", "1.0.2");
+        dependency_graph.insert("dep", "1.0.2");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
                 commands: BTreeMap::new(),
                 entrypoint: None,
                 filesystem: Vec::new(),
-            },
-        },
+            }
+        );
     }
 
-    resolver_test! {
-        #[ignore = "Version merging isn't implemented"]
-        name = merge_compatible_versions,
-        root = ("root", "1.0.0"),
-        registry {
-            ("root", "1.0.0") => {
-                dependencies => {
-                    "first" => ("first", "=1.0.0"),
-                    "second" => ("second", "=1.0.0"),
-                }
-            },
-            ("first", "1.0.0") => {
-                dependencies => {
-                    "common" => ("common", "^1.0.0"),
-                }
-            },
-            ("second", "1.0.0") => {
-                dependencies => {
-                    "common" => ("common", ">1.1,<1.3"),
-                }
-            },
-            ("common", "1.0.0") => {},
-            ("common", "1.1.0") => {},
-            ("common", "1.2.0") => {},
-            ("common", "1.5.0") => {},
-        },
-        expected {
-            dependency_graph = {
-                ("root", "1.0.0") => {
-                    "first" => ("first", "1.0.0"),
-                    "second" => ("second", "1.0.0"),
-                 },
-                ("first", "1.0.0") => {
-                    "common" => ("common", "1.2.0"),
-                },
-                ("second", "1.0.0") => {
-                    "common" => ("common", "1.2.0"),
-                },
-                ("common", "1.2.0") => {},
-            },
-            package = ResolvedPackage {
-                root_package: pkg_id("root", "1.0.0"),
+    #[tokio::test]
+    #[ignore = "Version merging isn't implemented"]
+    async fn merge_compatible_versions() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("first", "=1.0.0")
+            .with_dependency("second", "=1.0.0");
+        builder
+            .register("first", "1.0.0")
+            .with_dependency("common", "^1.0.0");
+        builder
+            .register("second", "1.0.0")
+            .with_dependency("common", ">1.1,<1.3");
+        builder.register("common", "1.0.0");
+        builder.register("common", "1.1.0");
+        builder.register("common", "1.2.0");
+        builder.register("common", "1.5.0");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert("root", "1.0.0")
+            .with_dependency("first", "1.0.0")
+            .with_dependency("second", "1.0.0");
+        dependency_graph
+            .insert("first", "1.0.0")
+            .with_dependency("common", "1.2.0");
+        dependency_graph
+            .insert("second", "1.0.0")
+            .with_dependency("common", "1.2.0");
+        dependency_graph.insert("common", "1.2.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
                 commands: BTreeMap::new(),
                 entrypoint: None,
                 filesystem: Vec::new(),
-            },
-        },
+            }
+        );
     }
 }
