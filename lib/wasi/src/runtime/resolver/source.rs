@@ -12,7 +12,7 @@ pub trait Source: Debug {
     fn id(&self) -> SourceId;
 
     /// Ask this source which packages would satisfy a particular
-    /// [`Dependency`] constraint.
+    /// [`Dependency`][dep] constraint.
     ///
     /// # Assumptions
     ///
@@ -20,10 +20,13 @@ pub trait Source: Debug {
     /// the dependency, even if the [`Source`] doesn't know of a package
     /// with that name.
     ///
-    /// A [`Registry`] will typically have a list of [`Source`]s that are
+    /// A [`Registry`][reg] will typically have a list of [`Source`]s that are
     /// queried in order. The first [`Source`] to return one or more
     /// [`Summaries`][Summary] will be treated as the canonical source for
-    /// that [`Dependency`] and no further [`Source`]s will be queried.
+    /// that [`Dependency`][dep] and no further [`Source`]s will be queried.
+    ///
+    /// [dep]: crate::runtime::resolver::Dependency
+    /// [reg]: crate::runtime::resolver::Registry
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error>;
 }
 

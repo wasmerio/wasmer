@@ -44,10 +44,6 @@ impl BinaryPackageCommand {
 }
 
 /// A WebAssembly package that has been loaded into memory.
-///
-/// You can crate a [`BinaryPackage`] using a
-/// [`crate::runtime::resolver::PackageResolver`] or
-/// [`crate::wapm::parse_static_webc()`].
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {

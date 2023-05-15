@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::{self, Display, Formatter},
     path::PathBuf,
 };
 
@@ -29,18 +30,35 @@ pub struct PackageId {
     pub source: SourceId,
 }
 
+impl Display for PackageId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let PackageId {
+            package_name,
+            version,
+            source,
+        } = self;
+        write!(f, "{package_name} {version}")?;
+
+        let url = source.url();
+
+        match source.kind() {
+            super::SourceKind::Path => match url.to_file_path() {
+                Ok(path) => write!(f, " ({})", path.display()),
+                Err(_) => write!(f, " ({url})"),
+            },
+            super::SourceKind::Url => write!(f, " ({url})"),
+            super::SourceKind::Registry => write!(f, " (registry+{url})"),
+            super::SourceKind::LocalRegistry => write!(f, " (local+{url})"),
+        }
+    }
+}
+
 /// A dependency graph.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DependencyGraph {
     pub root: PackageId,
     pub dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
     pub summaries: HashMap<PackageId, Summary>,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ResolvedCommand {
-    pub name: String,
-    pub package: PackageId,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,7 +73,6 @@ pub struct FileSystemMapping {
 pub struct ResolvedPackage {
     pub root_package: PackageId,
     pub commands: BTreeMap<String, ItemLocation>,
-    pub atoms: Vec<(String, ItemLocation)>,
     pub entrypoint: Option<String>,
     /// A mapping from paths to the volumes that should be mounted there.
     pub filesystem: Vec<FileSystemMapping>,

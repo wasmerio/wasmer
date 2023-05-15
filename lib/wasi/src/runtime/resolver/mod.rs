@@ -12,11 +12,10 @@ pub use self::{
     inputs::{Command, Dependency, PackageSpecifier, Summary},
     multi_source_registry::MultiSourceRegistry,
     outputs::{
-        DependencyGraph, FileSystemMapping, ItemLocation, PackageId, Resolution, ResolvedCommand,
-        ResolvedPackage,
+        DependencyGraph, FileSystemMapping, ItemLocation, PackageId, Resolution, ResolvedPackage,
     },
     registry::Registry,
-    resolve::{load_package_tree, resolve},
+    resolve::resolve,
     source::{Source, SourceId, SourceKind},
     wapm_source::WapmSource,
 };
