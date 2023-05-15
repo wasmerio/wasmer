@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use semver::Version;
 use sha2::{Digest, Sha256};
 use url::Url;
 use webc::{
@@ -90,6 +91,11 @@ impl InMemorySource {
 
     pub fn packages(&self) -> &BTreeMap<String, Vec<Summary>> {
         &self.packages
+    }
+
+    pub fn get(&self, package_name: &str, version: &Version) -> Option<&Summary> {
+        let summaries = self.packages.get(package_name)?;
+        summaries.iter().find(|s| s.version == *version)
     }
 }
 
