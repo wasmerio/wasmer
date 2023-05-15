@@ -10,7 +10,7 @@ use tracing::warn;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::{Pages, WASM_PAGE_SIZE};
+use wasmer_types::Pages;
 
 use super::memory_view::MemoryView;
 
@@ -136,33 +136,6 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    pub fn copy_to_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        // Create the new memory using the parameters of the existing memory
-        let view = self.view(store);
-        let ty = self.ty(store);
-        let amount = view.data_size() as usize;
-
-        let new_memory = Self::new(new_store, ty)?;
-        let new_view_size = new_memory.view(&new_store).data_size() as usize;
-        if amount > new_view_size {
-            let delta = amount - new_view_size;
-            let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
-            new_memory.grow(new_store, Pages(pages as u32))?;
-        }
-        let new_view = new_memory.view(&new_store);
-
-        // Copy the bytes
-        view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
-        // Return the new memory
-        Ok(new_memory)
-    }
-
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }
@@ -171,10 +144,7 @@ impl Memory {
         self.handle.try_clone()
     }
 
-    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        true
-    }
-
+    #[deprecated = "use `try_clone` instead"]
     pub fn duplicate_in_store(
         &self,
         store: &impl AsStoreRef,
@@ -185,9 +155,8 @@ impl Memory {
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 
-    #[allow(unused)]
-    pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.handle.duplicate()
+    pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
+        true
     }
 }
 

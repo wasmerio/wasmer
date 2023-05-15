@@ -9,7 +9,7 @@ use std::{
 use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
-use wasmer::{AsStoreMut, Instance, Module};
+use wasmer::{AsStoreMut, Instance, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 #[cfg(feature = "sys")]
@@ -687,7 +687,6 @@ impl WasiEnvBuilder {
             inodes,
             args: self.args.clone(),
             preopen: self.vfs_preopens.clone(),
-            threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Default::default(),
             envs,
@@ -714,6 +713,7 @@ impl WasiEnvBuilder {
 
         let plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,
+            enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
@@ -725,10 +725,11 @@ impl WasiEnvBuilder {
             control_plane,
             bin_factory,
             capabilities,
-            spawn_type: None,
+            memory_ty: None,
             process: None,
             thread: None,
             call_initialize: true,
+            can_deep_sleep: false,
         };
 
         Ok(init)
@@ -778,11 +779,7 @@ impl WasiEnvBuilder {
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn run_with_store(
-        self,
-        module: Module,
-        store: &mut impl AsStoreMut,
-    ) -> Result<(), WasiRuntimeError> {
+    pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
         let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;

@@ -31,4 +31,8 @@ pub struct CapabilityThreadingV1 {
     ///
     /// [`None`] means no limit.
     pub max_threads: Option<usize>,
+
+    /// Flag that indicates if asynchronous threading is disabled
+    /// (default = false)
+    pub enable_asynchronous_threading: bool,
 }

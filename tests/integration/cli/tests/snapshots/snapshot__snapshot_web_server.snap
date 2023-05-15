@@ -1,6 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 492
+assertion_line: 583
 expression: snapshot
 ---
 {
@@ -12,7 +12,7 @@ expression: snapshot
     ],
     "include_webcs": [
       {
-        "name": "sharrattj/static-web-server@1.0.8"
+        "name": "sharrattj/static-web-server@1.0.92"
       },
       {
         "name": "sharrattj/wasmer-sh@1.0.63"

@@ -18,22 +18,20 @@
 mod builder;
 mod env;
 mod func_env;
+mod handles;
 mod types;
 
 use std::{
-    cell::RefCell,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::Path,
-    sync::{Arc, Mutex, RwLock},
+    sync::Mutex,
     task::Waker,
     time::Duration,
 };
 
-use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer::Store;
 use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
@@ -47,8 +45,8 @@ use crate::{
     fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
     syscalls::types::*,
     utils::WasiParkingLot,
-    WasiCallingId,
 };
+pub(crate) use handles::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
@@ -69,38 +67,11 @@ impl FileOpener for WasiStateOpener {
     }
 }
 
-// TODO: review allow...
-#[allow(dead_code)]
-pub(crate) struct WasiThreadContext {
-    pub ctx: WasiFunctionEnv,
-    pub store: RefCell<Store>,
-}
-
-/// The code itself makes safe use of the struct so multiple threads don't access
-/// it (without this the JS code prevents the reference to the module from being stored
-/// which is needed for the multithreading mode)
-unsafe impl Send for WasiThreadContext {}
-unsafe impl Sync for WasiThreadContext {}
-
-/// Structures used for the threading and sub-processes
-///
-/// These internal implementation details are hidden away from the
-/// consumer who should instead implement the vbus trait on the runtime
-#[derive(Derivative, Default)]
-// TODO: review allow...
-#[allow(dead_code)]
-#[derivative(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub(crate) struct WasiStateThreading {
-    #[derivative(Debug = "ignore")]
-    pub thread_ctx: HashMap<WasiCallingId, Arc<WasiThreadContext>>,
-}
-
 /// Represents a futex which will make threads wait for completion in a more
 /// CPU efficient manner
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct WasiFutex {
-    pub(crate) wakers: Vec<Waker>,
+    pub(crate) wakers: BTreeMap<u64, Option<Waker>>,
 }
 
 /// Structure that holds the state of BUS calls to this process and from
@@ -136,6 +107,14 @@ impl WasiBusState {
     }
 }
 
+/// Stores the state of the futexes
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub(crate) struct WasiFutexState {
+    pub poller_seed: u64,
+    pub futexes: HashMap<u64, WasiFutex>,
+}
+
 /// Top level data type containing all* the state with which WASI can
 /// interact.
 ///
@@ -149,8 +128,7 @@ pub(crate) struct WasiState {
 
     pub fs: WasiFs,
     pub inodes: WasiInodes,
-    pub threading: RwLock<WasiStateThreading>,
-    pub futexs: Mutex<HashMap<u64, WasiFutex>>,
+    pub futexs: Mutex<WasiFutexState>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
@@ -270,7 +248,6 @@ impl WasiState {
             fs: self.fs.fork(),
             secret: self.secret,
             inodes: self.inodes.clone(),
-            threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
             args: self.args.clone(),

@@ -18,10 +18,13 @@ pub fn proc_exit<M: MemorySize>(
     // If we are in a vfork we need to return to the point we left off
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
         // Restore the WasiEnv to the point when we vforked
-        std::mem::swap(&mut vfork.env.inner, &mut ctx.data_mut().inner);
+        vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
         let mut wasi_env = *vfork.env;
         wasi_env.owned_handles.push(vfork.handle);
+
+        // The child environment needs to be notified as exited
+        wasi_env.thread.set_status_finished(Ok(code));
 
         // We still need to create the process that exited so that
         // the exit code can be used by the parent process
@@ -32,11 +35,14 @@ pub fn proc_exit<M: MemorySize>(
 
         // If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
+        let val_bytes = pid.raw().to_ne_bytes();
         let pid_offset: u64 = vfork.pid_offset;
-        if pid_offset >= wasi_env.stack_start && pid_offset < wasi_env.stack_end {
+        if pid_offset >= wasi_env.layout.stack_lower
+            && (pid_offset + val_bytes.len() as u64) <= wasi_env.layout.stack_upper
+        {
             // Make sure its within the "active" part of the memory stack
-            let offset = wasi_env.stack_end - pid_offset;
-            if offset as usize > memory_stack.len() {
+            let offset = wasi_env.layout().stack_upper - pid_offset;
+            if (offset as usize + val_bytes.len()) > memory_stack.len() {
                 warn!(
                     "fork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})",
                     offset,
@@ -46,7 +52,6 @@ pub fn proc_exit<M: MemorySize>(
             }
 
             // Update the memory stack with the new PID
-            let val_bytes = pid.raw().to_ne_bytes();
             let pstart = memory_stack.len() - offset as usize;
             let pend = pstart + val_bytes.len();
             let pbytes = &mut memory_stack[pstart..pend];

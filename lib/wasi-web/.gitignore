@@ -2,6 +2,7 @@ node_modules
 dist
 .parcel-cache
 .cache
+.vscode
 target
 pkg
 wapm/*.wasm

@@ -1,5 +1,5 @@
 /// A snapshot that captures the runtime state of an instance.
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+#[derive(Default, serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct InstanceSnapshot {
     /// Values of all globals, indexed by the same index used in Webassembly.
     pub globals: Vec<u128>,

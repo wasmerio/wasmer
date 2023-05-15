@@ -39,12 +39,6 @@ impl Memory {
         self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    /// Creates a view into the memory that then allows for
-    /// read and write
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-        MemoryView::new(self, store)
-    }
-
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -54,34 +48,6 @@ impl Memory {
         IntoPages: Into<Pages>,
     {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
-    }
-
-    pub fn copy_to_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        // Create the new memory using the parameters of the existing memory
-        let view = self.view(store);
-        let ty = self.ty(store);
-        let amount = view.data_size() as usize;
-
-        let new_memory = Self::new(new_store, ty)?;
-        let mut new_view = new_memory.view(&new_store);
-        let new_view_size = new_view.data_size() as usize;
-        if amount > new_view_size {
-            let delta = amount - new_view_size;
-            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
-            new_memory.grow(new_store, Pages(pages as u32))?;
-            new_view = new_memory.view(&new_store);
-        }
-
-        // Copy the bytes
-        view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
-        // Return the new memory
-        Ok(new_memory)
     }
 
     pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
@@ -102,13 +68,14 @@ impl Memory {
         mem.try_clone().map(|mem| mem.into())
     }
 
+    #[deprecated = "use `try_clone` instead"]
     pub fn duplicate_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Option<Self> {
         self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
+            .and_then(|mut memory| memory.copy().ok())
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 

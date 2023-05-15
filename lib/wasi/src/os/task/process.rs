@@ -236,6 +236,9 @@ impl WasiProcess {
         }
         let tid: WasiThreadId = tid.into();
 
+        let pid = self.pid();
+        tracing::trace!(%pid, %tid, "signal-thread({:?})", signal);
+
         let inner = self.inner.read().unwrap();
         if let Some(thread) = inner.threads.get(&tid) {
             thread.signal(signal);
@@ -251,6 +254,9 @@ impl WasiProcess {
 
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
+        let pid = self.pid();
+        tracing::trace!(%pid, "signal-process({:?})", signal);
+
         {
             let inner = self.inner.read().unwrap();
             if self.waiting.load(Ordering::Acquire) > 0 {
