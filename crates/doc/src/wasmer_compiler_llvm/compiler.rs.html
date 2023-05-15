@@ -653,7 +653,7 @@
                 <span class="kw">for </span>(section_index, custom_section) <span class="kw">in </span>compiled_function.custom_sections.iter() {
                     <span class="comment">// TODO: remove this call to clone()
                     </span><span class="kw">let </span><span class="kw-2">mut </span>custom_section = custom_section.clone();
-                    <span class="kw">for </span><span class="kw-2">mut </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
+                    <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
                         <span class="kw">if let </span>RelocationTarget::CustomSection(index) = reloc.reloc_target {
                             reloc.reloc_target = RelocationTarget::CustomSection(
                                 SectionIndex::from_u32(first_section + index.as_u32()),
@@ -665,7 +665,7 @@
                         .contains(<span class="kw-2">&amp;</span>section_index)
                     {
                         <span class="kw">let </span>offset = frame_section_bytes.len() <span class="kw">as </span>u32;
-                        <span class="kw">for </span><span class="kw-2">mut </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
+                        <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>custom_section.relocations {
                             reloc.offset += offset;
                         }
                         frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
@@ -680,7 +680,7 @@
                         module_custom_sections.push(custom_section);
                     }
                 }
-                <span class="kw">for </span><span class="kw-2">mut </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>compiled_function.compiled_function.relocations {
+                <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;mut </span>compiled_function.compiled_function.relocations {
                     <span class="kw">if let </span>RelocationTarget::CustomSection(index) = reloc.reloc_target {
                         reloc.reloc_target = RelocationTarget::CustomSection(
                             SectionIndex::from_u32(first_section + index.as_u32()),
