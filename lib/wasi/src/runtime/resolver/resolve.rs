@@ -265,14 +265,6 @@ mod tests {
 
                 let resolution = resolve(&root, &registry).await.unwrap();
 
-                eprintln!("==== Dependencies ====");
-                for (pkg_id, deps) in &resolution.graph.dependencies {
-                    eprintln!("{pkg_id}:");
-                    for (name, dep_id) in deps {
-                        eprintln!("  {name}: {dep_id}");
-                    }
-                }
-
                 let expected_dependency_graph = setup_dependency_graph!($($dependency_graph)*);
                 assert_eq!(
                     resolution.graph.dependencies,
@@ -426,6 +418,55 @@ mod tests {
             dependency_graph = {
                 ("root", "1.0.0") => { "dep" => ("dep", "1.0.2") },
                 ("dep", "1.0.2") => {},
+            },
+            package = ResolvedPackage {
+                root_package: pkg_id("root", "1.0.0"),
+                commands: BTreeMap::new(),
+                entrypoint: None,
+                filesystem: Vec::new(),
+            },
+        },
+    }
+
+    resolver_test! {
+        #[ignore = "Version merging isn't implemented"]
+        name = merge_compatible_versions,
+        root = ("root", "1.0.0"),
+        registry {
+            ("root", "1.0.0") => {
+                dependencies => {
+                    "first" => ("first", "=1.0.0"),
+                    "second" => ("second", "=1.0.0"),
+                }
+            },
+            ("first", "1.0.0") => {
+                dependencies => {
+                    "common" => ("common", "^1.0.0"),
+                }
+            },
+            ("second", "1.0.0") => {
+                dependencies => {
+                    "common" => ("common", ">1.1,<1.3"),
+                }
+            },
+            ("common", "1.0.0") => {},
+            ("common", "1.1.0") => {},
+            ("common", "1.2.0") => {},
+            ("common", "1.5.0") => {},
+        },
+        expected {
+            dependency_graph = {
+                ("root", "1.0.0") => {
+                    "first" => ("first", "1.0.0"),
+                    "second" => ("second", "1.0.0"),
+                 },
+                ("first", "1.0.0") => {
+                    "common" => ("common", "1.2.0"),
+                },
+                ("second", "1.0.0") => {
+                    "common" => ("common", "1.2.0"),
+                },
+                ("common", "1.2.0") => {},
             },
             package = ResolvedPackage {
                 root_package: pkg_id("root", "1.0.0"),
