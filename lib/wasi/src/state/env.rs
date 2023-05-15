@@ -858,87 +858,97 @@ impl WasiEnv {
         let tasks = self.runtime.task_manager();
 
         while let Some(use_package) = use_packages.pop_back() {
-            if let Some(package) = cmd_wasmer
-                .as_ref()
+            match cmd_wasmer
+                .ok_or_else(|| anyhow::anyhow!("Unable to get /bin/wasmer"))
                 .and_then(|cmd| tasks.block_on(cmd.get_package(use_package.clone())))
             {
-                // If its already been added make sure the version is correct
-                let package_name = package.package_name.to_string();
-                if let Some(version) = already.get(&package_name) {
-                    if *version != package.version {
-                        return Err(WasiStateCreationError::WasiInheritError(format!(
-                            "webc package version conflict for {} - {} vs {}",
-                            use_package, version, package.version
-                        )));
-                    }
-                    continue;
-                }
-                already.insert(package_name, package.version.clone());
-
-                // Add the additional dependencies
-                for dependency in package.uses.clone() {
-                    use_packages.push_back(dependency);
-                }
-
-                if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-                    // We first need to copy any files in the package over to the temporary file system
-                    if let Some(fs) = package.webc_fs.as_ref() {
-                        root_fs.union(fs);
-                    }
-
-                    // Add all the commands as binaries in the bin folder
-
-                    let commands = package.commands.read().unwrap();
-                    if !commands.is_empty() {
-                        let _ = root_fs.create_dir(Path::new("/bin"));
-                        for command in commands.iter() {
-                            let path = format!("/bin/{}", command.name());
-                            let path = Path::new(path.as_str());
-
-                            // FIXME(Michael-F-Bryan): This is pretty sketchy.
-                            // We should be using some sort of reference-counted
-                            // pointer to some bytes that are either on the heap
-                            // or from a memory-mapped file. However, that's not
-                            // possible here because things like memfs and
-                            // WasiEnv are expecting a Cow<'static, [u8]>. It's
-                            // too hard to refactor those at the moment, and we
-                            // were pulling the same trick before by storing an
-                            // "ownership" object in the BinaryPackageCommand,
-                            // so as long as packages aren't removed from the
-                            // module cache it should be fine.
-                            let atom: &'static [u8] =
-                                unsafe { std::mem::transmute(command.atom()) };
-
-                            if let Err(err) = root_fs
-                                .new_open_options_ext()
-                                .insert_ro_file(path, atom.into())
-                            {
-                                tracing::debug!(
-                                    "failed to add package [{}] command [{}] - {}",
-                                    use_package,
-                                    command.name(),
-                                    err
-                                );
-                                continue;
-                            }
-
-                            // Add the binary package to the bin factory (zero copy the atom)
-                            let mut package = package.clone();
-                            package.entry = Some(atom.into());
-                            self.bin_factory
-                                .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+                Ok(package) => {
+                    // If its already been added make sure the version is correct
+                    let package_name = package.package_name.to_string();
+                    if let Some(version) = already.get(&package_name) {
+                        if *version != package.version {
+                            return Err(WasiStateCreationError::WasiInheritError(format!(
+                                "webc package version conflict for {} - {} vs {}",
+                                use_package, version, package.version
+                            )));
                         }
+                        continue;
                     }
-                } else {
-                    return Err(WasiStateCreationError::WasiInheritError(
-                        "failed to add package as the file system is not sandboxed".to_string(),
-                    ));
+                    already.insert(package_name, package.version.clone());
+
+                    // Add the additional dependencies
+                    for dependency in package.uses.clone() {
+                        use_packages.push_back(dependency);
+                    }
+
+                    if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
+                        // We first need to copy any files in the package over to the temporary file system
+                        if let Some(fs) = package.webc_fs.as_ref() {
+                            root_fs.union(fs);
+                        }
+
+                        // Add all the commands as binaries in the bin folder
+
+                        let commands = package.commands.read().unwrap();
+                        if !commands.is_empty() {
+                            let _ = root_fs.create_dir(Path::new("/bin"));
+                            for command in commands.iter() {
+                                let path = format!("/bin/{}", command.name());
+                                let path = Path::new(path.as_str());
+
+                                // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                                // We should be using some sort of reference-counted
+                                // pointer to some bytes that are either on the heap
+                                // or from a memory-mapped file. However, that's not
+                                // possible here because things like memfs and
+                                // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                                // too hard to refactor those at the moment, and we
+                                // were pulling the same trick before by storing an
+                                // "ownership" object in the BinaryPackageCommand,
+                                // so as long as packages aren't removed from the
+                                // module cache it should be fine.
+                                let atom: &'static [u8] =
+                                    unsafe { std::mem::transmute(command.atom()) };
+
+                                if let Err(err) = root_fs
+                                    .new_open_options_ext()
+                                    .insert_ro_file(path, atom.into())
+                                {
+                                    tracing::debug!(
+                                        "failed to add package [{}] command [{}] - {}",
+                                        use_package,
+                                        command.name(),
+                                        err
+                                    );
+                                    continue;
+                                }
+
+                                // Add the binary package to the bin factory (zero copy the atom)
+                                let mut package = package.clone();
+                                package.entry = Some(atom.into());
+                                self.bin_factory.set_binary(
+                                    path.as_os_str().to_string_lossy().as_ref(),
+                                    package,
+                                );
+                            }
+                        }
+                    } else {
+                        return Err(WasiStateCreationError::WasiInheritError(
+                            "failed to add package as the file system is not sandboxed".to_string(),
+                        ));
+                    }
                 }
-            } else {
-                return Err(WasiStateCreationError::WasiInheritError(format!(
-                    "failed to fetch webc package for {}",
-                    use_package
-                )));
+                Err(e) => {
+                    tracing::debug!(
+                        %use_package,
+                        error=&*e,
+                        "An error occurred while fetching the webc package",
+                    );
+                    return Err(WasiStateCreationError::WasiInheritError(format!(
+                        "failed to fetch webc package for {}",
+                        use_package
+                    )));
+                }
             }
         }
         Ok(())
