@@ -78,41 +78,114 @@ fn commands(
     {
         let webc = &containers[package];
         let manifest = webc.manifest();
-        let cmd = &manifest.commands[original_name];
-        let atom_name = infer_atom_name(cmd).with_context(|| {
-            format!(
-                "Unable to infer the atom name for the \"{original_name}\" command in {package}"
-            )
-        })?;
-        let atom = webc.get_atom(&atom_name).with_context(|| {
-            format!("The {package} package doesn't contain a \"{atom_name}\" atom")
-        })?;
-        pkg_commands.push(BinaryPackageCommand::new(name.clone(), atom));
+        let command_metadata = &manifest.commands[original_name];
+
+        if let Some(cmd) = load_binary_command(webc, name, command_metadata)? {
+            pkg_commands.push(cmd);
+        }
     }
 
     Ok(pkg_commands)
 }
 
-fn infer_atom_name(cmd: &webc::metadata::Command) -> Option<String> {
-    #[derive(serde::Deserialize)]
-    struct Annotation {
-        atom: String,
+fn load_binary_command(
+    webc: &Container,
+    name: &str,
+    cmd: &webc::metadata::Command,
+) -> Result<Option<BinaryPackageCommand>, anyhow::Error> {
+    let atom_name = match atom_name_for_command(name, cmd)? {
+        Some(name) => name,
+        None => {
+            tracing::warn!(
+                cmd.name=name,
+                cmd.runner=%cmd.runner,
+                "Skipping unsupported command",
+            );
+            return Ok(None);
+        }
+    };
+
+    let atom = webc.get_atom(&atom_name);
+
+    if atom.is_none() && cmd.annotations.is_empty() {
+        return Ok(legacy_atom_hack(webc, name));
     }
+
+    let atom = atom
+        .with_context(|| format!("The '{name}' command uses the '{atom_name}' atom, but it isn't present in the WEBC file"))?;
+
+    let cmd = BinaryPackageCommand::new(name.to_string(), atom);
+
+    Ok(Some(cmd))
+}
+
+fn atom_name_for_command(
+    command_name: &str,
+    cmd: &webc::metadata::Command,
+) -> Result<Option<String>, anyhow::Error> {
+    use webc::metadata::annotations::{
+        Emscripten, Wasi, EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI,
+    };
 
     // FIXME: command metadata should include an "atom: Option<String>" field
     // because it's so common, rather than relying on each runner to include
     // annotations where "atom" just so happens to contain the atom's name
     // (like in Wasi and Emscripten)
 
-    for annotation in cmd.annotations.values() {
-        if let Ok(Annotation { atom: atom_name }) =
-            serde_cbor::value::from_value(annotation.clone())
-        {
-            return Some(atom_name);
-        }
+    if let Some(Wasi { atom, .. }) = cmd
+        .annotation("wasi")
+        .context("Unable to deserialize 'wasi' annotations")?
+    {
+        return Ok(Some(atom));
     }
 
-    None
+    if let Some(Emscripten {
+        atom: Some(atom), ..
+    }) = cmd
+        .annotation("emscripten")
+        .context("Unable to deserialize 'emscripten' annotations")?
+    {
+        return Ok(Some(atom));
+    }
+
+    if [WASI_RUNNER_URI, WCGI_RUNNER_URI, EMSCRIPTEN_RUNNER_URI]
+        .iter()
+        .any(|uri| cmd.runner.starts_with(uri))
+    {
+        // Note: We use the command name as the atom name as a special case
+        // for known runner types because sometimes people will construct
+        // a manifest by hand instead of using wapm2pirita.
+        tracing::debug!(
+            command = command_name,
+            "No annotations specifying the atom name found. Falling back to the command name"
+        );
+        return Ok(Some(command_name.to_string()));
+    }
+
+    Ok(None)
+}
+
+/// HACK: Some older packages like `sharrattj/bash` and `sharrattj/coreutils`
+/// contain commands with no annotations. When this happens, you can just assume
+/// it wants to use the first atom in the WEBC file.
+///
+/// That works because most of these packages only have a single atom (e.g. in
+/// `sharrattj/coreutils` there are commands for `ls`, `pwd`, and so on, but
+/// under the hood they all use the `coreutils` atom).
+///
+/// See <https://github.com/wasmerio/wasmer/commit/258903140680716da1431d92bced67d486865aeb>
+/// for more.
+fn legacy_atom_hack(webc: &Container, command_name: &str) -> Option<BinaryPackageCommand> {
+    let (name, atom) = webc.atoms().into_iter().next()?;
+
+    tracing::debug!(
+        command_name,
+        atom.name = name.as_str(),
+        atom.len = atom.len(),
+        "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
+    );
+
+    Some(BinaryPackageCommand::new(command_name.to_string(), atom))
 }
 
 async fn used_packages(
