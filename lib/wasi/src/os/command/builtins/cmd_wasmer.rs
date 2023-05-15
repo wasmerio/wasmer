@@ -2,7 +2,6 @@ use std::{any::Any, sync::Arc};
 
 use crate::{
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    runtime::resolver::RootPackage,
     SpawnError,
 };
 use wasmer::{FunctionEnvMut, Store};
@@ -97,9 +96,7 @@ impl CmdWasmer {
     pub async fn get_package(&self, name: String) -> Option<BinaryPackage> {
         let registry = self.runtime.registry();
         let specifier = name.parse().ok()?;
-        let root_package = RootPackage::from_registry(&specifier, &registry)
-            .await
-            .ok()?;
+        let root_package = registry.latest(&specifier).await.ok()?;
         let resolution = crate::runtime::resolver::resolve(&root_package, &registry)
             .await
             .ok()?;

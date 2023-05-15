@@ -29,7 +29,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::{PackageSpecifier, RootPackage},
+    runtime::resolver::PackageSpecifier,
     SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -306,7 +306,7 @@ async fn load_package(
     runtime: &dyn WasiRuntime,
 ) -> Result<BinaryPackage, Box<dyn std::error::Error + Send + Sync>> {
     let registry = runtime.registry();
-    let root_package = RootPackage::from_registry(&specifier, &registry).await?;
+    let root_package = registry.latest(specifier).await?;
     let resolution = crate::runtime::resolver::resolve(&root_package, &registry).await?;
     let pkg = runtime.load_package_tree(&resolution).await?;
 

@@ -23,8 +23,8 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         resolver::{
-            BuiltinLoader, MultiSourceRegistry, PackageLoader, PackageSpecifier, Registry, Source,
-            Summary, WapmSource,
+            BuiltinLoader, Dependency, MultiSourceRegistry, PackageLoader, PackageSpecifier,
+            Registry, Source, SourceId, SourceKind, Summary, WapmSource,
         },
         task_manager::tokio::TokioTaskManager,
     },
@@ -33,7 +33,7 @@ use wasmer_wasix::{
     PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntime, WasiVersion,
 };
-use webc::Container;
+use webc::{metadata::UrlOrManifest, Container};
 
 use crate::utils::{parse_envvar, parse_mapdir};
 
@@ -476,16 +476,14 @@ impl Wasi {
 
         let mut registry = MultiSourceRegistry::new();
 
-        if !self.include_webcs.is_empty() {
-            let mut source = PreloadedSource::default();
-            for path in &self.include_webcs {
-                source
-                    .add(path)
-                    .with_context(|| format!("Unable to preload \"{}\"", path.display()))?;
-            }
+        for path in &self.include_webcs {
+            let source = PreloadedSource::from_path(path)
+                .with_context(|| format!("Unable to preload \"{}\"", path.display()))?;
+            registry.add_source(source);
         }
 
-        // Note:
+        // Note: This should be last so our "preloaded" sources get a chance to
+        // override the main registry.
         let graphql_endpoint = config.registry.get_graphql_url();
         let graphql_endpoint = graphql_endpoint
             .parse()
@@ -496,13 +494,13 @@ impl Wasi {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug)]
 struct PreloadedSource {
-    summaries: Vec<Summary>,
+    summary: Summary,
 }
 
 impl PreloadedSource {
-    fn add(&mut self, path: &Path) -> Result<()> {
+    fn from_path(path: &Path) -> Result<Self> {
         let contents = std::fs::read(path)?;
         let hash = sha256(&contents);
         let container = Container::from_bytes(contents)?;
@@ -512,32 +510,52 @@ impl PreloadedSource {
             .package_annotation("wapm")?
             .context("The package doesn't contain a \"wapm\" annotation")?;
 
-        let url = Url::from_file_path(path)
+        let mut path = path.to_path_buf();
+        if !path.is_absolute() {
+            path = std::env::current_dir()?.join(path);
+        }
+        let webc_url = Url::from_file_path(&path)
             .map_err(|_| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
+
+        let dependencies = manifest
+            .use_map
+            .iter()
+            .map(|(alias, value)| parse_dependency(alias, value))
+            .collect::<Result<Vec<_>, anyhow::Error>>()?;
+
+        let commands = manifest
+            .commands
+            .iter()
+            .map(|(name, _cmd)| wasmer_wasix::runtime::resolver::Command { name: name.clone() })
+            .collect();
 
         let summary = Summary {
             package_name: name,
             version: version.parse()?,
-            webc: url,
+            webc: webc_url.clone(),
             webc_sha256: hash,
-            dependencies: manifest
-                .use_map
-                .iter()
-                .map(|(_alias, _url)| {
-                    todo!();
-                })
-                .collect(),
-            commands: manifest
-                .commands
-                .iter()
-                .map(|(name, _cmd)| wasmer_wasix::runtime::resolver::Command { name: name.clone() })
-                .collect(),
-            source: self.id(),
+            dependencies,
+            commands,
+            source: SourceId::new(SourceKind::Path, webc_url),
         };
 
-        self.summaries.push(summary);
+        Ok(PreloadedSource { summary })
+    }
+}
 
-        Ok(())
+fn parse_dependency(alias: &str, url: &UrlOrManifest) -> Result<Dependency> {
+    match url {
+        UrlOrManifest::Url(url) => Ok(Dependency {
+            alias: alias.to_string(),
+            pkg: PackageSpecifier::Url(url.clone()),
+        }),
+        UrlOrManifest::RegistryDependentUrl(s) => Ok(Dependency {
+            alias: alias.to_string(),
+            pkg: s.parse()?,
+        }),
+        UrlOrManifest::Manifest(_) => {
+            unreachable!("Vendoring isn't implemented and this variant is unused")
+        }
     }
 }
 
@@ -549,18 +567,19 @@ fn sha256(bytes: &[u8]) -> [u8; 32] {
 
 #[async_trait::async_trait]
 impl Source for PreloadedSource {
-    fn id(&self) -> wasmer_wasix::runtime::resolver::SourceId {
+    fn id(&self) -> SourceId {
         todo!()
     }
 
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, anyhow::Error> {
-        let matches = self.summaries.iter().filter(|s| match package {
-            PackageSpecifier::Registry { full_name, version } => {
-                s.package_name == *full_name && version.matches(&s.version)
+        match package {
+            PackageSpecifier::Registry { full_name, version }
+                if *full_name == self.summary.package_name
+                    && version.matches(&self.summary.version) =>
+            {
+                Ok(vec![self.summary.clone()])
             }
-            _ => false,
-        });
-
-        Ok(matches.cloned().collect())
+            _ => Ok(Vec::new()),
+        }
     }
 }

@@ -16,7 +16,7 @@ use webc::{
 
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
-    runtime::resolver::{PackageLoader, Summary},
+    runtime::{package_loader::PackageLoader, resolver::Summary},
 };
 
 /// The builtin [`PackageResolver`] that is used by the `wasmer` CLI and
