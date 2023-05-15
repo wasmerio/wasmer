@@ -40,8 +40,8 @@ wasmer-cache = { version = "=3.3.0", path = "../cache", features = ["blake3-pure
 wasmer-types = { version = "=3.3.0", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "4.5.0", path = "../registry", features = ["build-package"]  }
 wasmer-object = { version = "=3.3.0", path = "../object", optional = true }
-virtual-fs  = { version = "0.2.0", path = "../vfs", default-features = false, features = ["host-fs"] }
-virtual-net  = { version = "0.1.0", path = "../vnet" }
+virtual-fs  = { version = "0.2.0", path = "../virtual-fs", default-features = false, features = ["host-fs"] }
+virtual-net  = { version = "0.1.0", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
 webc = { version = "5.0" }
