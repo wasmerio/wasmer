@@ -93,6 +93,22 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    fn wasi_runner_with_dependencies() {
+        let assert = wasmer_run_unstable()
+            .arg(fixtures::hello())
+            .arg("--")
+            .arg("--eval")
+            .arg("console.log('Hello, World!')")
+            .assert();
+
+        assert.success().stdout(contains("Hello, World!"));
+    }
+
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn webc_files_with_multiple_commands_require_an_entrypoint_flag() {
         let assert = wasmer_run_unstable().arg(fixtures::wabt()).assert();
 
@@ -345,6 +361,13 @@ mod fixtures {
     /// The QuickJS interpreter, compiled to a WASI module.
     pub fn qjs() -> PathBuf {
         Path::new(C_ASSET_PATH).join("qjs.wasm")
+    }
+
+    pub fn hello() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("webc")
+            .join("hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc")
     }
 
     /// The `wasmer.toml` file for QuickJS.
