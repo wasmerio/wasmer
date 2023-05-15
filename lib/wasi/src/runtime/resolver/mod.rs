@@ -1,4 +1,4 @@
-mod directory_source;
+mod in_memory_source;
 mod inputs;
 mod multi_source_registry;
 mod outputs;
@@ -8,7 +8,7 @@ mod source;
 mod wapm_source;
 
 pub use self::{
-    directory_source::DirectorySource,
+    in_memory_source::InMemorySource,
     inputs::{Command, Dependency, PackageSpecifier, Summary},
     multi_source_registry::MultiSourceRegistry,
     outputs::{
