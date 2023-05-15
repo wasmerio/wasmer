@@ -19,7 +19,7 @@ pub struct ItemLocation {
     /// The item's original name.
     pub name: String,
     /// The package this item comes from.
-    pub pkg: PackageId,
+    pub package: PackageId,
 }
 
 /// An identifier for a package within a dependency graph.

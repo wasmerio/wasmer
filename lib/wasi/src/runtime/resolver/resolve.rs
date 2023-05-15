@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use anyhow::Error;
-use semver::Version;
 
 use crate::runtime::resolver::{
     DependencyGraph, ItemLocation, Registry, Resolution, ResolvedPackage, Summary,
@@ -10,30 +9,42 @@ use crate::runtime::resolver::{
 /// Given the [`Summary`] for a root package, resolve its dependency graph and
 /// figure out how it could be executed.
 pub async fn resolve(root: &Summary, registry: &impl Registry) -> Result<Resolution, Error> {
-    let summaries = fetch_all_possible_dependencies(root, registry).await?;
-    let graph = resolve_dependency_graph(root, summaries)?;
+    let graph = resolve_dependency_graph(root, registry).await?;
     let package = resolve_package(&graph)?;
 
     Ok(Resolution { graph, package })
 }
 
-fn resolve_dependency_graph(
+async fn resolve_dependency_graph(
     root: &Summary,
-    summaries: HashMap<String, HashMap<Version, Summary>>,
+    registry: &impl Registry,
 ) -> Result<DependencyGraph, Error> {
-    // TODO: We should actually construct a graph here.
-    // The current implementation won't actually do any dependency resolution.
     let mut dependencies = HashMap::new();
-    dependencies.insert(root.package_id(), HashMap::new());
+    let mut summaries = HashMap::new();
+
+    summaries.insert(root.package_id(), root.clone());
+
+    let mut to_visit = VecDeque::new();
+
+    to_visit.push_back(root.clone());
+
+    while let Some(summary) = to_visit.pop_front() {
+        let mut deps = HashMap::new();
+
+        for dep in &summary.dependencies {
+            let dep_summary = registry.latest(&dep.pkg).await?;
+            deps.insert(dep.alias().to_string(), dep_summary.package_id());
+            summaries.insert(dep_summary.package_id(), dep_summary.clone());
+            to_visit.push_back(dep_summary);
+        }
+
+        dependencies.insert(summary.package_id(), deps);
+    }
 
     Ok(DependencyGraph {
         root: root.package_id(),
         dependencies,
-        summaries: summaries
-            .into_values()
-            .flat_map(|versions| versions.into_values())
-            .map(|summary| (summary.package_id(), summary))
-            .collect(),
+        summaries,
     })
 }
 
@@ -69,7 +80,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
         for cmd in &summary.commands {
             let resolved = ItemLocation {
                 name: cmd.name.clone(),
-                pkg: summary.package_id(),
+                package: summary.package_id(),
             };
             commands.insert(cmd.name.clone(), resolved);
         }
@@ -88,63 +99,17 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
     })
 }
 
-/// Naively create a graph of all packages that could possibly be reached by the
-/// root package.
-async fn fetch_all_possible_dependencies(
-    root: &Summary,
-    registry: &impl Registry,
-) -> Result<HashMap<String, HashMap<Version, Summary>>, Error> {
-    let mut summaries_by_name: HashMap<String, HashMap<Version, Summary>> = HashMap::new();
-
-    // We manually add the summary for our root package, rather than retrieving
-    // it from the registry like all the others
-    summaries_by_name
-        .entry(root.package_name.clone())
-        .or_default()
-        .insert(root.version.clone(), root.clone());
-
-    let mut to_fetch = VecDeque::new();
-    let mut visited = HashSet::new();
-
-    for dep in &root.dependencies {
-        to_fetch.push_back(dep.pkg.clone());
-    }
-
-    while let Some(specifier) = to_fetch.pop_front() {
-        if visited.contains(&specifier) {
-            continue;
-        }
-
-        let matches = registry.query(&specifier).await?;
-        visited.insert(specifier);
-
-        to_fetch.extend(
-            matches
-                .iter()
-                .flat_map(|s| s.dependencies.iter().map(|dep| dep.pkg.clone())),
-        );
-
-        for summary in matches {
-            summaries_by_name
-                .entry(summary.package_name.clone())
-                .or_default()
-                .entry(summary.version.clone())
-                .or_insert(summary);
-        }
-    }
-
-    Ok(summaries_by_name)
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::runtime::resolver::{Dependency, PackageId, PackageSpecifier, SourceId, SourceKind};
+    use semver::Version;
+
+    use crate::runtime::resolver::{PackageId, PackageSpecifier, SourceId, SourceKind};
 
     use super::*;
 
     #[derive(Debug, Default)]
     struct InMemoryRegistry {
-        packages: HashMap<String, HashMap<Version, Vec<Dependency>>>,
+        packages: HashMap<String, HashMap<Version, Summary>>,
     }
 
     #[async_trait::async_trait]
@@ -158,28 +123,12 @@ mod tests {
             let candidates = match self.packages.get(full_name) {
                 Some(versions) => versions
                     .iter()
-                    .filter(|(v, _)| version_constraint.matches(v)),
+                    .filter(|(v, _)| version_constraint.matches(v))
+                    .map(|(_, s)| s),
                 None => return Ok(Vec::new()),
             };
 
-            let summaries = candidates
-                .map(|(version, deps)| make_summary(full_name, version, deps))
-                .collect();
-
-            Ok(summaries)
-        }
-    }
-
-    fn make_summary(full_name: &str, version: &Version, deps: &[Dependency]) -> Summary {
-        Summary {
-            package_name: full_name.to_string(),
-            version: version.clone(),
-            webc: "https://example.com".parse().unwrap(),
-            webc_sha256: [0; 32],
-            dependencies: deps.to_vec(),
-            commands: Vec::new(),
-            entrypoint: None,
-            source: dummy_source(),
+            Ok(candidates.cloned().collect())
         }
     }
 
@@ -190,122 +139,300 @@ mod tests {
         )
     }
 
+    /// An incremental token muncher that will update fields on a [`Summary`]
+    /// object if they are set.
+    macro_rules! setup_summary {
+        ($summary:expr,
+            $(,)?
+            dependencies => {
+                $(
+                    $dep_alias:literal => ($dep_name:literal, $dep_constraint:literal)
+                ),*
+                $(,)?
+            }
+            $($rest:tt)*
+        ) => {
+            $(
+                $summary.dependencies.push($crate::runtime::resolver::Dependency {
+                    alias: $dep_alias.to_string(),
+                    pkg: format!("{}@{}", $dep_name, $dep_constraint).parse().unwrap(),
+                });
+            )*
+        };
+        ($summary:expr,
+            $(,)?
+            commands => [ $($command_name:literal),* $(,)? ]
+            $($rest:tt)*
+        ) => {
+            $(
+                $summary.commands.push($crate::runtime::resolver::Command {
+                    name: $command_name.to_string(),
+                });
+            )*
+        };
+        ($summary:expr $(,)?) => {};
+    }
+
+    /// Populate a [`InMemoryRegistry`], using [`setup_summary`] to configure
+    /// the [`Summary`] before it is added to the registry.
+    macro_rules! setup_registry {
+        (
+            $(
+                ($pkg_name:literal, $pkg_version:literal) => { $($summary:tt)* }
+            ),*
+            $(,)?
+        ) => {{
+            let mut registry = InMemoryRegistry::default();
+
+            $(
+                let versions = registry.packages.entry($pkg_name.to_string())
+                    .or_default();
+                let version: Version = $pkg_version.parse().unwrap();
+                let mut summary = $crate::runtime::resolver::Summary {
+                    package_name: $pkg_name.to_string(),
+                    version: version.clone(),
+                    webc: format!("https://wapm.io/{}@{}", $pkg_name, $pkg_version).parse().unwrap(),
+                    webc_sha256: [0; 32],
+                    dependencies: Vec::new(),
+                    commands: Vec::new(),
+                    entrypoint: None,
+                    source: dummy_source(),
+                };
+                setup_summary!(summary, $($summary)*);
+                versions.insert(version, summary);
+            )*
+
+            registry
+        }};
+    }
+
+    /// Shorthand for defining [`DependencyGraph::dependencies`].
+    macro_rules! setup_dependency_graph {
+        (
+            $(
+                ($expected_name:literal, $expected_version:literal) => {
+                    $(
+                        $expected_dep_alias:literal => ($expected_dep_name:literal, $expected_dep_version:literal)
+                    ),*
+                    $(,)?
+                }
+            ),*
+            $(,)?
+        ) => {{
+            let mut dependencies: HashMap<PackageId, HashMap<String, PackageId>> = HashMap::new();
+
+            $(
+                let id = PackageId {
+                    package_name: $expected_name.to_string(),
+                    version: $expected_version.parse().unwrap(),
+                    source: dummy_source(),
+                };
+                let mut deps = HashMap::new();
+                $(
+                    let dep = PackageId {
+                        package_name: $expected_dep_name.to_string(),
+                        version: $expected_dep_version.parse().unwrap(),
+                        source: dummy_source(),
+                    };
+                    deps.insert($expected_dep_alias.to_string(), dep);
+                )*
+                dependencies.insert(id, deps);
+            )*
+
+            dependencies
+        }};
+    }
+
     macro_rules! resolver_test {
         (
             $( #[$attr:meta] )*
             name = $name:ident,
-            roots = [ $root:literal ],
-            registry = {
-                $(
-                    $pkg_name:literal => {
-                        $(
-                            $pkg_version:literal => {
-                                $(
-                                    $dep_alias:literal => ($dep_name:literal, $dep_constraint:literal)
-                                ),*
-                                $(,)?
-                            }
-                        ),*
-                        $(,)?
-                    }
-                ),*
-
-                $(,)?
+            root = ($root_name:literal, $root_version:literal),
+            registry { $($registry:tt)* },
+            expected {
+                dependency_graph = { $($dependency_graph:tt)* },
+                package = $resolved:expr,
             },
-            expected_dependency_graph = {
-                $(
-                    ($expected_name:literal, $expected_version:literal) => {
-                        $(
-                            $expected_dep_alias:literal => ($expected_dep_name:literal, $expected_dep_version:literal)
-                        ),*
-                        $(,)?
-                    }
-                ),*
-                $(,)?
-            }
-            $(,)?
         ) => {
             $( #[$attr] )*
             #[tokio::test]
             #[allow(dead_code, unused_mut)]
             async fn $name() {
-                let mut registry = InMemoryRegistry::default();
+                let registry = setup_registry!($($registry)*);
 
-                $(
-                    let versions = registry.packages.entry($pkg_name.to_string())
-                        .or_default();
-                    $(
-                        let version: Version = $pkg_version.parse().unwrap();
-                        let deps = vec![
-                            $(
-                                Dependency {
-                                    alias: $dep_alias.to_string(),
-                                    pkg: PackageSpecifier::Registry {
-                                        full_name: $dep_name.to_string(),
-                                        version: $dep_constraint.parse().unwrap(),
-                                    }
-                                }
-                            ),*
-                        ];
-                        versions.insert(version, deps);
-                    )*
-                )*
-
-                let (root_name, root_version) = $root.split_once('@').unwrap();
-                let root_version: Version = root_version.parse().unwrap();
-                let deps = &registry.packages[root_name][&root_version];
-                let root = make_summary(root_name, &root_version, deps);
+                let root_version: Version = $root_version.parse().unwrap();
+                let root = registry.packages[$root_name][&root_version].clone();
 
                 let resolution = resolve(&root, &registry).await.unwrap();
 
-                let mut expected_dependency_graph: HashMap<PackageId, HashMap<String, PackageId>> = HashMap::new();
-                $(
-                    let id = PackageId {
-                        package_name: $expected_name.to_string(),
-                        version: $expected_version.parse().unwrap(),
-                        source: dummy_source(),
-                    };
-                    let mut deps = HashMap::new();
-                    $(
-                        let dep = PackageId {
-                            package_name: $expected_dep_name.to_string(),
-                            version: $expected_dep_version.parse().unwrap(),
-                            source: dummy_source(),
-                        };
-                        deps.insert($expected_dep_alias.to_string(), dep);
-                    )*
-                    expected_dependency_graph.insert(id, deps);
-                )*
-                assert_eq!(resolution.graph.dependencies, expected_dependency_graph);
+                eprintln!("==== Dependencies ====");
+                for (pkg_id, deps) in &resolution.graph.dependencies {
+                    eprintln!("{pkg_id}:");
+                    for (name, dep_id) in deps {
+                        eprintln!("  {name}: {dep_id}");
+                    }
+                }
+
+                let expected_dependency_graph = setup_dependency_graph!($($dependency_graph)*);
+                assert_eq!(
+                    resolution.graph.dependencies,
+                    expected_dependency_graph,
+                    "Incorrect dependency graph",
+                );
+                let package: ResolvedPackage = $resolved;
+                assert_eq!(resolution.package, package);
             }
         };
     }
 
+    macro_rules! map {
+        (
+            $(
+                $key:expr => $value:expr
+            ),*
+            $(,)?
+        ) => {
+            vec![
+                $( ($key.into(), $value.into()) ),*
+            ]
+            .into_iter()
+            .collect()
+        }
+    }
+
+    fn pkg_id(name: &str, version: &str) -> PackageId {
+        PackageId {
+            package_name: name.to_string(),
+            version: version.parse().unwrap(),
+            source: dummy_source(),
+        }
+    }
+
     resolver_test! {
-        name = simplest_possible_resolution,
-        roots = ["wasmer/no-deps@1.0.0"],
-        registry = {
-            "wasmer/no-deps" => { "1.0.0" => {} },
+        name = no_deps_and_no_commands,
+        root = ("root", "1.0.0"),
+        registry {
+            ("root", "1.0.0") => { }
         },
-        expected_dependency_graph = {
-            ("wasmer/no-deps", "1.0.0") => {},
+        expected {
+            dependency_graph = {
+                ("root", "1.0.0") => {},
+            },
+            package = ResolvedPackage {
+                root_package: pkg_id("root", "1.0.0"),
+                commands: BTreeMap::new(),
+                entrypoint: None,
+                filesystem: Vec::new(),
+            },
         },
     }
 
     resolver_test! {
-        #[ignore = "resolve_dependency_graph() isn't implemented yet"]
-        name = single_dependency,
-        roots = ["root@1.0.0"],
-        registry = {
-            "root" => {
-                "1.0.0" => {
-                    "dep" => ("dep", "1.0.0"),
-                }
+        name = no_deps_one_command,
+        root = ("root", "1.0.0"),
+        registry {
+            ("root", "1.0.0") => {
+                commands => ["asdf"],
+             }
+        },
+        expected {
+            dependency_graph = {
+                ("root", "1.0.0") => {},
+            },
+            package = ResolvedPackage {
+                root_package: pkg_id("root", "1.0.0"),
+                commands: map! {
+                    "asdf" => ItemLocation {
+                        name: "asdf".to_string(),
+                        package: pkg_id("root", "1.0.0"),
+                    },
+                },
+                entrypoint: None,
+                filesystem: Vec::new(),
             },
         },
-        expected_dependency_graph = {
-            ("root", "1.0.0") => { "dep" => ("dep", "1.0.0") },
+    }
+
+    resolver_test! {
+        name = single_dependency,
+        root = ("root", "1.0.0"),
+        registry {
+            ("root", "1.0.0") => {
+                dependencies => {
+                    "dep" => ("dep", "=1.0.0"),
+                }
+            },
+            ("dep", "1.0.0") => { },
+        },
+        expected {
+            dependency_graph = {
+                ("root", "1.0.0") => { "dep" => ("dep", "1.0.0") },
+                ("dep", "1.0.0") => {},
+            },
+            package = ResolvedPackage {
+                root_package: pkg_id("root", "1.0.0"),
+                commands: BTreeMap::new(),
+                entrypoint: None,
+                filesystem: Vec::new(),
+            },
+        },
+    }
+
+    resolver_test! {
+        name = linear_dependency_chain,
+        root = ("first", "1.0.0"),
+        registry {
+            ("first", "1.0.0") => {
+                dependencies => {
+                    "second" => ("second", "=1.0.0"),
+                }
+            },
+            ("second", "1.0.0") => {
+                dependencies => {
+                    "third" => ("third", "=1.0.0"),
+                }
+            },
+            ("third", "1.0.0") => {},
+        },
+        expected {
+            dependency_graph = {
+                ("first", "1.0.0") => { "second" => ("second", "1.0.0") },
+                ("second", "1.0.0") => { "third" => ("third", "1.0.0") },
+                ("third", "1.0.0") => {},
+            },
+            package = ResolvedPackage {
+                root_package: pkg_id("first", "1.0.0"),
+                commands: BTreeMap::new(),
+                entrypoint: None,
+                filesystem: Vec::new(),
+            },
+        },
+    }
+
+    resolver_test! {
+        name = pick_the_latest_dependency_when_multiple_are_possible,
+        root = ("root", "1.0.0"),
+        registry {
+            ("root", "1.0.0") => {
+                dependencies => {
+                    "dep" => ("dep", "^1.0.0"),
+                }
+            },
             ("dep", "1.0.0") => {},
+            ("dep", "1.0.1") => {},
+            ("dep", "1.0.2") => {},
+        },
+        expected {
+            dependency_graph = {
+                ("root", "1.0.0") => { "dep" => ("dep", "1.0.2") },
+                ("dep", "1.0.2") => {},
+            },
+            package = ResolvedPackage {
+                root_package: pkg_id("root", "1.0.0"),
+                commands: BTreeMap::new(),
+                entrypoint: None,
+                filesystem: Vec::new(),
+            },
         },
     }
 }
