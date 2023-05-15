@@ -218,7 +218,8 @@ fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
 ) -> Result<impl FileSystem + Send + Sync, Error> {
-    // TODO: Take the [fs] table into account
+    // FIXME: Take the [fs] table into account
+    // See <https://github.com/wasmerio/wasmer/issues/3744> for more
     let root = &packages[&pkg.root_package];
     let fs = WebcVolumeFileSystem::mount_all(root);
     Ok(fs)
@@ -230,25 +231,17 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     let dir = match fs.read_dir(path) {
         Ok(d) => d,
         Err(_err) => {
-            // TODO: propagate error?
             return 0;
         }
     };
 
-    for res in dir {
-        match res {
-            Ok(entry) => {
-                if let Ok(meta) = entry.metadata() {
-                    total += meta.len();
-                    if meta.is_dir() {
-                        total += count_file_system(fs, entry.path.as_path());
-                    }
-                }
+    for entry in dir.flatten() {
+        if let Ok(meta) = entry.metadata() {
+            total += meta.len();
+            if meta.is_dir() {
+                total += count_file_system(fs, entry.path.as_path());
             }
-            Err(_err) => {
-                // TODO: propagate error?
-            }
-        };
+        }
     }
 
     total

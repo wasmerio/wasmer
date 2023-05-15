@@ -51,9 +51,9 @@ impl InMemorySource {
             } else if metadata.is_file() {
                 let f = File::open(path).context("Unable to open the file")?;
                 if webc::detect(f).is_ok() {
-                    let summary =
-                        webc_summary(path, source.id()).context("Unable to load the summary")?;
-                    source.insert(summary);
+                    source
+                        .add_webc(path)
+                        .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
                 }
             }
 
@@ -69,7 +69,7 @@ impl InMemorySource {
     }
 
     /// Add a new [`Summary`] to the [`InMemorySource`].
-    pub fn insert(&mut self, summary: Summary) {
+    pub fn add(&mut self, summary: Summary) {
         let summaries = self
             .packages
             .entry(summary.package_name.clone())
@@ -77,6 +77,15 @@ impl InMemorySource {
         summaries.push(summary);
         summaries.sort_by(|left, right| left.version.cmp(&right.version));
         summaries.dedup_by(|left, right| left.version == right.version);
+    }
+
+    pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
+        let path = path.as_ref();
+
+        let summary = webc_summary(path, self.id())?;
+        self.add(summary);
+
+        Ok(())
     }
 
     pub fn packages(&self) -> &BTreeMap<String, Vec<Summary>> {
@@ -88,10 +97,8 @@ impl InMemorySource {
 impl Source for InMemorySource {
     fn id(&self) -> SourceId {
         // FIXME: We need to have a proper SourceId here
-        SourceId::new(
-            SourceKind::LocalRegistry,
-            Url::from_directory_path("/").unwrap(),
-        )
+        let url = Url::from_directory_path(std::env::current_dir().unwrap()).unwrap();
+        SourceId::new(SourceKind::LocalRegistry, url)
     }
 
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {

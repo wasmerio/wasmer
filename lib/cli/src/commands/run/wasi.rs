@@ -7,8 +7,6 @@ use std::{
 use anyhow::{Context, Result};
 use bytes::Bytes;
 use clap::Parser;
-use sha2::{Digest, Sha256};
-use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{
     AsStoreMut, Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
@@ -23,10 +21,7 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinLoader, PackageLoader},
-        resolver::{
-            Dependency, MultiSourceRegistry, PackageSpecifier, Registry, Source, SourceId,
-            SourceKind, Summary, WapmSource,
-        },
+        resolver::{InMemorySource, MultiSourceRegistry, Registry, WapmSource},
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
@@ -34,7 +29,6 @@ use wasmer_wasix::{
     PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntime, WasiVersion,
 };
-use webc::{metadata::UrlOrManifest, Container};
 
 use crate::utils::{parse_envvar, parse_mapdir};
 
@@ -477,11 +471,13 @@ impl Wasi {
 
         let mut registry = MultiSourceRegistry::new();
 
+        let mut preloaded = InMemorySource::new();
         for path in &self.include_webcs {
-            let source = PreloadedSource::from_path(path)
-                .with_context(|| format!("Unable to preload \"{}\"", path.display()))?;
-            registry.add_source(source);
+            preloaded
+                .add_webc(path)
+                .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
         }
+        registry.add_source(preloaded);
 
         // Note: This should be last so our "preloaded" sources get a chance to
         // override the main registry.
@@ -492,96 +488,5 @@ impl Wasi {
         registry.add_source(WapmSource::new(graphql_endpoint, client));
 
         Ok(registry)
-    }
-}
-
-#[derive(Debug)]
-struct PreloadedSource {
-    summary: Summary,
-}
-
-impl PreloadedSource {
-    fn from_path(path: &Path) -> Result<Self> {
-        let contents = std::fs::read(path)?;
-        let hash = sha256(&contents);
-        let container = Container::from_bytes(contents)?;
-
-        let manifest = container.manifest();
-        let webc::metadata::annotations::Wapm { name, version, .. } = manifest
-            .package_annotation("wapm")?
-            .context("The package doesn't contain a \"wapm\" annotation")?;
-
-        let mut path = path.to_path_buf();
-        if !path.is_absolute() {
-            path = std::env::current_dir()?.join(path);
-        }
-        let webc_url = Url::from_file_path(&path)
-            .map_err(|_| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
-
-        let dependencies = manifest
-            .use_map
-            .iter()
-            .map(|(alias, value)| parse_dependency(alias, value))
-            .collect::<Result<Vec<_>, anyhow::Error>>()?;
-
-        let commands = manifest
-            .commands
-            .iter()
-            .map(|(name, _cmd)| wasmer_wasix::runtime::resolver::Command { name: name.clone() })
-            .collect();
-
-        let summary = Summary {
-            package_name: name,
-            version: version.parse()?,
-            webc: webc_url.clone(),
-            webc_sha256: hash,
-            dependencies,
-            commands,
-            source: SourceId::new(SourceKind::Path, webc_url),
-            entrypoint: manifest.entrypoint.clone(),
-        };
-
-        Ok(PreloadedSource { summary })
-    }
-}
-
-fn parse_dependency(alias: &str, url: &UrlOrManifest) -> Result<Dependency> {
-    match url {
-        UrlOrManifest::Url(url) => Ok(Dependency {
-            alias: alias.to_string(),
-            pkg: PackageSpecifier::Url(url.clone()),
-        }),
-        UrlOrManifest::RegistryDependentUrl(s) => Ok(Dependency {
-            alias: alias.to_string(),
-            pkg: s.parse()?,
-        }),
-        UrlOrManifest::Manifest(_) => {
-            unreachable!("Vendoring isn't implemented and this variant is unused")
-        }
-    }
-}
-
-fn sha256(bytes: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::default();
-    hasher.update(bytes);
-    hasher.finalize().into()
-}
-
-#[async_trait::async_trait]
-impl Source for PreloadedSource {
-    fn id(&self) -> SourceId {
-        todo!()
-    }
-
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, anyhow::Error> {
-        match package {
-            PackageSpecifier::Registry { full_name, version }
-                if *full_name == self.summary.package_name
-                    && version.matches(&self.summary.version) =>
-            {
-                Ok(vec![self.summary.clone()])
-            }
-            _ => Ok(Vec::new()),
-        }
     }
 }
