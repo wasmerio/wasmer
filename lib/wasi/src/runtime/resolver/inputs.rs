@@ -106,6 +106,9 @@ pub struct Summary {
     pub dependencies: Vec<Dependency>,
     /// Commands this package exposes to the outside world.
     pub commands: Vec<Command>,
+    /// The name of a [`Command`] that should be used as this package's
+    /// entrypoint.
+    pub entrypoint: Option<String>,
     /// The [`Source`] this [`Summary`] came from.
     pub source: SourceId,
 }

@@ -130,6 +130,7 @@ mod tests {
             webc_sha256: [0; 32],
             dependencies: deps.to_vec(),
             commands: Vec::new(),
+            entrypoint: None,
             source: dummy_source(),
         }
     }
@@ -146,7 +147,7 @@ mod tests {
             $( #[$attr:meta] )*
             name = $name:ident,
             roots = [ $root:literal ],
-            dependencies = {
+            registry = {
                 $(
                     $pkg_name:literal => {
                         $(
@@ -235,7 +236,7 @@ mod tests {
     resolver_test! {
         name = simplest_possible_resolution,
         roots = ["wasmer/no-deps@1.0.0"],
-        dependencies = {
+        registry = {
             "wasmer/no-deps" => { "1.0.0" => {} },
         },
         expected_dependency_graph = {
@@ -246,7 +247,7 @@ mod tests {
     resolver_test! {
         name = single_dependency,
         roots = ["root@1.0.0"],
-        dependencies = {
+        registry = {
             "root" => {
                 "1.0.0" => {
                     "dep" => ("dep", "1.0.0"),

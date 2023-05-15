@@ -326,6 +326,7 @@ mod tests {
                 SourceKind::Url,
                 "https://registry.wapm.io/graphql".parse().unwrap(),
             ),
+            entrypoint: Some("asdf".to_string()),
         };
 
         let container = loader.load(&summary).await.unwrap();

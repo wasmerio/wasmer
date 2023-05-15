@@ -40,6 +40,7 @@ pub mod os;
 // TODO: should this be pub?
 pub mod net;
 // TODO: should this be pub?
+pub mod capabilities;
 pub mod fs;
 pub mod http;
 mod rewind;
@@ -50,9 +51,6 @@ mod state;
 mod syscalls;
 mod utils;
 pub mod wapm;
-
-pub mod capabilities;
-pub use rewind::*;
 
 /// WAI based bindings.
 mod bindings;
@@ -96,21 +94,17 @@ pub use crate::{
         },
         WasiTtyState,
     },
+    rewind::*,
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
         PluggableRuntime, WasiRuntime,
     },
-    wapm::parse_static_webc,
-};
-
-pub use crate::utils::is_wasix_module;
-
-pub use crate::{
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{rewind, rewind_ext, types, unwind},
+    utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
         store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
