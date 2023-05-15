@@ -199,7 +199,7 @@
 </span><span class="kw">pub struct </span>MemoryView&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw">pub</span>(<span class="kw">crate</span>) memory_view_impl::MemoryView&lt;<span class="lifetime">&#39;a</span>&gt;);
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; MemoryView&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(memory: <span class="kw-2">&amp;</span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(memory: <span class="kw-2">&amp;</span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>AsStoreRef + <span class="question-mark">?</span>Sized)) -&gt; <span class="self">Self </span>{
         MemoryView(memory_view_impl::MemoryView::new(<span class="kw-2">&amp;</span>memory.<span class="number">0</span>, store))
     }
 

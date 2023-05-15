@@ -30,6 +30,21 @@
 <span id="28">28</span>
 <span id="29">29</span>
 <span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -41,20 +56,35 @@
 ///
 /// * `tid` - Handle of the thread to wait on
 </span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%join_tid), ret, err)]
-</span><span class="kw">pub fn </span>thread_join(
+</span><span class="kw">pub fn </span>thread_join&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     join_tid: Tid,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    <span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+    }
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>tid: WasiThreadId = join_tid.into();
     <span class="kw">let </span>other_thread = env.process.get_thread(<span class="kw-2">&amp;</span>tid);
     <span class="kw">if let </span><span class="prelude-val">Some</span>(other_thread) = other_thread {
-        <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-            other_thread.join().<span class="kw">await</span>;
-            <span class="prelude-val">Ok</span>(())
-        })<span class="question-mark">?</span>);
+        <span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+            ctx,
+            <span class="prelude-val">None</span>,
+            Duration::from_millis(<span class="number">50</span>),
+            <span class="kw">async move </span>{
+                other_thread
+                    .join()
+                    .<span class="kw">await
+                    </span>.map_err(|err| {
+                        err.as_exit_code()
+                            .unwrap_or(ExitCode::Errno(Errno::Unknown))
+                    })
+                    .unwrap_or_else(|a| a)
+            },
+            |<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(()),
+        )<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Errno::Success)
     } <span class="kw">else </span>{
         <span class="prelude-val">Ok</span>(Errno::Success)

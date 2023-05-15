@@ -82,6 +82,11 @@
 <span id="80">80</span>
 <span id="81">81</span>
 <span id="82">82</span>
+<span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -102,10 +107,13 @@
     <span class="comment">// If we are in a vfork we need to return to the point we left off
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>vfork) = ctx.data_mut().vfork.take() {
         <span class="comment">// Restore the WasiEnv to the point when we vforked
-        </span>std::mem::swap(<span class="kw-2">&amp;mut </span>vfork.env.inner, <span class="kw-2">&amp;mut </span>ctx.data_mut().inner);
+        </span>vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
         <span class="kw">let </span><span class="kw-2">mut </span>wasi_env = <span class="kw-2">*</span>vfork.env;
         wasi_env.owned_handles.push(vfork.handle);
+
+        <span class="comment">// The child environment needs to be notified as exited
+        </span>wasi_env.thread.set_status_finished(<span class="prelude-val">Ok</span>(code));
 
         <span class="comment">// We still need to create the process that exited so that
         // the exit code can be used by the parent process
@@ -116,11 +124,14 @@
 
         <span class="comment">// If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
-        </span><span class="kw">let </span>pid_offset: u64 = vfork.pid_offset;
-        <span class="kw">if </span>pid_offset &gt;= wasi_env.stack_start &amp;&amp; pid_offset &lt; wasi_env.stack_end {
+        </span><span class="kw">let </span>val_bytes = pid.raw().to_ne_bytes();
+        <span class="kw">let </span>pid_offset: u64 = vfork.pid_offset;
+        <span class="kw">if </span>pid_offset &gt;= wasi_env.layout.stack_lower
+            &amp;&amp; (pid_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= wasi_env.layout.stack_upper
+        {
             <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
-            </span><span class="kw">let </span>offset = wasi_env.stack_end - pid_offset;
-            <span class="kw">if </span>offset <span class="kw">as </span>usize &gt; memory_stack.len() {
+            </span><span class="kw">let </span>offset = wasi_env.layout().stack_upper - pid_offset;
+            <span class="kw">if </span>(offset <span class="kw">as </span>usize + val_bytes.len()) &gt; memory_stack.len() {
                 <span class="macro">warn!</span>(
                     <span class="string">&quot;fork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
                     offset,
@@ -130,8 +141,7 @@
             }
 
             <span class="comment">// Update the memory stack with the new PID
-            </span><span class="kw">let </span>val_bytes = pid.raw().to_ne_bytes();
-            <span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
+            </span><span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
             <span class="kw">let </span>pend = pstart + val_bytes.len();
             <span class="kw">let </span>pbytes = <span class="kw-2">&amp;mut </span>memory_stack[pstart..pend];
             pbytes.clone_from_slice(<span class="kw-2">&amp;</span>val_bytes);

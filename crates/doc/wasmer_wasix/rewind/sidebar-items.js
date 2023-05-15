@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["DeepSleepWork","Represents the work that will be done when a thread goes to deep sleep and includes the things needed to restore it again"]]};

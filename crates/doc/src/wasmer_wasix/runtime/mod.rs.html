@@ -202,14 +202,13 @@
 <span id="200">200</span>
 <span id="201">201</span>
 <span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>resolver;
 <span class="kw">pub mod </span>task_manager;
 
-<span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
+<span class="kw">use crate</span>::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
+
+<span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnMemoryType, VirtualTaskManager};
 
 <span class="kw">use </span>std::{
     fmt,
@@ -219,14 +218,9 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
-<span class="kw">use crate</span>::{
-    http::DynHttpClient,
-    os::TtyBridge,
-    runtime::{
-        module_cache::ModuleCache,
-        resolver::{PackageResolver, RegistryResolver},
-    },
-    WasiTtyState,
+<span class="kw">use </span><span class="kw">crate</span>::runtime::{
+    module_cache::ModuleCache,
+    resolver::{PackageResolver, RegistryResolver},
 };
 
 <span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is

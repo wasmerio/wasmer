@@ -112,6 +112,8 @@
 <span id="110">110</span>
 <span id="111">111</span>
 <span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -154,11 +156,13 @@
 
             <span class="comment">// If the return value offset is within the memory stack then we need
             // to update it here rather than in the real memory
-            </span><span class="kw">let </span>ret_val_offset = snapshot.user;
-            <span class="kw">if </span>ret_val_offset &gt;= env.stack_start &amp;&amp; ret_val_offset &lt; env.stack_end {
+            </span><span class="kw">let </span>val_bytes = val.to_ne_bytes();
+            <span class="kw">let </span>ret_val_offset = snapshot.user;
+            <span class="kw">if </span>ret_val_offset &gt;= env.layout.stack_lower
+                &amp;&amp; (ret_val_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= env.layout.stack_upper
+            {
                 <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
-                </span><span class="kw">let </span>val_bytes = val.to_ne_bytes();
-                <span class="kw">let </span>offset = env.stack_end - ret_val_offset;
+                </span><span class="kw">let </span>offset = env.layout.stack_upper - ret_val_offset;
                 <span class="kw">let </span>end = offset + (val_bytes.len() <span class="kw">as </span>u64);
                 <span class="kw">if </span>end <span class="kw">as </span>usize &gt; memory_stack.len() {
                     <span class="macro">warn!</span>(

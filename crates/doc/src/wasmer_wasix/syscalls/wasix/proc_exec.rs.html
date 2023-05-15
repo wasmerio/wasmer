@@ -265,6 +265,26 @@
 <span id="263">263</span>
 <span id="264">264</span>
 <span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     os::task::{OwnedTaskStatus, TaskStatus},
@@ -282,7 +302,7 @@
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(name = field::Empty, %args_len), ret, err)]
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(name = field::Empty, %args_len), ret)]
 </span><span class="kw">pub fn </span>proc_exec&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     name: WasmPtr&lt;u8, M&gt;,
@@ -290,6 +310,15 @@
     args: WasmPtr&lt;u8, M&gt;,
     args_len: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
+    WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
+    <span class="comment">// If we were just restored the stack then we were woken after a deep sleep
+    </span><span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+        <span class="comment">// We should never get here as the process will be termined
+        // in the `WasiEnv::process_signals_and_exit()` call
+        </span><span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Unknown.into()));
+    }
+
     <span class="kw">let </span>memory = ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx);
     <span class="kw">let </span><span class="kw-2">mut </span>name = name.read_utf8_string(<span class="kw-2">&amp;</span>memory, name_len).map_err(|err| {
         <span class="macro">warn!</span>(<span class="string">&quot;failed to execve as the name could not be read - {}&quot;</span>, err);
@@ -338,15 +367,15 @@
         <span class="kw">let </span>child_finished = child_process.finished;
 
         <span class="comment">// Restore the WasiEnv to the point when we vforked
-        </span>std::mem::swap(<span class="kw-2">&amp;mut </span>vfork.env.inner, <span class="kw-2">&amp;mut </span>ctx.data_mut().inner);
+        </span>vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
         <span class="kw">let </span><span class="kw-2">mut </span>wasi_env = <span class="kw-2">*</span>vfork.env;
         wasi_env.owned_handles.push(vfork.handle);
         _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args));
 
         <span class="comment">// Recrod the stack offsets before we give up ownership of the wasi_env
-        </span><span class="kw">let </span>stack_base = wasi_env.stack_end;
-        <span class="kw">let </span>stack_start = wasi_env.stack_start;
+        </span><span class="kw">let </span>stack_lower = wasi_env.layout.stack_lower;
+        <span class="kw">let </span>stack_upper = wasi_env.layout.stack_upper;
 
         <span class="comment">// Spawn a new process with this current execution environment
         </span><span class="kw">let </span><span class="kw-2">mut </span>err_exit_code: ExitCode = Errno::Success.into();
@@ -406,11 +435,12 @@
 
         <span class="comment">// If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
-        </span><span class="kw">let </span>pid_offset: u64 = vfork.pid_offset;
-        <span class="kw">if </span>pid_offset &gt;= stack_start &amp;&amp; pid_offset &lt; stack_base {
+        </span><span class="kw">let </span>val_bytes = child_pid.raw().to_ne_bytes();
+        <span class="kw">let </span>pid_offset: u64 = vfork.pid_offset;
+        <span class="kw">if </span>pid_offset &gt;= stack_lower &amp;&amp; (pid_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= stack_upper {
             <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
-            </span><span class="kw">let </span>offset = stack_base - pid_offset;
-            <span class="kw">if </span>offset <span class="kw">as </span>usize &gt; memory_stack.len() {
+            </span><span class="kw">let </span>offset = stack_upper - pid_offset;
+            <span class="kw">if </span>(offset <span class="kw">as </span>usize + val_bytes.len()) &gt; memory_stack.len() {
                 <span class="macro">warn!</span>(
                     <span class="string">&quot;vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
                     offset,
@@ -418,8 +448,7 @@
                 );
             } <span class="kw">else </span>{
                 <span class="comment">// Update the memory stack with the new PID
-                </span><span class="kw">let </span>val_bytes = child_pid.raw().to_ne_bytes();
-                <span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
+                </span><span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
                 <span class="kw">let </span>pend = pstart + val_bytes.len();
                 <span class="kw">let </span>pbytes = <span class="kw-2">&amp;mut </span>memory_stack[pstart..pend];
                 pbytes.clone_from_slice(<span class="kw-2">&amp;</span>val_bytes);
@@ -446,89 +475,100 @@
                 }
             }
         })<span class="question-mark">?</span>;
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        <span class="prelude-val">Ok</span>(())
     }
     <span class="comment">// Otherwise we need to unwind the stack to get out of the current executing
     // callstack, steal the memory/WasiEnv and switch it over to a new thread
     // on the new module
     </span><span class="kw">else </span>{
-        <span class="comment">// We need to unwind out of this process and launch a new process in its place
-        </span>unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw">_</span>, <span class="kw">_</span>| {
-            <span class="comment">// Prepare the environment
-            </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_env = ctx.data_mut().duplicate();
-            _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args));
+        <span class="comment">// Prepare the environment
+        </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_env = ctx.data().clone();
+        _prepare_wasi(<span class="kw-2">&amp;mut </span>wasi_env, <span class="prelude-val">Some</span>(args));
 
-            <span class="comment">// Get a reference to the runtime
-            </span><span class="kw">let </span>bin_factory = ctx.data().bin_factory.clone();
-            <span class="kw">let </span>tasks = wasi_env.tasks().clone();
+        <span class="comment">// Get a reference to the runtime
+        </span><span class="kw">let </span>bin_factory = ctx.data().bin_factory.clone();
+        <span class="kw">let </span>tasks = wasi_env.tasks().clone();
 
-            <span class="comment">// Create the process and drop the context
-            </span><span class="kw">let </span>bin_factory = Box::new(ctx.data().bin_factory.clone());
+        <span class="comment">// Create the process and drop the context
+        </span><span class="kw">let </span>bin_factory = Box::new(ctx.data().bin_factory.clone());
 
-            <span class="kw">let </span><span class="kw-2">mut </span>new_store = <span class="prelude-val">Some</span>(new_store);
-            <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="prelude-val">Some</span>(wasi_env);
+        <span class="kw">let </span><span class="kw-2">mut </span>new_store = <span class="prelude-val">Some</span>(new_store);
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="prelude-val">Some</span>(wasi_env);
 
-            <span class="kw">let </span>process = <span class="kw">match </span>bin_factory.try_built_in(
-                name.clone(),
-                <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx),
-                <span class="kw-2">&amp;mut </span>new_store,
-                <span class="kw-2">&amp;mut </span>builder,
-            ) {
-                <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)),
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="kw">if </span>err != VirtualBusError::NotFound {
-                        <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
-                    }
-
-                    <span class="kw">let </span>new_store = new_store.take().unwrap();
-                    <span class="kw">let </span>env = builder.take().unwrap();
-
-                    <span class="comment">// Spawn a new process with this current execution environment
-                    //let pid = wasi_env.process.pid();
-                    </span><span class="kw">let </span>(tx, rx) = std::sync::mpsc::channel();
-                    tasks.block_on(Box::pin(<span class="kw">async move </span>{
-                        <span class="kw">let </span>ret = bin_factory.spawn(name, new_store, env).<span class="kw">await</span>;
-                        tx.send(ret);
-                    }));
-                    rx.recv()
+        <span class="kw">let </span>process = <span class="kw">match </span>bin_factory.try_built_in(
+            name.clone(),
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx),
+            <span class="kw-2">&amp;mut </span>new_store,
+            <span class="kw-2">&amp;mut </span>builder,
+        ) {
+            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">if </span>err != VirtualBusError::NotFound {
+                    <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                 }
-            };
 
-            <span class="kw">match </span>process {
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>process)) =&gt; {
-                    <span class="comment">// Wait for the sub-process to exit itself - then we will exit
-                    </span><span class="kw">let </span>(tx, rx) = std::sync::mpsc::channel();
-                    <span class="kw">let </span>tasks_inner = tasks.clone();
-                    tasks.block_on(Box::pin(<span class="kw">async move </span>{
-                        <span class="kw">let </span>code = process
+                <span class="kw">let </span>new_store = new_store.take().unwrap();
+                <span class="kw">let </span>env = builder.take().unwrap();
+
+                <span class="comment">// Spawn a new process with this current execution environment
+                //let pid = wasi_env.process.pid();
+                </span><span class="kw">let </span>(tx, rx) = std::sync::mpsc::channel();
+                tasks.block_on(Box::pin(<span class="kw">async move </span>{
+                    <span class="kw">let </span>ret = bin_factory.spawn(name, new_store, env).<span class="kw">await</span>;
+                    tx.send(ret);
+                }));
+                rx.recv()
+            }
+        };
+
+        <span class="kw">match </span>process {
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>process)) =&gt; {
+                <span class="comment">// If we support deep sleeping then we switch to deep sleep mode
+                </span><span class="kw">let </span>env = ctx.data();
+                <span class="kw">let </span>thread = env.thread.clone();
+
+                <span class="comment">// The poller will wait for the process to actually finish
+                </span><span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+                    ctx,
+                    <span class="prelude-val">None</span>,
+                    Duration::from_millis(<span class="number">50</span>),
+                    <span class="kw">async move </span>{
+                        process
                             .wait_finished()
                             .<span class="kw">await
-                            </span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
-                        tx.send(code);
-                    }));
-                    <span class="kw">let </span>exit_code = rx.recv().unwrap();
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(exit_code)))
-                }
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-                    <span class="macro">warn!</span>(
-                        <span class="string">&quot;failed to execve as the process could not be spawned (fork)[0] - {}&quot;</span>,
-                        err
-                    );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">warn!</span>(
-                        <span class="string">&quot;failed to execve as the process could not be spawned (fork)[1] - {}&quot;</span>,
-                        err
-                    );
-                    OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Noexec.into())))
+                            </span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into())
+                    },
+                    <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>, res| {
+                        <span class="kw">let </span>exit_code = res.unwrap_or_else(ExitCode::Errno);
+                        thread.set_status_finished(<span class="prelude-val">Ok</span>(exit_code));
+                        <span class="prelude-val">Ok</span>(())
+                    },
+                )<span class="question-mark">?</span>;
+                <span class="kw">match </span>res {
+                    AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx) =&gt; {
+                        <span class="comment">// When we arrive here the process should already be terminated
+                        </span>WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+                        <span class="prelude-val">Err</span>(WasiError::Exit(Errno::Unknown.into()))
+                    }
+                    AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(()),
                 }
             }
-        })<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
+                <span class="macro">warn!</span>(
+                    <span class="string">&quot;failed to execve as the process could not be spawned (fork)[0] - {}&quot;</span>,
+                    err
+                );
+                <span class="prelude-val">Err</span>(WasiError::Exit(Errno::Noexec.into()))
+            }
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">warn!</span>(
+                    <span class="string">&quot;failed to execve as the process could not be spawned (fork)[1] - {}&quot;</span>,
+                    err
+                );
+                <span class="prelude-val">Err</span>(WasiError::Exit(Errno::Noexec.into()))
+            }
+        }
     }
-
-    <span class="comment">// Success
-    </span><span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

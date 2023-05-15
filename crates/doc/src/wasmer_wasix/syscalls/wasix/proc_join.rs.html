@@ -146,10 +146,97 @@
 <span id="144">144</span>
 <span id="145">145</span>
 <span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
 </pre><pre class="rust"><code><span class="kw">use </span>wasmer_wasix_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
+<span class="kw">use crate</span>::{syscalls::<span class="kw-2">*</span>, WasiProcess};
 
 <span class="doccomment">/// ### `proc_join()`
 /// Joins the child process, blocking this one until the other finishes
@@ -158,13 +245,46 @@
 ///
 /// * `pid` - Handle of the child process to wait on
 </span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
-</span><span class="kw">pub fn </span>proc_join&lt;M: MemorySize&gt;(
+</span><span class="kw">pub fn </span>proc_join&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     pid_ptr: WasmPtr&lt;OptionPid, M&gt;,
     _flags: JoinFlags,
     status_ptr: WasmPtr&lt;JoinStatus, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+
+    <span class="comment">// This lambda will look at what we wrote in the status variable
+    // and use this to determine the return code sent back to the caller
+    </span><span class="kw">let </span>ret_result = {
+        <span class="kw">let </span>status_ptr = status_ptr;
+        <span class="kw">move </span>|ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;| {
+            <span class="kw">let </span>view = ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx);
+            <span class="kw">let </span>status = <span class="macro">wasi_try_mem_ok!</span>(status_ptr.read(<span class="kw-2">&amp;</span>view));
+            <span class="kw">if </span>status.tag == JoinStatusType::Nothing {
+                <span class="kw">let </span>ret = <span class="kw">unsafe </span>{ status.u.nothing_errno };
+                <span class="macro">wasi_try_mem_ok!</span>(status_ptr.write(
+                    <span class="kw-2">&amp;</span>view,
+                    JoinStatus {
+                        tag: JoinStatusType::Nothing,
+                        u: JoinStatusUnion {
+                            nothing_errno: Errno::Success
+                        },
+                    }
+                ));
+                <span class="prelude-val">Ok</span>(ret)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Ok</span>(Errno::Success)
+            }
+        }
+    };
+
+    <span class="comment">// If we were just restored the stack then we were woken after a deep sleep
+    // and the return calues are already set
+    </span><span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+        <span class="kw">let </span>ret = ret_result(ctx);
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;rewound join ret={:?}&quot;</span>, ret);
+        <span class="kw">return </span>ret;
+    }
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
@@ -175,58 +295,101 @@
     };
     <span class="macro">tracing::trace!</span>(<span class="string">&quot;filter_pid = {:?}&quot;</span>, option_pid);
 
+    <span class="comment">// Clear the existing values (in case something goes wrong)
+    </span><span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(
+        <span class="kw-2">&amp;</span>memory,
+        OptionPid {
+            tag: OptionTag::None,
+            pid: <span class="number">0</span>,
+        }
+    ));
+    <span class="macro">wasi_try_mem_ok!</span>(status_ptr.write(
+        <span class="kw-2">&amp;</span>memory,
+        JoinStatus {
+            tag: JoinStatusType::Nothing,
+            u: JoinStatusUnion {
+                nothing_errno: Errno::Success
+            },
+        }
+    ));
+
     <span class="comment">// If the ID is maximum then it means wait for any of the children
     </span><span class="kw">let </span>pid = <span class="kw">match </span>option_pid {
         <span class="prelude-val">None </span>=&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>process = ctx.data_mut().process.clone();
-            <span class="kw">let </span>child_exit = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-                process.join_any_child().<span class="kw">await
-            </span>})<span class="question-mark">?</span>);
-            <span class="kw">return match </span>child_exit {
-                <span class="prelude-val">Some</span>((pid, exit_code)) =&gt; {
-                    <span class="macro">trace!</span>(ret_id = pid.raw(), exit_code = exit_code.raw());
-                    <span class="kw">let </span>env = ctx.data();
-                    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+            <span class="kw">let </span>pid_ptr = pid_ptr;
+            <span class="kw">let </span>status_ptr = status_ptr;
 
-                    <span class="kw">let </span>option_pid = OptionPid {
-                        tag: OptionTag::Some,
-                        pid: pid.raw() <span class="kw">as </span>Pid,
-                    };
-                    <span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(<span class="kw-2">&amp;</span>memory, option_pid));
+            <span class="comment">// We wait for any process to exit (if it takes too long
+            // then we go into a deep sleep)
+            </span><span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+                ctx,
+                <span class="prelude-val">None</span>,
+                Duration::from_millis(<span class="number">50</span>),
+                <span class="kw">async move </span>{ process.join_any_child().<span class="kw">await </span>},
+                <span class="kw">move </span>|memory, store, res| {
+                    <span class="kw">let </span>child_exit = res.unwrap_or_else(<span class="prelude-val">Err</span>);
 
-                    <span class="kw">let </span>status = JoinStatus {
-                        tag: JoinStatusType::ExitNormal,
-                        u: JoinStatusUnion {
-                            exit_normal: exit_code.into(),
-                        },
-                    };
-                    <span class="macro">wasi_try_mem_ok!</span>(status_ptr.write(<span class="kw-2">&amp;</span>memory, status));
-                    <span class="prelude-val">Ok</span>(Errno::Success)
-                }
-                <span class="prelude-val">None </span>=&gt; {
-                    <span class="kw">let </span>env = ctx.data();
-                    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+                    <span class="kw">let </span>memory = memory.view(store);
+                    <span class="kw">match </span>child_exit {
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((pid, exit_code))) =&gt; {
+                            <span class="macro">trace!</span>(ret_id = pid.raw(), exit_code = exit_code.raw());
 
-                    <span class="kw">let </span>status = JoinStatus {
-                        tag: JoinStatusType::Nothing,
-                        u: JoinStatusUnion { nothing: <span class="number">0 </span>},
-                    };
-                    <span class="macro">wasi_try_mem_ok!</span>(status_ptr.write(<span class="kw-2">&amp;</span>memory, status));
-                    <span class="prelude-val">Ok</span>(Errno::Child)
-                }
+                            <span class="kw">let </span>option_pid = OptionPid {
+                                tag: OptionTag::Some,
+                                pid: pid.raw() <span class="kw">as </span>Pid,
+                            };
+                            pid_ptr.write(<span class="kw-2">&amp;</span>memory, option_pid).ok();
+
+                            <span class="kw">let </span>status = JoinStatus {
+                                tag: JoinStatusType::ExitNormal,
+                                u: JoinStatusUnion {
+                                    exit_normal: exit_code.into(),
+                                },
+                            };
+                            status_ptr
+                                .write(<span class="kw-2">&amp;</span>memory, status)
+                                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                        }
+                        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+                            <span class="kw">let </span>status = JoinStatus {
+                                tag: JoinStatusType::Nothing,
+                                u: JoinStatusUnion {
+                                    nothing_errno: Errno::Child,
+                                },
+                            };
+                            status_ptr
+                                .write(<span class="kw-2">&amp;</span>memory, status)
+                                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                        }
+                        <span class="prelude-val">Err</span>(err) =&gt; {
+                            <span class="kw">let </span>status = JoinStatus {
+                                tag: JoinStatusType::Nothing,
+                                u: JoinStatusUnion { nothing_errno: err },
+                            };
+                            status_ptr
+                                .write(<span class="kw-2">&amp;</span>memory, status)
+                                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                        }
+                    }
+                    <span class="prelude-val">Ok</span>(())
+                },
+            )<span class="question-mark">?</span>;
+            <span class="kw">return match </span>res {
+                AsyncifyAction::Finish(ctx) =&gt; ret_result(ctx),
+                AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
             };
         }
         <span class="prelude-val">Some</span>(pid) =&gt; pid,
     };
 
     <span class="comment">// Otherwise we wait for the specific PID
-    </span><span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>pid: WasiProcessId = pid.into();
+    </span><span class="kw">let </span>pid: WasiProcessId = pid.into();
 
     <span class="comment">// Waiting for a process that is an explicit child will join it
     // meaning it will no longer be a sub-process of the main process
     </span><span class="kw">let </span><span class="kw-2">mut </span>process = {
-        <span class="kw">let </span><span class="kw-2">mut </span>inner = env.process.inner.write().unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data().process.inner.write().unwrap();
         <span class="kw">let </span>process = inner
             .children
             .iter()
@@ -240,44 +403,53 @@
     <span class="comment">// Otherwise it could be the case that we are waiting for a process
     // that is not a child of this process but may still be running
     </span><span class="kw">if </span>process.is_none() {
-        process = env.control_plane.get_process(pid);
+        process = ctx.data().control_plane.get_process(pid);
     }
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(process) = process {
-        <span class="kw">let </span>exit_code = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-            <span class="kw">let </span>code = process.join().<span class="kw">await</span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
-            <span class="prelude-val">Ok</span>(code)
-        })
-        .map_err(|err| {
-            <span class="macro">trace!</span>(
-                %pid,
-                %err
-            );
-            err
-        })<span class="question-mark">?</span>);
+        <span class="comment">// We can already set the process ID
+        </span><span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(
+            <span class="kw-2">&amp;</span>memory,
+            OptionPid {
+                tag: OptionTag::Some,
+                pid: pid.raw(),
+            }
+        ));
 
-        <span class="macro">trace!</span>(ret_id = pid.raw(), exit_code = exit_code.raw());
-        <span class="kw">let </span>env = ctx.data();
-        {
-            <span class="kw">let </span><span class="kw-2">mut </span>inner = env.process.inner.write().unwrap();
-            inner.children.retain(|a| a.pid != pid);
-        }
+        <span class="comment">// Wait for the process to finish
+        </span><span class="kw">let </span>process2 = process.clone();
+        <span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+            ctx,
+            <span class="prelude-val">None</span>,
+            Duration::from_millis(<span class="number">50</span>),
+            <span class="kw">async move </span>{ process.join().<span class="kw">await</span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into()) },
+            <span class="kw">move </span>|memory, store, res| {
+                <span class="kw">let </span>exit_code = res.unwrap_or_else(ExitCode::Errno);
 
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+                <span class="macro">trace!</span>(ret_id = pid.raw(), exit_code = exit_code.raw());
+                {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = process2.inner.write().unwrap();
+                    inner.children.retain(|a| a.pid != pid);
+                }
 
-        <span class="kw">let </span>option_pid = OptionPid {
-            tag: OptionTag::Some,
-            pid: pid.raw(),
-        };
-        <span class="kw">let </span>status = JoinStatus {
-            tag: JoinStatusType::ExitNormal,
-            u: JoinStatusUnion {
-                exit_normal: exit_code.into(),
+                <span class="kw">let </span>memory = memory.view(store);
+                <span class="kw">let </span>status = JoinStatus {
+                    tag: JoinStatusType::ExitNormal,
+                    u: JoinStatusUnion {
+                        exit_normal: exit_code.into(),
+                    },
+                };
+                status_ptr
+                    .write(<span class="kw-2">&amp;</span>memory, status)
+                    .map_err(mem_error_to_wasi)
+                    .map_err(ExitCode::Errno)<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(())
             },
+        )<span class="question-mark">?</span>;
+        <span class="kw">return match </span>res {
+            AsyncifyAction::Finish(ctx) =&gt; ret_result(ctx),
+            AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
         };
-        <span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(<span class="kw-2">&amp;</span>memory, option_pid));
-        <span class="macro">wasi_try_mem_ok!</span>(status_ptr.write(<span class="kw-2">&amp;</span>memory, status));
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
     }
 
     <span class="macro">trace!</span>(ret_id = pid.raw(), <span class="string">&quot;status=nothing&quot;</span>);
@@ -287,10 +459,12 @@
 
     <span class="kw">let </span>status = JoinStatus {
         tag: JoinStatusType::Nothing,
-        u: JoinStatusUnion { nothing: <span class="number">0 </span>},
+        u: JoinStatusUnion {
+            nothing_errno: Errno::Success,
+        },
     };
     <span class="macro">wasi_try_mem_ok!</span>(status_ptr.write(<span class="kw-2">&amp;</span>memory, status));
-    <span class="prelude-val">Ok</span>(Errno::Child)
+    ret_result(ctx)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

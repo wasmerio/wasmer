@@ -345,6 +345,7 @@
 <span id="343">343</span>
 <span id="344">344</span>
 <span id="345">345</span>
+<span id="346">346</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::{AsEngineRef, Engine, EngineRef};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
@@ -538,6 +539,7 @@
 }
 
 <span class="doccomment">/// A temporary handle to a [`Store`].
+</span><span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub struct </span>StoreRef&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">pub</span>(<span class="kw">crate</span>) inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>StoreInner,
 }

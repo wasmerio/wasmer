@@ -504,7 +504,7 @@
 <span class="attribute">#[repr(C)]
 #[derive(Clone, Copy)]
 </span><span class="kw">pub union </span>JoinStatusUnion {
-    <span class="kw">pub </span>nothing: u8,
+    <span class="kw">pub </span>nothing_errno: Errno,
     <span class="kw">pub </span>exit_normal: Errno,
     <span class="kw">pub </span>exit_signal: ErrnoSignal,
     <span class="kw">pub </span>stopped: Signal,
@@ -521,7 +521,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>f = binding.field(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag);
         f = <span class="kw">unsafe </span>{
             <span class="kw">match </span><span class="self">self</span>.tag {
-                JoinStatusType::Nothing =&gt; f.field(<span class="string">&quot;pid&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing),
+                JoinStatusType::Nothing =&gt; f.field(<span class="string">&quot;nothing_errno&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing_errno),
                 JoinStatusType::ExitNormal =&gt; f.field(<span class="string">&quot;exit_normal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_normal),
                 JoinStatusType::ExitSignal =&gt; f.field(<span class="string">&quot;exit_signal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_signal),
                 JoinStatusType::Stopped =&gt; f.field(<span class="string">&quot;stopped&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.stopped),
@@ -539,7 +539,7 @@
 #[repr(C)]
 #[derive(Copy, Clone)]
 </span><span class="kw">pub struct </span>ThreadStart&lt;M: MemorySize&gt; {
-    <span class="kw">pub </span>stack_start: M::Offset,
+    <span class="kw">pub </span>stack_upper: M::Offset,
     <span class="kw">pub </span>tls_base: M::Offset,
     <span class="kw">pub </span>start_funct: M::Offset,
     <span class="kw">pub </span>start_args: M::Offset,
@@ -550,7 +550,7 @@
 <span class="kw">impl</span>&lt;M: MemorySize&gt; core::fmt::Debug <span class="kw">for </span>ThreadStart&lt;M&gt; {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
         f.debug_struct(<span class="string">&quot;ThreadStart&quot;</span>)
-            .field(<span class="string">&quot;stack_start&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_start)
+            .field(<span class="string">&quot;stack_upper&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.stack_upper)
             .field(<span class="string">&quot;tls-base&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tls_base)
             .field(<span class="string">&quot;start-funct&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_funct)
             .field(<span class="string">&quot;start-args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.start_args)

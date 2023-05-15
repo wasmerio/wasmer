@@ -813,50 +813,6 @@
 <span id="811">811</span>
 <span id="812">812</span>
 <span id="813">813</span>
-<span id="814">814</span>
-<span id="815">815</span>
-<span id="816">816</span>
-<span id="817">817</span>
-<span id="818">818</span>
-<span id="819">819</span>
-<span id="820">820</span>
-<span id="821">821</span>
-<span id="822">822</span>
-<span id="823">823</span>
-<span id="824">824</span>
-<span id="825">825</span>
-<span id="826">826</span>
-<span id="827">827</span>
-<span id="828">828</span>
-<span id="829">829</span>
-<span id="830">830</span>
-<span id="831">831</span>
-<span id="832">832</span>
-<span id="833">833</span>
-<span id="834">834</span>
-<span id="835">835</span>
-<span id="836">836</span>
-<span id="837">837</span>
-<span id="838">838</span>
-<span id="839">839</span>
-<span id="840">840</span>
-<span id="841">841</span>
-<span id="842">842</span>
-<span id="843">843</span>
-<span id="844">844</span>
-<span id="845">845</span>
-<span id="846">846</span>
-<span id="847">847</span>
-<span id="848">848</span>
-<span id="849">849</span>
-<span id="850">850</span>
-<span id="851">851</span>
-<span id="852">852</span>
-<span id="853">853</span>
-<span id="854">854</span>
-<span id="855">855</span>
-<span id="856">856</span>
-<span id="857">857</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -897,6 +853,7 @@
 <span class="comment">// TODO: should this be pub?
 </span><span class="kw">pub mod </span>fs;
 <span class="kw">pub mod </span>http;
+<span class="kw">mod </span>rewind;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
 </span><span class="kw">pub mod </span>runners;
 <span class="kw">pub mod </span>runtime;
@@ -906,15 +863,13 @@
 <span class="kw">pub mod </span>wapm;
 
 <span class="kw">pub mod </span>capabilities;
+<span class="kw">pub use </span>rewind::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// WAI based bindings.
 </span><span class="kw">mod </span>bindings;
 
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::{
-    cell::RefCell,
-    sync::atomic::{AtomicU32, Ordering},
-};
+<span class="kw">use </span>std::{cell::RefCell, sync::atomic::AtomicU32};
 
 <span class="attribute">#[allow(unused_imports)]
 </span><span class="kw">use </span>bytes::{Bytes, BytesMut};
@@ -957,7 +912,7 @@
     },
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, SpawnedMemory, WasiRuntime,
+        PluggableRuntime, WasiRuntime,
     },
     wapm::parse_static_webc,
 };
@@ -969,49 +924,25 @@
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::types,
-    utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion},
+    syscalls::{rewind, types, unwind},
+    utils::{
+        get_wasi_version, get_wasi_versions, is_wasi_module,
+        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        WasiVersion,
+    },
 };
 
 <span class="doccomment">/// This is returned in `RuntimeError`.
 /// Use `downcast` or `downcast_ref` to retrieve the `ExitCode`.
-</span><span class="attribute">#[derive(Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
+</span><span class="attribute">#[derive(Error, Debug)]
 </span><span class="kw">pub enum </span>WasiError {
     <span class="attribute">#[error(<span class="string">&quot;WASI exited with code: {0}&quot;</span>)]
     </span>Exit(ExitCode),
+    <span class="attribute">#[error(<span class="string">&quot;WASI deep sleep: {0:?}&quot;</span>)]
+    </span>DeepSleep(DeepSleepWork),
     <span class="attribute">#[error(<span class="string">&quot;The WASI version could not be determined&quot;</span>)]
     </span>UnknownWasiVersion,
 }
-
-<span class="doccomment">/// Represents the ID of a WASI calling thread
-</span><span class="attribute">#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-</span><span class="kw">pub struct </span>WasiCallingId(u32);
-
-<span class="kw">impl </span>WasiCallingId {
-    <span class="kw">pub fn </span>raw(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-        <span class="self">self</span>.<span class="number">0
-    </span>}
-
-    <span class="kw">pub fn </span>inc(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; WasiCallingId {
-        <span class="self">self</span>.<span class="number">0 </span>+= <span class="number">1</span>;
-        <span class="kw-2">*</span><span class="self">self
-    </span>}
-}
-
-<span class="kw">impl </span>From&lt;u32&gt; <span class="kw">for </span>WasiCallingId {
-    <span class="kw">fn </span>from(id: u32) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(id)
-    }
-}
-<span class="kw">impl </span>From&lt;WasiCallingId&gt; <span class="kw">for </span>u32 {
-    <span class="kw">fn </span>from(t: WasiCallingId) -&gt; u32 {
-        t.<span class="number">0 </span><span class="kw">as </span>u32
-    }
-}
-
-<span class="doccomment">/// The default stack size for WASIX
-</span><span class="kw">pub const </span>DEFAULT_STACK_SIZE: u64 = <span class="number">1_048_576u64</span>;
-<span class="kw">pub const </span>DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
 <span class="comment">// TODO: remove, this is a leftover from an old vbus crate and should be folded
 // into WasiRuntimeError.
@@ -1091,7 +1022,7 @@
     </span>Wasi(<span class="attribute">#[from] </span>WasiError),
     <span class="attribute">#[error(<span class="string">&quot;Process manager error&quot;</span>)]
     </span>ControlPlane(<span class="attribute">#[from] </span>ControlPlaneError),
-    <span class="attribute">#[error(<span class="string">&quot;Runtime error&quot;</span>)]
+    <span class="attribute">#[error(<span class="string">&quot;{0}&quot;</span>)]
     </span>Runtime(<span class="attribute">#[from] </span>RuntimeError),
     <span class="attribute">#[error(<span class="string">&quot;Memory access error&quot;</span>)]
     </span>Thread(<span class="attribute">#[from] </span>WasiThreadError),
@@ -1167,22 +1098,14 @@
     </span><span class="kw">pub </span>handle: WasiThreadHandle,
 }
 
-<span class="kw">impl </span>WasiVFork {
-    <span class="doccomment">/// Clones this env.
-    ///
-    /// This is a custom function instead of a [`Clone`] implementation because
-    /// this type should not be cloned.
-    ///
-    </span><span class="comment">// TODO: remove WasiEnv::duplicate()
-    // This function should not exist, since it just copies internal state.
-    // Currently only used by fork/spawn related syscalls.
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>duplicate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>Clone <span class="kw">for </span>WasiVFork {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             rewind_stack: <span class="self">self</span>.rewind_stack.clone(),
             memory_stack: <span class="self">self</span>.memory_stack.clone(),
             store_data: <span class="self">self</span>.store_data.clone(),
             pid_offset: <span class="self">self</span>.pid_offset,
-            env: Box::new(<span class="self">self</span>.env.duplicate()),
+            env: Box::new(<span class="self">self</span>.env.as_ref().clone()),
             handle: <span class="self">self</span>.handle.clone(),
         }
     }
@@ -1195,20 +1118,9 @@
     <span class="kw">static </span><span class="kw-2">ref </span>CALLER_ID_SEED: Arc&lt;AtomicU32&gt; = Arc::new(AtomicU32::new(<span class="number">1</span>));
 }
 
-<span class="doccomment">/// Returns the current thread ID
-</span><span class="kw">pub fn </span>current_caller_id() -&gt; WasiCallingId {
-    CALLER_ID
-        .with(|f| {
-            <span class="kw">let </span><span class="kw-2">mut </span>caller_id = f.borrow_mut();
-            <span class="kw">if </span><span class="kw-2">*</span>caller_id == <span class="number">0 </span>{
-                <span class="kw-2">*</span>caller_id = CALLER_ID_SEED.fetch_add(<span class="number">1</span>, Ordering::AcqRel);
-            }
-            <span class="kw-2">*</span>caller_id
-        })
-        .into()
-}
-
-<span class="doccomment">/// Create an [`Imports`] with an existing [`WasiEnv`].
+<span class="doccomment">/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`
+/// needs a [`WasiState`], that can be constructed from a
+/// [`WasiEnvBuilder`](state::WasiEnvBuilder).
 </span><span class="kw">pub fn </span>generate_import_object_from_env(
     store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ctx: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
@@ -1272,11 +1184,11 @@
         <span class="string">&quot;path_rename&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_rename::&lt;Memory32&gt;),
         <span class="string">&quot;path_symlink&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_symlink::&lt;Memory32&gt;),
         <span class="string">&quot;path_unlink_file&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, path_unlink_file::&lt;Memory32&gt;),
-        <span class="string">&quot;poll_oneoff&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::poll_oneoff),
+        <span class="string">&quot;poll_oneoff&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, legacy::snapshot0::poll_oneoff::&lt;Memory32&gt;),
         <span class="string">&quot;proc_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
         <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
         <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield),
+        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
         <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
         <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
@@ -1332,7 +1244,7 @@
         <span class="string">&quot;proc_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exit::&lt;Memory32&gt;),
         <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
         <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield),
+        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
         <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
         <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
@@ -1410,13 +1322,13 @@
         <span class="string">&quot;thread_local_destroy&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_local_destroy),
         <span class="string">&quot;thread_local_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_local_set),
         <span class="string">&quot;thread_local_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_local_get::&lt;Memory32&gt;),
-        <span class="string">&quot;thread_sleep&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep),
+        <span class="string">&quot;thread_sleep&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep::&lt;Memory32&gt;),
         <span class="string">&quot;thread_id&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_id::&lt;Memory32&gt;),
         <span class="string">&quot;thread_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_signal),
-        <span class="string">&quot;thread_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join),
+        <span class="string">&quot;thread_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join::&lt;Memory32&gt;),
         <span class="string">&quot;thread_parallelism&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_parallelism::&lt;Memory32&gt;),
         <span class="string">&quot;thread_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_exit),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield),
+        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
         <span class="string">&quot;stack_checkpoint&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_checkpoint::&lt;Memory32&gt;),
         <span class="string">&quot;stack_restore&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_restore::&lt;Memory32&gt;),
         <span class="string">&quot;futex_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wait::&lt;Memory32&gt;),
@@ -1533,13 +1445,13 @@
         <span class="string">&quot;thread_local_destroy&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_local_destroy),
         <span class="string">&quot;thread_local_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_local_set),
         <span class="string">&quot;thread_local_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_local_get::&lt;Memory64&gt;),
-        <span class="string">&quot;thread_sleep&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep),
+        <span class="string">&quot;thread_sleep&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_sleep::&lt;Memory64&gt;),
         <span class="string">&quot;thread_id&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_id::&lt;Memory64&gt;),
         <span class="string">&quot;thread_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_signal),
-        <span class="string">&quot;thread_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join),
+        <span class="string">&quot;thread_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_join::&lt;Memory64&gt;),
         <span class="string">&quot;thread_parallelism&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_parallelism::&lt;Memory64&gt;),
         <span class="string">&quot;thread_exit&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_exit),
-        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield),
+        <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory64&gt;),
         <span class="string">&quot;stack_checkpoint&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_checkpoint::&lt;Memory64&gt;),
         <span class="string">&quot;stack_restore&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, stack_restore::&lt;Memory64&gt;),
         <span class="string">&quot;futex_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, futex_wait::&lt;Memory64&gt;),

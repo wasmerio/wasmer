@@ -48,6 +48,9 @@
 <span id="46">46</span>
 <span id="47">47</span>
 <span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -74,12 +77,15 @@
     <span class="kw">let </span><span class="kw-2">mut </span>woken = <span class="bool-val">false</span>;
     <span class="kw">let </span>woken = {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = state.futexs.lock().unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(futex) = guard.get_mut(<span class="kw-2">&amp;</span>pointer) {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(w) = futex.wakers.pop() {
-                w.wake()
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(futex) = guard.futexes.get_mut(<span class="kw-2">&amp;</span>pointer) {
+            <span class="kw">let </span>first = futex.wakers.keys().copied().next();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = first {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(w)) = futex.wakers.remove(<span class="kw-2">&amp;</span>id) {
+                    w.wake();
+                }
             }
             <span class="kw">if </span>futex.wakers.is_empty() {
-                guard.remove(<span class="kw-2">&amp;</span>pointer);
+                guard.futexes.remove(<span class="kw-2">&amp;</span>pointer);
             }
             <span class="bool-val">true
         </span>} <span class="kw">else </span>{

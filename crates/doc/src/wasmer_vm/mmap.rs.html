@@ -339,6 +339,12 @@
 <span id="339">339</span>
 <span id="340">340</span>
 <span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -627,7 +633,13 @@
     </span>}
 
     <span class="doccomment">/// Duplicate in a new memory mapping.
+    </span><span class="attribute">#[deprecated = <span class="string">&quot;use `copy` instead&quot;</span>]
     </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size_hint: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+        <span class="self">self</span>.copy(size_hint)
+    }
+
+    <span class="doccomment">/// Duplicate in a new memory mapping.
+    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size_hint: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
         <span class="comment">// NOTE: accessible_size != used size as the value is not
         //       automatically updated when the pre-provisioned space is used
         </span><span class="kw">let </span><span class="kw-2">mut </span>copy_size = <span class="self">self</span>.accessible_size;

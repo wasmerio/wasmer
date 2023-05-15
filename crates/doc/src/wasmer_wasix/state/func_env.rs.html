@@ -187,17 +187,80 @@
 <span id="185">185</span>
 <span id="186">186</span>
 <span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
 </pre><pre class="rust"><code><span class="kw">use </span>tracing::trace;
-<span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module};
+<span class="kw">use </span>wasmer::{
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+};
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 
 <span class="kw">use crate</span>::{
+    import_object_for_all_wasi_versions,
+    os::task::thread::DEFAULT_STACK_SIZE,
+    runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions},
-    WasiEnv, WasiError, DEFAULT_STACK_SIZE,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
+    InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
 
-<span class="kw">pub struct </span>WasiFunctionEnv {
+<span class="attribute">#[derive(Clone)]
+</span><span class="kw">pub struct </span>WasiFunctionEnv {
     <span class="kw">pub </span>env: FunctionEnv&lt;WasiEnv&gt;,
 }
 
@@ -206,6 +269,54 @@
         <span class="self">Self </span>{
             env: FunctionEnv::new(store, env),
         }
+    }
+
+    <span class="comment">// Creates a new environment context on a new store
+    </span><span class="kw">pub fn </span>new_with_store(
+        module: Module,
+        env: WasiEnv,
+        snapshot: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>InstanceSnapshot&gt;,
+        spawn_type: SpawnMemoryType,
+        update_layout: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Store), WasiThreadError&gt; {
+        <span class="comment">// Create a new store and put the memory object in it
+        // (but only if it has imported memory)
+        </span><span class="kw">let </span><span class="kw-2">mut </span>store = env.runtime.new_store();
+        <span class="kw">let </span>memory = env
+            .tasks()
+            .build_memory(<span class="kw-2">&amp;mut </span>store.as_store_mut(), spawn_type)<span class="question-mark">?</span>;
+
+        <span class="comment">// Build the context object and import the memory
+        </span><span class="kw">let </span><span class="kw-2">mut </span>ctx = WasiFunctionEnv::new(<span class="kw-2">&amp;mut </span>store, env);
+        <span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
+            import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>ctx.env);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory.clone() {
+            import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory);
+        }
+
+        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object).map_err(|err| {
+            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to create instance - {}&quot;</span>, err);
+            WasiThreadError::InstanceCreateFailed(err)
+        })<span class="question-mark">?</span>;
+
+        init(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>store).map_err(|err| {
+            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to init instance - {}&quot;</span>, err);
+            WasiThreadError::InitFailed(err)
+        })<span class="question-mark">?</span>;
+
+        <span class="comment">// Initialize the WASI environment
+        </span>ctx.initialize_with_memory(<span class="kw-2">&amp;mut </span>store, instance, memory, update_layout)
+            .map_err(|err| {
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed initialize environment - {}&quot;</span>, err);
+                WasiThreadError::ExportError(err)
+            })<span class="question-mark">?</span>;
+
+        <span class="comment">// Set all the globals
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(snapshot) = snapshot {
+            restore_snapshot(<span class="kw-2">&amp;mut </span>store, snapshot);
+        }
+
+        <span class="prelude-val">Ok</span>((ctx, store))
     }
 
     <span class="doccomment">/// Get an `Imports` for a specific version of WASI detected in the module.
@@ -228,7 +339,7 @@
     }
 
     <span class="doccomment">/// Gets a mutable- reference to the host state in this context.
-    </span><span class="kw">pub fn </span>data_mut&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>WasiEnv {
+    </span><span class="kw">pub fn </span>data_mut&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>WasiEnv {
         <span class="self">self</span>.env.as_mut(store)
     }
 
@@ -241,7 +352,7 @@
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         instance: Instance,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExportError&gt; {
-        <span class="self">self</span>.initialize_with_memory(store, instance, <span class="prelude-val">None</span>)
+        <span class="self">self</span>.initialize_with_memory(store, instance, <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
     }
 
     <span class="doccomment">/// Initializes the WasiEnv using the instance exports and a provided optional memory
@@ -253,16 +364,8 @@
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         instance: Instance,
         memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;,
+        update_layout: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExportError&gt; {
-        <span class="comment">// List all the exports and imports
-        </span><span class="kw">for </span>ns <span class="kw">in </span>instance.module().exports() {
-            <span class="comment">//trace!(&quot;module::export - {} ({:?})&quot;, ns.name(), ns.ty());
-            </span><span class="macro">trace!</span>(<span class="string">&quot;module::export - {}&quot;</span>, ns.name());
-        }
-        <span class="kw">for </span>ns <span class="kw">in </span>instance.module().imports() {
-            <span class="macro">trace!</span>(<span class="string">&quot;module::import - {}::{}&quot;</span>, ns.module(), ns.name());
-        }
-
         <span class="kw">let </span>is_wasix_module = <span class="kw">crate</span>::utils::is_wasix_module(instance.module());
 
         <span class="comment">// First we get the malloc function which if it exists will be used to
@@ -281,21 +384,32 @@
         <span class="kw">let </span>new_inner = WasiInstanceHandles::new(memory, store, instance);
 
         <span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
-        env.inner.replace(new_inner);
+        env.set_inner(new_inner);
 
         env.state.fs.set_is_wasix(is_wasix_module);
 
-        <span class="comment">// Set the base stack
-        </span><span class="kw">let </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = env.inner().stack_pointer.clone() {
-            <span class="kw">match </span>stack_pointer.get(store) {
-                wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
-                wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                <span class="kw">_ </span>=&gt; DEFAULT_STACK_SIZE,
+        <span class="comment">// If the stack offset and size is not set then do so
+        </span><span class="kw">if </span>update_layout {
+            <span class="comment">// Set the base stack
+            </span><span class="kw">let </span><span class="kw-2">mut </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = env.inner().stack_pointer.clone() {
+                <span class="kw">match </span>stack_pointer.get(store) {
+                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                    <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                }
+            } <span class="kw">else </span>{
+                <span class="number">0
+            </span>};
+            <span class="kw">if </span>stack_base == <span class="number">0 </span>{
+                stack_base = DEFAULT_STACK_SIZE;
             }
-        } <span class="kw">else </span>{
-            DEFAULT_STACK_SIZE
-        };
-        <span class="self">self</span>.data_mut(store).stack_end = stack_base;
+
+            <span class="comment">// Update the stack layout which is need for asyncify
+            </span><span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
+            <span class="kw">let </span>layout = <span class="kw-2">&amp;mut </span>env.layout;
+            layout.stack_upper = stack_base;
+            layout.stack_size = layout.stack_upper - layout.stack_lower;
+        }
 
         <span class="prelude-val">Ok</span>(())
     }

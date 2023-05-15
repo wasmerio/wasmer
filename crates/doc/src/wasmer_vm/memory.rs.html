@@ -791,11 +791,11 @@
 
     <span class="doccomment">/// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="kw">let </span>mem_length = <span class="self">self</span>.size.bytes().<span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>alloc = <span class="self">self
             </span>.alloc
-            .duplicate(<span class="prelude-val">Some</span>(mem_length))
+            .copy(<span class="prelude-val">Some</span>(mem_length))
             .map_err(MemoryError::Generic)<span class="question-mark">?</span>;
         <span class="kw">let </span>base_ptr = alloc.as_mut_ptr();
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
@@ -962,9 +962,9 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            mmap: <span class="self">self</span>.mmap.duplicate()<span class="question-mark">?</span>,
+            mmap: <span class="self">self</span>.mmap.copy()<span class="question-mark">?</span>,
             config: <span class="self">self</span>.config.clone(),
         })
     }
@@ -1006,8 +1006,8 @@
     </span>}
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
-        <span class="kw">let </span>forked = <span class="self">Self</span>::duplicate(<span class="self">self</span>)<span class="question-mark">?</span>;
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="kw">let </span>forked = <span class="self">Self</span>::copy(<span class="self">self</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Box::new(forked))
     }
 }
@@ -1051,10 +1051,10 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.mmap.write().unwrap();
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            mmap: Arc::new(RwLock::new(guard.duplicate()<span class="question-mark">?</span>)),
+            mmap: Arc::new(RwLock::new(guard.copy()<span class="question-mark">?</span>)),
             config: <span class="self">self</span>.config.clone(),
             conditions: ThreadConditions::new(),
         })
@@ -1103,8 +1103,8 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
-        <span class="kw">let </span>forked = <span class="self">Self</span>::duplicate(<span class="self">self</span>)<span class="question-mark">?</span>;
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="kw">let </span>forked = <span class="self">Self</span>::copy(<span class="self">self</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Box::new(forked))
     }
 
@@ -1185,8 +1185,8 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.duplicate()
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.copy()
     }
 
     <span class="comment">// Add current thread to waiter list
@@ -1262,8 +1262,8 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
-        LinearMemory::duplicate(<span class="self">self</span>)
+    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        LinearMemory::copy(<span class="self">self</span>)
     }
 }
 
@@ -1319,7 +1319,7 @@
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
-    </span><span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt;;
+    </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt;;
 
     <span class="doccomment">/// Add current thread to the waiter hash, and wait until notified or timout.
     /// Return 0 if the waiter has been notified, 2 if the timeout occured, or None if en error happened

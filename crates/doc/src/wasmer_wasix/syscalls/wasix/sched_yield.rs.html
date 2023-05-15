@@ -10,15 +10,19 @@
 <span id="8">8</span>
 <span id="9">9</span>
 <span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `sched_yield()`
 /// Yields execution of the thread
 </span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret, err)]
-</span><span class="kw">pub fn </span>sched_yield(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+</span><span class="kw">pub fn </span>sched_yield&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="comment">//trace!(&quot;wasi[{}:{}]::sched_yield&quot;, ctx.data().pid(), ctx.data().tid());
-    </span>thread_sleep_internal(ctx, <span class="number">0</span>)
+    </span>thread_sleep_internal::&lt;M&gt;(ctx, <span class="number">0</span>)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

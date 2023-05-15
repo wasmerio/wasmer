@@ -395,6 +395,12 @@
 <span id="393">393</span>
 <span id="394">394</span>
 <span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     convert::TryInto,
@@ -633,6 +639,9 @@
         }
         <span class="kw">let </span>tid: WasiThreadId = tid.into();
 
+        <span class="kw">let </span>pid = <span class="self">self</span>.pid();
+        <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">&quot;signal-thread({:?})&quot;</span>, signal);
+
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(thread) = inner.threads.get(<span class="kw-2">&amp;</span>tid) {
             thread.signal(signal);
@@ -648,6 +657,9 @@
 
     <span class="doccomment">/// Signals all the threads in this process
     </span><span class="kw">pub fn </span>signal_process(<span class="kw-2">&amp;</span><span class="self">self</span>, signal: Signal) {
+        <span class="kw">let </span>pid = <span class="self">self</span>.pid();
+        <span class="macro">tracing::trace!</span>(%pid, <span class="string">&quot;signal-process({:?})&quot;</span>, signal);
+
         {
             <span class="kw">let </span>inner = <span class="self">self</span>.inner.read().unwrap();
             <span class="kw">if </span><span class="self">self</span>.waiting.load(Ordering::Acquire) &gt; <span class="number">0 </span>{

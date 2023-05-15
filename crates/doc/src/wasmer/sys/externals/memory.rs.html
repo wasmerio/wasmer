@@ -230,39 +230,6 @@
 <span id="228">228</span>
 <span id="229">229</span>
 <span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::memory_view::MemoryView;
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 <span class="kw">use </span><span class="kw">crate</span>::vm::VMExternMemory;
@@ -304,12 +271,6 @@
         <span class="self">self</span>.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    <span class="doccomment">/// Creates a view into the memory that then allows for
-    /// read and write
-    </span><span class="kw">pub fn </span>view&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">impl </span>AsStoreRef) -&gt; MemoryView&lt;<span class="lifetime">&#39;a</span>&gt; {
-        MemoryView::new(<span class="self">self</span>, store)
-    }
-
     <span class="kw">pub fn </span>grow&lt;IntoPages&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
@@ -319,34 +280,6 @@
         </span>IntoPages: Into&lt;Pages&gt;,
     {
         <span class="self">self</span>.handle.get_mut(store.objects_mut()).grow(delta.into())
-    }
-
-    <span class="kw">pub fn </span>copy_to_store(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
-        <span class="comment">// Create the new memory using the parameters of the existing memory
-        </span><span class="kw">let </span>view = <span class="self">self</span>.view(store);
-        <span class="kw">let </span>ty = <span class="self">self</span>.ty(store);
-        <span class="kw">let </span>amount = view.data_size() <span class="kw">as </span>usize;
-
-        <span class="kw">let </span>new_memory = <span class="self">Self</span>::new(new_store, ty)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>new_view = new_memory.view(<span class="kw-2">&amp;</span>new_store);
-        <span class="kw">let </span>new_view_size = new_view.data_size() <span class="kw">as </span>usize;
-        <span class="kw">if </span>amount &gt; new_view_size {
-            <span class="kw">let </span>delta = amount - new_view_size;
-            <span class="kw">let </span>pages = ((delta - <span class="number">1</span>) / wasmer_types::WASM_PAGE_SIZE) + <span class="number">1</span>;
-            new_memory.grow(new_store, Pages(pages <span class="kw">as </span>u32))<span class="question-mark">?</span>;
-            new_view = new_memory.view(<span class="kw-2">&amp;</span>new_store);
-        }
-
-        <span class="comment">// Copy the bytes
-        </span>view.copy_to_memory(amount <span class="kw">as </span>u64, <span class="kw-2">&amp;</span>new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))<span class="question-mark">?</span>;
-
-        <span class="comment">// Return the new memory
-        </span><span class="prelude-val">Ok</span>(new_memory)
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef, vm_extern: VMExternMemory) -&gt; <span class="self">Self </span>{
@@ -367,13 +300,14 @@
         mem.try_clone().map(|mem| mem.into())
     }
 
-    <span class="kw">pub fn </span>duplicate_in_store(
+    <span class="attribute">#[deprecated = <span class="string">&quot;use `try_clone` instead&quot;</span>]
+    </span><span class="kw">pub fn </span>duplicate_in_store(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
         new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="self">self</span>.try_clone(<span class="kw-2">&amp;</span>store)
-            .and_then(|<span class="kw-2">mut </span>memory| memory.duplicate().ok())
+            .and_then(|<span class="kw-2">mut </span>memory| memory.copy().ok())
             .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory.into()))
     }
 

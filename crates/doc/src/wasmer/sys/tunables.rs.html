@@ -269,6 +269,8 @@
 <span id="267">267</span>
 <span id="268">268</span>
 <span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
 </pre><pre class="rust"><code><span class="kw">pub use </span>wasmer_compiler::BaseTunables;
 
 <span class="comment">// All BaseTunable definition now is in wasmer_compile crate
@@ -277,7 +279,8 @@
 </span><span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use </span><span class="kw">crate</span>::sys::NativeEngineExt;
+    <span class="attribute">#[allow(unused)]
+    </span><span class="kw">use </span><span class="kw">crate</span>::sys::NativeEngineExt;
     <span class="kw">use </span><span class="kw">crate</span>::TableType;
     <span class="kw">use </span>std::cell::UnsafeCell;
     <span class="kw">use </span>std::ptr::NonNull;
@@ -394,7 +397,7 @@
             <span class="prelude-val">None
         </span>}
 
-        <span class="kw">fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
             <span class="kw">let </span>mem = <span class="self">self</span>.mem.clone();
             <span class="prelude-val">Ok</span>(Box::new(<span class="self">Self </span>{
                 memory_definition: <span class="prelude-val">Some</span>(UnsafeCell::new(VMMemoryDefinition {
@@ -514,7 +517,8 @@
         <span class="kw">let </span>compiler = Cranelift::default();
 
         <span class="kw">let </span>tunables = TinyTunables {};
-        <span class="kw">let </span><span class="kw-2">mut </span>engine = Engine::new(compiler.into(), Default::default(), Default::default());
+        <span class="attribute">#[allow(deprecated)]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>engine = Engine::new(compiler.into(), Default::default(), Default::default());
         engine.set_tunables(tunables);
         <span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine);
         <span class="comment">//let mut store = Store::new(compiler);

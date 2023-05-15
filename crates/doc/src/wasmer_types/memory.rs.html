@@ -142,6 +142,15 @@
 <span id="142">142</span>
 <span id="143">143</span>
 <span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{Pages, ValueType};
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
@@ -253,6 +262,9 @@
 
     <span class="doccomment">/// Convert a `Native` to an `Offset`.
     </span><span class="kw">fn </span>native_to_offset(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self</span>::Offset;
+
+    <span class="doccomment">/// True if the memory is 64-bit
+    </span><span class="kw">fn </span>is_64bit() -&gt; bool;
 }
 
 <span class="doccomment">/// Marker trait for 32-bit memories.
@@ -269,6 +281,9 @@
     <span class="kw">fn </span>native_to_offset(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self</span>::Offset {
         native <span class="kw">as </span><span class="self">Self</span>::Offset
     }
+    <span class="kw">fn </span>is_64bit() -&gt; bool {
+        <span class="bool-val">false
+    </span>}
 }
 
 <span class="doccomment">/// Marker trait for 64-bit memories.
@@ -285,6 +300,9 @@
     <span class="kw">fn </span>native_to_offset(native: <span class="self">Self</span>::Native) -&gt; <span class="self">Self</span>::Offset {
         native <span class="kw">as </span><span class="self">Self</span>::Offset
     }
+    <span class="kw">fn </span>is_64bit() -&gt; bool {
+        <span class="bool-val">true
+    </span>}
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

@@ -151,6 +151,8 @@
 <span id="149">149</span>
 <span id="150">150</span>
 <span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -246,10 +248,12 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>memory_stack_corrected = memory_stack.clone();
         {
             <span class="kw">let </span>snapshot_offset: u64 = snapshot_offset.into();
-            <span class="kw">if </span>snapshot_offset &gt;= env.stack_start &amp;&amp; snapshot_offset &lt; env.stack_end {
+            <span class="kw">if </span>snapshot_offset &gt;= env.layout.stack_lower
+                &amp;&amp; (snapshot_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= env.layout.stack_upper
+            {
                 <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
                 // (note - the area being written to might not go past the memory pointer)
-                </span><span class="kw">let </span>offset = env.stack_end - snapshot_offset;
+                </span><span class="kw">let </span>offset = env.layout.stack_upper - snapshot_offset;
                 <span class="kw">if </span>(offset <span class="kw">as </span>usize) &lt; memory_stack_corrected.len() {
                     <span class="kw">let </span>left = memory_stack_corrected.len() - (offset <span class="kw">as </span>usize);
                     <span class="kw">let </span>end = offset + (val_bytes.len().min(left) <span class="kw">as </span>u64);

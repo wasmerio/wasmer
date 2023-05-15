@@ -127,8 +127,12 @@
 <span id="125">125</span>
 <span id="126">126</span>
 <span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
 </pre><pre class="rust"><code><span class="kw">use </span>tracing::{field, instrument, trace_span};
-<span class="kw">use </span>wasmer::{AsStoreMut, FunctionEnvMut, WasmPtr};
+<span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Memory, WasmPtr};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
     Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
     Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
@@ -139,8 +143,8 @@
     mem_error_to_wasi,
     os::task::thread::WasiThread,
     state::{PollEventBuilder, PollEventSet},
-    syscalls,
     syscalls::types,
+    syscalls::{<span class="self">self</span>, handle_rewind},
     Memory32, MemorySize, WasiEnv, WasiError,
 };
 
@@ -197,14 +201,19 @@
 
 <span class="doccomment">/// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ns = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
-</span><span class="kw">pub fn </span>poll_oneoff(
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+</span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     in_: WasmPtr&lt;Snapshot0Subscription, Memory32&gt;,
     out_: WasmPtr&lt;Snapshot0Event, Memory32&gt;,
     nsubscriptions: u32,
     nevents: WasmPtr&lt;u32, Memory32&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    <span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+    }
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
     <span class="kw">let </span><span class="kw-2">mut </span>subscriptions = Vec::new();
@@ -218,41 +227,40 @@
         ));
     }
 
-    <span class="comment">// make the call
-    </span><span class="kw">let </span>triggered_events = syscalls::poll_oneoff_internal(<span class="kw-2">&amp;mut </span>ctx, subscriptions)<span class="question-mark">?</span>;
-    <span class="kw">let </span>triggered_events = <span class="kw">match </span>triggered_events {
-        <span class="prelude-val">Ok</span>(a) =&gt; a,
-        <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="macro">tracing::trace!</span>(err = err <span class="kw">as </span>u16);
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(err);
+    <span class="comment">// We clear the number of events
+    </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
+
+    <span class="comment">// Function to invoke once the poll is finished
+    </span><span class="kw">let </span>process_events = <span class="kw">move </span>|memory: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>AsStoreRef, triggered_events| {
+        <span class="comment">// Process all the events that were triggered
+        </span><span class="kw">let </span><span class="kw-2">mut </span>view = memory.view(store);
+        <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
+        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>view, nsubscriptions));
+        <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
+            <span class="kw">let </span>event: Event = event;
+            <span class="kw">let </span>event = Snapshot0Event {
+                userdata: event.userdata,
+                error: event.error,
+                type_: Eventtype::FdRead,
+                fd_readwrite: <span class="kw">match </span>event.type_ {
+                    Eventtype::FdRead =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
+                    Eventtype::FdWrite =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
+                    Eventtype::Clock =&gt; EventFdReadwrite {
+                        nbytes: <span class="number">0</span>,
+                        flags: Eventrwflags::empty(),
+                    },
+                },
+            };
+            <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
+            events_seen += <span class="number">1</span>;
         }
+        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>view);
+        <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
+        Errno::Success
     };
 
-    <span class="comment">// Process all the events that were triggered
-    </span><span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
-    <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
-    <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem_ok!</span>(out_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
-    <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
-        <span class="kw">let </span>event = Snapshot0Event {
-            userdata: event.userdata,
-            error: event.error,
-            type_: Eventtype::FdRead,
-            fd_readwrite: <span class="kw">match </span>event.type_ {
-                Eventtype::FdRead =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
-                Eventtype::FdWrite =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
-                Eventtype::Clock =&gt; EventFdReadwrite {
-                    nbytes: <span class="number">0</span>,
-                    flags: Eventrwflags::empty(),
-                },
-            },
-        };
-        <span class="macro">wasi_try_mem_ok!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
-        events_seen += <span class="number">1</span>;
-    }
-    <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
-    <span class="macro">wasi_try_mem_ok!</span>(out_ptr.write(events_seen));
-    <span class="prelude-val">Ok</span>(Errno::Success)
+    <span class="comment">// Poll and receive all the events that triggered
+    </span>syscalls::poll_oneoff_internal::&lt;M, <span class="kw">_</span>&gt;(ctx, subscriptions, process_events)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

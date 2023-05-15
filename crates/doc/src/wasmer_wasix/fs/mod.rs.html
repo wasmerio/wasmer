@@ -1888,6 +1888,10 @@
 <span id="1886">1886</span>
 <span id="1887">1887</span>
 <span id="1888">1888</span>
+<span id="1889">1889</span>
+<span id="1890">1890</span>
+<span id="1891">1891</span>
+<span id="1892">1892</span>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -3638,7 +3642,11 @@
             <span class="prelude-val">Ok</span>(fd_ref) =&gt; {
                 <span class="kw">let </span>inode = fd_ref.inode.ino().as_u64();
                 <span class="kw">let </span>ref_cnt = fd_ref.inode.ref_cnt();
-                <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">&quot;closing file descriptor&quot;</span>);
+                <span class="kw">if </span>ref_cnt == <span class="number">1 </span>{
+                    <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">&quot;closing file descriptor&quot;</span>);
+                } <span class="kw">else </span>{
+                    <span class="macro">trace!</span>(%fd, %inode, %ref_cnt, <span class="string">&quot;weakening file descriptor&quot;</span>);
+                }
             }
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="macro">trace!</span>(%fd, <span class="string">&quot;closing file descriptor failed - {}&quot;</span>, err);

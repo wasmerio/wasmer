@@ -345,7 +345,7 @@
 </span><span class="attribute">#[repr(transparent)]
 </span><span class="kw">pub struct </span>WasmPtr&lt;T, M: MemorySize = Memory32&gt; {
     offset: M::Offset,
-    _phantom: PhantomData&lt;<span class="kw-2">*mut </span>T&gt;,
+    _phantom: PhantomData&lt;T&gt;,
 }
 
 <span class="kw">impl</span>&lt;T, M: MemorySize&gt; WasmPtr&lt;T, M&gt; {

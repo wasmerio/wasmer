@@ -20,7 +20,20 @@
 <span id="20">20</span>
 <span id="21">21</span>
 <span id="22">22</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+</pre><pre class="rust"><code><span class="kw">use </span>core::fmt::Display;
+<span class="kw">use </span>std::{
     num::NonZeroUsize,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -40,6 +53,17 @@
         // thousands of years.
         </span><span class="kw">static </span>NEXT_ID: AtomicUsize = AtomicUsize::new(<span class="number">1</span>);
         <span class="self">Self</span>(NonZeroUsize::new(NEXT_ID.fetch_add(<span class="number">1</span>, Ordering::Relaxed)).unwrap())
+    }
+}
+
+<span class="kw">impl </span>Display <span class="kw">for </span>StoreId {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">let </span>val: usize = <span class="self">self</span>.<span class="number">0</span>.into();
+        <span class="kw">if </span>val == usize::MAX {
+            <span class="macro">write!</span>(f, <span class="string">&quot;unknown&quot;</span>)
+        } <span class="kw">else </span>{
+            <span class="macro">write!</span>(f, <span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.<span class="number">0</span>)
+        }
     }
 }
 </code></pre></div>

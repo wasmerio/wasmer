@@ -238,6 +238,16 @@
 <span id="236">236</span>
 <span id="237">237</span>
 <span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     sync::{
@@ -279,12 +289,15 @@
 </span><span class="kw">pub struct </span>ControlPlaneConfig {
     <span class="doccomment">/// Total number of tasks (processes + threads) that can be spawned.
     </span><span class="kw">pub </span>max_task_count: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    <span class="doccomment">/// Flag that indicates if asynchronous threading is enables (opt-in)
+    </span><span class="kw">pub </span>enable_asynchronous_threading: bool,
 }
 
 <span class="kw">impl </span>ControlPlaneConfig {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             max_task_count: <span class="prelude-val">None</span>,
+            enable_asynchronous_threading: <span class="bool-val">false</span>,
         }
     }
 }
@@ -336,6 +349,11 @@
     <span class="doccomment">/// Get the current count of active tasks (threads).
     </span><span class="kw">fn </span>active_task_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.state.task_count.load(Ordering::SeqCst)
+    }
+
+    <span class="doccomment">/// Returns the configuration for this control plane
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>config(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ControlPlaneConfig {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.state.config
     }
 
     <span class="doccomment">/// Register a new task.
@@ -442,6 +460,7 @@
     </span><span class="kw">fn </span>test_control_plane_task_limits() {
         <span class="kw">let </span>p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: <span class="prelude-val">Some</span>(<span class="number">2</span>),
+            enable_asynchronous_threading: <span class="bool-val">false</span>,
         });
 
         <span class="kw">let </span>p1 = p.new_process().unwrap();
@@ -459,6 +478,7 @@
     </span><span class="kw">fn </span>test_control_plane_task_limits_with_dropped_threads() {
         <span class="kw">let </span>p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: <span class="prelude-val">Some</span>(<span class="number">2</span>),
+            enable_asynchronous_threading: <span class="bool-val">false</span>,
         });
 
         <span class="kw">let </span>p1 = p.new_process().unwrap();

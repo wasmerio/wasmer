@@ -341,6 +341,38 @@
 <span id="339">339</span>
 <span id="340">340</span>
 <span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use </span>wasmer_wasix_types::wasi::SubscriptionClock;
@@ -365,8 +397,8 @@
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ns = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
-</span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize&gt;(
+</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+</span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     in_: WasmPtr&lt;Subscription, M&gt;,
     out_: WasmPtr&lt;Event, M&gt;,
@@ -388,47 +420,49 @@
         subscriptions.push((<span class="prelude-val">None</span>, PollEventSet::default(), s));
     }
 
-    <span class="comment">// Poll and receive all the events that triggered
-    </span><span class="kw">let </span>triggered_events = poll_oneoff_internal(<span class="kw-2">&amp;mut </span>ctx, subscriptions)<span class="question-mark">?</span>;
-    <span class="kw">let </span>triggered_events = <span class="kw">match </span>triggered_events {
-        <span class="prelude-val">Ok</span>(a) =&gt; a,
-        <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(err);
+    <span class="comment">// We clear the number of events
+    </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, M::ZERO));
+
+    <span class="comment">// Function to invoke once the poll is finished
+    </span><span class="kw">let </span>process_events = <span class="kw">move </span>|memory: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>AsStoreRef, triggered_events| {
+        <span class="comment">// Process all the events that were triggered
+        </span><span class="kw">let </span><span class="kw-2">mut </span>view = memory.view(store);
+        <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
+        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>view, nsubscriptions));
+        <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
+            <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
+            events_seen += <span class="number">1</span>;
         }
+        <span class="kw">let </span>events_seen: M::Offset = <span class="macro">wasi_try!</span>(events_seen.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>view);
+        <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
+        Errno::Success
     };
 
-    <span class="comment">// Process all the events that were triggered
-    </span><span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
-    <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
-    <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem_ok!</span>(out_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
-    <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
-        <span class="macro">wasi_try_mem_ok!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
-        events_seen += <span class="number">1</span>;
-    }
-    <span class="kw">let </span>events_seen: M::Offset = <span class="macro">wasi_try_ok!</span>(events_seen.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
-    <span class="macro">wasi_try_mem_ok!</span>(out_ptr.write(events_seen));
-    <span class="prelude-val">Ok</span>(Errno::Success)
+    <span class="comment">// Poll and receive all the events that triggered
+    </span>poll_oneoff_internal::&lt;M, <span class="kw">_</span>&gt;(ctx, subscriptions, process_events)
 }
 
-<span class="kw">struct </span>PollBatch&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">struct </span>PollBatch {
     pid: WasiProcessId,
     tid: WasiThreadId,
     evts: Vec&lt;Event&gt;,
-    joins: Vec&lt;InodeValFilePollGuardJoin&lt;<span class="lifetime">&#39;a</span>&gt;&gt;,
+    joins: Vec&lt;InodeValFilePollGuardJoin&gt;,
 }
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; PollBatch&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">fn </span>new(pid: WasiProcessId, tid: WasiThreadId, fds: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[InodeValFilePollGuard]) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>PollBatch {
+    <span class="kw">fn </span>new(pid: WasiProcessId, tid: WasiThreadId, fds: Vec&lt;InodeValFilePollGuard&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             pid,
             tid,
             evts: Vec::new(),
-            joins: fds.iter_mut().map(InodeValFilePollGuardJoin::new).collect(),
+            joins: fds
+                .into_iter()
+                .map(InodeValFilePollGuardJoin::new)
+                .collect(),
         }
     }
 }
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>PollBatch&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl </span>Future <span class="kw">for </span>PollBatch {
     <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&gt;, Errno&gt;;
     <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">let </span>pid = <span class="self">self</span>.pid;
@@ -438,12 +472,19 @@
         <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
         <span class="kw">for </span><span class="kw-2">mut </span>join <span class="kw">in </span><span class="self">self</span>.joins.iter_mut() {
             <span class="kw">let </span>fd = join.fd();
+            <span class="kw">let </span>peb = join.peb();
             <span class="kw">let </span><span class="kw-2">mut </span>guard = Pin::new(join);
             <span class="kw">match </span>guard.poll(cx) {
                 Poll::Pending =&gt; {}
                 Poll::Ready(e) =&gt; {
                     <span class="kw">for </span>evt <span class="kw">in </span>e {
-                        <span class="macro">tracing::trace!</span>(fd, userdata = evt.userdata, ty = evt.type_ <span class="kw">as </span>u8,);
+                        <span class="macro">tracing::trace!</span>(
+                            fd,
+                            userdata = evt.userdata,
+                            ty = evt.type_ <span class="kw">as </span>u8,
+                            peb,
+                            <span class="string">&quot;triggered&quot;
+                        </span>);
                         evts.push(evt);
                     }
                 }
@@ -470,10 +511,19 @@
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_oneoff_internal(
-    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_oneoff_internal&lt;M: MemorySize, After&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     <span class="kw-2">mut </span>subs: Vec&lt;(<span class="prelude-ty">Option</span>&lt;WasiFd&gt;, PollEventSet, Subscription)&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;Event&gt;, Errno&gt;, WasiError&gt; {
+    process_events: After,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt;
+<span class="kw">where
+    </span>After: FnOnce(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Memory, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>AsStoreRef, Vec&lt;Event&gt;) -&gt; Errno + Send + Sync + <span class="lifetime">&#39;static</span>,
+{
+    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    <span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+    }
+
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
 
@@ -502,10 +552,10 @@
                     fd =&gt; {
                         <span class="kw">let </span>fd_entry = <span class="kw">match </span>state.fs.get_fd(fd) {
                             <span class="prelude-val">Ok</span>(a) =&gt; a,
-                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
+                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
                         };
                         <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
+                            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                         }
                     }
                 }
@@ -520,10 +570,10 @@
                     fd =&gt; {
                         <span class="kw">let </span>fd_entry = <span class="kw">match </span>state.fs.get_fd(fd) {
                             <span class="prelude-val">Ok</span>(a) =&gt; a,
-                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
+                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(err),
                         };
                         <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
+                            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                         }
                     }
                 }
@@ -557,7 +607,7 @@
                     <span class="kw">continue</span>;
                 } <span class="kw">else </span>{
                     <span class="macro">error!</span>(<span class="string">&quot;polling not implemented for these clocks yet&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                 }
             }
         };
@@ -565,7 +615,7 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
 
-    <span class="kw">let </span>ret = {
+    <span class="kw">let </span>batch = {
         <span class="comment">// Build the batch of things we are going to poll
         </span><span class="kw">let </span>state = ctx.data().state.clone();
         <span class="kw">let </span>tasks = ctx.data().tasks().clone();
@@ -579,19 +629,19 @@
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd {
                     <span class="kw">let </span>wasi_file_ref = <span class="kw">match </span>fd {
                         __WASI_STDERR_FILENO =&gt; {
-                            <span class="macro">wasi_try_ok_ok!</span>(WasiInodes::stderr(<span class="kw-2">&amp;</span>state.fs.fd_map)
+                            <span class="macro">wasi_try_ok!</span>(WasiInodes::stderr(<span class="kw-2">&amp;</span>state.fs.fd_map)
                                 .map(|g| g.into_poll_guard(fd, peb, s))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         __WASI_STDOUT_FILENO =&gt; {
-                            <span class="macro">wasi_try_ok_ok!</span>(WasiInodes::stdout(<span class="kw-2">&amp;</span>state.fs.fd_map)
+                            <span class="macro">wasi_try_ok!</span>(WasiInodes::stdout(<span class="kw-2">&amp;</span>state.fs.fd_map)
                                 .map(|g| g.into_poll_guard(fd, peb, s))
                                 .map_err(fs_error_into_wasi_err))
                         }
                         <span class="kw">_ </span>=&gt; {
-                            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(fd));
+                            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
                             <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
                             }
                             <span class="kw">let </span>inode = fd_entry.inode;
 
@@ -602,7 +652,7 @@
                                 {
                                     guard
                                 } <span class="kw">else </span>{
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Badf));
+                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Badf);
                                 }
                             }
                         }
@@ -621,66 +671,80 @@
             fd_guards
         };
 
-        <span class="comment">// If the time is infinite then we omit the time_to_sleep parameter
-        </span><span class="kw">let </span>asyncify_time = <span class="kw">match </span>time_to_sleep {
-            Duration::ZERO =&gt; {
-                Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;nonblocking&quot;</span>);
-                <span class="prelude-val">Some</span>(Duration::ZERO)
-            }
-            Duration::MAX =&gt; {
-                Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;infinite&quot;</span>);
-                <span class="prelude-val">None
-            </span>}
-            time =&gt; {
-                Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, time.as_millis());
-                <span class="prelude-val">Some</span>(time)
-            }
-        };
-
         <span class="comment">// Block polling the file descriptors
-        </span><span class="kw">let </span>batch = PollBatch::new(pid, tid, <span class="kw-2">&amp;mut </span>guards);
-        __asyncify(ctx, asyncify_time, batch)<span class="question-mark">?
-    </span>};
+        </span>PollBatch::new(pid, tid, guards)
+    };
 
-    <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="comment">// If the time is infinite then we omit the time_to_sleep parameter
+    </span><span class="kw">let </span>asyncify_time = <span class="kw">match </span>time_to_sleep {
+        Duration::ZERO =&gt; {
+            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;nonblocking&quot;</span>);
+            <span class="prelude-val">Some</span>(Duration::ZERO)
+        }
+        Duration::MAX =&gt; {
+            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;infinite&quot;</span>);
+            <span class="prelude-val">None
+        </span>}
+        time =&gt; {
+            Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, time.as_millis());
+            <span class="prelude-val">Some</span>(time)
+        }
+    };
 
-    <span class="comment">// Process the result
-    </span><span class="kw">match </span>ret {
-        <span class="prelude-val">Ok</span>(evts) =&gt; {
-            <span class="comment">// If its a timeout then return an event for it
-            </span>Span::current().record(<span class="string">&quot;seen&quot;</span>, evts.len());
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(evts))
-        }
-        <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; {
-            <span class="comment">// The timeout has triggerred so lets add that event
-            </span><span class="kw">if </span>clock_subs.is_empty() {
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
+    <span class="comment">// We use asyncify with a deep sleep to wait on new IO events
+    </span><span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+        ctx,
+        asyncify_time,
+        Duration::from_millis(<span class="number">50</span>),
+        batch,
+        <span class="kw">move </span>|memory, store, res| {
+            <span class="kw">let </span>events = res.unwrap_or_else(<span class="prelude-val">Err</span>);
+            <span class="comment">// Process the result
+            </span><span class="kw">match </span>events {
+                <span class="prelude-val">Ok</span>(evts) =&gt; {
+                    <span class="comment">// If its a timeout then return an event for it
+                    </span>Span::current().record(<span class="string">&quot;seen&quot;</span>, evts.len());
+
+                    <span class="comment">// Process the events
+                    </span>process_events(memory, store, evts);
+                }
+                <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; {
+                    <span class="comment">// The timeout has triggerred so lets add that event
+                    </span><span class="kw">if </span>clock_subs.is_empty() {
+                        <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
+                    }
+                    <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
+                    <span class="kw">for </span>(clock_info, userdata) <span class="kw">in </span>clock_subs {
+                        <span class="kw">let </span>evt = Event {
+                            userdata,
+                            error: Errno::Success,
+                            type_: Eventtype::Clock,
+                            u: EventUnion { clock: <span class="number">0 </span>},
+                        };
+                        Span::current().record(
+                            <span class="string">&quot;seen&quot;</span>,
+                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                                <span class="string">&quot;clock(id={},userdata={})&quot;</span>,
+                                clock_info.clock_id <span class="kw">as </span>u32, evt.userdata
+                            ),
+                        );
+                        evts.push(evt);
+                    }
+                    process_events(memory, store, evts);
+                }
+                <span class="comment">// If nonblocking the Errno::Again needs to be turned into an empty list
+                </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; {
+                    process_events(memory, store, Default::default());
+                }
+                <span class="comment">// Otherwise process the error
+                </span><span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to poll during deep sleep - {}&quot;</span>, err);
+                }
             }
-            <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
-            <span class="kw">for </span>(clock_info, userdata) <span class="kw">in </span>clock_subs {
-                <span class="kw">let </span>evt = Event {
-                    userdata,
-                    error: Errno::Success,
-                    type_: Eventtype::Clock,
-                    u: EventUnion { clock: <span class="number">0 </span>},
-                };
-                Span::current().record(
-                    <span class="string">&quot;seen&quot;</span>,
-                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                        <span class="string">&quot;clock(id={},userdata={})&quot;</span>,
-                        clock_info.clock_id <span class="kw">as </span>u32, evt.userdata
-                    ),
-                );
-                evts.push(evt);
-            }
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(evts))
-        }
-        <span class="comment">// If nonblocking the Errno::Again needs to be turned into an empty list
-        </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(Default::default())),
-        <span class="comment">// Otherwise process the rror
-        </span><span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
-    }
+            <span class="prelude-val">Ok</span>(())
+        },
+    )<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

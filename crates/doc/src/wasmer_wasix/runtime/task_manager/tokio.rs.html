@@ -165,6 +165,17 @@
 <span id="163">163</span>
 <span id="164">164</span>
 <span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     pin::Pin,
     sync::{Arc, Mutex},
@@ -173,11 +184,10 @@
 
 <span class="kw">use </span>futures::Future;
 <span class="kw">use </span>tokio::runtime::Handle;
-<span class="kw">use </span>wasmer::{AsStoreMut, Memory, Module, Store, StoreMut};
 
-<span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiThreadError;
+<span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
-<span class="kw">use super</span>::{SpawnType, VirtualTaskManager};
+<span class="kw">use super</span>::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
 <span class="doccomment">/// A task manager that uses tokio to spawn tasks.
 </span><span class="attribute">#[derive(Clone, Debug)]
@@ -243,32 +253,16 @@
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
 }
 
-<span class="attribute">#[async_trait::async_trait]
-</span><span class="kw">impl </span>VirtualTaskManager <span class="kw">for </span>TokioTaskManager {
-    <span class="kw">fn </span>build_memory(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span>StoreMut,
-        spawn_type: SpawnType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Memory&gt;, WasiThreadError&gt; {
-        <span class="kw">match </span>spawn_type {
-            SpawnType::CreateWithType(mem) =&gt; Memory::new(<span class="kw-2">&amp;mut </span>store, mem.ty)
-                .map_err(|err| {
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;could not create memory: {err}&quot;</span>);
-                    WasiThreadError::MemoryCreateFailed
-                })
-                .map(<span class="prelude-val">Some</span>),
-            SpawnType::NewThread(mem) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem)),
-            SpawnType::Create =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
-        }
-    }
-
+<span class="kw">impl </span>VirtualTaskManager <span class="kw">for </span>TokioTaskManager {
     <span class="doccomment">/// See [`VirtualTaskManager::sleep_now`].
-    </span><span class="kw">async fn </span>sleep_now(<span class="kw-2">&amp;</span><span class="self">self</span>, time: Duration) {
-        <span class="kw">if </span>time == Duration::ZERO {
-            tokio::task::yield_now().<span class="kw">await</span>;
-        } <span class="kw">else </span>{
-            tokio::time::sleep(time).<span class="kw">await</span>;
-        }
+    </span><span class="kw">fn </span>sleep_now(<span class="kw-2">&amp;</span><span class="self">self</span>, time: Duration) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">if </span>time == Duration::ZERO {
+                tokio::task::yield_now().<span class="kw">await</span>;
+            } <span class="kw">else </span>{
+                tokio::time::sleep(time).<span class="kw">await</span>;
+            }
+        })
     }
 
     <span class="doccomment">/// See [`VirtualTaskManager::task_shared`].
@@ -297,18 +291,46 @@
         })
     }
 
-    <span class="kw">fn </span>task_wasm(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;<span class="kw">dyn </span>FnOnce(Store, Module, <span class="prelude-ty">Option</span>&lt;Memory&gt;) + Send + <span class="lifetime">&#39;static</span>&gt;,
-        <span class="kw-2">mut </span>store: Store,
-        module: Module,
-        spawn_type: SpawnType,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="kw">let </span>memory = <span class="self">self</span>.build_memory(<span class="kw-2">&amp;mut </span>store.as_store_mut(), spawn_type)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="number">0</span>.spawn_blocking(<span class="kw">move </span>|| {
-            <span class="comment">// Invoke the callback
-            </span>task(store, module, memory);
-        });
+    <span class="doccomment">/// See [`VirtualTaskManager::task_wasm`].
+    </span><span class="kw">fn </span>task_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>, task: TaskWasm) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
+        <span class="comment">// Create the context on a new store
+        </span><span class="kw">let </span>run = task.run;
+        <span class="kw">let </span>(ctx, store) = WasiFunctionEnv::new_with_store(
+            task.module,
+            task.env,
+            task.snapshot,
+            task.spawn_type,
+            task.update_layout,
+        )<span class="question-mark">?</span>;
+
+        <span class="comment">// If we have a trigger then we first need to run
+        // the poller to completion
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(trigger) = task.trigger {
+            <span class="kw">let </span>trigger = trigger();
+            <span class="kw">let </span>handle = <span class="self">self</span>.<span class="number">0</span>.clone();
+            <span class="self">self</span>.<span class="number">0</span>.spawn(<span class="kw">async move </span>{
+                <span class="kw">let </span>res = trigger.<span class="kw">await</span>;
+                <span class="comment">// Build the task that will go on the callback
+                </span>handle.spawn_blocking(<span class="kw">move </span>|| {
+                    <span class="comment">// Invoke the callback
+                    </span>run(TaskWasmRunProperties {
+                        ctx,
+                        store,
+                        result: res,
+                    });
+                });
+            });
+        } <span class="kw">else </span>{
+            <span class="comment">// Run the callback on a dedicated thread
+            </span><span class="self">self</span>.<span class="number">0</span>.spawn_blocking(<span class="kw">move </span>|| {
+                <span class="comment">// Invoke the callback
+                </span>run(TaskWasmRunProperties {
+                    ctx,
+                    store,
+                    result: <span class="prelude-val">Ok</span>(()),
+                });
+            });
+        }
         <span class="prelude-val">Ok</span>(())
     }
 

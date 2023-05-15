@@ -34,6 +34,10 @@
 <span id="32">32</span>
 <span id="33">33</span>
 <span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::http::HttpClientCapabilityV1;
 
 <span class="doccomment">/// Defines capabilities for a Wasi environment.
@@ -67,6 +71,10 @@
     ///
     /// [`None`] means no limit.
     </span><span class="kw">pub </span>max_threads: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+
+    <span class="doccomment">/// Flag that indicates if asynchronous threading is disabled
+    /// (default = false)
+    </span><span class="kw">pub </span>enable_asynchronous_threading: bool,
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

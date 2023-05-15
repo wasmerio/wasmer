@@ -89,7 +89,7 @@
     Span::current().record(<span class="string">&quot;funct_is_some&quot;</span>, funct.is_some());
 
     {
-        <span class="kw">let </span>inner = ctx.data_mut().inner_mut();
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data_mut().inner_mut();
         inner.signal = funct;
         inner.signal_set = <span class="bool-val">true</span>;
     }

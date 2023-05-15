@@ -41,6 +41,9 @@
 <span id="39">39</span>
 <span id="40">40</span>
 <span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -60,26 +63,29 @@
     <span class="kw">let </span>state = env.state.deref();
 
     <span class="kw">let </span>pointer: u64 = <span class="macro">wasi_try!</span>(futex_ptr.offset().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    Span::current().record(<span class="string">&quot;futex_idx&quot;</span>, pointer);
+    <span class="comment">//Span::current().record(&quot;futex_idx&quot;, pointer);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>woken = <span class="bool-val">false</span>;
+    </span><span class="kw">let </span><span class="kw-2">mut </span>woken = <span class="bool-val">false</span>;
     <span class="kw">let </span>woken = {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = state.futexs.lock().unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(futex) = guard.remove(<span class="kw-2">&amp;</span>pointer) {
-            futex.wakers.into_iter().for_each(|w| w.wake());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(futex) = guard.futexes.remove(<span class="kw-2">&amp;</span>pointer) {
+            <span class="kw">for </span>waker <span class="kw">in </span>futex.wakers {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(waker) = waker.<span class="number">1 </span>{
+                    waker.wake();
+                }
+            }
             <span class="bool-val">true
         </span>} <span class="kw">else </span>{
             <span class="bool-val">true
         </span>}
     };
-    Span::current().record(<span class="string">&quot;woken&quot;</span>, woken);
+    <span class="comment">//Span::current().record(&quot;woken&quot;, woken);
 
-    <span class="kw">let </span>woken = <span class="kw">match </span>woken {
+    </span><span class="kw">let </span>woken = <span class="kw">match </span>woken {
         <span class="bool-val">false </span>=&gt; Bool::False,
         <span class="bool-val">true </span>=&gt; Bool::True,
     };
     <span class="macro">wasi_try_mem!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, woken));
-
     Errno::Success
 }
 </code></pre></div>

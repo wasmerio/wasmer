@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["thread_spawn","`thread_spawn()`"],["thread_spawn_internal",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["call_module","Calls the module"],["thread_spawn","`thread_spawn()`"],["thread_spawn_internal",""]]};

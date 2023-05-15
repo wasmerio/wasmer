@@ -2377,7 +2377,7 @@
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
                 <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
+                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
@@ -2403,7 +2403,7 @@
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
                 <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
+                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
@@ -2429,7 +2429,7 @@
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
                 <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
+                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{
@@ -2456,7 +2456,7 @@
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
             <span class="kw">if </span>ret == <span class="number">0 </span>{
                 <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
+                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
             }
             <span class="prelude-val">Ok</span>(ret)
         } <span class="kw">else </span>{

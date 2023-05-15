@@ -258,29 +258,6 @@
 <span id="256">256</span>
 <span id="257">257</span>
 <span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,
 //! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
@@ -301,22 +278,20 @@
 </span><span class="kw">mod </span>builder;
 <span class="kw">mod </span>env;
 <span class="kw">mod </span>func_env;
+<span class="kw">mod </span>handles;
 <span class="kw">mod </span>types;
 
 <span class="kw">use </span>std::{
-    cell::RefCell,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::Path,
-    sync::{Arc, Mutex, RwLock},
+    sync::Mutex,
     task::Waker,
     time::Duration,
 };
 
-<span class="kw">use </span>derivative::Derivative;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-<span class="kw">use </span>wasmer::Store;
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, Fd <span class="kw">as </span>WasiFd, Rights, Snapshot0Clockid};
 
 <span class="kw">pub use </span><span class="self">self</span>::{
@@ -330,8 +305,8 @@
     fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
     syscalls::types::<span class="kw-2">*</span>,
     utils::WasiParkingLot,
-    WasiCallingId,
 };
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>handles::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// all the rights enabled
 </span><span class="kw">pub const </span>ALL_RIGHTS: Rights = Rights::all();
@@ -352,38 +327,11 @@
     }
 }
 
-<span class="comment">// TODO: review allow...
-</span><span class="attribute">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiThreadContext {
-    <span class="kw">pub </span>ctx: WasiFunctionEnv,
-    <span class="kw">pub </span>store: RefCell&lt;Store&gt;,
-}
-
-<span class="doccomment">/// The code itself makes safe use of the struct so multiple threads don&#39;t access
-/// it (without this the JS code prevents the reference to the module from being stored
-/// which is needed for the multithreading mode)
-</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>WasiThreadContext {}
-<span class="kw">unsafe impl </span>Sync <span class="kw">for </span>WasiThreadContext {}
-
-<span class="doccomment">/// Structures used for the threading and sub-processes
-///
-/// These internal implementation details are hidden away from the
-/// consumer who should instead implement the vbus trait on the runtime
-</span><span class="attribute">#[derive(Derivative, Default)]
-</span><span class="comment">// TODO: review allow...
-</span><span class="attribute">#[allow(dead_code)]
-#[derivative(Debug)]
-#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiStateThreading {
-    <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub </span>thread_ctx: HashMap&lt;WasiCallingId, Arc&lt;WasiThreadContext&gt;&gt;,
-}
-
 <span class="doccomment">/// Represents a futex which will make threads wait for completion in a more
 /// CPU efficient manner
-</span><span class="attribute">#[derive(Debug)]
+</span><span class="attribute">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>WasiFutex {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) wakers: Vec&lt;Waker&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) wakers: BTreeMap&lt;u64, <span class="prelude-ty">Option</span>&lt;Waker&gt;&gt;,
 }
 
 <span class="doccomment">/// Structure that holds the state of BUS calls to this process and from
@@ -419,6 +367,14 @@
     }
 }
 
+<span class="doccomment">/// Stores the state of the futexes
+</span><span class="attribute">#[derive(Debug, Default)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WasiFutexState {
+    <span class="kw">pub </span>poller_seed: u64,
+    <span class="kw">pub </span>futexes: HashMap&lt;u64, WasiFutex&gt;,
+}
+
 <span class="doccomment">/// Top level data type containing all* the state with which WASI can
 /// interact.
 ///
@@ -432,8 +388,7 @@
 
     <span class="kw">pub </span>fs: WasiFs,
     <span class="kw">pub </span>inodes: WasiInodes,
-    <span class="kw">pub </span>threading: RwLock&lt;WasiStateThreading&gt;,
-    <span class="kw">pub </span>futexs: Mutex&lt;HashMap&lt;u64, WasiFutex&gt;&gt;,
+    <span class="kw">pub </span>futexs: Mutex&lt;WasiFutexState&gt;,
     <span class="kw">pub </span>clock_offset: Mutex&lt;HashMap&lt;Snapshot0Clockid, i64&gt;&gt;,
     <span class="kw">pub </span>args: Vec&lt;String&gt;,
     <span class="kw">pub </span>envs: Vec&lt;Vec&lt;u8&gt;&gt;,
@@ -553,7 +508,6 @@
             fs: <span class="self">self</span>.fs.fork(),
             secret: <span class="self">self</span>.secret,
             inodes: <span class="self">self</span>.inodes.clone(),
-            threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Mutex::new(<span class="self">self</span>.clock_offset.lock().unwrap().clone()),
             args: <span class="self">self</span>.args.clone(),

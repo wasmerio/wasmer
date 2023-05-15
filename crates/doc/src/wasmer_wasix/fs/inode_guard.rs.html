@@ -720,6 +720,35 @@
 <span id="718">718</span>
 <span id="719">719</span>
 <span id="720">720</span>
+<span id="721">721</span>
+<span id="722">722</span>
+<span id="723">723</span>
+<span id="724">724</span>
+<span id="725">725</span>
+<span id="726">726</span>
+<span id="727">727</span>
+<span id="728">728</span>
+<span id="729">729</span>
+<span id="730">730</span>
+<span id="731">731</span>
+<span id="732">732</span>
+<span id="733">733</span>
+<span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
+<span id="737">737</span>
+<span id="738">738</span>
+<span id="739">739</span>
+<span id="740">740</span>
+<span id="741">741</span>
+<span id="742">742</span>
+<span id="743">743</span>
+<span id="744">744</span>
+<span id="745">745</span>
+<span id="746">746</span>
+<span id="747">747</span>
+<span id="748">748</span>
+<span id="749">749</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -794,41 +823,53 @@
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>InodeValFilePollGuard {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.mode {
-            InodeValFilePollGuardMode::File(..) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-file&quot;</span>),
+            InodeValFilePollGuardMode::File(..) =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;guard-file(fd={}, peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb)
+            }
             InodeValFilePollGuardMode::EventNotifications { .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;guard-notifications&quot;</span>)
+                <span class="macro">write!</span>(f, <span class="string">&quot;guard-notifications(fd={}, peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb)
             }
             InodeValFilePollGuardMode::Socket { inner } =&gt; {
                 <span class="kw">let </span>inner = inner.protected.read().unwrap();
                 <span class="kw">match </span>inner.kind {
-                    InodeSocketKind::TcpListener { .. } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-tcp-listener&quot;</span>),
+                    InodeSocketKind::TcpListener { .. } =&gt; {
+                        <span class="macro">write!</span>(f, <span class="string">&quot;guard-tcp-listener(fd={}, peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb)
+                    }
                     InodeSocketKind::TcpStream { <span class="kw-2">ref </span>socket, .. } =&gt; {
                         <span class="kw">if </span>socket.is_closed() {
-                            <span class="macro">write!</span>(f, <span class="string">&quot;guard-tcp-stream (closed)&quot;</span>)
+                            <span class="macro">write!</span>(
+                                f,
+                                <span class="string">&quot;guard-tcp-stream (closed, fd={}, peb={})&quot;</span>,
+                                <span class="self">self</span>.fd, <span class="self">self</span>.peb
+                            )
                         } <span class="kw">else </span>{
-                            <span class="macro">write!</span>(f, <span class="string">&quot;guard-tcp-stream&quot;</span>)
+                            <span class="macro">write!</span>(f, <span class="string">&quot;guard-tcp-stream(fd={}, peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb)
                         }
                     }
-                    InodeSocketKind::UdpSocket { .. } =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-udp-socket&quot;</span>),
-                    InodeSocketKind::Raw(..) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-raw-socket&quot;</span>),
-                    <span class="kw">_ </span>=&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-socket&quot;</span>),
+                    InodeSocketKind::UdpSocket { .. } =&gt; {
+                        <span class="macro">write!</span>(f, <span class="string">&quot;guard-udp-socket(fd={}, peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb)
+                    }
+                    InodeSocketKind::Raw(..) =&gt; {
+                        <span class="macro">write!</span>(f, <span class="string">&quot;guard-raw-socket(fd={}, peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb)
+                    }
+                    <span class="kw">_ </span>=&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-socket(fd={}), peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb),
                 }
             }
         }
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeValFilePollGuardJoin&lt;<span class="lifetime">&#39;a</span>&gt; {
-    mode: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>InodeValFilePollGuardMode,
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeValFilePollGuardJoin {
+    mode: InodeValFilePollGuardMode,
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; InodeValFilePollGuardJoin&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(guard: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>InodeValFilePollGuard) -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>InodeValFilePollGuardJoin {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(guard: InodeValFilePollGuard) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            mode: <span class="kw-2">&amp;mut </span>guard.mode,
+            mode: guard.mode,
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
@@ -837,9 +878,12 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
         <span class="self">self</span>.fd
     }
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>peb(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PollEventSet {
+        <span class="self">self</span>.peb
+    }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>InodeValFilePollGuardJoin&lt;<span class="lifetime">&#39;a</span>&gt; {
+<span class="kw">impl </span>Future <span class="kw">for </span>InodeValFilePollGuardJoin {
     <span class="kw">type </span>Output = heapless::Vec&lt;Event, <span class="number">4</span>&gt;;
 
     <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
@@ -954,7 +998,14 @@
                                 Poll::Pending
                             }
                         }
-                        res =&gt; res,
+                        Poll::Ready(<span class="prelude-val">Ok</span>(amt)) =&gt; {
+                            <span class="kw">if </span>guard.notifications.closed {
+                                Poll::Pending
+                            } <span class="kw">else </span>{
+                                Poll::Ready(<span class="prelude-val">Ok</span>(amt))
+                            }
+                        }
+                        Poll::Pending =&gt; Poll::Pending,
                     }
                 }
             };
@@ -1025,7 +1076,7 @@
                     <span class="kw">let </span>res = guard.poll_write_ready(cx).map_err(net_error_into_io_err);
                     <span class="kw">match </span>res {
                         Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;socket write ready error (fd={}) - {}&quot;</span>, fd, err);
+                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;socket write ready error (fd={}) - err={}&quot;</span>, fd, err);
                             <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.closed, <span class="bool-val">true</span>) {
                                 Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
                             } <span class="kw">else </span>{
@@ -1040,7 +1091,14 @@
                                 Poll::Pending
                             }
                         }
-                        res =&gt; res,
+                        Poll::Ready(<span class="prelude-val">Ok</span>(amt)) =&gt; {
+                            <span class="kw">if </span>guard.notifications.closed {
+                                Poll::Pending
+                            } <span class="kw">else </span>{
+                                Poll::Ready(<span class="prelude-val">Ok</span>(amt))
+                            }
+                        }
+                        Poll::Pending =&gt; Poll::Pending,
                     }
                 }
             };

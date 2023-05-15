@@ -286,8 +286,40 @@
 <span id="284">284</span>
 <span id="285">285</span>
 <span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use crate</span>::{os::task::OwnedTaskStatus, syscalls::<span class="kw-2">*</span>};
+<span class="kw">use crate</span>::{
+    capture_snapshot,
+    os::task::OwnedTaskStatus,
+    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    syscalls::<span class="kw-2">*</span>,
+    WasiThreadHandle,
+};
 <span class="kw">use </span>wasmer::Memory;
 
 <span class="doccomment">/// ### `proc_fork()`
@@ -338,7 +370,11 @@
     }
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
-    <span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
+
+    <span class="comment">// Setup some properties in the child environment
+    </span><span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
+    <span class="kw">let </span>pid = child_env.pid();
+    <span class="kw">let </span>tid = child_env.tid();
 
     <span class="comment">// Pass some offsets to the unwind function
     </span><span class="kw">let </span>pid_offset = pid_ptr.offset();
@@ -360,7 +396,7 @@
             <span class="comment">// We first fork the environment and replace the current environment
             // so that the process can continue to prepare for the real fork as
             // if it had actually forked
-            </span>std::mem::swap(<span class="kw-2">&amp;mut </span>ctx.data_mut().inner, <span class="kw-2">&amp;mut </span>child_env.inner);
+            </span>child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), <span class="kw-2">&amp;mut </span>child_env);
             ctx.data_mut().vfork.replace(WasiVFork {
                 rewind_stack: rewind_stack.clone(),
@@ -394,7 +430,8 @@
     <span class="kw">let </span>bin_factory = env.bin_factory.clone();
 
     <span class="comment">// Perform the unwind action
-    </span>unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>memory_stack, rewind_stack| {
+    </span><span class="kw">let </span>snapshot = capture_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
+    unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>memory_stack, rewind_stack| {
         <span class="kw">let </span>span = <span class="macro">debug_span!</span>(
             <span class="string">&quot;unwind&quot;</span>,
             memory_stack_len = memory_stack.len(),
@@ -403,23 +440,8 @@
         <span class="kw">let </span>_span_guard = span.enter();
 
         <span class="comment">// Grab all the globals and serialize them
-        </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
-            .serialize()
-            .unwrap();
+        </span><span class="kw">let </span>store_data = snapshot.serialize().unwrap();
         <span class="kw">let </span>store_data = Bytes::from(store_data);
-
-        <span class="kw">let </span><span class="kw-2">mut </span>fork_store = ctx.data().runtime.new_store();
-
-        <span class="comment">// Fork the memory and copy the module (compiled code)
-        </span><span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
-        <span class="kw">let </span>fork_memory: Memory = <span class="kw">match </span>env.memory().duplicate_in_store(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;mut </span>fork_store) {
-            <span class="prelude-val">Some</span>(memory) =&gt; memory,
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">warn!</span>(<span class="string">&quot;Can&#39;t duplicate memory in new store&quot;</span>);
-                <span class="kw">return </span>OnCalledAction::Trap(Box::new(WasiError::Exit(Errno::Memviolation.into())));
-            }
-        };
-        <span class="kw">let </span>fork_module = env.inner().instance.module().clone();
 
         <span class="comment">// Now we use the environment and memory references
         </span><span class="kw">let </span>runtime = child_env.runtime.clone();
@@ -427,54 +449,27 @@
         <span class="kw">let </span>child_memory_stack = memory_stack.clone();
         <span class="kw">let </span>child_rewind_stack = rewind_stack.clone();
 
+        <span class="kw">let </span>module = ctx.data().inner().module_clone();
+        <span class="kw">let </span>memory = ctx.data().memory_clone();
+        <span class="kw">let </span>spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());
+
         <span class="comment">// Spawn a new process with this current execution environment
         </span><span class="kw">let </span>signaler = Box::new(child_env.process.clone());
         {
-            <span class="kw">let </span>store_data = store_data.clone();
             <span class="kw">let </span>runtime = runtime.clone();
             <span class="kw">let </span>tasks = tasks.clone();
             <span class="kw">let </span>tasks_outer = tasks.clone();
+            <span class="kw">let </span>store_data = store_data.clone();
 
-            <span class="kw">let </span>store = fork_store;
-            <span class="kw">let </span>module = fork_module;
-
-            <span class="kw">let </span>spawn_type = SpawnType::NewThread(fork_memory);
-            <span class="kw">let </span>task = <span class="kw">move </span>|<span class="kw-2">mut </span>store, module, memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;| {
-                <span class="comment">// Create the WasiFunctionEnv
-                </span><span class="kw">let </span>pid = child_env.pid();
-                <span class="kw">let </span>tid = child_env.tid();
-                child_env.runtime = runtime.clone();
-                <span class="kw">let </span><span class="kw-2">mut </span>ctx = WasiFunctionEnv::new(<span class="kw-2">&amp;mut </span>store, child_env);
-                <span class="comment">// fork_store, fork_module,
-
-                // Let&#39;s instantiate the module with the imports.
-                </span><span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
-                    import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>ctx.env);
-                <span class="kw">let </span>memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
-                    import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory.clone());
-                    memory
-                } <span class="kw">else </span>{
-                    <span class="macro">error!</span>(<span class="string">&quot;wasm instantiate failed - no memory supplied&quot;</span>,);
-                    <span class="kw">return</span>;
-                };
-                <span class="kw">let </span>instance = <span class="kw">match </span>Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object) {
-                    <span class="prelude-val">Ok</span>(a) =&gt; a,
-                    <span class="prelude-val">Err</span>(err) =&gt; {
-                        <span class="macro">error!</span>(<span class="string">&quot;wasm instantiate error ({})&quot;</span>, err);
-                        <span class="kw">return</span>;
-                    }
-                };
-
-                init(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>store).unwrap();
-
-                <span class="comment">// Set the current thread ID
-                </span>ctx.data_mut(<span class="kw-2">&amp;mut </span>store).inner =
-                    <span class="prelude-val">Some</span>(WasiInstanceHandles::new(memory, <span class="kw-2">&amp;</span>store, instance));
+            <span class="kw">let </span>run = <span class="kw">move </span>|<span class="kw-2">mut </span>props: TaskWasmRunProperties| {
+                <span class="kw">let </span>ctx = props.ctx;
+                <span class="kw">let </span><span class="kw-2">mut </span>store = props.store;
 
                 <span class="comment">// Rewind the stack and carry on
                 </span>{
                     <span class="macro">trace!</span>(<span class="string">&quot;rewinding child&quot;</span>);
-                    <span class="kw">let </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
+                    <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
+                    <span class="kw">let </span>(data, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
                     <span class="kw">match </span>rewind::&lt;M&gt;(
                         ctx,
                         child_memory_stack.freeze(),
@@ -493,32 +488,15 @@
                 }
 
                 <span class="comment">// Invoke the start function
-                </span><span class="kw">let </span><span class="kw-2">mut </span>ret: ExitCode = Errno::Success.into();
-                <span class="kw">let </span>err = <span class="kw">if </span>ctx.data(<span class="kw-2">&amp;</span>store).thread.is_main() {
-                    <span class="macro">trace!</span>(<span class="string">&quot;re-invoking main&quot;</span>);
-                    <span class="kw">let </span>start = ctx.data(<span class="kw-2">&amp;</span>store).inner().start.clone().unwrap();
-                    start.call(<span class="kw-2">&amp;mut </span>store)
-                } <span class="kw">else </span>{
-                    <span class="macro">trace!</span>(<span class="string">&quot;re-invoking thread_spawn&quot;</span>);
-                    <span class="kw">let </span>start = ctx.data(<span class="kw-2">&amp;</span>store).inner().thread_spawn.clone().unwrap();
-                    start.call(<span class="kw-2">&amp;mut </span>store, <span class="number">0</span>, <span class="number">0</span>)
-                };
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = err {
-                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(WasiError::Exit(exit_code)) = err.downcast::&lt;WasiError&gt;() {
-                        ret = exit_code;
-                    }
-                }
-                <span class="macro">trace!</span>(%pid, %tid, <span class="string">&quot;child exited (code = {})&quot;</span>, ret);
-
-                <span class="comment">// Clean up the environment
-                </span>ctx.cleanup((<span class="kw-2">&amp;mut </span>store), <span class="prelude-val">Some</span>(ret));
-
-                <span class="comment">// Send the result
-                </span>drop(child_handle);
+                </span>run::&lt;M&gt;(ctx, store, child_handle, <span class="prelude-val">None</span>);
             };
 
             tasks_outer
-                .task_wasm(Box::new(task), store, module, spawn_type)
+                .task_wasm(
+                    TaskWasm::new(Box::new(run), child_env, module, <span class="bool-val">false</span>)
+                        .with_snapshot(<span class="kw-2">&amp;</span>snapshot)
+                        .with_memory(spawn_type),
+                )
                 .map_err(|err| {
                     <span class="macro">warn!</span>(
                         <span class="string">&quot;failed to fork as the process could not be spawned - {}&quot;</span>,
@@ -531,10 +509,14 @@
 
         <span class="comment">// If the return value offset is within the memory stack then we need
         // to update it here rather than in the real memory
-        </span><span class="kw">let </span>pid_offset: u64 = pid_offset.into();
-        <span class="kw">if </span>pid_offset &gt;= env.stack_start &amp;&amp; pid_offset &lt; env.stack_end {
+        </span><span class="kw">let </span>env = ctx.data();
+        <span class="kw">let </span>val_bytes = child_pid.raw().to_ne_bytes();
+        <span class="kw">let </span>pid_offset: u64 = pid_offset.into();
+        <span class="kw">if </span>pid_offset &gt;= env.layout.stack_lower
+            &amp;&amp; (pid_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= env.layout.stack_upper
+        {
             <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
-            </span><span class="kw">let </span>offset = env.stack_end - pid_offset;
+            </span><span class="kw">let </span>offset = env.layout.stack_upper - pid_offset;
             <span class="kw">if </span>offset <span class="kw">as </span>usize &gt; memory_stack.len() {
                 <span class="macro">warn!</span>(
                         <span class="string">&quot;failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
@@ -545,8 +527,7 @@
             }
 
             <span class="comment">// Update the memory stack with the new PID
-            </span><span class="kw">let </span>val_bytes = child_pid.raw().to_ne_bytes();
-            <span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
+            </span><span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
             <span class="kw">let </span>pend = pstart + val_bytes.len();
             <span class="kw">let </span>pbytes = <span class="kw-2">&amp;mut </span>memory_stack[pstart..pend];
             pbytes.clone_from_slice(<span class="kw-2">&amp;</span>val_bytes);
@@ -571,6 +552,77 @@
             }
         }
     })
+}
+
+<span class="kw">fn </span>run&lt;M: MemorySize&gt;(
+    ctx: WasiFunctionEnv,
+    <span class="kw-2">mut </span>store: Store,
+    child_handle: WasiThreadHandle,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;)&gt;,
+) -&gt; ExitCode {
+    <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
+    <span class="kw">let </span>tasks = env.tasks().clone();
+    <span class="kw">let </span>pid = env.pid();
+    <span class="kw">let </span>tid = env.tid();
+
+    <span class="comment">// If we need to rewind then do so
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>rewind_state, trigger_res)) = rewind_state {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(exit_code) = rewind_state.rewinding_finish::&lt;M&gt;(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store, trigger_res) {
+            <span class="kw">return </span>exit_code;
+        }
+        <span class="kw">let </span>res = rewind::&lt;M&gt;(
+            ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
+            rewind_state.memory_stack,
+            rewind_state.rewind_stack,
+            rewind_state.store_data,
+        );
+        <span class="kw">if </span>res != Errno::Success {
+            <span class="kw">return </span>res.into();
+        }
+    }
+
+    <span class="kw">let </span><span class="kw-2">mut </span>ret: ExitCode = Errno::Success.into();
+    <span class="kw">let </span>err = <span class="kw">if </span>ctx.data(<span class="kw-2">&amp;</span>store).thread.is_main() {
+        <span class="macro">trace!</span>(%pid, %tid, <span class="string">&quot;re-invoking main&quot;</span>);
+        <span class="kw">let </span>start = ctx.data(<span class="kw-2">&amp;</span>store).inner().start.clone().unwrap();
+        start.call(<span class="kw-2">&amp;mut </span>store)
+    } <span class="kw">else </span>{
+        <span class="macro">trace!</span>(%pid, %tid, <span class="string">&quot;re-invoking thread_spawn&quot;</span>);
+        <span class="kw">let </span>start = ctx.data(<span class="kw-2">&amp;</span>store).inner().thread_spawn.clone().unwrap();
+        start.call(<span class="kw-2">&amp;mut </span>store, <span class="number">0</span>, <span class="number">0</span>)
+    };
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = err {
+        <span class="kw">match </span>err.downcast::&lt;WasiError&gt;() {
+            <span class="prelude-val">Ok</span>(WasiError::Exit(exit_code)) =&gt; {
+                ret = exit_code;
+            }
+            <span class="prelude-val">Ok</span>(WasiError::DeepSleep(deep)) =&gt; {
+                <span class="macro">trace!</span>(%pid, %tid, <span class="string">&quot;entered a deep sleep&quot;</span>);
+
+                <span class="comment">// Create the respawn function
+                </span><span class="kw">let </span>respawn = {
+                    <span class="kw">let </span>tasks = tasks.clone();
+                    <span class="kw">let </span>rewind_state = deep.rewind;
+                    <span class="kw">move </span>|ctx, store, trigger_res| {
+                        run::&lt;M&gt;(ctx, store, child_handle, <span class="prelude-val">Some</span>((rewind_state, trigger_res)));
+                    }
+                };
+
+                <span class="doccomment">/// Spawns the WASM process after a trigger
+                </span>tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger);
+                <span class="kw">return </span>Errno::Success.into();
+            }
+            <span class="kw">_ </span>=&gt; {}
+        }
+    }
+    <span class="macro">trace!</span>(%pid, %tid, <span class="string">&quot;child exited (code = {})&quot;</span>, ret);
+
+    <span class="comment">// Clean up the environment and return the result
+    </span>ctx.cleanup((<span class="kw-2">&amp;mut </span>store), <span class="prelude-val">Some</span>(ret));
+
+    <span class="comment">// We drop the handle at the last moment which will close the thread
+    </span>drop(child_handle);
+    ret
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

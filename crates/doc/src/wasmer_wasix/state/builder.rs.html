@@ -977,9 +977,6 @@
 <span id="975">975</span>
 <span id="976">976</span>
 <span id="977">977</span>
-<span id="978">978</span>
-<span id="979">979</span>
-<span id="980">980</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -991,7 +988,7 @@
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
-<span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module};
+<span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -1669,7 +1666,6 @@
             inodes,
             args: <span class="self">self</span>.args.clone(),
             preopen: <span class="self">self</span>.vfs_preopens.clone(),
-            threading: Default::default(),
             futexs: Default::default(),
             clock_offset: Default::default(),
             envs,
@@ -1696,6 +1692,7 @@
 
         <span class="kw">let </span>plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,
+            enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
         };
         <span class="kw">let </span>control_plane = WasiControlPlane::new(plane_config);
 
@@ -1707,10 +1704,11 @@
             control_plane,
             bin_factory,
             capabilities,
-            spawn_type: <span class="prelude-val">None</span>,
+            memory_ty: <span class="prelude-val">None</span>,
             process: <span class="prelude-val">None</span>,
             thread: <span class="prelude-val">None</span>,
             call_initialize: <span class="bool-val">true</span>,
+            can_deep_sleep: <span class="bool-val">false</span>,
         };
 
         <span class="prelude-val">Ok</span>(init)
@@ -1760,11 +1758,7 @@
     }
 
     <span class="attribute">#[allow(clippy::result_large_err)]
-    </span><span class="kw">pub fn </span>run_with_store(
-        <span class="self">self</span>,
-        module: Module,
-        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
+    </span><span class="kw">pub fn </span>run_with_store(<span class="self">self</span>, module: Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="kw">let </span>(instance, env) = <span class="self">self</span>.instantiate(module, store)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>start = instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;

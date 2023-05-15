@@ -31,7 +31,7 @@
 <span id="29">29</span>
 <span id="30">30</span>
 </pre><pre class="rust"><code><span class="doccomment">/// A snapshot that captures the runtime state of an instance.
-</span><span class="attribute">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+</span><span class="attribute">#[derive(Default, serde::Serialize, serde::Deserialize, Clone, Debug)]
 </span><span class="kw">pub struct </span>InstanceSnapshot {
     <span class="doccomment">/// Values of all globals, indexed by the same index used in Webassembly.
     </span><span class="kw">pub </span>globals: Vec&lt;u128&gt;,

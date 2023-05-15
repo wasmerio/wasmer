@@ -464,6 +464,61 @@
 <span id="462">462</span>
 <span id="463">463</span>
 <span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -472,6 +527,7 @@
 };
 
 <span class="kw">use </span>bytes::{Bytes, BytesMut};
+<span class="kw">use </span>wasmer::{ExportError, InstantiationError, MemoryError};
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
@@ -587,6 +643,36 @@
     }
 }
 
+<span class="doccomment">/// Represents the memory layout of the parts that the thread itself uses
+</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>WasiMemoryLayout {
+    <span class="doccomment">/// This is the top part of the stack (stacks go backwards)
+    </span><span class="kw">pub </span>stack_upper: u64,
+    <span class="doccomment">/// This is the bottom part of the stack (anything more below this is a stack overflow)
+    </span><span class="kw">pub </span>stack_lower: u64,
+    <span class="doccomment">/// Piece of memory that is marked as none readable/writable so stack overflows cause an exception
+    /// TODO: This field will need to be used to mark the guard memory as inaccessible
+    </span><span class="attribute">#[allow(dead_code)]
+    </span><span class="kw">pub </span>guard_size: u64,
+    <span class="doccomment">/// Total size of the stack
+    </span><span class="kw">pub </span>stack_size: u64,
+}
+
+<span class="doccomment">/// The default stack size for WASIX
+</span><span class="kw">pub const </span>DEFAULT_STACK_SIZE: u64 = <span class="number">1_048_576u64</span>;
+<span class="kw">pub const </span>DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
+
+<span class="kw">impl </span>Default <span class="kw">for </span>WasiMemoryLayout {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stack_lower: <span class="number">0</span>,
+            stack_upper: DEFAULT_STACK_SIZE,
+            guard_size: <span class="number">0</span>,
+            stack_size: DEFAULT_STACK_SIZE,
+        }
+    }
+}
+
 <span class="attribute">#[derive(Debug)]
 </span><span class="kw">struct </span>WasiThreadState {
     is_main: bool,
@@ -651,6 +737,21 @@
 
     <span class="kw">pub fn </span>set_status_running(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.state.status.set_running();
+    }
+
+    <span class="doccomment">/// Gets or sets the exit code based of a signal that was received
+    /// Note: if the exit code was already set earlier this method will
+    /// just return that earlier set exit code
+    </span><span class="kw">pub fn </span>set_or_get_exit_code_for_signal(<span class="kw-2">&amp;</span><span class="self">self</span>, sig: Signal) -&gt; ExitCode {
+        <span class="kw">let </span>default_exitcode: ExitCode = <span class="kw">match </span>sig {
+            Signal::Sigquit | Signal::Sigabrt =&gt; Errno::Success.into(),
+            <span class="kw">_ </span>=&gt; Errno::Intr.into(),
+        };
+        <span class="comment">// This will only set the status code if its not already set
+        </span><span class="self">self</span>.set_status_finished(<span class="prelude-val">Ok</span>(default_exitcode));
+        <span class="self">self</span>.try_join()
+            .map(|r| r.unwrap_or(default_exitcode))
+            .unwrap_or(default_exitcode)
     }
 
     <span class="doccomment">/// Marks the thread as finished (which will cause anyone that
@@ -911,8 +1012,14 @@
     </span>Unsupported,
     <span class="attribute">#[error(<span class="string">&quot;The method named is not an exported function&quot;</span>)]
     </span>MethodNotFound,
-    <span class="attribute">#[error(<span class="string">&quot;Failed to create the requested memory&quot;</span>)]
-    </span>MemoryCreateFailed,
+    <span class="attribute">#[error(<span class="string">&quot;Failed to create the requested memory - {0}&quot;</span>)]
+    </span>MemoryCreateFailed(MemoryError),
+    <span class="attribute">#[error(<span class="string">&quot;{0}&quot;</span>)]
+    </span>ExportError(ExportError),
+    <span class="attribute">#[error(<span class="string">&quot;Failed to create the instance&quot;</span>)]
+    </span>InstanceCreateFailed(InstantiationError),
+    <span class="attribute">#[error(<span class="string">&quot;Initialization function failed - {0}&quot;</span>)]
+    </span>InitFailed(anyhow::Error),
     <span class="doccomment">/// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     </span><span class="attribute">#[error(<span class="string">&quot;WASM context is invalid&quot;</span>)]
     </span>InvalidWasmContext,
@@ -923,7 +1030,10 @@
         <span class="kw">match </span>a {
             WasiThreadError::Unsupported =&gt; Errno::Notsup,
             WasiThreadError::MethodNotFound =&gt; Errno::Inval,
-            WasiThreadError::MemoryCreateFailed =&gt; Errno::Nomem,
+            WasiThreadError::MemoryCreateFailed(<span class="kw">_</span>) =&gt; Errno::Nomem,
+            WasiThreadError::ExportError(<span class="kw">_</span>) =&gt; Errno::Noexec,
+            WasiThreadError::InstanceCreateFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
+            WasiThreadError::InitFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
             WasiThreadError::InvalidWasmContext =&gt; Errno::Noexec,
         }
     }
