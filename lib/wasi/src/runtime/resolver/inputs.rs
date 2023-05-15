@@ -11,8 +11,10 @@ use crate::runtime::resolver::{PackageId, SourceId};
 /// # Security Considerations
 ///
 /// The [`PackageSpecifier::Path`] variant doesn't specify which filesystem a
-/// [`Source`] will eventually query. Consumers of [`PackageSpecifier`] should
-/// be wary of sandbox escapes.
+/// [`Source`][source] will eventually query. Consumers of [`PackageSpecifier`]
+/// should be wary of sandbox escapes.
+///
+/// [source]: crate::runtime::resolver::Source
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PackageSpecifier {
     Registry {
@@ -90,8 +92,10 @@ impl Dependency {
     }
 }
 
-/// Some metadata a [`Source`] can provide about a package without needing
-/// to download the entire `*.webc` file.
+/// Some metadata a [`Source`][source] can provide about a package without
+/// needing to download the entire `*.webc` file.
+///
+/// [source]: crate::runtime::resolver::Source
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Summary {
     /// The package's full name (i.e. `wasmer/wapm2pirita`).
@@ -109,7 +113,9 @@ pub struct Summary {
     /// The name of a [`Command`] that should be used as this package's
     /// entrypoint.
     pub entrypoint: Option<String>,
-    /// The [`Source`] this [`Summary`] came from.
+    /// The [`Source`][source] this [`Summary`] came from.
+    ///
+    /// [source]: crate::runtime::resolver::Source
     pub source: SourceId,
 }
 

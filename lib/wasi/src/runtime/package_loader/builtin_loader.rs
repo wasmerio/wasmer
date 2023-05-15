@@ -19,7 +19,7 @@ use crate::{
     runtime::{package_loader::PackageLoader, resolver::Summary},
 };
 
-/// The builtin [`PackageResolver`] that is used by the `wasmer` CLI and
+/// The builtin [`PackageLoader`] that is used by the `wasmer` CLI and
 /// respects `$WASMER_HOME`.
 #[derive(Debug)]
 pub struct BuiltinLoader {
@@ -47,7 +47,7 @@ impl BuiltinLoader {
         }
     }
 
-    /// Create a new [`BuiltinResolver`] based on `$WASMER_HOME` and the global
+    /// Create a new [`BuiltinLoader`] based on `$WASMER_HOME` and the global
     /// Wasmer config.
     pub fn from_env() -> Result<Self, Error> {
         let wasmer_home = discover_wasmer_home().context("Unable to determine $WASMER_HOME")?;

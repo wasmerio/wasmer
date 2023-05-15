@@ -4,7 +4,9 @@ use anyhow::Error;
 
 use crate::runtime::resolver::{PackageSpecifier, Summary};
 
-/// A collection of [`Source`]s.
+/// A collection of [`Source`][source]s.
+///
+/// [source]: crate::runtime::resolver::Source
 #[async_trait::async_trait]
 pub trait Registry: Send + Sync + Debug {
     async fn query(&self, pkg: &PackageSpecifier) -> Result<Vec<Summary>, Error>;

@@ -102,6 +102,10 @@ where
         None
     }
 
+    /// Load a resolved package into memory so it can be executed.
+    ///
+    /// This will use [`package_loader::load_package_tree()`] by default and
+    /// should be good enough for most applications.
     fn load_package_tree<'a>(
         &'a self,
         resolution: &'a Resolution,
@@ -109,7 +113,7 @@ where
         let package_loader = self.package_loader();
 
         Box::pin(async move {
-            let pkg = resolver::load_package_tree(&package_loader, resolution).await?;
+            let pkg = package_loader::load_package_tree(&package_loader, resolution).await?;
             Ok(pkg)
         })
     }

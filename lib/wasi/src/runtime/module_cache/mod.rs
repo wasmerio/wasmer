@@ -17,9 +17,9 @@
 //!   [`ModuleCache::save()`] method, allowing for cache implementations to
 //!   optimize their strategy accordingly.
 //!
-//! Cache implementations are encouraged to take [`Engine::deterministic_id()`]
-//! into account when saving and loading cached modules to ensure correct module
-//! retrieval.
+//! Cache implementations are encouraged to take
+//! [`wasmer::Engine::deterministic_id()`] into account when saving and loading
+//! cached modules to ensure correct module retrieval.
 //!
 //! Cache implementations should choose a suitable eviction policy and implement
 //! invalidation transparently as part of [`ModuleCache::load()`] or

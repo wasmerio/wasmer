@@ -22,9 +22,10 @@ use wasmer_wasix::{
     runners::MappedDirectory,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
+        package_loader::{BuiltinLoader, PackageLoader},
         resolver::{
-            BuiltinLoader, Dependency, MultiSourceRegistry, PackageLoader, PackageSpecifier,
-            Registry, Source, SourceId, SourceKind, Summary, WapmSource,
+            Dependency, MultiSourceRegistry, PackageSpecifier, Registry, Source, SourceId,
+            SourceKind, Summary, WapmSource,
         },
         task_manager::tokio::TokioTaskManager,
     },
@@ -537,6 +538,7 @@ impl PreloadedSource {
             dependencies,
             commands,
             source: SourceId::new(SourceKind::Path, webc_url),
+            entrypoint: manifest.entrypoint.clone(),
         };
 
         Ok(PreloadedSource { summary })

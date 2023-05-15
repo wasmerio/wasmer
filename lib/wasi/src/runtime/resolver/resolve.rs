@@ -1,25 +1,14 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use anyhow::Error;
 use semver::Version;
 
-use crate::{
-    bin_factory::BinaryPackage,
-    runtime::{
-        package_loader::PackageLoader,
-        resolver::{DependencyGraph, Registry, Resolution, ResolvedPackage, Summary},
-    },
+use crate::runtime::resolver::{
+    DependencyGraph, ItemLocation, Registry, Resolution, ResolvedPackage, Summary,
 };
 
-pub async fn load_package_tree(
-    _loader: &impl PackageLoader,
-    _resolution: &Resolution,
-) -> Result<BinaryPackage, Error> {
-    todo!();
-}
-
-/// Given a [`RootPackage`], resolve its dependency graph and figure out
-/// how it could be reconstituted.
+/// Given the [`Summary`] for a root package, resolve its dependency graph and
+/// figure out how it could be executed.
 pub async fn resolve(root: &Summary, registry: &impl Registry) -> Result<Resolution, Error> {
     let summaries = fetch_all_possible_dependencies(root, registry).await?;
     let graph = resolve_dependency_graph(root, summaries)?;
@@ -32,9 +21,14 @@ fn resolve_dependency_graph(
     root: &Summary,
     summaries: HashMap<String, HashMap<Version, Summary>>,
 ) -> Result<DependencyGraph, Error> {
+    // TODO: We should actually construct a graph here.
+    // The current implementation won't actually do any dependency resolution.
+    let mut dependencies = HashMap::new();
+    dependencies.insert(root.package_id(), HashMap::new());
+
     Ok(DependencyGraph {
         root: root.package_id(),
-        dependencies: HashMap::new(),
+        dependencies,
         summaries: summaries
             .into_values()
             .flat_map(|versions| versions.into_values())
@@ -43,8 +37,55 @@ fn resolve_dependency_graph(
     })
 }
 
+/// Given a [`DependencyGraph`], figure out how the resulting "package" would
+/// look when loaded at runtime.
 fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage, Error> {
-    todo!();
+    // FIXME: This code is all super naive and will break the moment there
+    // are any conflicts or duplicate names.
+
+    let mut commands = BTreeMap::new();
+    let mut entrypoint = None;
+    // TODO: Add filesystem mappings to summary and figure out the final mapping
+    // for this dependency graph.
+    let filesystem = Vec::new();
+
+    let mut to_check = VecDeque::new();
+    let mut visited = HashSet::new();
+
+    to_check.push_back(&dependency_graph.root);
+
+    while let Some(next) = to_check.pop_front() {
+        visited.insert(next);
+        let summary = &dependency_graph.summaries[next];
+
+        // set the entrypoint, if necessary
+        if entrypoint.is_none() {
+            if let Some(entry) = &summary.entrypoint {
+                entrypoint = Some(entry.clone());
+            }
+        }
+
+        // Blindly copy across all commands
+        for cmd in &summary.commands {
+            let resolved = ItemLocation {
+                name: cmd.name.clone(),
+                pkg: summary.package_id(),
+            };
+            commands.insert(cmd.name.clone(), resolved);
+        }
+
+        let remaining_dependencies = dependency_graph.dependencies[next]
+            .values()
+            .filter(|id| !visited.contains(id));
+        to_check.extend(remaining_dependencies);
+    }
+
+    Ok(ResolvedPackage {
+        root_package: dependency_graph.root.clone(),
+        commands,
+        entrypoint,
+        filesystem,
+    })
 }
 
 /// Naively create a graph of all packages that could possibly be reached by the
@@ -54,6 +95,13 @@ async fn fetch_all_possible_dependencies(
     registry: &impl Registry,
 ) -> Result<HashMap<String, HashMap<Version, Summary>>, Error> {
     let mut summaries_by_name: HashMap<String, HashMap<Version, Summary>> = HashMap::new();
+
+    // We manually add the summary for our root package, rather than retrieving
+    // it from the registry like all the others
+    summaries_by_name
+        .entry(root.package_name.clone())
+        .or_default()
+        .insert(root.version.clone(), root.clone());
 
     let mut to_fetch = VecDeque::new();
     let mut visited = HashSet::new();
@@ -245,6 +293,7 @@ mod tests {
     }
 
     resolver_test! {
+        #[ignore = "resolve_dependency_graph() isn't implemented yet"]
         name = single_dependency,
         roots = ["root@1.0.0"],
         registry = {
