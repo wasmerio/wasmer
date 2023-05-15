@@ -164,10 +164,19 @@ enum WasmerCLIOptions {
 
     /// (unstable) Run a WebAssembly file or WEBC container.
     RunUnstable(RunUnstable),
+
+    // DEPLOY commands
+    #[clap(subcommand)]
+    App(wasmer_deploy_cli::cmd::app::CmdApp),
+    Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+    #[clap(subcommand)]
+    Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
 
 impl WasmerCLIOptions {
-    fn execute(&self) -> Result<(), anyhow::Error> {
+    fn execute(self) -> Result<(), anyhow::Error> {
+        use wasmer_deploy_cli::cmd::CliCommand;
+
         match self {
             Self::Run(options) => options.execute(),
             Self::SelfUpdate(options) => options.execute(),
@@ -194,6 +203,11 @@ impl WasmerCLIOptions {
             Self::Whoami(whoami) => whoami.execute(),
             Self::Add(install) => install.execute(),
             Self::RunUnstable(run2) => run2.execute(),
+
+            // Deploy commands.
+            Self::App(apps) => apps.run(),
+            Self::Ssh(ssh) => ssh.run(),
+            Self::Namespace(namespace) => namespace.run(),
         }
     }
 }
@@ -244,12 +258,11 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
-        match command.unwrap_or(&"".to_string()).as_ref() {
+        match command.unwrap_or(&String::new()).as_ref() {
             "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
             | "gen-c-header" | "inspect" | "init" | "run" | "run-unstable" | "self-update"
-            | "validate" | "wast" | "binfmt" | "list" | "login" | "publish" => {
-                WasmerCLIOptions::parse()
-            }
+            | "validate" | "wast" | "binfmt" | "list" | "login" | "publish" | "app"
+            | "namespace" | "" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {

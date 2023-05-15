@@ -25,6 +25,7 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
+# Repo-local dependencies.
 wasmer = { version = "=3.3.0", path = "../api", default-features = false }
 wasmer-compiler = { version = "=3.3.0", path = "../compiler", features = ["compiler"], optional = true }
 wasmer-compiler-cranelift = { version = "=3.3.0", path = "../compiler-cranelift", optional = true }
@@ -41,6 +42,14 @@ wasmer-registry = { version = "4.5.0", path = "../registry", features = ["build-
 wasmer-object = { version = "=3.3.0", path = "../object", optional = true }
 virtual-fs  = { version = "0.2.0", path = "../vfs", default-features = false, features = ["host-fs"] }
 virtual-net  = { version = "0.1.0", path = "../vnet" }
+
+# Wasmer-owned dependencies.
+webc = { version = "5.0" }
+wapm-targz-to-pirita = "0.2.1"
+wasmer-deploy-cli = { version = "0.1.9", default-features = false }
+
+# Third-party dependencies.
+
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
@@ -64,7 +73,6 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "5.0" }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
@@ -83,7 +91,6 @@ wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
 clap-verbosity-flag = "2"
-wapm-targz-to-pirita = "0.2.1"
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
