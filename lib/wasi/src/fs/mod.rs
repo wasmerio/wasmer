@@ -1301,12 +1301,14 @@ impl WasiFs {
         path: &str,
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
-        let start_inode = if !path.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
-            let (cur_inode, _) = self.get_current_dir(inodes, base)?;
-            cur_inode
-        } else {
-            self.get_fd_inode(base)?
-        };
+        let base_inode = self.get_fd_inode(base)?;
+        let start_inode =
+            if !base_inode.deref().name.starts_with('/') && self.is_wasix.load(Ordering::Acquire) {
+                let (cur_inode, _) = self.get_current_dir(inodes, base)?;
+                cur_inode
+            } else {
+                self.get_fd_inode(base)?
+            };
         self.get_inode_at_path_inner(inodes, start_inode, path, 0, follow_symlinks)
     }
 
