@@ -68,6 +68,10 @@ impl Memory {
         mem.try_clone().map(|mem| mem.into())
     }
 
+    pub fn try_copy(&self, store: &impl AsStoreRef) -> Option<Box<dyn LinearMemory + 'static>> {
+        self.try_clone(store).and_then(|mut mem| mem.copy().ok())
+    }
+
     #[deprecated = "use `try_clone` instead"]
     pub fn duplicate_in_store(
         &self,

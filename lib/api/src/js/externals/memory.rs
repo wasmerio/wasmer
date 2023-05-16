@@ -140,8 +140,16 @@ impl Memory {
         Self { handle: internal }
     }
 
+    /// Cloning memory will create another reference to the same memory that
+    /// can be put into a new store
     pub fn try_clone(&self, _store: &impl AsStoreRef) -> Option<VMMemory> {
         self.handle.try_clone()
+    }
+
+    /// Copying the memory will actually copy all the bytes in the memory to
+    /// a identical byte copy of the original that can be put into a new store
+    pub fn try_copy(&self, store: &impl AsStoreRef) -> Option<Box<dyn LinearMemory + 'static>> {
+        self.try_clone(store).and_then(|mut mem| mem.copy().ok())
     }
 
     #[deprecated = "use `try_clone` instead"]

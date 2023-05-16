@@ -135,8 +135,7 @@ impl Memory {
             });
         }
         self.0
-            .try_clone(&store)
-            .and_then(|mut memory| memory.copy().ok())
+            .try_copy(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
             .ok_or_else(|| {
                 MemoryError::Generic("memory is not clonable or could not be copied".to_string())

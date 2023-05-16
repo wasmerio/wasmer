@@ -170,8 +170,28 @@ impl Memory {
         Self { handle: internal }
     }
 
+    /// Cloning memory will create another reference to the same memory that
+    /// can be put into a new store
     pub fn try_clone(&self, _store: &impl AsStoreRef) -> Option<VMMemory> {
         self.handle.try_clone()
+    }
+
+    /// Copying the memory will actually copy all the bytes in the memory to
+    /// a identical byte copy of the original that can be put into a new store
+    pub fn try_copy(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+        self.try_clone(store)
+            .and_then(|mut mem| mem.copy(store).ok())
+    }
+
+    #[deprecated = "use `try_clone` instead"]
+    pub fn duplicate_in_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Option<Self> {
+        self.try_clone(&store)
+            .and_then(|mut memory| memory.duplicate(&store).ok())
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
