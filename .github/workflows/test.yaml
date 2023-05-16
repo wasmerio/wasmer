@@ -142,7 +142,7 @@ jobs:
         with:
           node-version: 16
       - name: Install libjavascriptcoregtk-4.0-dev
-        run: sudo apt install -y libjavascriptcoregtk-4.0-dev
+        run: sudo apt update && sudo apt install -y libjavascriptcoregtk-4.0-dev
       - name: make build-wasmer-jsc
         run: make build-wasmer-jsc
 
