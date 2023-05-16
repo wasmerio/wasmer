@@ -309,6 +309,19 @@
 <span id="307">307</span>
 <span id="308">308</span>
 <span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.
 
 </span><span class="attribute">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
@@ -475,10 +488,19 @@
 
     <span class="doccomment">/// (unstable) Run a WebAssembly file or WEBC container.
     </span>RunUnstable(RunUnstable),
+
+    <span class="comment">// DEPLOY commands
+    </span><span class="attribute">#[clap(subcommand)]
+    </span>App(wasmer_deploy_cli::cmd::app::CmdApp),
+    Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+    <span class="attribute">#[clap(subcommand)]
+    </span>Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
 
 <span class="kw">impl </span>WasmerCLIOptions {
-    <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">fn </span>execute(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">use </span>wasmer_deploy_cli::cmd::CliCommand;
+
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::Run(options) =&gt; options.execute(),
             <span class="self">Self</span>::SelfUpdate(options) =&gt; options.execute(),
@@ -505,6 +527,11 @@
             <span class="self">Self</span>::Whoami(whoami) =&gt; whoami.execute(),
             <span class="self">Self</span>::Add(install) =&gt; install.execute(),
             <span class="self">Self</span>::RunUnstable(run2) =&gt; run2.execute(),
+
+            <span class="comment">// Deploy commands.
+            </span><span class="self">Self</span>::App(apps) =&gt; apps.run(),
+            <span class="self">Self</span>::Ssh(ssh) =&gt; ssh.run(),
+            <span class="self">Self</span>::Namespace(namespace) =&gt; namespace.run(),
         }
     }
 }
@@ -555,12 +582,11 @@
     <span class="kw">let </span>options = <span class="kw">if </span><span class="macro">cfg!</span>(target_os = <span class="string">&quot;linux&quot;</span>) &amp;&amp; binpath.ends_with(<span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>) {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } <span class="kw">else </span>{
-        <span class="kw">match </span>command.unwrap_or(<span class="kw-2">&amp;</span><span class="string">&quot;&quot;</span>.to_string()).as_ref() {
+        <span class="kw">match </span>command.unwrap_or(<span class="kw-2">&amp;</span>String::new()).as_ref() {
             <span class="string">&quot;add&quot; </span>| <span class="string">&quot;cache&quot; </span>| <span class="string">&quot;compile&quot; </span>| <span class="string">&quot;config&quot; </span>| <span class="string">&quot;create-obj&quot; </span>| <span class="string">&quot;create-exe&quot; </span>| <span class="string">&quot;help&quot;
             </span>| <span class="string">&quot;gen-c-header&quot; </span>| <span class="string">&quot;inspect&quot; </span>| <span class="string">&quot;init&quot; </span>| <span class="string">&quot;run&quot; </span>| <span class="string">&quot;run-unstable&quot; </span>| <span class="string">&quot;self-update&quot;
-            </span>| <span class="string">&quot;validate&quot; </span>| <span class="string">&quot;wast&quot; </span>| <span class="string">&quot;binfmt&quot; </span>| <span class="string">&quot;list&quot; </span>| <span class="string">&quot;login&quot; </span>| <span class="string">&quot;publish&quot; </span>=&gt; {
-                WasmerCLIOptions::parse()
-            }
+            </span>| <span class="string">&quot;validate&quot; </span>| <span class="string">&quot;wast&quot; </span>| <span class="string">&quot;binfmt&quot; </span>| <span class="string">&quot;list&quot; </span>| <span class="string">&quot;login&quot; </span>| <span class="string">&quot;publish&quot; </span>| <span class="string">&quot;app&quot;
+            </span>| <span class="string">&quot;namespace&quot; </span>| <span class="string">&quot;&quot; </span>=&gt; WasmerCLIOptions::parse(),
             <span class="kw">_ </span>=&gt; {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     <span class="kw">match </span>e.kind() {

@@ -2202,6 +2202,9 @@
 <span id="2200">2200</span>
 <span id="2201">2201</span>
 <span id="2202">2202</span>
+<span id="2203">2203</span>
+<span id="2204">2204</span>
+<span id="2205">2205</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -4189,42 +4192,45 @@
 
 <span class="kw">mod </span>http_fetch {
     <span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-ty">Result</span>};
-    <span class="kw">use </span>http_req::{request::Request, response::StatusCode, uri::Uri};
-    <span class="kw">use </span>std::convert::TryFrom;
     <span class="kw">use </span>std::path::Path;
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_release(
         release_version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;serde_json::Value&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>writer = Vec::new();
-        <span class="kw">let </span>uri = Uri::try_from(<span class="string">&quot;https://api.github.com/repos/wasmerio/wasmer/releases&quot;</span>).unwrap();
+        <span class="kw">let </span>uri = <span class="string">&quot;https://api.github.com/repos/wasmerio/wasmer/releases&quot;</span>;
 
         <span class="comment">// Increases rate-limiting in GitHub CI
         </span><span class="kw">let </span>auth = std::env::var(<span class="string">&quot;GITHUB_TOKEN&quot;</span>);
-        <span class="kw">let </span><span class="kw-2">mut </span>response = Request::new(<span class="kw-2">&amp;</span>uri);
 
+        <span class="kw">let </span>client = reqwest::blocking::Client::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>req = client.get(uri);
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(token) = auth {
-            response.header(<span class="string">&quot;Authorization&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Bearer {token}&quot;</span>));
+            req = req.header(<span class="string">&quot;Authorization&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;Bearer {token}&quot;</span>));
         }
 
-        <span class="kw">let </span>response = response
+        <span class="kw">let </span>response = req
             .header(<span class="string">&quot;User-Agent&quot;</span>, <span class="string">&quot;wasmerio&quot;</span>)
             .header(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/vnd.github.v3+json&quot;</span>)
-            .timeout(<span class="prelude-val">Some</span>(std::time::Duration::new(<span class="number">30</span>, <span class="number">0</span>)))
-            .send(<span class="kw-2">&amp;mut </span>writer)
+            .send()
             .map_err(anyhow::Error::new)
             .context(<span class="string">&quot;Could not lookup wasmer repository on Github.&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">if </span>response.status_code() != StatusCode::new(<span class="number">200</span>) {
+        <span class="kw">let </span>status = response.status();
+
+        <span class="kw">let </span>body = response
+            .bytes()
+            .map_err(anyhow::Error::new)
+            .context(<span class="string">&quot;Could not retrieve wasmer release history body&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">if </span>status != reqwest::StatusCode::OK {
             <span class="macro">log::warn!</span>(
                 <span class="string">&quot;Warning: Github API replied with non-200 status code: {}. Response: {}&quot;</span>,
-                response.status_code(),
-                String::from_utf8_lossy(<span class="kw-2">&amp;</span>writer),
+                status,
+                String::from_utf8_lossy(<span class="kw-2">&amp;</span>body),
             );
         }
 
-        <span class="kw">let </span>v: std::result::Result&lt;serde_json::Value, <span class="kw">_</span>&gt; = serde_json::from_reader(<span class="kw-2">&amp;*</span>writer);
-        <span class="kw">let </span><span class="kw-2">mut </span>response = v.map_err(anyhow::Error::new)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>response = serde_json::from_slice::&lt;serde_json::Value&gt;(<span class="kw-2">&amp;</span>body)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(releases) = response.as_array_mut() {
             releases.retain(|r| {
