@@ -128,6 +128,22 @@ jobs:
       - name: make build-wasmer-wasm
         run: make build-wasmer-wasm
 
+  test_build_jsc:
+    name: Test JSC build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.65
+          target: x86_64-unknown-linux-gnu
+      - name: Install NodeJS
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - name: make build-wasmer-jsc
+        run: make build-wasmer-jsc
+
   test_build_docs_rs:
     name: Test build docs rs
     runs-on: ubuntu-22.04
