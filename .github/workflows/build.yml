@@ -264,6 +264,22 @@ jobs:
           if-no-files-found: error
           retention-days: 2
 
+  build_jsc:
+    name: Build JSC
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.65
+          target: x86_64-unknown-linux-gnu
+      - name: Install NodeJS
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - name: make build-wasmer-jsc
+        run: make build-wasmer-jsc
+
   windows_gnu:
     name: Windows GNU
     runs-on: ubuntu-latest

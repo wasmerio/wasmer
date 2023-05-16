@@ -183,7 +183,7 @@ impl Memory {
             .and_then(|mut mem| mem.copy(store).ok())
     }
 
-    #[deprecated = "use `try_clone` instead"]
+    #[deprecated = "use `try_clone` and `try_copy` instead"]
     pub fn duplicate_in_store(
         &self,
         store: &impl AsStoreRef,

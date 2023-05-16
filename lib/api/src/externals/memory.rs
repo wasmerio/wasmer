@@ -177,7 +177,7 @@ impl Memory {
 
     /// Attempts to clone this memory (if its clonable) in a new store
     /// (cloned memory will be shared between those that clone it)
-    #[deprecated = "use `shared_in_store` or `copy_to_store` instead"]
+    #[deprecated = "use `share_in_store` or `copy_to_store` instead"]
     pub fn duplicate_in_store(
         &self,
         store: &impl AsStoreRef,

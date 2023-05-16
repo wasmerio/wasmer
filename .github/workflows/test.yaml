@@ -140,7 +140,7 @@ jobs:
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
       - name: make test-build-docs-rs
         run: make test-build-docs-rs
-
+  
   build_linux_aarch64:
     name: ${{ matrix.build-what.name }} on linux-aarch64
     runs-on: ubuntu-22.04
