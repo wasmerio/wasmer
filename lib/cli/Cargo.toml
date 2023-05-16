@@ -108,11 +108,9 @@ clap = { version = "4.2.7", default-features = false, features = [
 ]}
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
-http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-http_req  = { version="^0.8", default-features = false, features = ["native-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["native-tls", "json", "multipart"] }
 
 [build-dependencies]
