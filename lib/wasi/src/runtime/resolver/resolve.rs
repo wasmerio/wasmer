@@ -1,24 +1,58 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
-use anyhow::Error;
+use semver::Version;
 
 use crate::runtime::resolver::{
-    DependencyGraph, ItemLocation, Registry, Resolution, ResolvedPackage, Summary,
+    DependencyGraph, ItemLocation, PackageId, Registry, Resolution, ResolvedPackage, Summary,
 };
+
+use super::FileSystemMapping;
 
 /// Given the [`Summary`] for a root package, resolve its dependency graph and
 /// figure out how it could be executed.
-pub async fn resolve(root: &Summary, registry: &impl Registry) -> Result<Resolution, Error> {
+pub async fn resolve(root: &Summary, registry: &impl Registry) -> Result<Resolution, ResolveError> {
     let graph = resolve_dependency_graph(root, registry).await?;
     let package = resolve_package(&graph)?;
 
     Ok(Resolution { graph, package })
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ResolveError {
+    #[error(transparent)]
+    Registry(anyhow::Error),
+    #[error("Dependency cycle detected: {}", print_cycle(_0))]
+    Cycle(Vec<PackageId>),
+}
+
+impl ResolveError {
+    pub fn as_cycle(&self) -> Option<&[PackageId]> {
+        match self {
+            ResolveError::Cycle(cycle) => Some(cycle),
+            ResolveError::Registry(_) => None,
+        }
+    }
+}
+
+fn print_cycle(packages: &[PackageId]) -> String {
+    packages
+        .iter()
+        .map(|pkg_id| {
+            let PackageId {
+                package_name,
+                version,
+                ..
+            } = pkg_id;
+            format!("{package_name}@{version}")
+        })
+        .collect::<Vec<_>>()
+        .join(" → ")
+}
+
 async fn resolve_dependency_graph(
     root: &Summary,
     registry: &impl Registry,
-) -> Result<DependencyGraph, Error> {
+) -> Result<DependencyGraph, ResolveError> {
     let mut dependencies = HashMap::new();
     let mut summaries = HashMap::new();
 
@@ -32,33 +66,83 @@ async fn resolve_dependency_graph(
         let mut deps = HashMap::new();
 
         for dep in &summary.dependencies {
-            let dep_summary = registry.latest(&dep.pkg).await?;
+            let dep_summary = registry
+                .latest(&dep.pkg)
+                .await
+                .map_err(ResolveError::Registry)?;
             deps.insert(dep.alias().to_string(), dep_summary.package_id());
-            summaries.insert(dep_summary.package_id(), dep_summary.clone());
+            let dep_id = dep_summary.package_id();
+
+            if summaries.contains_key(&dep_id) {
+                // We don't need to visit this dependency again
+                continue;
+            }
+
+            summaries.insert(dep_id, dep_summary.clone());
             to_visit.push_back(dep_summary);
         }
 
         dependencies.insert(summary.package_id(), deps);
     }
 
+    let root = root.package_id();
+    check_for_cycles(&dependencies, &root)?;
+
     Ok(DependencyGraph {
-        root: root.package_id(),
+        root,
         dependencies,
         summaries,
     })
 }
 
+/// Check for dependency cycles by doing a Depth First Search of the graph,
+/// starting at the root.
+fn check_for_cycles(
+    dependencies: &HashMap<PackageId, HashMap<String, PackageId>>,
+    root: &PackageId,
+) -> Result<(), ResolveError> {
+    fn search<'a>(
+        dependencies: &'a HashMap<PackageId, HashMap<String, PackageId>>,
+        id: &'a PackageId,
+        visited: &mut HashSet<&'a PackageId>,
+        stack: &mut Vec<&'a PackageId>,
+    ) -> Result<(), ResolveError> {
+        if let Some(index) = stack.iter().position(|item| *item == id) {
+            // we've detected a cycle!
+            let mut cycle: Vec<_> = stack.drain(index..).cloned().collect();
+            cycle.push(id.clone());
+            return Err(ResolveError::Cycle(cycle));
+        }
+
+        if visited.contains(&id) {
+            // We already know this dependency is fine
+            return Ok(());
+        }
+
+        stack.push(id);
+        for dep in dependencies[id].values() {
+            search(dependencies, dep, visited, stack)?;
+        }
+        stack.pop();
+
+        Ok(())
+    }
+
+    let mut visited = HashSet::new();
+    let mut stack = Vec::new();
+
+    search(dependencies, root, &mut visited, &mut stack)
+}
+
 /// Given a [`DependencyGraph`], figure out how the resulting "package" would
 /// look when loaded at runtime.
-fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage, Error> {
+fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage, ResolveError> {
     // FIXME: This code is all super naive and will break the moment there
     // are any conflicts or duplicate names.
 
     let mut commands = BTreeMap::new();
     let mut entrypoint = None;
-    // TODO: Add filesystem mappings to summary and figure out the final mapping
-    // for this dependency graph.
-    let filesystem = Vec::new();
+    let filesystem = resolve_filesystem_mapping(dependency_graph)?;
 
     let mut to_check = VecDeque::new();
     let mut visited = HashSet::new();
@@ -99,10 +183,20 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
     })
 }
 
+fn resolve_filesystem_mapping(
+    _dependency_graph: &DependencyGraph,
+) -> Result<Vec<FileSystemMapping>, ResolveError> {
+    // TODO: Add filesystem mappings to summary and figure out the final mapping
+    // for this dependency graph.
+    // See <https://github.com/wasmerio/wasmer/issues/3744> for more.
+    Ok(Vec::new())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::runtime::resolver::{
-        Dependency, InMemorySource, MultiSourceRegistry, PackageId, PackageSpecifier, Source,
+        Dependency, InMemorySource, MultiSourceRegistry, PackageSpecifier, Source, SourceId,
+        SourceKind,
     };
 
     use super::*;
@@ -465,5 +559,142 @@ mod tests {
                 filesystem: Vec::new(),
             }
         );
+    }
+
+    #[tokio::test]
+    async fn commands_from_dependencies_end_up_in_the_package() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("first", "=1.0.0")
+            .with_dependency("second", "=1.0.0");
+        builder
+            .register("first", "1.0.0")
+            .with_command("first-command");
+        builder
+            .register("second", "1.0.0")
+            .with_command("second-command");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert("root", "1.0.0")
+            .with_dependency("first", "1.0.0")
+            .with_dependency("second", "1.0.0");
+        dependency_graph.insert("first", "1.0.0");
+        dependency_graph.insert("second", "1.0.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
+                commands: map! {
+                    "first-command" => ItemLocation {
+                        name: "first-command".to_string(),
+                        package: builder.get("first", "1.0.0").package_id(),
+                     },
+                    "second-command" => ItemLocation {
+                        name: "second-command".to_string(),
+                        package: builder.get("second", "1.0.0").package_id(),
+                     },
+                },
+                entrypoint: None,
+                filesystem: Vec::new(),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn commands_in_root_shadow_their_dependencies() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("dep", "=1.0.0")
+            .with_command("command");
+        builder.register("dep", "1.0.0").with_command("command");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(root, &registry).await.unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert("root", "1.0.0")
+            .with_dependency("dep", "1.0.0");
+        dependency_graph.insert("dep", "1.0.0");
+        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
+                commands: map! {
+                    "command" => ItemLocation {
+                        name: "command".to_string(),
+                        package: builder.get("root", "1.0.0").package_id(),
+                     },
+                },
+                entrypoint: None,
+                filesystem: Vec::new(),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn cyclic_dependencies() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("dep", "=1.0.0");
+        builder
+            .register("dep", "1.0.0")
+            .with_dependency("root", "=1.0.0");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let err = resolve(root, &registry).await.unwrap_err();
+
+        let cycle = err.as_cycle().unwrap().to_vec();
+        assert_eq!(
+            cycle,
+            [
+                builder.get("root", "1.0.0").package_id(),
+                builder.get("dep", "1.0.0").package_id(),
+                builder.get("root", "1.0.0").package_id(),
+            ]
+        );
+
+        panic!("{}", err);
+    }
+
+    #[test]
+    fn cyclic_error_message() {
+        let source = SourceId::new(
+            SourceKind::Registry,
+            "http://localhost:8000/".parse().unwrap(),
+        );
+        let cycle = [
+            PackageId {
+                package_name: "root".to_string(),
+                version: "1.0.0".parse().unwrap(),
+                source: source.clone(),
+            },
+            PackageId {
+                package_name: "dep".to_string(),
+                version: "1.0.0".parse().unwrap(),
+                source: source.clone(),
+            },
+            PackageId {
+                package_name: "root".to_string(),
+                version: "1.0.0".parse().unwrap(),
+                source,
+            },
+        ];
+
+        let message = print_cycle(&cycle);
+
+        assert_eq!(message, "root@1.0.0 → dep@1.0.0 → root@1.0.0");
     }
 }
