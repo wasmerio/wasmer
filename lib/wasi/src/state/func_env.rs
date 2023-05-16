@@ -6,12 +6,18 @@ use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
     import_object_for_all_wasi_versions,
-    os::task::thread::DEFAULT_STACK_SIZE,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
     InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
+
+/// The default stack size for WASIX - the number itself is the default that compilers
+/// have used in the past when compiling WASM apps.
+///
+/// (this is only used for programs that have no stack pointer)
+const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
+const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
 #[derive(Clone)]
 pub struct WasiFunctionEnv {
@@ -136,6 +142,7 @@ impl WasiFunctionEnv {
         )?;
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
+        let stack_pointer = new_inner.stack_pointer.clone();
 
         let env = self.data_mut(store);
         env.set_inner(new_inner);
@@ -145,17 +152,19 @@ impl WasiFunctionEnv {
         // If the stack offset and size is not set then do so
         if update_layout {
             // Set the base stack
-            let mut stack_base = if let Some(stack_pointer) = env.inner().stack_pointer.clone() {
+            let stack_base = if let Some(stack_pointer) = stack_pointer {
                 match stack_pointer.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
-                    _ => 0,
+                    _ => DEFAULT_STACK_BASE,
                 }
             } else {
-                0
+                DEFAULT_STACK_BASE
             };
             if stack_base == 0 {
-                stack_base = DEFAULT_STACK_SIZE;
+                return Err(ExportError::Missing(
+                    "stack_pointer is not set to the upper stack range".to_string(),
+                ));
             }
 
             // Update the stack layout which is need for asyncify
@@ -164,6 +173,7 @@ impl WasiFunctionEnv {
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
         }
+        tracing::trace!("initializing with layout {:?}", self.data(store).layout);
 
         Ok(())
     }
@@ -190,6 +200,11 @@ impl WasiFunctionEnv {
         Ok(resolver)
     }
 
+    /// # Safety
+    ///
+    /// This function should only be called from within a syscall
+    /// as it can potentially execute local thread variable cleanup
+    /// code
     pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup - destroying local thread variables",
@@ -213,28 +228,26 @@ impl WasiFunctionEnv {
             to_local_destroy
         };
         if !to_local_destroy.is_empty() {
-            if let Some(thread_local_destroy) = self
-                .data(store)
-                .inner()
-                .thread_local_destroy
-                .as_ref()
-                .cloned()
-            {
-                for (user_data, val) in to_local_destroy {
-                    let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
-                    let user_data_high: u32 = (user_data >> 32) as u32;
+            if let Some(inner) = self.data(store).try_inner() {
+                if let Some(thread_local_destroy) = inner.thread_local_destroy.as_ref().cloned() {
+                    for (user_data, val) in to_local_destroy {
+                        let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
+                        let user_data_high: u32 = (user_data >> 32) as u32;
 
-                    let val_low: u32 = (val & 0xFFFFFFFF) as u32;
-                    let val_high: u32 = (val >> 32) as u32;
+                        let val_low: u32 = (val & 0xFFFFFFFF) as u32;
+                        let val_high: u32 = (val >> 32) as u32;
 
-                    let _ = thread_local_destroy.call(
-                        store,
-                        user_data_low as i32,
-                        user_data_high as i32,
-                        val_low as i32,
-                        val_high as i32,
-                    );
+                        let _ = thread_local_destroy.call(
+                            store,
+                            user_data_low as i32,
+                            user_data_high as i32,
+                            val_low as i32,
+                            val_high as i32,
+                        );
+                    }
                 }
+            } else {
+                tracing::warn!("unable to clean up thread local variables as the inner instance is not accessible");
             }
         }
 

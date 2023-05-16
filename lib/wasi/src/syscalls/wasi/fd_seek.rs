@@ -25,7 +25,7 @@ pub fn fd_seek<M: MemorySize>(
 
     let env = ctx.data();
     let state = env.state.clone();
-    let (memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
 
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
@@ -109,7 +109,7 @@ pub fn fd_seek<M: MemorySize>(
     };
     // reborrow
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let new_offset_ref = newoffset.deref(&memory);
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
     wasi_try_mem_ok!(new_offset_ref.write(new_offset));

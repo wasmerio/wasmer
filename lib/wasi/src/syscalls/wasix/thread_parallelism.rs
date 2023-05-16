@@ -16,7 +16,7 @@ pub fn thread_parallelism<M: MemorySize>(
     }));
     Span::current().record("parallelism", parallelism);
     let parallelism: M::Offset = wasi_try!(parallelism.try_into().map_err(|_| Errno::Overflow));
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(ret_parallelism.write(&memory, parallelism));
     Errno::Success
 }

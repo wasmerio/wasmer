@@ -27,7 +27,7 @@ pub fn sock_addr_peer<M: MemorySize>(
     Span::current().record("addr", &format!("{:?}", addr));
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try!(crate::net::write_ip_port(
         &memory,
         ro_addr,

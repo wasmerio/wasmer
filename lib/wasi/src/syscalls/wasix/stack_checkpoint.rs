@@ -11,15 +11,11 @@ pub fn stack_checkpoint<M: MemorySize>(
     ret_val: WasmPtr<Longsize, M>,
 ) -> Result<Errno, WasiError> {
     // If we were just restored then we need to return the value instead
-    if handle_rewind::<M>(&mut ctx) {
+    if let Some(val) = unsafe { handle_rewind::<M, Longsize>(&mut ctx) } {
         let env = ctx.data();
-        let memory = env.memory_view(&ctx);
-        let ret_val = wasi_try_mem_ok!(ret_val.read(&memory));
-        if ret_val == 0 {
-            trace!("execution resumed",);
-        } else {
-            trace!("restored - (ret={})", ret_val);
-        }
+        let memory = unsafe { env.memory_view(&ctx) };
+        wasi_try_mem_ok!(ret_val.write(&memory, val));
+        trace!("restored - (ret={})", val);
         return Ok(Errno::Success);
     }
     trace!("capturing",);
@@ -30,7 +26,7 @@ pub fn stack_checkpoint<M: MemorySize>(
     // indicate we are a normal function call that has not yet
     // been restored
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem_ok!(ret_val.write(&memory, 0));
 
     // Pass some offsets to the unwind function
@@ -124,7 +120,7 @@ pub fn stack_checkpoint<M: MemorySize>(
 
         // Save the stack snapshot
         let env = ctx.data();
-        let memory = env.memory_view(&ctx);
+        let memory = unsafe { env.memory_view(&ctx) };
         let snapshot_ptr: WasmPtr<StackSnapshot, M> = WasmPtr::new(snapshot_offset);
         if let Err(err) = snapshot_ptr.write(&memory, snapshot) {
             warn!("could not save stack snapshot - {}", err);
@@ -134,11 +130,12 @@ pub fn stack_checkpoint<M: MemorySize>(
         // Rewind the stack and carry on
         let pid = ctx.data().pid();
         let tid = ctx.data().tid();
-        match rewind::<M>(
+        match rewind::<M, _>(
             ctx,
             memory_stack_corrected.freeze(),
             rewind_stack.freeze(),
             store_data,
+            0 as Longsize,
         ) {
             Errno::Success => OnCalledAction::InvokeAgain,
             err => {

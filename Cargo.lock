@@ -5387,6 +5387,7 @@ version = "3.3.0"
 dependencies = [
  "anyhow",
  "atty",
+ "bytes",
  "bytesize",
  "cargo_metadata",
  "cfg-if 1.0.0",

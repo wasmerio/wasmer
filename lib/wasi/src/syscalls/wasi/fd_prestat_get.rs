@@ -16,7 +16,7 @@ pub fn fd_prestat_get<M: MemorySize>(
     buf: WasmPtr<Prestat, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let prestat_ptr = buf.deref(&memory);
     wasi_try_mem!(prestat_ptr.write(wasi_try!(state.fs.prestat_fd(fd))));

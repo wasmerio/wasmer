@@ -1,3 +1,5 @@
+use crate::WasiRuntimeError;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -7,8 +9,6 @@ use std::{
     },
     time::Duration,
 };
-
-use crate::WasiRuntimeError;
 use tracing::trace;
 use wasmer_wasix_types::{
     types::Signal,
@@ -27,7 +27,7 @@ use super::{
 };
 
 /// Represents the ID of a sub-process
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WasiProcessId(u32);
 
 impl WasiProcessId {

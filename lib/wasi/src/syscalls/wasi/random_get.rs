@@ -15,7 +15,7 @@ pub fn random_get<M: MemorySize>(
     buf_len: M::Offset,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let buf_len64: u64 = buf_len.into();
     let mut u8_buffer = vec![0; buf_len64 as usize];
     let res = getrandom::getrandom(&mut u8_buffer);

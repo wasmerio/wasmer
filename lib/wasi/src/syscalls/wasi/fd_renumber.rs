@@ -14,7 +14,7 @@ pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: WasiFd, to: WasiFd) -
         return Errno::Success;
     }
     let env = ctx.data();
-    let (_, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let mut fd_map = state.fs.fd_map.write().unwrap();
     let fd_entry = wasi_try!(fd_map.get_mut(&from).ok_or(Errno::Badf));

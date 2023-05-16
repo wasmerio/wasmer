@@ -16,7 +16,7 @@ pub fn clock_res_get<M: MemorySize>(
     resolution: WasmPtr<Timestamp, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let out_addr = resolution.deref(&memory);
     let t_out = wasi_try!(platform_clock_res_get(clock_id, out_addr));

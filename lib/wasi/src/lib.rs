@@ -53,9 +53,6 @@ pub use rewind::*;
 /// WAI based bindings.
 mod bindings;
 
-use std::sync::Arc;
-use std::{cell::RefCell, sync::atomic::AtomicU32};
-
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
@@ -109,7 +106,7 @@ pub use crate::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::{rewind, types, unwind},
+    syscalls::{rewind, rewind_ext, types, unwind},
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
         store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
@@ -271,10 +268,6 @@ pub struct WasiVFork {
     pub memory_stack: BytesMut,
     /// The mutable parts of the store
     pub store_data: Bytes,
-    /// Offset into the memory where the PID will be
-    /// written when the real fork takes places
-    pub pid_offset: u64,
-
     /// The environment before the vfork occured
     pub env: Box<WasiEnv>,
 
@@ -289,18 +282,10 @@ impl Clone for WasiVFork {
             rewind_stack: self.rewind_stack.clone(),
             memory_stack: self.memory_stack.clone(),
             store_data: self.store_data.clone(),
-            pid_offset: self.pid_offset,
             env: Box::new(self.env.as_ref().clone()),
             handle: self.handle.clone(),
         }
     }
-}
-
-// Represents the current thread ID for the executing method
-thread_local!(pub(crate) static CALLER_ID: RefCell<u32> = RefCell::new(0));
-thread_local!(pub(crate) static REWIND: RefCell<Option<bytes::Bytes>> = RefCell::new(None));
-lazy_static::lazy_static! {
-    static ref CALLER_ID_SEED: Arc<AtomicU32> = Arc::new(AtomicU32::new(1));
 }
 
 /// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`

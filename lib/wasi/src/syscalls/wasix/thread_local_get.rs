@@ -23,7 +23,7 @@ pub fn thread_local_get<M: MemorySize>(
     let val = val.unwrap_or_default();
     Span::current().record("val", val);
 
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(ret_val.write(&memory, val));
     Errno::Success
 }

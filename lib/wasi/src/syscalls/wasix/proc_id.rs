@@ -6,7 +6,7 @@ use crate::syscalls::*;
 #[instrument(level = "debug", skip_all, fields(pid = field::Empty), ret)]
 pub fn proc_id<M: MemorySize>(ctx: FunctionEnvMut<'_, WasiEnv>, ret_pid: WasmPtr<Pid, M>) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let pid = env.process.pid();
     Span::current().record("pid", pid.raw());

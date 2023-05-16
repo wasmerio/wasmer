@@ -26,7 +26,7 @@ pub fn fd_readdir<M: MemorySize>(
     bufused: WasmPtr<M::Offset, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     // TODO: figure out how this is supposed to work;
     // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 

@@ -12,7 +12,7 @@ pub fn thread_id<M: MemorySize>(
     let env = ctx.data();
     let tid: Tid = env.thread.tid().into();
     Span::current().record("tid", tid);
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(ret_tid.write(&memory, tid));
     Errno::Success
 }

@@ -22,7 +22,7 @@ pub fn path_create_directory<M: MemorySize>(
     path_len: M::Offset,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let working_dir = wasi_try!(state.fs.get_fd(fd));
     {

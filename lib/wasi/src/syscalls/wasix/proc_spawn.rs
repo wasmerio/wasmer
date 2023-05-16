@@ -41,7 +41,7 @@ pub fn proc_spawn<M: MemorySize>(
 ) -> Result<BusErrno, WasiError> {
     let env = ctx.data();
     let control_plane = &env.control_plane;
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
     let args = unsafe { get_input_str_bus_ok!(&memory, args, args_len) };
     let preopen = unsafe { get_input_str_bus_ok!(&memory, preopen, preopen_len) };
@@ -85,7 +85,7 @@ pub fn proc_spawn<M: MemorySize>(
     };
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem_bus_ok!(ret_handles.write(&memory, handles));
     Ok(BusErrno::Success)
 }
@@ -145,7 +145,7 @@ pub fn proc_spawn_internal(
     // Replace the STDIO
     let (stdin, stdout, stderr) = {
         let (_, child_state, child_inodes) =
-            child_env.get_memory_and_wasi_state_and_inodes(&new_store, 0);
+            unsafe { child_env.get_memory_and_wasi_state_and_inodes(&new_store, 0) };
         let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, BusErrno> {
             match mode {
                 WasiStdioMode::Piped => {
@@ -246,7 +246,7 @@ pub fn proc_spawn_internal(
         inner.children.push(child_process);
     }
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let handles = BusHandles {
         bid: child_pid.raw(),

@@ -131,14 +131,14 @@ impl VirtualTaskManager for TokioTaskManager {
             let trigger = trigger();
             let handle = self.0.clone();
             self.0.spawn(async move {
-                let res = trigger.await;
+                let result = trigger.await;
                 // Build the task that will go on the callback
                 handle.spawn_blocking(move || {
                     // Invoke the callback
                     run(TaskWasmRunProperties {
                         ctx,
                         store,
-                        result: res,
+                        trigger_result: Some(result),
                     });
                 });
             });
@@ -149,7 +149,7 @@ impl VirtualTaskManager for TokioTaskManager {
                 run(TaskWasmRunProperties {
                     ctx,
                     store,
-                    result: Ok(()),
+                    trigger_result: None,
                 });
             });
         }

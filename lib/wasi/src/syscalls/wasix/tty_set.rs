@@ -15,7 +15,7 @@ pub fn tty_set<M: MemorySize>(
         return Errno::Notsup;
     };
 
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let state = wasi_try_mem!(tty_state.read(&memory));
     let echo = state.echo;
     let line_buffered = state.line_buffered;

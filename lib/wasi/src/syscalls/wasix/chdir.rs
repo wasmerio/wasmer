@@ -10,7 +10,7 @@ pub fn chdir<M: MemorySize>(
     path_len: M::Offset,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let path = unsafe { get_input_str!(&memory, path, path_len) };
     Span::current().record("path", path.as_str());
 

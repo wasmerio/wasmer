@@ -28,7 +28,7 @@ pub fn path_readlink<M: MemorySize>(
     buf_used: WasmPtr<M::Offset, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let base_dir = wasi_try!(state.fs.get_fd(dir_fd));
     if !base_dir.rights.contains(Rights::PATH_READLINK) {

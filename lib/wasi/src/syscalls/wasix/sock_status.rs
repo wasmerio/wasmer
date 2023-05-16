@@ -26,7 +26,7 @@ pub fn sock_status<M: MemorySize>(
     Span::current().record("status", &format!("{:?}", status));
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(ret_status.write(&memory, status));
     Errno::Success
 }

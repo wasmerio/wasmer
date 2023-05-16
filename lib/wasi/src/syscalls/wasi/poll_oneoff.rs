@@ -1,6 +1,5 @@
-use std::f32::consts::E;
-
-use wasmer_wasix_types::wasi::SubscriptionClock;
+use serde::{Deserialize, Serialize};
+use wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
@@ -9,6 +8,39 @@ use crate::{
     syscalls::*,
     WasiInodes,
 };
+
+/// An event that occurred.
+#[derive(Serialize, Deserialize)]
+pub enum EventResultType {
+    Clock(u8),
+    Fd(EventFdReadwrite),
+}
+
+/// An event that occurred.
+#[derive(Serialize, Deserialize)]
+pub struct EventResult {
+    /// User-provided value that got attached to `subscription::userdata`.
+    pub userdata: Userdata,
+    /// If non-zero, an error that occurred while processing the subscription request.
+    pub error: Errno,
+    /// Type of event that was triggered
+    pub type_: Eventtype,
+    /// The type of the event that occurred, and the contents of the event
+    pub inner: EventResultType,
+}
+impl EventResult {
+    pub fn into_event(self) -> Event {
+        Event {
+            userdata: self.userdata,
+            error: self.error,
+            type_: self.type_,
+            u: match self.inner {
+                EventResultType::Clock(id) => EventUnion { clock: id },
+                EventResultType::Fd(fd) => EventUnion { fd_readwrite: fd },
+            },
+        }
+    }
+}
 
 /// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
@@ -34,7 +66,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
 
     ctx.data_mut().poll_seed += 1;
     let mut env = ctx.data();
-    let mut memory = env.memory_view(&ctx);
+    let mut memory = unsafe { env.memory_view(&ctx) };
 
     let subscription_array = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     let mut subscriptions = Vec::with_capacity(subscription_array.len() as usize);
@@ -49,17 +81,19 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     wasi_try_mem_ok!(nevents.write(&memory, M::ZERO));
 
     // Function to invoke once the poll is finished
-    let process_events = move |memory: &'_ Memory, store: &'_ dyn AsStoreRef, triggered_events| {
+    let process_events = |ctx: &FunctionEnvMut<'_, WasiEnv>, triggered_events: Vec<Event>| {
+        let mut env = ctx.data();
+        let mut memory = unsafe { env.memory_view(&ctx) };
+
         // Process all the events that were triggered
-        let mut view = memory.view(store);
         let mut events_seen: u32 = 0;
-        let event_array = wasi_try_mem!(out_.slice(&view, nsubscriptions));
+        let event_array = wasi_try_mem!(out_.slice(&memory, nsubscriptions));
         for event in triggered_events {
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
         }
         let events_seen: M::Offset = wasi_try!(events_seen.try_into().map_err(|_| Errno::Overflow));
-        let out_ptr = nevents.deref(&view);
+        let out_ptr = nevents.deref(&memory);
         wasi_try_mem!(out_ptr.write(events_seen));
         Errno::Success
     };
@@ -88,7 +122,7 @@ impl PollBatch {
     }
 }
 impl Future for PollBatch {
-    type Output = Result<Vec<Event>, Errno>;
+    type Output = Result<Vec<EventResult>, Errno>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let pid = self.pid;
         let tid = self.tid;
@@ -136,18 +170,15 @@ impl Future for PollBatch {
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-pub(crate) fn poll_oneoff_internal<M: MemorySize, After>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
+    mut ctx: FunctionEnvMut<'a, WasiEnv>,
     mut subs: Vec<(Option<WasiFd>, PollEventSet, Subscription)>,
     process_events: After,
 ) -> Result<Errno, WasiError>
 where
-    After: FnOnce(&'_ Memory, &'_ dyn AsStoreRef, Vec<Event>) -> Errno + Send + Sync + 'static,
+    After: FnOnce(&FunctionEnvMut<'a, WasiEnv>, Vec<Event>) -> Errno,
 {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-    if handle_rewind::<M>(&mut ctx) {
-        return Ok(Errno::Success);
-    }
 
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
@@ -155,6 +186,7 @@ where
     // Determine if we are in silent polling mode
     let mut env = ctx.data();
     let state = ctx.data().state.deref();
+    let memory = unsafe { env.memory_view(&ctx) };
 
     // These are used when we capture what clocks (timeouts) are being
     // subscribed too
@@ -167,7 +199,9 @@ where
 
     // First we extract all the subscriptions into an array so that they
     // can be processed
-    let mut memory = env.memory_view(&ctx);
+    let mut env = ctx.data();
+    let state = ctx.data().state.deref();
+    let mut memory = unsafe { env.memory_view(&ctx) };
     for (fd, peb, s) in subs.iter_mut() {
         let fd = match s.type_ {
             Eventtype::FdRead => {
@@ -301,7 +335,7 @@ where
     };
 
     // If the time is infinite then we omit the time_to_sleep parameter
-    let asyncify_time = match time_to_sleep {
+    let timeout = match time_to_sleep {
         Duration::ZERO => {
             Span::current().record("timeout_ns", "nonblocking");
             Some(Duration::ZERO)
@@ -315,15 +349,28 @@ where
             Some(time)
         }
     };
+    let tasks = env.tasks().clone();
+    let timeout = async move {
+        if let Some(timeout) = timeout {
+            tasks.sleep_now(timeout).await;
+        } else {
+            InfiniteSleep::default().await
+        }
+    };
 
-    // We use asyncify with a deep sleep to wait on new IO events
-    let res = __asyncify_with_deep_sleep_ext::<M, _, _, _>(
-        ctx,
-        asyncify_time,
-        Duration::from_millis(50),
-        batch,
-        move |memory, store, res| {
-            let events = res.unwrap_or_else(Err);
+    // Build the trigger using the timeout
+    let trigger = async move {
+        tokio::select! {
+            res = batch => res,
+            _ = timeout => Err(Errno::Timedout)
+        }
+    };
+
+    // We replace the process events callback with another callback
+    // which will interpret the error codes
+    let process_events = {
+        let clock_subs = clock_subs.clone();
+        |ctx: &FunctionEnvMut<'a, WasiEnv>, events: Result<Vec<Event>, Errno>| {
             // Process the result
             match events {
                 Ok(evts) => {
@@ -331,7 +378,7 @@ where
                     Span::current().record("seen", evts.len());
 
                     // Process the events
-                    process_events(memory, store, evts);
+                    process_events(ctx, evts)
                 }
                 Err(Errno::Timedout) => {
                     // The timeout has triggerred so lets add that event
@@ -355,19 +402,35 @@ where
                         );
                         evts.push(evt);
                     }
-                    process_events(memory, store, evts);
+                    process_events(ctx, evts)
                 }
                 // If nonblocking the Errno::Again needs to be turned into an empty list
-                Err(Errno::Again) => {
-                    process_events(memory, store, Default::default());
-                }
+                Err(Errno::Again) => process_events(ctx, Default::default()),
                 // Otherwise process the error
                 Err(err) => {
                     tracing::warn!("failed to poll during deep sleep - {}", err);
+                    err
                 }
             }
-            Ok(())
-        },
+        }
+    };
+
+    // If we are rewound then its time to process them
+    if let Some(events) = unsafe { handle_rewind::<M, Result<Vec<EventResult>, Errno>>(&mut ctx) } {
+        let events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
+        process_events(&ctx, events);
+        return Ok(Errno::Success);
+    }
+
+    // We use asyncify with a deep sleep to wait on new IO events
+    let res = __asyncify_with_deep_sleep::<M, Result<Vec<EventResult>, Errno>, _>(
+        ctx,
+        Duration::from_millis(50),
+        Box::pin(trigger),
     )?;
+    if let AsyncifyAction::Finish(mut ctx, events) = res {
+        let events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
+        process_events(&ctx, events);
+    }
     Ok(Errno::Success)
 }

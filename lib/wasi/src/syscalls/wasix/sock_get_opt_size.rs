@@ -32,7 +32,7 @@ pub fn sock_get_opt_size<M: MemorySize>(
     ));
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     wasi_try_mem!(ret_size.write(&memory, size));
 
     Errno::Success
