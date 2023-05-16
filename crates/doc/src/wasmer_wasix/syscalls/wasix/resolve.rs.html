@@ -97,7 +97,7 @@
     <span class="kw">let </span>naddrs: usize = <span class="macro">wasi_try_ok!</span>(naddrs.try_into().map_err(|<span class="kw">_</span>| Errno::Inval));
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>host_str = {
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
         <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, host, host_len) }
     };
     Span::current().record(<span class="string">&quot;host&quot;</span>, host_str.as_str());
@@ -114,7 +114,7 @@
     env = ctx.data();
 
     <span class="kw">let </span><span class="kw-2">mut </span>idx = <span class="number">0</span>;
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>addrs = <span class="macro">wasi_try_mem_ok!</span>(addrs.slice(<span class="kw-2">&amp;</span>memory, <span class="macro">wasi_try_ok!</span>(to_offset::&lt;M&gt;(naddrs))));
     <span class="kw">for </span>found_ip <span class="kw">in </span>found_ips.iter().take(naddrs) {
         <span class="kw">crate</span>::net::write_ip(<span class="kw-2">&amp;</span>memory, addrs.index(idx).as_ptr::&lt;M&gt;(), <span class="kw-2">*</span>found_ip);

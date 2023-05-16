@@ -301,7 +301,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BusErrno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>control_plane = <span class="kw-2">&amp;</span>env.control_plane;
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>name = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, name, name_len) };
     <span class="kw">let </span>args = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, args, args_len) };
     <span class="kw">let </span>preopen = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, preopen, preopen_len) };
@@ -345,7 +345,7 @@
     };
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try_mem_bus_ok!</span>(ret_handles.write(<span class="kw-2">&amp;</span>memory, handles));
     <span class="prelude-val">Ok</span>(BusErrno::Success)
 }
@@ -405,7 +405,7 @@
     <span class="comment">// Replace the STDIO
     </span><span class="kw">let </span>(stdin, stdout, stderr) = {
         <span class="kw">let </span>(<span class="kw">_</span>, child_state, child_inodes) =
-            child_env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>new_store, <span class="number">0</span>);
+            <span class="kw">unsafe </span>{ child_env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>new_store, <span class="number">0</span>) };
         <span class="kw">let </span><span class="kw-2">mut </span>conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -&gt; <span class="prelude-ty">Result</span>&lt;OptionFd, BusErrno&gt; {
             <span class="kw">match </span>mode {
                 WasiStdioMode::Piped =&gt; {
@@ -506,7 +506,7 @@
         inner.children.push(child_process);
     }
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>handles = BusHandles {
         bid: child_pid.raw(),

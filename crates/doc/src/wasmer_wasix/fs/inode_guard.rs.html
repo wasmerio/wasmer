@@ -765,14 +765,14 @@
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
     wasi,
-    wasi::{Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription},
+    wasi::{Errno, EventFdReadwrite, Eventrwflags, Subscription},
 };
 
 <span class="kw">use super</span>::{notification::NotificationInner, InodeGuard, Kind};
 <span class="kw">use crate</span>::{
     net::socket::{InodeSocketInner, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
-    syscalls::map_io_err,
+    syscalls::{map_io_err, EventResult, EventResultType},
     utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
@@ -884,7 +884,7 @@
 }
 
 <span class="kw">impl </span>Future <span class="kw">for </span>InodeValFilePollGuardJoin {
-    <span class="kw">type </span>Output = heapless::Vec&lt;Event, <span class="number">4</span>&gt;;
+    <span class="kw">type </span>Output = heapless::Vec&lt;EventResult, <span class="number">4</span>&gt;;
 
     <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">let </span>fd = <span class="self">self</span>.fd();
@@ -949,22 +949,22 @@
                 }
             };
             <span class="kw">if </span>is_closed {
-                ret.push(Event {
+                ret.push(EventResult {
                     userdata: <span class="self">self</span>.subscription.userdata,
                     error: Errno::Success,
                     type_: <span class="self">self</span>.subscription.type_,
-                    u: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                        Eventtype::FdRead | Eventtype::FdWrite =&gt; EventUnion {
-                            fd_readwrite: EventFdReadwrite {
+                    inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                            EventResultType::Fd(EventFdReadwrite {
                                 nbytes: <span class="number">0</span>,
                                 flags: <span class="kw">if </span>has_hangup {
                                     Eventrwflags::FD_READWRITE_HANGUP
                                 } <span class="kw">else </span>{
                                     Eventrwflags::empty()
                                 },
-                            },
-                        },
-                        Eventtype::Clock =&gt; EventUnion { clock: <span class="number">0 </span>},
+                            })
+                        }
+                        Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
                     },
                 })
                 .ok();
@@ -1011,22 +1011,22 @@
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: <span class="self">self</span>.subscription.userdata,
                         error: Errno::Success,
                         type_: <span class="self">self</span>.subscription.type_,
-                        u: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: <span class="number">0</span>,
                                     flags: <span class="kw">if </span>has_hangup {
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } <span class="kw">else </span>{
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock =&gt; EventUnion { clock: <span class="number">0 </span>},
+                                })
+                            }
+                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
                         },
                     })
                     .ok();
@@ -1040,22 +1040,22 @@
                             <span class="number">0
                         </span>}
                     };
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: <span class="self">self</span>.subscription.userdata,
                         error,
                         type_: <span class="self">self</span>.subscription.type_,
-                        u: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: bytes_available <span class="kw">as </span>u64,
                                     flags: <span class="kw">if </span>bytes_available == <span class="number">0 </span>{
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } <span class="kw">else </span>{
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock =&gt; EventUnion { clock: <span class="number">0 </span>},
+                                })
+                            }
+                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
                         },
                     })
                     .ok();
@@ -1104,22 +1104,22 @@
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: <span class="self">self</span>.subscription.userdata,
                         error: Errno::Success,
                         type_: <span class="self">self</span>.subscription.type_,
-                        u: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: <span class="number">0</span>,
                                     flags: <span class="kw">if </span>has_hangup {
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } <span class="kw">else </span>{
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock =&gt; EventUnion { clock: <span class="number">0 </span>},
+                                })
+                            }
+                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
                         },
                     })
                     .ok();
@@ -1133,22 +1133,22 @@
                             <span class="number">0
                         </span>}
                     };
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: <span class="self">self</span>.subscription.userdata,
                         error,
                         type_: <span class="self">self</span>.subscription.type_,
-                        u: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: bytes_available <span class="kw">as </span>u64,
                                     flags: <span class="kw">if </span>bytes_available == <span class="number">0 </span>{
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } <span class="kw">else </span>{
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock =&gt; EventUnion { clock: <span class="number">0 </span>},
+                                })
+                            }
+                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
                         },
                     })
                     .ok();

@@ -163,60 +163,47 @@
 <span id="161">161</span>
 <span id="162">162</span>
 <span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="attribute">#[derive(Clone)]
+<span class="doccomment">/// Poller returns true if its triggered and false if it times out
 </span><span class="kw">struct </span>FutexPoller {
     state: Arc&lt;WasiState&gt;,
     poller_idx: u64,
     futex_idx: u64,
     expected: u32,
+    timeout: <span class="prelude-ty">Option</span>&lt;Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;&gt;,
 }
 <span class="kw">impl </span>Future <span class="kw">for </span>FutexPoller {
-    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;;
-    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), Errno&gt;&gt; {
+    <span class="kw">type </span>Output = bool;
+    <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;bool&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.state.futexs.lock().unwrap();
 
         <span class="comment">// If the futex itself is no longer registered then it was likely
         // woken by a wake call
         </span><span class="kw">let </span>futex = <span class="kw">match </span>guard.futexes.get_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.futex_idx) {
             <span class="prelude-val">Some</span>(f) =&gt; f,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(())),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="bool-val">true</span>),
         };
         <span class="kw">let </span>waker = <span class="kw">match </span>futex.wakers.get_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.poller_idx) {
             <span class="prelude-val">Some</span>(w) =&gt; w,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(())),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="bool-val">true</span>),
         };
 
         <span class="comment">// Register the waker
         </span>waker.replace(cx.waker().clone());
+
+        <span class="comment">// Check for timeout
+        </span>drop(guard);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = <span class="self">self</span>.timeout.as_mut() {
+            <span class="kw">let </span>timeout = timeout.as_mut();
+            <span class="kw">if </span>timeout.poll(cx).is_ready() {
+                <span class="self">self</span>.timeout.take();
+                <span class="kw">return </span>Poll::Ready(<span class="bool-val">false</span>);
+            }
+        }
 
         <span class="comment">// We will now wait to be woken
         </span>Poll::Pending
@@ -239,45 +226,6 @@
     }
 }
 
-<span class="doccomment">/// The futex after struct will write the response of whether the
-/// futex was actually woken or not to the return memory of the syscall
-/// callee after the wake event has been triggered.
-///
-/// It is encased in this struct so that it can be passed around
-/// between threads and execute after the threads are rewound (in an
-/// asynchronous threading situation).
-///
-/// The same implementation is used for both synchronous and
-/// asynchronous threading.
-///
-/// It is not possible to include this logic directly in the poller
-/// as the poller runs before the stack is rewound and the memory
-/// that this writes to is often a pointer to the stack hence a
-/// rewind would override whatever is written.
-</span><span class="kw">struct </span>FutexAfter&lt;M&gt;
-<span class="kw">where
-    </span>M: MemorySize,
-{
-    ret_woken: WasmPtr&lt;Bool, M&gt;,
-}
-<span class="kw">impl</span>&lt;M&gt; RewindPostProcess <span class="kw">for </span>FutexAfter&lt;M&gt;
-<span class="kw">where
-    </span>M: MemorySize,
-{
-    <span class="kw">fn </span>finish(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        env: <span class="kw-2">&amp;</span>WasiEnv,
-        store: <span class="kw-2">&amp;</span><span class="kw">dyn </span>AsStoreRef,
-        res: <span class="prelude-ty">Result</span>&lt;(), Errno&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExitCode&gt; {
-        <span class="kw">let </span>view = env.memory_view(store);
-        <span class="self">self</span>.ret_woken
-            .write(<span class="kw-2">&amp;</span>view, Bool::True)
-            .map_err(mem_error_to_wasi)
-            .map_err(ExitCode::Errno)
-    }
-}
-
 <span class="doccomment">/// Wait for a futex_wake operation to wake us.
 /// Returns with EINVAL if the futex doesn&#39;t hold the expected value.
 /// Returns false on timeout, and true in all other cases.
@@ -287,7 +235,7 @@
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
-</span><span class="attribute">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+</span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 </span><span class="kw">pub fn </span>futex_wait&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     futex_ptr: WasmPtr&lt;u32, M&gt;,
@@ -301,7 +249,7 @@
     // and thus we repeat all the checks again, we do not immediately
     // exit here as it could be the case that we were woken but the
     // expected value does not match
-    </span><span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(_woken) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, bool&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="comment">// fall through so the normal checks kick in, this will
         // ensure that the expected value has changed before
         // this syscall returns even if it was woken
@@ -310,7 +258,7 @@
     <span class="comment">// Determine the timeout
     </span><span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>timeout = {
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
         <span class="macro">wasi_try_mem_ok!</span>(timeout.read(<span class="kw-2">&amp;</span>memory))
     };
     <span class="kw">let </span>timeout = <span class="kw">match </span>timeout.tag {
@@ -333,6 +281,9 @@
         guard.poller_seed += <span class="number">1</span>;
         <span class="kw">let </span>poller_idx = guard.poller_seed;
 
+        <span class="comment">// Create the timeout if one exists
+        </span><span class="kw">let </span>timeout = timeout.map(|timeout| env.tasks().sleep_now(timeout));
+
         <span class="comment">// We insert the futex before we check the condition variable to avoid
         // certain race conditions
         </span><span class="kw">let </span>futex = guard.futexes.entry(futex_idx).or_default();
@@ -344,11 +295,12 @@
             poller_idx,
             futex_idx,
             expected,
+            timeout,
         }
     };
 
     <span class="comment">// We check if the expected value has changed
-    </span><span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    </span><span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>val = <span class="macro">wasi_try_mem_ok!</span>(futex_ptr.read(<span class="kw-2">&amp;</span>memory));
     <span class="kw">if </span>val != expected {
         <span class="comment">// We have been triggered so do not go into a wait
@@ -360,18 +312,18 @@
     // then the value is not set) - the poller will set it to true
     </span><span class="macro">wasi_try_mem_ok!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, Bool::False));
 
-    <span class="comment">// Create a poller which will register ourselves against
-    // this futex event and check when it has changed
-    </span><span class="kw">let </span>after = FutexAfter { ret_woken };
-
     <span class="comment">// We use asyncify on the poller and potentially go into deep sleep
-    </span>__asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>&gt;(
-        ctx,
-        timeout,
-        Duration::from_millis(<span class="number">50</span>),
-        Box::pin(poller),
-        after,
-    )<span class="question-mark">?</span>;
+    </span><span class="kw">let </span>res =
+        __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, Duration::from_millis(<span class="number">50</span>), Box::pin(poller))<span class="question-mark">?</span>;
+    <span class="kw">if let </span>AsyncifyAction::Finish(ctx, res) = res {
+        <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+        <span class="kw">if </span>res {
+            <span class="macro">wasi_try_mem_ok!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, Bool::True));
+        } <span class="kw">else </span>{
+            <span class="macro">wasi_try_mem_ok!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, Bool::False));
+        }
+    }
     <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div>

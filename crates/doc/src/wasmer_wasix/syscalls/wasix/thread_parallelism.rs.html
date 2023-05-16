@@ -40,7 +40,7 @@
     }));
     Span::current().record(<span class="string">&quot;parallelism&quot;</span>, parallelism);
     <span class="kw">let </span>parallelism: M::Offset = <span class="macro">wasi_try!</span>(parallelism.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try_mem!</span>(ret_parallelism.write(<span class="kw-2">&amp;</span>memory, parallelism));
     Errno::Success
 }

@@ -47,7 +47,7 @@
     buf_len: M::Offset,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>buf_len64: u64 = buf_len.into();
     <span class="kw">let </span><span class="kw-2">mut </span>u8_buffer = <span class="macro">vec!</span>[<span class="number">0</span>; buf_len64 <span class="kw">as </span>usize];
     <span class="kw">let </span>res = getrandom::getrandom(<span class="kw-2">&amp;mut </span>u8_buffer);

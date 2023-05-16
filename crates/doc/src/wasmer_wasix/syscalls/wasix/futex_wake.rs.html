@@ -68,7 +68,7 @@
     ret_woken: WasmPtr&lt;Bool, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>state = env.state.deref();
 
     <span class="kw">let </span>pointer: u64 = <span class="macro">wasi_try!</span>(futex_ptr.offset().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));

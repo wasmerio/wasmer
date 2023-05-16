@@ -519,6 +519,17 @@
 <span id="517">517</span>
 <span id="518">518</span>
 <span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -616,6 +627,21 @@
 </span><span class="attribute">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WasiThread {
     state: Arc&lt;WasiThreadState&gt;,
+
+    <span class="comment">// This is used for stack rewinds
+    </span>rewind: <span class="prelude-ty">Option</span>&lt;RewindResult&gt;,
+}
+
+<span class="kw">impl </span>WasiThread {
+    <span class="doccomment">/// Sets that a rewind will take place
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_rewind(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rewind: RewindResult) {
+        <span class="self">self</span>.rewind.replace(rewind);
+    }
+
+    <span class="doccomment">/// Pops any rewinds that need to take place
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>take_rewind(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;RewindResult&gt; {
+        <span class="self">self</span>.rewind.take()
+    }
 }
 
 <span class="doccomment">/// A guard that ensures a thread is marked as terminated when dropped.
@@ -644,7 +670,7 @@
 }
 
 <span class="doccomment">/// Represents the memory layout of the parts that the thread itself uses
-</span><span class="attribute">#[derive(Debug, Clone)]
+</span><span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>WasiMemoryLayout {
     <span class="doccomment">/// This is the top part of the stack (stacks go backwards)
     </span><span class="kw">pub </span>stack_upper: u64,
@@ -658,19 +684,14 @@
     </span><span class="kw">pub </span>stack_size: u64,
 }
 
-<span class="doccomment">/// The default stack size for WASIX
-</span><span class="kw">pub const </span>DEFAULT_STACK_SIZE: u64 = <span class="number">1_048_576u64</span>;
-<span class="kw">pub const </span>DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
-
-<span class="kw">impl </span>Default <span class="kw">for </span>WasiMemoryLayout {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            stack_lower: <span class="number">0</span>,
-            stack_upper: DEFAULT_STACK_SIZE,
-            guard_size: <span class="number">0</span>,
-            stack_size: DEFAULT_STACK_SIZE,
-        }
-    }
+<span class="comment">// Contains the result of a rewind operation
+</span><span class="attribute">#[derive(Clone, Debug)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RewindResult {
+    <span class="doccomment">/// Memory stack used to restore the stack trace back to where it was
+    </span><span class="kw">pub </span>memory_stack: Bytes,
+    <span class="doccomment">/// Generic serialized object passed back to the rewind resumption code
+    /// (uses the bincode serializer)
+    </span><span class="kw">pub </span>rewind_result: Bytes,
 }
 
 <span class="attribute">#[derive(Debug)]
@@ -707,6 +728,7 @@
                 stack: Mutex::new(ThreadStack::default()),
                 _task_count_guard: guard,
             }),
+            rewind: <span class="prelude-val">None</span>,
         }
     }
 

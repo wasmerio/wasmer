@@ -129,8 +129,6 @@
 <span id="127">127</span>
 <span id="128">128</span>
 <span id="129">129</span>
-<span id="130">130</span>
-<span id="131">131</span>
 </pre><pre class="rust"><code><span class="kw">use </span>tracing::{field, instrument, trace_span};
 <span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Memory, WasmPtr};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
@@ -156,7 +154,7 @@
     buf: WasmPtr&lt;Snapshot0Filestat, Memory32&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>result = syscalls::fd_filestat_get_old::&lt;Memory32&gt;(ctx.as_mut(), fd, buf);
 
     result
@@ -173,7 +171,7 @@
     buf: WasmPtr&lt;Snapshot0Filestat, Memory32&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>result =
         syscalls::path_filestat_get_old::&lt;Memory32&gt;(ctx.as_mut(), fd, flags, path, path_len, buf);
@@ -210,12 +208,9 @@
     nevents: WasmPtr&lt;u32, Memory32&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-    <span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
-    }
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span><span class="kw-2">mut </span>subscriptions = Vec::new();
     <span class="kw">let </span>in_origs = <span class="macro">wasi_try_mem_ok!</span>(in_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
     <span class="kw">let </span>in_origs = <span class="macro">wasi_try_mem_ok!</span>(in_origs.read_to_vec());
@@ -227,17 +222,15 @@
         ));
     }
 
-    <span class="comment">// We clear the number of events
-    </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
-
     <span class="comment">// Function to invoke once the poll is finished
-    </span><span class="kw">let </span>process_events = <span class="kw">move </span>|memory: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>AsStoreRef, triggered_events| {
+    </span><span class="kw">let </span>process_events = |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, triggered_events: Vec&lt;Event&gt;| {
+        <span class="kw">let </span>env = ctx.data();
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+
         <span class="comment">// Process all the events that were triggered
-        </span><span class="kw">let </span><span class="kw-2">mut </span>view = memory.view(store);
-        <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
-        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>view, nsubscriptions));
+        </span><span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
+        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
         <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
-            <span class="kw">let </span>event: Event = event;
             <span class="kw">let </span>event = Snapshot0Event {
                 userdata: event.userdata,
                 error: event.error,
@@ -254,10 +247,13 @@
             <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
             events_seen += <span class="number">1</span>;
         }
-        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>view);
+        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
         <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
         Errno::Success
     };
+
+    <span class="comment">// We clear the number of events
+    </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
 
     <span class="comment">// Poll and receive all the events that triggered
     </span>syscalls::poll_oneoff_internal::&lt;M, <span class="kw">_</span>&gt;(ctx, subscriptions, process_events)

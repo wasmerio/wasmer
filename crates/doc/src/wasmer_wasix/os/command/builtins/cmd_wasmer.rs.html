@@ -151,6 +151,8 @@
 <span id="149">149</span>
 <span id="150">150</span>
 <span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{any::Any, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -228,17 +230,19 @@ ARGS:
                 <span class="comment">// Now run the module
                 </span>spawn_exec(binary, name, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
             </span>} <span class="kw">else </span>{
-                <span class="kw">let _ </span>= stderr_write(
-                    parent_ctx,
-                    <span class="macro">format!</span>(<span class="string">&quot;package not found - {}\r\n&quot;</span>, what).as_bytes(),
-                )
+                <span class="kw">let _ </span>= <span class="kw">unsafe </span>{
+                    stderr_write(
+                        parent_ctx,
+                        <span class="macro">format!</span>(<span class="string">&quot;package not found - {}\r\n&quot;</span>, what).as_bytes(),
+                    )
+                }
                 .<span class="kw">await</span>;
                 <span class="kw">let </span>handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
                 <span class="prelude-val">Ok</span>(handle)
             }
             <span class="comment">// Get the binary
         </span>} <span class="kw">else </span>{
-            <span class="kw">let _ </span>= stderr_write(parent_ctx, HELP_RUN.as_bytes()).<span class="kw">await</span>;
+            <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.<span class="kw">await</span>;
             <span class="kw">let </span>handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
             <span class="prelude-val">Ok</span>(handle)
         }
@@ -285,7 +289,7 @@ ARGS:
                 </span>}
                 <span class="prelude-val">Some</span>(<span class="string">&quot;--help&quot;</span>) | <span class="prelude-val">None </span>=&gt; {
                     parent_ctx.data().tasks().block_on(<span class="kw">async move </span>{
-                        <span class="kw">let _ </span>= stderr_write(parent_ctx, HELP.as_bytes()).<span class="kw">await</span>;
+                        <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP.as_bytes()) }.<span class="kw">await</span>;
                     });
                     <span class="kw">let </span>handle =
                         OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();

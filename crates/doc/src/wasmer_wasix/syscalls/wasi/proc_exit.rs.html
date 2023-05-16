@@ -58,35 +58,6 @@
 <span id="56">56</span>
 <span id="57">57</span>
 <span id="58">58</span>
-<span id="59">59</span>
-<span id="60">60</span>
-<span id="61">61</span>
-<span id="62">62</span>
-<span id="63">63</span>
-<span id="64">64</span>
-<span id="65">65</span>
-<span id="66">66</span>
-<span id="67">67</span>
-<span id="68">68</span>
-<span id="69">69</span>
-<span id="70">70</span>
-<span id="71">71</span>
-<span id="72">72</span>
-<span id="73">73</span>
-<span id="74">74</span>
-<span id="75">75</span>
-<span id="76">76</span>
-<span id="77">77</span>
-<span id="78">78</span>
-<span id="79">79</span>
-<span id="80">80</span>
-<span id="81">81</span>
-<span id="82">82</span>
-<span id="83">83</span>
-<span id="84">84</span>
-<span id="85">85</span>
-<span id="86">86</span>
-<span id="87">87</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -109,57 +80,28 @@
         <span class="comment">// Restore the WasiEnv to the point when we vforked
         </span>vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
-        <span class="kw">let </span><span class="kw-2">mut </span>wasi_env = <span class="kw-2">*</span>vfork.env;
-        wasi_env.owned_handles.push(vfork.handle);
+        <span class="kw">let </span><span class="kw-2">mut </span>child_env = <span class="kw-2">*</span>vfork.env;
+        child_env.owned_handles.push(vfork.handle);
 
-        <span class="comment">// The child environment needs to be notified as exited
-        </span>wasi_env.thread.set_status_finished(<span class="prelude-val">Ok</span>(code));
-
-        <span class="comment">// We still need to create the process that exited so that
-        // the exit code can be used by the parent process
-        </span><span class="kw">let </span>pid = wasi_env.process.pid();
-        <span class="kw">let </span><span class="kw-2">mut </span>memory_stack = vfork.memory_stack;
-        <span class="kw">let </span>rewind_stack = vfork.rewind_stack;
-        <span class="kw">let </span>store_data = vfork.store_data;
-
-        <span class="comment">// If the return value offset is within the memory stack then we need
-        // to update it here rather than in the real memory
-        </span><span class="kw">let </span>val_bytes = pid.raw().to_ne_bytes();
-        <span class="kw">let </span>pid_offset: u64 = vfork.pid_offset;
-        <span class="kw">if </span>pid_offset &gt;= wasi_env.layout.stack_lower
-            &amp;&amp; (pid_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= wasi_env.layout.stack_upper
-        {
-            <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
-            </span><span class="kw">let </span>offset = wasi_env.layout().stack_upper - pid_offset;
-            <span class="kw">if </span>(offset <span class="kw">as </span>usize + val_bytes.len()) &gt; memory_stack.len() {
-                <span class="macro">warn!</span>(
-                    <span class="string">&quot;fork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
-                    offset,
-                    memory_stack.len()
-                );
-                <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Memviolation.into()));
-            }
-
-            <span class="comment">// Update the memory stack with the new PID
-            </span><span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
-            <span class="kw">let </span>pend = pstart + val_bytes.len();
-            <span class="kw">let </span>pbytes = <span class="kw-2">&amp;mut </span>memory_stack[pstart..pend];
-            pbytes.clone_from_slice(<span class="kw-2">&amp;</span>val_bytes);
-        } <span class="kw">else </span>{
-            <span class="macro">warn!</span>(
-                <span class="string">&quot;fork failed - the return value (pid) is not being returned on the stack - which is not supported&quot;
-            </span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Memviolation.into()));
-        }
+        <span class="comment">// Terminate the child process
+        </span>child_env.process.terminate(code);
 
         <span class="comment">// Jump back to the vfork point and current on execution
-        </span>unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw">_</span>, <span class="kw">_</span>| {
+        </span><span class="kw">let </span>child_pid = child_env.process.pid();
+        <span class="kw">let </span>memory_stack = vfork.memory_stack.freeze();
+        <span class="kw">let </span>rewind_stack = vfork.rewind_stack.freeze();
+        <span class="kw">let </span>store_data = vfork.store_data;
+        unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw">_</span>, <span class="kw">_</span>| {
             <span class="comment">// Now rewind the previous stack and carry on from where we did the vfork
-            </span><span class="kw">match </span>rewind::&lt;M&gt;(
+            </span><span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
                 ctx,
-                memory_stack.freeze(),
-                rewind_stack.freeze(),
+                memory_stack,
+                rewind_stack,
                 store_data,
+                ForkResult {
+                    pid: child_pid.raw() <span class="kw">as </span>Pid,
+                    ret: Errno::Success,
+                },
             ) {
                 Errno::Success =&gt; OnCalledAction::InvokeAgain,
                 err =&gt; {

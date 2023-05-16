@@ -77,7 +77,7 @@
     fst_flags: Fstflags,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
 
     <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_FILESTAT_SET_TIMES) {

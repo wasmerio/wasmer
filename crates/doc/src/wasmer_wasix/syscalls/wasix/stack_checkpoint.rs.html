@@ -150,9 +150,6 @@
 <span id="148">148</span>
 <span id="149">149</span>
 <span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -166,15 +163,11 @@
     ret_val: WasmPtr&lt;Longsize, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="comment">// If we were just restored then we need to return the value instead
-    </span><span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(val) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, Longsize&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="kw">let </span>env = ctx.data();
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
-        <span class="kw">let </span>ret_val = <span class="macro">wasi_try_mem_ok!</span>(ret_val.read(<span class="kw-2">&amp;</span>memory));
-        <span class="kw">if </span>ret_val == <span class="number">0 </span>{
-            <span class="macro">trace!</span>(<span class="string">&quot;execution resumed&quot;</span>,);
-        } <span class="kw">else </span>{
-            <span class="macro">trace!</span>(<span class="string">&quot;restored - (ret={})&quot;</span>, ret_val);
-        }
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+        <span class="macro">wasi_try_mem_ok!</span>(ret_val.write(<span class="kw-2">&amp;</span>memory, val));
+        <span class="macro">trace!</span>(<span class="string">&quot;restored - (ret={})&quot;</span>, val);
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
     }
     <span class="macro">trace!</span>(<span class="string">&quot;capturing&quot;</span>,);
@@ -185,7 +178,7 @@
     // indicate we are a normal function call that has not yet
     // been restored
     </span><span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try_mem_ok!</span>(ret_val.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
 
     <span class="comment">// Pass some offsets to the unwind function
@@ -279,7 +272,7 @@
 
         <span class="comment">// Save the stack snapshot
         </span><span class="kw">let </span>env = ctx.data();
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
         <span class="kw">let </span>snapshot_ptr: WasmPtr&lt;StackSnapshot, M&gt; = WasmPtr::new(snapshot_offset);
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = snapshot_ptr.write(<span class="kw-2">&amp;</span>memory, snapshot) {
             <span class="macro">warn!</span>(<span class="string">&quot;could not save stack snapshot - {}&quot;</span>, err);
@@ -289,11 +282,12 @@
         <span class="comment">// Rewind the stack and carry on
         </span><span class="kw">let </span>pid = ctx.data().pid();
         <span class="kw">let </span>tid = ctx.data().tid();
-        <span class="kw">match </span>rewind::&lt;M&gt;(
+        <span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
             ctx,
             memory_stack_corrected.freeze(),
             rewind_stack.freeze(),
             store_data,
+            <span class="number">0 </span><span class="kw">as </span>Longsize,
         ) {
             Errno::Success =&gt; OnCalledAction::InvokeAgain,
             err =&gt; {

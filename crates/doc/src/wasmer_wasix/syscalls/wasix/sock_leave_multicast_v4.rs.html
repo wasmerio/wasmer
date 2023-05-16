@@ -49,7 +49,7 @@
     iface: WasmPtr&lt;__wasi_addr_ip4_t, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>multiaddr = <span class="macro">wasi_try!</span>(<span class="kw">crate</span>::net::read_ip_v4(<span class="kw-2">&amp;</span>memory, multiaddr));
     <span class="kw">let </span>iface = <span class="macro">wasi_try!</span>(<span class="kw">crate</span>::net::read_ip_v4(<span class="kw-2">&amp;</span>memory, iface));
     <span class="macro">wasi_try!</span>(__sock_actor_mut(

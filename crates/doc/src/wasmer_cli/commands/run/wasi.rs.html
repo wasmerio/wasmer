@@ -479,10 +479,10 @@
 <span id="477">477</span>
 <span id="478">478</span>
 <span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
-<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::anyhow::Context;
+<span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
+<span class="kw">use </span>anyhow::Result;
+<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -497,7 +497,7 @@
     bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
     os::{tty_sys::SysTty, TtyBridge},
-    rewind,
+    rewind_ext,
     runners::MappedDirectory,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
@@ -777,40 +777,30 @@
         run: RunProperties,
         <span class="kw-2">mut </span>store: Store,
         tx: Sender&lt;<span class="prelude-ty">Result</span>&lt;i32&gt;&gt;,
-        rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;)&gt;,
+        rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
     ) {
         <span class="comment">// If we need to rewind then do so
         </span><span class="kw">let </span>ctx = run.ctx;
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>rewind_state, trigger_res)) = rewind_state {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
             <span class="kw">if </span>rewind_state.is_64bit {
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(exit_code) =
-                    rewind_state.rewinding_finish::&lt;Memory64&gt;(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store, trigger_res)
-                {
-                    tx.send(<span class="prelude-val">Ok</span>(exit_code.raw())).ok();
-                    <span class="kw">return</span>;
-                }
-                <span class="kw">let </span>res = rewind::&lt;Memory64&gt;(
+                <span class="kw">let </span>res = rewind_ext::&lt;Memory64&gt;(
                     ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
                     rewind_state.memory_stack,
                     rewind_state.rewind_stack,
                     rewind_state.store_data,
+                    rewind_result,
                 );
                 <span class="kw">if </span>res != Errno::Success {
                     tx.send(<span class="prelude-val">Ok</span>(res <span class="kw">as </span>i32)).ok();
                     <span class="kw">return</span>;
                 }
             } <span class="kw">else </span>{
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(exit_code) =
-                    rewind_state.rewinding_finish::&lt;Memory32&gt;(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store, trigger_res)
-                {
-                    tx.send(<span class="prelude-val">Ok</span>(exit_code.raw())).ok();
-                    <span class="kw">return</span>;
-                }
-                <span class="kw">let </span>res = rewind::&lt;Memory32&gt;(
+                <span class="kw">let </span>res = rewind_ext::&lt;Memory32&gt;(
                     ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
                     rewind_state.memory_stack,
                     rewind_state.rewind_stack,
                     rewind_state.store_data,
+                    rewind_result,
                 );
                 <span class="kw">if </span>res != Errno::Success {
                     tx.send(<span class="prelude-val">Ok</span>(res <span class="kw">as </span>i32)).ok();
@@ -899,9 +889,15 @@
                         };
 
                         <span class="comment">// Spawns the WASM process after a trigger
-                        </span>tasks
-                            .resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-                            .unwrap();
+                        </span><span class="kw">unsafe </span>{
+                            tasks.resume_wasm_after_poller(
+                                Box::new(respawn),
+                                ctx,
+                                store,
+                                deep.trigger,
+                            )
+                        }
+                        .unwrap();
                         <span class="kw">return</span>;
                     }
                     <span class="prelude-val">Ok</span>(err) =&gt; <span class="prelude-val">Err</span>(err.into()),

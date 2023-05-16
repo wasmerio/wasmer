@@ -46,9 +46,6 @@
 <span id="44">44</span>
 <span id="45">45</span>
 <span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -65,23 +62,20 @@
     name_len: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
-    <span class="kw">let </span>name = <span class="kw">unsafe </span>{
-        <span class="kw">match </span>name.read_utf8_string(<span class="kw-2">&amp;</span>memory, name_len) {
-            <span class="prelude-val">Ok</span>(a) =&gt; a,
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="macro">warn!</span>(
-                    <span class="string">&quot;failed to access memory that holds the name of the signal callback: {}&quot;</span>,
-                    err
-                );
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-            }
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+    <span class="kw">let </span>name = <span class="kw">match </span>name.read_utf8_string(<span class="kw-2">&amp;</span>memory, name_len) {
+        <span class="prelude-val">Ok</span>(a) =&gt; a,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">warn!</span>(
+                <span class="string">&quot;failed to access memory that holds the name of the signal callback: {}&quot;</span>,
+                err
+            );
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
     };
     Span::current().record(<span class="string">&quot;name&quot;</span>, name.as_str());
 
-    <span class="kw">let </span>funct = env
-        .inner()
+    <span class="kw">let </span>funct = <span class="kw">unsafe </span>{ env.inner() }
         .instance
         .exports
         .get_typed_function(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;</span>name)
@@ -89,12 +83,12 @@
     Span::current().record(<span class="string">&quot;funct_is_some&quot;</span>, funct.is_some());
 
     {
-        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data_mut().inner_mut();
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data_mut().try_inner_mut().unwrap();
         inner.signal = funct;
         inner.signal_set = <span class="bool-val">true</span>;
     }
 
-    <span class="kw">let _ </span>= WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+    <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">? </span>};
 
     <span class="prelude-val">Ok</span>(())
 }

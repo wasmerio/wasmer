@@ -65,7 +65,7 @@
     time: WasmPtr&lt;OptionTimestamp, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>time = <span class="macro">wasi_try_mem!</span>(time.read(<span class="kw-2">&amp;</span>memory));
     <span class="kw">let </span>time = <span class="kw">match </span>time.tag {
         OptionTag::None =&gt; <span class="prelude-val">None</span>,

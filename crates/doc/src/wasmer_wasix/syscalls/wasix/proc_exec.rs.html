@@ -271,21 +271,9 @@
 <span id="269">269</span>
 <span id="270">270</span>
 <span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-</pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+</pre><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
+
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::<span class="kw-2">*</span>,
@@ -313,13 +301,15 @@
     WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="comment">// If we were just restored the stack then we were woken after a deep sleep
-    </span><span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, i32&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="comment">// We should never get here as the process will be termined
         // in the `WasiEnv::process_signals_and_exit()` call
-        </span><span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(Errno::Unknown.into()));
+        </span><span class="kw">let </span>exit_code = ExitCode::from_native(exit_code);
+        ctx.data().process.terminate(exit_code);
+        <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(exit_code));
     }
 
-    <span class="kw">let </span>memory = ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span><span class="kw-2">mut </span>name = name.read_utf8_string(<span class="kw-2">&amp;</span>memory, name_len).map_err(|err| {
         <span class="macro">warn!</span>(<span class="string">&quot;failed to execve as the name could not be read - {}&quot;</span>, err);
         WasiError::Exit(Errno::Inval.into())
@@ -346,7 +336,8 @@
 
     <span class="comment">// Get the current working directory
     </span><span class="kw">let </span>(<span class="kw">_</span>, cur_dir) = {
-        <span class="kw">let </span>(memory, state, inodes) = ctx.data().get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+        <span class="kw">let </span>(memory, state, inodes) =
+            <span class="kw">unsafe </span>{ ctx.data().get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
         <span class="kw">match </span>state.fs.get_current_dir(inodes, <span class="kw">crate</span>::VIRTUAL_ROOT_FD) {
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; {
@@ -414,11 +405,17 @@
                                     <span class="string">&quot;failed to execve as the process could not be spawned (vfork) - {}&quot;</span>,
                                     err
                                 );
-                                <span class="kw">let _ </span>= stderr_write(
-                                    <span class="kw-2">&amp;</span>ctx,
-                                    <span class="macro">format!</span>(<span class="string">&quot;wasm execute failed [{}] - {}\n&quot;</span>, name.as_str(), err)
+                                <span class="kw">let _ </span>= <span class="kw">unsafe </span>{
+                                    stderr_write(
+                                        <span class="kw-2">&amp;</span>ctx,
+                                        <span class="macro">format!</span>(
+                                            <span class="string">&quot;wasm execute failed [{}] - {}\n&quot;</span>,
+                                            name.as_str(),
+                                            err
+                                        )
                                         .as_bytes(),
-                                )
+                                    )
+                                }
                                 .<span class="kw">await</span>;
                             }
                         }
@@ -429,44 +426,22 @@
             }
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>memory_stack = vfork.memory_stack;
-        <span class="kw">let </span>rewind_stack = vfork.rewind_stack;
-        <span class="kw">let </span>store_data = vfork.store_data;
-
-        <span class="comment">// If the return value offset is within the memory stack then we need
-        // to update it here rather than in the real memory
-        </span><span class="kw">let </span>val_bytes = child_pid.raw().to_ne_bytes();
-        <span class="kw">let </span>pid_offset: u64 = vfork.pid_offset;
-        <span class="kw">if </span>pid_offset &gt;= stack_lower &amp;&amp; (pid_offset + val_bytes.len() <span class="kw">as </span>u64) &lt;= stack_upper {
-            <span class="comment">// Make sure its within the &quot;active&quot; part of the memory stack
-            </span><span class="kw">let </span>offset = stack_upper - pid_offset;
-            <span class="kw">if </span>(offset <span class="kw">as </span>usize + val_bytes.len()) &gt; memory_stack.len() {
-                <span class="macro">warn!</span>(
-                    <span class="string">&quot;vfork failed - the return value (pid) is outside of the active part of the memory stack ({} vs {})&quot;</span>,
-                    offset,
-                    memory_stack.len()
-                );
-            } <span class="kw">else </span>{
-                <span class="comment">// Update the memory stack with the new PID
-                </span><span class="kw">let </span>pstart = memory_stack.len() - offset <span class="kw">as </span>usize;
-                <span class="kw">let </span>pend = pstart + val_bytes.len();
-                <span class="kw">let </span>pbytes = <span class="kw-2">&amp;mut </span>memory_stack[pstart..pend];
-                pbytes.clone_from_slice(<span class="kw-2">&amp;</span>val_bytes);
-            }
-        } <span class="kw">else </span>{
-            <span class="macro">warn!</span>(
-                <span class="string">&quot;vfork failed - the return value (pid) is not being returned on the stack - which is not supported&quot;</span>,
-            );
-        }
-
         <span class="comment">// Jump back to the vfork point and current on execution
-        </span>unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw">_</span>, <span class="kw">_</span>| {
+        // note: fork does not return any values hence passing `()`
+        </span><span class="kw">let </span>memory_stack = vfork.memory_stack.freeze();
+        <span class="kw">let </span>rewind_stack = vfork.rewind_stack.freeze();
+        <span class="kw">let </span>store_data = vfork.store_data;
+        unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw">_</span>, <span class="kw">_</span>| {
             <span class="comment">// Rewind the stack
-            </span><span class="kw">match </span>rewind::&lt;M&gt;(
+            </span><span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
                 ctx,
-                memory_stack.freeze(),
-                rewind_stack.freeze(),
+                memory_stack,
+                rewind_stack,
                 store_data,
+                ForkResult {
+                    pid: child_pid.raw() <span class="kw">as </span>Pid,
+                    ret: Errno::Success,
+                },
             ) {
                 Errno::Success =&gt; OnCalledAction::InvokeAgain,
                 err =&gt; {
@@ -528,26 +503,23 @@
                 <span class="kw">let </span>thread = env.thread.clone();
 
                 <span class="comment">// The poller will wait for the process to actually finish
-                </span><span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+                </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
                     ctx,
-                    <span class="prelude-val">None</span>,
                     Duration::from_millis(<span class="number">50</span>),
                     <span class="kw">async move </span>{
                         process
                             .wait_finished()
                             .<span class="kw">await
                             </span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into())
-                    },
-                    <span class="kw">move </span>|<span class="kw">_</span>, <span class="kw">_</span>, res| {
-                        <span class="kw">let </span>exit_code = res.unwrap_or_else(ExitCode::Errno);
-                        thread.set_status_finished(<span class="prelude-val">Ok</span>(exit_code));
-                        <span class="prelude-val">Ok</span>(())
+                            .to_native()
                     },
                 )<span class="question-mark">?</span>;
                 <span class="kw">match </span>res {
-                    AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx) =&gt; {
+                    AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx, result) =&gt; {
                         <span class="comment">// When we arrive here the process should already be terminated
-                        </span>WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+                        </span><span class="kw">let </span>exit_code = ExitCode::from_native(result);
+                        ctx.data().process.terminate(exit_code);
+                        WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
                         <span class="prelude-val">Err</span>(WasiError::Exit(Errno::Unknown.into()))
                     }
                     AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(()),

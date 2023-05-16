@@ -306,6 +306,25 @@
 <span id="304">304</span>
 <span id="305">305</span>
 <span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -315,6 +334,7 @@
 <span class="kw">use </span>std::{pin::Pin, time::Duration};
 
 <span class="kw">use </span>::tokio::runtime::Handle;
+<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::Future;
 <span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, ExitCode};
@@ -333,16 +353,20 @@
     </span>CopyMemory(Memory, StoreRef&lt;<span class="lifetime">&#39;a</span>&gt;),
 }
 
-<span class="kw">pub type </span>WasmResumeTask = <span class="kw">dyn </span>FnOnce(WasiFunctionEnv, Store, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;) + Send + <span class="lifetime">&#39;static</span>;
+<span class="kw">pub type </span>WasmResumeTask = <span class="kw">dyn </span>FnOnce(WasiFunctionEnv, Store, Bytes) + Send + <span class="lifetime">&#39;static</span>;
 
-<span class="kw">pub type </span>WasmResumeTrigger =
-    <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; + Send + Sync;
+<span class="kw">pub type </span>WasmResumeTrigger = <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt;
+    + Send
+    + Sync;
 
 <span class="doccomment">/// The properties passed to the task
 </span><span class="kw">pub struct </span>TaskWasmRunProperties {
     <span class="kw">pub </span>ctx: WasiFunctionEnv,
     <span class="kw">pub </span>store: Store,
-    <span class="kw">pub </span>result: <span class="prelude-ty">Result</span>&lt;(), Errno&gt;,
+    <span class="doccomment">/// The result of the asynchronous trigger serialized into bytes using the bincode serializer
+    /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
+    /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
+    </span><span class="kw">pub </span>trigger_result: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;&gt;,
 }
 
 <span class="doccomment">/// Callback that will be invoked
@@ -529,9 +553,9 @@
 
     <span class="doccomment">/// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
-    /// After the poller has successed
+    /// After the poller has succeeded
     </span><span class="attribute">#[doc(hidden)]
-    </span><span class="kw">pub fn </span>resume_wasm_after_poller(
+    </span><span class="kw">pub unsafe fn </span>resume_wasm_after_poller(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;WasmResumeTask&gt;,
         ctx: WasiFunctionEnv,
@@ -544,7 +568,7 @@
             trigger: Pin&lt;Box&lt;AsyncifyFuture&gt;&gt;,
         }
         <span class="kw">impl </span>Future <span class="kw">for </span>AsyncifyPollerOwned {
-            <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(), Errno&gt;, ExitCode&gt;;
+            <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;;
             <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">let </span>work = <span class="self">self</span>.trigger.as_mut();
                 Poll::Ready(<span class="kw">if let </span>Poll::Ready(res) = work.poll(cx) {
@@ -554,8 +578,6 @@
                         <span class="macro">tracing::debug!</span>(<span class="string">&quot;exit runtime error - {}&quot;</span>, err);
                         Errno::Child.into()
                     })));
-                } <span class="kw">else if </span><span class="self">self</span>.thread.has_signals_or_subscribe(cx.waker()) {
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Intr))
                 } <span class="kw">else </span>{
                     <span class="kw">return </span>Poll::Pending;
                 })
@@ -569,9 +591,22 @@
         <span class="kw">let </span>thread = env.thread.clone();
         <span class="kw">let </span>env = env.clone();
 
+        <span class="kw">let </span>thread_inner = thread.clone();
         <span class="self">self</span>.task_wasm(
             TaskWasm::new(
-                Box::new(<span class="kw">move </span>|props| task(props.ctx, props.store, props.result)),
+                Box::new(<span class="kw">move </span>|props| {
+                    <span class="kw">let </span>result = props
+                        .trigger_result
+                        .expect(<span class="string">&quot;If there is no result then its likely the trigger did not run&quot;</span>);
+                    <span class="kw">let </span>result = <span class="kw">match </span>result {
+                        <span class="prelude-val">Ok</span>(r) =&gt; r,
+                        <span class="prelude-val">Err</span>(exit_code) =&gt; {
+                            thread.set_status_finished(<span class="prelude-val">Ok</span>(exit_code));
+                            <span class="kw">return</span>;
+                        }
+                    };
+                    task(props.ctx, props.store, result)
+                }),
                 env.clone(),
                 module,
                 <span class="bool-val">false</span>,
@@ -580,18 +615,21 @@
             .with_snapshot(<span class="kw-2">&amp;</span>snapshot)
             .with_trigger(Box::new(<span class="kw">move </span>|| {
                 Box::pin(<span class="kw">async move </span>{
-                    <span class="kw">let </span><span class="kw-2">mut </span>poller = AsyncifyPollerOwned { thread, trigger };
+                    <span class="kw">let </span><span class="kw-2">mut </span>poller = AsyncifyPollerOwned {
+                        thread: thread_inner,
+                        trigger,
+                    };
                     <span class="kw">let </span>res = Pin::new(<span class="kw-2">&amp;mut </span>poller).<span class="kw">await</span>;
                     <span class="kw">let </span>res = <span class="kw">match </span>res {
                         <span class="prelude-val">Ok</span>(res) =&gt; res,
                         <span class="prelude-val">Err</span>(exit_code) =&gt; {
                             env.thread.set_status_finished(<span class="prelude-val">Ok</span>(exit_code));
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(exit_code.into());
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(exit_code);
                         }
                     };
 
                     <span class="macro">tracing::trace!</span>(<span class="string">&quot;deep sleep woken - {:?}&quot;</span>, res);
-                    res
+                    <span class="prelude-val">Ok</span>(res)
                 })
             })),
         )

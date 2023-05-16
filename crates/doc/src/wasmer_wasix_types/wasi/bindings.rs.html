@@ -3866,7 +3866,15 @@
 <span id="3864">3864</span>
 <span id="3865">3865</span>
 <span id="3866">3866</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::mem::MaybeUninit;
+<span id="3867">3867</span>
+<span id="3868">3868</span>
+<span id="3869">3869</span>
+<span id="3870">3870</span>
+<span id="3871">3871</span>
+<span id="3872">3872</span>
+</pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::mem::MaybeUninit;
 <span class="kw">use </span>wasmer::{MemorySize, ValueType};
 <span class="comment">// TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
 </span><span class="kw">use </span>wai_bindgen_rust <span class="kw">as </span>wit_bindgen_rust;
@@ -3961,6 +3969,7 @@
 #[doc = <span class="string">&quot; merely for alignment with POSIX.&quot;</span>]
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Errno {
     <span class="attribute">#[doc = <span class="string">&quot; No error occurred. System call completed successfully.&quot;</span>]
     </span>Success,
@@ -4743,6 +4752,7 @@
 <span class="attribute">#[doc = <span class="string">&quot; Type of a subscription to an event or its occurrence.&quot;</span>]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Eventtype {
     <span class="attribute">#[doc = <span class="string">&quot; The time value of clock `subscription_clock::id` has&quot;</span>]
     #[doc = <span class="string">&quot; reached timestamp `subscription_clock::timeout`.&quot;</span>]
@@ -4850,6 +4860,7 @@
 <span class="macro">wai_bindgen_rust::bitflags::bitflags! </span>{
     <span class="attribute">#[doc = <span class="string">&quot; The state of the file descriptor subscribed to with&quot;</span>]
     #[doc = <span class="string">&quot; `eventtype::fd_read` or `eventtype::fd_write`.&quot;</span>]
+    #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
     </span><span class="kw">pub struct </span>Eventrwflags : u16 {
         <span class="attribute">#[doc = <span class="string">&quot; The peer of this socket has closed or disconnected.&quot;</span>]
         </span><span class="kw">const </span>FD_READWRITE_HANGUP = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
@@ -4866,6 +4877,7 @@
 #[doc = <span class="string">&quot; `eventtype::fd_write` variants&quot;</span>]
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>EventFdReadwrite {
     <span class="attribute">#[doc = <span class="string">&quot; The number of bytes available for reading or writing.&quot;</span>]
     </span><span class="kw">pub </span>nbytes: Filesize,

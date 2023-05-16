@@ -798,21 +798,6 @@
 <span id="796">796</span>
 <span id="797">797</span>
 <span id="798">798</span>
-<span id="799">799</span>
-<span id="800">800</span>
-<span id="801">801</span>
-<span id="802">802</span>
-<span id="803">803</span>
-<span id="804">804</span>
-<span id="805">805</span>
-<span id="806">806</span>
-<span id="807">807</span>
-<span id="808">808</span>
-<span id="809">809</span>
-<span id="810">810</span>
-<span id="811">811</span>
-<span id="812">812</span>
-<span id="813">813</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -868,9 +853,6 @@
 <span class="doccomment">/// WAI based bindings.
 </span><span class="kw">mod </span>bindings;
 
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::{cell::RefCell, sync::atomic::AtomicU32};
-
 <span class="attribute">#[allow(unused_imports)]
 </span><span class="kw">use </span>bytes::{Bytes, BytesMut};
 <span class="kw">use </span>os::task::control_plane::ControlPlaneError;
@@ -924,7 +906,7 @@
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::{rewind, types, unwind},
+    syscalls::{rewind, rewind_ext, types, unwind},
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
         store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
@@ -1086,10 +1068,6 @@
     </span><span class="kw">pub </span>memory_stack: BytesMut,
     <span class="doccomment">/// The mutable parts of the store
     </span><span class="kw">pub </span>store_data: Bytes,
-    <span class="doccomment">/// Offset into the memory where the PID will be
-    /// written when the real fork takes places
-    </span><span class="kw">pub </span>pid_offset: u64,
-
     <span class="doccomment">/// The environment before the vfork occured
     </span><span class="kw">pub </span>env: Box&lt;WasiEnv&gt;,
 
@@ -1104,18 +1082,10 @@
             rewind_stack: <span class="self">self</span>.rewind_stack.clone(),
             memory_stack: <span class="self">self</span>.memory_stack.clone(),
             store_data: <span class="self">self</span>.store_data.clone(),
-            pid_offset: <span class="self">self</span>.pid_offset,
             env: Box::new(<span class="self">self</span>.env.as_ref().clone()),
             handle: <span class="self">self</span>.handle.clone(),
         }
     }
-}
-
-<span class="comment">// Represents the current thread ID for the executing method
-</span><span class="macro">thread_local!</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>CALLER_ID: RefCell&lt;u32&gt; = RefCell::new(<span class="number">0</span>));
-<span class="macro">thread_local!</span>(<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>REWIND: RefCell&lt;<span class="prelude-ty">Option</span>&lt;bytes::Bytes&gt;&gt; = RefCell::new(<span class="prelude-val">None</span>));
-<span class="macro">lazy_static::lazy_static! </span>{
-    <span class="kw">static </span><span class="kw-2">ref </span>CALLER_ID_SEED: Arc&lt;AtomicU32&gt; = Arc::new(AtomicU32::new(<span class="number">1</span>));
 }
 
 <span class="doccomment">/// Create an [`Imports`] with an existing [`WasiEnv`]. `WasiEnv`

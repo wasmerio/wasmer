@@ -1115,7 +1115,7 @@
                         .instantiate(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, program_name, <span class="self">self</span>.args.clone())
                         .with_context(|| <span class="string">&quot;failed to instantiate WASI module&quot;</span>)<span class="question-mark">?</span>;
 
-                    <span class="kw">let </span>capable_of_deep_sleep = ctx.data(<span class="kw-2">&amp;</span>store).capable_of_deep_sleep();
+                    <span class="kw">let </span>capable_of_deep_sleep = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).capable_of_deep_sleep() };
                     ctx.data_mut(<span class="kw-2">&amp;mut </span>store)
                         .enable_deep_sleep = capable_of_deep_sleep;
 

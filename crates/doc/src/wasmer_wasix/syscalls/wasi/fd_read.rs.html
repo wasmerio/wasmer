@@ -428,10 +428,10 @@
     <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>nread_ref = nread.deref(<span class="kw-2">&amp;</span>memory);
     <span class="macro">wasi_try_mem_ok!</span>(nread_ref.write(bytes_read));
 
@@ -480,10 +480,10 @@
     <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>nread_ref = nread.deref(<span class="kw-2">&amp;</span>memory);
     <span class="macro">wasi_try_mem_ok!</span>(nread_ref.write(bytes_read));
 
@@ -502,7 +502,7 @@
     <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>state = env.state();
 
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(fd));
@@ -716,7 +716,7 @@
                             a =&gt; a,
                         }));
 
-                    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(ctx);
+                    <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
                     <span class="kw">let </span>reader = val.to_ne_bytes();
                     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok_ok!</span>(iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len));
                     <span class="kw">let </span>ret = <span class="macro">wasi_try_ok_ok!</span>(read_bytes(<span class="kw-2">&amp;</span>reader[..], <span class="kw-2">&amp;</span>memory, iovs_arr));
@@ -724,7 +724,7 @@
                 }
                 Kind::Symlink { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Symlinks in wasi::fd_read&quot;</span>),
                 Kind::Buffer { buffer } =&gt; {
-                    <span class="kw">let </span>memory = env.memory_view(ctx);
+                    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
                     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok_ok!</span>(iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len));
                     <span class="kw">let </span>read = <span class="macro">wasi_try_ok_ok!</span>(read_bytes(<span class="kw-2">&amp;</span>buffer[offset..], <span class="kw-2">&amp;</span>memory, iovs_arr));
                     (read, <span class="bool-val">true</span>)

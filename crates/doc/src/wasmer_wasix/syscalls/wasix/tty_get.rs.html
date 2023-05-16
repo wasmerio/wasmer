@@ -69,7 +69,7 @@
         line_buffered: state.line_buffered,
     };
 
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try_mem!</span>(tty_state.write(<span class="kw-2">&amp;</span>memory, state));
 
     Errno::Success

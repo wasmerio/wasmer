@@ -104,7 +104,7 @@
     buf_used: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>base_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(dir_fd));
     <span class="kw">if </span>!base_dir.rights.contains(Rights::PATH_READLINK) {

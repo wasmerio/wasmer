@@ -115,7 +115,7 @@
     ret_data_len: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>runtime = env.runtime.clone();
 
     <span class="kw">let </span>res = {
@@ -168,7 +168,7 @@
     };
     Span::current().record(<span class="string">&quot;nsent&quot;</span>, bytes_written);
 
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>bytes_written: M::Offset =
         <span class="macro">wasi_try_ok!</span>(bytes_written.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
     <span class="macro">wasi_try_mem_ok!</span>(ret_data_len.write(<span class="kw-2">&amp;</span>memory, bytes_written));

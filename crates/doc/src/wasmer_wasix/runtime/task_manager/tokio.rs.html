@@ -309,14 +309,14 @@
             <span class="kw">let </span>trigger = trigger();
             <span class="kw">let </span>handle = <span class="self">self</span>.<span class="number">0</span>.clone();
             <span class="self">self</span>.<span class="number">0</span>.spawn(<span class="kw">async move </span>{
-                <span class="kw">let </span>res = trigger.<span class="kw">await</span>;
+                <span class="kw">let </span>result = trigger.<span class="kw">await</span>;
                 <span class="comment">// Build the task that will go on the callback
                 </span>handle.spawn_blocking(<span class="kw">move </span>|| {
                     <span class="comment">// Invoke the callback
                     </span>run(TaskWasmRunProperties {
                         ctx,
                         store,
-                        result: res,
+                        trigger_result: <span class="prelude-val">Some</span>(result),
                     });
                 });
             });
@@ -327,7 +327,7 @@
                 </span>run(TaskWasmRunProperties {
                     ctx,
                     store,
-                    result: <span class="prelude-val">Ok</span>(()),
+                    trigger_result: <span class="prelude-val">None</span>,
                 });
             });
         }

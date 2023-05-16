@@ -67,7 +67,7 @@
 
     Span::current().record(<span class="string">&quot;addr&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, addr));
 
-    <span class="kw">let </span>memory = ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try!</span>(<span class="kw">crate</span>::net::write_ip_port(
         <span class="kw-2">&amp;</span>memory,
         ret_addr,

@@ -42,18 +42,6 @@
 <span id="40">40</span>
 <span id="41">41</span>
 <span id="42">42</span>
-<span id="43">43</span>
-<span id="44">44</span>
-<span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
-<span id="50">50</span>
-<span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
-<span id="54">54</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -76,7 +64,7 @@
     duration: Timestamp,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-    <span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(()) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
     }
 
@@ -90,21 +78,9 @@
     <span class="kw">if </span>duration &gt; <span class="number">0 </span>{
         <span class="kw">let </span>duration = Duration::from_nanos(duration <span class="kw">as </span>u64);
         <span class="kw">let </span>tasks = env.tasks().clone();
-
-        __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-            ctx,
-            <span class="prelude-val">Some</span>(duration),
-            Duration::from_millis(<span class="number">50</span>),
-            <span class="kw">async move </span>{
-                <span class="comment">// using an infinite async sleep here means we don&#39;t have to write the same event
-                // handling loop code for signals and timeouts
-                </span>InfiniteSleep::default().<span class="kw">await</span>;
-                <span class="macro">unreachable!</span>(
-                    <span class="string">&quot;the timeout or signals will wake up this thread even though it waits forever&quot;
-                </span>)
-            },
-            |<span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>| <span class="prelude-val">Ok</span>(()),
-        )<span class="question-mark">?</span>;
+        __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, Duration::from_millis(<span class="number">50</span>), <span class="kw">async move </span>{
+            tasks.sleep_now(duration).<span class="kw">await</span>;
+        })<span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(Errno::Success)
 }

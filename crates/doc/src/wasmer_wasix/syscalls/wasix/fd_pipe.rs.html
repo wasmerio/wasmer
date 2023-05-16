@@ -74,7 +74,7 @@
     ro_fd2: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>(pipe1, pipe2) = Pipe::channel();
 

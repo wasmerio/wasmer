@@ -93,7 +93,7 @@
 ) -&gt; Errno {
     <span class="comment">// TODO check if fd is a dir, ensure it&#39;s within sandbox, etc.
     </span><span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>base_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
     <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };

@@ -66,7 +66,7 @@
     path_len: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>(<span class="kw">_</span>, cur_dir) = <span class="macro">wasi_try!</span>(state.fs.get_current_dir(inodes, <span class="kw">crate</span>::VIRTUAL_ROOT_FD,));
     Span::current().record(<span class="string">&quot;path&quot;</span>, cur_dir.as_str());

@@ -74,7 +74,7 @@
     naddrs_ptr: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>max_addrs = <span class="macro">wasi_try_mem_ok!</span>(naddrs_ptr.read(<span class="kw-2">&amp;</span>memory));
     <span class="kw">let </span>max_addrs: u64 = <span class="macro">wasi_try_ok!</span>(max_addrs.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
 
@@ -83,7 +83,7 @@
         net.ip_list().map_err(net_error_into_wasi_err)
     })<span class="question-mark">?</span>);
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     Span::current().record(<span class="string">&quot;naddrs&quot;</span>, addrs.len());
 
     <span class="kw">let </span>addrs_len: M::Offset = <span class="macro">wasi_try_ok!</span>(addrs.len().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));

@@ -103,6 +103,8 @@
 <span id="101">101</span>
 <span id="102">102</span>
 <span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>builtins;
 
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
@@ -196,10 +198,12 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = <span class="self">self</span>.commands.get(<span class="kw-2">&amp;</span>path) {
             cmd.exec(parent_ctx, path.as_str(), store, builder)
         } <span class="kw">else </span>{
-            <span class="kw">let _ </span>= stderr_write(
-                parent_ctx,
-                <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, path).as_bytes(),
-            );
+            <span class="kw">unsafe </span>{
+                <span class="kw">let _ </span>= stderr_write(
+                    parent_ctx,
+                    <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, path).as_bytes(),
+                );
+            }
 
             <span class="kw">let </span>res = OwnedTaskStatus::new(TaskStatus::Finished(<span class="prelude-val">Ok</span>(Errno::Noent.into())));
             <span class="prelude-val">Ok</span>(res.handle())

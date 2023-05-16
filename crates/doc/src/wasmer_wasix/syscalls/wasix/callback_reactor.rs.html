@@ -30,7 +30,6 @@
 <span id="28">28</span>
 <span id="29">29</span>
 <span id="30">30</span>
-<span id="31">31</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -47,19 +46,18 @@
     name_len: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
-    <span class="kw">let </span>name = <span class="kw">unsafe </span>{ name.read_utf8_string(<span class="kw-2">&amp;</span>memory, name_len)<span class="question-mark">? </span>};
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+    <span class="kw">let </span>name = name.read_utf8_string(<span class="kw-2">&amp;</span>memory, name_len)<span class="question-mark">?</span>;
     Span::current().record(<span class="string">&quot;name&quot;</span>, name.as_str());
 
-    <span class="kw">let </span>funct = env
-        .inner()
+    <span class="kw">let </span>funct = <span class="kw">unsafe </span>{ env.inner() }
         .instance
         .exports
         .get_typed_function(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;</span>name)
         .ok();
     Span::current().record(<span class="string">&quot;funct_is_some&quot;</span>, funct.is_some());
 
-    ctx.data_mut().inner_mut().react = funct;
+    ctx.data_mut().try_inner_mut().unwrap().react = funct;
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>

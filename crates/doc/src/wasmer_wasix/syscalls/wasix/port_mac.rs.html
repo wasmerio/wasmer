@@ -37,14 +37,14 @@
     ret_mac: WasmPtr&lt;__wasi_hardwareaddress_t, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>net = env.net().clone();
     <span class="kw">let </span>mac = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
         net.mac().map_err(net_error_into_wasi_err)
     })<span class="question-mark">?</span>);
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     Span::current().record(<span class="string">&quot;mac&quot;</span>, hex::encode(mac.as_ref()).as_str());
 

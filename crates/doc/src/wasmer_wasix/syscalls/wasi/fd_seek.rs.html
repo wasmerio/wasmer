@@ -149,7 +149,7 @@
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>state = env.state.clone();
-    <span class="kw">let </span>(memory, <span class="kw">_</span>) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
 
     <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_SEEK) {
@@ -233,7 +233,7 @@
     };
     <span class="comment">// reborrow
     </span><span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>new_offset_ref = newoffset.deref(<span class="kw-2">&amp;</span>memory);
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(fd));
     <span class="macro">wasi_try_mem_ok!</span>(new_offset_ref.write(new_offset));

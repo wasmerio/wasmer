@@ -373,9 +373,71 @@
 <span id="371">371</span>
 <span id="372">372</span>
 <span id="373">373</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
-
-<span class="kw">use </span>wasmer_wasix_types::wasi::SubscriptionClock;
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+</pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
@@ -384,6 +446,39 @@
     syscalls::<span class="kw-2">*</span>,
     WasiInodes,
 };
+
+<span class="doccomment">/// An event that occurred.
+</span><span class="attribute">#[derive(Serialize, Deserialize)]
+</span><span class="kw">pub enum </span>EventResultType {
+    Clock(u8),
+    Fd(EventFdReadwrite),
+}
+
+<span class="doccomment">/// An event that occurred.
+</span><span class="attribute">#[derive(Serialize, Deserialize)]
+</span><span class="kw">pub struct </span>EventResult {
+    <span class="doccomment">/// User-provided value that got attached to `subscription::userdata`.
+    </span><span class="kw">pub </span>userdata: Userdata,
+    <span class="doccomment">/// If non-zero, an error that occurred while processing the subscription request.
+    </span><span class="kw">pub </span>error: Errno,
+    <span class="doccomment">/// Type of event that was triggered
+    </span><span class="kw">pub </span>type_: Eventtype,
+    <span class="doccomment">/// The type of the event that occurred, and the contents of the event
+    </span><span class="kw">pub </span>inner: EventResultType,
+}
+<span class="kw">impl </span>EventResult {
+    <span class="kw">pub fn </span>into_event(<span class="self">self</span>) -&gt; Event {
+        Event {
+            userdata: <span class="self">self</span>.userdata,
+            error: <span class="self">self</span>.error,
+            type_: <span class="self">self</span>.type_,
+            u: <span class="kw">match </span><span class="self">self</span>.inner {
+                EventResultType::Clock(id) =&gt; EventUnion { clock: id },
+                EventResultType::Fd(fd) =&gt; EventUnion { fd_readwrite: fd },
+            },
+        }
+    }
+}
 
 <span class="doccomment">/// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
@@ -409,7 +504,7 @@
 
     ctx.data_mut().poll_seed += <span class="number">1</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>subscription_array = <span class="macro">wasi_try_mem_ok!</span>(in_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
     <span class="kw">let </span><span class="kw-2">mut </span>subscriptions = Vec::with_capacity(subscription_array.len() <span class="kw">as </span>usize);
@@ -424,17 +519,19 @@
     </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, M::ZERO));
 
     <span class="comment">// Function to invoke once the poll is finished
-    </span><span class="kw">let </span>process_events = <span class="kw">move </span>|memory: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>AsStoreRef, triggered_events| {
+    </span><span class="kw">let </span>process_events = |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, triggered_events: Vec&lt;Event&gt;| {
+        <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+        <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+
         <span class="comment">// Process all the events that were triggered
-        </span><span class="kw">let </span><span class="kw-2">mut </span>view = memory.view(store);
-        <span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
-        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>view, nsubscriptions));
+        </span><span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
+        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
         <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
             <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
             events_seen += <span class="number">1</span>;
         }
         <span class="kw">let </span>events_seen: M::Offset = <span class="macro">wasi_try!</span>(events_seen.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>view);
+        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
         <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
         Errno::Success
     };
@@ -463,7 +560,7 @@
     }
 }
 <span class="kw">impl </span>Future <span class="kw">for </span>PollBatch {
-    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&gt;, Errno&gt;;
+    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;Vec&lt;EventResult&gt;, Errno&gt;;
     <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
         <span class="kw">let </span>pid = <span class="self">self</span>.pid;
         <span class="kw">let </span>tid = <span class="self">self</span>.tid;
@@ -511,18 +608,15 @@
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_oneoff_internal&lt;M: MemorySize, After&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_oneoff_internal&lt;<span class="lifetime">&#39;a</span>, M: MemorySize, After&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;,
     <span class="kw-2">mut </span>subs: Vec&lt;(<span class="prelude-ty">Option</span>&lt;WasiFd&gt;, PollEventSet, Subscription)&gt;,
     process_events: After,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt;
 <span class="kw">where
-    </span>After: FnOnce(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>Memory, <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw">dyn </span>AsStoreRef, Vec&lt;Event&gt;) -&gt; Errno + Send + Sync + <span class="lifetime">&#39;static</span>,
+    </span>After: FnOnce(<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;, Vec&lt;Event&gt;) -&gt; Errno,
 {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-    <span class="kw">if </span>handle_rewind::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx) {
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
-    }
 
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
@@ -530,6 +624,7 @@
     <span class="comment">// Determine if we are in silent polling mode
     </span><span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>state = ctx.data().state.deref();
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="comment">// These are used when we capture what clocks (timeouts) are being
     // subscribed too
@@ -542,7 +637,9 @@
 
     <span class="comment">// First we extract all the subscriptions into an array so that they
     // can be processed
-    </span><span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    </span><span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+    <span class="kw">let </span>state = ctx.data().state.deref();
+    <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">for </span>(fd, peb, s) <span class="kw">in </span>subs.iter_mut() {
         <span class="kw">let </span>fd = <span class="kw">match </span>s.type_ {
             Eventtype::FdRead =&gt; {
@@ -676,7 +773,7 @@
     };
 
     <span class="comment">// If the time is infinite then we omit the time_to_sleep parameter
-    </span><span class="kw">let </span>asyncify_time = <span class="kw">match </span>time_to_sleep {
+    </span><span class="kw">let </span>timeout = <span class="kw">match </span>time_to_sleep {
         Duration::ZERO =&gt; {
             Span::current().record(<span class="string">&quot;timeout_ns&quot;</span>, <span class="string">&quot;nonblocking&quot;</span>);
             <span class="prelude-val">Some</span>(Duration::ZERO)
@@ -690,15 +787,28 @@
             <span class="prelude-val">Some</span>(time)
         }
     };
+    <span class="kw">let </span>tasks = env.tasks().clone();
+    <span class="kw">let </span>timeout = <span class="kw">async move </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            tasks.sleep_now(timeout).<span class="kw">await</span>;
+        } <span class="kw">else </span>{
+            InfiniteSleep::default().<span class="kw">await
+        </span>}
+    };
 
-    <span class="comment">// We use asyncify with a deep sleep to wait on new IO events
-    </span><span class="kw">let </span>res = __asyncify_with_deep_sleep_ext::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-        ctx,
-        asyncify_time,
-        Duration::from_millis(<span class="number">50</span>),
-        batch,
-        <span class="kw">move </span>|memory, store, res| {
-            <span class="kw">let </span>events = res.unwrap_or_else(<span class="prelude-val">Err</span>);
+    <span class="comment">// Build the trigger using the timeout
+    </span><span class="kw">let </span>trigger = <span class="kw">async move </span>{
+        <span class="macro">tokio::select! </span>{
+            res = batch =&gt; res,
+            <span class="kw">_ </span>= timeout =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+        }
+    };
+
+    <span class="comment">// We replace the process events callback with another callback
+    // which will interpret the error codes
+    </span><span class="kw">let </span>process_events = {
+        <span class="kw">let </span>clock_subs = clock_subs.clone();
+        |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;, events: <span class="prelude-ty">Result</span>&lt;Vec&lt;Event&gt;, Errno&gt;| {
             <span class="comment">// Process the result
             </span><span class="kw">match </span>events {
                 <span class="prelude-val">Ok</span>(evts) =&gt; {
@@ -706,7 +816,7 @@
                     </span>Span::current().record(<span class="string">&quot;seen&quot;</span>, evts.len());
 
                     <span class="comment">// Process the events
-                    </span>process_events(memory, store, evts);
+                    </span>process_events(ctx, evts)
                 }
                 <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; {
                     <span class="comment">// The timeout has triggerred so lets add that event
@@ -730,20 +840,36 @@
                         );
                         evts.push(evt);
                     }
-                    process_events(memory, store, evts);
+                    process_events(ctx, evts)
                 }
                 <span class="comment">// If nonblocking the Errno::Again needs to be turned into an empty list
-                </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; {
-                    process_events(memory, store, Default::default());
-                }
+                </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; process_events(ctx, Default::default()),
                 <span class="comment">// Otherwise process the error
                 </span><span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to poll during deep sleep - {}&quot;</span>, err);
+                    err
                 }
             }
-            <span class="prelude-val">Ok</span>(())
-        },
+        }
+    };
+
+    <span class="comment">// If we are rewound then its time to process them
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(events) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, <span class="prelude-ty">Result</span>&lt;Vec&lt;EventResult&gt;, Errno&gt;&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
+        <span class="kw">let </span>events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
+        process_events(<span class="kw-2">&amp;</span>ctx, events);
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+    }
+
+    <span class="comment">// We use asyncify with a deep sleep to wait on new IO events
+    </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="prelude-ty">Result</span>&lt;Vec&lt;EventResult&gt;, Errno&gt;, <span class="kw">_</span>&gt;(
+        ctx,
+        Duration::from_millis(<span class="number">50</span>),
+        Box::pin(trigger),
     )<span class="question-mark">?</span>;
+    <span class="kw">if let </span>AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx, events) = res {
+        <span class="kw">let </span>events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
+        process_events(<span class="kw-2">&amp;</span>ctx, events);
+    }
     <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div>

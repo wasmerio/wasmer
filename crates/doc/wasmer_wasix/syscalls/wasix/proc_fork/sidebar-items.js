@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["proc_fork","`proc_fork()`"],["run",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["proc_fork","`proc_fork()`"],["run",""]],"struct":[["ForkResult",""]]};

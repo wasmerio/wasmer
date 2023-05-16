@@ -244,6 +244,19 @@
 <span id="242">242</span>
 <span id="243">243</span>
 <span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
 </pre><pre class="rust"><code><span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
@@ -252,12 +265,18 @@
 
 <span class="kw">use crate</span>::{
     import_object_for_all_wasi_versions,
-    os::task::thread::DEFAULT_STACK_SIZE,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
     InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
+
+<span class="doccomment">/// The default stack size for WASIX - the number itself is the default that compilers
+/// have used in the past when compiling WASM apps.
+///
+/// (this is only used for programs that have no stack pointer)
+</span><span class="kw">const </span>DEFAULT_STACK_SIZE: u64 = <span class="number">1_048_576u64</span>;
+<span class="kw">const </span>DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
 <span class="attribute">#[derive(Clone)]
 </span><span class="kw">pub struct </span>WasiFunctionEnv {
@@ -382,6 +401,7 @@
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>new_inner = WasiInstanceHandles::new(memory, store, instance);
+        <span class="kw">let </span>stack_pointer = new_inner.stack_pointer.clone();
 
         <span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
         env.set_inner(new_inner);
@@ -391,17 +411,19 @@
         <span class="comment">// If the stack offset and size is not set then do so
         </span><span class="kw">if </span>update_layout {
             <span class="comment">// Set the base stack
-            </span><span class="kw">let </span><span class="kw-2">mut </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = env.inner().stack_pointer.clone() {
+            </span><span class="kw">let </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = stack_pointer {
                 <span class="kw">match </span>stack_pointer.get(store) {
                     wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
                     wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                    <span class="kw">_ </span>=&gt; DEFAULT_STACK_BASE,
                 }
             } <span class="kw">else </span>{
-                <span class="number">0
-            </span>};
+                DEFAULT_STACK_BASE
+            };
             <span class="kw">if </span>stack_base == <span class="number">0 </span>{
-                stack_base = DEFAULT_STACK_SIZE;
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
+                    <span class="string">&quot;stack_pointer is not set to the upper stack range&quot;</span>.to_string(),
+                ));
             }
 
             <span class="comment">// Update the stack layout which is need for asyncify
@@ -410,6 +432,7 @@
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
         }
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;initializing with layout {:?}&quot;</span>, <span class="self">self</span>.data(store).layout);
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -436,7 +459,12 @@
         <span class="prelude-val">Ok</span>(resolver)
     }
 
-    <span class="kw">pub fn </span>cleanup(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, exit_code: <span class="prelude-ty">Option</span>&lt;ExitCode&gt;) {
+    <span class="doccomment">/// # Safety
+    ///
+    /// This function should only be called from within a syscall
+    /// as it can potentially execute local thread variable cleanup
+    /// code
+    </span><span class="kw">pub fn </span>cleanup(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, exit_code: <span class="prelude-ty">Option</span>&lt;ExitCode&gt;) {
         <span class="macro">trace!</span>(
             <span class="string">&quot;wasi[{}:{}]::cleanup - destroying local thread variables&quot;</span>,
             <span class="self">self</span>.data(store).pid(),
@@ -459,28 +487,26 @@
             to_local_destroy
         };
         <span class="kw">if </span>!to_local_destroy.is_empty() {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(thread_local_destroy) = <span class="self">self
-                </span>.data(store)
-                .inner()
-                .thread_local_destroy
-                .as_ref()
-                .cloned()
-            {
-                <span class="kw">for </span>(user_data, val) <span class="kw">in </span>to_local_destroy {
-                    <span class="kw">let </span>user_data_low: u32 = (user_data &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;
-                    <span class="kw">let </span>user_data_high: u32 = (user_data &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = <span class="self">self</span>.data(store).try_inner() {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(thread_local_destroy) = inner.thread_local_destroy.as_ref().cloned() {
+                    <span class="kw">for </span>(user_data, val) <span class="kw">in </span>to_local_destroy {
+                        <span class="kw">let </span>user_data_low: u32 = (user_data &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;
+                        <span class="kw">let </span>user_data_high: u32 = (user_data &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;
 
-                    <span class="kw">let </span>val_low: u32 = (val &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;
-                    <span class="kw">let </span>val_high: u32 = (val &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;
+                        <span class="kw">let </span>val_low: u32 = (val &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;
+                        <span class="kw">let </span>val_high: u32 = (val &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;
 
-                    <span class="kw">let _ </span>= thread_local_destroy.call(
-                        store,
-                        user_data_low <span class="kw">as </span>i32,
-                        user_data_high <span class="kw">as </span>i32,
-                        val_low <span class="kw">as </span>i32,
-                        val_high <span class="kw">as </span>i32,
-                    );
+                        <span class="kw">let _ </span>= thread_local_destroy.call(
+                            store,
+                            user_data_low <span class="kw">as </span>i32,
+                            user_data_high <span class="kw">as </span>i32,
+                            val_low <span class="kw">as </span>i32,
+                            val_high <span class="kw">as </span>i32,
+                        );
+                    }
                 }
+            } <span class="kw">else </span>{
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;unable to clean up thread local variables as the inner instance is not accessible&quot;</span>);
             }
         }
 

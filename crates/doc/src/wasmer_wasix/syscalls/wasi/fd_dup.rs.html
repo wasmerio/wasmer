@@ -44,7 +44,7 @@
     ret_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, state) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>fd = <span class="macro">wasi_try!</span>(state.fs.clone_fd(fd));
 
     Span::current().record(<span class="string">&quot;ret_fd&quot;</span>, fd);

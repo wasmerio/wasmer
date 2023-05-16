@@ -49,6 +49,8 @@
 <span id="47">47</span>
 <span id="48">48</span>
 <span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -76,8 +78,10 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(user_data) = inner.thread_local_user_data.remove(<span class="kw-2">&amp;</span>key) {
         drop(inner);
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(thread_local_destroy) =
-            ctx.data().inner().thread_local_destroy.as_ref().cloned()
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(thread_local_destroy) = <span class="kw">unsafe </span>{ ctx.data().inner() }
+            .thread_local_destroy
+            .as_ref()
+            .cloned()
         {
             <span class="kw">for </span>val <span class="kw">in </span>data {
                 <span class="kw">let </span>user_data_low: u32 = (user_data &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;

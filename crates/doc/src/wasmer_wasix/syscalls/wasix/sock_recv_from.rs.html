@@ -143,7 +143,7 @@
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
 
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(ri_data.slice(<span class="kw-2">&amp;</span>memory, ri_data_len));
 
     <span class="kw">let </span>max_size = {

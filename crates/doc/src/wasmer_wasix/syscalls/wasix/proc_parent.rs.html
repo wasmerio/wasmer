@@ -41,12 +41,12 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>pid: WasiProcessId = pid.into();
     <span class="kw">if </span>pid == env.process.pid() {
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
         Span::current().record(<span class="string">&quot;parent&quot;</span>, env.process.ppid().raw());
         <span class="macro">wasi_try_mem!</span>(ret_parent.write(<span class="kw-2">&amp;</span>memory, env.process.ppid().raw() <span class="kw">as </span>Pid));
         Errno::Success
     } <span class="kw">else if let </span><span class="prelude-val">Some</span>(process) = env.control_plane.get_process(pid) {
-        <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
         Span::current().record(<span class="string">&quot;parent&quot;</span>, process.pid().raw());
         <span class="macro">wasi_try_mem!</span>(ret_parent.write(<span class="kw-2">&amp;</span>memory, process.pid().raw() <span class="kw">as </span>Pid));
         Errno::Success

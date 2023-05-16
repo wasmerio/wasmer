@@ -234,7 +234,6 @@
 <span id="232">232</span>
 <span id="233">233</span>
 <span id="234">234</span>
-<span id="235">235</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::memory <span class="kw">as </span>memory_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
@@ -372,8 +371,7 @@
             });
         }
         <span class="self">self</span>.<span class="number">0
-            </span>.try_clone(<span class="kw-2">&amp;</span>store)
-            .and_then(|<span class="kw-2">mut </span>memory| memory.copy().ok())
+            </span>.try_copy(<span class="kw-2">&amp;</span>store)
             .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory.into()))
             .ok_or_else(|| {
                 MemoryError::Generic(<span class="string">&quot;memory is not clonable or could not be copied&quot;</span>.to_string())
@@ -415,7 +413,7 @@
 
     <span class="doccomment">/// Attempts to clone this memory (if its clonable) in a new store
     /// (cloned memory will be shared between those that clone it)
-    </span><span class="attribute">#[deprecated = <span class="string">&quot;use `shared_in_store` or `copy_to_store` instead&quot;</span>]
+    </span><span class="attribute">#[deprecated = <span class="string">&quot;use `share_in_store` or `copy_to_store` instead&quot;</span>]
     </span><span class="kw">pub fn </span>duplicate_in_store(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,

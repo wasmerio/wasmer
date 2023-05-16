@@ -32,7 +32,7 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>tid: Tid = env.thread.tid().into();
     Span::current().record(<span class="string">&quot;tid&quot;</span>, tid);
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try_mem!</span>(ret_tid.write(<span class="kw-2">&amp;</span>memory, tid));
     Errno::Success
 }

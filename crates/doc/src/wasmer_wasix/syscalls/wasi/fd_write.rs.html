@@ -283,6 +283,7 @@
 <span id="281">281</span>
 <span id="282">282</span>
 <span id="283">283</span>
+<span id="284">284</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -373,7 +374,7 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>state = env.state.clone();
-    <span class="kw">let </span><span class="kw-2">mut </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len));
 
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
@@ -389,7 +390,7 @@
         <span class="kw">let </span>(bytes_written, can_update_cursor) = {
             <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(iovs_arr.access());
 
-            <span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+            <span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
             <span class="kw">let </span><span class="kw-2">mut </span>guard = fd_entry.inode.write();
             <span class="kw">match </span>guard.deref_mut() {
                 Kind::File { handle, .. } =&gt; {
@@ -536,7 +537,7 @@
             }
         };
         env = ctx.data();
-        memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+        memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
         <span class="comment">// reborrow and update the size
         </span><span class="kw">if </span>!is_stdio {
@@ -550,7 +551,8 @@
 
             <span class="comment">// we set the size but we don&#39;t return any errors if it fails as
             // pipes and sockets will not do anything with this
-            </span><span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>, inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+            </span><span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>, inodes) =
+                <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
             <span class="comment">// Cast is valid because we don&#39;t support 128 bit systems...
             </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
         }
@@ -558,7 +560,7 @@
     };
     Span::current().record(<span class="string">&quot;nwritten&quot;</span>, bytes_written);
 
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>nwritten_ref = nwritten.deref(<span class="kw-2">&amp;</span>memory);
     <span class="kw">let </span>bytes_written: M::Offset =
         <span class="macro">wasi_try_ok!</span>(bytes_written.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));

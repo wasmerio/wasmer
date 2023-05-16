@@ -323,7 +323,12 @@
 <span id="321">321</span>
 <span id="322">322</span>
 <span id="323">323</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::mem::MaybeUninit;
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+</pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+</span><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::mem::MaybeUninit;
 
 <span class="kw">use </span>wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
@@ -504,7 +509,7 @@
 <span class="attribute">#[repr(C)]
 #[derive(Clone, Copy)]
 </span><span class="kw">pub union </span>JoinStatusUnion {
-    <span class="kw">pub </span>nothing_errno: Errno,
+    <span class="kw">pub </span>nothing: u8,
     <span class="kw">pub </span>exit_normal: Errno,
     <span class="kw">pub </span>exit_signal: ErrnoSignal,
     <span class="kw">pub </span>stopped: Signal,
@@ -521,7 +526,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>f = binding.field(<span class="string">&quot;tag&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.tag);
         f = <span class="kw">unsafe </span>{
             <span class="kw">match </span><span class="self">self</span>.tag {
-                JoinStatusType::Nothing =&gt; f.field(<span class="string">&quot;nothing_errno&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing_errno),
+                JoinStatusType::Nothing =&gt; f.field(<span class="string">&quot;nothing&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.nothing),
                 JoinStatusType::ExitNormal =&gt; f.field(<span class="string">&quot;exit_normal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_normal),
                 JoinStatusType::ExitSignal =&gt; f.field(<span class="string">&quot;exit_signal&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.exit_signal),
                 JoinStatusType::Stopped =&gt; f.field(<span class="string">&quot;stopped&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.u.stopped),
@@ -567,6 +572,7 @@
 }
 
 <span class="attribute">#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>ExitCode {
     Errno(Errno),
     Other(i32),

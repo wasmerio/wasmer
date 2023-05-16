@@ -53,7 +53,7 @@
     addr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>addr = <span class="macro">wasi_try!</span>(<span class="kw">crate</span>::net::read_ip_port(<span class="kw-2">&amp;</span>memory, addr));
     <span class="kw">let </span>addr = SocketAddr::new(addr.<span class="number">0</span>, addr.<span class="number">1</span>);
     Span::current().record(<span class="string">&quot;addr&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, addr));

@@ -329,6 +329,7 @@
 <span id="327">327</span>
 <span id="328">328</span>
 <span id="329">329</span>
+<span id="330">330</span>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -373,7 +374,8 @@
         Span::current().record(<span class="string">&quot;follow_symlinks&quot;</span>, <span class="bool-val">true</span>);
     }
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, <span class="kw-2">mut </span>inodes) = env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, <span class="kw-2">mut </span>inodes) =
+        <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="comment">/* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     </span><span class="kw">let </span>path_len64: u64 = path_len.into();
     <span class="kw">if </span>path_len64 &gt; <span class="number">1024u64 </span>* <span class="number">1024u64 </span>{

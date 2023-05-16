@@ -43,7 +43,7 @@
     buf: WasmPtr&lt;Prestat, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state) = env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>);
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>prestat_ptr = buf.deref(<span class="kw-2">&amp;</span>memory);
     <span class="macro">wasi_try_mem!</span>(prestat_ptr.write(<span class="macro">wasi_try!</span>(state.fs.prestat_fd(fd))));

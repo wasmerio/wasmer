@@ -24,7 +24,7 @@
 </span><span class="attribute">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(pid = field::Empty), ret)]
 </span><span class="kw">pub fn </span>proc_id&lt;M: MemorySize&gt;(ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, ret_pid: WasmPtr&lt;Pid, M&gt;) -&gt; Errno {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>pid = env.process.pid();
     Span::current().record(<span class="string">&quot;pid&quot;</span>, pid.raw());

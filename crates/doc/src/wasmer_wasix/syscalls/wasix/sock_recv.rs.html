@@ -194,7 +194,7 @@
     Span::current().record(<span class="string">&quot;nread&quot;</span>, bytes_read);
 
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(<span class="kw-2">&amp;</span>ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
     <span class="macro">wasi_try_mem_ok!</span>(ro_flags.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
@@ -228,7 +228,7 @@
     <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
 
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-    <span class="kw">let </span>memory = env.memory_view(ctx);
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
 
     <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
         env,

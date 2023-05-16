@@ -301,26 +301,15 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
-    syscalls::rewind,
+    syscalls::rewind_ext,
     RewindState, VirtualBusError, WasiError, WasiRuntimeError,
 };
+<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::Future;
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
@@ -420,9 +409,7 @@
                 <span class="comment">// Perform the initialization
                 </span><span class="kw">let </span>ctx = {
                     <span class="comment">// If this module exports an _initialize function, run that first.
-                    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = ctx
-                        .data(<span class="kw-2">&amp;</span>store)
-                        .inner()
+                    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).inner() }
                         .instance
                         .exports
                         .get_function(<span class="string">&quot;_initialize&quot;</span>)
@@ -460,8 +447,7 @@
 }
 
 <span class="kw">fn </span>get_start(ctx: <span class="kw-2">&amp;</span>WasiFunctionEnv, store: <span class="kw-2">&amp;</span>Store) -&gt; <span class="prelude-ty">Option</span>&lt;Function&gt; {
-    ctx.data(store)
-        .inner()
+    <span class="kw">unsafe </span>{ ctx.data(store).inner() }
         .instance
         .exports
         .get_function(<span class="string">&quot;_start&quot;</span>)
@@ -474,7 +460,7 @@
     ctx: WasiFunctionEnv,
     <span class="kw-2">mut </span>store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;)&gt;,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
 ) {
     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
     <span class="kw">let </span>pid = env.pid();
@@ -482,36 +468,26 @@
     handle.thread.set_status_running();
 
     <span class="comment">// If we need to rewind then do so
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw-2">mut </span>rewind_state, trigger_res)) = rewind_state {
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
         <span class="kw">if </span>rewind_state.is_64bit {
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(exit_code) =
-                rewind_state.rewinding_finish::&lt;Memory64&gt;(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store, trigger_res)
-            {
-                ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(exit_code));
-                <span class="kw">return</span>;
-            }
-            <span class="kw">let </span>res = rewind::&lt;Memory64&gt;(
+            <span class="kw">let </span>res = rewind_ext::&lt;Memory64&gt;(
                 ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
+                rewind_result,
             );
             <span class="kw">if </span>res != Errno::Success {
                 ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(res.into()));
                 <span class="kw">return</span>;
             }
         } <span class="kw">else </span>{
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(exit_code) =
-                rewind_state.rewinding_finish::&lt;Memory32&gt;(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store, trigger_res)
-            {
-                ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(exit_code));
-                <span class="kw">return</span>;
-            }
-            <span class="kw">let </span>res = rewind::&lt;Memory32&gt;(
+            <span class="kw">let </span>res = rewind_ext::&lt;Memory32&gt;(
                 ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
+                rewind_result,
             );
             <span class="kw">if </span>res != Errno::Success {
                 ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(res.into()));
@@ -545,16 +521,16 @@
                     <span class="comment">// Create the callback that will be invoked when the thread respawns after a deep sleep
                     </span><span class="kw">let </span>rewind = deep.rewind;
                     <span class="kw">let </span>respawn = {
-                        <span class="kw">move </span>|ctx, store, trigger_res| {
+                        <span class="kw">move </span>|ctx, store, rewind_result| {
                             <span class="comment">// Call the thread
-                            </span>call_module(ctx, store, handle, <span class="prelude-val">Some</span>((rewind, trigger_res)));
+                            </span>call_module(ctx, store, handle, <span class="prelude-val">Some</span>((rewind, rewind_result)));
                         }
                     };
 
                     <span class="comment">// Spawns the WASM process after a trigger
-                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+                    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">unsafe </span>{
                         tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-                    {
+                    } {
                         <span class="macro">debug!</span>(<span class="string">&quot;failed to go into deep sleep - {}&quot;</span>, err);
                     }
                     <span class="kw">return</span>;

@@ -401,7 +401,9 @@
 <span id="399">399</span>
 <span id="400">400</span>
 <span id="401">401</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{
+</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::WasiRuntimeError;
+<span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::{
     collections::HashMap,
     convert::TryInto,
     sync::{
@@ -410,8 +412,6 @@
     },
     time::Duration,
 };
-
-<span class="kw">use </span><span class="kw">crate</span>::WasiRuntimeError;
 <span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Signal,
@@ -430,7 +430,7 @@
 };
 
 <span class="doccomment">/// Represents the ID of a sub-process
-</span><span class="attribute">#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+</span><span class="attribute">#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>WasiProcessId(u32);
 
 <span class="kw">impl </span>WasiProcessId {
