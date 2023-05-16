@@ -135,8 +135,7 @@ impl Memory {
             });
         }
         self.0
-            .try_clone(&store)
-            .and_then(|mut memory| memory.copy().ok())
+            .try_copy(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
             .ok_or_else(|| {
                 MemoryError::Generic("memory is not clonable or could not be copied".to_string())
@@ -178,7 +177,7 @@ impl Memory {
 
     /// Attempts to clone this memory (if its clonable) in a new store
     /// (cloned memory will be shared between those that clone it)
-    #[deprecated = "use `shared_in_store` or `copy_to_store` instead"]
+    #[deprecated = "use `share_in_store` or `copy_to_store` instead"]
     pub fn duplicate_in_store(
         &self,
         store: &impl AsStoreRef,

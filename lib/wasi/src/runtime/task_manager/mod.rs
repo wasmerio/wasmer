@@ -36,7 +36,10 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
-    pub result: Option<Result<Bytes, ExitCode>>,
+    /// The result of the asynchronous trigger serialized into bytes using the bincode serializer
+    /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
+    /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
+    pub trigger_result: Option<Result<Bytes, ExitCode>>,
 }
 
 /// Callback that will be invoked
@@ -266,7 +269,7 @@ impl dyn VirtualTaskManager {
             TaskWasm::new(
                 Box::new(move |props| {
                     let result = props
-                        .result
+                        .trigger_result
                         .expect("If there is no result then its likely the trigger did not run");
                     let result = match result {
                         Ok(r) => r,

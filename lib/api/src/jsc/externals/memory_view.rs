@@ -23,11 +23,11 @@ pub struct MemoryView<'a> {
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &Memory, store: &'a impl AsStoreRef) -> Self {
+    pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         Self::new_raw(&memory.handle.memory, store)
     }
 
-    pub(crate) fn new_raw(memory: &JSObject, store: &'a impl AsStoreRef) -> Self {
+    pub(crate) fn new_raw(memory: &JSObject, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         let store_ref = store.as_store_ref();
         let engine = store_ref.engine();
         let context = engine.0.context();

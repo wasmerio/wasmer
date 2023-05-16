@@ -114,8 +114,9 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
+    os::task::thread::RewindResult,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindResult, RewindState, VirtualBusError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, VirtualBusError, WasiInodes,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1199,11 +1200,9 @@ pub fn rewind_ext<M: MemorySize>(
     rewind_result: Bytes,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
-    super::REWIND.with(|cell| {
-        cell.replace(Some(RewindResult {
-            memory_stack,
-            rewind_result,
-        }))
+    ctx.data_mut().thread.set_rewind(RewindResult {
+        memory_stack,
+        rewind_result,
     });
 
     // Deserialize the store data back into a snapshot
@@ -1285,7 +1284,7 @@ where
     T: serde::de::DeserializeOwned,
 {
     // If the stack has been restored
-    if let Some(result) = super::REWIND.with(|cell| cell.borrow_mut().take()) {
+    if let Some(result) = ctx.data_mut().thread.take_rewind() {
         // Deserialize the result
         let memory_stack = result.memory_stack;
         let ret = bincode::deserialize(&result.rewind_result)
