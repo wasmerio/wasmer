@@ -7,7 +7,10 @@ use webc::metadata::Manifest;
 
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse},
-    runtime::resolver::{PackageSpecifier, Source, SourceId, SourceKind, Summary, WebcHash},
+    runtime::resolver::{
+        DistributionInfo, PackageInfo, PackageSpecifier, Source, SourceId, SourceKind, Summary,
+        WebcHash,
+    },
 };
 
 /// A [`Source`] which will resolve dependencies by pinging a WAPM-like GraphQL
@@ -121,12 +124,14 @@ fn decode_summary(
     hex::decode_to_slice(&pirita_sha256_hash, &mut webc_sha256)?;
     let webc_sha256 = WebcHash::from_bytes(webc_sha256);
 
-    super::extract_summary_from_manifest(
-        &manifest,
-        source,
-        pirita_download_url.parse()?,
-        webc_sha256,
-    )
+    Ok(Summary {
+        pkg: PackageInfo::from_manifest(&manifest)?,
+        dist: DistributionInfo {
+            source,
+            webc: pirita_download_url.parse()?,
+            webc_sha256,
+        },
+    })
 }
 
 #[allow(dead_code)]
@@ -180,6 +185,8 @@ pub struct WapmWebQueryGetPackageVersionDistribution {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+
+    use crate::runtime::resolver::inputs::{DistributionInfo, PackageInfo};
 
     use super::*;
 
@@ -241,8 +248,18 @@ mod tests {
         assert_eq!(
             summaries,
             [Summary {
-                package_name: "wasmer/wasmer-pack-cli".to_string(),
-                version: Version::new(0, 6, 0),
+                pkg: PackageInfo {
+                    name: "wasmer/wasmer-pack-cli".to_string(),
+                    version: Version::new(0, 6, 0),
+                    dependencies: Vec::new(),
+                    commands: vec![
+                        crate::runtime::resolver::Command {
+                            name: "wasmer-pack".to_string(),
+                        },
+                    ],
+                    entrypoint: Some("wasmer-pack".to_string()),
+                },
+                dist: DistributionInfo {
                 webc: "https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc".parse().unwrap(),
                 webc_sha256: WebcHash::from_bytes([
                     126,
@@ -278,14 +295,8 @@ mod tests {
                     165,
                     43,
                 ]),
-                dependencies: Vec::new(),
-                commands: vec![
-                    crate::runtime::resolver::Command {
-                        name: "wasmer-pack".to_string(),
-                    },
-                ],
                 source: source.id(),
-                entrypoint: Some("wasmer-pack".to_string()),
+                }
             }]
         );
     }

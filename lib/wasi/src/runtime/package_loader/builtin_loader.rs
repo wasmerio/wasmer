@@ -18,7 +18,7 @@ use crate::{
     http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
     runtime::{
         package_loader::PackageLoader,
-        resolver::{Summary, WebcHash},
+        resolver::{DistributionInfo, Summary, WebcHash},
     },
 };
 
@@ -76,9 +76,9 @@ impl BuiltinLoader {
         Ok(None)
     }
 
-    async fn download(&self, summary: &Summary) -> Result<Bytes, Error> {
-        if summary.webc.scheme() == "file" {
-            if let Ok(path) = summary.webc.to_file_path() {
+    async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
+        if dist.webc.scheme() == "file" {
+            if let Ok(path) = dist.webc.to_file_path() {
                 // FIXME: This will block the thread
                 let bytes = std::fs::read(&path)
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
@@ -87,7 +87,7 @@ impl BuiltinLoader {
         }
 
         let request = HttpRequest {
-            url: summary.webc.to_string(),
+            url: dist.webc.to_string(),
             method: "GET".to_string(),
             headers: vec![
                 ("Accept".to_string(), "application/webc".to_string()),
@@ -117,17 +117,17 @@ impl BuiltinLoader {
     async fn save_and_load_as_mmapped(
         &self,
         webc: &[u8],
-        summary: &Summary,
+        dist: &DistributionInfo,
     ) -> Result<Container, Error> {
         // First, save it to disk
-        self.fs.save(webc, summary).await?;
+        self.fs.save(webc, dist).await?;
 
         // Now try to load it again. The resulting container should use
         // a memory-mapped file rather than an in-memory buffer.
-        match self.fs.lookup(&summary.webc_sha256).await? {
+        match self.fs.lookup(&dist.webc_sha256).await? {
             Some(container) => {
                 // we also want to make sure it's in the in-memory cache
-                self.in_memory.save(&container, summary.webc_sha256);
+                self.in_memory.save(&container, dist.webc_sha256);
 
                 Ok(container)
             }
@@ -144,20 +144,20 @@ impl BuiltinLoader {
 #[async_trait::async_trait]
 impl PackageLoader for BuiltinLoader {
     async fn load(&self, summary: &Summary) -> Result<Container, Error> {
-        if let Some(container) = self.get_cached(&summary.webc_sha256).await? {
+        if let Some(container) = self.get_cached(&summary.dist.webc_sha256).await? {
             return Ok(container);
         }
 
         // looks like we had a cache miss and need to download it manually
         let bytes = self
-            .download(summary)
+            .download(&summary.dist)
             .await
-            .with_context(|| format!("Unable to download \"{}\"", summary.webc))?;
+            .with_context(|| format!("Unable to download \"{}\"", summary.dist.webc))?;
 
         // We want to cache the container we downloaded, but we want to do it
         // in a smart way to keep memory usage down.
 
-        match self.save_and_load_as_mmapped(&bytes, summary).await {
+        match self.save_and_load_as_mmapped(&bytes, &summary.dist).await {
             Ok(container) => {
                 // The happy path - we've saved to both caches and loaded the
                 // container from disk (hopefully using mmap) so we're done.
@@ -166,17 +166,17 @@ impl PackageLoader for BuiltinLoader {
             Err(e) => {
                 tracing::warn!(
                     error=&*e,
-                    pkg.name=%summary.package_name,
-                    pkg.version=%summary.version,
-                    pkg.hash=?summary.webc_sha256,
-                    pkg.url=%summary.webc,
+                    pkg.name=%summary.pkg.name,
+                    pkg.version=%summary.pkg.version,
+                    pkg.hash=?summary.dist.webc_sha256,
+                    pkg.url=%summary.dist.webc,
                     "Unable to save the downloaded package to disk",
                 );
                 // The sad path - looks like we'll need to keep the whole thing
                 // in memory.
                 let container = Container::from_bytes(bytes)?;
                 // We still want to cache it, of course
-                self.in_memory.save(&container, summary.webc_sha256);
+                self.in_memory.save(&container, summary.dist.webc_sha256);
                 Ok(container)
             }
         }
@@ -221,8 +221,8 @@ impl FileSystemCache {
         }
     }
 
-    async fn save(&self, webc: &[u8], summary: &Summary) -> Result<(), Error> {
-        let path = self.path(&summary.webc_sha256);
+    async fn save(&self, webc: &[u8], dist: &DistributionInfo) -> Result<(), Error> {
+        let path = self.path(&dist.webc_sha256);
 
         let parent = path.parent().expect("Always within cache_dir");
 
@@ -273,7 +273,7 @@ mod tests {
 
     use crate::{
         http::{HttpRequest, HttpResponse},
-        runtime::resolver::{SourceId, SourceKind},
+        runtime::resolver::{PackageInfo, SourceId, SourceKind},
     };
 
     use super::*;
@@ -320,17 +320,21 @@ mod tests {
         }]));
         let loader = BuiltinLoader::new_with_client(temp.path(), client.clone());
         let summary = Summary {
-            package_name: "python/python".to_string(),
-            version: "0.1.0".parse().unwrap(),
-            webc: "https://wapm.io/python/python".parse().unwrap(),
-            webc_sha256: [0xaa; 32].into(),
-            dependencies: Vec::new(),
-            commands: Vec::new(),
-            source: SourceId::new(
-                SourceKind::Url,
-                "https://registry.wapm.io/graphql".parse().unwrap(),
-            ),
-            entrypoint: Some("asdf".to_string()),
+            pkg: PackageInfo {
+                name: "python/python".to_string(),
+                version: "0.1.0".parse().unwrap(),
+                dependencies: Vec::new(),
+                commands: Vec::new(),
+                entrypoint: Some("asdf".to_string()),
+            },
+            dist: DistributionInfo {
+                webc: "https://wapm.io/python/python".parse().unwrap(),
+                webc_sha256: [0xaa; 32].into(),
+                source: SourceId::new(
+                    SourceKind::Url,
+                    "https://registry.wapm.io/graphql".parse().unwrap(),
+                ),
+            },
         };
 
         let container = loader.load(&summary).await.unwrap();
@@ -338,7 +342,7 @@ mod tests {
         // A HTTP request was sent
         let requests = client.requests.lock().unwrap();
         let request = &requests[0];
-        assert_eq!(request.url, summary.webc.to_string());
+        assert_eq!(request.url, summary.dist.webc.to_string());
         assert_eq!(request.method, "GET");
         assert_eq!(
             request.headers,
@@ -351,11 +355,11 @@ mod tests {
         let manifest = container.manifest();
         assert_eq!(manifest.entrypoint.as_deref(), Some("python"));
         // it should have been automatically saved to disk
-        let path = loader.fs.path(&summary.webc_sha256);
+        let path = loader.fs.path(&summary.dist.webc_sha256);
         assert!(path.exists());
         assert_eq!(std::fs::read(&path).unwrap(), PYTHON);
         // and cached in memory for next time
         let in_memory = loader.in_memory.0.read().unwrap();
-        assert!(in_memory.contains_key(&summary.webc_sha256));
+        assert!(in_memory.contains_key(&summary.dist.webc_sha256));
     }
 }

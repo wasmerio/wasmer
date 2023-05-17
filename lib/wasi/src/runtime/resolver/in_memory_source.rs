@@ -63,19 +63,14 @@ impl InMemorySource {
 
     /// Add a new [`Summary`] to the [`InMemorySource`].
     pub fn add(&mut self, summary: Summary) {
-        let summaries = self
-            .packages
-            .entry(summary.package_name.clone())
-            .or_default();
+        let summaries = self.packages.entry(summary.pkg.name.clone()).or_default();
         summaries.push(summary);
-        summaries.sort_by(|left, right| left.version.cmp(&right.version));
-        summaries.dedup_by(|left, right| left.version == right.version);
+        summaries.sort_by(|left, right| left.pkg.version.cmp(&right.pkg.version));
+        summaries.dedup_by(|left, right| left.pkg.version == right.pkg.version);
     }
 
     pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
-        let path = path.as_ref();
-
-        let summary = super::extract_summary_from_webc(path, self.id())?;
+        let summary = Summary::from_webc_file(path, self.id())?;
         self.add(summary);
 
         Ok(())
@@ -87,7 +82,7 @@ impl InMemorySource {
 
     pub fn get(&self, package_name: &str, version: &Version) -> Option<&Summary> {
         let summaries = self.packages.get(package_name)?;
-        summaries.iter().find(|s| s.version == *version)
+        summaries.iter().find(|s| s.pkg.version == *version)
     }
 }
 
@@ -105,7 +100,7 @@ impl Source for InMemorySource {
                 match self.packages.get(full_name) {
                     Some(summaries) => Ok(summaries
                         .iter()
-                        .filter(|summary| version.matches(&summary.version))
+                        .filter(|summary| version.matches(&summary.pkg.version))
                         .cloned()
                         .collect()),
                     None => Ok(Vec::new()),
@@ -120,7 +115,10 @@ impl Source for InMemorySource {
 mod tests {
     use tempfile::TempDir;
 
-    use crate::runtime::resolver::Dependency;
+    use crate::runtime::resolver::{
+        inputs::{DistributionInfo, PackageInfo},
+        Dependency,
+    };
 
     use super::*;
 
@@ -154,26 +152,30 @@ mod tests {
         assert_eq!(
             source.packages["sharrattj/bash"][0],
             Summary {
-                package_name: "sharrattj/bash".to_string(),
-                version: "1.0.12".parse().unwrap(),
-                webc: Url::from_file_path(bash.canonicalize().unwrap()).unwrap(),
-                webc_sha256: [
-                    7, 226, 190, 131, 173, 231, 130, 245, 207, 185, 51, 189, 86, 85, 222, 37, 27,
-                    163, 170, 27, 25, 24, 211, 136, 186, 233, 174, 119, 66, 15, 134, 9
-                ]
-                .into(),
-                dependencies: vec![Dependency {
-                    alias: "coreutils".to_string(),
-                    pkg: "sharrattj/coreutils@^1.0.11".parse().unwrap()
-                }],
-                commands: ["bash", "sh"]
-                    .iter()
-                    .map(|name| crate::runtime::resolver::Command {
-                        name: name.to_string()
-                    })
-                    .collect(),
-                entrypoint: None,
-                source: source.id()
+                pkg: PackageInfo {
+                    name: "sharrattj/bash".to_string(),
+                    version: "1.0.12".parse().unwrap(),
+                    dependencies: vec![Dependency {
+                        alias: "coreutils".to_string(),
+                        pkg: "sharrattj/coreutils@^1.0.11".parse().unwrap()
+                    }],
+                    commands: ["bash", "sh"]
+                        .iter()
+                        .map(|name| crate::runtime::resolver::Command {
+                            name: name.to_string()
+                        })
+                        .collect(),
+                    entrypoint: None,
+                },
+                dist: DistributionInfo {
+                    webc: Url::from_file_path(bash.canonicalize().unwrap()).unwrap(),
+                    webc_sha256: [
+                        7, 226, 190, 131, 173, 231, 130, 245, 207, 185, 51, 189, 86, 85, 222, 37,
+                        27, 163, 170, 27, 25, 24, 211, 136, 186, 233, 174, 119, 66, 15, 134, 9
+                    ]
+                    .into(),
+                    source: source.id()
+                },
             }
         );
     }
