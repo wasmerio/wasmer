@@ -17,7 +17,7 @@ pub trait Registry: Send + Sync + Debug {
         let candidates = self.query(pkg).await?;
         candidates
             .into_iter()
-            .max_by(|left, right| left.version.cmp(&right.version))
+            .max_by(|left, right| left.pkg.version.cmp(&right.pkg.version))
             .ok_or_else(|| Error::msg("Couldn't find a package version satisfying that constraint"))
     }
 }

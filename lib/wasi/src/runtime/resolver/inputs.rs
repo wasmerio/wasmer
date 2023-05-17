@@ -105,39 +105,51 @@ impl Dependency {
 /// [source]: crate::runtime::resolver::Source
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Summary {
+    pub pkg: PackageInfo,
+    pub dist: DistributionInfo,
+}
+
+impl Summary {
+    pub fn package_id(&self) -> PackageId {
+        PackageId {
+            package_name: self.pkg.name.clone(),
+            version: self.pkg.version.clone(),
+            source: self.dist.source.clone(),
+        }
+    }
+}
+
+/// Information about a package's contents.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PackageInfo {
     /// The package's full name (i.e. `wasmer/wapm2pirita`).
-    pub package_name: String,
+    pub name: String,
     /// The package version.
     pub version: Version,
-    /// A URL that can be used to download the `*.webc` file.
-    pub webc: Url,
-    /// A SHA-256 checksum for the `*.webc` file.
-    pub webc_sha256: WebcHash,
-    /// Any dependencies this package may have.
-    pub dependencies: Vec<Dependency>,
     /// Commands this package exposes to the outside world.
     pub commands: Vec<Command>,
     /// The name of a [`Command`] that should be used as this package's
     /// entrypoint.
     pub entrypoint: Option<String>,
+    /// Any dependencies this package may have.
+    pub dependencies: Vec<Dependency>,
+}
+
+/// Information used when retrieving a package.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DistributionInfo {
+    /// A URL that can be used to download the `*.webc` file.
+    pub webc: Url,
+    /// A SHA-256 checksum for the `*.webc` file.
+    pub webc_sha256: WebcHash,
     /// The [`Source`][source] this [`Summary`] came from.
     ///
     /// [source]: crate::runtime::resolver::Source
     pub source: SourceId,
 }
 
-impl Summary {
-    pub fn package_id(&self) -> PackageId {
-        PackageId {
-            package_name: self.package_name.clone(),
-            version: self.version.clone(),
-            source: self.source.clone(),
-        }
-    }
-}
-
 /// The SHA-256 hash of a `*.webc` file.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WebcHash([u8; 32]);
 
 impl WebcHash {
