@@ -50,7 +50,7 @@ pub struct TestSpec {
 }
 
 fn is_false(b: &bool) -> bool {
-    *b == false
+    !(*b)
 }
 
 static WEBC_BASH: &[u8] =
@@ -61,10 +61,10 @@ static WEBC_COREUTILS_11: &[u8] =
     include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
 static WEBC_DASH: &[u8] =
     include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
-static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &'static [u8] =
+static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
+static WEBC_WEB_SERVER: &[u8] =
     include_bytes!("./webc/static-web-server-1.0.96-e2b80276-c194-473d-bbd0-27c8a2c96a59.webc");
-static WEBC_WASMER_SH: &'static [u8] =
+static WEBC_WASMER_SH: &[u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
 impl std::fmt::Debug for TestSpec {
@@ -300,7 +300,7 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     }
 
     for pkg in &spec.use_packages {
-        cmd.args(["--use", &pkg]);
+        cmd.args(["--use", pkg]);
     }
 
     for pkg in &spec.include_webcs {
@@ -374,28 +374,24 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     // we do some post processing to replace the temporary random name of the binary
     // with a fixed name as otherwise the results are not comparable. this occurs
     // because bash (and others) use the process name in the printf on stdout
-    let stdout = stdout
-        .replace(
-            wasm_path
-                .path()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .as_ref(),
-            "test.wasm",
-        )
-        .to_string();
-    let stderr = stderr
-        .replace(
-            wasm_path
-                .path()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .as_ref(),
-            "test.wasm",
-        )
-        .to_string();
+    let stdout = stdout.replace(
+        wasm_path
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .as_ref(),
+        "test.wasm",
+    );
+    let stderr = stderr.replace(
+        wasm_path
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .as_ref(),
+        "test.wasm",
+    );
 
     TestResult::Success(TestOutput {
         stdout,
@@ -417,16 +413,16 @@ pub fn build_snapshot(mut spec: TestSpec, code: &[u8]) -> TestSnapshot {
                 .map(|status| status.code().unwrap_or_default())
         }),
     );
-    let snapshot = TestSnapshot { spec, result };
-    snapshot
+
+    TestSnapshot { spec, result }
 }
 
 pub fn build_snapshot_with(mut spec: TestSpec, code: &[u8], with: RunWith) -> TestSnapshot {
     spec.wasm_hash = format!("{:x}", md5::compute(code));
 
     let result = run_test_with(spec.clone(), code, with);
-    let snapshot = TestSnapshot { spec, result };
-    snapshot
+
+    TestSnapshot { spec, result }
 }
 
 pub fn snapshot_file(path: &Path, spec: TestSpec) -> TestSnapshot {
@@ -496,7 +492,7 @@ fn test_snapshot_stdin_stdout_stderr() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("blah")
-        .args(&["tee", "/dev/stderr"])
+        .args(["tee", "/dev/stderr"])
         .run_wasm(include_bytes!("./wasm/coreutils.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -612,7 +608,7 @@ fn test_run_http_request(
                             }
                             Err(err) => return Err(err.into())
                         };
-                        if resp.status().is_success() == false {
+                        if !resp.status().is_success() {
                             return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
                         }
                         return Ok(resp.bytes().await?);
@@ -630,10 +626,9 @@ fn test_run_http_request(
     let expected_size = match expected_size {
         None => {
             let url = format!("http://localhost:{}/{}.size", port, what);
-            let expected_size = usize::from_str_radix(
-                String::from_utf8_lossy(http_get(url, 50)?.as_ref()).trim(),
-                10,
-            )?;
+            let expected_size = String::from_utf8_lossy(http_get(url, 50)?.as_ref())
+                .trim()
+                .parse()?;
             if expected_size == 0 {
                 return Err(anyhow::format_err!("There was no data returned"));
             }
