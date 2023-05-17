@@ -864,6 +864,7 @@ impl WasiEnv {
                     // "ownership" object in the BinaryPackageCommand,
                     // so as long as packages aren't removed from the
                     // module cache it should be fine.
+                    // See https://github.com/wasmerio/wasmer/issues/3875
                     let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
 
                     if let Err(err) = root_fs
