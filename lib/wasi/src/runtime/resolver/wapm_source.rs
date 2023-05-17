@@ -8,8 +8,7 @@ use webc::metadata::Manifest;
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, Source, SourceId, SourceKind, Summary,
-        WebcHash,
+        DistributionInfo, PackageInfo, PackageSpecifier, Source, Summary, WebcHash,
     },
 };
 
@@ -35,10 +34,6 @@ impl WapmSource {
 
 #[async_trait::async_trait]
 impl Source for WapmSource {
-    fn id(&self) -> SourceId {
-        SourceId::new(SourceKind::Registry, self.registry_endpoint.clone())
-    }
-
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
         let (full_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
@@ -91,7 +86,7 @@ impl Source for WapmSource {
         for pkg_version in response.data.get_package.versions {
             let version = Version::parse(&pkg_version.version)?;
             if version_constraint.matches(&version) {
-                let summary = decode_summary(pkg_version, self.id())?;
+                let summary = decode_summary(pkg_version)?;
                 summaries.push(summary);
             }
         }
@@ -100,10 +95,7 @@ impl Source for WapmSource {
     }
 }
 
-fn decode_summary(
-    pkg_version: WapmWebQueryGetPackageVersion,
-    source: SourceId,
-) -> Result<Summary, Error> {
+fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<Summary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
         distribution:
@@ -124,7 +116,6 @@ fn decode_summary(
     Ok(Summary {
         pkg: PackageInfo::from_manifest(&manifest)?,
         dist: DistributionInfo {
-            source,
             webc: pirita_download_url.parse()?,
             webc_sha256,
         },
@@ -257,42 +248,41 @@ mod tests {
                     entrypoint: Some("wasmer-pack".to_string()),
                 },
                 dist: DistributionInfo {
-                webc: "https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc".parse().unwrap(),
-                webc_sha256: WebcHash::from_bytes([
-                    126,
-                    26,
-                    221,
-                    22,
-                    64,
-                    208,
-                    3,
-                    127,
-                    246,
-                    167,
-                    38,
-                    205,
-                    126,
-                    20,
-                    234,
-                    54,
-                    21,
-                    158,
-                    194,
-                    219,
-                    140,
-                    182,
-                    222,
-                    189,
-                    14,
-                    66,
-                    250,
-                    39,
-                    57,
-                    190,
-                    165,
-                    43,
-                ]),
-                source: source.id(),
+                    webc: "https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc".parse().unwrap(),
+                    webc_sha256: WebcHash::from_bytes([
+                        126,
+                        26,
+                        221,
+                        22,
+                        64,
+                        208,
+                        3,
+                        127,
+                        246,
+                        167,
+                        38,
+                        205,
+                        126,
+                        20,
+                        234,
+                        54,
+                        21,
+                        158,
+                        194,
+                        219,
+                        140,
+                        182,
+                        222,
+                        189,
+                        14,
+                        66,
+                        250,
+                        39,
+                        57,
+                        190,
+                        165,
+                        43,
+                    ]),
                 }
             }]
         );

@@ -15,7 +15,7 @@ use webc::{
     Container,
 };
 
-use crate::runtime::resolver::{PackageId, SourceId};
+use crate::runtime::resolver::PackageId;
 
 /// A reference to *some* package somewhere that the user wants to run.
 ///
@@ -121,14 +121,10 @@ pub struct Summary {
 
 impl Summary {
     pub fn package_id(&self) -> PackageId {
-        PackageId {
-            package_name: self.pkg.name.clone(),
-            version: self.pkg.version.clone(),
-            source: self.dist.source.clone(),
-        }
+        self.pkg.id()
     }
 
-    pub fn from_webc_file(path: impl AsRef<Path>, source: SourceId) -> Result<Summary, Error> {
+    pub fn from_webc_file(path: impl AsRef<Path>) -> Result<Summary, Error> {
         let path = path.as_ref().canonicalize()?;
         let container = Container::from_disk(&path)?;
         let webc_sha256 = WebcHash::for_file(&path)?;
@@ -138,7 +134,6 @@ impl Summary {
 
         let pkg = PackageInfo::from_manifest(container.manifest())?;
         let dist = DistributionInfo {
-            source,
             webc: url,
             webc_sha256,
         };
@@ -196,6 +191,13 @@ impl PackageInfo {
             entrypoint: manifest.entrypoint.clone(),
         })
     }
+
+    pub fn id(&self) -> PackageId {
+        PackageId {
+            package_name: self.name.clone(),
+            version: self.version.clone(),
+        }
+    }
 }
 
 fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifier, Error> {
@@ -235,10 +237,6 @@ pub struct DistributionInfo {
     pub webc: Url,
     /// A SHA-256 checksum for the `*.webc` file.
     pub webc_sha256: WebcHash,
-    /// The [`Source`][source] this [`Summary`] came from.
-    ///
-    /// [source]: crate::runtime::resolver::Source
-    pub source: SourceId,
 }
 
 /// The SHA-256 hash of a `*.webc` file.

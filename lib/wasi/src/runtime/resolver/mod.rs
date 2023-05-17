@@ -18,6 +18,6 @@ pub use self::{
     },
     registry::Registry,
     resolve::resolve,
-    source::{Source, SourceId, SourceKind},
+    source::Source,
     wapm_source::WapmSource,
 };

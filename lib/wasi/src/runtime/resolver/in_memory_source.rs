@@ -6,9 +6,8 @@ use std::{
 
 use anyhow::{Context, Error};
 use semver::Version;
-use url::Url;
 
-use crate::runtime::resolver::{PackageSpecifier, Source, SourceId, SourceKind, Summary};
+use crate::runtime::resolver::{PackageSpecifier, Source, Summary};
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -70,7 +69,7 @@ impl InMemorySource {
     }
 
     pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
-        let summary = Summary::from_webc_file(path, self.id())?;
+        let summary = Summary::from_webc_file(path)?;
         self.add(summary);
 
         Ok(())
@@ -88,12 +87,6 @@ impl InMemorySource {
 
 #[async_trait::async_trait]
 impl Source for InMemorySource {
-    fn id(&self) -> SourceId {
-        // FIXME: We need to have a proper SourceId here
-        let url = Url::from_directory_path(std::env::current_dir().unwrap()).unwrap();
-        SourceId::new(SourceKind::LocalRegistry, url)
-    }
-
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
         match package {
             PackageSpecifier::Registry { full_name, version } => {
@@ -114,6 +107,7 @@ impl Source for InMemorySource {
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
+    use url::Url;
 
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, PackageInfo},
@@ -174,7 +168,6 @@ mod tests {
                         27, 163, 170, 27, 25, 24, 211, 136, 186, 233, 174, 119, 66, 15, 134, 9
                     ]
                     .into(),
-                    source: source.id()
                 },
             }
         );

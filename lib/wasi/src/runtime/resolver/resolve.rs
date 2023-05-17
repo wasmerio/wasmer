@@ -221,8 +221,7 @@ fn resolve_filesystem_mapping(
 mod tests {
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, PackageInfo},
-        Dependency, InMemorySource, MultiSourceRegistry, PackageSpecifier, Source, SourceId,
-        SourceKind,
+        Dependency, InMemorySource, MultiSourceRegistry, PackageSpecifier,
     };
 
     use super::*;
@@ -247,7 +246,6 @@ mod tests {
                     .parse()
                     .unwrap(),
                 webc_sha256: [0; 32].into(),
-                source: self.0.id(),
             };
             let summary = Summary { pkg, dist };
 
@@ -756,25 +754,18 @@ mod tests {
 
     #[test]
     fn cyclic_error_message() {
-        let source = SourceId::new(
-            SourceKind::Registry,
-            "http://localhost:8000/".parse().unwrap(),
-        );
         let cycle = [
             PackageId {
                 package_name: "root".to_string(),
                 version: "1.0.0".parse().unwrap(),
-                source: source.clone(),
             },
             PackageId {
                 package_name: "dep".to_string(),
                 version: "1.0.0".parse().unwrap(),
-                source: source.clone(),
             },
             PackageId {
                 package_name: "root".to_string(),
                 version: "1.0.0".parse().unwrap(),
-                source,
             },
         ];
 

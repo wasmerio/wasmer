@@ -309,7 +309,7 @@ mod tests {
 
     use crate::{
         http::{HttpRequest, HttpResponse},
-        runtime::resolver::{PackageInfo, SourceId, SourceKind},
+        runtime::resolver::PackageInfo,
     };
 
     use super::*;
@@ -366,10 +366,6 @@ mod tests {
             dist: DistributionInfo {
                 webc: "https://wapm.io/python/python".parse().unwrap(),
                 webc_sha256: [0xaa; 32].into(),
-                source: SourceId::new(
-                    SourceKind::Url,
-                    "https://registry.wapm.io/graphql".parse().unwrap(),
-                ),
             },
         };
 
