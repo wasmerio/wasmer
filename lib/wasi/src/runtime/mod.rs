@@ -11,18 +11,15 @@ use std::{
 };
 
 use derivative::Derivative;
-use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use webc::Container;
 
 use crate::{
-    bin_factory::BinaryPackage,
     http::DynHttpClient,
     os::TtyBridge,
     runtime::{
         module_cache::ModuleCache,
-        package_loader::{BuiltinLoader, PackageLoader},
-        resolver::{MultiSourceRegistry, Registry, Resolution, WapmSource},
+        package_loader::{BuiltinPackageLoader, PackageLoader},
+        resolver::{MultiSourceRegistry, Registry, WapmSource},
     },
     WasiTtyState,
 };
@@ -32,7 +29,7 @@ use crate::{
 #[allow(unused_variables)]
 pub trait WasiRuntime
 where
-    Self: fmt::Debug + Sync,
+    Self: fmt::Debug,
 {
     /// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
@@ -79,23 +76,6 @@ where
     fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         None
     }
-
-    /// Load a resolved package into memory so it can be executed.
-    ///
-    /// This will use [`package_loader::load_package_tree()`] by default and
-    /// should be good enough for most applications.
-    fn load_package_tree<'a>(
-        &'a self,
-        root: &'a Container,
-        resolution: &'a Resolution,
-    ) -> BoxFuture<'a, Result<BinaryPackage, Box<dyn std::error::Error + Send + Sync>>> {
-        let package_loader = self.package_loader();
-
-        Box::pin(async move {
-            let pkg = package_loader::load_package_tree(root, &package_loader, resolution).await?;
-            Ok(pkg)
-        })
-    }
 }
 
 #[derive(Debug, Default)]
@@ -128,7 +108,7 @@ pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
-    pub loader: Arc<dyn PackageLoader + Send + Sync>,
+    pub package_loader: Arc<dyn PackageLoader + Send + Sync>,
     pub registry: Arc<dyn Registry + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
@@ -149,8 +129,8 @@ impl PluggableRuntime {
         let http_client =
             crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
-        let loader =
-            BuiltinLoader::from_env().expect("Loading the builtin resolver should never fail");
+        let loader = BuiltinPackageLoader::from_env()
+            .expect("Loading the builtin resolver should never fail");
 
         let mut registry = MultiSourceRegistry::new();
         if let Some(client) = &http_client {
@@ -167,7 +147,7 @@ impl PluggableRuntime {
             engine: None,
             tty: None,
             registry: Arc::new(registry),
-            loader: Arc::new(loader),
+            package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
         }
     }
@@ -203,8 +183,11 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_loader(&mut self, loader: impl PackageLoader + Send + Sync + 'static) -> &mut Self {
-        self.loader = Arc::new(loader);
+    pub fn set_package_loader(
+        &mut self,
+        package_loader: impl PackageLoader + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.package_loader = Arc::new(package_loader);
         self
     }
 }
@@ -219,7 +202,7 @@ impl WasiRuntime for PluggableRuntime {
     }
 
     fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
-        Arc::clone(&self.loader)
+        Arc::clone(&self.package_loader)
     }
 
     fn registry(&self) -> Arc<dyn Registry + Send + Sync> {

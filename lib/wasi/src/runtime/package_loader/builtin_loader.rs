@@ -15,33 +15,34 @@ use webc::{
 };
 
 use crate::{
+    bin_factory::BinaryPackage,
     http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
     runtime::{
         package_loader::PackageLoader,
-        resolver::{DistributionInfo, Summary, WebcHash},
+        resolver::{DistributionInfo, Resolution, Summary, WebcHash},
     },
 };
 
 /// The builtin [`PackageLoader`] that is used by the `wasmer` CLI and
 /// respects `$WASMER_HOME`.
 #[derive(Debug)]
-pub struct BuiltinLoader {
+pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
     in_memory: InMemoryCache,
     fs: FileSystemCache,
 }
 
-impl BuiltinLoader {
+impl BuiltinPackageLoader {
     pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
         let client = crate::http::default_http_client().unwrap();
-        BuiltinLoader::new_with_client(cache_dir, Arc::new(client))
+        BuiltinPackageLoader::new_with_client(cache_dir, Arc::new(client))
     }
 
     pub fn new_with_client(
         cache_dir: impl Into<PathBuf>,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Self {
-        BuiltinLoader {
+        BuiltinPackageLoader {
             fs: FileSystemCache {
                 cache_dir: cache_dir.into(),
             },
@@ -55,7 +56,7 @@ impl BuiltinLoader {
     pub fn from_env() -> Result<Self, Error> {
         let wasmer_home = discover_wasmer_home().context("Unable to determine $WASMER_HOME")?;
         let client = crate::http::default_http_client().context("No HTTP client available")?;
-        Ok(BuiltinLoader::new_with_client(
+        Ok(BuiltinPackageLoader::new_with_client(
             wasmer_home.join("checkouts"),
             Arc::new(client),
         ))
@@ -79,6 +80,8 @@ impl BuiltinLoader {
 
     async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
         if dist.webc.scheme() == "file" {
+            // Note: The Url::to_file_path() method is platform-specific
+            #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))]
             if let Ok(path) = dist.webc.to_file_path() {
                 // FIXME: This will block the thread
                 let bytes = std::fs::read(&path)
@@ -143,7 +146,7 @@ impl BuiltinLoader {
 }
 
 #[async_trait::async_trait]
-impl PackageLoader for BuiltinLoader {
+impl PackageLoader for BuiltinPackageLoader {
     #[tracing::instrument(
         level="debug",
         skip_all,
@@ -191,6 +194,14 @@ impl PackageLoader for BuiltinLoader {
                 Ok(container)
             }
         }
+    }
+
+    async fn load_package_tree(
+        &self,
+        root: &Container,
+        resolution: &Resolution,
+    ) -> Result<BinaryPackage, Error> {
+        super::load_package_tree(root, self, resolution).await
     }
 }
 
@@ -337,7 +348,7 @@ mod tests {
             status_text: "OK".to_string(),
             headers: Vec::new(),
         }]));
-        let loader = BuiltinLoader::new_with_client(temp.path(), client.clone());
+        let loader = BuiltinPackageLoader::new_with_client(temp.path(), client.clone());
         let summary = Summary {
             pkg: PackageInfo {
                 name: "python/python".to_string(),
