@@ -1,7 +1,14 @@
-use std::{fmt::Display, path::PathBuf, str::FromStr};
+use std::{
+    fmt::{self, Display, Formatter},
+    fs::File,
+    io::{BufRead, BufReader},
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::Context;
 use semver::{Version, VersionReq};
+use sha2::{Digest, Sha256};
 use url::Url;
 
 use crate::runtime::resolver::{PackageId, SourceId};
@@ -105,7 +112,7 @@ pub struct Summary {
     /// A URL that can be used to download the `*.webc` file.
     pub webc: Url,
     /// A SHA-256 checksum for the `*.webc` file.
-    pub webc_sha256: [u8; 32],
+    pub webc_sha256: WebcHash,
     /// Any dependencies this package may have.
     pub dependencies: Vec<Dependency>,
     /// Commands this package exposes to the outside world.
@@ -126,6 +133,63 @@ impl Summary {
             version: self.version.clone(),
             source: self.source.clone(),
         }
+    }
+}
+
+/// The SHA-256 hash of a `*.webc` file.
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub struct WebcHash([u8; 32]);
+
+impl WebcHash {
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        WebcHash(bytes)
+    }
+
+    pub fn for_file(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
+        let mut hasher = Sha256::default();
+        let mut reader = BufReader::new(File::open(path)?);
+
+        loop {
+            let buffer = reader.fill_buf()?;
+            if buffer.is_empty() {
+                break;
+            }
+            hasher.update(buffer);
+            let bytes_read = buffer.len();
+            reader.consume(bytes_read);
+        }
+
+        let hash = hasher.finalize().into();
+        Ok(WebcHash::from_bytes(hash))
+    }
+
+    /// Generate a new [`WebcHash`] based on the SHA-256 hash of some bytes.
+    pub fn sha256(webc: impl AsRef<[u8]>) -> Self {
+        let webc = webc.as_ref();
+
+        let mut hasher = Sha256::default();
+        hasher.update(webc);
+        WebcHash::from_bytes(hasher.finalize().into())
+    }
+
+    pub fn as_bytes(self) -> [u8; 32] {
+        self.0
+    }
+}
+
+impl From<[u8; 32]> for WebcHash {
+    fn from(bytes: [u8; 32]) -> Self {
+        WebcHash::from_bytes(bytes)
+    }
+}
+
+impl Display for WebcHash {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        for byte in self.0 {
+            write!(f, "{byte:02X}")?;
+        }
+
+        Ok(())
     }
 }
 

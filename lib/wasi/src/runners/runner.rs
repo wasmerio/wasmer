@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use anyhow::Error;
-use webc::{metadata::Command, Container};
+use webc::metadata::Command;
 
-use crate::WasiRuntime;
+use crate::{bin_factory::BinaryPackage, WasiRuntime};
 
 /// Trait that all runners have to implement
 pub trait Runner {
@@ -12,14 +12,12 @@ pub trait Runner {
     where
         Self: Sized;
 
-    /// Implementation to run the given command
-    ///
-    /// - use `cmd.annotations` to get the metadata for the given command
-    /// - use `container.get_atom()` to get the
+    /// Run a command.
     fn run_command(
         &mut self,
+        pkg: &BinaryPackage,
         command_name: &str,
-        container: &Container,
+        metadata: &Command,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error>;
 }

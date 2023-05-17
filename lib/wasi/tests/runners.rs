@@ -22,7 +22,7 @@ use webc::Container;
 
 #[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
-    use wasmer_wasix::{runners::wasi::WasiRunner, WasiError};
+    use wasmer_wasix::{runners::wasi::WasiRunner, WasiError, bin_factory::BinaryPackage};
 
     use super::*;
 
@@ -40,6 +40,7 @@ mod wasi {
         let webc = download_cached("https://wapm.io/wasmer/wabt").await;
         let container = Container::from_bytes(webc).unwrap();
         let rt = runtime();
+        let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
 
         // Note: we don't have any way to intercept stdin or stdout, so blindly
         // assume that everything is fine if it runs successfully.

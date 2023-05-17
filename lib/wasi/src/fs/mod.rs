@@ -409,10 +409,7 @@ impl WasiFs {
         let mut guard = self.has_unioned.lock().unwrap();
         if !guard.contains(&package_name) {
             guard.insert(package_name);
-
-            if let Some(fs) = binary.webc_fs.clone() {
-                sandbox_fs.union(&fs);
-            }
+            sandbox_fs.union(&binary.webc_fs);
         }
         true
     }

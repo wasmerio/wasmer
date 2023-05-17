@@ -68,7 +68,7 @@ pub(crate) fn parse_webc(webc: &Container) -> Result<BinaryPackage, anyhow::Erro
         ),
         entry: entry.map(Into::into),
         hash: OnceCell::new(),
-        webc_fs: Some(Arc::new(webc_fs)),
+        webc_fs: Arc::new(webc_fs),
         commands: Arc::new(RwLock::new(commands.into_values().collect())),
         uses,
         version: wapm.version.parse()?,

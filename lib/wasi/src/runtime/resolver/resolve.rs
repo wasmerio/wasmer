@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
-use semver::Version;
-
 use crate::runtime::resolver::{
     DependencyGraph, ItemLocation, PackageId, Registry, Resolution, ResolvedPackage, Summary,
 };
@@ -215,7 +213,7 @@ mod tests {
                 webc: format!("http://localhost/{name}@{version}")
                     .parse()
                     .unwrap(),
-                webc_sha256: [0; 32],
+                webc_sha256: [0; 32].into(),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: None,

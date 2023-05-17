@@ -3,11 +3,11 @@ use std::sync::Arc;
 use anyhow::{Context, Error};
 use semver::Version;
 use url::Url;
-use webc::metadata::{Manifest, UrlOrManifest};
+use webc::metadata::Manifest;
 
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse},
-    runtime::resolver::{Dependency, PackageSpecifier, Source, SourceId, SourceKind, Summary},
+    runtime::resolver::{PackageSpecifier, Source, SourceId, SourceKind, Summary, WebcHash},
 };
 
 /// A [`Source`] which will resolve dependencies by pinging a WAPM-like GraphQL
@@ -75,7 +75,7 @@ impl Source for WapmSource {
         for pkg_version in response.data.get_package.versions {
             let version = Version::parse(&pkg_version.version)?;
             if version_constraint.matches(&version) {
-                let summary = decode_summary(pkg_version, full_name.clone(), self.id())?;
+                let summary = decode_summary(pkg_version, self.id())?;
                 summaries.push(summary);
             }
         }
@@ -86,17 +86,16 @@ impl Source for WapmSource {
 
 fn decode_summary(
     pkg_version: WapmWebQueryGetPackageVersion,
-    package_name: String,
     source: SourceId,
 ) -> Result<Summary, Error> {
     let WapmWebQueryGetPackageVersion {
-        version,
         manifest,
         distribution:
             WapmWebQueryGetPackageVersionDistribution {
                 pirita_download_url,
                 pirita_sha256_hash,
             },
+        ..
     } = pkg_version;
 
     let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
@@ -104,35 +103,14 @@ fn decode_summary(
 
     let mut webc_sha256 = [0_u8; 32];
     hex::decode_to_slice(&pirita_sha256_hash, &mut webc_sha256)?;
+    let webc_sha256 = WebcHash::from_bytes(webc_sha256);
 
-    let dependencies = manifest
-        .use_map
-        .iter()
-        .map(|(alias, value)| parse_dependency(alias, value))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let commands = manifest
-        .commands
-        .iter()
-        .map(|(name, _value)| crate::runtime::resolver::Command {
-            name: name.to_string(),
-        })
-        .collect();
-
-    Ok(Summary {
-        package_name,
-        version: version.parse()?,
-        webc: pirita_download_url.parse()?,
-        webc_sha256,
-        dependencies,
-        commands,
+    super::extract_summary_from_manifest(
+        &manifest,
         source,
-        entrypoint: manifest.entrypoint,
-    })
-}
-
-fn parse_dependency(_alias: &str, _value: &UrlOrManifest) -> Result<Dependency, Error> {
-    todo!();
+        pirita_download_url.parse()?,
+        webc_sha256,
+    )
 }
 
 #[allow(dead_code)]
@@ -169,6 +147,7 @@ pub struct WapmWebQueryGetPackage {
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersion {
     pub version: String,
+    /// A JSON string containing a [`Manifest`] definition.
     #[serde(rename = "piritaManifest")]
     pub manifest: String,
     pub distribution: WapmWebQueryGetPackageVersionDistribution,
@@ -249,7 +228,7 @@ mod tests {
                 package_name: "wasmer/wasmer-pack-cli".to_string(),
                 version: Version::new(0, 6, 0),
                 webc: "https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc".parse().unwrap(),
-                webc_sha256: [
+                webc_sha256: WebcHash::from_bytes([
                     126,
                     26,
                     221,
@@ -282,7 +261,7 @@ mod tests {
                     190,
                     165,
                     43,
-                ],
+                ]),
                 dependencies: Vec::new(),
                 commands: vec![
                     crate::runtime::resolver::Command {

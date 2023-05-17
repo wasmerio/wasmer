@@ -883,9 +883,7 @@ impl WasiEnv {
 
                     if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
                         // We first need to copy any files in the package over to the temporary file system
-                        if let Some(fs) = package.webc_fs.as_ref() {
-                            root_fs.union(fs);
-                        }
+                        root_fs.union(&package.webc_fs);
 
                         // Add all the commands as binaries in the bin folder
 

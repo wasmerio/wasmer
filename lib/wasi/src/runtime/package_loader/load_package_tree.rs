@@ -52,7 +52,7 @@ pub async fn load_package_tree(
                 .find(|cmd| cmd.name() == entry)
                 .map(|cmd| cmd.atom.clone())
         }),
-        webc_fs: Some(Arc::new(fs)),
+        webc_fs: Arc::new(fs),
         commands: Arc::new(RwLock::new(commands)),
         uses: Vec::new(),
         module_memory_footprint,
