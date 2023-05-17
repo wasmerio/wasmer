@@ -6,7 +6,7 @@ use std::{
 
 use semver::Version;
 
-use crate::runtime::resolver::{SourceId, Summary};
+use crate::runtime::resolver::{DistributionInfo, PackageInfo, SourceId};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolution {
@@ -58,7 +58,8 @@ impl Display for PackageId {
 pub struct DependencyGraph {
     pub root: PackageId,
     pub dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
-    pub summaries: HashMap<PackageId, Summary>,
+    pub package_info: HashMap<PackageId, PackageInfo>,
+    pub distribution: HashMap<PackageId, DistributionInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

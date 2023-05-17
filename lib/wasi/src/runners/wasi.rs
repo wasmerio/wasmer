@@ -135,12 +135,13 @@ impl crate::runners::Runner for WasiRunner {
         let wasi = metadata
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
-        let atom = pkg
-            .entry
-            .as_deref()
-            .context("The package doesn't contain an entrpoint")?;
+        let cmd = pkg
+            .commands
+            .iter()
+            .find(|cmd| cmd.name() == command_name)
+            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
 
-        let module = crate::runners::compile_module(atom, &*runtime)?;
+        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
         let mut store = runtime.new_store();
 
         self.prepare_webc_env(command_name, &wasi, Arc::clone(&pkg.webc_fs), runtime)?

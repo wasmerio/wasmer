@@ -53,12 +53,11 @@ mod wasi {
             )
         });
         let err = handle.join().unwrap().unwrap_err();
-        dbg!(&err);
 
         let runtime_error = err
             .chain()
             .find_map(|e| e.downcast_ref::<WasiError>())
-            .unwrap();
+            .expect("Couldn't find a WasiError");
         let exit_code = match runtime_error {
             WasiError::Exit(code) => *code,
             other => unreachable!("Something else went wrong: {:?}", other),
@@ -104,7 +103,7 @@ mod wcgi {
     use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
-    use wasmer_wasix::{runners::wcgi::WcgiRunner, bin_factory::BinaryPackage};
+    use wasmer_wasix::{bin_factory::BinaryPackage, runners::wcgi::WcgiRunner};
 
     use super::*;
 
