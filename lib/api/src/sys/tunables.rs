@@ -120,8 +120,10 @@ mod tests {
             }
         }
 
-        fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-            None
+        fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+            Err(MemoryError::InvalidMemory {
+                reason: "VMTinyMemory can not be cloned".to_string(),
+            })
         }
 
         fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
