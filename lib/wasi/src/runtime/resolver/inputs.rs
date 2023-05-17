@@ -10,7 +10,10 @@ use anyhow::{Context, Error};
 use semver::{Version, VersionReq};
 use sha2::{Digest, Sha256};
 use url::Url;
-use webc::{metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest}, Container};
+use webc::{
+    metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest},
+    Container,
+};
 
 use crate::runtime::resolver::{PackageId, SourceId};
 

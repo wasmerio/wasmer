@@ -17,6 +17,7 @@ use std::str::FromStr;
 use wasmer::FunctionEnv;
 use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
+use wasmer_registry::WasmerConfig;
 use wasmer_types::Type as ValueType;
 use wasmer_wasix::runners::Runner;
 
@@ -342,9 +343,10 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
+                    let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
                     let (ctx, instance) = self
                         .wasi
-                        .instantiate(&mut store, &module, program_name, self.args.clone())
+                        .instantiate(&mut store, &module, program_name, self.args.clone(), &wasmer_home)
                         .with_context(|| "failed to instantiate WASI module")?;
 
                     let capable_of_deep_sleep = unsafe { ctx.data(&store).capable_of_deep_sleep() };
@@ -424,6 +426,8 @@ impl RunWithPathBuf {
             WasiRuntime,
         };
 
+        let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+
         let id = id
             .or_else(|| container.manifest().entrypoint.as_deref())
             .context("No command specified")?;
@@ -434,7 +438,10 @@ impl RunWithPathBuf {
             .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
         let (store, _compiler_type) = self.store.get_store()?;
-        let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone())?);
+        let runtime = self
+            .wasi
+            .prepare_runtime(store.engine().clone(), &wasmer_home)?;
+        let runtime = Arc::new(runtime);
         let pkg = runtime
             .task_manager()
             .block_on(BinaryPackage::from_webc(&container, &*runtime))?;

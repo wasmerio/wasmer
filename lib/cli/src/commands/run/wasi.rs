@@ -11,7 +11,6 @@ use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuild
 use wasmer::{
     AsStoreMut, Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
 };
-use wasmer_registry::WasmerConfig;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
@@ -150,6 +149,7 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
+        wasmer_home: &Path,
     ) -> Result<WasiEnvBuilder> {
         let args = args.into_iter().map(|arg| arg.into_bytes());
 
@@ -163,7 +163,7 @@ impl Wasi {
         let engine = store.as_store_mut().engine().clone();
 
         let rt = self
-            .prepare_runtime(engine)
+            .prepare_runtime(engine, wasmer_home)
             .context("Unable to prepare the wasi runtime")?;
 
         let mut uses = Vec::new();
@@ -240,7 +240,11 @@ impl Wasi {
         Ok(builder)
     }
 
-    pub fn prepare_runtime(&self, engine: Engine) -> Result<impl WasiRuntime + Send + Sync> {
+    pub fn prepare_runtime(
+        &self,
+        engine: Engine,
+        wasmer_home: &Path,
+    ) -> Result<impl WasiRuntime + Send + Sync> {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
 
         if self.networking {
@@ -255,20 +259,19 @@ impl Wasi {
             rt.set_tty(tty);
         }
 
-        let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
-
         let client =
             wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
         let client = Arc::new(client);
 
         let package_loader = self
-            .prepare_package_loader(&wasmer_home, client.clone())
+            .prepare_package_loader(wasmer_home, client.clone())
             .context("Unable to prepare the package loader")?;
 
-        let registry = self.prepare_registry(&wasmer_home, client)?;
+        let registry = self.prepare_registry(wasmer_home, client)?;
 
+        let cache_dir = FileSystemCache::default_cache_dir(wasmer_home);
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .with_fallback(FileSystemCache::new(wasmer_home.join("compiled")));
+            .with_fallback(FileSystemCache::new(cache_dir));
 
         rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
@@ -285,8 +288,9 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
+        wasmer_home: &Path,
     ) -> Result<(WasiFunctionEnv, Instance)> {
-        let builder = self.prepare(store, module, program_name, args)?;
+        let builder = self.prepare(store, module, program_name, args, wasmer_home)?;
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
         Ok((wasi_env, instance))
     }
@@ -465,8 +469,8 @@ impl Wasi {
         wasmer_home: &Path,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
-        let loader =
-            BuiltinPackageLoader::new_with_client(wasmer_home.join("checkouts"), Arc::new(client));
+        let checkout_dir = BuiltinPackageLoader::default_cache_dir(wasmer_home);
+        let loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
         Ok(loader)
     }
 
