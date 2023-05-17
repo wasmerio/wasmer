@@ -9,11 +9,17 @@ use crate::{
     runtime::resolver::{types::ResolverError, types::WebcIdentifier, PackageResolver},
 };
 
+#[derive(Debug)]
+struct PreloadedPackage {
+    package: BinaryPackage,
+    override_latest: bool,
+}
+
 /// A [`PackageResolver`] that will resolve packages by fetching them from the
 /// WAPM registry.
 ///
 /// Any downloaded assets will be cached on disk.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RegistryResolver {
     cache_dir: PathBuf,
     registry_endpoint: Url,
@@ -21,7 +27,7 @@ pub struct RegistryResolver {
     /// by the user.
     // TODO: Remove this "preload" hack and update the snapshot tests to
     // use a local registry instead of "--include-webc"
-    preloaded: Vec<BinaryPackage>,
+    preloaded: Vec<PreloadedPackage>,
 }
 
 impl RegistryResolver {
@@ -65,15 +71,28 @@ impl RegistryResolver {
     ///
     /// **This mechanism should only be used for testing**. Expect it to be
     /// removed in future versions in favour of a local registry.
-    pub fn add_preload(&mut self, pkg: BinaryPackage) -> &mut Self {
-        self.preloaded.push(pkg);
+    ///
+    /// Specify `override_latest` if this preloaded package should always be
+    /// returned when the latest version is requested.
+    pub fn add_preload(&mut self, pkg: BinaryPackage, override_latest: bool) -> &mut Self {
+        self.preloaded.push(PreloadedPackage {
+            package: pkg,
+            override_latest,
+        });
         self
     }
 
     fn lookup_preloaded(&self, pkg: &WebcIdentifier) -> Option<&BinaryPackage> {
-        self.preloaded.iter().find(|candidate| {
-            candidate.package_name == pkg.full_name && pkg.version.matches(&candidate.version)
-        })
+        self.preloaded
+            .iter()
+            .find(|candidate| {
+                if candidate.package.package_name == pkg.full_name {
+                    candidate.override_latest || pkg.version.matches(&candidate.package.version)
+                } else {
+                    false
+                }
+            })
+            .map(|c| &c.package)
     }
 }
 

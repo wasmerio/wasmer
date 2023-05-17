@@ -449,7 +449,7 @@ impl Wasi {
         for path in &self.include_webcs {
             let pkg = preload_webc(path)
                 .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
-            resolver.add_preload(pkg);
+            resolver.add_preload(pkg, false);
         }
 
         Ok(resolver.with_cache())
