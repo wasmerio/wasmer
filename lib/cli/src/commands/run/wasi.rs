@@ -31,9 +31,7 @@ use wasmer_wasix::{
     WasiRuntime, WasiVersion,
 };
 
-use crate::{
-    utils::{parse_envvar, parse_mapdir},
-};
+use crate::utils::{parse_envvar, parse_mapdir};
 
 use super::RunWithPathBuf;
 
