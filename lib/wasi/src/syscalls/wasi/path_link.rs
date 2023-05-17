@@ -33,7 +33,7 @@ pub fn path_link<M: MemorySize>(
         Span::current().record("follow_symlinks", true);
     }
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let mut old_path_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
     Span::current().record("old_path", old_path_str.as_str());
     let mut new_path_str = unsafe { get_input_str!(&memory, new_path, new_path_len) };

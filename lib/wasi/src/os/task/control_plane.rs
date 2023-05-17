@@ -39,12 +39,15 @@ impl WasiControlPlaneHandle {
 pub struct ControlPlaneConfig {
     /// Total number of tasks (processes + threads) that can be spawned.
     pub max_task_count: Option<usize>,
+    /// Flag that indicates if asynchronous threading is enables (opt-in)
+    pub enable_asynchronous_threading: bool,
 }
 
 impl ControlPlaneConfig {
     pub fn new() -> Self {
         Self {
             max_task_count: None,
+            enable_asynchronous_threading: false,
         }
     }
 }
@@ -96,6 +99,11 @@ impl WasiControlPlane {
     /// Get the current count of active tasks (threads).
     fn active_task_count(&self) -> usize {
         self.state.task_count.load(Ordering::SeqCst)
+    }
+
+    /// Returns the configuration for this control plane
+    pub(crate) fn config(&self) -> &ControlPlaneConfig {
+        &self.state.config
     }
 
     /// Register a new task.
@@ -202,6 +210,7 @@ mod tests {
     fn test_control_plane_task_limits() {
         let p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(2),
+            enable_asynchronous_threading: false,
         });
 
         let p1 = p.new_process().unwrap();
@@ -219,6 +228,7 @@ mod tests {
     fn test_control_plane_task_limits_with_dropped_threads() {
         let p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(2),
+            enable_asynchronous_threading: false,
         });
 
         let p1 = p.new_process().unwrap();

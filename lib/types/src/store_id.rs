@@ -1,3 +1,4 @@
+use core::fmt::Display;
 use std::{
     num::NonZeroUsize,
     sync::atomic::{AtomicUsize, Ordering},
@@ -18,5 +19,16 @@ impl Default for StoreId {
         // thousands of years.
         static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
         Self(NonZeroUsize::new(NEXT_ID.fetch_add(1, Ordering::Relaxed)).unwrap())
+    }
+}
+
+impl Display for StoreId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let val: usize = self.0.into();
+        if val == usize::MAX {
+            write!(f, "unknown")
+        } else {
+            write!(f, "{}", self.0)
+        }
     }
 }

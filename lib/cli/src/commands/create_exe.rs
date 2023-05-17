@@ -26,16 +26,16 @@ const LINK_SYSTEM_LIBRARIES_UNIX: &[&str] = &["dl", "m", "pthread"];
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Optional directorey used for debugging: if present, will output the zig command
     /// for reproducing issues in a debug directory
-    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
     /// Prefix for every input file, e.g. "wat2wasm:sha256abc123" would
@@ -73,7 +73,7 @@ pub struct CreateExe {
     #[clap(long, name = "URL_OR_RELEASE_VERSION")]
     use_wasmer_release: Option<String>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     /// Additional libraries to link against.
@@ -1985,42 +1985,45 @@ pub(super) mod utils {
 
 mod http_fetch {
     use anyhow::{anyhow, Context, Result};
-    use http_req::{request::Request, response::StatusCode, uri::Uri};
-    use std::convert::TryFrom;
     use std::path::Path;
 
     pub(super) fn get_release(
         release_version: Option<semver::Version>,
     ) -> Result<serde_json::Value> {
-        let mut writer = Vec::new();
-        let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
+        let uri = "https://api.github.com/repos/wasmerio/wasmer/releases";
 
         // Increases rate-limiting in GitHub CI
         let auth = std::env::var("GITHUB_TOKEN");
-        let mut response = Request::new(&uri);
 
+        let client = reqwest::blocking::Client::new();
+        let mut req = client.get(uri);
         if let Ok(token) = auth {
-            response.header("Authorization", &format!("Bearer {token}"));
+            req = req.header("Authorization", &format!("Bearer {token}"));
         }
 
-        let response = response
+        let response = req
             .header("User-Agent", "wasmerio")
             .header("Accept", "application/vnd.github.v3+json")
-            .timeout(Some(std::time::Duration::new(30, 0)))
-            .send(&mut writer)
+            .send()
             .map_err(anyhow::Error::new)
             .context("Could not lookup wasmer repository on Github.")?;
 
-        if response.status_code() != StatusCode::new(200) {
+        let status = response.status();
+
+        let body = response
+            .bytes()
+            .map_err(anyhow::Error::new)
+            .context("Could not retrieve wasmer release history body")?;
+
+        if status != reqwest::StatusCode::OK {
             log::warn!(
                 "Warning: Github API replied with non-200 status code: {}. Response: {}",
-                response.status_code(),
-                String::from_utf8_lossy(&writer),
+                status,
+                String::from_utf8_lossy(&body),
             );
         }
 
-        let v: std::result::Result<serde_json::Value, _> = serde_json::from_reader(&*writer);
-        let mut response = v.map_err(anyhow::Error::new)?;
+        let mut response = serde_json::from_slice::<serde_json::Value>(&body)?;
 
         if let Some(releases) = response.as_array_mut() {
             releases.retain(|r| {

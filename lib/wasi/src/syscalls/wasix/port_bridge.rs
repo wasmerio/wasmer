@@ -19,7 +19,7 @@ pub fn port_bridge<M: MemorySize>(
     security: Streamsecurity,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let network = unsafe { get_input_str_ok!(&memory, network, network_len) };
     Span::current().record("network", network.as_str());

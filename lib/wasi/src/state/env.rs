@@ -7,8 +7,8 @@ use tracing::{trace, warn};
 use virtual_fs::{FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryView, Module,
-    TypedFunction,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
+    Module, TypedFunction,
 };
 use wasmer_wasix_types::{
     types::Signal,
@@ -25,16 +25,16 @@ use crate::{
         task::{
             control_plane::ControlPlaneError,
             process::{WasiProcess, WasiProcessId},
-            thread::{WasiThread, WasiThreadHandle, WasiThreadId},
+            thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
         },
     },
-    runtime::SpawnType,
+    runtime::SpawnMemoryType,
     syscalls::{__asyncify_light, platform_clock_time_get},
-    SpawnedMemory, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError,
-    WasiFunctionEnv, WasiRuntime, WasiRuntimeError, WasiStateCreationError, WasiVFork,
-    DEFAULT_STACK_SIZE,
+    VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiRuntime,
+    WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
 
+pub(crate) use super::handles::*;
 use super::WasiState;
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
@@ -55,8 +55,6 @@ pub struct WasiInstanceHandles {
 
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
-    // TODO: review allow...
-    #[allow(dead_code)]
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
     /// Function thats invoked to initialize the WASM module (name = "_initialize")
@@ -189,14 +187,37 @@ impl WasiInstanceHandles {
             instance,
         }
     }
+
+    pub fn module(&self) -> &Module {
+        self.instance.module()
+    }
+
+    pub fn module_clone(&self) -> Module {
+        self.instance.module().clone()
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&'a self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
+        self.memory.view(store)
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory(&self) -> &Memory {
+        &self.memory
+    }
+
+    /// Copy the lazy reference so that when it's initialized during the
+    /// export phase, all the other references get a copy of it
+    pub fn memory_clone(&self) -> Memory {
+        self.memory.clone()
+    }
+
+    pub fn instance(&self) -> &Instance {
+        &self.instance
+    }
 }
-
-/// The code itself makes safe use of the struct so multiple threads don't access
-/// it (without this the JS code prevents the reference to the module from being stored
-/// which is needed for the multithreading mode)
-unsafe impl Send for WasiInstanceHandles {}
-
-unsafe impl Sync for WasiInstanceHandles {}
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -209,15 +230,16 @@ pub struct WasiEnvInit {
     pub capabilities: Capabilities,
 
     pub control_plane: WasiControlPlane,
-    // TODO: remove these again?
-    // Only needed if WasiEnvInit is also used for process/thread spawning.
-    pub spawn_type: Option<SpawnType>,
+    pub memory_ty: Option<MemoryType>,
     pub process: Option<WasiProcess>,
     pub thread: Option<WasiThreadHandle>,
 
     /// Whether to call the `_initialize` function in the WASI module.
     /// Will be true for regular new instances, but false for threads.
     pub call_initialize: bool,
+
+    /// Indicates if the calling environment is capable of deep sleeping
+    pub can_deep_sleep: bool,
 }
 
 impl WasiEnvInit {
@@ -234,7 +256,6 @@ impl WasiEnvInit {
                 secret: rand::thread_rng().gen::<[u8; 32]>(),
                 inodes,
                 fs,
-                threading: Default::default(),
                 futexs: Default::default(),
                 clock_offset: std::sync::Mutex::new(
                     self.state.clock_offset.lock().unwrap().clone(),
@@ -249,10 +270,11 @@ impl WasiEnvInit {
             bin_factory: self.bin_factory.clone(),
             capabilities: self.capabilities.clone(),
             control_plane: self.control_plane.clone(),
-            spawn_type: None,
+            memory_ty: None,
             process: None,
             thread: None,
             call_initialize: self.call_initialize,
+            can_deep_sleep: self.can_deep_sleep,
         }
     }
 }
@@ -264,12 +286,10 @@ pub struct WasiEnv {
     pub process: WasiProcess,
     /// Represents the thread this environment is attached to
     pub thread: WasiThread,
+    /// Represents the layout of the memory
+    pub layout: WasiMemoryLayout,
     /// Represents a fork of the process that is currently in play
     pub vfork: Option<WasiVFork>,
-    /// End of the stack memory that is allocated for this thread
-    pub stack_end: u64,
-    /// Start of the stack memory that is allocated for this thread
-    pub stack_start: u64,
     /// Seed used to rotate around the events returned by `poll_oneoff`
     pub poll_seed: u64,
     /// Shared state of the WASI system. Manages all the data that the
@@ -277,8 +297,6 @@ pub struct WasiEnv {
     pub(crate) state: Arc<WasiState>,
     /// Binary factory attached to this environment
     pub bin_factory: BinFactory,
-    /// Inner functions and references that are loaded before the environment starts
-    pub inner: Option<WasiInstanceHandles>,
     /// List of the handles that are owned by this context
     /// (this can be used to ensure that threads own themselves or others)
     pub owned_handles: Vec<WasiThreadHandle>,
@@ -286,6 +304,15 @@ pub struct WasiEnv {
     pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
 
     pub capabilities: Capabilities,
+
+    /// Is this environment capable and setup for deep sleeping
+    pub enable_deep_sleep: bool,
+
+    /// Inner functions and references that are loaded before the environment starts
+    /// (inner is not safe to send between threads and so it is private and will
+    ///  not be cloned when `WasiEnv` is cloned)
+    /// TODO: We should move this outside of `WasiEnv` with some refactoring
+    inner: WasiInstanceHandlesPointer,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -294,43 +321,30 @@ impl std::fmt::Debug for WasiEnv {
     }
 }
 
-// FIXME: remove unsafe impls!
-// Added because currently WasiEnv can hold a wasm_bindgen::JsValue via wasmer::Module.
-#[cfg(feature = "js")]
-unsafe impl Send for WasiEnv {}
-#[cfg(feature = "js")]
-unsafe impl Sync for WasiEnv {}
-
-impl WasiEnv {
-    /// Construct a new [`WasiEnvBuilder`] that allows customizing an environment.
-    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
-        WasiEnvBuilder::new(program_name)
-    }
-
-    /// Clones this env.
-    ///
-    /// This is a custom function instead of a [`Clone`] implementation because
-    /// this type should not be cloned.
-    ///
-    // TODO: remove WasiEnv::duplicate()
-    // This function should not exist, since it just copies internal state.
-    // Currently only used by fork/spawn related syscalls.
-    pub(crate) fn duplicate(&self) -> Self {
+impl Clone for WasiEnv {
+    fn clone(&self) -> Self {
         Self {
             control_plane: self.control_plane.clone(),
             process: self.process.clone(),
             poll_seed: self.poll_seed,
             thread: self.thread.clone(),
-            vfork: self.vfork.as_ref().map(|v| v.duplicate()),
-            stack_end: self.stack_end,
-            stack_start: self.stack_start,
+            layout: self.layout.clone(),
+            vfork: self.vfork.clone(),
             state: self.state.clone(),
             bin_factory: self.bin_factory.clone(),
-            inner: self.inner.clone(),
+            inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
+            enable_deep_sleep: self.enable_deep_sleep,
         }
+    }
+}
+
+impl WasiEnv {
+    /// Construct a new [`WasiEnvBuilder`] that allows customizing an environment.
+    pub fn builder(program_name: impl Into<String>) -> WasiEnvBuilder {
+        WasiEnvBuilder::new(program_name)
     }
 
     /// Forking the WasiState is used when either fork or vfork is called
@@ -349,16 +363,16 @@ impl WasiEnv {
             control_plane: self.control_plane.clone(),
             process,
             thread,
+            layout: self.layout.clone(),
             vfork: None,
             poll_seed: 0,
-            stack_end: self.stack_end,
-            stack_start: self.stack_start,
             bin_factory,
             state,
-            inner: None,
+            inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
+            enable_deep_sleep: self.enable_deep_sleep,
         };
         Ok((new_env, handle))
     }
@@ -369,6 +383,28 @@ impl WasiEnv {
 
     pub fn tid(&self) -> WasiThreadId {
         self.thread.tid()
+    }
+
+    /// Returns true if this module is capable of deep sleep
+    /// (needs asyncify to unwind and rewin)
+    ///
+    /// # Safety
+    ///
+    /// This function should only be called from within a syscall
+    /// as it accessed objects that are a thread local (functions)
+    pub unsafe fn capable_of_deep_sleep(&self) -> bool {
+        if !self.control_plane.config().enable_asynchronous_threading {
+            return false;
+        }
+        let inner = self.inner();
+        inner.asyncify_get_state.is_some()
+            && inner.asyncify_start_rewind.is_some()
+            && inner.asyncify_start_unwind.is_some()
+    }
+
+    /// Returns true if this thread can go into a deep sleep
+    pub fn layout(&self) -> &WasiMemoryLayout {
+        &self.layout
     }
 
     #[allow(clippy::result_large_err)]
@@ -388,15 +424,15 @@ impl WasiEnv {
             control_plane: init.control_plane,
             process,
             thread: thread.as_thread(),
+            layout: WasiMemoryLayout::default(),
             vfork: None,
             poll_seed: 0,
-            stack_end: DEFAULT_STACK_SIZE,
-            stack_start: 0,
             state: Arc::new(init.state),
-            inner: None,
+            inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: init.runtime,
             bin_factory: init.bin_factory,
+            enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
         };
         env.owned_handles.push(thread);
@@ -418,7 +454,7 @@ impl WasiEnv {
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let call_initialize = init.call_initialize;
-        let spawn_type = init.spawn_type.take();
+        let spawn_type = init.memory_ty.take();
 
         let env = Self::from_init(init)?;
 
@@ -434,11 +470,11 @@ impl WasiEnv {
 
         // Determine if we are going to create memory and import it or just rely on self creation of memory
         let spawn_type = if let Some(t) = spawn_type {
-            t
+            SpawnMemoryType::CreateMemoryOfType(t)
         } else {
             match shared_memory {
-                Some(ty) => SpawnType::CreateWithType(SpawnedMemory { ty }),
-                None => SpawnType::Create,
+                Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+                None => SpawnMemoryType::CreateMemory,
             }
         };
         let memory = tasks.build_memory(&mut store, spawn_type)?;
@@ -471,7 +507,7 @@ impl WasiEnv {
 
         // Initialize the WASI environment
         if let Err(err) =
-            func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory)
+            func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory, true)
         {
             tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
             func_env
@@ -523,19 +559,26 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub fn process_signals_and_exit(
+    pub(crate) fn process_signals_and_exit(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        if !env.inner().signal_set {
+        let inner = env
+            .try_inner()
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
+        if !inner.signal_set {
             let signals = env.thread.pop_signals();
             let signal_cnt = signals.len();
             for sig in signals {
-                if sig == Signal::Sigint || sig == Signal::Sigquit || sig == Signal::Sigkill {
-                    env.thread.set_status_finished(Ok(Errno::Intr.into()));
-                    return Err(WasiError::Exit(Errno::Intr.into()));
+                if sig == Signal::Sigint
+                    || sig == Signal::Sigquit
+                    || sig == Signal::Sigkill
+                    || sig == Signal::Sigabrt
+                {
+                    let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
+                    return Err(WasiError::Exit(exit_code));
                 } else {
                     trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
                 }
@@ -552,25 +595,22 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up
-    pub fn process_signals(
+    pub(crate) fn process_signals(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        if !env.inner().signal_set {
-            if env
-                .thread
-                .has_signal(&[Signal::Sigint, Signal::Sigquit, Signal::Sigkill])
-            {
-                env.thread.set_status_finished(Ok(Errno::Intr.into()));
-            }
+        let inner = env
+            .try_inner()
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
+        if !inner.signal_set {
             return Ok(Ok(false));
         }
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if env.inner().signal.as_ref().is_some() {
+        if inner.signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
             Ok(Ok(Self::process_signals_internal(ctx, signals)?))
         } else {
@@ -578,12 +618,15 @@ impl WasiEnv {
         }
     }
 
-    pub fn process_signals_internal(
+    pub(crate) fn process_signals_internal(
         ctx: &mut FunctionEnvMut<'_, Self>,
         mut signals: Vec<Signal>,
     ) -> Result<bool, WasiError> {
         let env = ctx.data();
-        if let Some(handler) = env.inner().signal.clone() {
+        let inner = env
+            .try_inner()
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
+        if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;
             let has_signal_interval = {
@@ -650,10 +693,16 @@ impl WasiEnv {
     pub fn should_exit(&self) -> Option<ExitCode> {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
+            return Some(forced_exit.unwrap_or_else(|err| {
+                tracing::debug!("exit runtime error - {}", err);
+                Errno::Child.into()
+            }));
         }
         if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or_else(|_| Errno::Child.into()));
+            return Some(forced_exit.unwrap_or_else(|err| {
+                tracing::debug!("exit runtime error - {}", err);
+                Errno::Child.into()
+            }));
         }
         None
     }
@@ -665,36 +714,79 @@ impl WasiEnv {
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner(&self) -> &WasiInstanceHandles {
-        self.inner
-            .as_ref()
-            .expect("You must initialize the WasiEnv before using it")
+    /// This has been marked as unsafe as it will panic if its executed
+    /// on the wrong thread or before the inner is set
+    pub(crate) unsafe fn inner(&self) -> WasiInstanceGuard<'_> {
+        self.inner.get().expect(
+            "You must initialize the WasiEnv before using it and can not pass it between threads",
+        )
+    }
+
+    /// Providers safe access to the initialized part of WasiEnv
+    pub(crate) fn try_inner(&self) -> Option<WasiInstanceGuard<'_>> {
+        self.inner.get()
     }
 
     /// Providers safe access to the initialized part of WasiEnv
     /// (it must be initialized before it can be used)
-    pub fn inner_mut(&mut self) -> &mut WasiInstanceHandles {
-        self.inner
-            .as_mut()
-            .expect("You must initialize the WasiEnv before using it")
+    pub(crate) fn try_inner_mut(&mut self) -> Option<WasiInstanceGuardMut<'_>> {
+        self.inner.get_mut()
+    }
+
+    /// Sets the inner object (this should only be called when
+    /// creating the instance and eventually should be moved out
+    /// of the WasiEnv)
+    #[doc(hidden)]
+    pub(crate) fn set_inner(&mut self, handles: WasiInstanceHandles) {
+        self.inner.set(handles)
+    }
+
+    /// Swaps this inner with the WasiEnvironment of another, this
+    /// is used by the vfork so that the inner handles can be restored
+    /// after the vfork finishes.
+    #[doc(hidden)]
+    pub(crate) fn swap_inner(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.inner, &mut other.inner);
+    }
+
+    /// Tries to clone the instance from this environment
+    pub fn try_clone_instance(&self) -> Option<Instance> {
+        self.inner.get().map(|i| i.instance.clone())
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory_view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-        self.memory().view(store)
+    pub(crate) fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
+        self.try_inner().map(|i| i.memory())
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub fn memory(&self) -> &Memory {
-        &self.inner().memory
+    pub(crate) fn try_memory_view<'a>(
+        &self,
+        store: &'a (impl AsStoreRef + ?Sized),
+    ) -> Option<MemoryView<'a>> {
+        self.try_memory().map(|m| m.view(store))
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    /// This has been marked as unsafe as it will panic if its executed
+    /// on the wrong thread or before the inner is set
+    pub(crate) unsafe fn memory_view<'a>(
+        &self,
+        store: &'a (impl AsStoreRef + ?Sized),
+    ) -> MemoryView<'a> {
+        self.try_memory_view(store).expect(
+            "You must initialize the WasiEnv before using it and can not pass it between threads",
+        )
     }
 
     /// Copy the lazy reference so that when it's initialized during the
     /// export phase, all the other references get a copy of it
-    pub fn memory_clone(&self) -> Memory {
-        self.memory().clone()
+    #[allow(dead_code)]
+    pub(crate) fn try_memory_clone(&self) -> Option<Memory> {
+        self.try_inner().map(|i| i.memory_clone())
     }
 
     /// Get the WASI state
@@ -726,7 +818,12 @@ impl WasiEnv {
         self.state.std_dev_get(fd)
     }
 
-    pub(crate) fn get_memory_and_wasi_state<'a>(
+    /// Unsafe:
+    ///
+    /// This will access the memory of the WASM process and create a view into it which is
+    /// inherently unsafe as it could corrupt the memory. Also accessing the memory is not
+    /// thread safe.
+    pub(crate) unsafe fn get_memory_and_wasi_state<'a>(
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
@@ -736,7 +833,12 @@ impl WasiEnv {
         (memory, state)
     }
 
-    pub(crate) fn get_memory_and_wasi_state_and_inodes<'a>(
+    /// Unsafe:
+    ///
+    /// This will access the memory of the WASM process and create a view into it which is
+    /// inherently unsafe as it could corrupt the memory. Also accessing the memory is not
+    /// thread safe.
+    pub(crate) unsafe fn get_memory_and_wasi_state_and_inodes<'a>(
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,

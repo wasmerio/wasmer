@@ -536,7 +536,7 @@ test-stage-2-test-compiler-cranelift-nostd:
 test-stage-3-test-compiler-singlepass-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 test-stage-4-wasmer-cli:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/vfs/Cargo.toml --release
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-fs/Cargo.toml --release
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 
 # test examples

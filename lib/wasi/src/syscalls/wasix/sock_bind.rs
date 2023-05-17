@@ -16,7 +16,7 @@ pub fn sock_bind<M: MemorySize>(
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
     Span::current().record("addr", &format!("{:?}", addr));

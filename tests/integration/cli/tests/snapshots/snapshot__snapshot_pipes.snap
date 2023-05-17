@@ -20,8 +20,8 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "this text should be printed by the child\nthis text should be printed by the parent\n",
-      "stderr": "",
+      "stdout": "this text should be printed by the parent\n",
+      "stderr": "this text should be printed by the child\n",
       "exit_code": 0
     }
   }

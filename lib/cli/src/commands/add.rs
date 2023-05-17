@@ -23,7 +23,6 @@ pub struct Add {
     #[clap(long, groups = &["bindings", "py"])]
     pip: bool,
     /// The packages to add (e.g. "wasmer/wasmer-pack@0.5.0" or "python/python")
-    #[clap(parse(try_from_str))]
     packages: Vec<wasmer_registry::Package>,
 }
 

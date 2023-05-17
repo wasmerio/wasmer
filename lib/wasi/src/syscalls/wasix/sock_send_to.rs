@@ -26,11 +26,11 @@ pub fn sock_send_to<M: MemorySize>(
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
 
     let (addr_ip, addr_port) = {
-        let memory = env.memory_view(&ctx);
+        let memory = unsafe { env.memory_view(&ctx) };
         wasi_try_ok!(read_ip_port(&memory, addr))
     };
     let addr = SocketAddr::new(addr_ip, addr_port);
@@ -73,7 +73,7 @@ pub fn sock_send_to<M: MemorySize>(
     };
     Span::current().record("nsent", bytes_written);
 
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(ret_data_len.write(&memory, bytes_written));

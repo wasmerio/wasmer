@@ -191,6 +191,7 @@ impl fmt::Debug for Store {
 }
 
 /// A temporary handle to a [`Store`].
+#[derive(Debug)]
 pub struct StoreRef<'a> {
     pub(crate) inner: &'a StoreInner,
 }

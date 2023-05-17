@@ -276,7 +276,7 @@ impl Compiler for LLVMCompiler {
                 for (section_index, custom_section) in compiled_function.custom_sections.iter() {
                     // TODO: remove this call to clone()
                     let mut custom_section = custom_section.clone();
-                    for mut reloc in &mut custom_section.relocations {
+                    for reloc in &mut custom_section.relocations {
                         if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
                             reloc.reloc_target = RelocationTarget::CustomSection(
                                 SectionIndex::from_u32(first_section + index.as_u32()),
@@ -288,7 +288,7 @@ impl Compiler for LLVMCompiler {
                         .contains(&section_index)
                     {
                         let offset = frame_section_bytes.len() as u32;
-                        for mut reloc in &mut custom_section.relocations {
+                        for reloc in &mut custom_section.relocations {
                             reloc.offset += offset;
                         }
                         frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
@@ -303,7 +303,7 @@ impl Compiler for LLVMCompiler {
                         module_custom_sections.push(custom_section);
                     }
                 }
-                for mut reloc in &mut compiled_function.compiled_function.relocations {
+                for reloc in &mut compiled_function.compiled_function.relocations {
                     if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
                         reloc.reloc_target = RelocationTarget::CustomSection(
                             SectionIndex::from_u32(first_section + index.as_u32()),

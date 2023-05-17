@@ -1748,7 +1748,11 @@ impl WasiFs {
             Ok(fd_ref) => {
                 let inode = fd_ref.inode.ino().as_u64();
                 let ref_cnt = fd_ref.inode.ref_cnt();
-                trace!(%fd, %inode, %ref_cnt, "closing file descriptor");
+                if ref_cnt == 1 {
+                    trace!(%fd, %inode, %ref_cnt, "closing file descriptor");
+                } else {
+                    trace!(%fd, %inode, %ref_cnt, "weakening file descriptor");
+                }
             }
             Err(err) => {
                 trace!(%fd, "closing file descriptor failed - {}", err);

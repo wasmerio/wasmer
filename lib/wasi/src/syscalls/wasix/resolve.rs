@@ -32,7 +32,7 @@ pub fn resolve<M: MemorySize>(
     let naddrs: usize = wasi_try_ok!(naddrs.try_into().map_err(|_| Errno::Inval));
     let mut env = ctx.data();
     let host_str = {
-        let memory = env.memory_view(&ctx);
+        let memory = unsafe { env.memory_view(&ctx) };
         unsafe { get_input_str_ok!(&memory, host, host_len) }
     };
     Span::current().record("host", host_str.as_str());
@@ -49,7 +49,7 @@ pub fn resolve<M: MemorySize>(
     env = ctx.data();
 
     let mut idx = 0;
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let addrs = wasi_try_mem_ok!(addrs.slice(&memory, wasi_try_ok!(to_offset::<M>(naddrs))));
     for found_ip in found_ips.iter().take(naddrs) {
         crate::net::write_ip(&memory, addrs.index(idx).as_ptr::<M>(), *found_ip);

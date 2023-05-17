@@ -75,17 +75,19 @@ impl CmdWasmer {
                 // Now run the module
                 spawn_exec(binary, name, store, env, &self.runtime).await
             } else {
-                let _ = stderr_write(
-                    parent_ctx,
-                    format!("package not found - {}\r\n", what).as_bytes(),
-                )
+                let _ = unsafe {
+                    stderr_write(
+                        parent_ctx,
+                        format!("package not found - {}\r\n", what).as_bytes(),
+                    )
+                }
                 .await;
                 let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
                 Ok(handle)
             }
             // Get the binary
         } else {
-            let _ = stderr_write(parent_ctx, HELP_RUN.as_bytes()).await;
+            let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
             let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
             Ok(handle)
         }
@@ -132,7 +134,7 @@ impl VirtualCommand for CmdWasmer {
                 }
                 Some("--help") | None => {
                     parent_ctx.data().tasks().block_on(async move {
-                        let _ = stderr_write(parent_ctx, HELP.as_bytes()).await;
+                        let _ = unsafe { stderr_write(parent_ctx, HELP.as_bytes()) }.await;
                     });
                     let handle =
                         OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();

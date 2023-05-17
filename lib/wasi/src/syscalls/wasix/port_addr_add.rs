@@ -13,7 +13,7 @@ pub fn port_addr_add<M: MemorySize>(
     ip: WasmPtr<__wasi_cidr_t, M>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, ip));
     Span::current().record("ip", &format!("{:?}", cidr));

@@ -6,6 +6,7 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
+use wasmer::{ExportError, InstantiationError, MemoryError};
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
@@ -94,6 +95,21 @@ pub struct ThreadStack {
 #[derive(Clone, Debug)]
 pub struct WasiThread {
     state: Arc<WasiThreadState>,
+
+    // This is used for stack rewinds
+    rewind: Option<RewindResult>,
+}
+
+impl WasiThread {
+    /// Sets that a rewind will take place
+    pub(crate) fn set_rewind(&mut self, rewind: RewindResult) {
+        self.rewind.replace(rewind);
+    }
+
+    /// Pops any rewinds that need to take place
+    pub(crate) fn take_rewind(&mut self) -> Option<RewindResult> {
+        self.rewind.take()
+    }
 }
 
 /// A guard that ensures a thread is marked as terminated when dropped.
@@ -119,6 +135,31 @@ impl Drop for WasiThreadRunGuard {
                 crate::RuntimeError::new("Thread manager disconnected").into()
             ));
     }
+}
+
+/// Represents the memory layout of the parts that the thread itself uses
+#[derive(Debug, Default, Clone)]
+pub struct WasiMemoryLayout {
+    /// This is the top part of the stack (stacks go backwards)
+    pub stack_upper: u64,
+    /// This is the bottom part of the stack (anything more below this is a stack overflow)
+    pub stack_lower: u64,
+    /// Piece of memory that is marked as none readable/writable so stack overflows cause an exception
+    /// TODO: This field will need to be used to mark the guard memory as inaccessible
+    #[allow(dead_code)]
+    pub guard_size: u64,
+    /// Total size of the stack
+    pub stack_size: u64,
+}
+
+// Contains the result of a rewind operation
+#[derive(Clone, Debug)]
+pub(crate) struct RewindResult {
+    /// Memory stack used to restore the stack trace back to where it was
+    pub memory_stack: Bytes,
+    /// Generic serialized object passed back to the rewind resumption code
+    /// (uses the bincode serializer)
+    pub rewind_result: Bytes,
 }
 
 #[derive(Debug)]
@@ -155,6 +196,7 @@ impl WasiThread {
                 stack: Mutex::new(ThreadStack::default()),
                 _task_count_guard: guard,
             }),
+            rewind: None,
         }
     }
 
@@ -185,6 +227,21 @@ impl WasiThread {
 
     pub fn set_status_running(&self) {
         self.state.status.set_running();
+    }
+
+    /// Gets or sets the exit code based of a signal that was received
+    /// Note: if the exit code was already set earlier this method will
+    /// just return that earlier set exit code
+    pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
+        let default_exitcode: ExitCode = match sig {
+            Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
+            _ => Errno::Intr.into(),
+        };
+        // This will only set the status code if its not already set
+        self.set_status_finished(Ok(default_exitcode));
+        self.try_join()
+            .map(|r| r.unwrap_or(default_exitcode))
+            .unwrap_or(default_exitcode)
     }
 
     /// Marks the thread as finished (which will cause anyone that
@@ -445,8 +502,14 @@ pub enum WasiThreadError {
     Unsupported,
     #[error("The method named is not an exported function")]
     MethodNotFound,
-    #[error("Failed to create the requested memory")]
-    MemoryCreateFailed,
+    #[error("Failed to create the requested memory - {0}")]
+    MemoryCreateFailed(MemoryError),
+    #[error("{0}")]
+    ExportError(ExportError),
+    #[error("Failed to create the instance")]
+    InstanceCreateFailed(InstantiationError),
+    #[error("Initialization function failed - {0}")]
+    InitFailed(anyhow::Error),
     /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     #[error("WASM context is invalid")]
     InvalidWasmContext,
@@ -457,7 +520,10 @@ impl From<WasiThreadError> for Errno {
         match a {
             WasiThreadError::Unsupported => Errno::Notsup,
             WasiThreadError::MethodNotFound => Errno::Inval,
-            WasiThreadError::MemoryCreateFailed => Errno::Nomem,
+            WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,
+            WasiThreadError::ExportError(_) => Errno::Noexec,
+            WasiThreadError::InstanceCreateFailed(_) => Errno::Noexec,
+            WasiThreadError::InitFailed(_) => Errno::Noexec,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,
         }
     }

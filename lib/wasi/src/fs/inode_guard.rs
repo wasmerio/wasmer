@@ -14,14 +14,14 @@ use virtual_net::NetworkError;
 use wasmer_wasix_types::{
     types::Eventtype,
     wasi,
-    wasi::{Errno, Event, EventFdReadwrite, EventUnion, Eventrwflags, Subscription},
+    wasi::{Errno, EventFdReadwrite, Eventrwflags, Subscription},
 };
 
 use super::{notification::NotificationInner, InodeGuard, Kind};
 use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
     state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
-    syscalls::map_io_err,
+    syscalls::{map_io_err, EventResult, EventResultType},
     utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
@@ -72,41 +72,53 @@ impl InodeValFilePollGuard {
 impl std::fmt::Debug for InodeValFilePollGuard {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.mode {
-            InodeValFilePollGuardMode::File(..) => write!(f, "guard-file"),
+            InodeValFilePollGuardMode::File(..) => {
+                write!(f, "guard-file(fd={}, peb={})", self.fd, self.peb)
+            }
             InodeValFilePollGuardMode::EventNotifications { .. } => {
-                write!(f, "guard-notifications")
+                write!(f, "guard-notifications(fd={}, peb={})", self.fd, self.peb)
             }
             InodeValFilePollGuardMode::Socket { inner } => {
                 let inner = inner.protected.read().unwrap();
                 match inner.kind {
-                    InodeSocketKind::TcpListener { .. } => write!(f, "guard-tcp-listener"),
+                    InodeSocketKind::TcpListener { .. } => {
+                        write!(f, "guard-tcp-listener(fd={}, peb={})", self.fd, self.peb)
+                    }
                     InodeSocketKind::TcpStream { ref socket, .. } => {
                         if socket.is_closed() {
-                            write!(f, "guard-tcp-stream (closed)")
+                            write!(
+                                f,
+                                "guard-tcp-stream (closed, fd={}, peb={})",
+                                self.fd, self.peb
+                            )
                         } else {
-                            write!(f, "guard-tcp-stream")
+                            write!(f, "guard-tcp-stream(fd={}, peb={})", self.fd, self.peb)
                         }
                     }
-                    InodeSocketKind::UdpSocket { .. } => write!(f, "guard-udp-socket"),
-                    InodeSocketKind::Raw(..) => write!(f, "guard-raw-socket"),
-                    _ => write!(f, "guard-socket"),
+                    InodeSocketKind::UdpSocket { .. } => {
+                        write!(f, "guard-udp-socket(fd={}, peb={})", self.fd, self.peb)
+                    }
+                    InodeSocketKind::Raw(..) => {
+                        write!(f, "guard-raw-socket(fd={}, peb={})", self.fd, self.peb)
+                    }
+                    _ => write!(f, "guard-socket(fd={}), peb={})", self.fd, self.peb),
                 }
             }
         }
     }
 }
 
-pub(crate) struct InodeValFilePollGuardJoin<'a> {
-    mode: &'a mut InodeValFilePollGuardMode,
+pub(crate) struct InodeValFilePollGuardJoin {
+    mode: InodeValFilePollGuardMode,
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
 }
 
-impl<'a> InodeValFilePollGuardJoin<'a> {
-    pub(crate) fn new(guard: &'a mut InodeValFilePollGuard) -> Self {
+impl InodeValFilePollGuardJoin {
+    pub(crate) fn new(guard: InodeValFilePollGuard) -> Self {
         Self {
-            mode: &mut guard.mode,
+            mode: guard.mode,
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
@@ -115,10 +127,13 @@ impl<'a> InodeValFilePollGuardJoin<'a> {
     pub(crate) fn fd(&self) -> u32 {
         self.fd
     }
+    pub(crate) fn peb(&self) -> PollEventSet {
+        self.peb
+    }
 }
 
-impl<'a> Future for InodeValFilePollGuardJoin<'a> {
-    type Output = heapless::Vec<Event, 4>;
+impl Future for InodeValFilePollGuardJoin {
+    type Output = heapless::Vec<EventResult, 4>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
         let fd = self.fd();
@@ -183,22 +198,22 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                 }
             };
             if is_closed {
-                ret.push(Event {
+                ret.push(EventResult {
                     userdata: self.subscription.userdata,
                     error: Errno::Success,
                     type_: self.subscription.type_,
-                    u: match self.subscription.type_ {
-                        Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
-                            fd_readwrite: EventFdReadwrite {
+                    inner: match self.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite => {
+                            EventResultType::Fd(EventFdReadwrite {
                                 nbytes: 0,
                                 flags: if has_hangup {
                                     Eventrwflags::FD_READWRITE_HANGUP
                                 } else {
                                     Eventrwflags::empty()
                                 },
-                            },
-                        },
-                        Eventtype::Clock => EventUnion { clock: 0 },
+                            })
+                        }
+                        Eventtype::Clock => EventResultType::Clock(0),
                     },
                 })
                 .ok();
@@ -232,28 +247,35 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 Poll::Pending
                             }
                         }
-                        res => res,
+                        Poll::Ready(Ok(amt)) => {
+                            if guard.notifications.closed {
+                                Poll::Pending
+                            } else {
+                                Poll::Ready(Ok(amt))
+                            }
+                        }
+                        Poll::Pending => Poll::Pending,
                     }
                 }
             };
             match poll_result {
                 Poll::Ready(Err(err)) if has_close && is_err_closed(&err) => {
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: self.subscription.userdata,
                         error: Errno::Success,
                         type_: self.subscription.type_,
-                        u: match self.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: match self.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite => {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: 0,
                                     flags: if has_hangup {
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } else {
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock => EventUnion { clock: 0 },
+                                })
+                            }
+                            Eventtype::Clock => EventResultType::Clock(0),
                         },
                     })
                     .ok();
@@ -267,22 +289,22 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             0
                         }
                     };
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: self.subscription.userdata,
                         error,
                         type_: self.subscription.type_,
-                        u: match self.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: match self.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite => {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: bytes_available as u64,
                                     flags: if bytes_available == 0 {
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } else {
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock => EventUnion { clock: 0 },
+                                })
+                            }
+                            Eventtype::Clock => EventResultType::Clock(0),
                         },
                     })
                     .ok();
@@ -303,7 +325,7 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                     let res = guard.poll_write_ready(cx).map_err(net_error_into_io_err);
                     match res {
                         Poll::Ready(Err(err)) if is_err_closed(&err) => {
-                            tracing::trace!("socket write ready error (fd={}) - {}", fd, err);
+                            tracing::trace!("socket write ready error (fd={}) - err={}", fd, err);
                             if !replace(&mut guard.notifications.closed, true) {
                                 Poll::Ready(Ok(0))
                             } else {
@@ -318,28 +340,35 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                                 Poll::Pending
                             }
                         }
-                        res => res,
+                        Poll::Ready(Ok(amt)) => {
+                            if guard.notifications.closed {
+                                Poll::Pending
+                            } else {
+                                Poll::Ready(Ok(amt))
+                            }
+                        }
+                        Poll::Pending => Poll::Pending,
                     }
                 }
             };
             match poll_result {
                 Poll::Ready(Err(err)) if has_close && is_err_closed(&err) => {
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: self.subscription.userdata,
                         error: Errno::Success,
                         type_: self.subscription.type_,
-                        u: match self.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: match self.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite => {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: 0,
                                     flags: if has_hangup {
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } else {
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock => EventUnion { clock: 0 },
+                                })
+                            }
+                            Eventtype::Clock => EventResultType::Clock(0),
                         },
                     })
                     .ok();
@@ -353,22 +382,22 @@ impl<'a> Future for InodeValFilePollGuardJoin<'a> {
                             0
                         }
                     };
-                    ret.push(Event {
+                    ret.push(EventResult {
                         userdata: self.subscription.userdata,
                         error,
                         type_: self.subscription.type_,
-                        u: match self.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite => EventUnion {
-                                fd_readwrite: EventFdReadwrite {
+                        inner: match self.subscription.type_ {
+                            Eventtype::FdRead | Eventtype::FdWrite => {
+                                EventResultType::Fd(EventFdReadwrite {
                                     nbytes: bytes_available as u64,
                                     flags: if bytes_available == 0 {
                                         Eventrwflags::FD_READWRITE_HANGUP
                                     } else {
                                         Eventrwflags::empty()
                                     },
-                                },
-                            },
-                            Eventtype::Clock => EventUnion { clock: 0 },
+                                })
+                            }
+                            Eventtype::Clock => EventResultType::Clock(0),
                         },
                     })
                     .ok();

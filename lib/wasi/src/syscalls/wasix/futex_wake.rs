@@ -15,7 +15,7 @@ pub fn futex_wake<M: MemorySize>(
     ret_woken: WasmPtr<Bool, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state.deref();
 
     let pointer: u64 = wasi_try!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
@@ -24,12 +24,15 @@ pub fn futex_wake<M: MemorySize>(
     let mut woken = false;
     let woken = {
         let mut guard = state.futexs.lock().unwrap();
-        if let Some(futex) = guard.get_mut(&pointer) {
-            if let Some(w) = futex.wakers.pop() {
-                w.wake()
+        if let Some(futex) = guard.futexes.get_mut(&pointer) {
+            let first = futex.wakers.keys().copied().next();
+            if let Some(id) = first {
+                if let Some(Some(w)) = futex.wakers.remove(&id) {
+                    w.wake();
+                }
             }
             if futex.wakers.is_empty() {
-                guard.remove(&pointer);
+                guard.futexes.remove(&pointer);
             }
             true
         } else {

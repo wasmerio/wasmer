@@ -25,6 +25,7 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
+# Repo-local dependencies.
 wasmer = { version = "=3.3.0", path = "../api", default-features = false }
 wasmer-compiler = { version = "=3.3.0", path = "../compiler", features = ["compiler"], optional = true }
 wasmer-compiler-cranelift = { version = "=3.3.0", path = "../compiler-cranelift", optional = true }
@@ -39,13 +40,21 @@ wasmer-cache = { version = "=3.3.0", path = "../cache", features = ["blake3-pure
 wasmer-types = { version = "=3.3.0", path = "../types", features = ["enable-serde"] }
 wasmer-registry = { version = "4.5.0", path = "../registry", features = ["build-package"]  }
 wasmer-object = { version = "=3.3.0", path = "../object", optional = true }
-virtual-fs  = { version = "0.2.0", path = "../vfs", default-features = false, features = ["host-fs"] }
-virtual-net  = { version = "0.1.0", path = "../vnet" }
+virtual-fs  = { version = "0.2.0", path = "../virtual-fs", default-features = false, features = ["host-fs"] }
+virtual-net  = { version = "0.1.0", path = "../virtual-net" }
+
+# Wasmer-owned dependencies.
+webc = { version = "5.0" }
+wapm-targz-to-pirita = "0.2.1"
+wasmer-deploy-cli = { version = "0.1.9", default-features = false }
+
+# Third-party dependencies.
+
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"
 spinoff = "0.5.4"
-clap = { version = "3.2.22", features = ["derive", "env"] }
+
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
@@ -64,7 +73,6 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "5.0" }
 isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
@@ -72,6 +80,7 @@ hex = "0.4.3"
 flate2 = "1.0.25"
 cargo_metadata = "0.15.2"
 tar = "0.4.38"
+bytes = "1"
 thiserror = "1.0.37"
 log = "0.4.17"
 semver = "1.0.14"
@@ -81,15 +90,27 @@ object = "0.30.0"
 wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
-clap-verbosity-flag = "1"
-wapm-targz-to-pirita = "0.2.1"
+clap-verbosity-flag = "2"
+
+# NOTE: Must use different features for clap because the "color" feature does not
+# work on wasi due to the anstream dependency not compiling.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+clap = { version = "4.2.7", features = ["derive", "env"] }
+[target.'cfg(target_family = "wasm")'.dependencies]
+clap = { version = "4.2.7", default-features = false, features = [
+  "std",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "derive",
+  "env",
+]}
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
-http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-http_req  = { version="^0.8", default-features = false, features = ["native-tls"] }
 reqwest = { version = "^0.11", default-features = false, features = ["native-tls", "json", "multipart"] }
 
 [build-dependencies]

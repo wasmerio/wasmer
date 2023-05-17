@@ -2,7 +2,9 @@ pub mod module_cache;
 pub mod resolver;
 pub mod task_manager;
 
-pub use self::task_manager::{SpawnType, SpawnedMemory, VirtualTaskManager};
+use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
+
+pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 
 use std::{
     fmt,
@@ -12,14 +14,9 @@ use std::{
 use derivative::Derivative;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::{
-    http::DynHttpClient,
-    os::TtyBridge,
-    runtime::{
-        module_cache::ModuleCache,
-        resolver::{PackageResolver, RegistryResolver},
-    },
-    WasiTtyState,
+use crate::runtime::{
+    module_cache::ModuleCache,
+    resolver::{PackageResolver, RegistryResolver},
 };
 
 /// Represents an implementation of the WASI runtime - by default everything is

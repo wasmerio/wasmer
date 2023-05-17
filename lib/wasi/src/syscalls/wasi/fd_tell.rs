@@ -16,7 +16,7 @@ pub fn fd_tell<M: MemorySize>(
     offset: WasmPtr<Filesize, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let offset_ref = offset.deref(&memory);
 
     let fd_entry = wasi_try!(state.fs.get_fd(fd));

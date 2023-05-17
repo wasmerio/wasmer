@@ -17,7 +17,7 @@ pub fn sock_set_opt_time<M: MemorySize>(
     time: WasmPtr<OptionTimestamp, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let time = wasi_try_mem!(time.read(&memory));
     let time = match time.tag {
         OptionTag::None => None,

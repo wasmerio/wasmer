@@ -53,10 +53,10 @@ pub fn fd_read<M: MemorySize>(
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let nread_ref = nread.deref(&memory);
     wasi_try_mem_ok!(nread_ref.write(bytes_read));
 
@@ -105,10 +105,10 @@ pub fn fd_pread<M: MemorySize>(
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let nread_ref = nread.deref(&memory);
     wasi_try_mem_ok!(nread_ref.write(bytes_read));
 
@@ -127,7 +127,7 @@ fn fd_read_internal<M: MemorySize>(
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state();
 
     let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
@@ -341,7 +341,7 @@ fn fd_read_internal<M: MemorySize>(
                             a => a,
                         }));
 
-                    let mut memory = env.memory_view(ctx);
+                    let mut memory = unsafe { env.memory_view(ctx) };
                     let reader = val.to_ne_bytes();
                     let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
                     let ret = wasi_try_ok_ok!(read_bytes(&reader[..], &memory, iovs_arr));
@@ -349,7 +349,7 @@ fn fd_read_internal<M: MemorySize>(
                 }
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
                 Kind::Buffer { buffer } => {
-                    let memory = env.memory_view(ctx);
+                    let memory = unsafe { env.memory_view(ctx) };
                     let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
                     let read = wasi_try_ok_ok!(read_bytes(&buffer[offset..], &memory, iovs_arr));
                     (read, true)

@@ -10,9 +10,8 @@ expression: snapshot
       "sharrattj/coreutils"
     ],
     "cli_args": [],
-    "stdin": null,
     "debug_output": false,
-    "enable_threads": true
+    "enable_threads": true,
   },
   "result": {
     "Success": {

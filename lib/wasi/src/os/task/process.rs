@@ -1,3 +1,5 @@
+use crate::WasiRuntimeError;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -7,8 +9,6 @@ use std::{
     },
     time::Duration,
 };
-
-use crate::WasiRuntimeError;
 use tracing::trace;
 use wasmer_wasix_types::{
     types::Signal,
@@ -27,7 +27,7 @@ use super::{
 };
 
 /// Represents the ID of a sub-process
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WasiProcessId(u32);
 
 impl WasiProcessId {
@@ -236,6 +236,9 @@ impl WasiProcess {
         }
         let tid: WasiThreadId = tid.into();
 
+        let pid = self.pid();
+        tracing::trace!(%pid, %tid, "signal-thread({:?})", signal);
+
         let inner = self.inner.read().unwrap();
         if let Some(thread) = inner.threads.get(&tid) {
             thread.signal(signal);
@@ -251,6 +254,9 @@ impl WasiProcess {
 
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
+        let pid = self.pid();
+        tracing::trace!(%pid, "signal-process({:?})", signal);
+
         {
             let inner = self.inner.read().unwrap();
             if self.waiting.load(Ordering::Acquire) > 0 {

@@ -19,7 +19,7 @@ pub fn fd_filestat_get<M: MemorySize>(
     let stat = wasi_try!(fd_filestat_get_internal(&mut ctx, fd));
 
     let env = ctx.data();
-    let (memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let buf = buf.deref(&memory);
     wasi_try_mem!(buf.write(stat));
 
@@ -39,7 +39,7 @@ pub(crate) fn fd_filestat_get_internal(
     fd: WasiFd,
 ) -> Result<Filestat, Errno> {
     let env = ctx.data();
-    let (_, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
     if !fd_entry.rights.contains(Rights::FD_FILESTAT_GET) {
         return Err(Errno::Access);
@@ -65,7 +65,7 @@ pub fn fd_filestat_get_old<M: MemorySize>(
     let stat = wasi_try!(fd_filestat_get_internal(&mut ctx, fd));
 
     let env = ctx.data();
-    let (memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+    let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let old_stat = Snapshot0Filestat {
         st_dev: stat.st_dev,
         st_ino: stat.st_ino,

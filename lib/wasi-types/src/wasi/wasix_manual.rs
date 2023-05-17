@@ -1,3 +1,5 @@
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
 
 use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
@@ -196,7 +198,7 @@ impl core::fmt::Debug for JoinStatus {
         let mut f = binding.field("tag", &self.tag);
         f = unsafe {
             match self.tag {
-                JoinStatusType::Nothing => f.field("pid", &self.u.nothing),
+                JoinStatusType::Nothing => f.field("nothing", &self.u.nothing),
                 JoinStatusType::ExitNormal => f.field("exit_normal", &self.u.exit_normal),
                 JoinStatusType::ExitSignal => f.field("exit_signal", &self.u.exit_signal),
                 JoinStatusType::Stopped => f.field("stopped", &self.u.stopped),
@@ -214,7 +216,7 @@ unsafe impl ValueType for JoinStatus {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ThreadStart<M: MemorySize> {
-    pub stack_start: M::Offset,
+    pub stack_upper: M::Offset,
     pub tls_base: M::Offset,
     pub start_funct: M::Offset,
     pub start_args: M::Offset,
@@ -225,7 +227,7 @@ pub struct ThreadStart<M: MemorySize> {
 impl<M: MemorySize> core::fmt::Debug for ThreadStart<M> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ThreadStart")
-            .field("stack_start", &self.stack_start)
+            .field("stack_upper", &self.stack_upper)
             .field("tls-base", &self.tls_base)
             .field("start-funct", &self.start_funct)
             .field("start-args", &self.start_args)
@@ -242,6 +244,7 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExitCode {
     Errno(Errno),
     Other(i32),

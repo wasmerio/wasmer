@@ -16,7 +16,7 @@ pub fn fd_fdstat_get<M: MemorySize>(
     buf_ptr: WasmPtr<Fdstat, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, mut state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let stat = wasi_try!(state.fs.fdstat(fd));
 
     let buf = buf_ptr.deref(&memory);

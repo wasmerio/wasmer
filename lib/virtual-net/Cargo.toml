@@ -1,0 +1,18 @@
+[package]
+name = "virtual-net"
+version = "0.1.0"
+description = "Wasmer Virtual Networking"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+thiserror = "1"
+bytes = "1.1"
+async-trait = { version = "^0.1" }
+tracing = "0.1"
+tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false, optional = true }
+libc = { version = "0.2.139", optional = true }
+
+[features]
+host-net = [ "tokio", "libc" ]

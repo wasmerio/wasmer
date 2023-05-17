@@ -11,7 +11,7 @@ use webc::v1::WebC;
 /// The options for the `wasmer gen-c-header` subcommand
 pub struct GenCHeader {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Prefix hash (default: SHA256 of input .wasm file)
@@ -23,7 +23,7 @@ pub struct GenCHeader {
     atom: Option<String>,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Compilation Target triple
@@ -41,7 +41,7 @@ pub struct GenCHeader {
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 }
 

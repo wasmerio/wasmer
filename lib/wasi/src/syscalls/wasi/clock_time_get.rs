@@ -19,7 +19,7 @@ pub fn clock_time_get<M: MemorySize>(
     time: WasmPtr<Timestamp, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
 
     let mut t_out = wasi_try!(platform_clock_time_get(clock_id, precision));
     {

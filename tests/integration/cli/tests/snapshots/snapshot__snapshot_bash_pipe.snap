@@ -1,6 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 487
+assertion_line: 1064
 expression: snapshot
 ---
 {

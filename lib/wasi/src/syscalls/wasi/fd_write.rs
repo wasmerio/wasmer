@@ -88,7 +88,7 @@ fn fd_write_internal<M: MemorySize>(
 
     let mut env = ctx.data();
     let state = env.state.clone();
-    let mut memory = env.memory_view(&ctx);
+    let mut memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
 
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
@@ -104,7 +104,7 @@ fn fd_write_internal<M: MemorySize>(
         let (bytes_written, can_update_cursor) = {
             let iovs_arr = wasi_try_mem_ok!(iovs_arr.access());
 
-            let (mut memory, _) = env.get_memory_and_wasi_state(&ctx, 0);
+            let (mut memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
             let mut guard = fd_entry.inode.write();
             match guard.deref_mut() {
                 Kind::File { handle, .. } => {
@@ -251,7 +251,7 @@ fn fd_write_internal<M: MemorySize>(
             }
         };
         env = ctx.data();
-        memory = env.memory_view(&ctx);
+        memory = unsafe { env.memory_view(&ctx) };
 
         // reborrow and update the size
         if !is_stdio {
@@ -265,7 +265,8 @@ fn fd_write_internal<M: MemorySize>(
 
             // we set the size but we don't return any errors if it fails as
             // pipes and sockets will not do anything with this
-            let (mut memory, _, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+            let (mut memory, _, inodes) =
+                unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
             // Cast is valid because we don't support 128 bit systems...
             fd_entry.inode.stat.write().unwrap().st_size += bytes_written as u64;
         }
@@ -273,7 +274,7 @@ fn fd_write_internal<M: MemorySize>(
     };
     Span::current().record("nwritten", bytes_written);
 
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let nwritten_ref = nwritten.deref(&memory);
     let bytes_written: M::Offset =
         wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));

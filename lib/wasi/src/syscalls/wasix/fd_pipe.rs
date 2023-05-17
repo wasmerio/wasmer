@@ -17,7 +17,7 @@ pub fn fd_pipe<M: MemorySize>(
     ro_fd2: WasmPtr<WasiFd, M>,
 ) -> Errno {
     let env = ctx.data();
-    let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(&ctx, 0);
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let (pipe1, pipe2) = Pipe::channel();
 

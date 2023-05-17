@@ -17,7 +17,7 @@ pub fn sock_leave_multicast_v4<M: MemorySize>(
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = env.memory_view(&ctx);
+    let memory = unsafe { env.memory_view(&ctx) };
     let multiaddr = wasi_try!(crate::net::read_ip_v4(&memory, multiaddr));
     let iface = wasi_try!(crate::net::read_ip_v4(&memory, iface));
     wasi_try!(__sock_actor_mut(
