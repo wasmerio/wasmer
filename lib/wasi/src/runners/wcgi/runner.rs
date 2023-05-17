@@ -40,21 +40,19 @@ impl WcgiRunner {
     #[tracing::instrument(skip_all)]
     fn prepare_handler(
         &mut self,
-        pkg: &BinaryPackage,
         command_name: &str,
-        metadata: &Command,
+        pkg: &BinaryPackage,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<Handler, Error> {
-        let wasi: Wasi = metadata
-            .annotation("wasi")
-            .context("Unable to retrieve the WASI metadata")?
+        let cmd = pkg
+            .get_command(command_name)
+            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
+        let metadata = cmd.metadata();
+        let wasi = metadata
+            .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
-        let atom = pkg
-            .entry
-            .as_deref()
-            .context("The package doesn't contain an entrpoint")?;
 
-        let module = crate::runners::compile_module(atom, &*runtime)?;
+        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
@@ -95,12 +93,11 @@ impl crate::runners::Runner for WcgiRunner {
 
     fn run_command(
         &mut self,
-        pkg: &BinaryPackage,
         command_name: &str,
-        metadata: &Command,
+        pkg: &BinaryPackage,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let handler = self.prepare_handler(pkg, command_name, metadata, Arc::clone(&runtime))?;
+        let handler = self.prepare_handler(command_name, pkg, Arc::clone(&runtime))?;
         let callbacks = Arc::clone(&self.config.callbacks);
 
         let service = ServiceBuilder::new()

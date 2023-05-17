@@ -61,7 +61,7 @@ impl BuiltinLoader {
         ))
     }
 
-    #[tracing::instrument(skip_all, fields(pkg.hash=?hash))]
+    #[tracing::instrument(skip_all, fields(pkg.hash=%hash))]
     async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         if let Some(cached) = self.in_memory.lookup(hash) {
             return Ok(Some(cached));
@@ -69,6 +69,9 @@ impl BuiltinLoader {
 
         if let Some(cached) = self.fs.lookup(hash).await? {
             // Note: We want to propagate it to the in-memory cache, too
+            tracing::debug!(
+                "Copying from the filesystem cache to the in-memory cache",
+            );
             self.in_memory.save(&cached, *hash);
             return Ok(Some(cached));
         }
@@ -143,8 +146,17 @@ impl BuiltinLoader {
 
 #[async_trait::async_trait]
 impl PackageLoader for BuiltinLoader {
+    #[tracing::instrument(
+        level="debug",
+        skip_all,
+        fields(
+            pkg.name=summary.pkg.name.as_str(),
+            pkg.version=%summary.pkg.version,
+        ),
+    )]
     async fn load(&self, summary: &Summary) -> Result<Container, Error> {
         if let Some(container) = self.get_cached(&summary.dist.webc_sha256).await? {
+            tracing::debug!("Cache hit!");
             return Ok(container);
         }
 
@@ -159,6 +171,7 @@ impl PackageLoader for BuiltinLoader {
 
         match self.save_and_load_as_mmapped(&bytes, &summary.dist).await {
             Ok(container) => {
+                tracing::debug!("Cached to disk");
                 // The happy path - we've saved to both caches and loaded the
                 // container from disk (hopefully using mmap) so we're done.
                 return Ok(container);
@@ -168,7 +181,7 @@ impl PackageLoader for BuiltinLoader {
                     error=&*e,
                     pkg.name=%summary.pkg.name,
                     pkg.version=%summary.pkg.version,
-                    pkg.hash=?summary.dist.webc_sha256,
+                    pkg.hash=%summary.dist.webc_sha256,
                     pkg.url=%summary.dist.webc,
                     "Unable to save the downloaded package to disk",
                 );
@@ -233,7 +246,15 @@ impl FileSystemCache {
         temp.write_all(webc)?;
         temp.flush()?;
         temp.as_file_mut().sync_all()?;
-        temp.persist(path)?;
+        temp.persist(&path)?;
+
+        tracing::debug!(
+            pkg.hash=%dist.webc_sha256,
+            pkg.url=%dist.webc,
+            path=%path.display(),
+            num_bytes=webc.len(),
+            "Saved to disk",
+        );
 
         Ok(())
     }

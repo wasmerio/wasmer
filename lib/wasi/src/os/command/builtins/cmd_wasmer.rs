@@ -95,7 +95,7 @@ impl CmdWasmer {
 
     pub async fn get_package(&self, name: &str) -> Result<BinaryPackage, anyhow::Error> {
         let specifier = name.parse()?;
-        BinaryPackage::from_specifier(&specifier, &*self.runtime).await
+        BinaryPackage::from_registry(&specifier, &*self.runtime).await
     }
 }
 

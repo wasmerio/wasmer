@@ -18,15 +18,17 @@ use crate::{
 #[derivative(Debug)]
 pub struct BinaryPackageCommand {
     name: String,
+    metadata: webc::metadata::Command,
     #[derivative(Debug = "ignore")]
     pub(crate) atom: SharedBytes,
     hash: OnceCell<ModuleHash>,
 }
 
 impl BinaryPackageCommand {
-    pub fn new(name: String, atom: SharedBytes) -> Self {
+    pub fn new(name: String, metadata: webc::metadata::Command, atom: SharedBytes) -> Self {
         Self {
             name,
+            metadata,
             atom,
             hash: OnceCell::new(),
         }
@@ -34,6 +36,10 @@ impl BinaryPackageCommand {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn metadata(&self) -> &webc::metadata::Command {
+        &self.metadata
     }
 
     /// Get a reference to this [`BinaryPackageCommand`]'s atom.
@@ -55,8 +61,9 @@ impl BinaryPackageCommand {
 pub struct BinaryPackage {
     pub package_name: String,
     pub when_cached: Option<u128>,
-    #[derivative(Debug = "ignore")]
-    pub entry: Option<SharedBytes>,
+    /// The name of the [`BinaryPackageCommand`] which is this package's
+    /// entrypoint.
+    pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
     pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
     pub commands: Vec<BinaryPackageCommand>,
@@ -94,7 +101,7 @@ impl BinaryPackage {
     }
 
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
-    pub async fn from_specifier(
+    pub async fn from_registry(
         specifier: &PackageSpecifier,
         runtime: &dyn WasiRuntime,
     ) -> Result<Self, anyhow::Error> {
@@ -113,9 +120,21 @@ impl BinaryPackage {
         Ok(pkg)
     }
 
+    pub fn get_command(&self, name: &str) -> Option<&BinaryPackageCommand> {
+        self.commands.iter().find(|cmd| cmd.name() == name)
+    }
+
+    /// Get the bytes for the entrypoint command.
+    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+        self.entrypoint_cmd
+            .as_deref()
+            .and_then(|name| self.get_command(name))
+            .map(|entry| entry.atom())
+    }
+
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
-            if let Some(entry) = self.entry.as_ref() {
+            if let Some(entry) = self.entrypoint_bytes() {
                 ModuleHash::sha256(entry)
             } else {
                 ModuleHash::sha256(self.package_name.as_bytes())

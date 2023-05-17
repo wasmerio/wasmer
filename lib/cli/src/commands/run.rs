@@ -421,8 +421,10 @@ impl RunWithPathBuf {
     ) -> Result<(), anyhow::Error> {
         use std::sync::Arc;
 
-        use wasmer_wasix::runners::{
-            emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner,
+        use wasmer_wasix::{
+            bin_factory::BinaryPackage,
+            runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
+            WasiRuntime,
         };
 
         let id = id
@@ -436,12 +438,15 @@ impl RunWithPathBuf {
 
         let (store, _compiler_type) = self.store.get_store()?;
         let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone())?);
+        let pkg = runtime
+            .task_manager()
+            .block_on(BinaryPackage::from_webc(&container, &*runtime))?;
 
         if WasiRunner::can_run_command(command).unwrap_or(false) {
             let mut runner = WasiRunner::new();
             runner.set_args(args.to_vec());
             return runner
-                .run_command(id, &container, runtime)
+                .run_command(id, &pkg, runtime)
                 .context("WASI runner failed");
         }
 
@@ -449,7 +454,7 @@ impl RunWithPathBuf {
             let mut runner = EmscriptenRunner::new();
             runner.set_args(args.to_vec());
             return runner
-                .run_command(id, &container, runtime)
+                .run_command(id, &pkg, runtime)
                 .context("Emscripten runner failed");
         }
 
@@ -466,7 +471,7 @@ impl RunWithPathBuf {
             }
 
             return runner
-                .run_command(id, &container, runtime)
+                .run_command(id, &pkg, runtime)
                 .context("WCGI runner failed");
         }
 

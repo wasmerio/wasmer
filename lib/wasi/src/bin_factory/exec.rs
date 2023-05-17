@@ -28,7 +28,7 @@ pub async fn spawn_exec(
     let compiled_modules = runtime.module_cache();
     let module = compiled_modules.load(key, store.engine()).await.ok();
 
-    let module = match (module, binary.entry.as_ref()) {
+    let module = match (module, binary.entrypoint_bytes()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
             let module = Module::new(&store, &entry[..]).map_err(|err| {

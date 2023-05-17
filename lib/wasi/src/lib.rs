@@ -50,7 +50,6 @@ pub mod runtime;
 mod state;
 mod syscalls;
 mod utils;
-pub mod wapm;
 
 /// WAI based bindings.
 mod bindings;
