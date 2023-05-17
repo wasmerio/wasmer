@@ -325,12 +325,11 @@ fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
         [] => anyhow::bail!("The WEBC file doesn't contain any executable commands"),
         [one] => Ok(one.name()),
         [..] => {
+            let mut commands: Vec<_> = pkg.commands.iter().map(|cmd| cmd.name()).collect();
+            commands.sort();
             anyhow::bail!(
                 "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
-                pkg.commands
-                    .iter()
-                    .map(|cmd| cmd.name())
-                    .collect::<Vec<_>>(),
+                commands,
             );
         }
     }

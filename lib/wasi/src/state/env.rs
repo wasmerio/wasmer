@@ -226,7 +226,7 @@ impl WasiInstanceHandles {
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
-    pub webc_dependencies: Vec<String>,
+    pub webc_dependencies: Vec<BinaryPackage>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
     pub capabilities: Capabilities,
@@ -440,7 +440,9 @@ impl WasiEnv {
         env.owned_handles.push(thread);
 
         // TODO: should not be here - should be callers responsibility!
-        env.uses(init.webc_dependencies)?;
+        for pkg in &init.webc_dependencies {
+            env.use_package(pkg)?;
+        }
 
         #[cfg(feature = "sys")]
         env.map_commands(init.mapped_commands.clone())?;
@@ -901,7 +903,7 @@ impl WasiEnv {
             }
         }
 
-        todo!();
+        Ok(())
     }
 
     /// Given a list of packages, load them from the registry and make them
@@ -913,11 +915,13 @@ impl WasiEnv {
         let rt = self.runtime();
 
         for package_name in uses {
-            let specifier: PackageSpecifier = package_name.parse().unwrap();
+            let specifier = package_name
+                .parse::<PackageSpecifier>()
+                .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
             let pkg = rt
                 .task_manager()
                 .block_on(BinaryPackage::from_registry(&specifier, rt))
-                .unwrap();
+                .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
             self.use_package(&pkg)?;
         }
 

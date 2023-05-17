@@ -33,6 +33,12 @@ pub enum PackageSpecifier {
     Path(PathBuf),
 }
 
+impl PackageSpecifier {
+    pub fn parse(s: &str) -> Result<Self, anyhow::Error> {
+        s.parse()
+    }
+}
+
 impl FromStr for PackageSpecifier {
     type Err = anyhow::Error;
 
