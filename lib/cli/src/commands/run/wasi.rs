@@ -13,6 +13,7 @@ use wasmer::{
 };
 use wasmer_registry::WasmerConfig;
 use wasmer_wasix::{
+    bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
@@ -21,7 +22,7 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinLoader, PackageLoader},
-        resolver::{InMemorySource, MultiSourceRegistry, Registry, WapmSource},
+        resolver::{InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry, WapmSource},
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
@@ -30,7 +31,9 @@ use wasmer_wasix::{
     WasiRuntime, WasiVersion,
 };
 
-use crate::utils::{parse_envvar, parse_mapdir};
+use crate::{
+    utils::{parse_envvar, parse_mapdir},
+};
 
 use super::RunWithPathBuf;
 
@@ -165,11 +168,22 @@ impl Wasi {
             .prepare_runtime(engine)
             .context("Unable to prepare the wasi runtime")?;
 
+        let mut uses = Vec::new();
+        for name in &self.uses {
+            let specifier = PackageSpecifier::parse(name)
+                .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
+            let pkg = rt
+                .task_manager()
+                .block_on(BinaryPackage::from_registry(&specifier, &rt))
+                .with_context(|| format!("Unable to load \"{name}\""))?;
+            uses.push(pkg);
+        }
+
         let builder = WasiEnv::builder(program_name)
             .runtime(Arc::new(rt))
             .args(args)
             .envs(self.env_vars.clone())
-            .uses(self.uses.clone())
+            .uses(uses)
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasix::is_wasix_module(module) {

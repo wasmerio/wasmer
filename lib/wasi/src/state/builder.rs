@@ -15,7 +15,7 @@ use wasmer_wasix_types::wasi::Errno;
 #[cfg(feature = "sys")]
 use crate::PluggableRuntime;
 use crate::{
-    bin_factory::BinFactory,
+    bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
@@ -62,7 +62,7 @@ pub struct WasiEnvBuilder {
     pub(super) runtime: Option<Arc<dyn crate::WasiRuntime + Send + Sync + 'static>>,
 
     /// List of webc dependencies to be injected.
-    pub(super) uses: Vec<String>,
+    pub(super) uses: Vec<BinaryPackage>,
 
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
@@ -270,22 +270,25 @@ impl WasiEnvBuilder {
     }
 
     /// Adds a container this module inherits from
-    pub fn use_webc<Name>(mut self, webc: Name) -> Self
-    where
-        Name: AsRef<str>,
-    {
-        self.uses.push(webc.as_ref().to_string());
+    pub fn use_webc(mut self, pkg: BinaryPackage) -> Self {
+        self.add_webc(pkg);
+        self
+    }
+
+    /// Adds a container this module inherits from
+    pub fn add_webc(&mut self, pkg: BinaryPackage) -> &mut Self {
+        self.uses.push(pkg);
         self
     }
 
     /// Adds a list of other containers this module inherits from
     pub fn uses<I>(mut self, uses: I) -> Self
     where
-        I: IntoIterator<Item = String>,
+        I: IntoIterator<Item = BinaryPackage>,
     {
-        uses.into_iter().for_each(|inherit| {
-            self.uses.push(inherit);
-        });
+        for pkg in uses {
+            self.add_webc(pkg);
+        }
         self
     }
 

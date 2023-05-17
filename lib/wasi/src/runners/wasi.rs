@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
-use virtual_fs::FileSystem;
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
@@ -104,13 +103,15 @@ impl WasiRunner {
         &self,
         program_name: &str,
         wasi: &Wasi,
-        container_fs: Arc<dyn FileSystem + Send + Sync>,
+        pkg: &BinaryPackage,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
+        let container_fs = Arc::clone(&pkg.webc_fs);
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi)?;
 
+        builder.add_webc(pkg.clone());
         builder.set_runtime(runtime);
 
         Ok(builder)
@@ -142,7 +143,7 @@ impl crate::runners::Runner for WasiRunner {
         let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
         let mut store = runtime.new_store();
 
-        self.prepare_webc_env(command_name, &wasi, Arc::clone(&pkg.webc_fs), runtime)?
+        self.prepare_webc_env(command_name, &wasi, pkg, runtime)?
             .run_with_store(module, &mut store)?;
 
         Ok(())
