@@ -1,0 +1,3 @@
+{
+    "query": "{\n    getPackage(name: \"wasmer/wasmer-pack-cli\") {\n        versions {\n        version\n        piritaManifest\n        distribution {\n            piritaDownloadUrl\n            piritaSha256Hash\n        }\n        }\n    }\n}"
+}

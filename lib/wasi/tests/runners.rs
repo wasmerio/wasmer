@@ -22,7 +22,7 @@ use webc::Container;
 
 #[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
-    use wasmer_wasix::{runners::wasi::WasiRunner, WasiError, bin_factory::BinaryPackage};
+    use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 
     use super::*;
 
@@ -46,8 +46,9 @@ mod wasi {
         // assume that everything is fine if it runs successfully.
         let handle = std::thread::spawn(move || {
             WasiRunner::new().with_args(["--version"]).run_command(
+                &pkg,
                 "wat2wasm",
-                &container,
+                &container.manifest().commands["wat2wasm"],
                 Arc::new(rt),
             )
         });
@@ -70,11 +71,17 @@ mod wasi {
         let webc = download_cached("https://wapm.io/python/python").await;
         let rt = runtime();
         let container = Container::from_bytes(webc).unwrap();
+        let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
 
         let handle = std::thread::spawn(move || {
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
-                .run_command("python", &container, Arc::new(rt))
+                .run_command(
+                    &pkg,
+                    "python",
+                    &container.manifest().commands["python"],
+                    Arc::new(rt),
+                )
         });
         let err = handle.join().unwrap().unwrap_err();
 
@@ -97,7 +104,7 @@ mod wcgi {
     use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
-    use wasmer_wasix::runners::wcgi::WcgiRunner;
+    use wasmer_wasix::{runners::wcgi::WcgiRunner, bin_factory::BinaryPackage};
 
     use super::*;
 
@@ -122,11 +129,17 @@ mod wcgi {
             .config()
             .addr(([127, 0, 0, 1], port).into())
             .callbacks(cb);
+        let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
 
         // The server blocks so we need to start it on a background thread.
         let join_handle = std::thread::spawn(move || {
             runner
-                .run_command("serve", &container, Arc::new(rt))
+                .run_command(
+                    &pkg,
+                    "serve",
+                    &container.manifest().commands["serve"],
+                    Arc::new(rt),
+                )
                 .unwrap();
         });
 
