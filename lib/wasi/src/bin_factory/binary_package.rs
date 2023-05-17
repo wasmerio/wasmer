@@ -9,7 +9,7 @@ use webc::{compat::SharedBytes, Container};
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, SourceId, SourceKind},
+        resolver::{PackageId, PackageInfo, PackageSpecifier},
     },
     WasiRuntime,
 };
@@ -85,10 +85,6 @@ impl BinaryPackage {
         let root_id = PackageId {
             package_name: root.name.clone(),
             version: root.version.clone(),
-            source: SourceId::new(
-                SourceKind::LocalRegistry,
-                "http://localhost/".parse().unwrap(),
-            ),
         };
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*registry).await?;

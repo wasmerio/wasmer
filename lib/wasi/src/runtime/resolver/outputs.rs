@@ -7,7 +7,7 @@ use std::{
 
 use semver::Version;
 
-use crate::runtime::resolver::{DistributionInfo, PackageInfo, SourceId};
+use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolution {
@@ -28,7 +28,6 @@ pub struct ItemLocation {
 pub struct PackageId {
     pub package_name: String,
     pub version: Version,
-    pub source: SourceId,
 }
 
 impl Display for PackageId {
@@ -36,21 +35,8 @@ impl Display for PackageId {
         let PackageId {
             package_name,
             version,
-            source,
         } = self;
-        write!(f, "{package_name} {version}")?;
-
-        let url = source.url();
-
-        match source.kind() {
-            super::SourceKind::Path => match url.to_file_path() {
-                Ok(path) => write!(f, " ({})", path.display()),
-                Err(_) => write!(f, " ({url})"),
-            },
-            super::SourceKind::Url => write!(f, " ({url})"),
-            super::SourceKind::Registry => write!(f, " (registry+{url})"),
-            super::SourceKind::LocalRegistry => write!(f, " (local+{url})"),
-        }
+        write!(f, "{package_name}@{version}")
     }
 }
 
