@@ -24,7 +24,7 @@ use crate::{
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn load_package_tree(
     root: &Container,
-    loader: &dyn PackageLoader ,
+    loader: &dyn PackageLoader,
     resolution: &Resolution,
 ) -> Result<BinaryPackage, Error> {
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;

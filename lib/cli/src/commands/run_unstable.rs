@@ -116,6 +116,7 @@ impl RunUnstable {
         result
     }
 
+    #[tracing::instrument(skip_all)]
     fn execute_wasm(
         &self,
         target: &TargetOnDisk,
@@ -139,8 +140,11 @@ impl RunUnstable {
         mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
-        let (store, _compiler_type) = self.store.get_store()?;
-        let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone())?);
+        let wasmer_home = self.wasmer_home.wasmer_home()?;
+        let runtime = self
+            .wasi
+            .prepare_runtime(store.engine().clone(), &wasmer_home)?;
+        let runtime = Arc::new(runtime);
 
         let pkg = runtime
             .task_manager()
@@ -259,9 +263,10 @@ impl RunUnstable {
         store: &mut Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
-        let builder = self
-            .wasi
-            .prepare(store, module, program_name, self.args.clone())?;
+        let wasmer_home = self.wasmer_home.wasmer_home()?;
+        let builder =
+            self.wasi
+                .prepare(store, module, program_name, self.args.clone(), &wasmer_home)?;
 
         builder.run_with_store(module.clone(), store)?;
         Ok(())
@@ -409,6 +414,7 @@ impl PackageSource {
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
+    #[tracing::instrument(skip_all)]
     fn resolve_target(&self, home: &impl DownloadCached) -> Result<TargetOnDisk, Error> {
         match self {
             PackageSource::File(path) => TargetOnDisk::from_file(path.clone()),
@@ -439,7 +445,7 @@ impl Display for PackageSource {
 ///
 /// Depending on the type of target and the command-line arguments, this might
 /// be something the user passed in manually or something that was automatically
-/// saved to `$WASMER_HOME` for caching purposes.
+/// saved to `$WASMER_DIR` for caching purposes.
 #[derive(Debug, Clone)]
 enum TargetOnDisk {
     WebAssemblyBinary(PathBuf),
@@ -493,6 +499,7 @@ impl TargetOnDisk {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn load(&self, cache: &mut ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
         match self {
             TargetOnDisk::Webc(webc) => {

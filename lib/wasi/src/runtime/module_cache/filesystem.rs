@@ -19,6 +19,12 @@ impl FileSystemCache {
         }
     }
 
+    /// Get the directory that is typically used when caching downloaded
+    /// packages inside `$WASMER_DIR`.
+    pub fn default_cache_dir(wasmer_home: impl AsRef<Path>) -> PathBuf {
+        wasmer_home.as_ref().join("compiled")
+    }
+
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
