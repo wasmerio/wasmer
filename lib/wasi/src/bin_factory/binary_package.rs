@@ -93,6 +93,7 @@ impl BinaryPackage {
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*registry).await?;
         let pkg = rt
+            .package_loader()
             .load_package_tree(container, &resolution)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
@@ -113,6 +114,7 @@ impl BinaryPackage {
         let resolution =
             crate::runtime::resolver::resolve(&id, &root_summary.pkg, &registry).await?;
         let pkg = runtime
+            .package_loader()
             .load_package_tree(&root, &resolution)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;

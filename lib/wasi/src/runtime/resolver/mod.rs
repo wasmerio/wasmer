@@ -5,7 +5,6 @@ mod outputs;
 mod registry;
 mod resolve;
 mod source;
-mod utils;
 mod wapm_source;
 
 pub use self::{

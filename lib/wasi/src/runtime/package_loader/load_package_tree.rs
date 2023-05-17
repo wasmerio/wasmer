@@ -24,7 +24,7 @@ use crate::{
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn load_package_tree(
     root: &Container,
-    loader: &impl PackageLoader,
+    loader: &dyn PackageLoader ,
     resolution: &Resolution,
 ) -> Result<BinaryPackage, Error> {
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
@@ -196,7 +196,7 @@ fn legacy_atom_hack(
 }
 
 async fn fetch_dependencies(
-    loader: &impl PackageLoader,
+    loader: &dyn PackageLoader,
     pkg: &ResolvedPackage,
     graph: &DependencyGraph,
 ) -> Result<HashMap<PackageId, Container>, Error> {

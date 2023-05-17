@@ -21,7 +21,7 @@ use wasmer_wasix::{
     runners::MappedDirectory,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
-        package_loader::{BuiltinLoader, PackageLoader},
+        package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry, WapmSource},
         task_manager::tokio::TokioTaskManager,
     },
@@ -270,7 +270,7 @@ impl Wasi {
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(wasmer_home.join("compiled")));
 
-        rt.set_loader(package_loader)
+        rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
             .set_registry(registry)
             .set_engine(Some(engine));
@@ -466,7 +466,7 @@ impl Wasi {
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
         let loader =
-            BuiltinLoader::new_with_client(wasmer_home.join("checkouts"), Arc::new(client));
+            BuiltinPackageLoader::new_with_client(wasmer_home.join("checkouts"), Arc::new(client));
         Ok(loader)
     }
 

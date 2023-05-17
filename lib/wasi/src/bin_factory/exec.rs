@@ -31,7 +31,7 @@ pub async fn spawn_exec(
     let module = match (module, binary.entrypoint_bytes()) {
         (Some(a), _) => a,
         (None, Some(entry)) => {
-            let module = Module::new(&store, &entry[..]).map_err(|err| {
+            let module = Module::new(&store, entry).map_err(|err| {
                 error!(
                     "failed to compile module [{}, len={}] - {}",
                     name,
