@@ -1,22 +1,14 @@
 use std::{
     collections::{BTreeMap, VecDeque},
     fs::File,
-    io::{BufRead, BufReader},
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Error};
 use semver::Version;
-use sha2::{Digest, Sha256};
 use url::Url;
-use webc::{
-    metadata::{annotations::Wapm, UrlOrManifest},
-    Container,
-};
 
 use crate::runtime::resolver::{PackageSpecifier, Source, SourceId, SourceKind, Summary};
-
-use super::Dependency;
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -83,7 +75,7 @@ impl InMemorySource {
     pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         let path = path.as_ref();
 
-        let summary = webc_summary(path, self.id())?;
+        let summary = super::extract_summary_from_webc(path, self.id())?;
         self.add(summary);
 
         Ok(())
@@ -124,97 +116,11 @@ impl Source for InMemorySource {
     }
 }
 
-fn webc_summary(path: &Path, source: SourceId) -> Result<Summary, Error> {
-    let path = path.canonicalize()?;
-    let container = Container::from_disk(&path)?;
-    let manifest = container.manifest();
-
-    let dependencies = manifest
-        .use_map
-        .iter()
-        .map(|(alias, value)| {
-            let pkg = url_or_manifest_to_specifier(value)?;
-            Ok(Dependency {
-                alias: alias.clone(),
-                pkg,
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let commands = manifest
-        .commands
-        .iter()
-        .map(|(name, _value)| crate::runtime::resolver::Command {
-            name: name.to_string(),
-        })
-        .collect();
-
-    let Wapm { name, version, .. } = manifest
-        .package_annotation("wapm")?
-        .context("No \"wapm\" annotations found")?;
-
-    let webc_sha256 = file_hash(&path)?;
-
-    Ok(Summary {
-        package_name: name,
-        version: version.parse()?,
-        webc: Url::from_file_path(path).expect("We've already canonicalized the path"),
-        webc_sha256,
-        dependencies,
-        commands,
-        source,
-        entrypoint: manifest.entrypoint.clone(),
-    })
-}
-
-fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifier, Error> {
-    match value {
-        UrlOrManifest::Url(url) => Ok(PackageSpecifier::Url(url.clone())),
-        UrlOrManifest::Manifest(manifest) => {
-            if let Ok(Some(Wapm { name, version, .. })) = manifest.package_annotation("wapm") {
-                let version = version.parse()?;
-                return Ok(PackageSpecifier::Registry {
-                    full_name: name,
-                    version,
-                });
-            }
-
-            if let Some(origin) = manifest
-                .origin
-                .as_deref()
-                .and_then(|origin| Url::parse(origin).ok())
-            {
-                return Ok(PackageSpecifier::Url(origin));
-            }
-
-            Err(Error::msg(
-                "Unable to determine a package specifier for a vendored dependency",
-            ))
-        }
-        UrlOrManifest::RegistryDependentUrl(specifier) => specifier.parse(),
-    }
-}
-
-fn file_hash(path: &Path) -> Result<[u8; 32], Error> {
-    let mut hasher = Sha256::default();
-    let mut reader = BufReader::new(File::open(path)?);
-
-    loop {
-        let buffer = reader.fill_buf()?;
-        if buffer.is_empty() {
-            break;
-        }
-        hasher.update(buffer);
-        let bytes_read = buffer.len();
-        reader.consume(bytes_read);
-    }
-
-    Ok(hasher.finalize().into())
-}
-
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
+
+    use crate::runtime::resolver::Dependency;
 
     use super::*;
 
@@ -254,7 +160,8 @@ mod tests {
                 webc_sha256: [
                     7, 226, 190, 131, 173, 231, 130, 245, 207, 185, 51, 189, 86, 85, 222, 37, 27,
                     163, 170, 27, 25, 24, 211, 136, 186, 233, 174, 119, 66, 15, 134, 9
-                ],
+                ]
+                .into(),
                 dependencies: vec![Dependency {
                     alias: "coreutils".to_string(),
                     pkg: "sharrattj/coreutils@^1.0.11".parse().unwrap()

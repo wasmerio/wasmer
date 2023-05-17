@@ -22,7 +22,7 @@ impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
         builder: &mut WasiEnvBuilder,
-        container_fs: Arc<dyn FileSystem>,
+        container_fs: Arc<dyn FileSystem + Send + Sync>,
         wasi: &WasiAnnotation,
     ) -> Result<(), anyhow::Error> {
         let fs = prepare_filesystem(&self.mapped_dirs, container_fs, |path| {

@@ -4,13 +4,11 @@ use std::sync::Arc;
 
 use anyhow::{Context, Error};
 use serde::{Deserialize, Serialize};
-use virtual_fs::WebcVolumeFileSystem;
-use webc::{
-    metadata::{annotations::Wasi, Command},
-    Container,
-};
+use virtual_fs::FileSystem;
+use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
+    bin_factory::BinaryPackage,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     WasiEnvBuilder, WasiRuntime,
 };
@@ -104,13 +102,12 @@ impl WasiRunner {
 
     fn prepare_webc_env(
         &self,
-        container: &Container,
         program_name: &str,
         wasi: &Wasi,
+        container_fs: Arc<dyn FileSystem + Send + Sync>,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
-        let container_fs = Arc::new(WebcVolumeFileSystem::mount_all(container));
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi)?;
 
@@ -127,32 +124,26 @@ impl crate::runners::Runner for WasiRunner {
             .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
-    #[tracing::instrument(skip(self, container))]
+    #[tracing::instrument(skip_all)]
     fn run_command(
         &mut self,
+        pkg: &BinaryPackage,
         command_name: &str,
-        container: &Container,
+        metadata: &Command,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let command = container
-            .manifest()
-            .commands
-            .get(command_name)
-            .context("Command not found")?;
-
-        let wasi = command
+        let wasi = metadata
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
-        let atom_name = &wasi.atom;
-        let atoms = container.atoms();
-        let atom = atoms
-            .get(atom_name)
-            .with_context(|| format!("Unable to get the \"{atom_name}\" atom"))?;
+        let atom = pkg
+            .entry
+            .as_deref()
+            .context("The package doesn't contain an entrpoint")?;
 
         let module = crate::runners::compile_module(atom, &*runtime)?;
         let mut store = runtime.new_store();
 
-        self.prepare_webc_env(container, atom_name, &wasi, runtime)?
+        self.prepare_webc_env(command_name, &wasi, Arc::clone(&pkg.webc_fs), runtime)?
             .run_with_store(module, &mut store)?;
 
         Ok(())

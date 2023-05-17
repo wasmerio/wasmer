@@ -5,11 +5,12 @@ mod outputs;
 mod registry;
 mod resolve;
 mod source;
+mod utils;
 mod wapm_source;
 
 pub use self::{
     in_memory_source::InMemorySource,
-    inputs::{Command, Dependency, PackageSpecifier, Summary},
+    inputs::{Command, Dependency, PackageSpecifier, Summary, WebcHash},
     multi_source_registry::MultiSourceRegistry,
     outputs::{
         DependencyGraph, FileSystemMapping, ItemLocation, PackageId, Resolution, ResolvedPackage,
@@ -19,3 +20,5 @@ pub use self::{
     source::{Source, SourceId, SourceKind},
     wapm_source::WapmSource,
 };
+
+pub(crate) use self::utils::{extract_summary_from_manifest, extract_summary_from_webc};

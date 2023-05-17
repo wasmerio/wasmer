@@ -9,12 +9,9 @@ use wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-use webc::{
-    metadata::{annotations::Emscripten, Command},
-    Container,
-};
+use webc::metadata::{annotations::Emscripten, Command};
 
-use crate::WasiRuntime;
+use crate::{bin_factory::BinaryPackage, WasiRuntime};
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
@@ -54,39 +51,29 @@ impl crate::runners::Runner for EmscriptenRunner {
     #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
+        pkg: &BinaryPackage,
         command_name: &str,
-        container: &Container,
+        metadata: &Command,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let command = container
-            .manifest()
-            .commands
-            .get(command_name)
-            .context("Command not found")?;
-
-        let Emscripten {
-            atom: atom_name,
-            main_args,
-            ..
-        } = command.annotation("emscripten")?.unwrap_or_default();
-        let atom_name = atom_name.context("The atom name is required")?;
-        let atoms = container.atoms();
-        let atom_bytes = atoms
-            .get(&atom_name)
-            .with_context(|| format!("Unable to read the \"{atom_name}\" atom"))?;
+        let Emscripten { main_args, .. } = metadata.annotation("emscripten")?.unwrap_or_default();
+        let atom_bytes = pkg
+            .entry
+            .as_deref()
+            .context("The package doesn't contain an entrpoint")?;
 
         let mut module = crate::runners::compile_module(atom_bytes, &*runtime)?;
-        module.set_name(&atom_name);
+        module.set_name(command_name);
 
         let mut store = runtime.new_store();
-        let (mut globals, env) = prepare_emscripten_env(&mut store, &module, &atom_name)?;
+        let (mut globals, env) = prepare_emscripten_env(&mut store, &module, command_name)?;
 
         exec_module(
             &mut store,
             &module,
             &mut globals,
             env,
-            &atom_name,
+            command_name,
             main_args.unwrap_or_default(),
         )?;
 

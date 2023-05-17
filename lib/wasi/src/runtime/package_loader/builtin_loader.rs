@@ -16,7 +16,10 @@ use webc::{
 
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
-    runtime::{package_loader::PackageLoader, resolver::Summary},
+    runtime::{
+        package_loader::PackageLoader,
+        resolver::{Summary, WebcHash},
+    },
 };
 
 /// The builtin [`PackageLoader`] that is used by the `wasmer` CLI and
@@ -59,7 +62,7 @@ impl BuiltinLoader {
     }
 
     #[tracing::instrument(skip_all, fields(pkg.hash=?hash))]
-    async fn get_cached(&self, hash: &[u8; 32]) -> Result<Option<Container>, Error> {
+    async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         if let Some(cached) = self.in_memory.lookup(hash) {
             return Ok(Some(cached));
         }
@@ -199,7 +202,7 @@ struct FileSystemCache {
 }
 
 impl FileSystemCache {
-    async fn lookup(&self, hash: &[u8; 32]) -> Result<Option<Container>, Error> {
+    async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         let path = self.path(hash);
 
         match Container::from_disk(&path) {
@@ -235,7 +238,8 @@ impl FileSystemCache {
         Ok(())
     }
 
-    fn path(&self, hash: &[u8; 32]) -> PathBuf {
+    fn path(&self, hash: &WebcHash) -> PathBuf {
+        let hash = hash.as_bytes();
         let mut filename = String::with_capacity(hash.len() * 2);
         for b in hash {
             write!(filename, "{b:02x}").unwrap();
@@ -247,14 +251,14 @@ impl FileSystemCache {
 }
 
 #[derive(Debug, Default)]
-struct InMemoryCache(RwLock<HashMap<[u8; 32], Container>>);
+struct InMemoryCache(RwLock<HashMap<WebcHash, Container>>);
 
 impl InMemoryCache {
-    fn lookup(&self, hash: &[u8; 32]) -> Option<Container> {
+    fn lookup(&self, hash: &WebcHash) -> Option<Container> {
         self.0.read().unwrap().get(hash).cloned()
     }
 
-    fn save(&self, container: &Container, hash: [u8; 32]) {
+    fn save(&self, container: &Container, hash: WebcHash) {
         let mut cache = self.0.write().unwrap();
         cache.entry(hash).or_insert_with(|| container.clone());
     }
@@ -319,7 +323,7 @@ mod tests {
             package_name: "python/python".to_string(),
             version: "0.1.0".parse().unwrap(),
             webc: "https://wapm.io/python/python".parse().unwrap(),
-            webc_sha256: [0xaa; 32],
+            webc_sha256: [0xaa; 32].into(),
             dependencies: Vec::new(),
             commands: Vec::new(),
             source: SourceId::new(

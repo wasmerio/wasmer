@@ -7,17 +7,14 @@ use hyper::Body;
 use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
-use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wcgi_host::CgiDialect;
-use webc::{
-    metadata::{
-        annotations::{Wasi, Wcgi},
-        Command,
-    },
-    Container,
+use webc::metadata::{
+    annotations::{Wasi, Wcgi},
+    Command,
 };
 
 use crate::{
+    bin_factory::BinaryPackage,
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
@@ -43,38 +40,31 @@ impl WcgiRunner {
     #[tracing::instrument(skip_all)]
     fn prepare_handler(
         &mut self,
-        container: &Container,
+        pkg: &BinaryPackage,
         command_name: &str,
+        metadata: &Command,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<Handler, Error> {
-        let command = container
-            .manifest()
-            .commands
-            .get(command_name)
-            .context("Command not found")?;
-
-        let wasi: Wasi = command
+        let wasi: Wasi = metadata
             .annotation("wasi")
             .context("Unable to retrieve the WASI metadata")?
             .unwrap_or_else(|| Wasi::new(command_name));
+        let atom = pkg
+            .entry
+            .as_deref()
+            .context("The package doesn't contain an entrpoint")?;
 
-        let atom_name = &wasi.atom;
-        let atom = container
-            .get_atom(atom_name)
-            .with_context(|| format!("Unable to retrieve the \"{atom_name}\" atom"))?;
-        let module = crate::runners::compile_module(&atom, &*runtime)?;
+        let module = crate::runners::compile_module(atom, &*runtime)?;
 
-        let Wcgi { dialect, .. } = command.annotation("wcgi")?.unwrap_or_default();
+        let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
             None => CgiDialect::Wcgi,
         };
 
-        let container_fs: Arc<dyn FileSystem> =
-            Arc::new(WebcVolumeFileSystem::mount_all(container));
+        let container_fs = Arc::clone(&pkg.webc_fs);
 
         let wasi_common = self.config.wasi.clone();
-        let wasi = wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
             wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
@@ -86,7 +76,7 @@ impl WcgiRunner {
         let shared = SharedState {
             module,
             dialect,
-            program_name: atom_name.clone(),
+            program_name: command_name.to_string(),
             setup_builder: Box::new(setup_builder),
             callbacks: Arc::clone(&self.config.callbacks),
             runtime,
@@ -105,11 +95,12 @@ impl crate::runners::Runner for WcgiRunner {
 
     fn run_command(
         &mut self,
+        pkg: &BinaryPackage,
         command_name: &str,
-        container: &Container,
+        metadata: &Command,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let handler = self.prepare_handler(container, command_name, Arc::clone(&runtime))?;
+        let handler = self.prepare_handler(pkg, command_name, metadata, Arc::clone(&runtime))?;
         let callbacks = Arc::clone(&self.config.callbacks);
 
         let service = ServiceBuilder::new()
