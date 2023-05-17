@@ -663,8 +663,6 @@ mod tests {
                 builder.get("root", "1.0.0").package_id(),
             ]
         );
-
-        panic!("{}", err);
     }
 
     #[test]

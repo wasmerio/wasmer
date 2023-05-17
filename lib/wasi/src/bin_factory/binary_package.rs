@@ -61,7 +61,8 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
-    /// Load a [`BinaryPackage`] from a `*.webc` file
+    /// Load a [`webc::Container`] and all its dependencies into a
+    /// [`BinaryPackage`].
     pub async fn from_webc(
         _container: &Container,
         _rt: &dyn WasiRuntime,

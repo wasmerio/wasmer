@@ -42,14 +42,30 @@ impl Source for WapmSource {
             _ => return Ok(Vec::new()),
         };
 
+        #[derive(serde::Serialize)]
+        struct Body {
+            query: String,
+        }
+
+        let body = Body {
+            query: WAPM_WEBC_QUERY_ALL.replace("$NAME", full_name),
+        };
+        let body = serde_json::to_string(&body)?;
+        println!("=====");
+        println!("{}", body);
+        println!("=====");
+
         let request = HttpRequest {
             url: self.registry_endpoint.to_string(),
-            method: "GET".to_string(),
-            body: Some(WAPM_WEBC_QUERY_ALL.replace("$NAME", full_name).into_bytes()),
-            headers: vec![(
-                "User-Agent".to_string(),
-                crate::http::USER_AGENT.to_string(),
-            )],
+            method: "POST".to_string(),
+            body: Some(body.into_bytes()),
+            headers: vec![
+                (
+                    "User-Agent".to_string(),
+                    crate::http::USER_AGENT.to_string(),
+                ),
+                ("Content-Type".to_string(), "application/json".to_string()),
+            ],
             options: Default::default(),
         };
 
@@ -167,18 +183,7 @@ mod tests {
 
     use super::*;
 
-    const WASMER_PACK_CLI_QUERY: &str = r#"{
-    getPackage(name: "wasmer/wasmer-pack-cli") {
-        versions {
-        version
-        piritaManifest
-        distribution {
-            piritaDownloadUrl
-            piritaSha256Hash
-        }
-        }
-    }
-}"#;
+    const WASMER_PACK_CLI_REQUEST: &[u8] = include_bytes!("wasmer_pack_cli_request.json");
     const WASMER_PACK_CLI_RESPONSE: &[u8] = include_bytes!("wasmer_pack_cli_response.json");
 
     #[derive(Debug, Default)]
@@ -189,12 +194,23 @@ mod tests {
             &self,
             request: HttpRequest,
         ) -> futures::future::BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
-            let body = String::from_utf8(request.body.unwrap()).unwrap();
-            assert_eq!(body, WASMER_PACK_CLI_QUERY);
+            // You can check the response with:
+            // curl https://registry.wapm.io/graphql \
+            //      -H "Content-Type: application/json" \
+            //      -X POST \
+            //      -d '@wasmer_pack_cli_request.json' > wasmer_pack_cli_response.json
+            assert_eq!(request.method, "POST");
             assert_eq!(request.url, WapmSource::WAPM_PROD_ENDPOINT);
             let headers: HashMap<String, String> = request.headers.into_iter().collect();
-            assert_eq!(headers.len(), 1);
+            assert_eq!(headers.len(), 2);
             assert_eq!(headers["User-Agent"], crate::http::USER_AGENT);
+            assert_eq!(headers["Content-Type"], "application/json");
+
+            let body: serde_json::Value =
+                serde_json::from_slice(request.body.as_deref().unwrap()).unwrap();
+            let expected_body: serde_json::Value =
+                serde_json::from_slice(WASMER_PACK_CLI_REQUEST).unwrap();
+            assert_eq!(body, expected_body);
 
             Box::pin(async {
                 Ok(HttpResponse {
