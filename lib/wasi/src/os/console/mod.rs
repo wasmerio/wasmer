@@ -230,7 +230,8 @@ impl Console {
             }
         };
 
-        let resolved_package = tasks.block_on(load_package(&webc_ident, env.runtime()));
+        let resolved_package =
+            tasks.block_on(BinaryPackage::from_specifier(&webc_ident, env.runtime()));
 
         let binary = match resolved_package {
             Ok(pkg) => pkg,
@@ -299,16 +300,4 @@ impl Console {
             .await
             .ok();
     }
-}
-
-async fn load_package(
-    specifier: &PackageSpecifier,
-    runtime: &dyn WasiRuntime,
-) -> Result<BinaryPackage, Box<dyn std::error::Error + Send + Sync>> {
-    let registry = runtime.registry();
-    let root_package = registry.latest(specifier).await?;
-    let resolution = crate::runtime::resolver::resolve(&root_package, &registry).await?;
-    let pkg = runtime.load_package_tree(&resolution).await?;
-
-    Ok(pkg)
 }

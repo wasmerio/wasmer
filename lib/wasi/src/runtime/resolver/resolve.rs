@@ -1,15 +1,20 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use crate::runtime::resolver::{
-    DependencyGraph, ItemLocation, PackageId, Registry, Resolution, ResolvedPackage, Summary,
+    DependencyGraph, ItemLocation, PackageId, PackageInfo, Registry, Resolution, ResolvedPackage,
+    Summary,
 };
 
 use super::FileSystemMapping;
 
 /// Given the [`Summary`] for a root package, resolve its dependency graph and
 /// figure out how it could be executed.
-pub async fn resolve(root: &Summary, registry: &impl Registry) -> Result<Resolution, ResolveError> {
-    let graph = resolve_dependency_graph(root, registry).await?;
+pub async fn resolve(
+    root_id: &PackageId,
+    root: &PackageInfo,
+    registry: &dyn Registry,
+) -> Result<Resolution, ResolveError> {
+    let graph = resolve_dependency_graph(root_id, root, registry).await?;
     let package = resolve_package(&graph)?;
 
     Ok(Resolution { graph, package })
@@ -48,22 +53,24 @@ fn print_cycle(packages: &[PackageId]) -> String {
 }
 
 async fn resolve_dependency_graph(
-    root: &Summary,
-    registry: &impl Registry,
+    root_id: &PackageId,
+    root: &PackageInfo,
+    registry: &dyn Registry,
 ) -> Result<DependencyGraph, ResolveError> {
     let mut dependencies = HashMap::new();
-    let mut summaries = HashMap::new();
+    let mut package_info = HashMap::new();
+    let mut distribution = HashMap::new();
 
-    summaries.insert(root.package_id(), root.clone());
+    package_info.insert(root_id.clone(), root.clone());
 
     let mut to_visit = VecDeque::new();
 
-    to_visit.push_back(root.clone());
+    to_visit.push_back((root_id.clone(), root.clone()));
 
-    while let Some(summary) = to_visit.pop_front() {
+    while let Some((id, info)) = to_visit.pop_front() {
         let mut deps = HashMap::new();
 
-        for dep in &summary.pkg.dependencies {
+        for dep in &info.dependencies {
             let dep_summary = registry
                 .latest(&dep.pkg)
                 .await
@@ -71,25 +78,28 @@ async fn resolve_dependency_graph(
             deps.insert(dep.alias().to_string(), dep_summary.package_id());
             let dep_id = dep_summary.package_id();
 
-            if summaries.contains_key(&dep_id) {
+            if dependencies.contains_key(&dep_id) {
                 // We don't need to visit this dependency again
                 continue;
             }
 
-            summaries.insert(dep_id, dep_summary.clone());
-            to_visit.push_back(dep_summary);
+            let Summary { pkg, dist } = dep_summary;
+
+            to_visit.push_back((dep_id.clone(), pkg.clone()));
+            package_info.insert(dep_id.clone(), pkg);
+            distribution.insert(dep_id, dist);
         }
 
-        dependencies.insert(summary.package_id(), deps);
+        dependencies.insert(id, deps);
     }
 
-    let root = root.package_id();
-    check_for_cycles(&dependencies, &root)?;
+    check_for_cycles(&dependencies, root_id)?;
 
     Ok(DependencyGraph {
-        root,
+        root: root_id.clone(),
         dependencies,
-        summaries,
+        package_info,
+        distribution,
     })
 }
 
@@ -149,20 +159,20 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 
     while let Some(next) = to_check.pop_front() {
         visited.insert(next);
-        let summary = &dependency_graph.summaries[next];
+        let pkg = &dependency_graph.package_info[next];
 
         // set the entrypoint, if necessary
         if entrypoint.is_none() {
-            if let Some(entry) = &summary.pkg.entrypoint {
+            if let Some(entry) = &pkg.entrypoint {
                 entrypoint = Some(entry.clone());
             }
         }
 
         // Blindly copy across all commands
-        for cmd in &summary.pkg.commands {
+        for cmd in &pkg.commands {
             let resolved = ItemLocation {
                 name: cmd.name.clone(),
-                package: summary.package_id(),
+                package: next.clone(),
             };
             commands.insert(cmd.name.clone(), resolved);
         }
@@ -288,6 +298,11 @@ mod tests {
                 });
             self
         }
+
+        fn with_entrypoint(&mut self, name: &str) -> &mut Self {
+            self.summary.pkg.entrypoint = Some(name.to_string());
+            self
+        }
     }
 
     impl<'builder> Drop for AddPackageVersion<'builder> {
@@ -378,7 +393,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph.insert("root", "1.0.0");
@@ -401,7 +418,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph.insert("root", "1.0.0");
@@ -432,7 +451,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
@@ -464,7 +485,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("first", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
@@ -498,7 +521,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
@@ -538,7 +563,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
@@ -580,7 +607,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
@@ -622,7 +651,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let resolution = resolve(root, &registry).await.unwrap();
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
@@ -658,7 +689,9 @@ mod tests {
         let registry = builder.finish();
         let root = builder.get("root", "1.0.0");
 
-        let err = resolve(root, &registry).await.unwrap_err();
+        let err = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap_err();
 
         let cycle = err.as_cycle().unwrap().to_vec();
         assert_eq!(
@@ -668,6 +701,39 @@ mod tests {
                 builder.get("dep", "1.0.0").package_id(),
                 builder.get("root", "1.0.0").package_id(),
             ]
+        );
+    }
+
+    #[tokio::test]
+    async fn entrypoint_is_inherited() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("dep", "=1.0.0");
+        builder
+            .register("dep", "1.0.0")
+            .with_command("entry")
+            .with_entrypoint("entry");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            resolution.package,
+            ResolvedPackage {
+                root_package: root.package_id(),
+                commands: map! {
+                    "entry" => ItemLocation {
+                        name: "entry".to_string(),
+                        package: builder.get("dep", "1.0.0").package_id(),
+                     },
+                },
+                entrypoint: Some("entry".to_string()),
+                filesystem: Vec::new(),
+            }
         );
     }
 

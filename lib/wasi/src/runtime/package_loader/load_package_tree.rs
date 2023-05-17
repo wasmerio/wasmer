@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     path::Path,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use anyhow::{Context, Error};
@@ -14,17 +14,20 @@ use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     runtime::{
         package_loader::PackageLoader,
-        resolver::{ItemLocation, PackageId, Resolution, ResolvedPackage, Summary},
+        resolver::{
+            DependencyGraph, ItemLocation, PackageId, Resolution, ResolvedPackage, Summary,
+        },
     },
 };
 
 /// Given a fully resolved package, load it into memory for execution.
 pub async fn load_package_tree(
+    root: &Container,
     loader: &impl PackageLoader,
     resolution: &Resolution,
 ) -> Result<BinaryPackage, Error> {
-    let containers =
-        used_packages(loader, &resolution.package, &resolution.graph.summaries).await?;
+    let mut containers = used_packages(loader, &resolution.package, &resolution.graph).await?;
+    containers.insert(resolution.package.root_package.clone(), root.clone());
     let fs = filesystem(&containers, &resolution.package)?;
 
     let root = &resolution.package.root_package;
@@ -53,7 +56,7 @@ pub async fn load_package_tree(
                 .map(|cmd| cmd.atom.clone())
         }),
         webc_fs: Arc::new(fs),
-        commands: Arc::new(RwLock::new(commands)),
+        commands,
         uses: Vec::new(),
         module_memory_footprint,
         file_system_memory_footprint,
@@ -191,10 +194,9 @@ fn legacy_atom_hack(webc: &Container, command_name: &str) -> Option<BinaryPackag
 async fn used_packages(
     loader: &impl PackageLoader,
     pkg: &ResolvedPackage,
-    summaries: &HashMap<PackageId, Summary>,
+    graph: &DependencyGraph,
 ) -> Result<HashMap<PackageId, Container>, Error> {
     let mut packages = HashSet::new();
-    packages.insert(pkg.root_package.clone());
 
     for loc in pkg.commands.values() {
         packages.insert(loc.package.clone());
@@ -204,9 +206,18 @@ async fn used_packages(
         packages.insert(mapping.package.clone());
     }
 
+    // We don't need to download the root package
+    packages.remove(&pkg.root_package);
+
     let packages: FuturesUnordered<_> = packages
         .into_iter()
-        .map(|id| async { loader.load(&summaries[&id]).await.map(|webc| (id, webc)) })
+        .map(|id| async {
+            let summary = Summary {
+                pkg: graph.package_info[&id].clone(),
+                dist: graph.distribution[&id].clone(),
+            };
+            loader.load(&summary).await.map(|webc| (id, webc))
+        })
         .collect();
 
     let packages: HashMap<PackageId, Container> = packages.try_collect().await?;

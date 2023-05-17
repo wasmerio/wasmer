@@ -1,10 +1,6 @@
 use anyhow::Context;
 use once_cell::sync::OnceCell;
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{collections::HashMap, path::Path, sync::Arc};
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
@@ -69,7 +65,7 @@ pub(crate) fn parse_webc(webc: &Container) -> Result<BinaryPackage, anyhow::Erro
         entry: entry.map(Into::into),
         hash: OnceCell::new(),
         webc_fs: Arc::new(webc_fs),
-        commands: Arc::new(RwLock::new(commands.into_values().collect())),
+        commands: commands.into_values().collect(),
         uses,
         version: wapm.version.parse()?,
         module_memory_footprint,
@@ -226,8 +222,8 @@ mod tests {
         assert_eq!(pkg.file_system_memory_footprint, 13387764);
         let python_atom = python.get_atom("python").unwrap();
         assert_eq!(pkg.entry.as_deref(), Some(python_atom.as_slice()));
-        let commands = pkg.commands.read().unwrap();
-        let commands: BTreeMap<&str, &[u8]> = commands
+        let commands: BTreeMap<&str, &[u8]> = pkg
+            .commands
             .iter()
             .map(|cmd| (cmd.name(), cmd.atom()))
             .collect();
@@ -258,8 +254,8 @@ mod tests {
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 44);
         assert_eq!(pkg.entry, None);
-        let commands = pkg.commands.read().unwrap();
-        let commands: BTreeMap<&str, &[u8]> = commands
+        let commands: BTreeMap<&str, &[u8]> = pkg
+            .commands
             .iter()
             .map(|cmd| (cmd.name(), cmd.atom()))
             .collect();
@@ -388,8 +384,8 @@ mod tests {
         assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.16"]);
         assert_eq!(pkg.module_memory_footprint, 1847052);
         assert_eq!(pkg.file_system_memory_footprint, 0);
-        let commands = pkg.commands.read().unwrap();
-        let commands: BTreeMap<&str, &[u8]> = commands
+        let commands: BTreeMap<&str, &[u8]> = pkg
+            .commands
             .iter()
             .map(|cmd| (cmd.name(), cmd.atom()))
             .collect();
@@ -404,8 +400,7 @@ mod tests {
 
         assert_eq!(pkg.package_name, "wasmer/hello");
         assert_eq!(pkg.version.to_string(), "0.1.0");
-        let commands = pkg.commands.read().unwrap();
-        assert!(commands.is_empty());
+        assert!(pkg.commands.is_empty());
         assert!(pkg.entry.is_none());
         assert_eq!(pkg.uses, ["sharrattj/static-web-server@1"]);
     }

@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use derivative::*;
 use once_cell::sync::OnceCell;
@@ -6,7 +6,13 @@ use semver::Version;
 use virtual_fs::FileSystem;
 use webc::{compat::SharedBytes, Container};
 
-use crate::{runtime::module_cache::ModuleHash, WasiRuntime};
+use crate::{
+    runtime::{
+        module_cache::ModuleHash,
+        resolver::{PackageId, PackageInfo, PackageSpecifier, SourceId, SourceKind},
+    },
+    WasiRuntime,
+};
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -53,7 +59,7 @@ pub struct BinaryPackage {
     pub entry: Option<SharedBytes>,
     pub hash: OnceCell<ModuleHash>,
     pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
-    pub commands: Arc<RwLock<Vec<BinaryPackageCommand>>>,
+    pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub version: Version,
     pub module_memory_footprint: u64,
@@ -64,16 +70,47 @@ impl BinaryPackage {
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
     pub async fn from_webc(
-        _container: &Container,
-        _rt: &dyn WasiRuntime,
+        container: &Container,
+        rt: &dyn WasiRuntime,
     ) -> Result<Self, anyhow::Error> {
-        // let summary = crate::runtime::resolver::extract_summary_from_manifest(
-        //     container.manifest(),
-        //     source,
-        //     url,
-        //     webc_sha256,
-        // )?;
-        todo!();
+        let registry = rt.registry();
+        let root = PackageInfo::from_manifest(container.manifest())?;
+        let root_id = PackageId {
+            package_name: root.name.clone(),
+            version: root.version.clone(),
+            source: SourceId::new(
+                SourceKind::LocalRegistry,
+                "http://localhost/".parse().unwrap(),
+            ),
+        };
+
+        let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*registry).await?;
+        let pkg = rt
+            .load_package_tree(container, &resolution)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        Ok(pkg)
+    }
+
+    /// Load a [`BinaryPackage`] and all its dependencies from a registry.
+    pub async fn from_specifier(
+        specifier: &PackageSpecifier,
+        runtime: &dyn WasiRuntime,
+    ) -> Result<Self, anyhow::Error> {
+        let registry = runtime.registry();
+        let root_summary = registry.latest(specifier).await?;
+        let root = runtime.package_loader().load(&root_summary).await?;
+        let id = root_summary.package_id();
+
+        let resolution =
+            crate::runtime::resolver::resolve(&id, &root_summary.pkg, &registry).await?;
+        let pkg = runtime
+            .load_package_tree(&root, &resolution)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        Ok(pkg)
     }
 
     pub fn hash(&self) -> ModuleHash {

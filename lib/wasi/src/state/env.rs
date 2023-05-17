@@ -860,7 +860,7 @@ impl WasiEnv {
         while let Some(use_package) = use_packages.pop_back() {
             match cmd_wasmer
                 .ok_or_else(|| anyhow::anyhow!("Unable to get /bin/wasmer"))
-                .and_then(|cmd| tasks.block_on(cmd.get_package(use_package.clone())))
+                .and_then(|cmd| tasks.block_on(cmd.get_package(&use_package)))
             {
                 Ok(package) => {
                     // If its already been added make sure the version is correct
@@ -887,7 +887,7 @@ impl WasiEnv {
 
                         // Add all the commands as binaries in the bin folder
 
-                        let commands = package.commands.read().unwrap();
+                        let commands = &package.commands;
                         if !commands.is_empty() {
                             let _ = root_fs.create_dir(Path::new("/bin"));
                             for command in commands.iter() {

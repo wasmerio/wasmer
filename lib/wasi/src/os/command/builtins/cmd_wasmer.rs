@@ -71,7 +71,7 @@ impl CmdWasmer {
             state.args = args;
             env.state = Arc::new(state);
 
-            if let Ok(binary) = self.get_package(what.clone()).await {
+            if let Ok(binary) = self.get_package(&what).await {
                 // Now run the module
                 spawn_exec(binary, name, store, env, &self.runtime).await
             } else {
@@ -93,18 +93,9 @@ impl CmdWasmer {
         }
     }
 
-    pub async fn get_package(&self, name: String) -> Result<BinaryPackage, anyhow::Error> {
-        let registry = self.runtime.registry();
+    pub async fn get_package(&self, name: &str) -> Result<BinaryPackage, anyhow::Error> {
         let specifier = name.parse()?;
-        let root_package = registry.latest(&specifier).await?;
-        let resolution = crate::runtime::resolver::resolve(&root_package, &registry).await?;
-        let pkg = self
-            .runtime
-            .load_package_tree(&resolution)
-            .await
-            .map_err(|e| anyhow::anyhow!(e))?;
-
-        Ok(pkg)
+        BinaryPackage::from_specifier(&specifier, &*self.runtime).await
     }
 }
 

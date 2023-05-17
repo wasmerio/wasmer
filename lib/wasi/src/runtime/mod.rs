@@ -13,6 +13,7 @@ use std::{
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
+use webc::Container;
 
 use crate::{
     bin_factory::BinaryPackage,
@@ -28,29 +29,6 @@ use crate::{
 
 /// Represents an implementation of the WASI runtime - by default everything is
 /// unimplemented.
-///
-/// # Loading Packages
-///
-/// Loading a package, complete with dependencies, can feel a bit involved
-/// because it requires several non-trivial components.
-///
-/// ```rust
-/// use wasmer_wasix::{
-///   runtime::{
-///     WasiRuntime,
-///     resolver::{PackageSpecifier, resolve},
-///   },
-///   bin_factory::BinaryPackage,
-/// };
-///
-/// async fn with_runtime(runtime: &dyn WasiRuntime) -> Result<(), Box<dyn std::error::Error + Send +Sync>> {
-///   let registry = runtime.registry();
-///   let specifier: PackageSpecifier = "python/python@3.10".parse()?;
-///   let root_package = registry.latest(&specifier).await?;
-///   let resolution = resolve(&root_package, &registry).await?;
-///   let pkg: BinaryPackage = runtime.load_package_tree(&resolution).await?;
-///   Ok(())
-/// }
 #[allow(unused_variables)]
 pub trait WasiRuntime
 where
@@ -108,12 +86,13 @@ where
     /// should be good enough for most applications.
     fn load_package_tree<'a>(
         &'a self,
+        root: &'a Container,
         resolution: &'a Resolution,
     ) -> BoxFuture<'a, Result<BinaryPackage, Box<dyn std::error::Error + Send + Sync>>> {
         let package_loader = self.package_loader();
 
         Box::pin(async move {
-            let pkg = package_loader::load_package_tree(&package_loader, resolution).await?;
+            let pkg = package_loader::load_package_tree(root, &package_loader, resolution).await?;
             Ok(pkg)
         })
     }
