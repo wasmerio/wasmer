@@ -127,19 +127,17 @@ impl crate::runners::Runner for WasiRunner {
     #[tracing::instrument(skip_all)]
     fn run_command(
         &mut self,
-        pkg: &BinaryPackage,
         command_name: &str,
-        metadata: &Command,
+        pkg: &BinaryPackage,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let wasi = metadata
+        let cmd = pkg
+            .get_command(command_name)
+            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
+        let wasi = cmd
+            .metadata()
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
-        let cmd = pkg
-            .commands
-            .iter()
-            .find(|cmd| cmd.name() == command_name)
-            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
 
         let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
         let mut store = runtime.new_store();

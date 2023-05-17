@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
+use webc::Container;
 
 mod binary_package;
 mod exec;
@@ -71,7 +72,7 @@ impl BinFactory {
         // Check the filesystem for the file
         if name.starts_with('/') {
             if let Some(fs) = fs {
-                match load_package_from_filesystem(fs, name.as_ref()).await {
+                match load_package_from_filesystem(fs, name.as_ref(), self.runtime()).await {
                     Ok(pkg) => {
                         cache.insert(name, Some(pkg.clone()));
                         return Some(pkg);
@@ -96,6 +97,7 @@ impl BinFactory {
 async fn load_package_from_filesystem(
     fs: &dyn FileSystem,
     path: &Path,
+    rt: &dyn WasiRuntime,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut f = fs
         .new_open_options()
@@ -105,7 +107,11 @@ async fn load_package_from_filesystem(
 
     let mut data = Vec::with_capacity(f.size() as usize);
     f.read_to_end(&mut data).await.context("Read failed")?;
-    let pkg = crate::wapm::parse_static_webc(data).context("Unable to parse the package")?;
+
+    let container = Container::from_bytes(data).context("Unable to parse the WEBC file")?;
+    let pkg = BinaryPackage::from_webc(&container, rt)
+        .await
+        .context("Unable to load the package")?;
 
     Ok(pkg)
 }

@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fmt::{self, Display, Formatter},
     path::PathBuf,
+    unreachable,
 };
 
 use semver::Version;
@@ -60,6 +61,18 @@ pub struct DependencyGraph {
     pub dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
     pub package_info: HashMap<PackageId, PackageInfo>,
     pub distribution: HashMap<PackageId, DistributionInfo>,
+}
+
+impl DependencyGraph {
+    pub fn root_info(&self) -> &PackageInfo {
+        match self.package_info.get(&self.root) {
+            Some(info) => info,
+            None => unreachable!(
+                "The dependency graph should always have package info for the root package, {}",
+                self.root
+            ),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

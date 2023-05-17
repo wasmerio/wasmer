@@ -231,7 +231,7 @@ impl Console {
         };
 
         let resolved_package =
-            tasks.block_on(BinaryPackage::from_specifier(&webc_ident, env.runtime()));
+            tasks.block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
 
         let binary = match resolved_package {
             Ok(pkg) => pkg,

@@ -15,9 +15,8 @@ pub trait Runner {
     /// Run a command.
     fn run_command(
         &mut self,
-        pkg: &BinaryPackage,
         command_name: &str,
-        metadata: &Command,
+        pkg: &BinaryPackage,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error>;
 }

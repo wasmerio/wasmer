@@ -21,12 +21,13 @@ use crate::{
 };
 
 /// Given a fully resolved package, load it into memory for execution.
+#[tracing::instrument(level = "debug", skip_all)]
 pub async fn load_package_tree(
     root: &Container,
     loader: &impl PackageLoader,
     resolution: &Resolution,
 ) -> Result<BinaryPackage, Error> {
-    let mut containers = used_packages(loader, &resolution.package, &resolution.graph).await?;
+    let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
     let fs = filesystem(&containers, &resolution.package)?;
 
@@ -49,12 +50,7 @@ pub async fn load_package_tree(
         .ok()
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
-        entry: resolution.package.entrypoint.as_deref().and_then(|entry| {
-            commands
-                .iter()
-                .find(|cmd| cmd.name() == entry)
-                .map(|cmd| cmd.atom.clone())
-        }),
+        entrypoint_cmd: resolution.package.entrypoint.clone(),
         webc_fs: Arc::new(fs),
         commands,
         uses: Vec::new(),
@@ -111,13 +107,13 @@ fn load_binary_command(
     let atom = webc.get_atom(&atom_name);
 
     if atom.is_none() && cmd.annotations.is_empty() {
-        return Ok(legacy_atom_hack(webc, name));
+        return Ok(legacy_atom_hack(webc, name, cmd));
     }
 
     let atom = atom
         .with_context(|| format!("The '{name}' command uses the '{atom_name}' atom, but it isn't present in the WEBC file"))?;
 
-    let cmd = BinaryPackageCommand::new(name.to_string(), atom);
+    let cmd = BinaryPackageCommand::new(name.to_string(), cmd.clone(), atom);
 
     Ok(Some(cmd))
 }
@@ -178,7 +174,11 @@ fn atom_name_for_command(
 ///
 /// See <https://github.com/wasmerio/wasmer/commit/258903140680716da1431d92bced67d486865aeb>
 /// for more.
-fn legacy_atom_hack(webc: &Container, command_name: &str) -> Option<BinaryPackageCommand> {
+fn legacy_atom_hack(
+    webc: &Container,
+    command_name: &str,
+    metadata: &webc::metadata::Command,
+) -> Option<BinaryPackageCommand> {
     let (name, atom) = webc.atoms().into_iter().next()?;
 
     tracing::debug!(
@@ -188,10 +188,14 @@ fn legacy_atom_hack(webc: &Container, command_name: &str) -> Option<BinaryPackag
         "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
     );
 
-    Some(BinaryPackageCommand::new(command_name.to_string(), atom))
+    Some(BinaryPackageCommand::new(
+        command_name.to_string(),
+        metadata.clone(),
+        atom,
+    ))
 }
 
-async fn used_packages(
+async fn fetch_dependencies(
     loader: &impl PackageLoader,
     pkg: &ResolvedPackage,
     graph: &DependencyGraph,

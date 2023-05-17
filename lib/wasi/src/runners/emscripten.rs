@@ -51,18 +51,17 @@ impl crate::runners::Runner for EmscriptenRunner {
     #[allow(unreachable_code, unused_variables)]
     fn run_command(
         &mut self,
-        pkg: &BinaryPackage,
         command_name: &str,
-        metadata: &Command,
+        pkg: &BinaryPackage,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let Emscripten { main_args, .. } = metadata.annotation("emscripten")?.unwrap_or_default();
-        let atom_bytes = pkg
-            .entry
-            .as_deref()
-            .context("The package doesn't contain an entrpoint")?;
+        let cmd = pkg
+            .get_command(command_name)
+            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
+        let Emscripten { main_args, .. } =
+            cmd.metadata().annotation("emscripten")?.unwrap_or_default();
 
-        let mut module = crate::runners::compile_module(atom_bytes, &*runtime)?;
+        let mut module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
         module.set_name(command_name);
 
         let mut store = runtime.new_store();

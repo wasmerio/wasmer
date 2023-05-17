@@ -5861,6 +5861,7 @@ dependencies = [
  "insta",
  "md5",
  "object 0.30.3",
+ "once_cell",
  "predicates 2.1.5",
  "pretty_assertions",
  "rand",

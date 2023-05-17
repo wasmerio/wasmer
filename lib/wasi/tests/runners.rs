@@ -45,12 +45,9 @@ mod wasi {
         // Note: we don't have any way to intercept stdin or stdout, so blindly
         // assume that everything is fine if it runs successfully.
         let handle = std::thread::spawn(move || {
-            WasiRunner::new().with_args(["--version"]).run_command(
-                &pkg,
-                "wat2wasm",
-                &container.manifest().commands["wat2wasm"],
-                Arc::new(rt),
-            )
+            WasiRunner::new()
+                .with_args(["--version"])
+                .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
         let err = handle.join().unwrap().unwrap_err();
 
@@ -75,12 +72,7 @@ mod wasi {
         let handle = std::thread::spawn(move || {
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
-                .run_command(
-                    &pkg,
-                    "python",
-                    &container.manifest().commands["python"],
-                    Arc::new(rt),
-                )
+                .run_command("python", &pkg, Arc::new(rt))
         });
         let err = handle.join().unwrap().unwrap_err();
 
@@ -132,14 +124,7 @@ mod wcgi {
 
         // The server blocks so we need to start it on a background thread.
         let join_handle = std::thread::spawn(move || {
-            runner
-                .run_command(
-                    &pkg,
-                    "serve",
-                    &container.manifest().commands["serve"],
-                    Arc::new(rt),
-                )
-                .unwrap();
+            runner.run_command("serve", &pkg, Arc::new(rt)).unwrap();
         });
 
         // wait for the server to have started

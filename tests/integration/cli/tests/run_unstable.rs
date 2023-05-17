@@ -9,13 +9,23 @@ use std::{
 };
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
+use once_cell::sync::Lazy;
 use predicates::str::contains;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
-const RUST_LOG: &str = "info,wasmer_wasi::runners=debug,virtual_fs::trace_fs=trace";
 const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
+
+static RUST_LOG: Lazy<String> = Lazy::new(|| {
+    [
+        "info",
+        "wasmer_wasi::resolve=debug",
+        "wasmer_wasi::runners=debug",
+        "virtual_fs::trace_fs=trace",
+    ]
+    .join(",")
+});
 
 fn wasmer_run_unstable() -> std::process::Command {
     let mut cmd = std::process::Command::new("cargo");
@@ -25,7 +35,7 @@ fn wasmer_run_unstable() -> std::process::Command {
         .arg("--features=singlepass,cranelift")
         .arg("--")
         .arg("run-unstable");
-    cmd.env("RUST_LOG", RUST_LOG);
+    cmd.env("RUST_LOG", &*RUST_LOG);
     cmd
 }
 
@@ -94,12 +104,13 @@ mod webc_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn wasi_runner_with_dependencies() {
-        let assert = wasmer_run_unstable()
-            .arg(fixtures::hello())
-            .arg("--")
-            .arg("--eval")
-            .arg("console.log('Hello, World!')")
-            .assert();
+        let mut cmd = wasmer_run_unstable();
+        cmd.arg(fixtures::hello()).arg("--").arg("--help");
+        let child = JoinableChild::spawn(cmd);
+
+        std::thread::sleep(std::time::Duration::from_secs(30));
+
+        let assert = child.join();
 
         assert.success().stdout(contains("Hello, World!"));
     }

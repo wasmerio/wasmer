@@ -2,7 +2,7 @@
 
 use std::{
     collections::BTreeMap,
-    fmt::Display,
+    fmt::{Binary, Display},
     fs::File,
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
@@ -27,7 +27,10 @@ use wasmer_cache::Cache;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
-use wasmer_wasix::runners::{MappedDirectory, Runner};
+use wasmer_wasix::{
+    bin_factory::BinaryPackage,
+    runners::{MappedDirectory, Runner},
+};
 use wasmer_wasix::{
     runners::{
         emscripten::EmscriptenRunner,
@@ -77,6 +80,11 @@ impl RunUnstable {
     pub fn execute(&self) -> Result<(), Error> {
         crate::logging::set_up_logging(self.verbosity.log_level_filter());
 
+        #[cfg(feature = "sys")]
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
+        }
+
         let target = self
             .input
             .resolve_target(&self.wasmer_home)
@@ -114,10 +122,6 @@ impl RunUnstable {
         module: &Module,
         store: &mut Store,
     ) -> Result<(), Error> {
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
@@ -135,40 +139,31 @@ impl RunUnstable {
         mut cache: ModuleCache,
         store: &mut Store,
     ) -> Result<(), Error> {
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
+        let (store, _compiler_type) = self.store.get_store()?;
+        let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone())?);
+
+        let pkg = runtime
+            .task_manager()
+            .block_on(BinaryPackage::from_webc(&container, &*runtime))?;
+
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
-            None => infer_webc_entrypoint(container.manifest())?,
+            None => infer_webc_entrypoint(&pkg)?,
         };
-        let command = container
-            .manifest()
-            .commands
-            .get(id)
+        let cmd = pkg
+            .get_command(id)
             .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
-        let (store, _compiler_type) = self.store.get_store()?;
-        let runner_base = command
-            .runner
-            .as_str()
-            .split_once('@')
-            .map(|(base, version)| base)
-            .unwrap_or_else(|| command.runner.as_str());
-
-        let (store, _compiler_type) = self.store.get_store()?;
-
-        if WcgiRunner::can_run_command(command)? {
-            self.run_wcgi(id, &container, cache)
-        } else if WasiRunner::can_run_command(command)? {
-            self.run_wasi(id, &container, cache)
-        } else if EmscriptenRunner::can_run_command(command)? {
-            self.run_emscripten(id, &container)
+        if WcgiRunner::can_run_command(cmd.metadata())? {
+            self.run_wcgi(id, &pkg, runtime)
+        } else if WasiRunner::can_run_command(cmd.metadata())? {
+            self.run_wasi(id, &pkg, runtime)
+        } else if EmscriptenRunner::can_run_command(cmd.metadata())? {
+            self.run_emscripten(id, &pkg, runtime)
         } else {
             anyhow::bail!(
                 "Unable to find a runner that supports \"{}\"",
-                command.runner
+                cmd.metadata().runner
             );
         }
     }
@@ -176,12 +171,9 @@ impl RunUnstable {
     fn run_wasi(
         &self,
         command_name: &str,
-        container: &Container,
-        cache: ModuleCache,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let (store, _compiler_type) = self.store.get_store()?;
-        let runtime = self.wasi.prepare_runtime(store.engine().clone())?;
-
         let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
             .with_args(self.args.clone())
             .with_envs(self.wasi.env_vars.clone())
@@ -190,18 +182,15 @@ impl RunUnstable {
             runner.set_forward_host_env();
         }
 
-        runner.run_command(command_name, container, Arc::new(runtime))
+        runner.run_command(command_name, pkg, runtime)
     }
 
     fn run_wcgi(
         &self,
         command_name: &str,
-        container: &Container,
-        cache: ModuleCache,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let (store, _compiler_type) = self.store.get_store()?;
-        let runtime = self.wasi.prepare_runtime(store.engine().clone())?;
-
         let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
 
         runner
@@ -214,17 +203,20 @@ impl RunUnstable {
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
-        runner.run_command(command_name, container, Arc::new(runtime))
+
+        runner.run_command(command_name, pkg, runtime)
     }
 
-    fn run_emscripten(&self, command_name: &str, container: &Container) -> Result<(), Error> {
-        let (store, _compiler_type) = self.store.get_store()?;
-        let runtime = self.wasi.prepare_runtime(store.engine().clone())?;
-
+    fn run_emscripten(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
         runner.set_args(self.args.clone());
 
-        runner.run_command(command_name, container, Arc::new(runtime))
+        runner.run_command(command_name, pkg, runtime)
     }
 
     #[tracing::instrument(skip_all)]
@@ -324,19 +316,21 @@ fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
     Ok(value)
 }
 
-fn infer_webc_entrypoint(manifest: &Manifest) -> Result<&str, Error> {
-    if let Some(entrypoint) = manifest.entrypoint.as_deref() {
+fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
+    if let Some(entrypoint) = pkg.entrypoint_cmd.as_deref() {
         return Ok(entrypoint);
     }
 
-    let commands: Vec<_> = manifest.commands.keys().collect();
-
-    match commands.as_slice() {
+    match pkg.commands.as_slice() {
         [] => anyhow::bail!("The WEBC file doesn't contain any executable commands"),
-        [one] => Ok(one.as_str()),
+        [one] => Ok(one.name()),
         [..] => {
             anyhow::bail!(
-                "Unable to determine the WEBC file's entrypoint. Please choose one of {commands:?}"
+                "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
+                pkg.commands
+                    .iter()
+                    .map(|cmd| cmd.name())
+                    .collect::<Vec<_>>(),
             );
         }
     }

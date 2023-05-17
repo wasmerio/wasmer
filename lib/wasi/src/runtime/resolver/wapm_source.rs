@@ -54,9 +54,6 @@ impl Source for WapmSource {
             query: WAPM_WEBC_QUERY_ALL.replace("$NAME", full_name),
         };
         let body = serde_json::to_string(&body)?;
-        println!("=====");
-        println!("{}", body);
-        println!("=====");
 
         let request = HttpRequest {
             url: self.registry_endpoint.to_string(),

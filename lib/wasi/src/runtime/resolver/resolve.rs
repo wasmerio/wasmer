@@ -9,6 +9,7 @@ use super::FileSystemMapping;
 
 /// Given the [`Summary`] for a root package, resolve its dependency graph and
 /// figure out how it could be executed.
+#[tracing::instrument(level = "debug", skip_all)]
 pub async fn resolve(
     root_id: &PackageId,
     root: &PackageInfo,
@@ -147,15 +148,18 @@ fn check_for_cycles(
 fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage, ResolveError> {
     // FIXME: This code is all super naive and will break the moment there
     // are any conflicts or duplicate names.
+    tracing::trace!("Resolving the package");
 
     let mut commands = BTreeMap::new();
-    let mut entrypoint = None;
+
     let filesystem = resolve_filesystem_mapping(dependency_graph)?;
 
     let mut to_check = VecDeque::new();
     let mut visited = HashSet::new();
 
     to_check.push_back(&dependency_graph.root);
+
+    let mut entrypoint = dependency_graph.root_info().entrypoint.clone();
 
     while let Some(next) = to_check.pop_front() {
         visited.insert(next);
@@ -164,6 +168,13 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
         // set the entrypoint, if necessary
         if entrypoint.is_none() {
             if let Some(entry) = &pkg.entrypoint {
+                tracing::trace!(
+                    entrypoint = entry.as_str(),
+                    parent.name=next.package_name.as_str(),
+                    parent.version=%next.version,
+                    "Inheriting the entrypoint",
+                );
+
                 entrypoint = Some(entry.clone());
             }
         }
@@ -174,6 +185,12 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
                 name: cmd.name.clone(),
                 package: next.clone(),
             };
+            tracing::trace!(
+                command.name=cmd.name.as_str(),
+                pkg.name=next.package_name.as_str(),
+                pkg.version=%next.version,
+                "Discovered command",
+            );
             commands.insert(cmd.name.clone(), resolved);
         }
 
