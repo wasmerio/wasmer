@@ -1001,9 +1001,9 @@
     }
 
     <span class="doccomment">/// Owned memory can not be cloned (this will always return None)
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
-        <span class="prelude-val">None
-    </span>}
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="prelude-val">Err</span>(MemoryError::MemoryNotShared)
+    }
 
     <span class="doccomment">/// Copies this memory to a new memory
     </span><span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
@@ -1098,8 +1098,8 @@
     }
 
     <span class="doccomment">/// Shared memory can always be cloned
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
-        <span class="prelude-val">Some</span>(Box::new(<span class="self">self</span>.clone()))
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="prelude-val">Ok</span>(Box::new(<span class="self">self</span>.clone()))
     }
 
     <span class="doccomment">/// Copies this memory to a new memory
@@ -1175,7 +1175,7 @@
     }
 
     <span class="doccomment">/// Attempts to clone this memory (if its clonable)
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
         <span class="self">self</span>.<span class="number">0</span>.try_clone()
     }
 
@@ -1306,7 +1306,7 @@
     </span><span class="kw">fn </span>vmmemory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt;;
 
     <span class="doccomment">/// Attempts to clone this memory (if its clonable)
-    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt;;
+    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt;;
 
     <span class="attribute">#[doc(hidden)]
     </span><span class="doccomment">/// # Safety

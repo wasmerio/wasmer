@@ -232,12 +232,6 @@
 <span id="230">230</span>
 <span id="231">231</span>
 <span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::memory_view::MemoryView;
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 <span class="kw">use </span><span class="kw">crate</span>::vm::VMExternMemory;
@@ -305,26 +299,20 @@
 
     <span class="doccomment">/// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
-    </span><span class="kw">pub fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;VMMemory&gt; {
+    </span><span class="kw">pub fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
         <span class="kw">let </span>mem = <span class="self">self</span>.handle.get(store.as_store_ref().objects());
-        mem.try_clone().map(|mem| mem.into())
+        <span class="kw">let </span>cloned = mem.try_clone()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(cloned.into())
     }
 
     <span class="doccomment">/// Copying the memory will actually copy all the bytes in the memory to
     /// a identical byte copy of the original that can be put into a new store
-    </span><span class="kw">pub fn </span>try_copy(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
-        <span class="self">self</span>.try_clone(store).and_then(|<span class="kw-2">mut </span>mem| mem.copy().ok())
-    }
-
-    <span class="attribute">#[deprecated = <span class="string">&quot;use `try_clone` and `try_copy` instead&quot;</span>]
-    </span><span class="kw">pub fn </span>duplicate_in_store(
+    </span><span class="kw">pub fn </span>try_copy(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="self">self</span>.try_clone(<span class="kw-2">&amp;</span>store)
-            .and_then(|<span class="kw-2">mut </span>memory| memory.copy().ok())
-            .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, new_memory.into()))
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>mem = <span class="self">self</span>.try_clone(store)<span class="question-mark">?</span>;
+        mem.copy()
     }
 
     <span class="doccomment">/// To `VMExtern`.

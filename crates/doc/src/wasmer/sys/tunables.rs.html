@@ -271,6 +271,8 @@
 <span id="269">269</span>
 <span id="270">270</span>
 <span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
 </pre><pre class="rust"><code><span class="kw">pub use </span>wasmer_compiler::BaseTunables;
 
 <span class="comment">// All BaseTunable definition now is in wasmer_compile crate
@@ -393,9 +395,11 @@
             }
         }
 
-        <span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;&gt; {
-            <span class="prelude-val">None
-        </span>}
+        <span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
+            <span class="prelude-val">Err</span>(MemoryError::InvalidMemory {
+                reason: <span class="string">&quot;VMTinyMemory can not be cloned&quot;</span>.to_string(),
+            })
+        }
 
         <span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">&#39;static</span>&gt;, MemoryError&gt; {
             <span class="kw">let </span>mem = <span class="self">self</span>.mem.clone();

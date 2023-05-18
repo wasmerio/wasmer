@@ -271,6 +271,10 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
 </pre><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors
 </span><span class="kw">use crate</span>::{ExternType, Pages};
 <span class="kw">use </span>std::io;
@@ -320,6 +324,7 @@
 
 <span class="doccomment">/// Error type describing things that can go wrong when operating on Wasm Memories.
 </span><span class="attribute">#[derive(Error, Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 </span><span class="kw">pub enum </span>MemoryError {
     <span class="doccomment">/// Low level error with mmap.
     </span><span class="attribute">#[error(<span class="string">&quot;Error when allocating memory: {0}&quot;</span>)]
@@ -333,7 +338,7 @@
         <span class="doccomment">/// The attempted amount to grow by in pages.
         </span>attempted_delta: Pages,
     },
-    <span class="doccomment">/// The operation would cause the size of the memory size exceed the maximum.
+    <span class="doccomment">/// Invalid memory was provided.
     </span><span class="attribute">#[error(<span class="string">&quot;The memory is invalid because {}&quot;</span>, reason)]
     </span>InvalidMemory {
         <span class="doccomment">/// The reason why the provided memory is invalid.
@@ -355,6 +360,9 @@
         <span class="doccomment">/// The number of pages requested as the maximum amount of memory.
         </span>max_allowed: Pages,
     },
+    <span class="doccomment">/// Returned when a shared memory is required, but the given memory is not shared.
+    </span><span class="attribute">#[error(<span class="string">&quot;The memory is not shared&quot;</span>)]
+    </span>MemoryNotShared,
     <span class="doccomment">/// A user defined error value, used for error cases not listed above.
     </span><span class="attribute">#[error(<span class="string">&quot;A user-defined error occurred: {0}&quot;</span>)]
     </span>Generic(String),
