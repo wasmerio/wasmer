@@ -22,7 +22,7 @@ wasmer = { version = "=3.3.0", path = "../api", default-features = false }
 
 [features]
 # Enables generated code to emit events via the `tracing` crate whenever wasm is
-# entered and when native functions are called. Note that tracin is currently
+# entered and when native functions are called. Note that tracing is currently
 # only done for imported functions.
 tracing = ["tracing-lib", "wai-bindgen-wasmer-impl/tracing"]
 
@@ -33,6 +33,11 @@ async = ["async-trait", "wai-bindgen-wasmer-impl/async"]
 # Wasmer features
 js = ["wasmer/js", "wasmer/std"]
 sys = ["wasmer/sys"]
+
+# Wasmer compiler (with `sys` feature only)
+cranelift = ["wasmer/cranelift"]
+singlepass = ["wasmer/singlepass"]
+llvm = ["wasmer/llvm"]
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys"]
