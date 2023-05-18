@@ -45,8 +45,8 @@ impl VMMemory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub(crate) fn try_clone(&self) -> Option<VMMemory> {
-        Some(self.clone())
+    pub(crate) fn try_clone(&self) -> Result<VMMemory, MemoryError> {
+        Ok(self.clone())
     }
 
     /// Copies this memory to a new memory

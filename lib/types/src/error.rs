@@ -47,6 +47,7 @@ pub enum DeserializeError {
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum MemoryError {
     /// Low level error with mmap.
     #[error("Error when allocating memory: {0}")]
@@ -60,7 +61,7 @@ pub enum MemoryError {
         /// The attempted amount to grow by in pages.
         attempted_delta: Pages,
     },
-    /// The operation would cause the size of the memory size exceed the maximum.
+    /// Invalid memory was provided.
     #[error("The memory is invalid because {}", reason)]
     InvalidMemory {
         /// The reason why the provided memory is invalid.
@@ -82,6 +83,9 @@ pub enum MemoryError {
         /// The number of pages requested as the maximum amount of memory.
         max_allowed: Pages,
     },
+    /// Returned when a shared memory is required, but the given memory is not shared.
+    #[error("The memory is not shared")]
+    MemoryNotShared,
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
     Generic(String),
