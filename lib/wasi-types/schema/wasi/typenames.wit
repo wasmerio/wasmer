@@ -695,6 +695,14 @@ record subscription-fs-readwrite {
 // }
 
 enum socktype {
+    /// the unused variant is used to maintain backward compatibility with
+    /// older libc-based applications that were written where there is no
+    /// socket type variant with a '0' value (for example, cpython has a
+    /// macro definition used in a case arm alongside SOCK_DGRAM with the value
+    /// '0', which means SOCK_DGRAM, ultimately corresponding to this
+    /// socktype::dgram enum variant, can't have that same value). the same
+    /// hack is in wasix-libc.
+    unused,
     dgram,
     %stream,
     raw,

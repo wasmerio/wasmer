@@ -1041,6 +1041,7 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Socktype {
+    Unused,
     Dgram,
     Stream,
     Raw,
@@ -1049,6 +1050,7 @@ pub enum Socktype {
 impl core::fmt::Debug for Socktype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            Socktype::Unused => f.debug_tuple("Socktype::Unused").finish(),
             Socktype::Dgram => f.debug_tuple("Socktype::Dgram").finish(),
             Socktype::Stream => f.debug_tuple("Socktype::Stream").finish(),
             Socktype::Raw => f.debug_tuple("Socktype::Raw").finish(),
@@ -3042,10 +3044,10 @@ unsafe impl wasmer::FromToNativeWasmType for Socktype {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Dgram,
-            1 => Self::Stream,
-            2 => Self::Raw,
-            3 => Self::Seqpacket,
+            1 => Self::Dgram,
+            2 => Self::Stream,
+            3 => Self::Raw,
+            4 => Self::Seqpacket,
 
             q => todo!("could not serialize number {q} to enum Socktype"),
         }
