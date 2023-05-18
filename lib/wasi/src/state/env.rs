@@ -85,11 +85,6 @@ pub struct WasiInstanceHandles {
     /// when a CTRL-C is pressed.
     pub(crate) signal_set: bool,
 
-    /// Represents the callback for destroying a local thread variable (name = "_thread_local_destroy")
-    /// [this takes a pointer to the destructor and the data to be destroyed]
-    #[derivative(Debug = "ignore")]
-    pub(crate) thread_local_destroy: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
-
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
@@ -179,10 +174,6 @@ impl WasiInstanceHandles {
             asyncify_get_state: instance
                 .exports
                 .get_typed_function(store, "asyncify_get_state")
-                .ok(),
-            thread_local_destroy: instance
-                .exports
-                .get_typed_function(store, "_thread_local_destroy")
                 .ok(),
             instance,
         }

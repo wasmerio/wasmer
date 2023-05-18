@@ -9,12 +9,6 @@ use super::{
     Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite, Userdata,
 };
 
-/// Thread local key
-pub type TlKey = u32;
-/// Thread local value
-pub type TlVal = u64;
-/// Thread local user data (associated with the value)
-pub type TlUser = u64;
 /// Long size used by checkpoints
 pub type Longsize = u64;
 
