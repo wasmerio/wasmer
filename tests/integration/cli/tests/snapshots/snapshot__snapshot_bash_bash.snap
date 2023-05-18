@@ -11,10 +11,10 @@ expression: snapshot
     ],
     "include_webcs": [
       {
-        "name": "sharrattj/bash@1.0.12"
+        "name": "sharrattj/bash@1.0.15"
       },
       {
-        "name": "sharrattj/coreutils@1.0.11"
+        "name": "sharrattj/coreutils@1.0.15"
       }
     ],
     "cli_args": [],

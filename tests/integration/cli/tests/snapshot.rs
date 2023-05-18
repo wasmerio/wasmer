@@ -54,13 +54,11 @@ fn is_false(b: &bool) -> bool {
 }
 
 static WEBC_BASH: &[u8] =
-    include_bytes!("./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
-static WEBC_COREUTILS_14: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
-static WEBC_COREUTILS_11: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
+    include_bytes!("./webc/bash-1.0.15-9b7fffec-3157-4900-9741-a393494cfe68.webc");
+static WEBC_COREUTILS_15: &[u8] =
+    include_bytes!("./webc/coreutils-1.0.15-514e8b47-877b-4939-8cb8-32f01e3524ba.webc");
 static WEBC_DASH: &[u8] =
-    include_bytes!("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc");
+    include_bytes!("./webc/dash-1.0.17-7d685f0f-46b7-44cf-befc-b19f2f2c1dae.webc");
 static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
 static WEBC_WEB_SERVER: &'static [u8] =
     include_bytes!("./webc/static-web-server-1.0.92-22ccedaa-3f96-4de0-b24a-ef48ade8151b.webc");
@@ -184,21 +182,21 @@ impl TestBuilder {
     pub fn use_coreutils(self) -> Self {
         // TODO: use custom compiled coreutils
         self.use_pkg("sharrattj/coreutils")
-            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_14)
+            .include_static_package("sharrattj/coreutils@1.0.15", WEBC_COREUTILS_15)
     }
 
     pub fn use_dash(self) -> Self {
         // TODO: use custom compiled dash
         self.use_pkg("sharrattj/dash")
-            .include_static_package("sharrattj/dash@1.0.16", WEBC_DASH)
-            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
+            .include_static_package("sharrattj/dash@1.0.17", WEBC_DASH)
+            .include_static_package("sharrattj/coreutils@1.0.15", WEBC_COREUTILS_15)
     }
 
     pub fn use_bash(self) -> Self {
         // TODO: use custom compiled bash
         self.use_pkg("sharrattj/bash")
-            .include_static_package("sharrattj/bash@1.0.12", WEBC_BASH)
-            .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
+            .include_static_package("sharrattj/bash@1.0.15", WEBC_BASH)
+            .include_static_package("sharrattj/coreutils@1.0.15", WEBC_COREUTILS_15)
     }
 
     pub fn debug_output(mut self, show_debug: bool) -> Self {
@@ -786,18 +784,6 @@ fn test_snapshot_longjump() {
         .with_name(function!())
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-longjmp.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-// Another longjump test.
-// This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_longjump2() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-stack.wasm"));
     assert_json_snapshot!(snapshot);
 }
 

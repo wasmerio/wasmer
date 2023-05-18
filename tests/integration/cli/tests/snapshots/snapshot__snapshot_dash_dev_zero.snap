@@ -11,7 +11,7 @@ expression: snapshot
     ],
     "include_webcs": [
       {
-        "name": "sharrattj/coreutils@1.0.16"
+        "name": "sharrattj/coreutils@1.0.15"
       }
     ],
     "cli_args": [],
