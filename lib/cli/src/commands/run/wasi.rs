@@ -22,7 +22,8 @@ use wasmer_wasix::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{
-            InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry, WapmSource, WebSource,
+            FileSystemSource, InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry,
+            WapmSource, WebSource,
         },
         task_manager::tokio::TokioTaskManager,
     },
@@ -497,6 +498,8 @@ impl Wasi {
 
         let cache_dir = WebSource::default_cache_dir(wasmer_dir);
         registry.add_source(WebSource::new(cache_dir, client));
+
+        registry.add_source(FileSystemSource::default());
 
         Ok(registry)
     }

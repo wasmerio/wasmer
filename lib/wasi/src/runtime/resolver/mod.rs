@@ -7,9 +7,11 @@ mod resolve;
 mod source;
 mod wapm_source;
 mod web_source;
+mod filesystem_source;
 
 pub use self::{
     in_memory_source::InMemorySource,
+    filesystem_source::FileSystemSource,
     inputs::{
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
         WebcHash,
