@@ -17,7 +17,7 @@ pub struct Add {
     #[clap(long, groups = &["bindings", "js"])]
     yarn: bool,
     /// Add the package as a dev-dependency.
-    #[clap(long, requires = "web")]
+    #[clap(long, requires = "js")]
     dev: bool,
     /// Add the Python bindings using "pip install".
     #[clap(long, groups = &["bindings", "py"])]
