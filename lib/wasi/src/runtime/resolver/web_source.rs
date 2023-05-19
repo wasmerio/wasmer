@@ -352,3 +352,187 @@ impl CacheState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::VecDeque, sync::Mutex};
+
+    use futures::future::BoxFuture;
+    use tempfile::TempDir;
+
+    use super::*;
+
+    const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const COREUTILS: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
+    const DUMMY_URL: &str = "http://my-registry.io/some/package";
+    const DUMMY_URL_HASH: &str = "4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D";
+
+    #[derive(Debug)]
+    pub(crate) struct DummyClient {
+        requests: Mutex<Vec<HttpRequest>>,
+        responses: Mutex<VecDeque<HttpResponse>>,
+    }
+
+    impl DummyClient {
+        pub fn with_responses(responses: impl IntoIterator<Item = HttpResponse>) -> Self {
+            DummyClient {
+                requests: Mutex::new(Vec::new()),
+                responses: Mutex::new(responses.into_iter().collect()),
+            }
+        }
+    }
+
+    impl HttpClient for DummyClient {
+        fn request(
+            &self,
+            request: HttpRequest,
+        ) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+            let response = self.responses.lock().unwrap().pop_front().unwrap();
+            self.requests.lock().unwrap().push(request);
+            Box::pin(async { Ok(response) })
+        }
+    }
+
+    struct ResponseBuilder(HttpResponse);
+
+    impl ResponseBuilder {
+        pub fn new() -> Self {
+            ResponseBuilder(HttpResponse {
+                pos: 0,
+                body: None,
+                ok: true,
+                redirected: false,
+                status: 200,
+                status_text: "OK".to_string(),
+                headers: Vec::new(),
+            })
+        }
+
+        pub fn with_status(mut self, code: u16, text: impl Into<String>) -> Self {
+            self.0.status = code;
+            self.0.status_text = text.into();
+            self
+        }
+
+        pub fn with_body(mut self, body: impl Into<Vec<u8>>) -> Self {
+            self.0.body = Some(body.into());
+            self
+        }
+
+        pub fn with_etag(self, value: impl Into<String>) -> Self {
+            self.with_header("ETag", value)
+        }
+
+        pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
+            self.0.headers.push((name.into(), value.into()));
+            self
+        }
+
+        pub fn build(self) -> HttpResponse {
+            self.0
+        }
+    }
+
+    #[tokio::test]
+    async fn empty_cache_does_a_full_download() {
+        let dummy_etag = "This is an etag";
+        let temp = TempDir::new().unwrap();
+        let client = DummyClient::with_responses([ResponseBuilder::new()
+            .with_body(PYTHON)
+            .with_etag(dummy_etag)
+            .build()]);
+        let source = WebSource::new(temp.path(), Arc::new(client));
+        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+
+        let summaries = source.query(&spec).await.unwrap();
+
+        // We got the right response, as expected
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].pkg.name, "python");
+        // But we should have also cached the file and etag
+        let path = temp.path().join(DUMMY_URL_HASH);
+        assert!(path.exists());
+        let etag_path = path.with_extension("etag");
+        assert!(etag_path.exists());
+        // And they should contain the correct content
+        assert_eq!(std::fs::read_to_string(etag_path).unwrap(), dummy_etag);
+        assert_eq!(std::fs::read(path).unwrap(), PYTHON);
+    }
+
+    #[tokio::test]
+    async fn cache_hit() {
+        let temp = TempDir::new().unwrap();
+        let client = Arc::new(DummyClient::with_responses([]));
+        let source = WebSource::new(temp.path(), client.clone());
+        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        // Prime the cache
+        std::fs::write(temp.path().join(DUMMY_URL_HASH), PYTHON).unwrap();
+
+        let summaries = source.query(&spec).await.unwrap();
+
+        // We got the right response, as expected
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].pkg.name, "python");
+        // And no requests were sent
+        assert_eq!(client.requests.lock().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn fall_back_to_stale_cache_if_request_fails() {
+        let temp = TempDir::new().unwrap();
+        let client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
+            .with_status(500, "Internal Server Error")
+            .build()]));
+        // Add something to the cache
+        let python_path = temp.path().join(DUMMY_URL_HASH);
+        std::fs::write(&python_path, PYTHON).unwrap();
+        let source = WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::ZERO);
+        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+
+        let summaries = source.query(&spec).await.unwrap();
+
+        // We got the right response, as expected
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].pkg.name, "python");
+        // And one request was sent
+        assert_eq!(client.requests.lock().unwrap().len(), 1);
+        // The etag file wasn't written
+        assert!(!python_path.with_extension("etag").exists());
+    }
+
+    #[tokio::test]
+    async fn download_again_if_etag_is_different() {
+        let temp = TempDir::new().unwrap();
+        let client = Arc::new(DummyClient::with_responses([
+            ResponseBuilder::new().with_etag("coreutils").build(),
+            ResponseBuilder::new()
+                .with_body(COREUTILS)
+                .with_etag("coreutils")
+                .build(),
+        ]));
+        // Add Python to the cache
+        let path = temp.path().join(DUMMY_URL_HASH);
+        std::fs::write(&path, PYTHON).unwrap();
+        std::fs::write(path.with_extension("etag"), "python").unwrap();
+        // but create a source that will always want to re-check the etags
+        let source =
+            WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::new(0, 0));
+        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+
+        let summaries = source.query(&spec).await.unwrap();
+
+        // Instead of Python (the originally cached item), we should get coreutils
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].pkg.name, "sharrattj/coreutils");
+        // both a HEAD and GET request were sent
+        let requests = client.requests.lock().unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(requests[0].method, "HEAD");
+        assert_eq!(requests[1].method, "GET");
+        // The etag file was also updated
+        assert_eq!(
+            std::fs::read_to_string(path.with_extension("etag")).unwrap(),
+            "coreutils"
+        );
+    }
+}
