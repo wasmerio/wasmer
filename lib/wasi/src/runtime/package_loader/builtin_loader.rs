@@ -19,7 +19,7 @@ use crate::{
     http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
     runtime::{
         package_loader::PackageLoader,
-        resolver::{DistributionInfo, Resolution, Summary, WebcHash},
+        resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
     },
 };
 
@@ -163,7 +163,7 @@ impl PackageLoader for BuiltinPackageLoader {
             pkg.version=%summary.pkg.version,
         ),
     )]
-    async fn load(&self, summary: &Summary) -> Result<Container, Error> {
+    async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
         if let Some(container) = self.get_cached(&summary.dist.webc_sha256).await? {
             tracing::debug!("Cache hit!");
             return Ok(container);
@@ -357,7 +357,7 @@ mod tests {
             headers: Vec::new(),
         }]));
         let loader = BuiltinPackageLoader::new_with_client(temp.path(), client.clone());
-        let summary = Summary {
+        let summary = PackageSummary {
             pkg: PackageInfo {
                 name: "python/python".to_string(),
                 version: "0.1.0".parse().unwrap(),

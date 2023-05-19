@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use anyhow::Error;
 
-use crate::runtime::resolver::{PackageSpecifier, Summary};
+use crate::runtime::resolver::{PackageSpecifier, PackageSummary};
 
 /// Something that packages can be downloaded from.
 #[async_trait::async_trait]
@@ -23,7 +23,7 @@ pub trait Source: Debug {
     ///
     /// [dep]: crate::runtime::resolver::Dependency
     /// [reg]: crate::runtime::resolver::Registry
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error>;
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error>;
 }
 
 #[async_trait::async_trait]
@@ -32,7 +32,7 @@ where
     D: std::ops::Deref<Target = S> + Debug + Send + Sync,
     S: Source + Send + Sync + 'static,
 {
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         (**self).query(package).await
     }
 }

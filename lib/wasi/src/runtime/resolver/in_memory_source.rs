@@ -7,14 +7,14 @@ use std::{
 use anyhow::{Context, Error};
 use semver::Version;
 
-use crate::runtime::resolver::{PackageSpecifier, Source, Summary};
+use crate::runtime::resolver::{PackageSpecifier, PackageSummary, Source};
 
 /// A [`Source`] that tracks packages in memory.
 ///
 /// Primarily used during testing.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct InMemorySource {
-    packages: BTreeMap<String, Vec<Summary>>,
+    packages: BTreeMap<String, Vec<PackageSummary>>,
 }
 
 impl InMemorySource {
@@ -61,7 +61,7 @@ impl InMemorySource {
     }
 
     /// Add a new [`Summary`] to the [`InMemorySource`].
-    pub fn add(&mut self, summary: Summary) {
+    pub fn add(&mut self, summary: PackageSummary) {
         let summaries = self.packages.entry(summary.pkg.name.clone()).or_default();
         summaries.push(summary);
         summaries.sort_by(|left, right| left.pkg.version.cmp(&right.pkg.version));
@@ -69,17 +69,17 @@ impl InMemorySource {
     }
 
     pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
-        let summary = Summary::from_webc_file(path)?;
+        let summary = PackageSummary::from_webc_file(path)?;
         self.add(summary);
 
         Ok(())
     }
 
-    pub fn packages(&self) -> &BTreeMap<String, Vec<Summary>> {
+    pub fn packages(&self) -> &BTreeMap<String, Vec<PackageSummary>> {
         &self.packages
     }
 
-    pub fn get(&self, package_name: &str, version: &Version) -> Option<&Summary> {
+    pub fn get(&self, package_name: &str, version: &Version) -> Option<&PackageSummary> {
         let summaries = self.packages.get(package_name)?;
         summaries.iter().find(|s| s.pkg.version == *version)
     }
@@ -87,7 +87,7 @@ impl InMemorySource {
 
 #[async_trait::async_trait]
 impl Source for InMemorySource {
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         match package {
             PackageSpecifier::Registry { full_name, version } => {
                 match self.packages.get(full_name) {
@@ -145,7 +145,7 @@ mod tests {
         assert_eq!(source.packages["sharrattj/coreutils"].len(), 2);
         assert_eq!(
             source.packages["sharrattj/bash"][0],
-            Summary {
+            PackageSummary {
                 pkg: PackageInfo {
                     name: "sharrattj/bash".to_string(),
                     version: "1.0.12".parse().unwrap(),

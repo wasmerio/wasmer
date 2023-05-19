@@ -120,17 +120,17 @@ impl Dependency {
 ///
 /// [source]: crate::runtime::resolver::Source
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Summary {
+pub struct PackageSummary {
     pub pkg: PackageInfo,
     pub dist: DistributionInfo,
 }
 
-impl Summary {
+impl PackageSummary {
     pub fn package_id(&self) -> PackageId {
         self.pkg.id()
     }
 
-    pub fn from_webc_file(path: impl AsRef<Path>) -> Result<Summary, Error> {
+    pub fn from_webc_file(path: impl AsRef<Path>) -> Result<PackageSummary, Error> {
         let path = path.as_ref().canonicalize()?;
         let container = Container::from_disk(&path)?;
         let webc_sha256 = WebcHash::for_file(&path)?;
@@ -144,7 +144,7 @@ impl Summary {
             webc_sha256,
         };
 
-        Ok(Summary { pkg, dist })
+        Ok(PackageSummary { pkg, dist })
     }
 }
 

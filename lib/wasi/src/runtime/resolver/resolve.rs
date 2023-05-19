@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use crate::runtime::resolver::{
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, Registry, Resolution, ResolvedPackage,
-    Summary,
+    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Registry, Resolution,
+    ResolvedPackage,
 };
 
 use super::FileSystemMapping;
@@ -84,7 +84,7 @@ async fn resolve_dependency_graph(
                 continue;
             }
 
-            let Summary { pkg, dist } = dep_summary;
+            let PackageSummary { pkg, dist } = dep_summary;
 
             to_visit.push_back((dep_id.clone(), pkg.clone()));
             package_info.insert(dep_id.clone(), pkg);
@@ -247,7 +247,7 @@ mod tests {
                     .unwrap(),
                 webc_sha256: [0; 32].into(),
             };
-            let summary = Summary { pkg, dist };
+            let summary = PackageSummary { pkg, dist };
 
             AddPackageVersion {
                 builder: &mut self.0,
@@ -261,7 +261,7 @@ mod tests {
             registry
         }
 
-        fn get(&self, package: &str, version: &str) -> &Summary {
+        fn get(&self, package: &str, version: &str) -> &PackageSummary {
             let version = version.parse().unwrap();
             self.0.get(package, &version).unwrap()
         }
@@ -277,7 +277,7 @@ mod tests {
     #[derive(Debug)]
     struct AddPackageVersion<'builder> {
         builder: &'builder mut InMemorySource,
-        summary: Summary,
+        summary: PackageSummary,
     }
 
     impl<'builder> AddPackageVersion<'builder> {

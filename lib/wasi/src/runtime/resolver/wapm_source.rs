@@ -8,7 +8,7 @@ use webc::metadata::Manifest;
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, Source, Summary, WebcHash,
+        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
     },
 };
 
@@ -34,7 +34,7 @@ impl WapmSource {
 
 #[async_trait::async_trait]
 impl Source for WapmSource {
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         let (full_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
             _ => return Ok(Vec::new()),
@@ -95,7 +95,7 @@ impl Source for WapmSource {
     }
 }
 
-fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<Summary, Error> {
+fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
         distribution:
@@ -113,7 +113,7 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<Summary,
     hex::decode_to_slice(&pirita_sha256_hash, &mut webc_sha256)?;
     let webc_sha256 = WebcHash::from_bytes(webc_sha256);
 
-    Ok(Summary {
+    Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(&manifest)?,
         dist: DistributionInfo {
             webc: pirita_download_url.parse()?,
@@ -235,7 +235,7 @@ mod tests {
 
         assert_eq!(
             summaries,
-            [Summary {
+            [PackageSummary {
                 pkg: PackageInfo {
                     name: "wasmer/wasmer-pack-cli".to_string(),
                     version: Version::new(0, 6, 0),

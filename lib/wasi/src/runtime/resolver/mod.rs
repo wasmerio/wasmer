@@ -10,9 +10,9 @@ mod web_source;
 
 pub use self::{
     in_memory_source::InMemorySource,
-    web_source::WebSource,
     inputs::{
-        Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, Summary, WebcHash,
+        Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
+        WebcHash,
     },
     multi_source_registry::MultiSourceRegistry,
     outputs::{
@@ -22,4 +22,5 @@ pub use self::{
     resolve::resolve,
     source::Source,
     wapm_source::WapmSource,
+    web_source::WebSource,
 };

@@ -5,12 +5,12 @@ use webc::compat::Container;
 
 use crate::{
     bin_factory::BinaryPackage,
-    runtime::resolver::{Resolution, Summary},
+    runtime::resolver::{PackageSummary, Resolution},
 };
 
 #[async_trait::async_trait]
 pub trait PackageLoader: Send + Sync + Debug {
-    async fn load(&self, summary: &Summary) -> Result<Container, Error>;
+    async fn load(&self, summary: &PackageSummary) -> Result<Container, Error>;
 
     /// Load a resolved package into memory so it can be executed.
     ///
@@ -29,7 +29,7 @@ where
     D: Deref<Target = P> + Debug + Send + Sync,
     P: PackageLoader + ?Sized + 'static,
 {
-    async fn load(&self, summary: &Summary) -> Result<Container, Error> {
+    async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
         (**self).load(summary).await
     }
 

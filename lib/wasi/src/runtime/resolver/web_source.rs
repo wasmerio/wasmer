@@ -15,7 +15,7 @@ use webc::compat::Container;
 use crate::{
     http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, Source, Summary, WebcHash,
+        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
     },
 };
 
@@ -247,7 +247,7 @@ fn headers() -> Vec<(String, String)> {
 
 #[async_trait::async_trait]
 impl Source for WebSource {
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         let url = match package {
             PackageSpecifier::Url(url) => url,
             _ => return Ok(Vec::new()),
@@ -270,7 +270,7 @@ impl Source for WebSource {
             webc_sha256,
         };
 
-        Ok(vec![Summary { pkg, dist }])
+        Ok(vec![PackageSummary { pkg, dist }])
     }
 }
 

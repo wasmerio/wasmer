@@ -15,7 +15,7 @@ use crate::{
     runtime::{
         package_loader::PackageLoader,
         resolver::{
-            DependencyGraph, ItemLocation, PackageId, Resolution, ResolvedPackage, Summary,
+            DependencyGraph, ItemLocation, PackageId, PackageSummary, Resolution, ResolvedPackage,
         },
     },
 };
@@ -216,7 +216,7 @@ async fn fetch_dependencies(
     let packages: FuturesUnordered<_> = packages
         .into_iter()
         .map(|id| async {
-            let summary = Summary {
+            let summary = PackageSummary {
                 pkg: graph.package_info[&id].clone(),
                 dist: graph.distribution[&id].clone(),
             };

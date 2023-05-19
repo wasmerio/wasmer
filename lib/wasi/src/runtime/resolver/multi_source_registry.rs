@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Error;
 
-use crate::runtime::resolver::{PackageSpecifier, Registry, Source, Summary};
+use crate::runtime::resolver::{PackageSpecifier, PackageSummary, Registry, Source};
 
 /// A registry that works by querying multiple [`Source`]s in succession.
 #[derive(Debug, Clone)]
@@ -30,7 +30,7 @@ impl MultiSourceRegistry {
 
 #[async_trait::async_trait]
 impl Registry for MultiSourceRegistry {
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         for source in &self.sources {
             let result = source.query(package).await?;
             if !result.is_empty() {
