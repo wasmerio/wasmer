@@ -57,8 +57,8 @@ impl BuiltinPackageLoader {
         wasmer_dir.as_ref().join("checkouts")
     }
 
-    /// Create a new [`BuiltinLoader`] based on `$WASMER_DIR` and the global
-    /// Wasmer config.
+    /// Create a new [`BuiltinPackageLoader`] based on `$WASMER_DIR` and the
+    /// global Wasmer config.
     pub fn from_env() -> Result<Self, Error> {
         let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
         let client = crate::http::default_http_client().context("No HTTP client available")?;

@@ -67,7 +67,7 @@ impl WebSource {
     }
 
     /// Download a package and cache it locally.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(%url))]
     async fn get_locally_cached_file(&self, url: &Url) -> Result<PathBuf, Error> {
         // This function is a bit tricky because we go to great lengths to avoid
         // unnecessary downloads.
@@ -227,7 +227,7 @@ impl Source for WebSource {
             _ => return Ok(Vec::new()),
         };
 
-        let local_path = self.get_locally_cached_file(url).await?;
+        let local_path = self.get_locally_cached_file(url).await.context("Unable to get the locally cached file")?;
 
         // FIXME: this will block
         let webc_sha256 = WebcHash::for_file(&local_path)?;

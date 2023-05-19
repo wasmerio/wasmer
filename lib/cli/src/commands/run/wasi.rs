@@ -8,6 +8,7 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use clap::Parser;
 use tokio::runtime::Handle;
+use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix::{
@@ -106,6 +107,10 @@ pub struct Wasi {
     /// Require WASI modules to only import 1 version of WASI.
     #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
+
+    /// The registry to use.
+    #[clap(long, env = "WASMER_REGISTRY", value_parser = parse_registry)]
+    pub registry: Option<Url>,
 }
 
 pub struct RunProperties {
@@ -475,14 +480,10 @@ impl Wasi {
         wasmer_dir: &Path,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl Registry + Send + Sync> {
-        // FIXME(Michael-F-Bryan): Ideally, all of this would live in some sort
-        // of from_env() constructor, but we don't want to add wasmer-registry
-        // as a dependency of wasmer-wasix just yet.
-        let config =
-            wasmer_registry::WasmerConfig::from_file(wasmer_dir).map_err(anyhow::Error::msg)?;
-
         let mut registry = MultiSourceRegistry::new();
 
+        // Note: This should be first so our "preloaded" sources get a chance to
+        // override the main registry.
         let mut preloaded = InMemorySource::new();
         for path in &self.include_webcs {
             preloaded
@@ -491,12 +492,7 @@ impl Wasi {
         }
         registry.add_source(preloaded);
 
-        // Note: This should be last so our "preloaded" sources get a chance to
-        // override the main registry.
-        let graphql_endpoint = config.registry.get_graphql_url();
-        let graphql_endpoint = graphql_endpoint
-            .parse()
-            .with_context(|| format!("Unable to parse \"{graphql_endpoint}\" as a URL"))?;
+        let graphql_endpoint = self.graphql_endpoint(wasmer_dir)?;
         registry.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
 
         let cache_dir = WebSource::default_cache_dir(wasmer_dir);
@@ -504,4 +500,24 @@ impl Wasi {
 
         Ok(registry)
     }
+
+    fn graphql_endpoint(&self, wasmer_dir: &Path) -> Result<Url> {
+        if let Some(endpoint) = &self.registry {
+            return Ok(endpoint.clone());
+        }
+
+        let config =
+            wasmer_registry::WasmerConfig::from_file(wasmer_dir).map_err(anyhow::Error::msg)?;
+        let graphql_endpoint = config.registry.get_graphql_url();
+        let graphql_endpoint = graphql_endpoint
+            .parse()
+            .with_context(|| format!("Unable to parse \"{graphql_endpoint}\" as a URL"))?;
+
+        Ok(graphql_endpoint)
+    }
+}
+
+fn parse_registry(r: &str) -> Result<Url> {
+    let url = wasmer_registry::format_graphql(r).parse()?;
+    Ok(url)
 }
