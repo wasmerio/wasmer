@@ -18,8 +18,8 @@ pub trait Source: Debug {
     ///
     /// A [`Registry`][reg] will typically have a list of [`Source`]s that are
     /// queried in order. The first [`Source`] to return one or more
-    /// [`Summaries`][Summary] will be treated as the canonical source for
-    /// that [`Dependency`][dep] and no further [`Source`]s will be queried.
+    /// [`Summaries`][PackageSummary] will be treated as the canonical source
+    /// for that [`Dependency`][dep] and no further [`Source`]s will be queried.
     ///
     /// [dep]: crate::runtime::resolver::Dependency
     /// [reg]: crate::runtime::resolver::Registry

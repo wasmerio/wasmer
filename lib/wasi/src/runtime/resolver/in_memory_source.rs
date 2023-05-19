@@ -60,7 +60,7 @@ impl InMemorySource {
         Ok(source)
     }
 
-    /// Add a new [`Summary`] to the [`InMemorySource`].
+    /// Add a new [`PackageSummary`] to the [`InMemorySource`].
     pub fn add(&mut self, summary: PackageSummary) {
         let summaries = self.packages.entry(summary.pkg.name.clone()).or_default();
         summaries.push(summary);

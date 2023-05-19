@@ -11,7 +11,7 @@ use crate::runtime::resolver::{PackageSpecifier, PackageSummary};
 pub trait Registry: Send + Sync + Debug {
     async fn query(&self, pkg: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error>;
 
-    /// Run [`Registry::query()`] and get the [`Summary`] for the latest
+    /// Run [`Registry::query()`] and get the [`PackageSummary`] for the latest
     /// version.
     async fn latest(&self, pkg: &PackageSpecifier) -> Result<PackageSummary, Error> {
         let candidates = self.query(pkg).await?;

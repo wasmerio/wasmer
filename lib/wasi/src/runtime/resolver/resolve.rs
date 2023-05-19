@@ -7,8 +7,8 @@ use crate::runtime::resolver::{
 
 use super::FileSystemMapping;
 
-/// Given the [`Summary`] for a root package, resolve its dependency graph and
-/// figure out how it could be executed.
+/// Given the [`PackageInfo`] for a root package, resolve its dependency graph
+/// and figure out how it could be executed.
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn resolve(
     root_id: &PackageId,
