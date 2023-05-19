@@ -132,17 +132,43 @@ impl WebSource {
         };
 
         let path = self.cache_dir.join(&cache_key);
-        self.atomically_save_file(&path, &bytes).await?;
+        self.atomically_save_file(&path, &bytes)
+            .await
+            .with_context(|| {
+                format!(
+                    "Unable to save the downloaded file to \"{}\"",
+                    path.display()
+                )
+            })?;
+
         if let Some(etag) = etag {
-            self.atomically_save_file(path.with_extension("etag"), etag.as_bytes())
-                .await?;
+            if let Err(e) = self
+                .atomically_save_file(path.with_extension("etag"), etag.as_bytes())
+                .await
+            {
+                tracing::warn!(
+                    error=&*e,
+                    %etag,
+                    %url,
+                    path=%path.display(),
+                    "Unable to save the etag file",
+                )
+            }
         }
 
         Ok(path)
     }
 
     async fn atomically_save_file(&self, path: impl AsRef<Path>, data: &[u8]) -> Result<(), Error> {
-        // FIXME: This will block the main thread
+        // FIXME: This will all block the main thread
+
+        let path = path.as_ref();
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
+        }
+
         let mut temp = NamedTempFile::new_in(&self.cache_dir)?;
         temp.write_all(data)?;
         temp.as_file().sync_all()?;
@@ -227,7 +253,10 @@ impl Source for WebSource {
             _ => return Ok(Vec::new()),
         };
 
-        let local_path = self.get_locally_cached_file(url).await.context("Unable to get the locally cached file")?;
+        let local_path = self
+            .get_locally_cached_file(url)
+            .await
+            .context("Unable to get the locally cached file")?;
 
         // FIXME: this will block
         let webc_sha256 = WebcHash::for_file(&local_path)?;
