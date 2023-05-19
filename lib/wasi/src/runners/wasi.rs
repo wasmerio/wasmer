@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Error};
-use serde::{Deserialize, Serialize};
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
     WasiEnvBuilder, WasiRuntime,
 };
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
     wasi: CommonWasiOptions,
 }
@@ -96,6 +95,36 @@ impl WasiRunner {
         self.wasi
             .mapped_dirs
             .extend(dirs.into_iter().map(|d| d.into()));
+        self
+    }
+
+    /// Add a package that should be available to the instance at runtime.
+    pub fn add_injected_package(&mut self, pkg: BinaryPackage) -> &mut Self {
+        self.wasi.injected_packages.push(pkg);
+        self
+    }
+
+    /// Add a package that should be available to the instance at runtime.
+    pub fn with_injected_package(mut self, pkg: BinaryPackage) -> Self {
+        self.add_injected_package(pkg);
+        self
+    }
+
+    /// Add packages that should be available to the instance at runtime.
+    pub fn add_injected_packages(
+        &mut self,
+        packages: impl IntoIterator<Item = BinaryPackage>,
+    ) -> &mut Self {
+        self.wasi.injected_packages.extend(packages);
+        self
+    }
+
+    /// Add packages that should be available to the instance at runtime.
+    pub fn with_injected_packages(
+        mut self,
+        packages: impl IntoIterator<Item = BinaryPackage>,
+    ) -> Self {
+        self.add_injected_packages(packages);
         self
     }
 

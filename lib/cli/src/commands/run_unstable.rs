@@ -15,21 +15,23 @@ use std::{
 use anyhow::{Context, Error};
 use clap::Parser;
 use clap_verbosity_flag::WarnLevel;
+use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
+use tokio::runtime::Handle;
 use url::Url;
 use wapm_targz_to_pirita::FileMap;
 use wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
 };
-use wasmer_cache::Cache;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::Package;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
+    runtime::resolver::PackageSpecifier,
 };
 use wasmer_wasix::{
     runners::{
@@ -41,18 +43,23 @@ use wasmer_wasix::{
 };
 use webc::{metadata::Manifest, v1::DirOrFile, Container};
 
-use crate::{
-    store::StoreOptions,
-    wasmer_home::{DownloadCached, ModuleCache, WasmerHome},
-};
+use crate::store::StoreOptions;
+
+static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
+    wasmer_registry::WasmerConfig::get_wasmer_dir()
+        .ok()
+        .or_else(|| dirs::home_dir().map(|home| home.join(".wasmer")))
+        .unwrap_or_else(|| PathBuf::from(".wasmer"))
+});
 
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
 pub struct RunUnstable {
     #[clap(flatten)]
     verbosity: clap_verbosity_flag::Verbosity<WarnLevel>,
-    #[clap(flatten)]
-    wasmer_home: WasmerHome,
+    /// The Wasmer home directory.
+    #[clap(long = "wasmer-dir", env = "WASMER_DIR", default_value = WASMER_HOME.as_os_str())]
+    wasmer_dir: PathBuf,
     #[clap(flatten)]
     store: StoreOptions,
     #[clap(flatten)]
@@ -79,54 +86,61 @@ pub struct RunUnstable {
 impl RunUnstable {
     pub fn execute(&self) -> Result<(), Error> {
         crate::logging::set_up_logging(self.verbosity.log_level_filter());
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        let handle = runtime.handle().clone();
 
         #[cfg(feature = "sys")]
         if self.stack_size.is_some() {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
+        let (mut store, _) = self.store.get_store()?;
+        let runtime =
+            self.wasi
+                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
+
         let target = self
             .input
-            .resolve_target(&self.wasmer_home)
+            .resolve_target(&runtime)
             .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
 
-        let (mut store, _) = self.store.get_store()?;
-
-        let mut cache = self.wasmer_home.module_cache();
-        let result = match target.load(&mut cache, &store)? {
-            ExecutableTarget::WebAssembly(wasm) => self.execute_wasm(&target, &wasm, &mut store),
-            ExecutableTarget::Webc(container) => {
-                self.execute_webc(&target, container, cache, &mut store)
-            }
-        };
+        let result = self.execute_target(target, Arc::new(runtime), &mut store);
 
         if let Err(e) = &result {
-            #[cfg(feature = "coredump")]
-            if let Some(coredump) = &self.coredump_on_trap {
-                if let Err(e) = generate_coredump(e, target.path(), coredump) {
-                    tracing::warn!(
-                        error = &*e as &dyn std::error::Error,
-                        coredump_path=%coredump.display(),
-                        "Unable to generate a coredump",
-                    );
-                }
-            }
+            self.maybe_save_coredump(e);
         }
 
         result
     }
 
+    fn execute_target(
+        &self,
+        executable_target: ExecutableTarget,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        store: &mut Store,
+    ) -> Result<(), Error> {
+        match executable_target {
+            ExecutableTarget::WebAssembly { module, path } => {
+                self.execute_wasm(&path, &module, store, runtime)
+            }
+            ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
+        }
+    }
+
     #[tracing::instrument(skip_all)]
     fn execute_wasm(
         &self,
-        target: &TargetOnDisk,
+        path: &Path,
         module: &Module,
         store: &mut Store,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(target.path(), module, store)
+            self.execute_wasi_module(path, module, runtime, store)
         } else {
             self.execute_pure_wasm_module(module, store)
         }
@@ -135,35 +149,25 @@ impl RunUnstable {
     #[tracing::instrument(skip_all)]
     fn execute_webc(
         &self,
-        target: &TargetOnDisk,
-        container: Container,
-        mut cache: ModuleCache,
-        store: &mut Store,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
-        let wasmer_home = self.wasmer_home.wasmer_home()?;
-        let runtime = self
-            .wasi
-            .prepare_runtime(store.engine().clone(), &wasmer_home)?;
-        let runtime = Arc::new(runtime);
-
-        let pkg = runtime
-            .task_manager()
-            .block_on(BinaryPackage::from_webc(&container, &*runtime))?;
-
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
-            None => infer_webc_entrypoint(&pkg)?,
+            None => infer_webc_entrypoint(pkg)?,
         };
         let cmd = pkg
             .get_command(id)
             .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
+        let uses = self.load_injected_packages(&*runtime)?;
+
         if WcgiRunner::can_run_command(cmd.metadata())? {
-            self.run_wcgi(id, &pkg, runtime)
+            self.run_wcgi(id, pkg, uses, runtime)
         } else if WasiRunner::can_run_command(cmd.metadata())? {
-            self.run_wasi(id, &pkg, runtime)
+            self.run_wasi(id, pkg, uses, runtime)
         } else if EmscriptenRunner::can_run_command(cmd.metadata())? {
-            self.run_emscripten(id, &pkg, runtime)
+            self.run_emscripten(id, pkg, runtime)
         } else {
             anyhow::bail!(
                 "Unable to find a runner that supports \"{}\"",
@@ -172,16 +176,38 @@ impl RunUnstable {
         }
     }
 
+    #[tracing::instrument(skip_all)]
+    fn load_injected_packages(
+        &self,
+        runtime: &dyn WasiRuntime,
+    ) -> Result<Vec<BinaryPackage>, Error> {
+        let mut dependencies = Vec::new();
+
+        for name in &self.wasi.uses {
+            let specifier = PackageSpecifier::parse(name)
+                .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
+            let pkg = runtime
+                .task_manager()
+                .block_on(BinaryPackage::from_registry(&specifier, runtime))
+                .with_context(|| format!("Unable to load \"{name}\""))?;
+            dependencies.push(pkg);
+        }
+
+        Ok(dependencies)
+    }
+
     fn run_wasi(
         &self,
         command_name: &str,
         pkg: &BinaryPackage,
+        uses: Vec<BinaryPackage>,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
             .with_args(self.args.clone())
             .with_envs(self.wasi.env_vars.clone())
-            .with_mapped_directories(self.wasi.mapped_dirs.clone());
+            .with_mapped_directories(self.wasi.mapped_dirs.clone())
+            .with_injected_packages(uses);
         if self.wasi.forward_host_env {
             runner.set_forward_host_env();
         }
@@ -193,6 +219,7 @@ impl RunUnstable {
         &self,
         command_name: &str,
         pkg: &BinaryPackage,
+        uses: Vec<BinaryPackage>,
         runtime: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
@@ -203,7 +230,8 @@ impl RunUnstable {
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.clone())
-            .callbacks(Callbacks::new(self.wcgi.addr));
+            .callbacks(Callbacks::new(self.wcgi.addr))
+            .inject_packages(uses);
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
@@ -260,21 +288,37 @@ impl RunUnstable {
         &self,
         wasm_path: &Path,
         module: &Module,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
         store: &mut Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
-        let wasmer_home = self.wasmer_home.wasmer_home()?;
-        let builder =
-            self.wasi
-                .prepare(store, module, program_name, self.args.clone(), &wasmer_home)?;
+
+        let builder = self
+            .wasi
+            .prepare(module, program_name, self.args.clone(), runtime)?;
 
         builder.run_with_store(module.clone(), store)?;
+
         Ok(())
     }
 
     #[tracing::instrument(skip_all)]
     fn execute_emscripten_module(&self) -> Result<(), Error> {
-        todo!()
+        anyhow::bail!("Emscripten packages are not currently supported")
+    }
+
+    #[allow(unused_variables)]
+    fn maybe_save_coredump(&self, e: &Error) {
+        #[cfg(feature = "coredump")]
+        if let Some(coredump) = &self.coredump_on_trap {
+            if let Err(e) = generate_coredump(e, self.input.to_string(), coredump) {
+                tracing::warn!(
+                    error = &*e as &dyn std::error::Error,
+                    coredump_path=%coredump.display(),
+                    "Unable to generate a coredump",
+                );
+            }
+        }
     }
 }
 
@@ -340,23 +384,177 @@ fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
     }
 }
 
-fn compile_directory_to_webc(dir: &Path) -> Result<Vec<u8>, Error> {
-    let mut files = BTreeMap::new();
-    load_files_from_disk(&mut files, dir, dir)?;
+/// The input that was passed in via the command-line.
+#[derive(Debug, Clone, PartialEq)]
+enum PackageSource {
+    /// A file on disk (`*.wasm`, `*.webc`, etc.).
+    File(PathBuf),
+    /// A directory containing a `wasmer.toml` file
+    Dir(PathBuf),
+    /// A package to be downloaded (a URL, package name, etc.)
+    Package(PackageSpecifier),
+}
 
-    let wasmer_toml = DirOrFile::File("wasmer.toml".into());
-    if let Some(toml_data) = files.remove(&wasmer_toml) {
-        // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-        // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
-        // manually patch things up if people have already migrated their
-        // projects.
-        files
-            .entry(DirOrFile::File("wapm.toml".into()))
-            .or_insert(toml_data);
+impl PackageSource {
+    fn infer(s: &str) -> Result<PackageSource, Error> {
+        let path = Path::new(s);
+        if path.is_file() {
+            return Ok(PackageSource::File(path.to_path_buf()));
+        } else if path.is_dir() {
+            return Ok(PackageSource::Dir(path.to_path_buf()));
+        }
+
+        if let Ok(pkg) = PackageSpecifier::parse(s) {
+            return Ok(PackageSource::Package(pkg));
+        }
+
+        Err(anyhow::anyhow!(
+            "Unable to resolve \"{s}\" as a URL, package name, or file on disk"
+        ))
     }
 
-    let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-    wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)
+    /// Try to resolve the [`PackageSource`] to an executable artifact.
+    ///
+    /// This will try to automatically download and cache any resources from the
+    /// internet.
+    fn resolve_target(&self, rt: &dyn WasiRuntime) -> Result<ExecutableTarget, Error> {
+        match self {
+            PackageSource::File(path) => ExecutableTarget::from_file(path, rt),
+            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt),
+            PackageSource::Package(pkg) => {
+                let pkg = rt
+                    .task_manager()
+                    .block_on(BinaryPackage::from_registry(pkg, rt))?;
+                Ok(ExecutableTarget::Package(pkg))
+            }
+        }
+    }
+}
+
+impl Display for PackageSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PackageSource::File(path) | PackageSource::Dir(path) => write!(f, "{}", path.display()),
+            PackageSource::Package(p) => write!(f, "{p}"),
+        }
+    }
+}
+
+/// We've been given the path for a file... What does it contain and how should
+/// that be run?
+#[derive(Debug, Clone)]
+enum TargetOnDisk {
+    WebAssemblyBinary,
+    Wat,
+    LocalWebc,
+    Artifact,
+}
+
+impl TargetOnDisk {
+    fn from_file(path: &Path) -> Result<TargetOnDisk, Error> {
+        // Normally the first couple hundred bytes is enough to figure
+        // out what type of file this is.
+        let mut buffer = [0_u8; 512];
+
+        let mut f = File::open(path)
+            .with_context(|| format!("Unable to open \"{}\" for reading", path.display(),))?;
+        let bytes_read = f.read(&mut buffer)?;
+
+        let leading_bytes = &buffer[..bytes_read];
+
+        if wasmer::is_wasm(leading_bytes) {
+            return Ok(TargetOnDisk::WebAssemblyBinary);
+        }
+
+        if webc::detect(leading_bytes).is_ok() {
+            return Ok(TargetOnDisk::LocalWebc);
+        }
+
+        #[cfg(feature = "compiler")]
+        if ArtifactBuild::is_deserializable(leading_bytes) {
+            return Ok(TargetOnDisk::Artifact);
+        }
+
+        // If we can't figure out the file type based on its content, fall back
+        // to checking the extension.
+
+        match path.extension().and_then(|s| s.to_str()) {
+            Some("wat") => Ok(TargetOnDisk::Wat),
+            Some("wasm") => Ok(TargetOnDisk::WebAssemblyBinary),
+            Some("webc") => Ok(TargetOnDisk::LocalWebc),
+            Some("wasmu") => Ok(TargetOnDisk::WebAssemblyBinary),
+            _ => anyhow::bail!("Unable to determine how to execute \"{}\"", path.display()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ExecutableTarget {
+    WebAssembly { module: Module, path: PathBuf },
+    Package(BinaryPackage),
+}
+
+impl ExecutableTarget {
+    /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
+    /// file.
+    #[tracing::instrument(skip_all)]
+    fn from_dir(dir: &Path, runtime: &dyn WasiRuntime) -> Result<Self, Error> {
+        let mut files = BTreeMap::new();
+        load_files_from_disk(&mut files, dir, dir)?;
+
+        let wasmer_toml = DirOrFile::File("wasmer.toml".into());
+        if let Some(toml_data) = files.remove(&wasmer_toml) {
+            // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+            // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
+            // manually patch things up if people have already migrated their
+            // projects.
+            files
+                .entry(DirOrFile::File("wapm.toml".into()))
+                .or_insert(toml_data);
+        }
+
+        let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
+        let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)?;
+
+        let container = Container::from_bytes(webc)?;
+        let pkg = runtime
+            .task_manager()
+            .block_on(BinaryPackage::from_webc(&container, runtime))?;
+
+        Ok(ExecutableTarget::Package(pkg))
+    }
+
+    /// Try to load a file into something that can be used to run it.
+    #[tracing::instrument(skip_all)]
+    fn from_file(path: &Path, runtime: &dyn WasiRuntime) -> Result<Self, Error> {
+        match TargetOnDisk::from_file(path)? {
+            TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
+                let wasm = std::fs::read(path)?;
+                let engine = runtime.engine().context("No engine available")?;
+                let module = Module::new(&engine, &wasm)?;
+                Ok(ExecutableTarget::WebAssembly {
+                    module,
+                    path: path.to_path_buf(),
+                })
+            }
+            TargetOnDisk::Artifact => {
+                let engine = runtime.engine().context("No engine available")?;
+                let module = unsafe { Module::deserialize_from_file(&engine, path)? };
+
+                Ok(ExecutableTarget::WebAssembly {
+                    module,
+                    path: path.to_path_buf(),
+                })
+            }
+            TargetOnDisk::LocalWebc => {
+                let container = Container::from_disk(path)?;
+                let pkg = runtime
+                    .task_manager()
+                    .block_on(BinaryPackage::from_webc(&container, runtime))?;
+                Ok(ExecutableTarget::Package(pkg))
+            }
+        }
+    }
 }
 
 fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {
@@ -380,233 +578,8 @@ fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq)]
-enum PackageSource {
-    File(PathBuf),
-    Dir(PathBuf),
-    Package(Package),
-    Url(Url),
-}
-
-impl PackageSource {
-    fn infer(s: &str) -> Result<PackageSource, Error> {
-        let path = Path::new(s);
-        if path.is_file() {
-            return Ok(PackageSource::File(path.to_path_buf()));
-        } else if path.is_dir() {
-            return Ok(PackageSource::Dir(path.to_path_buf()));
-        }
-
-        if let Ok(url) = Url::parse(s) {
-            return Ok(PackageSource::Url(url));
-        }
-
-        if let Ok(pkg) = Package::from_str(s) {
-            return Ok(PackageSource::Package(pkg));
-        }
-
-        Err(anyhow::anyhow!(
-            "Unable to resolve \"{s}\" as a URL, package name, or file on disk"
-        ))
-    }
-
-    /// Try to resolve the [`PackageSource`] to an artifact on disk.
-    ///
-    /// This will try to automatically download and cache any resources from the
-    /// internet.
-    #[tracing::instrument(skip_all)]
-    fn resolve_target(&self, home: &impl DownloadCached) -> Result<TargetOnDisk, Error> {
-        match self {
-            PackageSource::File(path) => TargetOnDisk::from_file(path.clone()),
-            PackageSource::Dir(d) => Ok(TargetOnDisk::Directory(d.clone())),
-            PackageSource::Package(pkg) => {
-                let cached = home.download_package(pkg)?;
-                Ok(TargetOnDisk::Webc(cached))
-            }
-            PackageSource::Url(url) => {
-                let cached = home.download_url(url)?;
-                Ok(TargetOnDisk::Webc(cached))
-            }
-        }
-    }
-}
-
-impl Display for PackageSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PackageSource::File(path) | PackageSource::Dir(path) => write!(f, "{}", path.display()),
-            PackageSource::Package(p) => write!(f, "{p}"),
-            PackageSource::Url(u) => write!(f, "{u}"),
-        }
-    }
-}
-
-/// A file/directory on disk that will be executed.
-///
-/// Depending on the type of target and the command-line arguments, this might
-/// be something the user passed in manually or something that was automatically
-/// saved to `$WASMER_DIR` for caching purposes.
-#[derive(Debug, Clone)]
-enum TargetOnDisk {
-    WebAssemblyBinary(PathBuf),
-    Wat(PathBuf),
-    Webc(PathBuf),
-    Directory(PathBuf),
-    Artifact(PathBuf),
-}
-
-impl TargetOnDisk {
-    fn from_file(path: PathBuf) -> Result<TargetOnDisk, Error> {
-        // Normally the first couple hundred bytes is enough to figure
-        // out what type of file this is.
-        let mut buffer = [0_u8; 512];
-
-        let mut f = File::open(&path)
-            .with_context(|| format!("Unable to open \"{}\" for reading", path.display(),))?;
-        let bytes_read = f.read(&mut buffer)?;
-
-        let leading_bytes = &buffer[..bytes_read];
-
-        if wasmer::is_wasm(leading_bytes) {
-            return Ok(TargetOnDisk::WebAssemblyBinary(path));
-        }
-
-        if webc::detect(leading_bytes).is_ok() {
-            return Ok(TargetOnDisk::Webc(path));
-        }
-
-        #[cfg(feature = "compiler")]
-        if ArtifactBuild::is_deserializable(leading_bytes) {
-            return Ok(TargetOnDisk::Artifact(path));
-        }
-
-        // If we can't figure out the file type based on its content, fall back
-        // to checking the extension.
-
-        match path.extension().and_then(|s| s.to_str()) {
-            Some("wat") => Ok(TargetOnDisk::Wat(path)),
-            _ => anyhow::bail!("Unable to determine how to execute \"{}\"", path.display()),
-        }
-    }
-
-    fn path(&self) -> &Path {
-        match self {
-            TargetOnDisk::WebAssemblyBinary(p)
-            | TargetOnDisk::Webc(p)
-            | TargetOnDisk::Wat(p)
-            | TargetOnDisk::Directory(p)
-            | TargetOnDisk::Artifact(p) => p,
-        }
-    }
-
-    #[tracing::instrument(skip_all)]
-    fn load(&self, cache: &mut ModuleCache, store: &Store) -> Result<ExecutableTarget, Error> {
-        match self {
-            TargetOnDisk::Webc(webc) => {
-                // As an optimisation, try to use the mmapped version first.
-                if let Ok(container) = Container::from_disk(webc.clone()) {
-                    return Ok(ExecutableTarget::Webc(container));
-                }
-
-                // Otherwise, fall back to the version that reads everything
-                // into memory.
-                let bytes = std::fs::read(webc)
-                    .with_context(|| format!("Unable to read \"{}\"", webc.display()))?;
-                let container = Container::from_bytes(bytes)?;
-
-                Ok(ExecutableTarget::Webc(container))
-            }
-            TargetOnDisk::Directory(dir) => {
-                // FIXME: Runners should be able to load directories directly
-                // instead of needing to compile to a WEBC file.
-                let webc = compile_directory_to_webc(dir).with_context(|| {
-                    format!("Unable to bundle \"{}\" as a WEBC package", dir.display())
-                })?;
-                let container = Container::from_bytes(webc)
-                    .context("Unable to parse the generated WEBC file")?;
-
-                Ok(ExecutableTarget::Webc(container))
-            }
-            TargetOnDisk::WebAssemblyBinary(path) => {
-                let wasm = std::fs::read(path)
-                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-                let module =
-                    compile_wasm_cached(path.display().to_string(), &wasm, cache, store.engine())?;
-                Ok(ExecutableTarget::WebAssembly(module))
-            }
-            TargetOnDisk::Wat(path) => {
-                let wat = std::fs::read(path)
-                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-                let wasm =
-                    wasmer::wat2wasm(&wat).context("Unable to convert the WAT to WebAssembly")?;
-
-                let module =
-                    compile_wasm_cached(path.display().to_string(), &wasm, cache, store.engine())?;
-                Ok(ExecutableTarget::WebAssembly(module))
-            }
-            TargetOnDisk::Artifact(artifact) => {
-                let module = unsafe {
-                    Module::deserialize_from_file(store, artifact)
-                        .context("Unable to deserialize the pre-compiled module")?
-                };
-                Ok(ExecutableTarget::WebAssembly(module))
-            }
-        }
-    }
-}
-
-fn compile_wasm_cached(
-    name: String,
-    wasm: &[u8],
-    cache: &mut ModuleCache,
-    engine: &Engine,
-) -> Result<Module, Error> {
-    tracing::debug!("Trying to retrieve module from cache");
-
-    let hash = wasmer_cache::Hash::generate(wasm);
-    tracing::debug!("Generated hash: {}", hash);
-
-    unsafe {
-        match cache.load(engine, hash) {
-            Ok(m) => {
-                tracing::debug!(%hash, "Module loaded from cache");
-                return Ok(m);
-            }
-            Err(DeserializeError::Io(e)) if e.kind() == ErrorKind::NotFound => {}
-            Err(error) => {
-                tracing::warn!(
-                    %hash,
-                    error=&error as &dyn std::error::Error,
-                    name=%name,
-                    "Unable to deserialize the cached module",
-                );
-            }
-        }
-    }
-
-    let mut module = Module::new(engine, wasm).context("Unable to load the module from a file")?;
-    module.set_name(&name);
-
-    if let Err(e) = cache.store(hash, &module) {
-        tracing::warn!(
-            error=&e as &dyn std::error::Error,
-            wat=%name,
-            key=%hash,
-            "Unable to cache the compiled module",
-        );
-    }
-
-    Ok(module)
-}
-
-#[derive(Debug, Clone)]
-enum ExecutableTarget {
-    WebAssembly(Module),
-    Webc(Container),
-}
-
 #[cfg(feature = "coredump")]
-fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result<(), Error> {
+fn generate_coredump(err: &Error, source_name: String, coredump_path: &Path) -> Result<(), Error> {
     let err: &wasmer::RuntimeError = match err.downcast_ref() {
         Some(e) => e,
         None => {
@@ -615,7 +588,6 @@ fn generate_coredump(err: &Error, source: &Path, coredump_path: &Path) -> Result
         }
     };
 
-    let source_name = source.display().to_string();
     let mut coredump_builder =
         wasm_coredump_builder::CoredumpBuilder::new().executable_name(&source_name);
 

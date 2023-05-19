@@ -9,11 +9,12 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 #[cfg(feature = "coredump")]
 use std::fs::File;
-use std::io::Write;
 use std::net::SocketAddr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{io::Write, sync::Arc};
+use tokio::runtime::Handle;
 use wasmer::FunctionEnv;
 use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
@@ -247,10 +248,15 @@ impl RunWithPathBuf {
     }
 
     fn inner_execute(&self) -> Result<()> {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        let handle = runtime.handle().clone();
+
         #[cfg(feature = "webc_runner")]
         {
             if let Ok(pf) = webc::Container::from_disk(self.path.clone()) {
-                return self.run_container(pf, self.command_name.as_deref(), &self.args);
+                return self.run_container(pf, self.command_name.as_deref(), &self.args, handle);
             }
         }
         let (mut store, module) = self.get_store_module()?;
@@ -343,10 +349,13 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
-                    let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+
+                    let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+                    let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone(), &wasmer_dir, handle)?);
+
                     let (ctx, instance) = self
                         .wasi
-                        .instantiate(&mut store, &module, program_name, self.args.clone(), &wasmer_home)
+                        .instantiate(&module, program_name, self.args.clone(), runtime, &mut store)
                         .with_context(|| "failed to instantiate WASI module")?;
 
                     let capable_of_deep_sleep = unsafe { ctx.data(&store).capable_of_deep_sleep() };
@@ -417,16 +426,15 @@ impl RunWithPathBuf {
         container: webc::Container,
         id: Option<&str>,
         args: &[String],
+        handle: Handle,
     ) -> Result<(), anyhow::Error> {
-        use std::sync::Arc;
-
         use wasmer_wasix::{
             bin_factory::BinaryPackage,
             runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
             WasiRuntime,
         };
 
-        let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+        let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
 
         let id = id
             .or_else(|| container.manifest().entrypoint.as_deref())
@@ -440,7 +448,7 @@ impl RunWithPathBuf {
         let (store, _compiler_type) = self.store.get_store()?;
         let runtime = self
             .wasi
-            .prepare_runtime(store.engine().clone(), &wasmer_home)?;
+            .prepare_runtime(store.engine().clone(), &wasmer_dir, handle)?;
         let runtime = Arc::new(runtime);
         let pkg = runtime
             .task_manager()

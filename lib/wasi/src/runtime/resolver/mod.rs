@@ -6,9 +6,11 @@ mod registry;
 mod resolve;
 mod source;
 mod wapm_source;
+mod web_source;
 
 pub use self::{
     in_memory_source::InMemorySource,
+    web_source::WebSource,
     inputs::{
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, Summary, WebcHash,
     },

@@ -53,17 +53,19 @@ impl BuiltinPackageLoader {
 
     /// Get the directory that is typically used when caching downloaded
     /// packages inside `$WASMER_DIR`.
-    pub fn default_cache_dir(wasmer_home: impl AsRef<Path>) -> PathBuf {
-        wasmer_home.as_ref().join("checkouts")
+    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
+        wasmer_dir.as_ref().join("checkouts")
     }
 
     /// Create a new [`BuiltinLoader`] based on `$WASMER_DIR` and the global
     /// Wasmer config.
     pub fn from_env() -> Result<Self, Error> {
-        let wasmer_home = discover_wasmer_home().context("Unable to determine $WASMER_DIR")?;
+        let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
         let client = crate::http::default_http_client().context("No HTTP client available")?;
+        let cache_dir = BuiltinPackageLoader::default_cache_dir(&wasmer_dir);
+
         Ok(BuiltinPackageLoader::new_with_client(
-            wasmer_home.join("checkouts"),
+            cache_dir,
             Arc::new(client),
         ))
     }
@@ -211,7 +213,7 @@ impl PackageLoader for BuiltinPackageLoader {
     }
 }
 
-fn discover_wasmer_home() -> Option<PathBuf> {
+fn discover_wasmer_dir() -> Option<PathBuf> {
     // TODO: We should reuse the same logic from the wasmer CLI.
     std::env::var("WASMER_DIR")
         .map(PathBuf::from)

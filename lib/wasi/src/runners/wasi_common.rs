@@ -8,14 +8,15 @@ use anyhow::{Context, Error};
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
-use crate::{runners::MappedDirectory, WasiEnvBuilder};
+use crate::{bin_factory::BinaryPackage, runners::MappedDirectory, WasiEnvBuilder};
 
-#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
+    pub(crate) injected_packages: Vec<BinaryPackage>,
 }
 
 impl CommonWasiOptions {
@@ -36,6 +37,10 @@ impl CommonWasiOptions {
         }
 
         builder.set_fs(fs);
+
+        for pkg in &self.injected_packages {
+            builder.add_webc(pkg.clone());
+        }
 
         self.populate_env(wasi, builder);
         self.populate_args(wasi, builder);

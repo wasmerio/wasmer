@@ -366,9 +366,10 @@ mod remote_webc {
     )]
     fn bash_using_coreutils() {
         let assert = wasmer_run_unstable()
-            .arg("https://wapm.io/sharrattj/bash")
+            .arg("sharrattj/bash")
             .arg("--entrypoint=bash")
-            .arg("--use=https://wapm.io/sharrattj/bash")
+            .arg("--use=sharrattj/coreutils")
+            .arg("--registry=https://wapm.io/")
             .arg("--")
             .arg("-c")
             .arg("ls /bin")

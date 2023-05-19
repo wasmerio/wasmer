@@ -220,6 +220,21 @@ impl Config {
         self.callbacks = Arc::new(callbacks);
         self
     }
+
+    /// Add a package that should be available to the instance at runtime.
+    pub fn inject_package(&mut self, pkg: BinaryPackage) -> &mut Self {
+        self.wasi.injected_packages.push(pkg);
+        self
+    }
+
+    /// Add packages that should be available to the instance at runtime.
+    pub fn inject_packages(
+        &mut self,
+        packages: impl IntoIterator<Item = BinaryPackage>,
+    ) -> &mut Self {
+        self.wasi.injected_packages.extend(packages);
+        self
+    }
 }
 
 impl Default for Config {

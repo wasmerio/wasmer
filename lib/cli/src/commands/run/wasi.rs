@@ -7,10 +7,9 @@ use std::{
 use anyhow::{Context, Result};
 use bytes::Bytes;
 use clap::Parser;
+use tokio::runtime::Handle;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-use wasmer::{
-    AsStoreMut, Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
-};
+use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     default_fs_backing, get_wasi_versions,
@@ -21,7 +20,9 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
-        resolver::{InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry, WapmSource},
+        resolver::{
+            InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry, WapmSource, WebSource,
+        },
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
@@ -63,7 +64,7 @@ pub struct Wasi {
 
     /// List of other containers this module depends on
     #[clap(long = "use", name = "USE")]
-    uses: Vec<String>,
+    pub(crate) uses: Vec<String>,
 
     /// List of webc packages that are explicitly included for execution
     /// Note: these packages will be used instead of those in the registry
@@ -145,11 +146,10 @@ impl Wasi {
 
     pub fn prepare(
         &self,
-        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
-        wasmer_home: &Path,
+        rt: Arc<dyn WasiRuntime + Send + Sync>,
     ) -> Result<WasiEnvBuilder> {
         let args = args.into_iter().map(|arg| arg.into_bytes());
 
@@ -160,25 +160,19 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let engine = store.as_store_mut().engine().clone();
-
-        let rt = self
-            .prepare_runtime(engine, wasmer_home)
-            .context("Unable to prepare the wasi runtime")?;
-
         let mut uses = Vec::new();
         for name in &self.uses {
             let specifier = PackageSpecifier::parse(name)
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
             let pkg = rt
                 .task_manager()
-                .block_on(BinaryPackage::from_registry(&specifier, &rt))
+                .block_on(BinaryPackage::from_registry(&specifier, &*rt))
                 .with_context(|| format!("Unable to load \"{name}\""))?;
             uses.push(pkg);
         }
 
         let builder = WasiEnv::builder(program_name)
-            .runtime(Arc::new(rt))
+            .runtime(Arc::clone(&rt))
             .args(args)
             .envs(self.env_vars.clone())
             .uses(uses)
@@ -243,9 +237,10 @@ impl Wasi {
     pub fn prepare_runtime(
         &self,
         engine: Engine,
-        wasmer_home: &Path,
+        wasmer_dir: &Path,
+        handle: Handle,
     ) -> Result<impl WasiRuntime + Send + Sync> {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
@@ -264,12 +259,12 @@ impl Wasi {
         let client = Arc::new(client);
 
         let package_loader = self
-            .prepare_package_loader(wasmer_home, client.clone())
+            .prepare_package_loader(wasmer_dir, client.clone())
             .context("Unable to prepare the package loader")?;
 
-        let registry = self.prepare_registry(wasmer_home, client)?;
+        let registry = self.prepare_registry(wasmer_dir, client)?;
 
-        let cache_dir = FileSystemCache::default_cache_dir(wasmer_home);
+        let cache_dir = FileSystemCache::default_cache_dir(wasmer_dir);
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(cache_dir));
 
@@ -284,14 +279,15 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
-        wasmer_home: &Path,
+        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        store: &mut Store,
     ) -> Result<(WasiFunctionEnv, Instance)> {
-        let builder = self.prepare(store, module, program_name, args, wasmer_home)?;
+        let builder = self.prepare(module, program_name, args, runtime)?;
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
+
         Ok((wasi_env, instance))
     }
 
@@ -466,24 +462,24 @@ impl Wasi {
 
     fn prepare_package_loader(
         &self,
-        wasmer_home: &Path,
+        wasmer_dir: &Path,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
-        let checkout_dir = BuiltinPackageLoader::default_cache_dir(wasmer_home);
+        let checkout_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
         let loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
         Ok(loader)
     }
 
     fn prepare_registry(
         &self,
-        wasmer_home: &Path,
+        wasmer_dir: &Path,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl Registry + Send + Sync> {
         // FIXME(Michael-F-Bryan): Ideally, all of this would live in some sort
         // of from_env() constructor, but we don't want to add wasmer-registry
         // as a dependency of wasmer-wasix just yet.
         let config =
-            wasmer_registry::WasmerConfig::from_file(wasmer_home).map_err(anyhow::Error::msg)?;
+            wasmer_registry::WasmerConfig::from_file(wasmer_dir).map_err(anyhow::Error::msg)?;
 
         let mut registry = MultiSourceRegistry::new();
 
@@ -501,7 +497,10 @@ impl Wasi {
         let graphql_endpoint = graphql_endpoint
             .parse()
             .with_context(|| format!("Unable to parse \"{graphql_endpoint}\" as a URL"))?;
-        registry.add_source(WapmSource::new(graphql_endpoint, client));
+        registry.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
+
+        let cache_dir = WebSource::default_cache_dir(wasmer_dir);
+        registry.add_source(WebSource::new(cache_dir, client));
 
         Ok(registry)
     }

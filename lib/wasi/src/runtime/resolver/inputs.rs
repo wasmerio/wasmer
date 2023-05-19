@@ -47,6 +47,12 @@ impl FromStr for PackageSpecifier {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Ok(url) = Url::parse(s) {
+            if url.has_host() {
+                return Ok(PackageSpecifier::Url(url));
+            }
+        }
+
         // TODO: Replace this with something more rigorous that can also handle
         // the locator field
         let (full_name, version) = match s.split_once('@') {
@@ -328,6 +334,10 @@ pub(crate) mod tests {
                     full_name: "namespace/package".to_string(),
                     version: "1.0.0".parse().unwrap(),
                 },
+            ),
+            (
+                "https://wapm/io/namespace/package@1.0.0",
+                PackageSpecifier::Url("https://wapm/io/namespace/package@1.0.0".parse().unwrap()),
             ),
         ];
 
