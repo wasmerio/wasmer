@@ -1,4 +1,4 @@
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::externals::table as table_impl;
 #[cfg(feature = "jsc")]
 use crate::jsc::externals::table as table_impl;

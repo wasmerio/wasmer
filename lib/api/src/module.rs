@@ -15,7 +15,7 @@ use wasmer_types::{ExportType, ImportType};
 
 use crate::into_bytes::IntoBytes;
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::module as module_imp;
 #[cfg(feature = "jsc")]
 use crate::jsc::module as module_imp;
@@ -464,7 +464,7 @@ impl fmt::Debug for Module {
     }
 }
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 impl From<Module> for wasm_bindgen::JsValue {
     fn from(value: Module) -> Self {
         wasm_bindgen::JsValue::from(value.0)

@@ -4,7 +4,7 @@ use crate::MemoryAccessError;
 use std::mem::MaybeUninit;
 use wasmer_types::Pages;
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::externals::memory_view as memory_view_impl;
 #[cfg(feature = "jsc")]
 use crate::jsc::externals::memory_view as memory_view_impl;

@@ -24,8 +24,8 @@ pub fn universal_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let tokens = quote::quote! {
-        #[cfg(feature = "js")]
-        #[cfg_attr(feature = "js", wasm_bindgen_test)]
+        #[cfg(feature = "web")]
+        #[cfg_attr(feature = "web", wasm_bindgen_test)]
         fn #function_name_js() { #function_name_normal().unwrap(); }
 
         #[cfg_attr(any(feature = "sys", feature = "jsc"), test)]

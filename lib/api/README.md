@@ -43,44 +43,39 @@ fn main() -> anyhow::Result<()> {
 
 ## Features
 
-Wasmer is not only fast, but also designed to be *highly customizable*:
+Wasmer is not only fast, but also designed to be _highly customizable_:
 
-* **Pluggable compilers** — A compiler is used by the engine to
+- **Pluggable backends** — A backend is used by the engine to
   transform WebAssembly into executable code:
-  * [`wasmer-compiler-singlepass`] provides a fast compilation-time
-    but an unoptimized runtime speed,
-  * [`wasmer-compiler-cranelift`] provides the right balance between
+
+  - `singlepass`: uses [`wasmer-compiler-singlepass`] to have a fast
+    compilation-time but an unoptimized runtime speed,
+  - `cranelift`: uses [`wasmer-compiler-cranelift`] to have the right balance between
     compilation-time and runtime performance, useful for development,
-  * [`wasmer-compiler-llvm`] provides a deeply optimized executable
+  - `llvm`: uses [`wasmer-compiler-llvm`] to have a optimized executable
     code with the fastest runtime speed, ideal for production.
-    
-* **Headless mode** — Once a WebAssembly module has been compiled, it
+  - `jsc`: uses [JavascriptCore](https://wasmer.io/posts/wasmer-3.3-and-javascriptcore) to
+    compile and execute the WebAssembly code
+  - `web`: uses `wasm-bindgen` and the browser's Wasm engine to allow compiling
+    and using Wasmer in the web. In this context, the resulting WebAssembly module will
+    expect to run in a JavaScript environment, like a browser, Node.js,
+    Deno and so on.
+
+- **Headless mode** — Once a WebAssembly module has been compiled, it
   is possible to serialize it in a file for example, and later execute
   it with Wasmer with headless mode turned on. Headless Wasmer has no
   compiler, which makes it more portable and faster to load. It's
   ideal for constrainted environments.
-  
-* **Cross-compilation** — Most compilers support cross-compilation. It
+
+- **Cross-compilation** — Most compilers support cross-compilation. It
   means it possible to pre-compile a WebAssembly module targetting a
   different architecture or platform and serialize it, to then run it
   on the targetted architecture and platform later.
 
-* **Run Wasmer in a JavaScript environment** — With the `js` Cargo
-  feature, it is possible to compile a Rust program using Wasmer to
-  WebAssembly. In this context, the resulting WebAssembly module will
-  expect to run in a JavaScript environment, like a browser, Node.js,
-  Deno and so on. In this specific scenario, there is no engines or
-  compilers available, it's the one available in the JavaScript
-  environment that will be used.
-
 Wasmer ships by default with the Cranelift compiler as its great for
-development purposes.  However, we strongly encourage to use the LLVM
+development purposes. However, we strongly encourage to use the LLVM
 compiler in production as it performs about 50% faster, achieving
 near-native speeds.
-
-Note: if one wants to use multiple compilers at the same time, it's
-also possible! One will need to import them directly via each of the
-compiler crates.
 
 Read [the documentation to learn
 more](https://wasmerio.github.io/wasmer/crates/doc/wasmer/).

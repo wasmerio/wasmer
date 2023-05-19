@@ -117,10 +117,13 @@ sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+js = ["web"]
+js-default = ["web-default"]
+test-js = ["test-web"]
 
-js = ["virtual-fs/no-time", "getrandom/js", "chrono"]
-js-default = ["js"]
-test-js = ["js", "wasmer/wat"]
+web = ["virtual-fs/no-time", "getrandom/js", "chrono"]
+web-default = ["web"]
+test-web = ["web", "wasmer/wat"]
 
 host-vnet = [ "virtual-net/host-net" ]
 host-threads = []

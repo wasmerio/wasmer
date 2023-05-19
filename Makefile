@@ -557,18 +557,18 @@ test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd 
 
 test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 
-test-js: test-js-api test-js-wasi
+test-web: test-web-api test-web-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
 # See https://github.com/wasmerio/wasmer/issues/3429
-# test-js-core:
-# 	cd lib/api && wasm-pack test --node -- --no-default-features --features js,core,wasm-types-polyfill,wat
+# test-web-core:
+# 	cd lib/api && wasm-pack test --node -- --no-default-features --features web,core,wasm-types-polyfill,wat
 
-test-js-api:
-	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
+test-web-api:
+	cd lib/api && wasm-pack test --node -- --no-default-features --features web-default,wat
 
-test-js-wasi:
-	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
+test-web-wasi:
+	cd lib/wasi && wasm-pack test --node -- --no-default-features --features test-web,wasmer/web,wasmer/std
 
 #####
 #

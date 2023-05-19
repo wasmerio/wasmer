@@ -26,7 +26,7 @@
     )
 )]
 #![allow(deprecated_cfg_attr_crate_type_name)]
-#![cfg_attr(feature = "js", crate_type = "cdylib")]
+#![cfg_attr(feature = "web", crate_type = "cdylib")]
 
 //! [`Wasmer`](https://wasmer.io/) is the most popular
 //! [WebAssembly](https://webassembly.org/) runtime for Rust. It supports
@@ -93,7 +93,7 @@
 //!   different architecture or platform and serialize it, to then run it
 //!   on the targetted architecture and platform later.
 //!
-//! * **Run Wasmer in a JavaScript environment** — With the `js` Cargo
+//! * **Run Wasmer in a JavaScript environment** — With the `web` Cargo
 //!   feature, it is possible to compile a Rust program using Wasmer to
 //!   WebAssembly. In this context, the resulting WebAssembly module will
 //!   expect to run in a JavaScript environment, like a browser, Node.js,
@@ -264,14 +264,14 @@
 #![cfg_attr(not(feature = "sys"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to a native executable
 //!    which provides compilers, engines, a full VM etc.
-//! 2. `js`
-#![cfg_attr(feature = "js", doc = "(enabled),")]
-#![cfg_attr(not(feature = "js"), doc = "(disabled),")]
+//! 2. `web`
+#![cfg_attr(feature = "web", doc = "(enabled),")]
+#![cfg_attr(not(feature = "web"), doc = "(disabled),")]
 //!    where `wasmer` will be compiled to WebAssembly to run in a
 //!    JavaScript host (see [Using Wasmer in a JavaScript
 //!    environment](#using-wasmer-in-a-javascript-environment)).
 //!
-//! Consequently, we can group the features by the `sys` or `js`
+//! Consequently, we can group the features by the `sys` or `web`
 //! features.
 //!
 #![cfg_attr(
@@ -312,15 +312,15 @@
 //!   enables compilation with the wasmer engine.
 //!
 #![cfg_attr(
-    feature = "js",
-    doc = "## Features for the `js` feature group (enabled)"
+    feature = "web",
+    doc = "## Features for the `web` feature group (enabled)"
 )]
 #![cfg_attr(
-    not(feature = "js"),
-    doc = "## Features for the `js` feature group (disabled)"
+    not(feature = "web"),
+    doc = "## Features for the `web` feature group (disabled)"
 )]
 //!
-//! The default features can be enabled with the `js-default` feature.
+//! The default features can be enabled with the `web-default` feature.
 //!
 //! Here are the detailed list of features:
 //!
@@ -345,7 +345,7 @@
 //!
 //! Imagine a Rust program that uses this `wasmer` crate to execute a
 //! WebAssembly module. It is possible to compile this Rust progam to
-//! WebAssembly by turning on the `js` Cargo feature of this `wasmer`
+//! WebAssembly by turning on the `web` Cargo feature of this `wasmer`
 //! crate.
 //!
 //! Here is a small example illustrating such a Rust program, and how
@@ -382,8 +382,8 @@
 //! Note that it's the same code as above with the former example. The
 //! API is the same!
 //!
-//! Then, compile with `wasm-pack build`. Take care of using the `js`
-//! or `js-default` Cargo features.
+//! Then, compile with `wasm-pack build`. Take care of using the `web`
+//! or `web-default` Cargo features.
 //!
 //! [wasm]: https://webassembly.org/
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples
@@ -397,17 +397,17 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-#[cfg(all(not(feature = "sys"), not(feature = "js"), not(feature = "jsc")))]
-compile_error!("One of: `sys`, `js` or `jsc` features must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "sys"), not(feature = "web"), not(feature = "jsc")))]
+compile_error!("One of: `sys`, `web` or `jsc` features must be enabled. Please, pick one.");
 
-#[cfg(all(feature = "sys", feature = "js"))]
+#[cfg(all(feature = "sys", feature = "web"))]
 compile_error!(
-    "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
+    "Cannot have both `sys` and `web` features enabled at the same time. Please, pick one."
 );
 
-#[cfg(all(feature = "js", feature = "jsc"))]
+#[cfg(all(feature = "web", feature = "jsc"))]
 compile_error!(
-    "Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
+    "Cannot have both `web` and `jsc` features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", feature = "jsc"))]
@@ -421,9 +421,9 @@ compile_error!("The `sys` feature must be enabled only for non-`wasm32` target."
 #[cfg(all(feature = "jsc", target_arch = "wasm32"))]
 compile_error!("The `jsc` feature must be enabled only for non-`wasm32` target.");
 
-#[cfg(all(feature = "js", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "web", not(target_arch = "wasm32")))]
 compile_error!(
-    "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
+    "The `web` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
 mod access;
@@ -451,10 +451,10 @@ mod sys;
 #[cfg(feature = "sys")]
 pub use sys::*;
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 mod js;
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 pub use js::*;
 
 #[cfg(feature = "jsc")]

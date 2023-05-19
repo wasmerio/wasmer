@@ -5,7 +5,7 @@ pub mod reference_types {
     use macro_wasmer_universal_test::universal_test;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
-    #[cfg(feature = "js")]
+    #[cfg(feature = "web")]
     use wasm_bindgen_test::*;
     use wasmer::*;
 

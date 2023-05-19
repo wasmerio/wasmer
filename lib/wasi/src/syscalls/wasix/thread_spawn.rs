@@ -96,7 +96,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
     // TODO: Currently asynchronous threading does not work with multi
     //       threading but it does work for the main thread. This will
     //       require more work to find out why.
-    thread_env.enable_deep_sleep = if cfg!(feature = "js") {
+    thread_env.enable_deep_sleep = if cfg!(feature = "web") {
         false
     } else {
         unsafe { env.capable_of_deep_sleep() }

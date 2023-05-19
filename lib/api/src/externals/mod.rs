@@ -14,7 +14,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::ExternType;
 use std::fmt;
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::vm::VMExtern;
 #[cfg(feature = "jsc")]
 use crate::jsc::vm::VMExtern;

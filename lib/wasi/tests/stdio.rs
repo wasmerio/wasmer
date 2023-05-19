@@ -19,7 +19,7 @@ mod sys {
     }
 }
 
-// #[cfg(feature = "js")]
+// #[cfg(feature = "web")]
 // mod js {
 //     use wasm_bindgen_test::*;
 
@@ -78,11 +78,11 @@ async fn test_stdout() {
         .args(["Gordon"])
         .stdout(Box::new(stdout_tx));
 
-    #[cfg(feature = "js")]
+    #[cfg(feature = "web")]
     {
         builder.run_with_store(module, &mut store).unwrap();
     }
-    #[cfg(not(feature = "js"))]
+    #[cfg(not(feature = "web"))]
     {
         std::thread::spawn(move || builder.run_with_store(module, &mut store))
             .join()
@@ -100,7 +100,7 @@ async fn test_env() {
     let mut store = Store::default();
     let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
-    #[cfg(feature = "js")]
+    #[cfg(feature = "web")]
     tracing_wasm::set_as_global_default_with_config({
         let mut builder = tracing_wasm::WASMLayerConfigBuilder::new();
         builder.set_console_config(tracing_wasm::ConsoleConfig::ReportWithoutConsoleColor);
@@ -117,12 +117,12 @@ async fn test_env() {
         .env("TEST2", "VALUE2")
         .stdout(Box::new(pipe_tx));
 
-    #[cfg(feature = "js")]
+    #[cfg(feature = "web")]
     {
         builder.run_with_store(module, &mut store).unwrap();
     }
 
-    #[cfg(not(feature = "js"))]
+    #[cfg(not(feature = "web"))]
     {
         std::thread::spawn(move || builder.run_with_store(module, &mut store))
             .join()
@@ -151,12 +151,12 @@ async fn test_stdin() {
 
     let builder = WasiEnv::builder("command-name").stdin(Box::new(pipe_rx));
 
-    #[cfg(feature = "js")]
+    #[cfg(feature = "web")]
     {
         builder.run_with_store(module, &mut store).unwrap();
     }
 
-    #[cfg(not(feature = "js"))]
+    #[cfg(not(feature = "web"))]
     {
         std::thread::spawn(move || builder.run_with_store(module, &mut store))
             .join()

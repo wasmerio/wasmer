@@ -1,5 +1,5 @@
 use macro_wasmer_universal_test::universal_test;
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use wasm_bindgen_test::*;
 
 use wasmer::*;

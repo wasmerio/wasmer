@@ -1,4 +1,4 @@
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::externals::function as function_impl;
 #[cfg(feature = "jsc")]
 use crate::jsc::externals::function as function_impl;

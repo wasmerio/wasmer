@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "js", allow(unused))]
+#![cfg_attr(feature = "web", allow(unused))]
 use wasmer::Memory;
 
 use crate::WasiInstanceHandles;

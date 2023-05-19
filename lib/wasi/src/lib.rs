@@ -13,20 +13,20 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
-#[cfg(all(not(feature = "sys"), not(feature = "js")))]
-compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "sys"), not(feature = "web")))]
+compile_error!("At least the `sys` or the `web` feature must be enabled. Please, pick one.");
 
-#[cfg(all(feature = "sys", feature = "js"))]
+#[cfg(all(feature = "sys", feature = "web"))]
 compile_error!(
-    "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
+    "Cannot have both `sys` and `web` features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
 compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
 
-#[cfg(all(feature = "js", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "web", not(target_arch = "wasm32")))]
 compile_error!(
-    "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
+    "The `web` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
 #[macro_use]

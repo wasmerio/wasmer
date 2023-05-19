@@ -1,4 +1,4 @@
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::trap::Trap;
 #[cfg(feature = "jsc")]
 use crate::jsc::trap::Trap;

@@ -2,7 +2,7 @@ use std::any::Any;
 
 use crate::store::{AsStoreMut, AsStoreRef};
 
-#[cfg(feature = "js")]
+#[cfg(feature = "web")]
 use crate::js::extern_ref as extern_ref_imp;
 #[cfg(feature = "jsc")]
 use crate::jsc::extern_ref as extern_ref_imp;
