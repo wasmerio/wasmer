@@ -34,6 +34,11 @@ impl WapmSource {
 
 #[async_trait::async_trait]
 impl Source for WapmSource {
+    #[tracing::instrument(
+        level = "debug",
+        skip_all,
+        fields(%package),
+    )]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<Summary>, Error> {
         let (full_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
@@ -86,8 +91,16 @@ impl Source for WapmSource {
         for pkg_version in response.data.get_package.versions {
             let version = Version::parse(&pkg_version.version)?;
             if version_constraint.matches(&version) {
-                let summary = decode_summary(pkg_version)?;
-                summaries.push(summary);
+                match decode_summary(pkg_version) {
+                    Ok(summary) => {
+                        summaries.push(summary);
+                    }
+                    Err(err) => {
+                        // Do not abort on errors, because the API might return
+                        // some invalid packages.
+                        tracing::warn!(error = &*err, "unable to decode package summary");
+                    }
+                }
             }
         }
 
@@ -97,7 +110,7 @@ impl Source for WapmSource {
 
 fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<Summary, Error> {
     let WapmWebQueryGetPackageVersion {
-        manifest,
+        manifest: manifest_opt,
         distribution:
             WapmWebQueryGetPackageVersionDistribution {
                 pirita_download_url,
@@ -106,19 +119,24 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<Summary,
         ..
     } = pkg_version;
 
-    let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
-        .context("Unable to deserialize the manifest")?;
+    let manifest_str = manifest_opt.context("package version has no manifest")?;
+
+    let manifest: Manifest =
+        serde_json::from_str(&manifest_str).context("Unable to deserialize the manifest")?;
+
+    let hash = pirita_sha256_hash.context("package version has no webc hash")?;
 
     let mut webc_sha256 = [0_u8; 32];
-    hex::decode_to_slice(&pirita_sha256_hash, &mut webc_sha256)?;
+    hex::decode_to_slice(&hash, &mut webc_sha256)?;
     let webc_sha256 = WebcHash::from_bytes(webc_sha256);
+
+    let webc: url::Url = pirita_download_url
+        .context("package version has no webc download url")?
+        .parse()?;
 
     Ok(Summary {
         pkg: PackageInfo::from_manifest(&manifest)?,
-        dist: DistributionInfo {
-            webc: pirita_download_url.parse()?,
-            webc_sha256,
-        },
+        dist: DistributionInfo { webc, webc_sha256 },
     })
 }
 
@@ -158,16 +176,16 @@ pub struct WapmWebQueryGetPackageVersion {
     pub version: String,
     /// A JSON string containing a [`Manifest`] definition.
     #[serde(rename = "piritaManifest")]
-    pub manifest: String,
+    pub manifest: Option<String>,
     pub distribution: WapmWebQueryGetPackageVersionDistribution,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
     #[serde(rename = "piritaDownloadUrl")]
-    pub pirita_download_url: String,
+    pub pirita_download_url: Option<String>,
     #[serde(rename = "piritaSha256Hash")]
-    pub pirita_sha256_hash: String,
+    pub pirita_sha256_hash: Option<String>,
 }
 
 #[cfg(test)]

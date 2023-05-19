@@ -84,7 +84,14 @@ impl BuiltinPackageLoader {
         Ok(None)
     }
 
+    #[tracing::instrument(
+        level="debug",
+        skip_all,
+        fields(url=%dist.webc, hash=%dist.webc_sha256),
+    )]
     async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
+        tracing::trace!("retrieving webc");
+
         if dist.webc.scheme() == "file" {
             // Note: The Url::to_file_path() method is platform-specific
             #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))]
@@ -95,6 +102,8 @@ impl BuiltinPackageLoader {
                 return Ok(bytes.into());
             }
         }
+
+        tracing::debug!("downloading webc");
 
         let request = HttpRequest {
             url: dist.webc.to_string(),
@@ -116,6 +125,7 @@ impl BuiltinPackageLoader {
         } = self.client.request(request).await?;
 
         if !ok {
+            tracing::debug!(%status, %status_text, "failed to download webc");
             anyhow::bail!("{status} {status_text}");
         }
 

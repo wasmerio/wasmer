@@ -213,12 +213,12 @@ impl Console {
 
         let binary = match resolved_package {
             Ok(pkg) => pkg,
-            Err(e) => {
+            Err(err) => {
                 let mut stderr = self.stderr.clone();
                 tasks.block_on(async {
                     let mut buffer = Vec::new();
-                    writeln!(buffer, "Error: {e}").ok();
-                    let mut source = e.source();
+                    writeln!(buffer, "Error: {err}").ok();
+                    let mut source = err.source();
                     while let Some(s) = source {
                         writeln!(buffer, "  Caused by: {s}").ok();
                         source = s.source();
@@ -228,7 +228,7 @@ impl Console {
                         .await
                         .ok();
                 });
-                tracing::debug!("failed to get webc dependency - {}", webc);
+                tracing::debug!(error = &*err, "failed to get webc dependency - {}", webc);
                 return Err(VirtualBusError::NotFound);
             }
         };
