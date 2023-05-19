@@ -31,7 +31,7 @@ tracing = ["tracing-lib", "wai-bindgen-wasmer-impl/tracing"]
 async = ["async-trait", "wai-bindgen-wasmer-impl/async"]
 
 # Wasmer features
-js = ["wasmer/js", "wasmer/std"]
+js = ["wasmer/js-default"]
 sys = ["wasmer/sys"]
 
 # Wasmer compiler (with `sys` feature only)
