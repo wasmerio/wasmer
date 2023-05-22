@@ -285,7 +285,7 @@ impl Module {
         )?))
     }
 
-    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// Deserializes a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
     /// # Usage
@@ -294,7 +294,7 @@ impl Module {
     /// # use wasmer::*;
     /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
-    /// let module = Module::deserialize_from_file(&store, path)?;
+    /// let module = Module::deserialize_from_file_checked(&store, path)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -307,7 +307,7 @@ impl Module {
         )?))
     }
 
-    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// Deserializes a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
     /// # Safety
