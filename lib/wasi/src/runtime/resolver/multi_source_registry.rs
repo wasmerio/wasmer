@@ -5,6 +5,12 @@ use anyhow::Error;
 use crate::runtime::resolver::{PackageSpecifier, PackageSummary, Source};
 
 /// A [`Source`] that works by querying multiple [`Source`]s in succession.
+///
+/// The first [`Source`] to return one or more [`Summaries`][PackageSummary]
+/// will be treated as the canonical source for that [`Dependency`][dep] and no
+/// further [`Source`]s will be queried.
+///
+/// [dep]: crate::runtime::resolver::Dependency
 #[derive(Debug, Clone)]
 pub struct MultiSource {
     sources: Vec<Arc<dyn Source + Send + Sync>>,
