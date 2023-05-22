@@ -1,4 +1,4 @@
-use crate::js::vm::{VMExtern, VMMemory};
+use crate::web::vm::{VMExtern, VMMemory};
 use crate::mem_access::MemoryAccessError;
 use crate::store::{AsStoreMut, AsStoreRef, StoreObjects};
 use crate::MemoryType;

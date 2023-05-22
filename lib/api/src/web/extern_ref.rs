@@ -1,6 +1,6 @@
 use std::any::Any;
 
-use crate::js::vm::VMExternRef;
+use crate::web::vm::VMExternRef;
 use crate::store::{AsStoreMut, AsStoreRef};
 
 #[derive(Debug, Clone)]

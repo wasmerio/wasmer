@@ -1,11 +1,11 @@
-//use crate::js::externals::Function;
+//use crate::web::externals::Function;
 // use crate::store::{Store, StoreObject};
-// use crate::js::RuntimeError;
+// use crate::web::RuntimeError;
 use crate::imports::Imports;
 use crate::instance::Instance;
-use crate::js::instance::Instance as JsInstance;
-use crate::js::vm::{VMFunction, VMGlobal, VMMemory, VMTable};
-use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
+use crate::web::instance::Instance as JsInstance;
+use crate::web::vm::{VMFunction, VMGlobal, VMMemory, VMTable};
+use crate::web::wasm_bindgen_polyfill::Global as JsGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::Type;

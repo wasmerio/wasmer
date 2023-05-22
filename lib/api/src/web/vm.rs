@@ -4,7 +4,7 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
+use crate::web::wasm_bindgen_polyfill::Global as JsGlobal;
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly;
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
@@ -66,22 +66,22 @@ impl VMMemory {
 
     /// Copies this memory to a new memory
     pub fn copy(&mut self) -> Result<VMMemory, wasmer_types::MemoryError> {
-        let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
+        let new_memory = crate::web::externals::memory::Memory::js_memory_from_type(&self.ty)?;
 
-        let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
+        let src = crate::web::externals::memory_view::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
 
         #[cfg(feature = "tracing")]
         trace!(%amount, "memory copy started");
 
-        let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
+        let mut dst = crate::web::externals::memory_view::MemoryView::new_raw(&new_memory);
         let dst_size = dst.data_size() as usize;
 
         if amount > dst_size {
             let delta = amount - dst_size;
             let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
 
-            let our_js_memory: &crate::js::externals::memory::JSMemory =
+            let our_js_memory: &crate::web::externals::memory::JSMemory =
                 JsCast::unchecked_from_js_ref(&new_memory);
             our_js_memory.grow(pages as u32).map_err(|err| {
                 if err.is_instance_of::<js_sys::RangeError>() {
@@ -95,7 +95,7 @@ impl VMMemory {
                 }
             })?;
 
-            dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
+            dst = crate::web::externals::memory_view::MemoryView::new_raw(&new_memory);
         }
 
         src.copy_to_memory(amount as u64, &dst).map_err(|err| {

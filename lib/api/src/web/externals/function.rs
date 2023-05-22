@@ -1,9 +1,9 @@
 use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
-use crate::js::as_js::{param_from_js, AsJs}; /* ValFuncRef */
-use crate::js::store::{InternalStoreHandle, StoreHandle};
-use crate::js::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
+use crate::web::as_js::{param_from_js, AsJs}; /* ValFuncRef */
+use crate::web::store::{InternalStoreHandle, StoreHandle};
+use crate::web::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
 use crate::value::Value;
@@ -394,10 +394,10 @@ macro_rules! impl_host_function {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),
                             #[allow(deprecated)]
                             #[cfg(feature = "std")]
-                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::web::errors::raise(Box::new(trap)),
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::web::errors::raise(Box::new(trap)),
                             Err(_panic) => unimplemented!(),
                         }
                     }
@@ -442,10 +442,10 @@ macro_rules! impl_host_function {
                             Ok(Ok(result)) => return result.into_c_struct(&mut store),
                             #[cfg(feature = "std")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::web::errors::raise(Box::new(trap)),
                             #[cfg(feature = "core")]
                             #[allow(deprecated)]
-                            Ok(Err(trap)) => crate::js::errors::raise(Box::new(trap)),
+                            Ok(Err(trap)) => crate::web::errors::raise(Box::new(trap)),
                             Err(_panic) => unimplemented!(),
                         }
                     }

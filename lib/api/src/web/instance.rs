@@ -1,8 +1,8 @@
 use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::imports::Imports;
-use crate::js::as_js::AsJs;
-use crate::js::vm::VMInstance;
+use crate::web::as_js::AsJs;
+use crate::web::vm::VMInstance;
 use crate::module::Module;
 use crate::store::AsStoreMut;
 use crate::Extern;

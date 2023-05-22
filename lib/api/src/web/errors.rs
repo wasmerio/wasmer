@@ -1,4 +1,4 @@
-use crate::js::trap::Trap;
+use crate::web::trap::Trap;
 use crate::RuntimeError;
 use wasm_bindgen::prelude::*;
 

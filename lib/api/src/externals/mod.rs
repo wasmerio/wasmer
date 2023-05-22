@@ -15,7 +15,7 @@ use crate::ExternType;
 use std::fmt;
 
 #[cfg(feature = "web")]
-use crate::js::vm::VMExtern;
+use crate::web::vm::VMExtern;
 #[cfg(feature = "jsc")]
 use crate::jsc::vm::VMExtern;
 #[cfg(feature = "sys")]

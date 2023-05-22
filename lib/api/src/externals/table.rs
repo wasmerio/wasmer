@@ -1,5 +1,5 @@
 #[cfg(feature = "web")]
-use crate::js::externals::table as table_impl;
+use crate::web::externals::table as table_impl;
 #[cfg(feature = "jsc")]
 use crate::jsc::externals::table as table_impl;
 #[cfg(feature = "sys")]

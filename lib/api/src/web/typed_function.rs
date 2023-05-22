@@ -12,7 +12,7 @@ use crate::Value;
 use crate::{AsStoreMut, TypedFunction};
 use crate::{FromToNativeWasmType, RuntimeError, WasmTypeList};
 // use std::panic::{catch_unwind, AssertUnwindSafe};
-use crate::js::as_js::{param_from_js, AsJs};
+use crate::web::as_js::{param_from_js, AsJs};
 use js_sys::Array;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;

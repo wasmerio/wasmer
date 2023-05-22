@@ -16,7 +16,7 @@ pub use wasmer_vm::TrapHandlerFn;
 pub use wasmer_vm::{StoreHandle, StoreObjects};
 
 #[cfg(feature = "web")]
-pub use crate::js::store::{StoreHandle, StoreObjects};
+pub use crate::web::store::{StoreHandle, StoreObjects};
 
 #[cfg(feature = "jsc")]
 pub use crate::jsc::store::{StoreHandle, StoreObjects};

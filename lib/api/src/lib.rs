@@ -452,10 +452,10 @@ mod sys;
 pub use sys::*;
 
 #[cfg(feature = "web")]
-mod js;
+mod web;
 
 #[cfg(feature = "web")]
-pub use js::*;
+pub use web::*;
 
 #[cfg(feature = "jsc")]
 mod jsc;

@@ -1,7 +1,7 @@
 //! The `vm` module re-exports wasmer-vm types.
 
 #[cfg(feature = "web")]
-pub(crate) use crate::js::vm::{
+pub(crate) use crate::web::vm::{
     VMExtern, VMExternFunction, VMExternGlobal, VMExternMemory, VMExternRef, VMExternTable,
     VMFuncRef, VMFunctionCallback, VMFunctionEnvironment, VMInstance, VMTrampoline,
 };
@@ -19,7 +19,7 @@ pub(crate) use crate::sys::vm::{
 };
 
 #[cfg(feature = "web")]
-pub use crate::js::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+pub use crate::web::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
 
 #[cfg(feature = "sys")]
 pub use wasmer_vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};

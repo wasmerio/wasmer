@@ -1,5 +1,5 @@
 use crate::errors::RuntimeError;
-use crate::js::wasm_bindgen_polyfill::Global as JSGlobal;
+use crate::web::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::vm::{VMExtern, VMGlobal};
@@ -128,7 +128,7 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMGlobal) -> Self {
-        use crate::js::store::StoreObject;
+        use crate::web::store::StoreObject;
         VMGlobal::list_mut(store.objects_mut()).push(vm_global.clone());
         Self { handle: vm_global }
     }

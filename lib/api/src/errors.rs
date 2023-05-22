@@ -1,5 +1,5 @@
 #[cfg(feature = "web")]
-use crate::js::trap::Trap;
+use crate::web::trap::Trap;
 #[cfg(feature = "jsc")]
 use crate::jsc::trap::Trap;
 use std::fmt;

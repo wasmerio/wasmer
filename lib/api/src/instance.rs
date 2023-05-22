@@ -7,7 +7,7 @@ use crate::imports::Imports;
 use crate::store::AsStoreMut;
 
 #[cfg(feature = "web")]
-use crate::js::instance as instance_imp;
+use crate::web::instance as instance_imp;
 #[cfg(feature = "jsc")]
 use crate::jsc::instance as instance_imp;
 #[cfg(feature = "sys")]

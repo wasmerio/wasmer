@@ -18,9 +18,9 @@ use wasmer_types::{CompileError, DeserializeError, FunctionType, Target};
 use wasmer_vm::VMSharedSignatureIndex;
 
 #[cfg(feature = "web")]
-use crate::js::engine as engine_imp;
+use crate::web::engine as engine_imp;
 #[cfg(feature = "web")]
-pub(crate) use crate::js::engine::default_engine;
+pub(crate) use crate::web::engine::default_engine;
 
 #[cfg(feature = "jsc")]
 use crate::jsc::engine as engine_imp;
