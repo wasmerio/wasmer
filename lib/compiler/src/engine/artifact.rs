@@ -143,12 +143,15 @@ impl Artifact {
         ))
     }
 
-    /// Deserialize a ArtifactBuild
+    /// Deserialize a serialized artifact.
     ///
     /// # Safety
-    /// This function is unsafe because rkyv reads directly without validating
-    /// the data.
-    pub fn deserialize_checked(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+    /// This function loads executable code into memory.
+    /// You must trust the loaded bytes to be valid for the chosen engine and
+    /// for the host CPU architecture.
+    /// In contrast to [`Self::deserialize_unchecked`] the artifact layout is
+    /// validated, which increases safety.
+    pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "Magic header not found".to_string(),
@@ -161,18 +164,25 @@ impl Artifact {
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
         let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
 
-        let serializable = SerializableModule::deserialize_checked(metadata_slice)?;
+        let serializable = SerializableModule::deserialize(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target())
             .map_err(DeserializeError::Compiler)
     }
 
-    /// Deserialize a ArtifactBuild
+    /// Deserialize a serialized artifact.
+    ///
+    /// NOTE: You should prefer [`Self::deserialize`].
     ///
     /// # Safety
-    /// This function is unsafe because rkyv reads directly without validating the data.
-    pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+    /// See [`Self::deserialize`].
+    /// In contrast to the above, this function skips artifact layout validation,
+    /// which increases the risk of loading invalid artifacts.
+    pub unsafe fn deserialize_unchecked(
+        engine: &Engine,
+        bytes: &[u8],
+    ) -> Result<Self, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
             let static_artifact = Self::deserialize_object(engine, bytes);
             match static_artifact {
