@@ -175,7 +175,7 @@ async fn download_webc(
         })?;
 
     #[cfg(feature = "sys")]
-    if let Some(path) = path.as_ref() {
+    if path.is_some() {
         let path = compute_path(cache_dir, name);
         if let Some(path) = path {
             std::fs::create_dir_all(path.parent().unwrap()).with_context(|| {
