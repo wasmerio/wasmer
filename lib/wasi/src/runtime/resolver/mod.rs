@@ -1,3 +1,4 @@
+mod filesystem_source;
 mod in_memory_source;
 mod inputs;
 mod multi_source_registry;
@@ -5,13 +6,13 @@ mod outputs;
 mod registry;
 mod resolve;
 mod source;
+pub(crate) mod polyfills;
 mod wapm_source;
 mod web_source;
-mod filesystem_source;
 
 pub use self::{
-    in_memory_source::InMemorySource,
     filesystem_source::FileSystemSource,
+    in_memory_source::InMemorySource,
     inputs::{
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
         WebcHash,

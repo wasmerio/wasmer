@@ -107,7 +107,6 @@ impl Source for InMemorySource {
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
-    use url::Url;
 
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, PackageInfo},
@@ -162,7 +161,10 @@ mod tests {
                     entrypoint: None,
                 },
                 dist: DistributionInfo {
-                    webc: Url::from_file_path(bash.canonicalize().unwrap()).unwrap(),
+                    webc: crate::runtime::resolver::polyfills::url_from_file_path(
+                        bash.canonicalize().unwrap()
+                    )
+                    .unwrap(),
                     webc_sha256: [
                         7, 226, 190, 131, 173, 231, 130, 245, 207, 185, 51, 189, 86, 85, 222, 37,
                         27, 163, 170, 27, 25, 24, 211, 136, 186, 233, 174, 119, 66, 15, 134, 9

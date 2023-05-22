@@ -840,10 +840,14 @@ impl WasiEnv {
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
     /// instance.
     ///
-    /// The [`BinaryPackageCommand::atom()`] will be saved to `/bin/command`.
+    /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
+    /// `/bin/command`.
     ///
     /// This will also merge the command's filesystem
-    /// ([`BinaryPackage::webc_fs`]) into the current filesystem.
+    /// ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
+    ///
+    /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
+    /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
         // PERF: We should avoid all these copies in the WasiFsRoot::Backing case.
 

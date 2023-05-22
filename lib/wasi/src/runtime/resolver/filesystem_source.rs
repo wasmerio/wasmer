@@ -1,5 +1,4 @@
 use anyhow::{Context, Error};
-use url::Url;
 use webc::compat::Container;
 
 use crate::runtime::resolver::{
@@ -29,8 +28,8 @@ impl Source for FileSystemSource {
         let container = Container::from_disk(&path)
             .with_context(|| format!("Unable to parse \"{}\"", path.display()))?;
 
-        let url = Url::from_file_path(&path)
-            .map_err(|_| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
+        let url = crate::runtime::resolver::polyfills::url_from_file_path(&path)
+            .ok_or_else(|| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
 
         let summary = PackageSummary {
             pkg: PackageInfo::from_manifest(container.manifest())?,
