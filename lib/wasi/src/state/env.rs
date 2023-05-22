@@ -9,7 +9,7 @@ use std::{
 use derivative::Derivative;
 use rand::Rng;
 use tracing::{trace, warn};
-use virtual_fs::{FileSystem, FsError, VirtualFile};
+use virtual_fs::{AsyncWriteExt, FileSystem, FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
@@ -839,52 +839,94 @@ impl WasiEnv {
 
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
     /// instance.
+    ///
+    /// The [`BinaryPackageCommand::atom()`] will be saved to `/bin/command`.
+    ///
+    /// This will also merge the command's filesystem
+    /// ([`BinaryPackage::webc_fs`]) into the current filesystem.
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-            // We first need to copy any files in the package over to the temporary file system
-            root_fs.union(&pkg.webc_fs);
+        // PERF: We should avoid all these copies in the WasiFsRoot::Backing case.
 
-            // Next, make sure all commands will be available
+        let root_fs = &self.state.fs.root_fs;
+        // We first need to copy any files in the package over to the
+        // temporary file system
+        match root_fs {
+            WasiFsRoot::Sandbox(root_fs) => {
+                root_fs.union(&pkg.webc_fs);
+            }
+            WasiFsRoot::Backing(_fs) => {
+                // TODO: Manually copy each file across one-by-one
+            }
+        }
 
-            if !pkg.commands.is_empty() {
-                let _ = root_fs.create_dir(Path::new("/bin"));
+        // Next, make sure all commands will be available
 
-                for command in &pkg.commands {
-                    let path = format!("/bin/{}", command.name());
-                    let path = Path::new(path.as_str());
+        if !pkg.commands.is_empty() {
+            let _ = root_fs.create_dir(Path::new("/bin"));
 
-                    // FIXME(Michael-F-Bryan): This is pretty sketchy.
-                    // We should be using some sort of reference-counted
-                    // pointer to some bytes that are either on the heap
-                    // or from a memory-mapped file. However, that's not
-                    // possible here because things like memfs and
-                    // WasiEnv are expecting a Cow<'static, [u8]>. It's
-                    // too hard to refactor those at the moment, and we
-                    // were pulling the same trick before by storing an
-                    // "ownership" object in the BinaryPackageCommand,
-                    // so as long as packages aren't removed from the
-                    // module cache it should be fine.
-                    // See https://github.com/wasmerio/wasmer/issues/3875
-                    let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
+            for command in &pkg.commands {
+                let path = format!("/bin/{}", command.name());
+                let path = Path::new(path.as_str());
 
-                    if let Err(err) = root_fs
-                        .new_open_options_ext()
-                        .insert_ro_file(path, atom.into())
-                    {
-                        tracing::debug!(
-                            "failed to add package [{}] command [{}] - {}",
-                            pkg.package_name,
-                            command.name(),
-                            err
-                        );
-                        continue;
+                match root_fs {
+                    WasiFsRoot::Sandbox(root_fs) => {
+                        // As a short-cut, when we are using a TmpFileSystem
+                        // we can (unsafely) add the file to the filesystem
+                        // without any copying.
+
+                        // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                        // We should be using some sort of reference-counted
+                        // pointer to some bytes that are either on the heap
+                        // or from a memory-mapped file. However, that's not
+                        // possible here because things like memfs and
+                        // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                        // too hard to refactor those at the moment, and we
+                        // were pulling the same trick before by storing an
+                        // "ownership" object in the BinaryPackageCommand,
+                        // so as long as packages aren't removed from the
+                        // module cache it should be fine.
+                        // See https://github.com/wasmerio/wasmer/issues/3875
+                        let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
+
+                        if let Err(err) = root_fs
+                            .new_open_options_ext()
+                            .insert_ro_file(path, atom.into())
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.package_name,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
                     }
-
-                    let mut package = pkg.clone();
-                    package.entrypoint_cmd = Some(command.name().to_string());
-                    self.bin_factory
-                        .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+                    WasiFsRoot::Backing(fs) => {
+                        // Looks like we need to make the copy
+                        let mut f = fs.new_open_options().create(true).write(true).open(path)?;
+                        self.tasks()
+                            .block_on(f.write_all(command.atom()))
+                            .map_err(|e| {
+                                WasiStateCreationError::WasiIncludePackageError(format!(
+                                    "Unable to save \"{}\" to \"{}\": {e}",
+                                    command.name(),
+                                    path.display()
+                                ))
+                            })?;
+                    }
                 }
+
+                let mut package = pkg.clone();
+                package.entrypoint_cmd = Some(command.name().to_string());
+                self.bin_factory
+                    .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+
+                tracing::debug!(
+                    package=%pkg.package_name,
+                    command_name=command.name(),
+                    path=%path.display(),
+                    "Injected a command into the filesystem",
+                );
             }
         }
 

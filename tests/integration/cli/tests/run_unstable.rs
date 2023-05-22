@@ -21,8 +21,8 @@ const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 static RUST_LOG: Lazy<String> = Lazy::new(|| {
     [
         "info",
-        "wasmer_wasi::resolve=debug",
-        "wasmer_wasi::runners=debug",
+        "wasmer_wasix::resolve=debug",
+        "wasmer_wasix::runners=debug",
         "virtual_fs::trace_fs=trace",
     ]
     .join(",")
@@ -375,7 +375,11 @@ mod remote_webc {
             .arg("ls /bin")
             .assert();
 
-        assert.success().stdout(contains("Hello, World!"));
+        let some_expected_binaries = [
+            "arch", "base32", "base64", "baseenc", "basename", "bash", "cat",
+        ]
+        .join("\n");
+        assert.success().stdout(contains(some_expected_binaries));
     }
 }
 

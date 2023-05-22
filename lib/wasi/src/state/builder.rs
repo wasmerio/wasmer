@@ -105,7 +105,7 @@ pub enum WasiStateCreationError {
     #[error("wasi filesystem setup error: `{0}`")]
     WasiFsSetupError(String),
     #[error(transparent)]
-    FileSystemError(FsError),
+    FileSystemError(#[from] FsError),
     #[error("wasi inherit error: `{0}`")]
     WasiInheritError(String),
     #[error("wasi include package: `{0}`")]
@@ -788,7 +788,7 @@ impl WasiEnvBuilder {
         let start = instance.exports.get_function("_start")?;
 
         env.data(store).thread.set_status_running();
-        let res = crate::run_wasi_func_start(start, store);
+        let mut res = crate::run_wasi_func_start(start, store);
 
         tracing::trace!(
             "wasi[{}:{}]::main exit (code = {:?})",
@@ -800,7 +800,12 @@ impl WasiEnvBuilder {
         let exit_code = match &res {
             Ok(_) => Errno::Success.into(),
             Err(err) => match err.as_exit_code() {
-                Some(code) if code.is_success() => Errno::Success.into(),
+                Some(code) if code.is_success() => {
+                    // This is actually not an error, so we need to fix up the
+                    // result
+                    res = Ok(());
+                    Errno::Success.into()
+                }
                 Some(other) => other,
                 None => Errno::Noexec.into(),
             },
