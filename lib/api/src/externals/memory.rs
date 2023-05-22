@@ -137,9 +137,6 @@ impl Memory {
         self.0
             .try_copy(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
-            .ok_or_else(|| {
-                MemoryError::Generic("memory is not clonable or could not be copied".to_string())
-            })
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -152,7 +149,7 @@ impl Memory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.0.try_clone(store)
     }
 
@@ -172,23 +169,6 @@ impl Memory {
         self.0
             .try_clone(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
-            .ok_or_else(|| MemoryError::Generic("memory is not clonable".to_string()))
-    }
-
-    /// Attempts to clone this memory (if its clonable) in a new store
-    /// (cloned memory will be shared between those that clone it)
-    #[deprecated = "use `share_in_store` or `copy_to_store` instead"]
-    pub fn duplicate_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        if !self.ty(store).shared {
-            // We should only be able to duplicate in a new store if the memory is shared
-            return None;
-        }
-        #[allow(deprecated)]
-        self.0.duplicate_in_store(store, new_store).map(Self)
     }
 
     /// To `VMExtern`.
