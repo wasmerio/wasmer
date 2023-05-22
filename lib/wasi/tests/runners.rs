@@ -49,17 +49,9 @@ mod wasi {
                 .with_args(["--version"])
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
-        let err = handle.join().unwrap().unwrap_err();
+        let result = handle.join().unwrap();
 
-        let runtime_error = err
-            .chain()
-            .find_map(|e| e.downcast_ref::<WasiError>())
-            .expect("Couldn't find a WasiError");
-        let exit_code = match runtime_error {
-            WasiError::Exit(code) => *code,
-            other => unreachable!("Something else went wrong: {:?}", other),
-        };
-        assert!(exit_code.is_success());
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
