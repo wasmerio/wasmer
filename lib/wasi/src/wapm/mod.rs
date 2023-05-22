@@ -28,7 +28,7 @@ use crate::http::{HttpRequest, HttpRequestOptions};
 use pirita::*;
 
 pub(crate) async fn fetch_webc(
-    cache_dir: &Path,
+    cache_dir: Option<&Path>,
     webc: &str,
     client: &(dyn HttpClient + Send + Sync),
     registry_endpoint: &Url,
@@ -109,7 +109,7 @@ pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> 
 }
 
 async fn download_webc(
-    cache_dir: &Path,
+    cache_dir: Option<&Path>,
     name: &str,
     pirita_download_url: String,
     client: &(dyn HttpClient + Send + Sync),
@@ -127,34 +127,40 @@ async fn download_webc(
             name = name_store.as_str();
         }
     }
-    let compute_path = |cache_dir: &Path, name: &str| {
-        let name = name.replace('/', "._.");
-        std::path::Path::new(cache_dir).join(&name)
+    let compute_path = |cache_dir: Option<&Path>, name: &str| {
+        cache_dir.map(|cache_dir| {
+            let name = name.replace('/', "._.");
+            std::path::Path::new(cache_dir).join(&name)
+        })
     };
 
     // fast path
+    #[cfg_attr(not(feature = "sys"), allow(unused_variables))]
     let path = compute_path(cache_dir, name);
 
     #[cfg(feature = "sys")]
-    if path.exists() {
-        tracing::debug!(path=%path.display(), "Parsing cached WEBC file");
+    if let Some(path) = path.as_ref() {
+        if path.exists() {
+            tracing::debug!(path=%path.display(), "Parsing cached WEBC file");
 
-        match Container::from_disk(&path) {
-            Ok(webc) => {
-                return parse_webc_v2(&webc)
-                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
-            }
-            Err(err) => {
-                tracing::warn!(
-                    error = &err as &dyn std::error::Error,
-                    "failed to parse WEBC",
-                );
+            match Container::from_disk(&path) {
+                Ok(webc) => {
+                    return parse_webc_v2(&webc).with_context(|| {
+                        format!("Could not parse webc at path '{}'", path.display())
+                    });
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "failed to parse WEBC",
+                    );
+                }
             }
         }
-    }
-    if let Ok(data) = std::fs::read(&path) {
-        if let Ok(webc) = parse_static_webc(data) {
-            return Ok(webc);
+        if let Ok(data) = std::fs::read(&path) {
+            if let Ok(webc) = parse_static_webc(data) {
+                return Ok(webc);
+            }
         }
     }
 
@@ -169,46 +175,52 @@ async fn download_webc(
         })?;
 
     #[cfg(feature = "sys")]
-    {
+    if let Some(path) = path.as_ref() {
         let path = compute_path(cache_dir, name);
-        std::fs::create_dir_all(path.parent().unwrap()).with_context(|| {
-            format!("Could not create cache directory '{}'", cache_dir.display())
-        })?;
-
-        let mut temp_path = path.clone();
-        let rand_128: u128 = rand::random();
-        temp_path = std::path::PathBuf::from(format!(
-            "{}.{}.temp",
-            temp_path.as_os_str().to_string_lossy(),
-            rand_128
-        ));
-
-        if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
-            tracing::debug!(
-                "failed to write webc cache file [{}] - {}",
-                temp_path.as_path().to_string_lossy(),
-                err
-            );
-        }
-        if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
-            tracing::debug!(
-                "failed to rename webc cache file [{}] - {}",
-                temp_path.as_path().to_string_lossy(),
-                err
-            );
-        }
-
-        match Container::from_disk(&path) {
-            Ok(webc) => {
-                return parse_webc_v2(&webc)
-                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()))
-            }
-            Err(e) => {
-                tracing::warn!(
-                    path=%temp_path.display(),
-                    error=&e as &dyn std::error::Error,
-                    "Unable to parse temporary WEBC from disk",
+        if let Some(path) = path {
+            std::fs::create_dir_all(path.parent().unwrap()).with_context(|| {
+                format!(
+                    "Could not create cache directory '{}'",
+                    cache_dir.unwrap().display()
                 )
+            })?;
+
+            let mut temp_path = path.clone();
+            let rand_128: u128 = rand::random();
+            temp_path = std::path::PathBuf::from(format!(
+                "{}.{}.temp",
+                temp_path.as_os_str().to_string_lossy(),
+                rand_128
+            ));
+
+            if let Err(err) = std::fs::write(temp_path.as_path(), &data[..]) {
+                tracing::debug!(
+                    "failed to write webc cache file [{}] - {}",
+                    temp_path.as_path().to_string_lossy(),
+                    err
+                );
+            }
+            if let Err(err) = std::fs::rename(temp_path.as_path(), path.as_path()) {
+                tracing::debug!(
+                    "failed to rename webc cache file [{}] - {}",
+                    temp_path.as_path().to_string_lossy(),
+                    err
+                );
+            }
+
+            match Container::from_disk(&path) {
+                Ok(webc) => {
+                    return parse_webc_v2(&webc).with_context(|| {
+                        format!("Could not parse webc at path '{}'", path.display())
+                    })
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        path=%temp_path.display(),
+                        error=&e as &dyn std::error::Error,
+                        "Unable to parse temporary WEBC from disk",
+                    )
+                }
             }
         }
     }

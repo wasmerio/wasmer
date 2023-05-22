@@ -40,7 +40,6 @@ jobs:
         cargo fmt --check
 
     - name: Check
-      continue-on-error: true
       env:
         CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       run: |

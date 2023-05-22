@@ -19,7 +19,12 @@ use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
-    runtime::task_manager::TaskWasm,
+    runtime::{
+        module_cache,
+        module_cache::ModuleCache,
+        resolver::{PackageResolver, RegistryResolver},
+        task_manager::TaskWasm,
+    },
     VirtualFile, VirtualNetworking, VirtualTaskManager, WasiRuntime, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
@@ -50,6 +55,8 @@ pub(crate) struct WebRuntime {
 
     net: wasmer_wasix::virtual_net::DynVirtualNetworking,
     tasks: Arc<dyn VirtualTaskManager>,
+    module_cache: Arc<dyn ModuleCache + Send + Sync>,
+    package_loader: Arc<dyn PackageResolver + Send + Sync>,
 }
 
 impl WebRuntime {
@@ -67,6 +74,10 @@ impl WebRuntime {
             pool: pool.clone(),
             runtime,
         });
+        let compiled_modules = Arc::new(module_cache::in_memory());
+        let package_loader = Arc::new(RegistryResolver::new_without_caching(
+            RegistryResolver::WAPM_PROD_ENDPOINT.try_into().unwrap(),
+        ));
 
         WebRuntime {
             pool: pool.clone(),
@@ -76,6 +87,8 @@ impl WebRuntime {
             webgl_tx,
             http_client: Arc::new(WebHttpClient { pool }),
             net: Arc::new(WebVirtualNetworking),
+            module_cache: compiled_modules,
+            package_loader,
         }
     }
 }
@@ -431,6 +444,14 @@ impl WasiRuntime for WebRuntime {
 
     fn http_client(&self) -> Option<&DynHttpClient> {
         Some(&self.http_client)
+    }
+
+    fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync> {
+        self.package_loader.clone()
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        self.module_cache.clone()
     }
 }
 

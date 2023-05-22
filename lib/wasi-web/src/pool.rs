@@ -662,7 +662,7 @@ pub fn wasm_entry_point(
         run(TaskWasmRunProperties {
             ctx,
             store,
-            result: task.result,
+            trigger_result: task.result,
         });
     };
 }

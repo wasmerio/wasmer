@@ -15,7 +15,7 @@ use crate::{
 /// Any downloaded assets will be cached on disk.
 #[derive(Debug, Clone)]
 pub struct RegistryResolver {
-    cache_dir: PathBuf,
+    cache_dir: Option<PathBuf>,
     registry_endpoint: Url,
     /// A list of [`BinaryPackage`]s that have already been loaded into memory
     /// by the user.
@@ -30,7 +30,17 @@ impl RegistryResolver {
 
     pub fn new(cache_dir: impl Into<PathBuf>, registry_endpoint: Url) -> Self {
         RegistryResolver {
-            cache_dir: cache_dir.into(),
+            cache_dir: Some(cache_dir.into()),
+            registry_endpoint,
+            preloaded: Vec::new(),
+        }
+    }
+
+    /// Creates a new registry that has no caching support
+    /// (used by `wasmer.sh`)
+    pub fn new_without_caching(registry_endpoint: Url) -> Self {
+        RegistryResolver {
+            cache_dir: None,
             registry_endpoint,
             preloaded: Vec::new(),
         }
@@ -89,7 +99,7 @@ impl PackageResolver for RegistryResolver {
         }
 
         crate::wapm::fetch_webc(
-            &self.cache_dir,
+            self.cache_dir.as_ref().map(|p| p.as_path()),
             &pkg.full_name,
             client,
             &self.registry_endpoint,
