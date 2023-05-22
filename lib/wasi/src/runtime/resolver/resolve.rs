@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use crate::runtime::resolver::{
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Source, Resolution,
-    ResolvedPackage,
+    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Resolution,
+    ResolvedPackage, Source,
 };
 
 use super::FileSystemMapping;
