@@ -3,10 +3,9 @@ mod in_memory_source;
 mod inputs;
 mod multi_source_registry;
 mod outputs;
-mod registry;
+pub(crate) mod polyfills;
 mod resolve;
 mod source;
-pub(crate) mod polyfills;
 mod wapm_source;
 mod web_source;
 
@@ -17,11 +16,10 @@ pub use self::{
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
         WebcHash,
     },
-    multi_source_registry::MultiSourceRegistry,
+    multi_source_registry::MultiSource,
     outputs::{
         DependencyGraph, FileSystemMapping, ItemLocation, PackageId, Resolution, ResolvedPackage,
     },
-    registry::Registry,
     resolve::resolve,
     source::Source,
     wapm_source::WapmSource,

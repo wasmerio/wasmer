@@ -22,8 +22,8 @@ use wasmer_wasix::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{
-            FileSystemSource, InMemorySource, MultiSourceRegistry, PackageSpecifier, Registry,
-            WapmSource, WebSource,
+            FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
+            WebSource,
         },
         task_manager::tokio::TokioTaskManager,
     },
@@ -268,7 +268,7 @@ impl Wasi {
             .prepare_package_loader(wasmer_dir, client.clone())
             .context("Unable to prepare the package loader")?;
 
-        let registry = self.prepare_registry(wasmer_dir, client)?;
+        let registry = self.prepare_source(wasmer_dir, client)?;
 
         let cache_dir = FileSystemCache::default_cache_dir(wasmer_dir);
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
@@ -276,7 +276,7 @@ impl Wasi {
 
         rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
-            .set_registry(registry)
+            .set_source(registry)
             .set_engine(Some(engine));
 
         Ok(rt)
@@ -476,12 +476,12 @@ impl Wasi {
         Ok(loader)
     }
 
-    fn prepare_registry(
+    fn prepare_source(
         &self,
         wasmer_dir: &Path,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl Registry + Send + Sync> {
-        let mut registry = MultiSourceRegistry::new();
+    ) -> Result<impl Source + Send + Sync> {
+        let mut source = MultiSource::new();
 
         // Note: This should be first so our "preloaded" sources get a chance to
         // override the main registry.
@@ -491,17 +491,17 @@ impl Wasi {
                 .add_webc(path)
                 .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
         }
-        registry.add_source(preloaded);
+        source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(wasmer_dir)?;
-        registry.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
+        source.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
 
         let cache_dir = WebSource::default_cache_dir(wasmer_dir);
-        registry.add_source(WebSource::new(cache_dir, client));
+        source.add_source(WebSource::new(cache_dir, client));
 
-        registry.add_source(FileSystemSource::default());
+        source.add_source(FileSystemSource::default());
 
-        Ok(registry)
+        Ok(source)
     }
 
     fn graphql_endpoint(&self, wasmer_dir: &Path) -> Result<Url> {

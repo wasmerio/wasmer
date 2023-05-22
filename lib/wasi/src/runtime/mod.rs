@@ -19,7 +19,7 @@ use crate::{
     runtime::{
         module_cache::ModuleCache,
         package_loader::{BuiltinPackageLoader, PackageLoader},
-        resolver::{MultiSourceRegistry, Registry, WapmSource},
+        resolver::{MultiSource, Source, WapmSource},
     },
     WasiTtyState,
 };
@@ -45,7 +45,7 @@ where
     fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync>;
 
     /// The package registry.
-    fn registry(&self) -> Arc<dyn Registry + Send + Sync>;
+    fn source(&self) -> Arc<dyn Source + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
     fn engine(&self) -> Option<wasmer::Engine> {
@@ -109,7 +109,7 @@ pub struct PluggableRuntime {
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
     pub package_loader: Arc<dyn PackageLoader + Send + Sync>,
-    pub registry: Arc<dyn Registry + Send + Sync>,
+    pub source: Arc<dyn Source + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
@@ -132,9 +132,9 @@ impl PluggableRuntime {
         let loader = BuiltinPackageLoader::from_env()
             .expect("Loading the builtin resolver should never fail");
 
-        let mut registry = MultiSourceRegistry::new();
+        let mut source = MultiSource::new();
         if let Some(client) = &http_client {
-            registry.add_source(WapmSource::new(
+            source.add_source(WapmSource::new(
                 WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
                 client.clone(),
             ));
@@ -146,7 +146,7 @@ impl PluggableRuntime {
             http_client,
             engine: None,
             tty: None,
-            registry: Arc::new(registry),
+            source: Arc::new(source),
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
         }
@@ -178,8 +178,8 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_registry(&mut self, registry: impl Registry + Send + Sync + 'static) -> &mut Self {
-        self.registry = Arc::new(registry);
+    pub fn set_source(&mut self, source: impl Source + Send + Sync + 'static) -> &mut Self {
+        self.source = Arc::new(source);
         self
     }
 
@@ -205,8 +205,8 @@ impl WasiRuntime for PluggableRuntime {
         Arc::clone(&self.package_loader)
     }
 
-    fn registry(&self) -> Arc<dyn Registry + Send + Sync> {
-        Arc::clone(&self.registry)
+    fn source(&self) -> Arc<dyn Source + Send + Sync> {
+        Arc::clone(&self.source)
     }
 
     fn engine(&self) -> Option<wasmer::Engine> {

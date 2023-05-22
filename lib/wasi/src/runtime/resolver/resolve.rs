@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 use crate::runtime::resolver::{
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Registry, Resolution,
+    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Source, Resolution,
     ResolvedPackage,
 };
 
@@ -13,9 +13,9 @@ use super::FileSystemMapping;
 pub async fn resolve(
     root_id: &PackageId,
     root: &PackageInfo,
-    registry: &dyn Registry,
+    source: &dyn Source,
 ) -> Result<Resolution, ResolveError> {
-    let graph = resolve_dependency_graph(root_id, root, registry).await?;
+    let graph = resolve_dependency_graph(root_id, root, source).await?;
     let package = resolve_package(&graph)?;
 
     Ok(Resolution { graph, package })
@@ -56,7 +56,7 @@ fn print_cycle(packages: &[PackageId]) -> String {
 async fn resolve_dependency_graph(
     root_id: &PackageId,
     root: &PackageInfo,
-    registry: &dyn Registry,
+    source: &dyn Source,
 ) -> Result<DependencyGraph, ResolveError> {
     let mut dependencies = HashMap::new();
     let mut package_info = HashMap::new();
@@ -72,7 +72,7 @@ async fn resolve_dependency_graph(
         let mut deps = HashMap::new();
 
         for dep in &info.dependencies {
-            let dep_summary = registry
+            let dep_summary = source
                 .latest(&dep.pkg)
                 .await
                 .map_err(ResolveError::Registry)?;
@@ -221,7 +221,7 @@ fn resolve_filesystem_mapping(
 mod tests {
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, PackageInfo},
-        Dependency, InMemorySource, MultiSourceRegistry, PackageSpecifier,
+        Dependency, InMemorySource, MultiSource, PackageSpecifier,
     };
 
     use super::*;
@@ -255,8 +255,8 @@ mod tests {
             }
         }
 
-        fn finish(&self) -> MultiSourceRegistry {
-            let mut registry = MultiSourceRegistry::new();
+        fn finish(&self) -> MultiSource {
+            let mut registry = MultiSource::new();
             registry.add_source(self.0.clone());
             registry
         }

@@ -80,14 +80,14 @@ impl BinaryPackage {
         container: &Container,
         rt: &dyn WasiRuntime,
     ) -> Result<Self, anyhow::Error> {
-        let registry = rt.registry();
+        let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
         let root_id = PackageId {
             package_name: root.name.clone(),
             version: root.version.clone(),
         };
 
-        let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*registry).await?;
+        let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
             .package_loader()
             .load_package_tree(container, &resolution)
@@ -102,13 +102,12 @@ impl BinaryPackage {
         specifier: &PackageSpecifier,
         runtime: &dyn WasiRuntime,
     ) -> Result<Self, anyhow::Error> {
-        let registry = runtime.registry();
-        let root_summary = registry.latest(specifier).await?;
+        let source = runtime.source();
+        let root_summary = source.latest(specifier).await?;
         let root = runtime.package_loader().load(&root_summary).await?;
         let id = root_summary.package_id();
 
-        let resolution =
-            crate::runtime::resolver::resolve(&id, &root_summary.pkg, &registry).await?;
+        let resolution = crate::runtime::resolver::resolve(&id, &root_summary.pkg, &source).await?;
         let pkg = runtime
             .package_loader()
             .load_package_tree(&root, &resolution)
