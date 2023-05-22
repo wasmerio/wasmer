@@ -224,6 +224,28 @@ mod webc_on_disk {
                 "response generated method=GET uri=/path/to/file.txt status_code=200 OK",
             ));
     }
+
+    /// See https://github.com/wasmerio/wasmer/issues/3794
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
+    fn issue_3794_unable_to_mount_relative_paths() {
+        let temp = TempDir::new().unwrap();
+        std::fs::copy(fixtures::python(), temp.path().join("python.webc")).unwrap();
+
+        let assert = wasmer_run_unstable()
+            .arg("wasmer/wapm2pirita@1.0.31")
+            .arg(format!("--mapdir=.:{}", temp.path().display()))
+            .arg("--")
+            .arg("dump")
+            .arg("manifest")
+            .arg("./python.webc")
+            .assert();
+
+        assert.success().stdout(contains("\"name\": \"python\""));
+    }
 }
 
 mod wasm_on_disk {
