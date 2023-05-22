@@ -3,11 +3,11 @@
 // use crate::web::RuntimeError;
 use crate::imports::Imports;
 use crate::instance::Instance;
+use crate::store::{AsStoreMut, AsStoreRef};
+use crate::value::Value;
 use crate::web::instance::Instance as JsInstance;
 use crate::web::vm::{VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::web::wasm_bindgen_polyfill::Global as JsGlobal;
-use crate::store::{AsStoreMut, AsStoreRef};
-use crate::value::Value;
 use crate::Type;
 use crate::{Extern, Function, Global, Memory, Table};
 use js_sys::Function as JsFunction;

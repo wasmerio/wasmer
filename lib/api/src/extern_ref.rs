@@ -2,13 +2,13 @@ use std::any::Any;
 
 use crate::store::{AsStoreMut, AsStoreRef};
 
-#[cfg(feature = "web")]
-use crate::web::extern_ref as extern_ref_imp;
 #[cfg(feature = "jsc")]
 use crate::jsc::extern_ref as extern_ref_imp;
 #[cfg(feature = "sys")]
 use crate::sys::extern_ref as extern_ref_imp;
 use crate::vm::VMExternRef;
+#[cfg(feature = "web")]
+use crate::web::extern_ref as extern_ref_imp;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]

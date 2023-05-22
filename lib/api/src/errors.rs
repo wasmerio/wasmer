@@ -1,7 +1,7 @@
-#[cfg(feature = "web")]
-use crate::web::trap::Trap;
 #[cfg(feature = "jsc")]
 use crate::jsc::trap::Trap;
+#[cfg(feature = "web")]
+use crate::web::trap::Trap;
 use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;

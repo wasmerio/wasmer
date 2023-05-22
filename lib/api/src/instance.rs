@@ -6,12 +6,12 @@ use std::fmt;
 use crate::imports::Imports;
 use crate::store::AsStoreMut;
 
-#[cfg(feature = "web")]
-use crate::web::instance as instance_imp;
 #[cfg(feature = "jsc")]
 use crate::jsc::instance as instance_imp;
 #[cfg(feature = "sys")]
 use crate::sys::instance as instance_imp;
+#[cfg(feature = "web")]
+use crate::web::instance as instance_imp;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].

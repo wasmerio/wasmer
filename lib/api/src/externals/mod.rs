@@ -14,10 +14,10 @@ use crate::exports::{ExportError, Exportable};
 use crate::ExternType;
 use std::fmt;
 
-#[cfg(feature = "web")]
-use crate::web::vm::VMExtern;
 #[cfg(feature = "jsc")]
 use crate::jsc::vm::VMExtern;
+#[cfg(feature = "web")]
+use crate::web::vm::VMExtern;
 #[cfg(feature = "sys")]
 use wasmer_vm::VMExtern;
 

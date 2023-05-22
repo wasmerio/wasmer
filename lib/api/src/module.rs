@@ -15,12 +15,12 @@ use wasmer_types::{ExportType, ImportType};
 
 use crate::into_bytes::IntoBytes;
 
-#[cfg(feature = "web")]
-use crate::web::module as module_imp;
 #[cfg(feature = "jsc")]
 use crate::jsc::module as module_imp;
 #[cfg(feature = "sys")]
 use crate::sys::module as module_imp;
+#[cfg(feature = "web")]
+use crate::web::module as module_imp;
 
 /// IO Error on a Module Compilation
 #[derive(Error, Debug)]

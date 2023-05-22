@@ -1,9 +1,9 @@
 use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
-use crate::web::AsJs;
 use crate::store::AsStoreMut;
 use crate::vm::VMInstance;
+use crate::web::AsJs;
 use crate::Extern;
 use crate::IntoBytes;
 use crate::{AsEngineRef, ExportType, ImportType};

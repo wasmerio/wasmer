@@ -1,7 +1,7 @@
 use std::any::Any;
 
-use crate::web::vm::VMExternRef;
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::web::vm::VMExternRef;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]

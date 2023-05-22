@@ -1,8 +1,8 @@
 use crate::errors::RuntimeError;
-use crate::web::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
 use crate::vm::{VMExtern, VMGlobal};
+use crate::web::wasm_bindgen_polyfill::Global as JSGlobal;
 use crate::GlobalType;
 use crate::Mutability;
 use wasm_bindgen::JsValue;

@@ -1,10 +1,10 @@
 use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::imports::Imports;
-use crate::web::as_js::AsJs;
-use crate::web::vm::VMInstance;
 use crate::module::Module;
 use crate::store::AsStoreMut;
+use crate::web::as_js::AsJs;
+use crate::web::vm::VMInstance;
 use crate::Extern;
 use js_sys::WebAssembly;
 

@@ -1,9 +1,9 @@
-#[cfg(feature = "web")]
-use crate::web::externals::table as table_impl;
 #[cfg(feature = "jsc")]
 use crate::jsc::externals::table as table_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::table as table_impl;
+#[cfg(feature = "web")]
+use crate::web::externals::table as table_impl;
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
