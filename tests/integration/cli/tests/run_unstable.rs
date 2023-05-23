@@ -23,6 +23,7 @@ static RUST_LOG: Lazy<String> = Lazy::new(|| {
         "info",
         "wasmer_wasix::resolve=debug",
         "wasmer_wasix::runners=debug",
+        "wasmer_wasix=debug",
         "virtual_fs::trace_fs=trace",
     ]
     .join(",")

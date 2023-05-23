@@ -6,7 +6,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
@@ -1124,21 +1124,27 @@ impl WasiFs {
                         }
                     }
                     Kind::Root { entries } => {
-                        match component.as_os_str().to_string_lossy().borrow() {
+                        match component {
                             // the root's parent is the root
-                            ".." => continue 'path_iter,
+                            Component::ParentDir => continue 'path_iter,
                             // the root's current directory is the root
-                            "." => continue 'path_iter,
-                            _ => (),
+                            Component::CurDir => continue 'path_iter,
+                            _ => {}
                         }
 
-                        if let Some(entry) =
-                            entries.get(component.as_os_str().to_string_lossy().as_ref())
-                        {
+                        let component = component.as_os_str().to_string_lossy();
+                        dbg!(
+                            path,
+                            &component,
+                            entries.get(component.as_ref()),
+                            entries.keys().collect::<Vec<_>>()
+                        );
+
+                        if let Some(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
                         } else {
                             // Root is not capable of having something other then preopenned folders
-                            return Err(Errno::Notcapable);
+                            return dbg!(Err(Errno::Notcapable));
                         }
                     }
                     Kind::File { .. }
