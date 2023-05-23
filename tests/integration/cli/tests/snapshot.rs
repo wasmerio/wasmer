@@ -171,7 +171,7 @@ impl TestBuilder {
     pub fn use_coreutils(self) -> Self {
         // TODO: use custom compiled coreutils
         self.use_pkg("sharrattj/coreutils")
-            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_14)
+            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_16)
     }
 
     pub fn use_dash(self) -> Self {
@@ -281,7 +281,6 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     if spec.enable_network {
         cmd.arg("--net");
     }
-    cmd.arg("--allow-multiple-wasi-versions");
 
     for pkg in &spec.use_packages {
         cmd.args(&["--use", &pkg]);
@@ -691,18 +690,6 @@ fn test_snapshot_longjump() {
         .with_name(function!())
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-longjmp.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-// Another longjump test.
-// This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_longjump2() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-stack.wasm"));
     assert_json_snapshot!(snapshot);
 }
 

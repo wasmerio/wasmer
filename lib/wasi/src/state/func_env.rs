@@ -140,47 +140,6 @@ impl WasiFunctionEnv {
             self.data(store).tid()
         );
 
-        // Destroy all the local thread variables that were allocated for this thread
-        let to_local_destroy = {
-            let thread_id = self.data(store).thread.tid();
-            let mut to_local_destroy = Vec::new();
-            let mut inner = self.data(store).process.write();
-            for ((thread, key), val) in inner.thread_local.iter() {
-                if *thread == thread_id {
-                    if let Some(user_data) = inner.thread_local_user_data.get(key) {
-                        to_local_destroy.push((*user_data, *val))
-                    }
-                }
-            }
-            inner.thread_local.retain(|(t, _), _| *t != thread_id);
-            to_local_destroy
-        };
-        if !to_local_destroy.is_empty() {
-            if let Some(thread_local_destroy) = self
-                .data(store)
-                .inner()
-                .thread_local_destroy
-                .as_ref()
-                .cloned()
-            {
-                for (user_data, val) in to_local_destroy {
-                    let user_data_low: u32 = (user_data & 0xFFFFFFFF) as u32;
-                    let user_data_high: u32 = (user_data >> 32) as u32;
-
-                    let val_low: u32 = (val & 0xFFFFFFFF) as u32;
-                    let val_high: u32 = (val >> 32) as u32;
-
-                    let _ = thread_local_destroy.call(
-                        store,
-                        user_data_low as i32,
-                        user_data_high as i32,
-                        val_low as i32,
-                        val_high as i32,
-                    );
-                }
-            }
-        }
-
         // Cleans up all the open files (if this is the main thread)
         self.data(store).blocking_cleanup(exit_code);
     }

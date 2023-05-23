@@ -12,7 +12,7 @@ use crate::WasiRuntimeError;
 use tracing::trace;
 use wasmer_wasix_types::{
     types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal},
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
 use crate::{
@@ -101,12 +101,6 @@ pub struct WasiProcessInner {
     pub threads: HashMap<WasiThreadId, WasiThread>,
     /// Number of threads running for this process
     pub thread_count: u32,
-    /// All the thread local variables
-    pub thread_local: HashMap<(WasiThreadId, TlKey), TlVal>,
-    /// User data associated with thread local data
-    pub thread_local_user_data: HashMap<TlKey, TlUser>,
-    /// Seed used to generate thread local keys
-    pub thread_local_seed: TlKey,
     /// Signals that will be triggered at specific intervals
     pub signal_intervals: HashMap<Signal, WasiSignalInterval>,
     /// List of all the children spawned from this thread
@@ -143,9 +137,6 @@ impl WasiProcess {
                 pid,
                 threads: Default::default(),
                 thread_count: Default::default(),
-                thread_local: Default::default(),
-                thread_local_user_data: Default::default(),
-                thread_local_seed: Default::default(),
                 signal_intervals: Default::default(),
                 children: Default::default(),
             })),

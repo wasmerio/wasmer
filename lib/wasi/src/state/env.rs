@@ -70,12 +70,6 @@ pub struct WasiInstanceHandles {
     #[derivative(Debug = "ignore")]
     pub(crate) thread_spawn: Option<TypedFunction<(i32, i32), ()>>,
 
-    /// Represents the callback for spawning a reactor (name = "_react")
-    /// (due to limitations with i64 in browsers the parameters are broken into i32 pairs)
-    /// [this takes a user_data field]
-    #[derivative(Debug = "ignore")]
-    pub(crate) react: Option<TypedFunction<(i32, i32), ()>>,
-
     /// Represents the callback for signals (name = "__wasm_signal")
     /// Signals are triggered asynchronously at idle times of the process
     #[derivative(Debug = "ignore")]
@@ -85,11 +79,6 @@ pub struct WasiInstanceHandles {
     /// process - if it has not been set then the runtime behaves differently
     /// when a CTRL-C is pressed.
     pub(crate) signal_set: bool,
-
-    /// Represents the callback for destroying a local thread variable (name = "_thread_local_destroy")
-    /// [this takes a pointer to the destructor and the data to be destroyed]
-    #[derivative(Debug = "ignore")]
-    pub(crate) thread_local_destroy: Option<TypedFunction<(i32, i32, i32, i32), ()>>,
 
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
@@ -155,7 +144,6 @@ impl WasiInstanceHandles {
                 .exports
                 .get_typed_function(store, "wasi_thread_start")
                 .ok(),
-            react: instance.exports.get_typed_function(store, "_react").ok(),
             signal: instance
                 .exports
                 .get_typed_function(&store, "__wasm_signal")
@@ -180,10 +168,6 @@ impl WasiInstanceHandles {
             asyncify_get_state: instance
                 .exports
                 .get_typed_function(store, "asyncify_get_state")
-                .ok(),
-            thread_local_destroy: instance
-                .exports
-                .get_typed_function(store, "_thread_local_destroy")
                 .ok(),
             instance,
         }

@@ -94,7 +94,7 @@ pub fn proc_exec<M: MemorySize>(
             match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut config) {
                 Ok(a) => {}
                 Err(err) => {
-                    if err != VirtualBusError::NotFound {
+                    if err != SpawnError::NotFound {
                         error!("builtin failed - {}", err);
                     }
 
@@ -114,7 +114,7 @@ pub fn proc_exec<M: MemorySize>(
                                 trace!(%child_pid, "spawned sub-process");
                             },
                             Err(err) => {
-                                err_exit_code = conv_bus_err_to_exit_code(err);
+                                err_exit_code = conv_spawn_err_to_exit_code(err);
 
                                 debug!(%child_pid, "process failed with (err={})", err_exit_code);
                                 child_finished.set_finished(Ok(err_exit_code));
@@ -211,7 +211,7 @@ pub fn proc_exec<M: MemorySize>(
             ) {
                 Ok(a) => Ok(Ok(a)),
                 Err(err) => {
-                    if err != VirtualBusError::NotFound {
+                    if err != SpawnError::NotFound {
                         error!("builtin failed - {}", err);
                     }
 

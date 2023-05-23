@@ -78,12 +78,12 @@ pub use windows::*;
 
 pub(crate) use self::types::{
     wasi::{
-        Addressfamily, Advice, Bid, BusErrno, BusHandles, Cid, Clockid, Dircookie, Dirent, Errno,
-        Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdstat,
-        Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat,
-        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
-        StdioMode as WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
+        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat,
+        Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights, Snapshot0Clockid,
+        Sockoption, Sockstatus, Socktype, StackSnapshot, StdioMode as WasiStdioMode,
+        Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser,
+        TlVal, Tty, Whence,
     },
     *,
 };
@@ -102,9 +102,8 @@ pub(crate) use crate::{
     },
     runtime::{task_manager::VirtualTaskManagerExt, SpawnType},
     state::{
-        self, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno,
-        InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
-        WasiThreadContext,
+        self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
+        WasiFutex, WasiState, WasiThreadContext,
     },
     utils::{self, map_io_err},
     VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles, WasiRuntime,
@@ -116,7 +115,7 @@ use crate::{
         MAX_SYMLINKS,
     },
     utils::store::InstanceSnapshot,
-    VirtualBusError, WasiInodes,
+    SpawnError, WasiInodes,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1054,11 +1053,15 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
     }
 }
 
-pub(crate) fn conv_bus_err_to_exit_code(err: VirtualBusError) -> ExitCode {
+pub(crate) fn conv_spawn_err_to_errno(err: SpawnError) -> Errno {
     match err {
-        VirtualBusError::AccessDenied => Errno::Access.into(),
-        VirtualBusError::NotFound => Errno::Noent.into(),
-        VirtualBusError::Unsupported => Errno::Noexec.into(),
-        _ => Errno::Inval.into(),
+        SpawnError::AccessDenied => Errno::Access,
+        SpawnError::NotFound => Errno::Noent,
+        SpawnError::Unsupported => Errno::Noexec,
+        _ => Errno::Inval,
     }
+}
+
+pub(crate) fn conv_spawn_err_to_exit_code(err: SpawnError) -> ExitCode {
+    conv_spawn_err_to_errno(err).into()
 }

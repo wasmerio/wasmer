@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::Arc};
 
 use crate::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
-    VirtualBusError, WasiRuntimeError,
+    SpawnError, WasiRuntimeError,
 };
 use futures::Future;
 use tracing::*;
@@ -22,7 +22,7 @@ pub fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
     compiled_modules: &ModuleCache,
-) -> Result<TaskJoinHandle, VirtualBusError> {
+) -> Result<TaskJoinHandle, SpawnError> {
     // The deterministic id for this engine
     let compiler = store.engine().deterministic_id();
 
@@ -37,7 +37,7 @@ pub fn spawn_exec(
                     entry.len(),
                     err
                 );
-                VirtualBusError::CompileError
+                SpawnError::CompileError
             });
             if module.is_err() {
                 env.blocking_cleanup(Some(Errno::Noexec.into()));
@@ -49,7 +49,7 @@ pub fn spawn_exec(
         (None, None) => {
             error!("package has no entry [{}]", name,);
             env.blocking_cleanup(Some(Errno::Noexec.into()));
-            return Err(VirtualBusError::CompileError);
+            return Err(SpawnError::CompileError);
         }
     };
 
@@ -66,7 +66,7 @@ pub fn spawn_exec_module(
     store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
-) -> Result<TaskJoinHandle, VirtualBusError> {
+) -> Result<TaskJoinHandle, SpawnError> {
     // Create a new task manager
     let tasks = runtime.task_manager();
 
@@ -179,7 +179,7 @@ pub fn spawn_exec_module(
             .task_wasm(Box::new(task), store, module, memory_spawn)
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
-                VirtualBusError::UnknownError
+                SpawnError::UnknownError
             })?
     };
 
@@ -192,13 +192,13 @@ impl BinFactory {
         name: String,
         store: Store,
         env: WasiEnv,
-    ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, VirtualBusError>> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
         Box::pin(async move {
             // Find the binary (or die trying) and make the spawn type
             let binary = self
                 .get_binary(name.as_str(), Some(env.fs_root()))
                 .await
-                .ok_or(VirtualBusError::NotFound);
+                .ok_or(SpawnError::NotFound);
             if binary.is_err() {
                 env.cleanup(Some(Errno::Noent.into())).await;
             }
@@ -222,7 +222,7 @@ impl BinFactory {
         parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
         store: &mut Option<Store>,
         builder: &mut Option<WasiEnv>,
-    ) -> Result<TaskJoinHandle, VirtualBusError> {
+    ) -> Result<TaskJoinHandle, SpawnError> {
         // We check for built in commands
         if let Some(parent_ctx) = parent_ctx {
             if self.commands.exists(name.as_str()) {
@@ -233,6 +233,6 @@ impl BinFactory {
         } else if self.commands.exists(name.as_str()) {
             tracing::warn!("builtin command without a parent ctx - {}", name);
         }
-        Err(VirtualBusError::NotFound)
+        Err(SpawnError::NotFound)
     }
 }

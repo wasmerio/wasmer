@@ -22,14 +22,14 @@ use virtual_fs::{
 };
 #[cfg(feature = "sys")]
 use wasmer::Engine;
-use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::BusErrno};
+use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
 
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
     bin_factory::{spawn_exec, BinFactory, ModuleCache},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    VirtualBusError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
 #[derive(Derivative)]
@@ -145,7 +145,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), VirtualBusError> {
+    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), SpawnError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
@@ -165,7 +165,7 @@ impl Console {
         };
         let envs = self.env.clone();
 
-        // Build a new store that will be passed to the thread
+        // Build a new store that will be passed to the threadimpo
         let store = self.runtime.new_store();
 
         let root_fs = RootFileSystemBuilder::new()
@@ -191,7 +191,7 @@ impl Console {
             .capabilities(self.capabilities.clone())
             .build_init()
             // TODO: propagate better error
-            .map_err(|_e| VirtualBusError::InternalError)?;
+            .map_err(|_e| SpawnError::InternalError)?;
 
         // TODO: no unwrap!
         let env = WasiEnv::from_init(env_init).unwrap();
@@ -217,7 +217,7 @@ impl Console {
                     .ok();
                 });
                 tracing::debug!("failed to get webc dependency - {}", webc);
-                return Err(VirtualBusError::NotFound);
+                return Err(SpawnError::NotFound);
             };
 
         let wasi_process = env.process.clone();
@@ -237,7 +237,7 @@ impl Console {
                 .ok();
             });
             tracing::debug!("failed to load used dependency - {}", err);
-            return Err(VirtualBusError::BadRequest);
+            return Err(SpawnError::BadRequest);
         }
 
         // Build the config
