@@ -153,8 +153,17 @@ impl Artifact {
     /// validated, which increases safety.
     pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
+            let static_artifact = Self::deserialize_object(engine, bytes);
+            match static_artifact {
+                Ok(v) => {
+                    return Ok(v);
+                }
+                Err(err) => {
+                    eprintln!("Could not deserialize as static object: {}", err);
+                }
+            }
             return Err(DeserializeError::Incompatible(
-                "Magic header not found".to_string(),
+                "The provided bytes are not wasmer-universal".to_string(),
             ));
         }
 
@@ -204,7 +213,7 @@ impl Artifact {
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
         let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
 
-        let serializable = SerializableModule::deserialize(metadata_slice)?;
+        let serializable = SerializableModule::deserialize_unchecked(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target())
