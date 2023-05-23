@@ -330,9 +330,6 @@ impl RunWithPathBuf {
                         if self.wasi.deny_multiple_wasi_versions {
                             let version_list = get_version_list(&wasi_versions);
                             bail!("Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.", version_list);
-                        } else if !self.wasi.allow_multiple_wasi_versions {
-                            let version_list = get_version_list(&wasi_versions);
-                            warning!("Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.", version_list);
                         }
                     }
 

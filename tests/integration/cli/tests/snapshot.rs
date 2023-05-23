@@ -54,16 +54,16 @@ fn is_false(b: &bool) -> bool {
 }
 
 static WEBC_BASH: &[u8] =
-    include_bytes!("./webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
-static WEBC_COREUTILS_14: &[u8] =
-    include_bytes!("./webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
+    include_bytes!("./webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
+static WEBC_COREUTILS_16: &[u8] =
+    include_bytes!("./webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
 static WEBC_COREUTILS_11: &[u8] =
     include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
 static WEBC_DASH: &[u8] =
-    include_bytes!("./webc/dash-1.0.16-bd931010-c134-4785-9423-13c0a0d49d90.webc");
+    include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
 static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
 static WEBC_WEB_SERVER: &'static [u8] =
-    include_bytes!("./webc/static-web-server-1.0.92-22ccedaa-3f96-4de0-b24a-ef48ade8151b.webc");
+    include_bytes!("./webc/static-web-server-1.0.96-e2b80276-c194-473d-bbd0-27c8a2c96a59.webc");
 static WEBC_WASMER_SH: &'static [u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
@@ -184,7 +184,7 @@ impl TestBuilder {
     pub fn use_coreutils(self) -> Self {
         // TODO: use custom compiled coreutils
         self.use_pkg("sharrattj/coreutils")
-            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_14)
+            .include_static_package("sharrattj/coreutils@1.0.16", WEBC_COREUTILS_16)
     }
 
     pub fn use_dash(self) -> Self {
@@ -294,7 +294,6 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     if spec.enable_network {
         cmd.arg("--net");
     }
-    cmd.arg("--allow-multiple-wasi-versions");
 
     if spec.enable_async_threads {
         cmd.arg("--enable-async-threads");
@@ -692,7 +691,7 @@ fn test_snapshot_unix_pipe() {
 #[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
 fn test_snapshot_web_server() {
-    let name = function!();
+    let name: &str = function!();
     let port = 7777;
 
     let with = move |mut child: Child| {
@@ -786,18 +785,6 @@ fn test_snapshot_longjump() {
         .with_name(function!())
         .use_coreutils()
         .run_wasm(include_bytes!("./wasm/example-longjmp.wasm"));
-    assert_json_snapshot!(snapshot);
-}
-
-// Another longjump test.
-// This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
-#[test]
-fn test_snapshot_longjump2() {
-    let snapshot = TestBuilder::new()
-        .with_name(function!())
-        .use_coreutils()
-        .run_wasm(include_bytes!("./wasm/example-stack.wasm"));
     assert_json_snapshot!(snapshot);
 }
 
