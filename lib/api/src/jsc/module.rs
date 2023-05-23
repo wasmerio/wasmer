@@ -184,18 +184,18 @@ impl Module {
     }
 
     pub unsafe fn deserialize_unchecked(
-        _engine: &impl AsEngineRef,
-        _bytes: impl IntoBytes,
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        Self::deserialize(engine, bytes)
     }
 
     pub unsafe fn deserialize(
-        _engine: &impl AsEngineRef,
-        _bytes: impl IntoBytes,
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        unimplemented!();
+        return Self::from_binary(engine, &bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
     }
 
     pub unsafe fn deserialize_from_file_unchecked(
