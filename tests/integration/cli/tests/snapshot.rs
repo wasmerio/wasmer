@@ -1129,7 +1129,6 @@ fn test_snapshot_bash_ls() {
     assert_json_snapshot!(snapshot);
 }
 
-
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_bash_cd_ls() {
