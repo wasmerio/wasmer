@@ -102,6 +102,11 @@
 <span id="100">100</span>
 <span id="101">101</span>
 <span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::VERSION;
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
@@ -150,10 +155,15 @@
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">let </span>key = <span class="string">&quot;WASMER_DIR&quot;</span>;
         <span class="kw">let </span>wasmer_dir = env::var(key)
-            .or_else(|e| {
-                <span class="macro">option_env!</span>(<span class="string">&quot;WASMER_INSTALL_PREFIX&quot;</span>)
-                    .map(str::to_string)
-                    .ok_or(e)
+            .ok()
+            .or_else(|| <span class="macro">option_env!</span>(<span class="string">&quot;WASMER_INSTALL_PREFIX&quot;</span>).map(str::to_string))
+            .or_else(|| {
+                <span class="comment">// Allowing deprecated function home_dir since it works fine,
+                // and will never be removed from std.
+                </span><span class="attribute">#[allow(deprecated)]
+                </span><span class="kw">let </span>dir = std::env::home_dir()<span class="question-mark">?</span>.join(<span class="string">&quot;.wasmer&quot;</span>).to_str()<span class="question-mark">?</span>.to_string();
+
+                <span class="prelude-val">Some</span>(dir)
             })
             .context(<span class="macro">format!</span>(
                 <span class="string">&quot;failed to retrieve the {} environment variables&quot;</span>,
