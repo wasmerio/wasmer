@@ -92,11 +92,7 @@ impl VirtualNetworking for LocalNetworking {
         port: Option<u16>,
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>> {
-        let port = match port {
-            Some(p) => p,
-            None => 0,
-        };
-        tokio::net::lookup_host(format!("{}:{}", host, port))
+        tokio::net::lookup_host(format!("{}:{}", host, port.unwrap_or(0)))
             .await
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
             .map_err(io_err_into_net_error)
