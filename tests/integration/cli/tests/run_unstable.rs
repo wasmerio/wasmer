@@ -34,6 +34,7 @@ fn wasmer_run_unstable() -> std::process::Command {
         .arg("--quiet")
         .arg("--package=wasmer-cli")
         .arg("--features=singlepass,cranelift")
+        .arg("--color=never")
         .arg("--")
         .arg("run-unstable");
     cmd.env("RUST_LOG", &*RUST_LOG);

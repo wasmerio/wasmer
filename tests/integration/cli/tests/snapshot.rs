@@ -460,7 +460,10 @@ fn test_snapshot_condvar() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_condvar_async() {
     let snapshot = TestBuilder::new()
@@ -520,7 +523,10 @@ fn test_snapshot_epoll() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_epoll_async() {
     let snapshot = TestBuilder::new()
@@ -674,7 +680,10 @@ fn test_snapshot_tokio() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_unix_pipe() {
     let snapshot = TestBuilder::new()
@@ -683,8 +692,11 @@ fn test_snapshot_unix_pipe() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 fn test_snapshot_web_server() {
     let name: &str = function!();
     let port = 7777;
@@ -760,7 +772,10 @@ fn test_snapshot_fork_and_exec() {
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg(not(target_os = "windows"))]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_fork_and_exec_async() {
     let snapshot = TestBuilder::new()
@@ -795,7 +810,10 @@ fn test_snapshot_fork() {
 }
 
 // Simple fork example that is a crude multi-threading implementation - used by `dash`
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_fork_async() {
     let snapshot = TestBuilder::new()
@@ -835,7 +853,10 @@ fn test_snapshot_longjump_fork() {
 // This test ensures that the stacks that have been recorded are preserved
 // after a fork.
 // The behavior is needed for `dash`
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_longjump_fork_async() {
     let snapshot = TestBuilder::new()
@@ -904,7 +925,10 @@ fn test_snapshot_sleep() {
 
 // full multi-threading with shared memory and shared compiled modules
 #[cfg(target_os = "linux")]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_sleep_async() {
     let snapshot = TestBuilder::new()
@@ -927,7 +951,10 @@ fn test_snapshot_process_spawn() {
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
 #[cfg(not(target_os = "windows"))]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_process_spawn_async() {
     let snapshot = TestBuilder::new()
