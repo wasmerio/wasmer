@@ -210,7 +210,7 @@ impl Console {
                 }
                 crate::fs::WasiFsRoot::Backing(_) => {
                     tracing::error!("tried to set a tmpfs memory limiter on a backing fs");
-                    return Err(VirtualBusError::InvokeFailed);
+                    return Err(SpawnError::BadRequest);
                 }
             }
         }
