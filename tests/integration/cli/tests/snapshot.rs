@@ -559,6 +559,17 @@ fn test_snapshot_execve() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
+fn test_snapshot_readdir_tree() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .use_coreutils()
+        .args(&["/"])
+        .run_wasm(include_bytes!("./wasm/example-readdir_tree.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
 fn test_snapshot_minimodem_tx() {
     let mut snapshot = TestBuilder::new()
         .with_name(function!())
