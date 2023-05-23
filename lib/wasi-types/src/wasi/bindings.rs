@@ -1042,8 +1042,8 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Socktype {
     Unused,
-    Dgram,
     Stream,
+    Dgram,
     Raw,
     Seqpacket,
 }
@@ -3044,8 +3044,8 @@ unsafe impl wasmer::FromToNativeWasmType for Socktype {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            1 => Self::Dgram,
-            2 => Self::Stream,
+            1 => Self::Stream,
+            2 => Self::Dgram,
             3 => Self::Raw,
             4 => Self::Seqpacket,
 

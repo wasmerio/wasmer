@@ -703,8 +703,8 @@ enum socktype {
     /// socktype::dgram enum variant, can't have that same value). the same
     /// hack is in wasix-libc.
     unused,
-    dgram,
     %stream,
+    dgram,
     raw,
     seqpacket,
 }
