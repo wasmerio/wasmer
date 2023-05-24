@@ -35,7 +35,7 @@ use wasmer_types::{
 };
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
+use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 pub struct AllocatedArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -557,6 +557,7 @@ impl Artifact {
     #[allow(clippy::result_large_err)]
     pub unsafe fn finish_instantiation(
         &self,
+        config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
@@ -569,7 +570,7 @@ impl Artifact {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(trap_handler, &data_initializers)
+            .finish_instantiation(config, trap_handler, &data_initializers)
             .map_err(InstantiationError::Start)
     }
 
