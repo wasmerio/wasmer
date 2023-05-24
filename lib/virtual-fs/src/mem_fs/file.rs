@@ -6,6 +6,7 @@ use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
 use super::*;
+use crate::limiter::TrackedVec;
 use crate::{FsError, Result, VirtualFile};
 use std::borrow::Cow;
 use std::cmp;
@@ -177,7 +178,7 @@ impl VirtualFile for FileHandle {
         match inode {
             Some(Node::File(FileNode { file, metadata, .. })) => {
                 file.buffer
-                    .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
+                    .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0)?;
                 metadata.len = new_size;
             }
             Some(Node::CustomFile(node)) => {
@@ -1228,12 +1229,14 @@ impl fmt::Debug for FileHandle {
 /// represents a read/write position in the buffer.
 #[derive(Debug)]
 pub(super) struct File {
-    buffer: Vec<u8>,
+    buffer: TrackedVec,
 }
 
 impl File {
-    pub(super) fn new() -> Self {
-        Self { buffer: Vec::new() }
+    pub(super) fn new(limiter: Option<crate::limiter::DynFsMemoryLimiter>) -> Self {
+        Self {
+            buffer: TrackedVec::new(limiter),
+        }
     }
 
     pub(super) fn truncate(&mut self) {
@@ -1304,27 +1307,32 @@ impl File {
         match *cursor {
             // The cursor is at the end of the buffer: happy path!
             position if position == self.buffer.len() as u64 => {
-                self.buffer.extend_from_slice(buf);
+                self.buffer.extend_from_slice(buf)?;
             }
 
             // The cursor is at the beginning of the buffer (and the
             // buffer is not empty, otherwise it would have been
             // caught by the previous arm): almost a happy path!
             0 => {
-                let mut new_buffer = Vec::with_capacity(self.buffer.len() + buf.len());
-                new_buffer.extend_from_slice(buf);
-                new_buffer.append(&mut self.buffer);
+                // FIXME(perf,theduke): make this faster, it's horrible!
+                let mut new_buffer = TrackedVec::with_capacity(
+                    self.buffer.len() + buf.len(),
+                    self.buffer.limiter().cloned(),
+                )?;
+                new_buffer.extend_from_slice(buf)?;
+                new_buffer.append(&mut self.buffer)?;
 
                 self.buffer = new_buffer;
             }
 
             // The cursor is somewhere in the buffer: not the happy path.
             position => {
-                self.buffer.reserve_exact(buf.len());
+                self.buffer.reserve_exact(buf.len())?;
 
-                let mut remainder = self.buffer.split_off(position as usize);
-                self.buffer.extend_from_slice(buf);
-                self.buffer.append(&mut remainder);
+                // FIXME(perf,theduke): make this faster, it's horrible!
+                let mut remainder = self.buffer.split_off(position as usize)?;
+                self.buffer.extend_from_slice(buf)?;
+                self.buffer.append(&mut remainder)?;
             }
         }
 

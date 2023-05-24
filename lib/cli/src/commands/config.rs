@@ -165,6 +165,7 @@ impl Config {
         self.inner_execute()
             .context("failed to retrieve the wasmer config".to_string())
     }
+
     fn inner_execute(&self) -> Result<()> {
         if let Some(s) = self.set.as_ref() {
             return s.execute();
@@ -174,10 +175,15 @@ impl Config {
 
         let key = "WASMER_DIR";
         let wasmer_dir = env::var(key)
-            .or_else(|e| {
-                option_env!("WASMER_INSTALL_PREFIX")
-                    .map(str::to_string)
-                    .ok_or(e)
+            .ok()
+            .or_else(|| option_env!("WASMER_INSTALL_PREFIX").map(str::to_string))
+            .or_else(|| {
+                // Allowing deprecated function home_dir since it works fine,
+                // and will never be removed from std.
+                #[allow(deprecated)]
+                let dir = std::env::home_dir()?.join(".wasmer").to_str()?.to_string();
+
+                Some(dir)
             })
             .context(format!(
                 "failed to retrieve the {} environment variables",
