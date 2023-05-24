@@ -14,8 +14,8 @@ mod tests {
     use wasmer_compiler::Tunables;
     use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
     use wasmer_vm::{
-        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition, VMConfig,
+        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMConfig, VMMemory, VMMemoryDefinition,
+        VMTable, VMTableDefinition,
     };
 
     #[test]
@@ -209,7 +209,9 @@ mod tests {
 
         // Will use a very small stack size of 16kb, not the 1Mb default
         fn vmconfig(&self) -> &wasmer_vm::VMConfig {
-            &VMConfig { wasm_stack_size: Some(16*1024) }
+            &VMConfig {
+                wasm_stack_size: Some(16 * 1024),
+            }
         }
     }
 
