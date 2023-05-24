@@ -5859,6 +5859,7 @@ dependencies = [
  "derivative",
  "dirs",
  "flate2",
+ "futures",
  "hex",
  "insta",
  "md5",

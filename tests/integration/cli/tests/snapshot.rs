@@ -3,10 +3,12 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Stdio},
     sync::Arc,
+    time::Duration,
 };
 
+use anyhow::Error;
 use derivative::Derivative;
-#[cfg(test)]
+use futures::TryFutureExt;
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
@@ -119,7 +121,7 @@ pub struct TestBuilder {
     spec: TestSpec,
 }
 
-type RunWith = Box<dyn FnOnce(Child) -> Result<i32, anyhow::Error> + 'static>;
+type RunWith = Box<dyn FnOnce(Child) -> Result<i32, Error> + 'static>;
 
 impl TestBuilder {
     pub fn new() -> Self {
@@ -595,37 +597,40 @@ fn test_run_http_request(
     port: u16,
     what: &str,
     expected_size: Option<usize>,
-) -> Result<i32, anyhow::Error> {
+) -> Result<i32, Error> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
 
-    let http_get = move |url, max_retries: i32| {
+    let http_get = move |url: String, max_retries: i32| {
         rt.block_on(async move {
-            for n in 0..(max_retries.max(1)) {
-                println!("http request: {}", &url);
-                tokio::select! {
-                    resp = reqwest::get(&url) => {
-                        let resp = match resp {
-                            Ok(a) => a,
-                            Err(_) if n < max_retries => {
-                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                                continue;
-                            }
-                            Err(err) => return Err(err.into())
-                        };
-                        if !resp.status().is_success() {
-                            return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
-                        }
-                        return Ok(resp.bytes().await?);
-                    }
-                    _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
-                        eprintln!("retrying request... ({} attempts)", (n+1));
+            let mut n = 1;
+
+            loop {
+                println!("http request (attempt #{n}): {url}");
+
+                let pending_request = reqwest::get(&url)
+                    .and_then(|r| futures::future::ready(r.error_for_status()))
+                    .and_then(|r| r.bytes());
+
+                match tokio::time::timeout(Duration::from_secs(2), pending_request)
+                    .await
+                    .map_err(Error::from)
+                    .and_then(|result| result.map_err(Error::from))
+                {
+                    Ok(body) => return Ok(body),
+                    Err(e) if n <= max_retries => {
+                        eprintln!("non-fatal error: {e}... Retrying");
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+                        n += 1;
                         continue;
+                    }
+                    Err(e) => {
+                        return Err(e);
                     }
                 }
             }
-            Err(anyhow::format_err!("timeout while performing HTTP request"))
         })
     };
 
