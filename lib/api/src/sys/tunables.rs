@@ -208,7 +208,7 @@ mod tests {
         }
 
         // Will use a very small stack size of 16kb, not the 1Mb default
-        fn vmconfig(&self) -> &wasmer_vm::VMConfig {
+        fn vmconfig(&self) -> &crate::vm::VMConfig {
             &VMConfig {
                 wasm_stack_size: Some(16 * 1024),
             }
