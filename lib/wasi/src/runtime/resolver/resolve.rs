@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
+use semver::Version;
+
 use crate::runtime::resolver::{
     DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Resolution,
     ResolvedPackage, Source,
@@ -27,13 +29,21 @@ pub enum ResolveError {
     Registry(anyhow::Error),
     #[error("Dependency cycle detected: {}", print_cycle(_0))]
     Cycle(Vec<PackageId>),
+    #[error(
+        "Multiple versions of {package_name} were found {}",
+        versions.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(", "),
+    )]
+    DuplicateVersions {
+        package_name: String,
+        versions: Vec<Version>,
+    },
 }
 
 impl ResolveError {
     pub fn as_cycle(&self) -> Option<&[PackageId]> {
         match self {
             ResolveError::Cycle(cycle) => Some(cycle),
-            ResolveError::Registry(_) => None,
+            _ => None,
         }
     }
 }
@@ -95,6 +105,7 @@ async fn resolve_dependency_graph(
     }
 
     check_for_cycles(&dependencies, root_id)?;
+    check_for_duplicate_versions(dependencies.keys())?;
 
     Ok(DependencyGraph {
         root: root_id.clone(),
@@ -102,6 +113,42 @@ async fn resolve_dependency_graph(
         package_info,
         distribution,
     })
+}
+
+
+/// As a workaround for the lack of "proper" dependency merging, we'll make sure
+/// only one copy of each package is in the dependency tree. If the same package
+/// is included in the tree multiple times, they all need to use the exact same
+/// version otherwise it's an error.
+fn check_for_duplicate_versions<'a, I>(package_ids: I) -> Result<(), ResolveError>
+where
+    I: Iterator<Item = &'a PackageId>,
+{
+    let mut package_versions: HashMap<&str, HashSet<&Version>> = HashMap::new();
+
+    for PackageId {
+        package_name,
+        version,
+    } in package_ids
+    {
+        package_versions
+            .entry(package_name)
+            .or_default()
+            .insert(version);
+    }
+
+    for (package_name, versions) in package_versions {
+        if versions.len() > 1 {
+            let mut versions: Vec<_> = versions.into_iter().cloned().collect();
+            versions.sort();
+            return Err(ResolveError::DuplicateVersions {
+                package_name: package_name.to_string(),
+                versions,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 /// Check for dependency cycles by doing a Depth First Search of the graph,
@@ -555,6 +602,48 @@ mod tests {
                 filesystem: Vec::new(),
             }
         );
+    }
+
+    #[tokio::test]
+    async fn version_merging_isnt_implemented_yet() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("first", "=1.0.0")
+            .with_dependency("second", "=1.0.0");
+        builder
+            .register("first", "1.0.0")
+            .with_dependency("common", "^1.0.0");
+        builder
+            .register("second", "1.0.0")
+            .with_dependency("common", ">1.1,<1.3");
+        builder.register("common", "1.0.0");
+        builder.register("common", "1.1.0");
+        builder.register("common", "1.2.0");
+        builder.register("common", "1.5.0");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let result = resolve(&root.package_id(), &root.pkg, &registry).await;
+
+        match result {
+            Err(ResolveError::DuplicateVersions {
+                package_name,
+                versions,
+            }) => {
+                assert_eq!(package_name, "common");
+                assert_eq!(
+                    versions,
+                    [
+                        Version::parse("1.0.0").unwrap(),
+                        Version::parse("1.1.0").unwrap(),
+                        Version::parse("1.2.0").unwrap(),
+                        Version::parse("1.5.0").unwrap(),
+                    ]
+                );
+            }
+            _ => unreachable!("Expected a duplicate versions error, found {:?}"),
+        }
     }
 
     #[tokio::test]
