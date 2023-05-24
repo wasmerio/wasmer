@@ -43,6 +43,8 @@ pub mod webc_fs;
 #[cfg(feature = "webc-fs")]
 mod webc_volume_fs;
 
+pub mod limiter;
+
 pub use arc_box_file::*;
 pub use arc_file::*;
 pub use arc_fs::*;
