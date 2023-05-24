@@ -51,6 +51,7 @@ pub struct Console {
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
     capabilities: Capabilities,
+    memfs_memory_limiter: Option<virtual_fs::limiter::DynFsMemoryLimiter>,
 }
 
 impl Console {
@@ -81,6 +82,7 @@ impl Console {
             stdout: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             stderr: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             capabilities: Default::default(),
+            memfs_memory_limiter: None,
         }
     }
 
@@ -143,6 +145,14 @@ impl Console {
         self
     }
 
+    pub fn with_mem_fs_memory_limiter(
+        mut self,
+        limiter: virtual_fs::limiter::DynFsMemoryLimiter,
+    ) -> Self {
+        self.memfs_memory_limiter = Some(limiter);
+        self
+    }
+
     pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), SpawnError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&[u8]> = Vec::new();
@@ -192,6 +202,18 @@ impl Console {
 
         // TODO: no unwrap!
         let env = WasiEnv::from_init(env_init).unwrap();
+
+        if let Some(limiter) = &self.memfs_memory_limiter {
+            match &env.state.fs.root_fs {
+                crate::fs::WasiFsRoot::Sandbox(tmpfs) => {
+                    tmpfs.set_memory_limiter(limiter.clone());
+                }
+                crate::fs::WasiFsRoot::Backing(_) => {
+                    tracing::error!("tried to set a tmpfs memory limiter on a backing fs");
+                    return Err(VirtualBusError::InvokeFailed);
+                }
+            }
+        }
 
         // TODO: this should not happen here...
         // Display the welcome message
