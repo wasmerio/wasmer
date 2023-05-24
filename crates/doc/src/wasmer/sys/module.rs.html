@@ -323,8 +323,10 @@
                 <span class="kw">return </span><span class="prelude-val">Err</span>(InstantiationError::DifferentStores);
             }
         }
+        <span class="kw">let </span>signal_handler = store.as_store_ref().signal_handler();
         <span class="kw">let </span><span class="kw-2">mut </span>store_mut = store.as_store_mut();
         <span class="kw">let </span>(engine, objects) = store_mut.engine_and_objects_mut();
+        <span class="kw">let </span>config = engine.tunables().vmconfig();
         <span class="kw">unsafe </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = <span class="self">self</span>.artifact.instantiate(
                 engine.tunables(),
@@ -340,10 +342,8 @@
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            </span><span class="self">self</span>.artifact.finish_instantiation(
-                store.as_store_ref().signal_handler(),
-                <span class="kw-2">&amp;mut </span>instance_handle,
-            )<span class="question-mark">?</span>;
+            </span><span class="self">self</span>.artifact
+                .finish_instantiation(config, signal_handler, <span class="kw-2">&amp;mut </span>instance_handle)<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(instance_handle)
         }

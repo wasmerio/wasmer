@@ -1538,6 +1538,8 @@
 <span id="1538">1538</span>
 <span id="1539">1539</span>
 <span id="1540">1540</span>
+<span id="1541">1541</span>
+<span id="1542">1542</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1561,7 +1563,7 @@
 };
 <span class="kw">use crate</span>::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
 <span class="kw">use crate</span>::{LinearMemory, NotifyLocation};
-<span class="kw">use crate</span>::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
+<span class="kw">use crate</span>::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 <span class="kw">pub use </span>allocator::InstanceAllocator;
 <span class="kw">use </span>memoffset::offset_of;
 <span class="kw">use </span>more_asserts::assert_lt;
@@ -1866,6 +1868,7 @@
     <span class="doccomment">/// Invoke the WebAssembly start function of the instance, if one is present.
     </span><span class="kw">fn </span>invoke_start_function(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        config: <span class="kw-2">&amp;</span>VMConfig,
         trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
         <span class="kw">let </span>start_index = <span class="kw">match </span><span class="self">self</span>.module.start_function {
@@ -1896,7 +1899,7 @@
 
         <span class="comment">// Make the call.
         </span><span class="kw">unsafe </span>{
-            catch_traps(trap_handler, || {
+            catch_traps(trap_handler, config, || {
                 mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(VMFunctionContext)&gt;(
                     callee_address,
                 )(callee_vmctx)
@@ -2683,6 +2686,7 @@
     /// Only safe to call immediately after instantiation.
     </span><span class="kw">pub unsafe fn </span>finish_instantiation(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        config: <span class="kw-2">&amp;</span>VMConfig,
         trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
         data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">&#39;_</span>&gt;],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
@@ -2694,7 +2698,7 @@
 
         <span class="comment">// The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        </span>instance.invoke_start_function(trap_handler)<span class="question-mark">?</span>;
+        </span>instance.invoke_start_function(config, trap_handler)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 

@@ -657,6 +657,9 @@
 <span id="655">655</span>
 <span id="656">656</span>
 <span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::externals::function::{HostFunction, WithEnv, WithoutEnv};
 <span class="kw">use </span><span class="kw">crate</span>::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
@@ -930,10 +933,13 @@
             <span class="kw">let </span><span class="kw-2">mut </span>r;
             <span class="comment">// TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             </span><span class="kw">loop </span>{
-                <span class="kw">let </span>vm_function = <span class="self">self</span>.handle.get(store.as_store_ref().objects());
+                <span class="kw">let </span>storeref = store.as_store_ref();
+                <span class="kw">let </span>vm_function = <span class="self">self</span>.handle.get(storeref.objects());
+                <span class="kw">let </span>config = storeref.engine().tunables().vmconfig();
                 r = <span class="kw">unsafe </span>{
                     wasmer_call_trampoline(
                         store.as_store_ref().signal_handler(),
+                        config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,
                         vm_function.anyfunc.as_ptr().as_ref().func_ptr,

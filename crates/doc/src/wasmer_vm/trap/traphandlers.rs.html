@@ -1065,6 +1065,12 @@
 <span id="1065">1065</span>
 <span id="1066">1066</span>
 <span id="1067">1067</span>
+<span id="1068">1068</span>
+<span id="1069">1069</span>
+<span id="1070">1070</span>
+<span id="1071">1071</span>
+<span id="1072">1072</span>
+<span id="1073">1073</span>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1090,6 +1096,13 @@
 <span class="kw">use </span>std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 <span class="kw">use </span>std::sync::{Mutex, Once};
 <span class="kw">use </span>wasmer_types::TrapCode;
+
+<span class="doccomment">/// Configuration for the the runtime VM
+/// Currently only the stack size is configurable
+</span><span class="kw">pub struct </span>VMConfig {
+    <span class="doccomment">/// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
+    </span><span class="kw">pub </span>wasm_stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+}
 
 <span class="comment">// TrapInformation can be stored in the &quot;Undefined Instruction&quot; itself.
 // On x86_64, 0xC? select a &quot;Register&quot; for the Mod R/M part of &quot;ud1&quot; (so with no other bytes after)
@@ -1680,12 +1693,13 @@
 /// function pointers.
 </span><span class="kw">pub unsafe fn </span>wasmer_call_trampoline(
     trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+    config: <span class="kw-2">&amp;</span>VMConfig,
     vmctx: VMFunctionContext,
     trampoline: VMTrampoline,
     callee: <span class="kw-2">*const </span>VMFunctionBody,
     values_vec: <span class="kw-2">*mut </span>u8,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
-    catch_traps(trap_handler, || {
+    catch_traps(trap_handler, config, || {
         mem::transmute::&lt;<span class="kw">_</span>, <span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(VMFunctionContext, <span class="kw-2">*const </span>VMFunctionBody, <span class="kw-2">*mut </span>u8)&gt;(
             trampoline,
         )(vmctx, callee, values_vec);
@@ -1700,6 +1714,7 @@
 /// Highly unsafe since `closure` won&#39;t have any dtors run.
 </span><span class="kw">pub unsafe fn </span>catch_traps&lt;F, R&gt;(
     trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
+    config: <span class="kw-2">&amp;</span>VMConfig,
     closure: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;R, Trap&gt;
 <span class="kw">where
@@ -1707,13 +1722,10 @@
 {
     <span class="comment">// Ensure that per-thread initialization is done.
     </span>lazy_per_thread_init()<span class="question-mark">?</span>;
-
-    on_wasm_stack(
-        DEFAULT_STACK_SIZE.load(Ordering::Relaxed),
-        trap_handler,
-        closure,
-    )
-    .map_err(UnwindReason::into_trap)
+    <span class="kw">let </span>stack_size = config
+        .wasm_stack_size
+        .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
+    on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 <span class="comment">// We need two separate thread-local variables here:

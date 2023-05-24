@@ -209,6 +209,12 @@
 <span id="207">207</span>
 <span id="208">208</span>
 <span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{FromToNativeWasmType, RuntimeError, TypedFunction, WasmTypeList};
 <span class="kw">use </span>wasmer_types::RawValue;
 
@@ -260,9 +266,12 @@
 
                 <span class="kw">let </span><span class="kw-2">mut </span>r;
                 <span class="kw">loop </span>{
+                    <span class="kw">let </span>storeref = store.as_store_ref();
+                    <span class="kw">let </span>config = storeref.engine().tunables().vmconfig();
                     r = <span class="kw">unsafe </span>{
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
+                            config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
@@ -339,9 +348,12 @@
 
                 <span class="kw">let </span><span class="kw-2">mut </span>r;
                 <span class="kw">loop </span>{
+                    <span class="kw">let </span>storeref = store.as_store_ref();
+                    <span class="kw">let </span>config = storeref.engine().tunables().vmconfig();
                     r = <span class="kw">unsafe </span>{
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
+                            config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,

@@ -354,6 +354,18 @@
 <span id="354">354</span>
 <span id="355">355</span>
 <span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::error::LinkError;
 <span class="kw">use </span>std::ptr::NonNull;
 <span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -363,7 +375,7 @@
 };
 <span class="kw">use </span>wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 <span class="kw">use </span>wasmer_vm::{MemoryStyle, TableStyle};
-<span class="kw">use </span>wasmer_vm::{VMGlobal, VMMemory, VMTable};
+<span class="kw">use </span>wasmer_vm::{VMConfig, VMGlobal, VMMemory, VMTable};
 <span class="kw">use </span>wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
 <span class="doccomment">/// An engine delegates the creation of memories, tables, and globals
@@ -499,6 +511,18 @@
         }
 
         <span class="prelude-val">Ok</span>(vmctx_globals)
+    }
+
+    <span class="doccomment">/// Get the VMConfig for this tunables
+    /// Currently, VMConfig have optional Stack size
+    /// If wasm_stack_size is left to None (the default value)
+    /// then the global stack size will be use
+    /// Else the defined stack size will be used. Size is in byte
+    /// and the value might be rounded to sane value is needed.
+    </span><span class="kw">fn </span>vmconfig(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMConfig {
+        <span class="kw-2">&amp;</span>VMConfig {
+            wasm_stack_size: <span class="prelude-val">None</span>,
+        }
     }
 }
 

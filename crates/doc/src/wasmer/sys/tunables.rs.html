@@ -273,6 +273,13 @@
 <span id="271">271</span>
 <span id="272">272</span>
 <span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
 </pre><pre class="rust"><code><span class="kw">pub use </span>wasmer_compiler::BaseTunables;
 
 <span class="comment">// All BaseTunable definition now is in wasmer_compile crate
@@ -289,8 +296,8 @@
     <span class="kw">use </span>wasmer_compiler::Tunables;
     <span class="kw">use </span>wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
     <span class="kw">use </span>wasmer_vm::{
-        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition,
+        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMConfig, VMMemory, VMMemoryDefinition,
+        VMTable, VMTableDefinition,
     };
 
     <span class="attribute">#[test]
@@ -480,6 +487,13 @@
             vm_definition_location: NonNull&lt;VMTableDefinition&gt;,
         ) -&gt; <span class="prelude-ty">Result</span>&lt;VMTable, String&gt; {
             VMTable::from_definition(ty, style, vm_definition_location)
+        }
+
+        <span class="comment">// Will use a very small stack size of 16kb, not the 1Mb default
+        </span><span class="kw">fn </span>vmconfig(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::vm::VMConfig {
+            <span class="kw-2">&amp;</span>VMConfig {
+                wasm_stack_size: <span class="prelude-val">Some</span>(<span class="number">16 </span>* <span class="number">1024</span>),
+            }
         }
     }
 

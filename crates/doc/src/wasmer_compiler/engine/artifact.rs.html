@@ -902,6 +902,7 @@
 <span id="902">902</span>
 <span id="903">903</span>
 <span id="904">904</span>
+<span id="905">905</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -939,7 +940,7 @@
 };
 <span class="kw">use </span>wasmer_types::{SerializableModule, SerializeError};
 <span class="kw">use </span>wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-<span class="kw">use </span>wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
+<span class="kw">use </span>wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 <span class="kw">pub struct </span>AllocatedArtifact {
     finished_functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
@@ -1461,6 +1462,7 @@
     </span><span class="attribute">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub unsafe fn </span>finish_instantiation(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        config: <span class="kw-2">&amp;</span>VMConfig,
         trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
         handle: <span class="kw-2">&amp;mut </span>VMInstance,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
@@ -1473,7 +1475,7 @@
             })
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         handle
-            .finish_instantiation(trap_handler, <span class="kw-2">&amp;</span>data_initializers)
+            .finish_instantiation(config, trap_handler, <span class="kw-2">&amp;</span>data_initializers)
             .map_err(InstantiationError::Start)
     }
 
