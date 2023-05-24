@@ -261,6 +261,10 @@
 <span id="261">261</span>
 <span id="262">262</span>
 <span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
 <span class="kw">use crate</span>::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
@@ -357,7 +361,7 @@
     /// Right now we are not doing any extra work for validation, but
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
-    </span><span class="kw">pub unsafe fn </span>deserialize(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+    </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice(metadata_slice)<span class="question-mark">?</span>;
         <span class="self">Self</span>::deserialize_from_archive(archived)
     }
@@ -367,7 +371,11 @@
     /// RKYV serialization (any length) + POS (8 bytes)
     ///
     /// Unlike [`Self::deserialize`], this function will validate the data.
-    </span><span class="kw">pub fn </span>deserialize_checked(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+    ///
+    /// # Safety
+    /// Unsafe because it loads executable code into memory.
+    /// The loaded bytes must be trusted.
+    </span><span class="kw">pub unsafe fn </span>deserialize(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice_checked(metadata_slice)<span class="question-mark">?</span>;
         <span class="self">Self</span>::deserialize_from_archive(archived)
     }

@@ -254,6 +254,39 @@
 <span id="252">252</span>
 <span id="253">253</span>
 <span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
 </pre><pre class="rust"><code><span class="kw">use </span>core::ops::Deref;
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -391,24 +424,57 @@
         ))
     }
 
-    <span class="attribute">#[deprecated(since = <span class="string">&quot;3.2.0&quot;</span>)]
-    #[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
-    </span><span class="doccomment">/// Deserializes a WebAssembly module
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
+    </span><span class="doccomment">/// Deserializes a WebAssembly module which was previously serialized with
+    /// `Module::serialize`.
+    ///
+    /// NOTE: you should almost always prefer [`Self::deserialize`].
     ///
     /// # Safety
+    /// See [`Artifact::deserialize_unchecked`].
+    </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        bytes: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes)<span class="question-mark">?</span>))
+    }
+
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
+    </span><span class="doccomment">/// Deserializes a WebAssembly module which was previously serialized with
+    /// `Module::serialize`.
     ///
-    /// The serialized content must represent a serialized WebAssembly module.
+    /// # Safety
+    /// See [`Artifact::deserialize`].
     </span><span class="kw">pub unsafe fn </span>deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
         <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes)<span class="question-mark">?</span>))
     }
 
-    <span class="attribute">#[deprecated(since = <span class="string">&quot;3.2.0&quot;</span>)]
-    #[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
-    </span><span class="doccomment">/// Deserializes a WebAssembly module from a path
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
+    </span><span class="doccomment">/// Load a serialized WebAssembly module from a file and deserialize it.
+    ///
+    /// NOTE: you should almost always prefer [`Self::deserialize_from_file`].
     ///
     /// # Safety
+    /// See [`Artifact::deserialize_unchecked`].
+    </span><span class="kw">pub unsafe fn </span>deserialize_from_file_unchecked(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_ref: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
+        <span class="comment">// read the whole file
+        </span>file.read_to_end(<span class="kw-2">&amp;mut </span>buffer)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
+            buffer.as_slice(),
+        )<span class="question-mark">?</span>))
+    }
+
+    <span class="attribute">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
+    </span><span class="doccomment">/// Load a serialized WebAssembly module from a file and deserialize it.
     ///
-    /// The file&#39;s content must represent a serialized WebAssembly module.
+    /// # Safety
+    /// See [`Artifact::deserialize`].
     </span><span class="kw">pub unsafe fn </span>deserialize_from_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,

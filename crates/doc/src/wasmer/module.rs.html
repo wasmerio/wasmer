@@ -472,6 +472,18 @@
 <span id="470">470</span>
 <span id="471">471</span>
 <span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
 </pre><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::fs;
@@ -693,9 +705,9 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Deserializes a serialized Module binary into a `Module`.
+    <span class="doccomment">/// Deserializes a serialized module binary into a `Module`.
     ///
-    /// Note: You should usually prefer the safe [`Module::deserialize_checked`].
+    /// Note: You should usually prefer the safer [`Module::deserialize`].
     ///
     /// # Important
     ///
@@ -724,11 +736,13 @@
     /// # Ok(())
     /// # }
     /// ```
-    </span><span class="kw">pub unsafe fn </span>deserialize(
+    </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize(engine, bytes)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_unchecked(
+            engine, bytes,
+        )<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Deserializes a serialized Module binary into a `Module`.
@@ -746,17 +760,21 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let module = Module::deserialize_checked(&amp;store, serialized_data)?;
+    /// let module = Module::deserialize(&amp;store, serialized_data)?;
     /// # Ok(())
     /// # }
     /// ```
-    </span><span class="kw">pub fn </span>deserialize_checked(
+    ///
+    /// # Safety
+    /// This function is inherently **unsafe**, because it loads executable code
+    /// into memory.
+    /// The loaded bytes must be trusted to contain a valid artifact previously
+    /// built with [`Self::serialize`].
+    </span><span class="kw">pub unsafe fn </span>deserialize(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_checked(
-            engine, bytes,
-        )<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize(engine, bytes)<span class="question-mark">?</span>))
     }
 
     <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.
@@ -772,11 +790,15 @@
     /// # Ok(())
     /// # }
     /// ```
-    </span><span class="kw">pub fn </span>deserialize_from_file_checked(
+    ///
+    /// # Safety
+    ///
+    /// See [`Self::deserialize`].
+    </span><span class="kw">pub unsafe fn </span>deserialize_from_file(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_from_file_checked(
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_from_file(
             engine, path,
         )<span class="question-mark">?</span>))
     }
@@ -784,9 +806,11 @@
     <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.
     /// &gt; Note: the module has to be serialized before with the `serialize` method.
     ///
+    /// You should usually prefer the safer [`Module::deserialize_from_file`].
+    ///
     /// # Safety
     ///
-    /// Please check [`Module::deserialize`].
+    /// Please check [`Module::deserialize_unchecked`].
     ///
     /// # Usage
     ///
@@ -794,15 +818,15 @@
     /// # use wasmer::*;
     /// # let mut store = Store::default();
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
-    /// let module = Module::deserialize_from_file(&amp;store, path)?;
+    /// let module = Module::deserialize_from_file_unchecked(&amp;store, path)?;
     /// # Ok(())
     /// # }
     /// ```
-    </span><span class="kw">pub unsafe fn </span>deserialize_from_file(
+    </span><span class="kw">pub unsafe fn </span>deserialize_from_file_unchecked(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_from_file(
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize_from_file_unchecked(
             engine, path,
         )<span class="question-mark">?</span>))
     }

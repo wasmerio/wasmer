@@ -164,7 +164,7 @@
 </span><span class="kw">pub const </span>WASMER_TARGET_PATH: <span class="kw-2">&amp;</span>str =
     <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../target/release/&quot;</span>);
 <span class="attribute">#[cfg(not(feature = <span class="string">&quot;debug&quot;</span>))]
-</span><span class="kw">pub const </span>WASMER_TARGET_PATH2: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(
+</span><span class="kw">pub const </span>WASMER_TARGET_PATH_2: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(
     <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
     <span class="string">&quot;/../../../target/&quot;</span>,
     <span class="macro">env!</span>(<span class="string">&quot;CARGO_BUILD_TARGET&quot;</span>),
@@ -184,7 +184,7 @@
             .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WASMER_TARGET_PATH, LIBWASMER_FILENAME)),
     );
     <span class="kw">if </span>!ret.exists() {
-        ret = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WASMER_TARGET_PATH2, LIBWASMER_FILENAME));
+        ret = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WASMER_TARGET_PATH_2, LIBWASMER_FILENAME));
     }
     <span class="kw">if </span>!ret.exists() {
         <span class="macro">panic!</span>(<span class="string">&quot;Could not find libwasmer path! {:?}&quot;</span>, ret);
@@ -199,7 +199,7 @@
             .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;{}wasmer&quot;</span>, WASMER_TARGET_PATH)),
     );
     <span class="kw">if </span>!ret.exists() {
-        ret = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;{}wasmer&quot;</span>, WASMER_TARGET_PATH2));
+        ret = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;{}wasmer&quot;</span>, WASMER_TARGET_PATH_2));
     }
     <span class="kw">if </span>!ret.exists() {
         ret = <span class="kw">match </span>get_repo_root_path() {

@@ -254,7 +254,7 @@
             key.to_string()
         };
         <span class="kw">let </span>path = <span class="self">self</span>.path.join(filename);
-        <span class="kw">let </span>ret = Module::deserialize_from_file_checked(engine, path.clone());
+        <span class="kw">let </span>ret = Module::deserialize_from_file(engine, path.clone());
         <span class="kw">if </span>ret.is_err() {
             <span class="comment">// If an error occurs while deserializing then we can not trust it anymore
             // so delete the cache file

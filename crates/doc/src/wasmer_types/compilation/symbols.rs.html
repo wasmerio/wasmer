@@ -346,7 +346,7 @@
     /// Right now we are not doing any extra work for validation, but
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
-    </span><span class="kw">pub unsafe fn </span>deserialize(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+    </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice(metadata_slice)<span class="question-mark">?</span>;
         <span class="self">Self</span>::deserialize_from_archive(archived)
     }
@@ -354,7 +354,7 @@
     <span class="doccomment">/// Deserialize a Module from a slice.
     /// The slice must have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
-    </span><span class="kw">pub fn </span>deserialize_checked(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+    </span><span class="kw">pub fn </span>deserialize(metadata_slice: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="kw">let </span>archived = <span class="self">Self</span>::archive_from_slice_checked(metadata_slice)<span class="question-mark">?</span>;
         <span class="self">Self</span>::deserialize_from_archive(archived)
     }

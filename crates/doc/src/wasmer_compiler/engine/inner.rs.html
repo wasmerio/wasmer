@@ -479,6 +479,18 @@
 <span id="479">479</span>
 <span id="480">480</span>
 <span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
@@ -672,44 +684,56 @@
     }
 
     <span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    </span><span class="doccomment">/// Deserializes a WebAssembly module
+    </span><span class="doccomment">/// Deserializes a WebAssembly module which was previously serialized with
+    /// [`Module::serialize`].
     ///
     /// # Safety
     ///
-    /// The serialized content must represent a serialized WebAssembly module.
+    /// See [`Artifact::deserialize_unchecked`].
+    </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        bytes: <span class="kw-2">&amp;</span>[u8],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(<span class="self">self</span>, bytes)<span class="question-mark">?</span>))
+    }
+
+    <span class="doccomment">/// Deserializes a WebAssembly module which was previously serialized with
+    /// [`Module::serialize`].
+    ///
+    /// # Safety
+    ///
+    /// See [`Artifact::deserialize`].
+    </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     </span><span class="kw">pub unsafe fn </span>deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
         <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(<span class="self">self</span>, bytes)<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Deserializes a WebAssembly module
-    </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    </span><span class="kw">pub fn </span>deserialize_checked(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_checked(<span class="self">self</span>, bytes)<span class="question-mark">?</span>))
-    }
-
-    <span class="doccomment">/// Deserializes a WebAssembly module from a path
-    </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    </span><span class="kw">pub fn </span>deserialize_from_file_checked(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        file_ref: <span class="kw-2">&amp;</span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="kw">let </span>contents = std::fs::read(file_ref)<span class="question-mark">?</span>;
-        <span class="self">self</span>.deserialize_checked(<span class="kw-2">&amp;</span>contents)
-    }
-
-    <span class="doccomment">/// Deserialize from a file path.
+    <span class="doccomment">/// Deserializes a WebAssembly module from a path.
     ///
     /// # Safety
-    ///
     /// See [`Artifact::deserialize`].
     </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     </span><span class="kw">pub unsafe fn </span>deserialize_from_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="kw">let </span>contents = std::fs::read(file_ref)<span class="question-mark">?</span>;
+        <span class="self">self</span>.deserialize(<span class="kw-2">&amp;</span>contents)
+    }
+
+    <span class="doccomment">/// Deserialize from a file path.
+    ///
+    /// # Safety
+    ///
+    /// See [`Artifact::deserialize_unchecked`].
+    </span><span class="attribute">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="kw">pub unsafe fn </span>deserialize_from_file_unchecked(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_ref: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
         <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
         <span class="kw">let </span>mmap = Mmap::map(<span class="kw-2">&amp;</span>file)<span class="question-mark">?</span>;
-        <span class="self">self</span>.deserialize(<span class="kw-2">&amp;</span>mmap)
+        <span class="self">self</span>.deserialize_unchecked(<span class="kw-2">&amp;</span>mmap)
     }
 
     <span class="doccomment">/// A unique identifier for this object.
