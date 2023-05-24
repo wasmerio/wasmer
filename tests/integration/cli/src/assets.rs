@@ -25,7 +25,7 @@ pub const WASMER_TARGET_PATH_2: &str = concat!(
 pub const WASMER_TARGET_PATH: &str =
     concat!(env!("CARGO_MANIFEST_DIR"), "/../../../target/release/");
 #[cfg(not(feature = "debug"))]
-pub const WASMER_TARGET_PATH2: &str = concat!(
+pub const WASMER_TARGET_PATH_2: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../target/",
     env!("CARGO_BUILD_TARGET"),
@@ -45,7 +45,7 @@ pub fn get_libwasmer_path() -> PathBuf {
             .unwrap_or_else(|_| format!("{}{}", WASMER_TARGET_PATH, LIBWASMER_FILENAME)),
     );
     if !ret.exists() {
-        ret = PathBuf::from(format!("{}{}", WASMER_TARGET_PATH2, LIBWASMER_FILENAME));
+        ret = PathBuf::from(format!("{}{}", WASMER_TARGET_PATH_2, LIBWASMER_FILENAME));
     }
     if !ret.exists() {
         panic!("Could not find libwasmer path! {:?}", ret);
@@ -60,7 +60,7 @@ pub fn get_wasmer_path() -> PathBuf {
             .unwrap_or_else(|_| format!("{}wasmer", WASMER_TARGET_PATH)),
     );
     if !ret.exists() {
-        ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH2));
+        ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH_2));
     }
     if !ret.exists() {
         ret = match get_repo_root_path() {

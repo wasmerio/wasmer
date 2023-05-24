@@ -226,14 +226,6 @@ unsafe impl wasmer::FromToNativeWasmType for Oflags {
     }
 }
 
-impl PartialEq for OptionCid {
-    fn eq(&self, other: &Self) -> bool {
-        self.tag == other.tag && self.cid == other.cid
-    }
-}
-
-impl Eq for OptionCid {}
-
 #[derive(Copy, Clone)]
 pub enum PrestatEnum {
     Dir { pr_name_len: u32 },

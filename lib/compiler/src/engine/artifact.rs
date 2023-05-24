@@ -35,7 +35,7 @@ use wasmer_types::{
 };
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
+use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 pub struct AllocatedArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -143,35 +143,14 @@ impl Artifact {
         ))
     }
 
-    /// Deserialize a ArtifactBuild
+    /// Deserialize a serialized artifact.
     ///
     /// # Safety
-    /// This function is unsafe because rkyv reads directly without validating
-    /// the data.
-    pub fn deserialize_checked(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        if !ArtifactBuild::is_deserializable(bytes) {
-            return Err(DeserializeError::Incompatible(
-                "Magic header not found".to_string(),
-            ));
-        }
-
-        let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
-
-        let metadata_len = MetadataHeader::parse(bytes)?;
-        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
-
-        let serializable = SerializableModule::deserialize_checked(metadata_slice)?;
-        let artifact = ArtifactBuild::from_serializable(serializable);
-        let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact, engine.target())
-            .map_err(DeserializeError::Compiler)
-    }
-
-    /// Deserialize a ArtifactBuild
-    ///
-    /// # Safety
-    /// This function is unsafe because rkyv reads directly without validating the data.
+    /// This function loads executable code into memory.
+    /// You must trust the loaded bytes to be valid for the chosen engine and
+    /// for the host CPU architecture.
+    /// In contrast to [`Self::deserialize_unchecked`] the artifact layout is
+    /// validated, which increases safety.
     pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !ArtifactBuild::is_deserializable(bytes) {
             let static_artifact = Self::deserialize_object(engine, bytes);
@@ -195,6 +174,46 @@ impl Artifact {
         let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
 
         let serializable = SerializableModule::deserialize(metadata_slice)?;
+        let artifact = ArtifactBuild::from_serializable(serializable);
+        let mut inner_engine = engine.inner_mut();
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
+            .map_err(DeserializeError::Compiler)
+    }
+
+    /// Deserialize a serialized artifact.
+    ///
+    /// NOTE: You should prefer [`Self::deserialize`].
+    ///
+    /// # Safety
+    /// See [`Self::deserialize`].
+    /// In contrast to the above, this function skips artifact layout validation,
+    /// which increases the risk of loading invalid artifacts.
+    pub unsafe fn deserialize_unchecked(
+        engine: &Engine,
+        bytes: &[u8],
+    ) -> Result<Self, DeserializeError> {
+        if !ArtifactBuild::is_deserializable(bytes) {
+            let static_artifact = Self::deserialize_object(engine, bytes);
+            match static_artifact {
+                Ok(v) => {
+                    return Ok(v);
+                }
+                Err(err) => {
+                    eprintln!("Could not deserialize as static object: {}", err);
+                }
+            }
+            return Err(DeserializeError::Incompatible(
+                "The provided bytes are not wasmer-universal".to_string(),
+            ));
+        }
+
+        let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
+
+        let metadata_len = MetadataHeader::parse(bytes)?;
+        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
+
+        let serializable = SerializableModule::deserialize_unchecked(metadata_slice)?;
         let artifact = ArtifactBuild::from_serializable(serializable);
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target())
@@ -538,6 +557,7 @@ impl Artifact {
     #[allow(clippy::result_large_err)]
     pub unsafe fn finish_instantiation(
         &self,
+        config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
@@ -550,7 +570,7 @@ impl Artifact {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(trap_handler, &data_initializers)
+            .finish_instantiation(config, trap_handler, &data_initializers)
             .map_err(InstantiationError::Start)
     }
 

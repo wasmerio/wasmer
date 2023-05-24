@@ -227,6 +227,18 @@ impl Module {
         ));
     }
 
+    pub unsafe fn deserialize_unchecked(
+        _engine: &impl AsEngineRef,
+        _bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        #[cfg(feature = "js-serializable-module")]
+        return Self::from_binary(_engine, &_bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
+
+        #[cfg(not(feature = "js-serializable-module"))]
+        return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
+    }
+
     pub unsafe fn deserialize(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,
@@ -239,16 +251,12 @@ impl Module {
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
     }
 
-    pub fn deserialize_checked(
-        _engine: &impl AsEngineRef,
-        _bytes: impl IntoBytes,
+    pub unsafe fn deserialize_from_file_unchecked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
-
-        #[cfg(not(feature = "js-serializable-module"))]
-        return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
+        let bytes = std::fs::read(path.as_ref())?;
+        Self::deserialize(engine, bytes)
     }
 
     pub unsafe fn deserialize_from_file(
@@ -257,14 +265,6 @@ impl Module {
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
         Self::deserialize(engine, bytes)
-    }
-
-    pub fn deserialize_from_file_checked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize_checked(engine, bytes)
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {

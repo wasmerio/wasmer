@@ -102,10 +102,6 @@ pub struct Wasi {
     #[clap(long)]
     pub http_client: bool,
 
-    /// Allow WASI modules to import multiple versions of WASI without a warning.
-    #[clap(long = "allow-multiple-wasi-versions")]
-    pub allow_multiple_wasi_versions: bool,
-
     /// Require WASI modules to only import 1 version of WASI.
     #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,

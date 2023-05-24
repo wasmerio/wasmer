@@ -5,84 +5,12 @@ use cfg_if::cfg_if;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
-use wasmer_wasix_types::wasi::{BusErrno, Rights};
-
-use crate::VirtualBusError;
-
 cfg_if! {
     if #[cfg(feature = "host-fs")] {
         pub use virtual_fs::host_fs::{Stderr, Stdin, Stdout};
     } else {
         pub use virtual_fs::mem_fs::{Stderr, Stdin, Stdout};
     }
-}
-
-pub fn vbus_error_into_bus_errno(bus_error: VirtualBusError) -> BusErrno {
-    use VirtualBusError::*;
-    match bus_error {
-        Serialization => BusErrno::Ser,
-        Deserialization => BusErrno::Des,
-        InvalidWapm => BusErrno::Wapm,
-        FetchFailed => BusErrno::Fetch,
-        CompileError => BusErrno::Compile,
-        InvalidABI => BusErrno::Abi,
-        Aborted => BusErrno::Aborted,
-        BadHandle => BusErrno::Badhandle,
-        InvalidTopic => BusErrno::Topic,
-        BadCallback => BusErrno::Badcb,
-        Unsupported => BusErrno::Unsupported,
-        BadRequest => BusErrno::Badrequest,
-        AccessDenied => BusErrno::Denied,
-        InternalError => BusErrno::Internal,
-        MemoryAllocationFailed => BusErrno::Alloc,
-        InvokeFailed => BusErrno::Invoke,
-        AlreadyConsumed => BusErrno::Consumed,
-        MemoryAccessViolation => BusErrno::Memviolation,
-        UnknownError => BusErrno::Unknown,
-        NotFound => BusErrno::Unknown,
-    }
-}
-
-pub fn bus_errno_into_vbus_error(bus_error: BusErrno) -> VirtualBusError {
-    use VirtualBusError::*;
-    match bus_error {
-        BusErrno::Ser => Serialization,
-        BusErrno::Des => Deserialization,
-        BusErrno::Wapm => InvalidWapm,
-        BusErrno::Fetch => FetchFailed,
-        BusErrno::Compile => CompileError,
-        BusErrno::Abi => InvalidABI,
-        BusErrno::Aborted => Aborted,
-        BusErrno::Badhandle => BadHandle,
-        BusErrno::Topic => InvalidTopic,
-        BusErrno::Badcb => BadCallback,
-        BusErrno::Unsupported => Unsupported,
-        BusErrno::Badrequest => BadRequest,
-        BusErrno::Denied => AccessDenied,
-        BusErrno::Internal => InternalError,
-        BusErrno::Alloc => MemoryAllocationFailed,
-        BusErrno::Invoke => InvokeFailed,
-        BusErrno::Consumed => AlreadyConsumed,
-        BusErrno::Memviolation => MemoryAccessViolation,
-        BusErrno::Unknown => UnknownError,
-        BusErrno::Success => UnknownError,
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) fn bus_read_rights() -> Rights {
-    Rights::FD_FDSTAT_SET_FLAGS
-        .union(Rights::FD_FILESTAT_GET)
-        .union(Rights::FD_READ)
-        .union(Rights::POLL_FD_READWRITE)
-}
-
-#[allow(dead_code)]
-pub(crate) fn bus_write_rights() -> Rights {
-    Rights::FD_FDSTAT_SET_FLAGS
-        .union(Rights::FD_FILESTAT_GET)
-        .union(Rights::FD_WRITE)
-        .union(Rights::POLL_FD_READWRITE)
 }
 
 #[derive(Debug, Clone)]

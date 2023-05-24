@@ -448,7 +448,7 @@ impl crate::FileOpener for FileSystem {
                 // Write lock.
                 let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
-                let file = File::new();
+                let file = File::new(fs.limiter.clone());
 
                 // Creating the file in the storage.
                 let inode_of_file = fs.storage.vacant_entry().key();

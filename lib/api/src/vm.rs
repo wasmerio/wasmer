@@ -22,7 +22,7 @@ pub(crate) use crate::sys::vm::{
 pub use crate::js::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
 
 #[cfg(feature = "sys")]
-pub use wasmer_vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
+pub use wasmer_vm::{VMConfig, VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};
 
 #[cfg(feature = "jsc")]
 pub use crate::jsc::vm::{VMFunction, VMGlobal, VMMemory, VMSharedMemory, VMTable};

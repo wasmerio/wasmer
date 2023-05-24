@@ -9,7 +9,7 @@ use std::{
 };
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-use virtual_fs::{FsError, VirtualFile};
+use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
 use virtual_net::NetworkError;
 use wasmer_wasix_types::{
     types::Eventtype,
@@ -29,6 +29,7 @@ pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),
     EventNotifications(Arc<NotificationInner>),
     Socket { inner: Arc<InodeSocketInner> },
+    Pipe { pipe: Arc<RwLock<Box<VirtualPipe>>> },
 }
 
 pub(crate) struct InodeValFilePollGuard {
@@ -56,6 +57,9 @@ impl InodeValFilePollGuard {
                 handle: Some(handle),
                 ..
             } => InodeValFilePollGuardMode::File(handle.clone()),
+            Kind::Pipe { pipe } => InodeValFilePollGuardMode::Pipe {
+                pipe: Arc::new(RwLock::new(Box::new(pipe.clone()))),
+            },
             _ => {
                 return None;
             }
@@ -103,6 +107,9 @@ impl std::fmt::Debug for InodeValFilePollGuard {
                     }
                     _ => write!(f, "guard-socket(fd={}), peb={})", self.fd, self.peb),
                 }
+            }
+            InodeValFilePollGuardMode::Pipe { .. } => {
+                write!(f, "guard-pipe(...)")
             }
         }
     }
@@ -196,6 +203,11 @@ impl Future for InodeValFilePollGuardJoin {
                         false
                     }
                 }
+                InodeValFilePollGuardMode::Pipe { pipe } => {
+                    let mut guard = pipe.write().unwrap();
+                    let pipe = Pin::new(guard.as_mut());
+                    pipe.poll_shutdown(cx).is_ready()
+                }
             };
             if is_closed {
                 ret.push(EventResult {
@@ -256,6 +268,11 @@ impl Future for InodeValFilePollGuardJoin {
                         }
                         Poll::Pending => Poll::Pending,
                     }
+                }
+                InodeValFilePollGuardMode::Pipe { pipe } => {
+                    let mut guard = pipe.write().unwrap();
+                    let pipe = Pin::new(guard.as_mut());
+                    pipe.poll_read_ready(cx)
                 }
             };
             match poll_result {
@@ -349,6 +366,11 @@ impl Future for InodeValFilePollGuardJoin {
                         }
                         Poll::Pending => Poll::Pending,
                     }
+                }
+                InodeValFilePollGuardMode::Pipe { pipe } => {
+                    let mut guard = pipe.write().unwrap();
+                    let pipe = Pin::new(guard.as_mut());
+                    pipe.poll_write_ready(cx)
                 }
             };
             match poll_result {
