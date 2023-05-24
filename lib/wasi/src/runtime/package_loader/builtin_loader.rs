@@ -70,7 +70,7 @@ impl BuiltinPackageLoader {
         ))
     }
 
-    #[tracing::instrument(skip_all, fields(pkg.hash=%hash))]
+    #[tracing::instrument(level = "debug", skip_all, fields(pkg.hash=%hash))]
     async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         if let Some(cached) = self.in_memory.lookup(hash) {
             return Ok(Some(cached));
