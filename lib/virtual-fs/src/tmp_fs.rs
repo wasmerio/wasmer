@@ -30,6 +30,10 @@ impl TmpFileSystem {
         Self::default()
     }
 
+    pub fn set_memory_limiter(&self, limiter: crate::limiter::DynFsMemoryLimiter) {
+        self.fs.set_memory_limiter(limiter);
+    }
+
     pub fn new_open_options_ext(&self) -> &mem_fs::FileSystem {
         self.fs.new_open_options_ext()
     }
