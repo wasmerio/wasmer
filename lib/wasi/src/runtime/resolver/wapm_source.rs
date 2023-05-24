@@ -83,7 +83,12 @@ impl Source for WapmSource {
 
         let mut summaries = Vec::new();
 
-        for pkg_version in response.data.get_package.versions {
+        let versions = match response.data.get_package {
+            Some(WapmWebQueryGetPackage { versions }) => versions,
+            None => return Ok(Vec::new()),
+        };
+
+        for pkg_version in versions {
             let version = Version::parse(&pkg_version.version)?;
             if version_constraint.matches(&version) {
                 let summary = decode_summary(pkg_version)?;
@@ -145,7 +150,7 @@ pub struct WapmWebQuery {
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryData {
     #[serde(rename = "getPackage")]
-    pub get_package: WapmWebQueryGetPackage,
+    pub get_package: Option<WapmWebQueryGetPackage>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
