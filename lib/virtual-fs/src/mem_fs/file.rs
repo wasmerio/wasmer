@@ -1304,39 +1304,22 @@ impl File {
 
 impl File {
     pub fn write(&mut self, buf: &[u8], cursor: &mut u64) -> io::Result<usize> {
-        match *cursor {
-            // The cursor is at the end of the buffer: happy path!
-            position if position == self.buffer.len() as u64 => {
-                self.buffer.extend_from_slice(buf)?;
-            }
-
-            // The cursor is at the beginning of the buffer (and the
-            // buffer is not empty, otherwise it would have been
-            // caught by the previous arm): almost a happy path!
-            0 => {
-                // FIXME(perf,theduke): make this faster, it's horrible!
-                let mut new_buffer = TrackedVec::with_capacity(
-                    self.buffer.len() + buf.len(),
-                    self.buffer.limiter().cloned(),
-                )?;
-                new_buffer.extend_from_slice(buf)?;
-                new_buffer.append(&mut self.buffer)?;
-
-                self.buffer = new_buffer;
-            }
-
-            // The cursor is somewhere in the buffer: not the happy path.
-            position => {
-                self.buffer.reserve_exact(buf.len())?;
-
-                // FIXME(perf,theduke): make this faster, it's horrible!
-                let mut remainder = self.buffer.split_off(position as usize)?;
-                self.buffer.extend_from_slice(buf)?;
-                self.buffer.append(&mut remainder)?;
-            }
+        if buf.is_empty() {
+            return Ok(0);
         }
 
-        *cursor += buf.len() as u64;
+        // Extend the data buffer if necessary.
+        let start_cursor: usize = (*cursor) as usize;
+        let end_cursor = start_cursor + buf.len();
+
+        if end_cursor > self.buffer.len() {
+            self.buffer.resize(end_cursor, 0)?;
+        }
+
+        let target = &mut self.buffer.as_mut_slice()[start_cursor..end_cursor];
+        target.copy_from_slice(buf);
+
+        *cursor = end_cursor as u64;
 
         Ok(buf.len())
     }
@@ -1397,5 +1380,54 @@ impl ReadOnlyFile {
 
     pub fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ops::Deref;
+
+    use super::*;
+
+    #[test]
+    fn test_memfs_file() {
+        let mut file = File::new(None);
+
+        let mut cursor = 0;
+
+        file.write(b"hello", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"hello");
+        assert_eq!(cursor, 5);
+
+        file.write(b" ", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"hello ");
+        assert_eq!(cursor, 6);
+
+        file.write(b"world", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"hello world");
+        assert_eq!(cursor, 11);
+
+        cursor = 0;
+        file.write(b"alpha", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"alpha world");
+        assert_eq!(cursor, 5);
+
+        cursor = 2;
+        file.write(b"ter", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"alter world");
+        assert_eq!(cursor, 5);
+
+        cursor = 6;
+        file.write(b"means", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"alter means");
+        assert_eq!(cursor, 11);
+
+        cursor = 6;
+        file.write(b"the universe!", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"alter the universe!");
+        assert_eq!(cursor, 19);
+
+        file.write(b" mkay?", &mut cursor).unwrap();
+        assert_eq!(file.buffer.deref(), b"alter the universe! mkay?");
     }
 }
