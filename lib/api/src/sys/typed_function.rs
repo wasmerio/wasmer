@@ -49,9 +49,12 @@ macro_rules! impl_native_traits {
 
                 let mut r;
                 loop {
+                    let storeref = store.as_store_ref();
+                    let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
+                            config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
@@ -128,9 +131,12 @@ macro_rules! impl_native_traits {
 
                 let mut r;
                 loop {
+                    let storeref = store.as_store_ref();
+                    let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
+                            config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,

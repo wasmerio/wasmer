@@ -132,8 +132,10 @@ impl Module {
                 return Err(InstantiationError::DifferentStores);
             }
         }
+        let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
         let (engine, objects) = store_mut.engine_and_objects_mut();
+        let config = engine.tunables().vmconfig();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
                 engine.tunables(),
@@ -149,10 +151,8 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact.finish_instantiation(
-                store.as_store_ref().signal_handler(),
-                &mut instance_handle,
-            )?;
+            self.artifact
+                .finish_instantiation(config, signal_handler, &mut instance_handle)?;
 
             Ok(instance_handle)
         }
