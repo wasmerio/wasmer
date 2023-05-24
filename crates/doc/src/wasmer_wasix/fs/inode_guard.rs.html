@@ -749,6 +749,28 @@
 <span id="747">747</span>
 <span id="748">748</span>
 <span id="749">749</span>
+<span id="750">750</span>
+<span id="751">751</span>
+<span id="752">752</span>
+<span id="753">753</span>
+<span id="754">754</span>
+<span id="755">755</span>
+<span id="756">756</span>
+<span id="757">757</span>
+<span id="758">758</span>
+<span id="759">759</span>
+<span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -760,7 +782,7 @@
 };
 
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
-<span class="kw">use </span>virtual_fs::{FsError, VirtualFile};
+<span class="kw">use </span>virtual_fs::{FsError, Pipe <span class="kw">as </span>VirtualPipe, VirtualFile};
 <span class="kw">use </span>virtual_net::NetworkError;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
@@ -780,6 +802,7 @@
     File(Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;&gt;),
     EventNotifications(Arc&lt;NotificationInner&gt;),
     Socket { inner: Arc&lt;InodeSocketInner&gt; },
+    Pipe { pipe: Arc&lt;RwLock&lt;Box&lt;VirtualPipe&gt;&gt;&gt; },
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeValFilePollGuard {
@@ -807,6 +830,9 @@
                 handle: <span class="prelude-val">Some</span>(handle),
                 ..
             } =&gt; InodeValFilePollGuardMode::File(handle.clone()),
+            Kind::Pipe { pipe } =&gt; InodeValFilePollGuardMode::Pipe {
+                pipe: Arc::new(RwLock::new(Box::new(pipe.clone()))),
+            },
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">None</span>;
             }
@@ -854,6 +880,9 @@
                     }
                     <span class="kw">_ </span>=&gt; <span class="macro">write!</span>(f, <span class="string">&quot;guard-socket(fd={}), peb={})&quot;</span>, <span class="self">self</span>.fd, <span class="self">self</span>.peb),
                 }
+            }
+            InodeValFilePollGuardMode::Pipe { .. } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;guard-pipe(...)&quot;</span>)
             }
         }
     }
@@ -947,6 +976,11 @@
                         <span class="bool-val">false
                     </span>}
                 }
+                InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
+                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
+                    pipe.poll_shutdown(cx).is_ready()
+                }
             };
             <span class="kw">if </span>is_closed {
                 ret.push(EventResult {
@@ -1007,6 +1041,11 @@
                         }
                         Poll::Pending =&gt; Poll::Pending,
                     }
+                }
+                InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
+                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
+                    pipe.poll_read_ready(cx)
                 }
             };
             <span class="kw">match </span>poll_result {
@@ -1100,6 +1139,11 @@
                         }
                         Poll::Pending =&gt; Poll::Pending,
                     }
+                }
+                InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
+                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
+                    pipe.poll_write_ready(cx)
                 }
             };
             <span class="kw">match </span>poll_result {
