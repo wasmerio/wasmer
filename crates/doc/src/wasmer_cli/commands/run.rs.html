@@ -760,9 +760,6 @@
 <span id="758">758</span>
 <span id="759">759</span>
 <span id="760">760</span>
-<span id="761">761</span>
-<span id="762">762</span>
-<span id="763">763</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::commands::run::wasi::RunProperties;
 <span class="kw">use </span><span class="kw">crate</span>::common::get_cache_dir;
 <span class="kw">use </span><span class="kw">crate</span>::logging;
@@ -1095,9 +1092,6 @@
                         <span class="kw">if </span><span class="self">self</span>.wasi.deny_multiple_wasi_versions {
                             <span class="kw">let </span>version_list = get_version_list(<span class="kw-2">&amp;</span>wasi_versions);
                             <span class="macro">bail!</span>(<span class="string">&quot;Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.&quot;</span>, version_list);
-                        } <span class="kw">else if </span>!<span class="self">self</span>.wasi.allow_multiple_wasi_versions {
-                            <span class="kw">let </span>version_list = get_version_list(<span class="kw-2">&amp;</span>wasi_versions);
-                            <span class="macro">warning!</span>(<span class="string">&quot;Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.&quot;</span>, version_list);
                         }
                     }
 

@@ -630,7 +630,6 @@
 <span id="628">628</span>
 <span id="629">629</span>
 <span id="630">630</span>
-<span id="631">631</span>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>std::{
@@ -1060,8 +1059,8 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
-    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc&quot;</span>);
-    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc&quot;</span>);
+    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc&quot;</span>);
+    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc&quot;</span>);
     <span class="kw">const </span>HELLO: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../../tests/integration/cli/tests/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc&quot;</span>);
 
     <span class="attribute">#[test]
@@ -1104,7 +1103,7 @@
         <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>coreutils).unwrap();
 
         <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;sharrattj/coreutils&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;1.0.14&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;1.0.16&quot;</span>);
         <span class="macro">assert_eq!</span>(pkg.uses, Vec::&lt;String&gt;::new());
         <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">0</span>);
         <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">44</span>);
@@ -1235,9 +1234,9 @@
         <span class="kw">let </span>pkg = parse_webc_v2(<span class="kw-2">&amp;</span>bash).unwrap();
 
         <span class="macro">assert_eq!</span>(pkg.package_name, <span class="string">&quot;sharrattj/bash&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;1.0.12&quot;</span>);
-        <span class="macro">assert_eq!</span>(pkg.uses, <span class="kw-2">&amp;</span>[<span class="string">&quot;sharrattj/coreutils@1.0.11&quot;</span>]);
-        <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">0</span>);
+        <span class="macro">assert_eq!</span>(pkg.version.to_string(), <span class="string">&quot;1.0.16&quot;</span>);
+        <span class="macro">assert_eq!</span>(pkg.uses, <span class="kw-2">&amp;</span>[<span class="string">&quot;sharrattj/coreutils@1.0.16&quot;</span>]);
+        <span class="macro">assert_eq!</span>(pkg.module_memory_footprint, <span class="number">1847052</span>);
         <span class="macro">assert_eq!</span>(pkg.file_system_memory_footprint, <span class="number">0</span>);
         <span class="kw">let </span>commands = pkg.commands.read().unwrap();
         <span class="kw">let </span>commands: BTreeMap&lt;<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>[u8]&gt; = commands
@@ -1245,9 +1244,8 @@
             .map(|cmd| (cmd.name(), cmd.atom()))
             .collect();
         <span class="kw">let </span>command_names: Vec&lt;<span class="kw">_</span>&gt; = commands.keys().copied().collect();
-        <span class="macro">assert_eq!</span>(command_names, <span class="kw-2">&amp;</span>[<span class="string">&quot;bash&quot;</span>, <span class="string">&quot;sh&quot;</span>]);
+        <span class="macro">assert_eq!</span>(command_names, <span class="kw-2">&amp;</span>[<span class="string">&quot;bash&quot;</span>]);
         <span class="macro">assert_eq!</span>(commands[<span class="string">&quot;bash&quot;</span>], bash.get_atom(<span class="string">&quot;bash&quot;</span>).unwrap());
-        <span class="macro">assert_eq!</span>(commands[<span class="string">&quot;sh&quot;</span>], commands[<span class="string">&quot;bash&quot;</span>]);
     }
 
     <span class="attribute">#[test]

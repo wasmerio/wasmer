@@ -218,45 +218,6 @@
 <span id="216">216</span>
 <span id="217">217</span>
 <span id="218">218</span>
-<span id="219">219</span>
-<span id="220">220</span>
-<span id="221">221</span>
-<span id="222">222</span>
-<span id="223">223</span>
-<span id="224">224</span>
-<span id="225">225</span>
-<span id="226">226</span>
-<span id="227">227</span>
-<span id="228">228</span>
-<span id="229">229</span>
-<span id="230">230</span>
-<span id="231">231</span>
-<span id="232">232</span>
-<span id="233">233</span>
-<span id="234">234</span>
-<span id="235">235</span>
-<span id="236">236</span>
-<span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
-<span id="242">242</span>
-<span id="243">243</span>
-<span id="244">244</span>
-<span id="245">245</span>
-<span id="246">246</span>
-<span id="247">247</span>
-<span id="248">248</span>
-<span id="249">249</span>
-<span id="250">250</span>
-<span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
 </pre><pre class="rust"><code><span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
@@ -470,45 +431,6 @@
             <span class="self">self</span>.data(store).pid(),
             <span class="self">self</span>.data(store).tid()
         );
-
-        <span class="comment">// Destroy all the local thread variables that were allocated for this thread
-        </span><span class="kw">let </span>to_local_destroy = {
-            <span class="kw">let </span>thread_id = <span class="self">self</span>.data(store).thread.tid();
-            <span class="kw">let </span><span class="kw-2">mut </span>to_local_destroy = Vec::new();
-            <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.data(store).process.write();
-            <span class="kw">for </span>((thread, key), val) <span class="kw">in </span>inner.thread_local.iter() {
-                <span class="kw">if </span><span class="kw-2">*</span>thread == thread_id {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(user_data) = inner.thread_local_user_data.get(key) {
-                        to_local_destroy.push((<span class="kw-2">*</span>user_data, <span class="kw-2">*</span>val))
-                    }
-                }
-            }
-            inner.thread_local.retain(|(t, <span class="kw">_</span>), <span class="kw">_</span>| <span class="kw-2">*</span>t != thread_id);
-            to_local_destroy
-        };
-        <span class="kw">if </span>!to_local_destroy.is_empty() {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = <span class="self">self</span>.data(store).try_inner() {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(thread_local_destroy) = inner.thread_local_destroy.as_ref().cloned() {
-                    <span class="kw">for </span>(user_data, val) <span class="kw">in </span>to_local_destroy {
-                        <span class="kw">let </span>user_data_low: u32 = (user_data &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;
-                        <span class="kw">let </span>user_data_high: u32 = (user_data &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;
-
-                        <span class="kw">let </span>val_low: u32 = (val &amp; <span class="number">0xFFFFFFFF</span>) <span class="kw">as </span>u32;
-                        <span class="kw">let </span>val_high: u32 = (val &gt;&gt; <span class="number">32</span>) <span class="kw">as </span>u32;
-
-                        <span class="kw">let _ </span>= thread_local_destroy.call(
-                            store,
-                            user_data_low <span class="kw">as </span>i32,
-                            user_data_high <span class="kw">as </span>i32,
-                            val_low <span class="kw">as </span>i32,
-                            val_high <span class="kw">as </span>i32,
-                        );
-                    }
-                }
-            } <span class="kw">else </span>{
-                <span class="macro">tracing::warn!</span>(<span class="string">&quot;unable to clean up thread local variables as the inner instance is not accessible&quot;</span>);
-            }
-        }
 
         <span class="comment">// Cleans up all the open files (if this is the main thread)
         </span><span class="self">self</span>.data(store).blocking_cleanup(exit_code);

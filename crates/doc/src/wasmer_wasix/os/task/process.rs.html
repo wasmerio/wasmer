@@ -392,15 +392,6 @@
 <span id="390">390</span>
 <span id="391">391</span>
 <span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::WasiRuntimeError;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
@@ -415,7 +406,7 @@
 <span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid, TlKey, TlUser, TlVal},
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
 <span class="kw">use crate</span>::{
@@ -504,12 +495,6 @@
     </span><span class="kw">pub </span>threads: HashMap&lt;WasiThreadId, WasiThread&gt;,
     <span class="doccomment">/// Number of threads running for this process
     </span><span class="kw">pub </span>thread_count: u32,
-    <span class="doccomment">/// All the thread local variables
-    </span><span class="kw">pub </span>thread_local: HashMap&lt;(WasiThreadId, TlKey), TlVal&gt;,
-    <span class="doccomment">/// User data associated with thread local data
-    </span><span class="kw">pub </span>thread_local_user_data: HashMap&lt;TlKey, TlUser&gt;,
-    <span class="doccomment">/// Seed used to generate thread local keys
-    </span><span class="kw">pub </span>thread_local_seed: TlKey,
     <span class="doccomment">/// Signals that will be triggered at specific intervals
     </span><span class="kw">pub </span>signal_intervals: HashMap&lt;Signal, WasiSignalInterval&gt;,
     <span class="doccomment">/// List of all the children spawned from this thread
@@ -546,9 +531,6 @@
                 pid,
                 threads: Default::default(),
                 thread_count: Default::default(),
-                thread_local: Default::default(),
-                thread_local_user_data: Default::default(),
-                thread_local_seed: Default::default(),
                 signal_intervals: Default::default(),
                 children: Default::default(),
             })),

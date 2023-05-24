@@ -108,78 +108,6 @@
 <span id="106">106</span>
 <span id="107">107</span>
 <span id="108">108</span>
-<span id="109">109</span>
-<span id="110">110</span>
-<span id="111">111</span>
-<span id="112">112</span>
-<span id="113">113</span>
-<span id="114">114</span>
-<span id="115">115</span>
-<span id="116">116</span>
-<span id="117">117</span>
-<span id="118">118</span>
-<span id="119">119</span>
-<span id="120">120</span>
-<span id="121">121</span>
-<span id="122">122</span>
-<span id="123">123</span>
-<span id="124">124</span>
-<span id="125">125</span>
-<span id="126">126</span>
-<span id="127">127</span>
-<span id="128">128</span>
-<span id="129">129</span>
-<span id="130">130</span>
-<span id="131">131</span>
-<span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
-<span id="142">142</span>
-<span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-<span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
-<span id="157">157</span>
-<span id="158">158</span>
-<span id="159">159</span>
-<span id="160">160</span>
-<span id="161">161</span>
-<span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
-<span id="165">165</span>
-<span id="166">166</span>
-<span id="167">167</span>
-<span id="168">168</span>
-<span id="169">169</span>
-<span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
 </pre><pre class="rust"><code><span class="comment">// TODO: review allow..
 </span><span class="kw">use </span>cfg_if::cfg_if;
 
@@ -187,84 +115,12 @@
 </span><span class="attribute">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
-<span class="kw">use </span>wasmer_wasix_types::wasi::{BusErrno, Rights};
-
-<span class="kw">use </span><span class="kw">crate</span>::VirtualBusError;
-
 <span class="macro">cfg_if! </span>{
     <span class="kw">if </span><span class="attribute">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)] </span>{
         <span class="kw">pub use </span>virtual_fs::host_fs::{Stderr, Stdin, Stdout};
     } <span class="kw">else </span>{
         <span class="kw">pub use </span>virtual_fs::mem_fs::{Stderr, Stdin, Stdout};
     }
-}
-
-<span class="kw">pub fn </span>vbus_error_into_bus_errno(bus_error: VirtualBusError) -&gt; BusErrno {
-    <span class="kw">use </span>VirtualBusError::<span class="kw-2">*</span>;
-    <span class="kw">match </span>bus_error {
-        Serialization =&gt; BusErrno::Ser,
-        Deserialization =&gt; BusErrno::Des,
-        InvalidWapm =&gt; BusErrno::Wapm,
-        FetchFailed =&gt; BusErrno::Fetch,
-        CompileError =&gt; BusErrno::Compile,
-        InvalidABI =&gt; BusErrno::Abi,
-        Aborted =&gt; BusErrno::Aborted,
-        BadHandle =&gt; BusErrno::Badhandle,
-        InvalidTopic =&gt; BusErrno::Topic,
-        BadCallback =&gt; BusErrno::Badcb,
-        Unsupported =&gt; BusErrno::Unsupported,
-        BadRequest =&gt; BusErrno::Badrequest,
-        AccessDenied =&gt; BusErrno::Denied,
-        InternalError =&gt; BusErrno::Internal,
-        MemoryAllocationFailed =&gt; BusErrno::Alloc,
-        InvokeFailed =&gt; BusErrno::Invoke,
-        AlreadyConsumed =&gt; BusErrno::Consumed,
-        MemoryAccessViolation =&gt; BusErrno::Memviolation,
-        UnknownError =&gt; BusErrno::Unknown,
-        NotFound =&gt; BusErrno::Unknown,
-    }
-}
-
-<span class="kw">pub fn </span>bus_errno_into_vbus_error(bus_error: BusErrno) -&gt; VirtualBusError {
-    <span class="kw">use </span>VirtualBusError::<span class="kw-2">*</span>;
-    <span class="kw">match </span>bus_error {
-        BusErrno::Ser =&gt; Serialization,
-        BusErrno::Des =&gt; Deserialization,
-        BusErrno::Wapm =&gt; InvalidWapm,
-        BusErrno::Fetch =&gt; FetchFailed,
-        BusErrno::Compile =&gt; CompileError,
-        BusErrno::Abi =&gt; InvalidABI,
-        BusErrno::Aborted =&gt; Aborted,
-        BusErrno::Badhandle =&gt; BadHandle,
-        BusErrno::Topic =&gt; InvalidTopic,
-        BusErrno::Badcb =&gt; BadCallback,
-        BusErrno::Unsupported =&gt; Unsupported,
-        BusErrno::Badrequest =&gt; BadRequest,
-        BusErrno::Denied =&gt; AccessDenied,
-        BusErrno::Internal =&gt; InternalError,
-        BusErrno::Alloc =&gt; MemoryAllocationFailed,
-        BusErrno::Invoke =&gt; InvokeFailed,
-        BusErrno::Consumed =&gt; AlreadyConsumed,
-        BusErrno::Memviolation =&gt; MemoryAccessViolation,
-        BusErrno::Unknown =&gt; UnknownError,
-        BusErrno::Success =&gt; UnknownError,
-    }
-}
-
-<span class="attribute">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bus_read_rights() -&gt; Rights {
-    Rights::FD_FDSTAT_SET_FLAGS
-        .union(Rights::FD_FILESTAT_GET)
-        .union(Rights::FD_READ)
-        .union(Rights::POLL_FD_READWRITE)
-}
-
-<span class="attribute">#[allow(dead_code)]
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bus_write_rights() -&gt; Rights {
-    Rights::FD_FDSTAT_SET_FLAGS
-        .union(Rights::FD_FILESTAT_GET)
-        .union(Rights::FD_WRITE)
-        .union(Rights::POLL_FD_READWRITE)
 }
 
 <span class="attribute">#[derive(Debug, Clone)]

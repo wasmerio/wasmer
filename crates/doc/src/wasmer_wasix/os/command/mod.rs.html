@@ -112,7 +112,7 @@
 <span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use crate</span>::{syscalls::stderr_write, VirtualBusError, WasiEnv, WasiRuntime};
+<span class="kw">use crate</span>::{syscalls::stderr_write, SpawnError, WasiEnv, WasiRuntime};
 
 <span class="kw">use </span><span class="kw">super</span>::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
@@ -134,7 +134,7 @@
         path: <span class="kw-2">&amp;</span>str,
         store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt;;
 }
 
 <span class="attribute">#[derive(Debug, Clone)]
@@ -193,7 +193,7 @@
         path: <span class="kw-2">&amp;</span>str,
         store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         builder: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="kw">let </span>path = path.to_string();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = <span class="self">self</span>.commands.get(<span class="kw-2">&amp;</span>path) {
             cmd.exec(parent_ctx, path.as_str(), store, builder)

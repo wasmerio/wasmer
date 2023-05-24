@@ -307,7 +307,7 @@
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::rewind_ext,
-    RewindState, VirtualBusError, WasiError, WasiRuntimeError,
+    RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::Future;
@@ -325,7 +325,7 @@
     store: Store,
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     <span class="kw">let </span>key = binary.hash();
 
     <span class="kw">let </span>compiled_modules = runtime.module_cache();
@@ -341,7 +341,7 @@
                     entry.len(),
                     err
                 );
-                VirtualBusError::CompileError
+                SpawnError::CompileError
             });
             <span class="kw">if </span>module.is_err() {
                 env.blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
@@ -361,7 +361,7 @@
         (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
             <span class="macro">error!</span>(<span class="string">&quot;package has no entry [{}]&quot;</span>, name,);
             env.blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
-            <span class="kw">return </span><span class="prelude-val">Err</span>(VirtualBusError::CompileError);
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
         }
     };
 
@@ -377,7 +377,7 @@
     module: Module,
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     <span class="comment">// Create a new task manager
     </span><span class="kw">let </span>tasks = runtime.task_manager();
 
@@ -439,7 +439,7 @@
             .task_wasm(TaskWasm::new(Box::new(run), env, module, <span class="bool-val">true</span>).with_memory(memory_spawn))
             .map_err(|err| {
                 <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::failed to launch module - {}&quot;</span>, pid, err);
-                VirtualBusError::UnknownError
+                SpawnError::UnknownError
             })<span class="question-mark">?
     </span>};
 
@@ -565,13 +565,13 @@
         name: String,
         store: Store,
         env: WasiEnv,
-    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt;&gt; + <span class="lifetime">&#39;a</span>&gt;&gt; {
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt;&gt; + <span class="lifetime">&#39;a</span>&gt;&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="comment">// Find the binary (or die trying) and make the spawn type
             </span><span class="kw">let </span>binary = <span class="self">self
                 </span>.get_binary(name.as_str(), <span class="prelude-val">Some</span>(env.fs_root()))
                 .<span class="kw">await
-                </span>.ok_or(VirtualBusError::NotFound);
+                </span>.ok_or(SpawnError::NotFound);
             <span class="kw">if </span>binary.is_err() {
                 env.cleanup(<span class="prelude-val">Some</span>(Errno::Noent.into())).<span class="kw">await</span>;
             }
@@ -588,7 +588,7 @@
         parent_ctx: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;&gt;,
         store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         builder: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="comment">// We check for built in commands
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(parent_ctx) = parent_ctx {
             <span class="kw">if </span><span class="self">self</span>.commands.exists(name.as_str()) {
@@ -599,7 +599,7 @@
         } <span class="kw">else if </span><span class="self">self</span>.commands.exists(name.as_str()) {
             <span class="macro">tracing::warn!</span>(<span class="string">&quot;builtin command without a parent ctx - {}&quot;</span>, name);
         }
-        <span class="prelude-val">Err</span>(VirtualBusError::NotFound)
+        <span class="prelude-val">Err</span>(SpawnError::NotFound)
     }
 }
 </code></pre></div>

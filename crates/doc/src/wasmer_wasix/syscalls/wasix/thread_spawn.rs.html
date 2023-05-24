@@ -280,7 +280,7 @@
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
 </span><span class="comment">//#[instrument(level = &quot;debug&quot;, skip_all, ret)]
-</span><span class="kw">pub fn </span>thread_spawn&lt;M: MemorySize&gt;(
+</span><span class="kw">pub fn </span>thread_spawn_v2&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
     ret_tid: WasmPtr&lt;Tid, M&gt;,

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":[["thread_local_get","`thread_local_get()`"]]};

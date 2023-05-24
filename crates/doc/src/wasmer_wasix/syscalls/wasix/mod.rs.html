@@ -131,24 +131,7 @@
 <span id="129">129</span>
 <span id="130">130</span>
 <span id="131">131</span>
-<span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
-<span id="140">140</span>
-<span id="141">141</span>
-<span id="142">142</span>
-<span id="143">143</span>
-<span id="144">144</span>
-<span id="145">145</span>
-</pre><pre class="rust"><code><span class="kw">mod </span>callback_reactor;
-<span class="kw">mod </span>callback_signal;
-<span class="kw">mod </span>callback_thread;
-<span class="kw">mod </span>callback_thread_local_destroy;
+</pre><pre class="rust"><code><span class="kw">mod </span>callback_signal;
 <span class="kw">mod </span>chdir;
 <span class="kw">mod </span>fd_pipe;
 <span class="kw">mod </span>futex_wait;
@@ -206,10 +189,6 @@
 <span class="kw">mod </span>thread_exit;
 <span class="kw">mod </span>thread_id;
 <span class="kw">mod </span>thread_join;
-<span class="kw">mod </span>thread_local_create;
-<span class="kw">mod </span>thread_local_destroy;
-<span class="kw">mod </span>thread_local_get;
-<span class="kw">mod </span>thread_local_set;
 <span class="kw">mod </span>thread_parallelism;
 <span class="kw">mod </span>thread_signal;
 <span class="kw">mod </span>thread_sleep;
@@ -217,10 +196,7 @@
 <span class="kw">mod </span>tty_get;
 <span class="kw">mod </span>tty_set;
 
-<span class="kw">pub use </span>callback_reactor::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>callback_signal::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>callback_thread::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>callback_thread_local_destroy::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>chdir::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>fd_pipe::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>futex_wait::<span class="kw-2">*</span>;
@@ -278,10 +254,6 @@
 <span class="kw">pub use </span>thread_exit::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>thread_id::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>thread_join::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>thread_local_create::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>thread_local_destroy::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>thread_local_get::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>thread_local_set::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>thread_parallelism::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>thread_signal::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>thread_sleep::<span class="kw-2">*</span>;

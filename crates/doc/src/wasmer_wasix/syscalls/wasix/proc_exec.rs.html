@@ -381,7 +381,7 @@
             <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>new_store, <span class="kw-2">&amp;mut </span>config) {
                 <span class="prelude-val">Ok</span>(a) =&gt; {}
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="kw">if </span>err != VirtualBusError::NotFound {
+                    <span class="kw">if </span>err != SpawnError::NotFound {
                         <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                     }
 
@@ -396,7 +396,7 @@
                                 <span class="macro">trace!</span>(%child_pid, <span class="string">&quot;spawned sub-process&quot;</span>);
                             }
                             <span class="prelude-val">Err</span>(err) =&gt; {
-                                err_exit_code = conv_bus_err_to_exit_code(err);
+                                err_exit_code = conv_spawn_err_to_exit_code(err);
 
                                 <span class="macro">debug!</span>(%child_pid, <span class="string">&quot;process failed with (err={})&quot;</span>, err_exit_code);
                                 child_finished.set_finished(<span class="prelude-val">Ok</span>(err_exit_code));
@@ -478,7 +478,7 @@
         ) {
             <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)),
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="kw">if </span>err != VirtualBusError::NotFound {
+                <span class="kw">if </span>err != SpawnError::NotFound {
                     <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                 }
 

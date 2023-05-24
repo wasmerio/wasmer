@@ -258,7 +258,12 @@
 <span id="256">256</span>
 <span id="257">257</span>
 <span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
 </pre><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
+<span class="kw">use </span>wasmer_wasix_types::wasi::ProcessHandles;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
@@ -297,15 +302,15 @@
     stderr: WasiStdioMode,
     working_dir: WasmPtr&lt;u8, M&gt;,
     working_dir_len: M::Offset,
-    ret_handles: WasmPtr&lt;BusHandles, M&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;BusErrno, WasiError&gt; {
+    ret_handles: WasmPtr&lt;ProcessHandles, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>control_plane = <span class="kw-2">&amp;</span>env.control_plane;
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-    <span class="kw">let </span>name = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, name, name_len) };
-    <span class="kw">let </span>args = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, args, args_len) };
-    <span class="kw">let </span>preopen = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, preopen, preopen_len) };
-    <span class="kw">let </span>working_dir = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_bus_ok!</span>(<span class="kw-2">&amp;</span>memory, working_dir, working_dir_len) };
+    <span class="kw">let </span>name = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, name, name_len) };
+    <span class="kw">let </span>args = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, args, args_len) };
+    <span class="kw">let </span>preopen = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, preopen, preopen_len) };
+    <span class="kw">let </span>working_dir = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, working_dir, working_dir_len) };
 
     Span::current()
         .record(<span class="string">&quot;name&quot;</span>, name.as_str())
@@ -313,7 +318,7 @@
 
     <span class="kw">if </span>chroot == Bool::True {
         <span class="macro">warn!</span>(<span class="string">&quot;chroot is not currently supported&quot;</span>,);
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(BusErrno::Unsupported);
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notsup);
     }
 
     <span class="kw">let </span>args: Vec&lt;<span class="kw">_</span>&gt; = args
@@ -346,8 +351,8 @@
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-    <span class="macro">wasi_try_mem_bus_ok!</span>(ret_handles.write(<span class="kw-2">&amp;</span>memory, handles));
-    <span class="prelude-val">Ok</span>(BusErrno::Success)
+    <span class="macro">wasi_try_mem_ok!</span>(ret_handles.write(<span class="kw-2">&amp;</span>memory, handles));
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
 <span class="kw">pub fn </span>proc_spawn_internal(
@@ -359,7 +364,7 @@
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(BusHandles, FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;), BusErrno&gt;, WasiError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(ProcessHandles, FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;), Errno&gt;, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
 
     <span class="comment">// Build a new store that will be passed to the thread
@@ -370,7 +375,7 @@
         <span class="prelude-val">Ok</span>(x) =&gt; x,
         <span class="prelude-val">Err</span>(err) =&gt; {
             <span class="comment">// TODO: evaluate the appropriate error code, document it in the spec.
-            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(BusErrno::Denied));
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
         }
     };
     <span class="kw">let </span>child_process = child_env.process.clone();
@@ -393,7 +398,7 @@
                     preopen
                 );
             }
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(BusErrno::Unsupported));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notsup));
         }
     }
 
@@ -406,7 +411,7 @@
     </span><span class="kw">let </span>(stdin, stdout, stderr) = {
         <span class="kw">let </span>(<span class="kw">_</span>, child_state, child_inodes) =
             <span class="kw">unsafe </span>{ child_env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>new_store, <span class="number">0</span>) };
-        <span class="kw">let </span><span class="kw-2">mut </span>conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -&gt; <span class="prelude-ty">Result</span>&lt;OptionFd, BusErrno&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -&gt; <span class="prelude-ty">Result</span>&lt;OptionFd, Errno&gt; {
             <span class="kw">match </span>mode {
                 WasiStdioMode::Piped =&gt; {
                     <span class="kw">let </span>(pipe1, pipe2) = Pipe::channel();
@@ -424,16 +429,21 @@
                     );
 
                     <span class="kw">let </span>rights = <span class="kw">crate</span>::net::socket::all_socket_rights();
-                    <span class="kw">let </span>pipe = ctx
-                        .data()
-                        .state
-                        .fs
-                        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1)
-                        .map_err(|<span class="kw">_</span>| BusErrno::Internal)<span class="question-mark">?</span>;
-                    child_state
-                        .fs
-                        .create_fd_ext(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2, fd)
-                        .map_err(|<span class="kw">_</span>| BusErrno::Internal)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>pipe = ctx.data().state.fs.create_fd(
+                        rights,
+                        rights,
+                        Fdflags::empty(),
+                        <span class="number">0</span>,
+                        inode1,
+                    )<span class="question-mark">?</span>;
+                    child_state.fs.create_fd_ext(
+                        rights,
+                        rights,
+                        Fdflags::empty(),
+                        <span class="number">0</span>,
+                        inode2,
+                        fd,
+                    )<span class="question-mark">?</span>;
 
                     <span class="macro">trace!</span>(<span class="string">&quot;fd_pipe (fd1={}, fd2={})&quot;</span>, pipe, fd);
                     <span class="prelude-val">Ok</span>(OptionFd {
@@ -481,20 +491,18 @@
         <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>new_store, <span class="kw-2">&amp;mut </span>builder) {
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="kw">if </span>err != VirtualBusError::NotFound {
+                <span class="kw">if </span>err != SpawnError::NotFound {
                     <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                 }
                 <span class="comment">// Now we actually spawn the process
                 </span><span class="kw">let </span>child_work =
                     bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
 
-                <span class="kw">match </span>__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-                    <span class="prelude-val">Ok</span>(child_work.<span class="kw">await</span>.map_err(vbus_error_into_bus_errno))
-                })<span class="question-mark">?
-                </span>.map_err(|err| BusErrno::Unknown)
+                <span class="kw">match </span>__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{ <span class="prelude-val">Ok</span>(child_work.<span class="kw">await</span>) })<span class="question-mark">?
+                    </span>.map_err(|err| Errno::Unknown)
                 {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)) =&gt; a,
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(conv_spawn_err_to_errno(err))),
                     <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
                 }
             }
@@ -508,8 +516,8 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
-    <span class="kw">let </span>handles = BusHandles {
-        bid: child_pid.raw(),
+    <span class="kw">let </span>handles = ProcessHandles {
+        pid: child_pid.raw(),
         stdin,
         stdout,
         stderr,

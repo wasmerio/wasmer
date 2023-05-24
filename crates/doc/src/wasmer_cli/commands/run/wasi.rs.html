@@ -475,10 +475,6 @@
 <span id="473">473</span>
 <span id="474">474</span>
 <span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::anyhow::Context;
 <span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
 <span class="kw">use </span>anyhow::Result;
@@ -581,10 +577,6 @@
     /// Access to domains is granted by default.
     </span><span class="attribute">#[clap(long)]
     </span><span class="kw">pub </span>http_client: bool,
-
-    <span class="doccomment">/// Allow WASI modules to import multiple versions of WASI without a warning.
-    </span><span class="attribute">#[clap(long = <span class="string">&quot;allow-multiple-wasi-versions&quot;</span>)]
-    </span><span class="kw">pub </span>allow_multiple_wasi_versions: bool,
 
     <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.
     </span><span class="attribute">#[clap(long = <span class="string">&quot;deny-multiple-wasi-versions&quot;</span>)]

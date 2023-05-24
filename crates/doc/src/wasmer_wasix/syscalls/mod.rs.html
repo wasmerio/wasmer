@@ -1277,6 +1277,10 @@
 <span id="1275">1275</span>
 <span id="1276">1276</span>
 <span id="1277">1277</span>
+<span id="1278">1278</span>
+<span id="1279">1279</span>
+<span id="1280">1280</span>
+<span id="1281">1281</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1357,12 +1361,12 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::types::{
     wasi::{
-        Addressfamily, Advice, Bid, BusErrno, BusHandles, Cid, Clockid, Dircookie, Dirent, Errno,
-        Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdstat,
-        Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat,
-        Rights, Snapshot0Clockid, Sockoption, Sockstatus, Socktype, StackSnapshot,
-        StdioMode <span class="kw">as </span>WasiStdioMode, Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid,
-        Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
+        Eventrwflags, Eventtype, ExitCode, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdstat, Filesize, Filestat,
+        Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights, Snapshot0Clockid,
+        Sockoption, Sockstatus, Socktype, StackSnapshot, StdioMode <span class="kw">as </span>WasiStdioMode,
+        Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser,
+        TlVal, Tty, Whence,
     },
     <span class="kw-2">*</span>,
 };
@@ -1381,8 +1385,8 @@
     },
     runtime::{task_manager::VirtualTaskManagerExt, SpawnMemoryType},
     state::{
-        <span class="self">self</span>, bus_errno_into_vbus_error, iterate_poll_events, vbus_error_into_bus_errno,
-        InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
+        <span class="self">self</span>, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
+        WasiFutex, WasiState,
     },
     utils::{<span class="self">self</span>, map_io_err},
     VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles, WasiRuntime,
@@ -1395,7 +1399,7 @@
     },
     os::task::thread::RewindResult,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, VirtualBusError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use crate</span>::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -2546,13 +2550,17 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_bus_err_to_exit_code(err: VirtualBusError) -&gt; ExitCode {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_errno(err: SpawnError) -&gt; Errno {
     <span class="kw">match </span>err {
-        VirtualBusError::AccessDenied =&gt; Errno::Access.into(),
-        VirtualBusError::NotFound =&gt; Errno::Noent.into(),
-        VirtualBusError::Unsupported =&gt; Errno::Noexec.into(),
-        <span class="kw">_ </span>=&gt; Errno::Inval.into(),
+        SpawnError::AccessDenied =&gt; Errno::Access,
+        SpawnError::NotFound =&gt; Errno::Noent,
+        SpawnError::Unsupported =&gt; Errno::Noexec,
+        <span class="kw">_ </span>=&gt; Errno::Inval,
     }
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_exit_code(err: SpawnError) -&gt; ExitCode {
+    conv_spawn_err_to_errno(err).into()
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

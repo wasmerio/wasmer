@@ -370,14 +370,6 @@
 <span id="368">368</span>
 <span id="369">369</span>
 <span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::wasi::bindings::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>Rights {
@@ -605,14 +597,6 @@
         </span><span class="bool-val">false
     </span>}
 }
-
-<span class="kw">impl </span>PartialEq <span class="kw">for </span>OptionCid {
-    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
-        <span class="self">self</span>.tag == other.tag &amp;&amp; <span class="self">self</span>.cid == other.cid
-    }
-}
-
-<span class="kw">impl </span>Eq <span class="kw">for </span>OptionCid {}
 
 <span class="attribute">#[derive(Copy, Clone)]
 </span><span class="kw">pub enum </span>PrestatEnum {

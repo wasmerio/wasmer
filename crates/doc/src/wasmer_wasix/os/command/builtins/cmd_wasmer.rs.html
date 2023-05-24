@@ -157,7 +157,7 @@
 
 <span class="kw">use crate</span>::{
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    VirtualBusError,
+    SpawnError,
 };
 <span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
@@ -210,15 +210,15 @@ ARGS:
         config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
         what: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw-2">mut </span>args: Vec&lt;String&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="comment">// If the first argument is a &#39;--&#39; then skip it
         </span><span class="kw">if </span>args.first().map(|a| a.as_str()) == <span class="prelude-val">Some</span>(<span class="string">&quot;--&quot;</span>) {
             args = args.into_iter().skip(<span class="number">1</span>).collect();
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(what) = what {
-            <span class="kw">let </span>store = store.take().ok_or(VirtualBusError::UnknownError)<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>env = config.take().ok_or(VirtualBusError::UnknownError)<span class="question-mark">?</span>;
+            <span class="kw">let </span>store = store.take().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>env = config.take().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
 
             <span class="comment">// Set the arguments of the environment by replacing the state
             </span><span class="kw">let </span><span class="kw-2">mut </span>state = env.state.fork();
@@ -271,9 +271,9 @@ ARGS:
         name: <span class="kw-2">&amp;</span>str,
         store: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Store&gt;,
         env: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, VirtualBusError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
         <span class="comment">// Read the command we want to run
-        </span><span class="kw">let </span>env_inner = env.as_ref().ok_or(VirtualBusError::UnknownError)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>env_inner = env.as_ref().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
         <span class="kw">let </span>args = env_inner.state.args.clone();
         <span class="kw">let </span><span class="kw-2">mut </span>args = args.iter().map(|s| s.as_str());
         <span class="kw">let </span>_alias = args.next();
