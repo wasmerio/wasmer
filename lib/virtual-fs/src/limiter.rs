@@ -115,7 +115,7 @@ mod tracked_vec {
     impl Drop for TrackedVec {
         fn drop(&mut self) {
             if let Some(limiter) = &self.limiter {
-                limiter.on_shrink(self.data.len());
+                limiter.on_shrink(self.data.capacity());
             }
         }
     }
