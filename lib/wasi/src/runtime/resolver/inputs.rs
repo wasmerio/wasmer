@@ -67,9 +67,14 @@ impl FromStr for PackageSpecifier {
             anyhow::bail!("Invalid character, {c:?}, at offset {index}");
         }
 
-        let version = version
-            .parse()
-            .with_context(|| format!("Invalid version number, \"{version}\""))?;
+        let version = if version == "latest" {
+            // let people write "some/package@latest"
+            VersionReq::STAR
+        } else {
+            version
+                .parse()
+                .with_context(|| format!("Invalid version number, \"{version}\""))?
+        };
 
         Ok(PackageSpecifier::Registry {
             full_name: full_name.to_string(),
@@ -334,6 +339,13 @@ pub(crate) mod tests {
                 PackageSpecifier::Registry {
                     full_name: "namespace/package".to_string(),
                     version: "1.0.0".parse().unwrap(),
+                },
+            ),
+            (
+                "namespace/package@latest",
+                PackageSpecifier::Registry {
+                    full_name: "namespace/package".to_string(),
+                    version: VersionReq::STAR,
                 },
             ),
             (
