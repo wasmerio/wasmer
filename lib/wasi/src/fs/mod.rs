@@ -1133,18 +1133,12 @@ impl WasiFs {
                         }
 
                         let component = component.as_os_str().to_string_lossy();
-                        dbg!(
-                            path,
-                            &component,
-                            entries.get(component.as_ref()),
-                            entries.keys().collect::<Vec<_>>()
-                        );
 
                         if let Some(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
                         } else {
                             // Root is not capable of having something other then preopenned folders
-                            return dbg!(Err(Errno::Notcapable));
+                            return Err(Errno::Notcapable);
                         }
                     }
                     Kind::File { .. }
