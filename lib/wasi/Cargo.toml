@@ -86,7 +86,9 @@ termios = { version = "0.3" }
 winapi = "0.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "0.2.74"
+# NOTE: Currently the wasm-bindgen version is pinned to < 0.2.85 because 0.2.85
+# causes a build failure.
+wasm-bindgen = ">= 0.2.74, < 0.2.85"
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=3.3.0", default-features = false, features = ["wat", "js-serializable-module"] }
