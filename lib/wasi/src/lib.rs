@@ -80,7 +80,7 @@ pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 pub use virtual_net::host::{
     io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
 };
-use wasmer_wasix_types::wasi::{BusErrno, Errno, ExitCode};
+use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 pub use crate::{
     fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},
@@ -126,10 +126,9 @@ pub enum WasiError {
     UnknownWasiVersion,
 }
 
-// TODO: remove, this is a leftover from an old vbus crate and should be folded
-// into WasiRuntimeError.
+#[deny(unused, dead_code)]
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
-pub enum VirtualBusError {
+pub enum SpawnError {
     /// Failed during serialization
     #[error("serialization failed")]
     Serialization,
@@ -148,18 +147,9 @@ pub enum VirtualBusError {
     /// Invalid ABI
     #[error("WAPM process has an invalid ABI")]
     InvalidABI,
-    /// Call was aborted
-    #[error("call aborted")]
-    Aborted,
     /// Bad handle
     #[error("bad handle")]
     BadHandle,
-    /// Invalid topic
-    #[error("invalid topic")]
-    InvalidTopic,
-    /// Invalid callback
-    #[error("invalid callback")]
-    BadCallback,
     /// Call is unsupported
     #[error("unsupported")]
     Unsupported,
@@ -178,12 +168,6 @@ pub enum VirtualBusError {
     /// Memory allocation failed
     #[error("memory allocation failed")]
     MemoryAllocationFailed,
-    /// Invocation has failed
-    #[error("invocation has failed")]
-    InvokeFailed,
-    /// Already consumed
-    #[error("already consumed")]
-    AlreadyConsumed,
     /// Memory access violation
     #[error("memory access violation")]
     MemoryAccessViolation,
@@ -309,7 +293,7 @@ pub fn generate_import_object_from_env(
 fn wasi_exports_generic(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
-        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
     };
     namespace
 }
@@ -362,7 +346,7 @@ fn wasi_unstable_exports(mut store: &mut impl AsStoreMut, env: &FunctionEnv<Wasi
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
-        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
     };
     namespace
 }
@@ -418,7 +402,7 @@ fn wasi_snapshot_preview1_exports(
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_shutdown" => Function::new_typed_with_env(&mut store, env, sock_shutdown),
-        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_legacy::<Memory32>),
+        "thread-spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
     };
     namespace
 }
@@ -484,14 +468,8 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd::<Memory32>),
         "chdir" => Function::new_typed_with_env(&mut store, env, chdir::<Memory32>),
         "callback_signal" => Function::new_typed_with_env(&mut store, env, callback_signal::<Memory32>),
-        "callback_thread" => Function::new_typed_with_env(&mut store, env, callback_thread::<Memory32>),
-        "callback_reactor" => Function::new_typed_with_env(&mut store, env, callback_reactor::<Memory32>),
-        "callback_thread_local_destroy" => Function::new_typed_with_env(&mut store, env, callback_thread_local_destroy::<Memory32>),
-        "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory32>),
-        "thread_local_create" => Function::new_typed_with_env(&mut store, env, thread_local_create::<Memory32>),
-        "thread_local_destroy" => Function::new_typed_with_env(&mut store, env, thread_local_destroy),
-        "thread_local_set" => Function::new_typed_with_env(&mut store, env, thread_local_set),
-        "thread_local_get" => Function::new_typed_with_env(&mut store, env, thread_local_get::<Memory32>),
+        "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory32>),
+        "thread_spawn_v2" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory32>),
         "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep::<Memory32>),
         "thread_id" => Function::new_typed_with_env(&mut store, env, thread_id::<Memory32>),
         "thread_signal" => Function::new_typed_with_env(&mut store, env, thread_signal),
@@ -534,6 +512,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sock_bind" => Function::new_typed_with_env(&mut store, env, sock_bind::<Memory32>),
         "sock_listen" => Function::new_typed_with_env(&mut store, env, sock_listen::<Memory32>),
         "sock_accept" => Function::new_typed_with_env(&mut store, env, sock_accept::<Memory32>),
+        "sock_accept_v2" => Function::new_typed_with_env(&mut store, env, sock_accept::<Memory32>),
         "sock_connect" => Function::new_typed_with_env(&mut store, env, sock_connect::<Memory32>),
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_recv_from" => Function::new_typed_with_env(&mut store, env, sock_recv_from::<Memory32>),
@@ -607,14 +586,8 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd::<Memory64>),
         "chdir" => Function::new_typed_with_env(&mut store, env, chdir::<Memory64>),
         "callback_signal" => Function::new_typed_with_env(&mut store, env, callback_signal::<Memory64>),
-        "callback_thread" => Function::new_typed_with_env(&mut store, env, callback_thread::<Memory64>),
-        "callback_reactor" => Function::new_typed_with_env(&mut store, env, callback_reactor::<Memory64>),
-        "callback_thread_local_destroy" => Function::new_typed_with_env(&mut store, env, callback_thread_local_destroy::<Memory64>),
-        "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn::<Memory64>),
-        "thread_local_create" => Function::new_typed_with_env(&mut store, env, thread_local_create::<Memory64>),
-        "thread_local_destroy" => Function::new_typed_with_env(&mut store, env, thread_local_destroy),
-        "thread_local_set" => Function::new_typed_with_env(&mut store, env, thread_local_set),
-        "thread_local_get" => Function::new_typed_with_env(&mut store, env, thread_local_get::<Memory64>),
+        "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory64>),
+        "thread_spawn_v2" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory64>),
         "thread_sleep" => Function::new_typed_with_env(&mut store, env, thread_sleep::<Memory64>),
         "thread_id" => Function::new_typed_with_env(&mut store, env, thread_id::<Memory64>),
         "thread_signal" => Function::new_typed_with_env(&mut store, env, thread_signal),
@@ -657,6 +630,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sock_bind" => Function::new_typed_with_env(&mut store, env, sock_bind::<Memory64>),
         "sock_listen" => Function::new_typed_with_env(&mut store, env, sock_listen::<Memory64>),
         "sock_accept" => Function::new_typed_with_env(&mut store, env, sock_accept::<Memory64>),
+        "sock_accept_v2" => Function::new_typed_with_env(&mut store, env, sock_accept::<Memory64>),
         "sock_connect" => Function::new_typed_with_env(&mut store, env, sock_connect::<Memory64>),
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory64>),
         "sock_recv_from" => Function::new_typed_with_env(&mut store, env, sock_recv_from::<Memory64>),
@@ -705,6 +679,10 @@ fn import_object_for_all_wasi_versions(
         "wasix_32v1" => exports_wasix_32v1,
         "wasix_64v1" => exports_wasix_64v1,
     };
+
+    for import in module.imports() {
+        tracing::trace!("import {}.{}", import.module(), import.name());
+    }
 
     // TODO: clean this up!
     cfg_if::cfg_if! {
@@ -785,14 +763,5 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
         _ => Errno::Unknown,
-    }
-}
-
-fn mem_error_to_bus(err: MemoryAccessError) -> BusErrno {
-    match err {
-        MemoryAccessError::HeapOutOfBounds => BusErrno::Memviolation,
-        MemoryAccessError::Overflow => BusErrno::Memviolation,
-        MemoryAccessError::NonUtf8String => BusErrno::Badrequest,
-        _ => BusErrno::Unknown,
     }
 }
