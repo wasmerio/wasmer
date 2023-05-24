@@ -15,7 +15,7 @@ mod tests {
     use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
     use wasmer_vm::{
         LinearMemory, MemoryError, MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition,
+        VMTableDefinition, VMConfig,
     };
 
     #[test]
@@ -205,6 +205,11 @@ mod tests {
             vm_definition_location: NonNull<VMTableDefinition>,
         ) -> Result<VMTable, String> {
             VMTable::from_definition(ty, style, vm_definition_location)
+        }
+
+        // Will use a very small stack size of 16kb, not the 1Mb default
+        fn vmconfig(&self) -> &wasmer_vm::VMConfig {
+            &VMConfig { wasm_stack_size: Some(16*1024) }
         }
     }
 
