@@ -81,6 +81,10 @@
 <span id="81">81</span>
 <span id="82">82</span>
 <span id="83">83</span>
+<span id="84">84</span>
+<span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Wraps the memory file system implementation - this has been
 //! enhanced to support mounting file systems, shared static files,
 //! readonly files, etc...
@@ -111,6 +115,10 @@
 <span class="kw">impl </span>TmpFileSystem {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::default()
+    }
+
+    <span class="kw">pub fn </span>set_memory_limiter(<span class="kw-2">&amp;</span><span class="self">self</span>, limiter: <span class="kw">crate</span>::limiter::DynFsMemoryLimiter) {
+        <span class="self">self</span>.fs.set_memory_limiter(limiter);
     }
 
     <span class="kw">pub fn </span>new_open_options_ext(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>mem_fs::FileSystem {

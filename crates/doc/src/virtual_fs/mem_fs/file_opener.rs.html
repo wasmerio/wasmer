@@ -1196,7 +1196,7 @@
                 <span class="comment">// Write lock.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>file = File::new();
+                <span class="kw">let </span>file = File::new(fs.limiter.clone());
 
                 <span class="comment">// Creating the file in the storage.
                 </span><span class="kw">let </span>inode_of_file = fs.storage.vacant_entry().key();

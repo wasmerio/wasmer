@@ -1724,6 +1724,14 @@
 <span id="1724">1724</span>
 <span id="1725">1725</span>
 <span id="1726">1726</span>
+<span id="1727">1727</span>
+<span id="1728">1728</span>
+<span id="1729">1729</span>
+<span id="1730">1730</span>
+<span id="1731">1731</span>
+<span id="1732">1732</span>
+<span id="1733">1733</span>
+<span id="1734">1734</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1746,6 +1754,10 @@
 }
 
 <span class="kw">impl </span>FileSystem {
+    <span class="kw">pub fn </span>set_memory_limiter(<span class="kw-2">&amp;</span><span class="self">self</span>, limiter: <span class="kw">crate</span>::limiter::DynFsMemoryLimiter) {
+        <span class="self">self</span>.inner.write().unwrap().limiter = <span class="prelude-val">Some</span>(limiter);
+    }
+
     <span class="kw">pub fn </span>new_open_options_ext(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FileSystem {
         <span class="self">self
     </span>}
@@ -2265,6 +2277,7 @@
 /// indexed by their respective `Inode` in a slab.
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>FileSystemInner {
     <span class="kw">pub</span>(<span class="kw">super</span>) storage: Slab&lt;Node&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) limiter: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::limiter::DynFsMemoryLimiter&gt;,
 }
 
 <span class="attribute">#[derive(Debug)]
@@ -2658,7 +2671,10 @@
             },
         }));
 
-        <span class="self">Self </span>{ storage: slab }
+        <span class="self">Self </span>{
+            storage: slab,
+            limiter: <span class="prelude-val">None</span>,
+        }
     }
 }
 

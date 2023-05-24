@@ -1391,6 +1391,14 @@
 <span id="1391">1391</span>
 <span id="1392">1392</span>
 <span id="1393">1393</span>
+<span id="1394">1394</span>
+<span id="1395">1395</span>
+<span id="1396">1396</span>
+<span id="1397">1397</span>
+<span id="1398">1398</span>
+<span id="1399">1399</span>
+<span id="1400">1400</span>
+<span id="1401">1401</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`
 //! implementations. They aren&#39;t exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
@@ -1399,6 +1407,7 @@
 <span class="kw">use </span>tokio::io::{AsyncSeek, AsyncWrite};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span><span class="kw">crate</span>::limiter::TrackedVec;
 <span class="kw">use crate</span>::{FsError, <span class="prelude-ty">Result</span>, VirtualFile};
 <span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::cmp;
@@ -1570,7 +1579,7 @@
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File(FileNode { file, metadata, .. })) =&gt; {
                 file.buffer
-                    .resize(new_size.try_into().map_err(|<span class="kw">_</span>| FsError::UnknownError)<span class="question-mark">?</span>, <span class="number">0</span>);
+                    .resize(new_size.try_into().map_err(|<span class="kw">_</span>| FsError::UnknownError)<span class="question-mark">?</span>, <span class="number">0</span>)<span class="question-mark">?</span>;
                 metadata.len = new_size;
             }
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
@@ -2621,12 +2630,14 @@
 /// represents a read/write position in the buffer.
 </span><span class="attribute">#[derive(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>File {
-    buffer: Vec&lt;u8&gt;,
+    buffer: TrackedVec,
 }
 
 <span class="kw">impl </span>File {
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ buffer: Vec::new() }
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>new(limiter: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::limiter::DynFsMemoryLimiter&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            buffer: TrackedVec::new(limiter),
+        }
     }
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>truncate(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -2697,27 +2708,32 @@
         <span class="kw">match </span><span class="kw-2">*</span>cursor {
             <span class="comment">// The cursor is at the end of the buffer: happy path!
             </span>position <span class="kw">if </span>position == <span class="self">self</span>.buffer.len() <span class="kw">as </span>u64 =&gt; {
-                <span class="self">self</span>.buffer.extend_from_slice(buf);
+                <span class="self">self</span>.buffer.extend_from_slice(buf)<span class="question-mark">?</span>;
             }
 
             <span class="comment">// The cursor is at the beginning of the buffer (and the
             // buffer is not empty, otherwise it would have been
             // caught by the previous arm): almost a happy path!
             </span><span class="number">0 </span>=&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>new_buffer = Vec::with_capacity(<span class="self">self</span>.buffer.len() + buf.len());
-                new_buffer.extend_from_slice(buf);
-                new_buffer.append(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buffer);
+                <span class="comment">// FIXME(perf,theduke): make this faster, it&#39;s horrible!
+                </span><span class="kw">let </span><span class="kw-2">mut </span>new_buffer = TrackedVec::with_capacity(
+                    <span class="self">self</span>.buffer.len() + buf.len(),
+                    <span class="self">self</span>.buffer.limiter().cloned(),
+                )<span class="question-mark">?</span>;
+                new_buffer.extend_from_slice(buf)<span class="question-mark">?</span>;
+                new_buffer.append(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buffer)<span class="question-mark">?</span>;
 
                 <span class="self">self</span>.buffer = new_buffer;
             }
 
             <span class="comment">// The cursor is somewhere in the buffer: not the happy path.
             </span>position =&gt; {
-                <span class="self">self</span>.buffer.reserve_exact(buf.len());
+                <span class="self">self</span>.buffer.reserve_exact(buf.len())<span class="question-mark">?</span>;
 
-                <span class="kw">let </span><span class="kw-2">mut </span>remainder = <span class="self">self</span>.buffer.split_off(position <span class="kw">as </span>usize);
-                <span class="self">self</span>.buffer.extend_from_slice(buf);
-                <span class="self">self</span>.buffer.append(<span class="kw-2">&amp;mut </span>remainder);
+                <span class="comment">// FIXME(perf,theduke): make this faster, it&#39;s horrible!
+                </span><span class="kw">let </span><span class="kw-2">mut </span>remainder = <span class="self">self</span>.buffer.split_off(position <span class="kw">as </span>usize)<span class="question-mark">?</span>;
+                <span class="self">self</span>.buffer.extend_from_slice(buf)<span class="question-mark">?</span>;
+                <span class="self">self</span>.buffer.append(<span class="kw-2">&amp;mut </span>remainder)<span class="question-mark">?</span>;
             }
         }
 
