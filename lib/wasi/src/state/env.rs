@@ -859,7 +859,7 @@ impl WasiEnv {
                 root_fs.union(&pkg.webc_fs);
             }
             WasiFsRoot::Backing(_fs) => {
-                // TODO: Manually copy each file across one-by-one
+                tracing::warn!("TODO: Manually copy each file across one-by-one");
             }
         }
 
