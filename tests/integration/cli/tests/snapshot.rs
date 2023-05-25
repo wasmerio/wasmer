@@ -698,11 +698,11 @@ fn test_snapshot_unix_pipe() {
 }
 
 #[test]
-#[cfg_attr(
-    any(target_env = "musl", target_os = "macos", target_os = "windows"),
-    ignore
-)]
-#[ignore = "FIXME(john-sharratt): Broken due to an issue with polling"]
+// #[cfg_attr(
+//     any(target_env = "musl", target_os = "macos", target_os = "windows"),
+//     ignore
+// )]
+#[ignore = "TODO(Michael-F-Bryan): figure out why the request body doesn't get sent fully on Linux"]
 fn test_snapshot_web_server() {
     let name: &str = function!();
     let port = 7777;
@@ -716,7 +716,8 @@ fn test_snapshot_web_server() {
     let script = format!(
         r#"
 cat /public/main.js | wc -c > /public/main.js.size
-rm -f /cfg/config.toml
+rm -f /cfg/
+cd /public
 /bin/webserver --log-level warn --root /public --port {}"#,
         port
     );

@@ -366,6 +366,10 @@ mod remote_webc {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[cfg_attr(
+        windows,
+        ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
+    )]
     fn bash_using_coreutils() {
         let assert = wasmer_run_unstable()
             .arg("sharrattj/bash")
