@@ -11,8 +11,9 @@ pub struct FileSystemSource {}
 
 #[async_trait::async_trait]
 impl Source for FileSystemSource {
-    async fn query(&self, pkg: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
-        let path = match pkg {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
+        let path = match package {
             PackageSpecifier::Path(path) => path.canonicalize().with_context(|| {
                 format!(
                     "Unable to get the canonical form for \"{}\"",

@@ -247,6 +247,7 @@ fn headers() -> Vec<(String, String)> {
 
 #[async_trait::async_trait]
 impl Source for WebSource {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         let url = match package {
             PackageSpecifier::Url(url) => url,

@@ -87,15 +87,27 @@ impl InMemorySource {
 
 #[async_trait::async_trait]
 impl Source for InMemorySource {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         match package {
             PackageSpecifier::Registry { full_name, version } => {
                 match self.packages.get(full_name) {
-                    Some(summaries) => Ok(summaries
-                        .iter()
-                        .filter(|summary| version.matches(&summary.pkg.version))
-                        .cloned()
-                        .collect()),
+                    Some(summaries) => {
+                        let matches: Vec<_> = summaries
+                            .iter()
+                            .filter(|summary| version.matches(&summary.pkg.version))
+                            .cloned()
+                            .collect();
+
+                        tracing::debug!(
+                            matches = ?matches
+                                .iter()
+                                .map(|summary| summary.package_id().to_string())
+                                .collect::<Vec<_>>(),
+                        );
+
+                        Ok(matches)
+                    }
                     None => Ok(Vec::new()),
                 }
             }

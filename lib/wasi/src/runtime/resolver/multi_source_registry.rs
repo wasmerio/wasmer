@@ -36,6 +36,7 @@ impl MultiSource {
 
 #[async_trait::async_trait]
 impl Source for MultiSource {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         for source in &self.sources {
             let result = source.query(package).await?;

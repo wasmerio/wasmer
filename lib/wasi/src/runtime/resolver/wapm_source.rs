@@ -34,6 +34,7 @@ impl WapmSource {
 
 #[async_trait::async_trait]
 impl Source for WapmSource {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
         let (full_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
