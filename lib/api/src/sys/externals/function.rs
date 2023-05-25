@@ -1,6 +1,7 @@
 use crate::externals::function::{HostFunction, WithEnv, WithoutEnv};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
+use crate::sys::engine::NativeEngineExt;
 use crate::vm::{VMExternFunction, VMFunctionCallback};
 use crate::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
 use std::panic::{self, AssertUnwindSafe};

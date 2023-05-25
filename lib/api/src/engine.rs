@@ -13,7 +13,7 @@ use std::sync::Arc;
 #[cfg(feature = "sys")]
 pub use wasmer_compiler::{Artifact, CompilerConfig, EngineInner, Features, Tunables};
 #[cfg(feature = "sys")]
-use wasmer_types::{DeserializeError, Target};
+use wasmer_types::DeserializeError;
 
 #[cfg(feature = "js")]
 use crate::js::engine as engine_imp;
@@ -33,20 +33,6 @@ impl Engine {
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> &str {
         self.0.deterministic_id()
-    }
-
-    #[cfg(feature = "sys")]
-    /// Create a headless `Engine`
-    /// Will be removed in 4.0 in favor of the NativeEngineExt trait
-    pub fn headless() -> Self {
-        Self(engine_imp::Engine::headless())
-    }
-
-    #[cfg(feature = "sys")]
-    /// Gets the target
-    /// Will be removed in 4.0 in favor of the NativeEngineExt trait
-    pub fn target(&self) -> &Target {
-        self.0.target()
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -110,21 +96,8 @@ impl Engine {
         file.read_to_end(&mut buffer)?;
         Ok(Arc::new(Artifact::deserialize(&self.0, buffer.as_slice())?))
     }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Attach a Tunable to this engine
-    /// Will be removed in 4.0 in favor of the NativeEngineExt trait
-    pub fn set_tunables(&mut self, tunables: impl Tunables + Send + Sync + 'static) {
-        self.0.set_tunables(tunables);
-    }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Get a reference to attached Tunable of this engine
-    /// Will be removed in 4.0 in favor of the NativeEngineExt trait
-    pub fn tunables(&self) -> &dyn Tunables {
-        self.0.tunables()
-    }
 }
+
 impl AsEngineRef for Engine {
     #[inline]
     fn as_engine_ref(&self) -> EngineRef {

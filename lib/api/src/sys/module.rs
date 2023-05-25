@@ -9,6 +9,7 @@ use wasmer_types::{
 };
 use wasmer_types::{ExportType, ImportType};
 
+use crate::sys::engine::NativeEngineExt;
 use crate::vm::VMInstance;
 use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 
