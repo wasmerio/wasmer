@@ -1892,6 +1892,8 @@
 <span id="1890">1890</span>
 <span id="1891">1891</span>
 <span id="1892">1892</span>
+<span id="1893">1893</span>
+<span id="1894">1894</span>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -3195,12 +3197,14 @@
         path: <span class="kw-2">&amp;</span>str,
         follow_symlinks: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeGuard, Errno&gt; {
-        <span class="kw">let </span>start_inode = <span class="kw">if </span>!path.starts_with(<span class="string">&#39;/&#39;</span>) &amp;&amp; <span class="self">self</span>.is_wasix.load(Ordering::Acquire) {
-            <span class="kw">let </span>(cur_inode, <span class="kw">_</span>) = <span class="self">self</span>.get_current_dir(inodes, base)<span class="question-mark">?</span>;
-            cur_inode
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?
-        </span>};
+        <span class="kw">let </span>base_inode = <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?</span>;
+        <span class="kw">let </span>start_inode =
+            <span class="kw">if </span>!base_inode.deref().name.starts_with(<span class="string">&#39;/&#39;</span>) &amp;&amp; <span class="self">self</span>.is_wasix.load(Ordering::Acquire) {
+                <span class="kw">let </span>(cur_inode, <span class="kw">_</span>) = <span class="self">self</span>.get_current_dir(inodes, base)<span class="question-mark">?</span>;
+                cur_inode
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.get_fd_inode(base)<span class="question-mark">?
+            </span>};
         <span class="self">self</span>.get_inode_at_path_inner(inodes, start_inode, path, <span class="number">0</span>, follow_symlinks)
     }
 
