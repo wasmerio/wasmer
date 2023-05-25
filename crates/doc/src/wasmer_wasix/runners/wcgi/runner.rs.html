@@ -279,117 +279,6 @@
 <span id="277">277</span>
 <span id="278">278</span>
 <span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -399,57 +288,97 @@
 <span class="kw">use </span>tower::{make::Shared, ServiceBuilder};
 <span class="kw">use </span>tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 <span class="kw">use </span>tracing::Span;
-<span class="kw">use </span>virtual_fs::{FileSystem, WebcVolumeFileSystem};
-<span class="kw">use </span>wasmer::{Engine, Module, Store};
 <span class="kw">use </span>wcgi_host::CgiDialect;
-<span class="kw">use </span>webc::{
-    compat::SharedBytes,
-    metadata::{
-        annotations::{Wasi, Wcgi},
-        Command, Manifest,
-    },
-    Container,
+<span class="kw">use </span>webc::metadata::{
+    annotations::{Wasi, Wcgi},
+    Command,
 };
 
 <span class="kw">use crate</span>::{
+    bin_factory::BinaryPackage,
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        CompileModule, MappedDirectory,
+        MappedDirectory,
     },
-    runtime::task_manager::tokio::TokioTaskManager,
-    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
+    WasiEnvBuilder, WasiRuntime,
 };
 
-<span class="kw">pub struct </span>WcgiRunner {
-    program_name: String,
+<span class="attribute">#[derive(Debug, Default)]
+</span><span class="kw">pub struct </span>WcgiRunner {
     config: Config,
-    compile: <span class="prelude-ty">Option</span>&lt;Arc&lt;CompileModule&gt;&gt;,
 }
 
-<span class="comment">// TODO(Michael-F-Bryan): When we rewrite the existing runner infrastructure,
-// make the &quot;Runner&quot; trait contain just these two methods.
-</span><span class="kw">impl </span>WcgiRunner {
-    <span class="kw">fn </span>supports(cmd: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
-        <span class="prelude-val">Ok</span>(cmd
+<span class="kw">impl </span>WcgiRunner {
+    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        WcgiRunner::default()
+    }
+
+    <span class="kw">pub fn </span>config(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Config {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.config
+    }
+
+    <span class="attribute">#[tracing::instrument(skip_all)]
+    </span><span class="kw">fn </span>prepare_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        command_name: <span class="kw-2">&amp;</span>str,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Handler, Error&gt; {
+        <span class="kw">let </span>cmd = pkg
+            .get_command(command_name)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The package doesn&#39;t contain a \&quot;{command_name}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata = cmd.metadata();
+        <span class="kw">let </span>wasi = metadata
+            .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
+            </span>.unwrap_or_else(|| Wasi::new(command_name));
+
+        <span class="kw">let </span>module = <span class="kw">crate</span>::runners::compile_module(cmd.atom(), <span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>Wcgi { dialect, .. } = metadata.annotation(<span class="string">&quot;wcgi&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
+        <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
+            <span class="prelude-val">Some</span>(d) =&gt; d.parse().context(<span class="string">&quot;Unable to parse the CGI dialect&quot;</span>)<span class="question-mark">?</span>,
+            <span class="prelude-val">None </span>=&gt; CgiDialect::Wcgi,
+        };
+
+        <span class="kw">let </span>container_fs = Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs);
+
+        <span class="kw">let </span>wasi_common = <span class="self">self</span>.config.wasi.clone();
+        <span class="kw">let </span>rt = Arc::clone(<span class="kw-2">&amp;</span>runtime);
+        <span class="kw">let </span>setup_builder = <span class="kw">move </span>|builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder| {
+            wasi_common.prepare_webc_env(builder, Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?</span>;
+            builder.set_runtime(Arc::clone(<span class="kw-2">&amp;</span>rt));
+
+            <span class="prelude-val">Ok</span>(())
+        };
+
+        <span class="kw">let </span>shared = SharedState {
+            module,
+            dialect,
+            program_name: command_name.to_string(),
+            setup_builder: Box::new(setup_builder),
+            callbacks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks),
+            runtime,
+        };
+
+        <span class="prelude-val">Ok</span>(Handler::new(shared))
+    }
+}
+
+<span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>WcgiRunner {
+    <span class="kw">fn </span>can_run_command(command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
+        <span class="prelude-val">Ok</span>(command
             .runner
             .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
     }
 
-    <span class="attribute">#[tracing::instrument(skip(<span class="self">self</span>, ctx))]
-    </span><span class="kw">fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>, command_name: <span class="kw-2">&amp;</span>str, ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span>wasi: Wasi = ctx
-            .command()
-            .annotation(<span class="string">&quot;wasi&quot;</span>)
-            .context(<span class="string">&quot;Unable to retrieve the WASI metadata&quot;</span>)<span class="question-mark">?
-            </span>.unwrap_or_else(|| Wasi::new(command_name));
-
-        <span class="kw">let </span>module = <span class="self">self
-            </span>.load_module(<span class="kw-2">&amp;</span>wasi, ctx)
-            .context(<span class="string">&quot;Couldn&#39;t load the module&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>handler = <span class="self">self</span>.create_handler(module, <span class="kw-2">&amp;</span>wasi, ctx)<span class="question-mark">?</span>;
-        <span class="kw">let </span>task_manager = Arc::clone(<span class="kw-2">&amp;</span>handler.task_manager);
+    <span class="kw">fn </span>run_command(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        command_name: <span class="kw-2">&amp;</span>str,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>handler = <span class="self">self</span>.prepare_handler(command_name, pkg, Arc::clone(<span class="kw-2">&amp;</span>runtime))<span class="question-mark">?</span>;
         <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks);
 
         <span class="kw">let </span>service = ServiceBuilder::new()
@@ -475,7 +404,8 @@
         <span class="kw">let </span>address = <span class="self">self</span>.config.addr;
         <span class="macro">tracing::info!</span>(%address, <span class="string">&quot;Starting the server&quot;</span>);
 
-        task_manager
+        runtime
+            .task_manager()
             .block_on(<span class="kw">async </span>{
                 <span class="kw">let </span>(shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::&lt;()&gt;());
@@ -496,176 +426,16 @@
     }
 }
 
-<span class="kw">impl </span>WcgiRunner {
-    <span class="kw">pub fn </span>new(program_name: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
-        WcgiRunner {
-            program_name: program_name.into(),
-            config: Config::default(),
-            compile: <span class="prelude-val">None</span>,
-        }
-    }
-
-    <span class="kw">pub fn </span>config(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Config {
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>.config
-    }
-
-    <span class="doccomment">/// Sets the compile function
-    </span><span class="kw">pub fn </span>with_compile(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Arc::new(compile));
-        <span class="self">self
-    </span>}
-
-    <span class="kw">fn </span>load_module(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wasi: <span class="kw-2">&amp;</span>Wasi, ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
-        <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>wasi.atom;
-        <span class="kw">let </span>atom = ctx
-            .get_atom(atom_name)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to retrieve the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>module = ctx.compile(<span class="kw-2">&amp;</span>atom).context(<span class="string">&quot;Unable to compile the atom&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(module)
-    }
-
-    <span class="kw">fn </span>create_handler(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        module: Module,
-        wasi: <span class="kw-2">&amp;</span>Wasi,
-        ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Handler, Error&gt; {
-        <span class="kw">let </span>Wcgi { dialect, .. } = ctx.command().annotation(<span class="string">&quot;wcgi&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
-
-        <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
-            <span class="prelude-val">Some</span>(d) =&gt; d.parse().context(<span class="string">&quot;Unable to parse the CGI dialect&quot;</span>)<span class="question-mark">?</span>,
-            <span class="prelude-val">None </span>=&gt; CgiDialect::Wcgi,
-        };
-
-        <span class="kw">let </span>shared = SharedState {
-            module,
-            dialect,
-            program_name: <span class="self">self</span>.program_name.clone(),
-            setup_builder: Box::new(<span class="self">self</span>.setup_builder(ctx, wasi)),
-            callbacks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks),
-            task_manager: <span class="self">self
-                </span>.config
-                .task_manager
-                .clone()
-                .unwrap_or_else(|| Arc::new(TokioTaskManager::default())),
-        };
-
-        <span class="prelude-val">Ok</span>(Handler::new(shared))
-    }
-
-    <span class="kw">fn </span>setup_builder(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ctx: <span class="kw-2">&amp;</span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt;,
-        wasi: <span class="kw-2">&amp;</span>Wasi,
-    ) -&gt; <span class="kw">impl </span>Fn(<span class="kw-2">&amp;mut </span>WasiEnvBuilder) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; + Send + Sync {
-        <span class="kw">let </span>container_fs = ctx.container_fs();
-        <span class="kw">let </span>wasi_common = <span class="self">self</span>.config.wasi.clone();
-        <span class="kw">let </span>wasi = wasi.clone();
-        <span class="kw">let </span>tasks = <span class="self">self</span>.config.task_manager.clone();
-
-        <span class="kw">move </span>|builder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?</span>;
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = <span class="kw-2">&amp;</span>tasks {
-                <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(tasks));
-                builder.set_runtime(Arc::new(rt));
-            }
-
-            <span class="prelude-val">Ok</span>(())
-        }
-    }
-}
-
-<span class="comment">// TODO(Michael-F-Bryan): Pass this to Runner::run() as a &quot;&amp;dyn RunnerContext&quot;
-// when we rewrite the &quot;Runner&quot; trait.
-</span><span class="kw">struct </span>RunnerContext&lt;<span class="lifetime">&#39;a</span>&gt; {
-    container: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Container,
-    command: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Command,
-    compile: <span class="prelude-ty">Option</span>&lt;Arc&lt;CompileModule&gt;&gt;,
-    engine: Engine,
-    store: Arc&lt;Store&gt;,
-}
-
-<span class="attribute">#[allow(dead_code)]
-</span><span class="kw">impl </span>RunnerContext&lt;<span class="lifetime">&#39;_</span>&gt; {
-    <span class="kw">fn </span>command(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Command {
-        <span class="self">self</span>.command
-    }
-
-    <span class="kw">fn </span>manifest(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Manifest {
-        <span class="self">self</span>.container.manifest()
-    }
-
-    <span class="kw">fn </span>store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Store {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.store
-    }
-
-    <span class="kw">fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBytes&gt; {
-        <span class="self">self</span>.container.atoms().remove(name)
-    }
-
-    <span class="kw">fn </span>container_fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>FileSystem&gt; {
-        Arc::new(WebcVolumeFileSystem::mount_all(<span class="self">self</span>.container))
-    }
-
-    <span class="kw">fn </span>compile(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
-        <span class="kw">let </span>compile = <span class="self">self
-            </span>.compile
-            .as_deref()
-            .unwrap_or(<span class="kw-2">&amp;</span><span class="kw">crate</span>::runners::default_compile);
-        compile(<span class="kw-2">&amp;</span><span class="self">self</span>.engine, wasm)
-    }
-}
-
-<span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>WcgiRunner {
-    <span class="kw">type </span>Output = ();
-
-    <span class="kw">fn </span>can_run_command(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>str, command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
-        WcgiRunner::supports(command)
-    }
-
-    <span class="kw">fn </span>run_command(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        command_name: <span class="kw-2">&amp;</span>str,
-        command: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>Container,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
-        <span class="kw">let </span>store = <span class="self">self</span>.config.store.clone().unwrap_or_default();
-
-        <span class="kw">let </span>ctx = RunnerContext {
-            container,
-            command,
-            engine: store.engine().clone(),
-            store,
-            compile: <span class="self">self</span>.compile.clone(),
-        };
-
-        WcgiRunner::run(<span class="self">self</span>, command_name, <span class="kw-2">&amp;</span>ctx)
-    }
-}
-
 <span class="attribute">#[derive(derivative::Derivative)]
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>Config {
-    task_manager: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;&gt;,
     wasi: CommonWasiOptions,
     addr: SocketAddr,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
-    store: <span class="prelude-ty">Option</span>&lt;Arc&lt;Store&gt;&gt;,
 }
 
 <span class="kw">impl </span>Config {
-    <span class="kw">pub fn </span>task_manager(<span class="kw-2">&amp;mut </span><span class="self">self</span>, task_manager: <span class="kw">impl </span>VirtualTaskManager) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.task_manager = <span class="prelude-val">Some</span>(Arc::new(task_manager));
-        <span class="self">self
-    </span>}
-
     <span class="kw">pub fn </span>addr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, addr: SocketAddr) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.addr = addr;
         <span class="self">self
@@ -732,8 +502,18 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>store(<span class="kw-2">&amp;mut </span><span class="self">self</span>, store: Store) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.store = <span class="prelude-val">Some</span>(Arc::new(store));
+    <span class="doccomment">/// Add a package that should be available to the instance at runtime.
+    </span><span class="kw">pub fn </span>inject_package(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.injected_packages.push(pkg);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Add packages that should be available to the instance at runtime.
+    </span><span class="kw">pub fn </span>inject_packages(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        packages: <span class="kw">impl </span>IntoIterator&lt;Item = BinaryPackage&gt;,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.injected_packages.extend(packages);
         <span class="self">self
     </span>}
 }
@@ -741,11 +521,9 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>Config {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            task_manager: <span class="prelude-val">None</span>,
             addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
             wasi: CommonWasiOptions::default(),
             callbacks: Arc::new(NoopCallbacks),
-            store: <span class="prelude-val">None</span>,
         }
     }
 }

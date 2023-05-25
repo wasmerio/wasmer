@@ -305,6 +305,11 @@
 <span id="303">303</span>
 <span id="304">304</span>
 <span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -315,21 +320,22 @@
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
-<span class="kw">use crate</span>::{runners::MappedDirectory, WasiEnvBuilder};
+<span class="kw">use crate</span>::{bin_factory::BinaryPackage, runners::MappedDirectory, WasiEnvBuilder};
 
-<span class="attribute">#[derive(Debug, Default, Clone, serde::Serialize, serde::Deserialize)]
+<span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CommonWasiOptions {
     <span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) env: HashMap&lt;String, String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) mapped_dirs: Vec&lt;MappedDirectory&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) injected_packages: Vec&lt;BinaryPackage&gt;,
 }
 
 <span class="kw">impl </span>CommonWasiOptions {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder,
-        container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem&gt;,
+        container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, |path| {
@@ -343,6 +349,10 @@
         }
 
         builder.set_fs(fs);
+
+        <span class="kw">for </span>pkg <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.injected_packages {
+            builder.add_webc(pkg.clone());
+        }
 
         <span class="self">self</span>.populate_env(wasi, builder);
         <span class="self">self</span>.populate_args(wasi, builder);

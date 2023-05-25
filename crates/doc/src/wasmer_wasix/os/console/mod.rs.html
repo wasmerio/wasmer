@@ -301,6 +301,8 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -329,10 +331,10 @@
 
 <span class="kw">use super</span>::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
 <span class="kw">use crate</span>::{
-    bin_factory::{spawn_exec, BinFactory},
+    bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::WebcIdentifier,
+    runtime::resolver::PackageSpecifier,
     SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -525,35 +527,37 @@
             tasks.block_on(<span class="self">self</span>.draw_welcome());
         }
 
-        <span class="kw">let </span>webc_ident: WebcIdentifier = <span class="kw">match </span>webc.parse() {
+        <span class="kw">let </span>webc_ident: PackageSpecifier = <span class="kw">match </span>webc.parse() {
             <span class="prelude-val">Ok</span>(ident) =&gt; ident,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">tracing::debug!</span>(webc, error = <span class="kw-2">&amp;*</span>e, <span class="string">&quot;Unable to parse the WEBC identifier&quot;</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::BadRequest);
             }
         };
-        <span class="kw">let </span>client = <span class="self">self</span>.runtime.http_client().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>resolved_package = tasks.block_on(
-            <span class="self">self</span>.runtime
-                .package_resolver()
-                .resolve_package(<span class="kw-2">&amp;</span>webc_ident, <span class="kw-2">&amp;</span>client),
-        );
+        <span class="kw">let </span>resolved_package =
+            tasks.block_on(BinaryPackage::from_registry(<span class="kw-2">&amp;</span>webc_ident, env.runtime()));
 
-        <span class="kw">let </span>binary = <span class="kw">if let </span><span class="prelude-val">Ok</span>(binary) = resolved_package {
-            binary
-        } <span class="kw">else </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
-            tasks.block_on(<span class="kw">async </span>{
-                virtual_fs::AsyncWriteExt::write_all(
-                    <span class="kw-2">&amp;mut </span>stderr,
-                    <span class="macro">format!</span>(<span class="string">&quot;package not found [{}]\r\n&quot;</span>, webc).as_bytes(),
-                )
-                .<span class="kw">await
-                </span>.ok();
-            });
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, webc);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::NotFound);
+        <span class="kw">let </span>binary = <span class="kw">match </span>resolved_package {
+            <span class="prelude-val">Ok</span>(pkg) =&gt; pkg,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
+                tasks.block_on(<span class="kw">async </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
+                    <span class="macro">writeln!</span>(buffer, <span class="string">&quot;Error: {e}&quot;</span>).ok();
+                    <span class="kw">let </span><span class="kw-2">mut </span>source = e.source();
+                    <span class="kw">while let </span><span class="prelude-val">Some</span>(s) = source {
+                        <span class="macro">writeln!</span>(buffer, <span class="string">&quot;  Caused by: {s}&quot;</span>).ok();
+                        source = s.source();
+                    }
+
+                    virtual_fs::AsyncWriteExt::write_all(<span class="kw-2">&amp;mut </span>stderr, <span class="kw-2">&amp;</span>buffer)
+                        .<span class="kw">await
+                        </span>.ok();
+                });
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, webc);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::NotFound);
+            }
         };
 
         <span class="kw">let </span>wasi_process = env.process.clone();

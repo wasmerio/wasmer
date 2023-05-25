@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["url_from_file_path","Polyfill for [`Url::from_file_path()`] that works on `wasm32-unknown-unknown`."]]};

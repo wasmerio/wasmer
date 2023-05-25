@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["preload_webc",""],["wapm_resolver",""]],"struct":[["RunProperties",""],["Wasi","WASI Options"]]};
+window.SIDEBAR_ITEMS = {"fn":[["parse_registry",""]],"struct":[["RunProperties",""],["Wasi","WASI Options"]]};

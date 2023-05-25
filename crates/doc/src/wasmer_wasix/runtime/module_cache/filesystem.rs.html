@@ -226,6 +226,12 @@
 <span id="224">224</span>
 <span id="225">225</span>
 <span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use </span>tempfile::NamedTempFile;
@@ -245,6 +251,12 @@
         FileSystemCache {
             cache_dir: cache_dir.into(),
         }
+    }
+
+    <span class="doccomment">/// Get the directory that is typically used when caching compiled
+    /// packages inside `$WASMER_DIR`.
+    </span><span class="kw">pub fn </span>default_cache_dir(wasmer_dir: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; PathBuf {
+        wasmer_dir.as_ref().join(<span class="string">&quot;compiled&quot;</span>)
     }
 
     <span class="kw">pub fn </span>cache_dir(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Path {
@@ -396,7 +408,7 @@
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
-        <span class="kw">let </span>key = ModuleHash::from_raw([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -412,7 +424,7 @@
         <span class="kw">let </span>cache_dir = temp.path().join(<span class="string">&quot;this&quot;</span>).join(<span class="string">&quot;doesn&#39;t&quot;</span>).join(<span class="string">&quot;exist&quot;</span>);
         <span class="macro">assert!</span>(!cache_dir.exists());
         <span class="kw">let </span>cache = FileSystemCache::new(<span class="kw-2">&amp;</span>cache_dir);
-        <span class="kw">let </span>key = ModuleHash::from_raw([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
 
@@ -423,7 +435,7 @@
     </span><span class="kw">async fn </span>missing_file() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
-        <span class="kw">let </span>key = ModuleHash::from_raw([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
 
         <span class="kw">let </span>err = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap_err();
@@ -436,7 +448,7 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>key = ModuleHash::from_raw([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();

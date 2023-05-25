@@ -241,7 +241,6 @@
 <span id="239">239</span>
 <span id="240">240</span>
 <span id="241">241</span>
-<span id="242">242</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 <span class="kw">use </span>anyhow::Error;
@@ -258,7 +257,7 @@
 
 <span class="kw">use crate</span>::{
     capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
-    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
+    VirtualTaskManager, WasiEnvBuilder, WasiRuntime,
 };
 
 <span class="doccomment">/// The shared object that manages the instantiaion of WASI executables and
@@ -295,8 +294,6 @@
             .prepare_environment_variables(parts, <span class="kw-2">&amp;mut </span>request_specific_env);
         builder.add_envs(request_specific_env);
 
-        <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.task_manager));
-
         <span class="kw">let </span>builder = builder
             .stdin(Box::new(req_body_receiver))
             .stdout(Box::new(res_body_sender))
@@ -305,8 +302,7 @@
                 insecure_allow_all: <span class="bool-val">true</span>,
                 http_client: HttpClientCapabilityV1::new_allow_all(),
                 threading: Default::default(),
-            })
-            .runtime(Arc::new(rt));
+            });
 
         <span class="kw">let </span>module = <span class="self">self</span>.module.clone();
 
@@ -315,14 +311,16 @@
             <span class="string">&quot;Calling into the WCGI executable&quot;</span>,
         );
 
-        <span class="kw">let </span>done = <span class="self">self
-            </span>.task_manager
+        <span class="kw">let </span>task_manager = <span class="self">self</span>.runtime.task_manager();
+        <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.runtime.new_store();
+
+        <span class="kw">let </span>done = task_manager
             .runtime()
-            .spawn_blocking(<span class="kw">move </span>|| builder.run(module))
+            .spawn_blocking(<span class="kw">move </span>|| builder.run_with_store(module, <span class="kw-2">&amp;mut </span>store))
             .map_err(Error::from)
             .and_then(|r| <span class="kw">async </span>{ r.map_err(Error::from) });
 
-        <span class="kw">let </span>handle = <span class="self">self</span>.task_manager.runtime().clone();
+        <span class="kw">let </span>handle = task_manager.runtime().clone();
         <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.callbacks);
 
         handle.spawn(
@@ -332,7 +330,7 @@
             .in_current_span(),
         );
 
-        <span class="self">self</span>.task_manager.runtime().spawn(
+        task_manager.runtime().spawn(
             <span class="kw">async move </span>{
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
                     drive_request_to_completion(<span class="kw-2">&amp;</span>handle, done, body, req_body_sender).<span class="kw">await
@@ -464,7 +462,7 @@
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) task_manager: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
 }
 
 <span class="kw">impl </span>Service&lt;Request&lt;Body&gt;&gt; <span class="kw">for </span>Handler {

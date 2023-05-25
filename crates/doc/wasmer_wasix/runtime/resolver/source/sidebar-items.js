@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["Source","Something that packages can be downloaded from."]]};

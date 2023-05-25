@@ -111,6 +111,12 @@
 <span id="109">109</span>
 <span id="110">110</span>
 <span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     ops::Deref,
@@ -120,6 +126,7 @@
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
+<span class="kw">use </span>webc::Container;
 
 <span class="kw">mod </span>binary_package;
 <span class="kw">mod </span>exec;
@@ -184,7 +191,7 @@
         <span class="comment">// Check the filesystem for the file
         </span><span class="kw">if </span>name.starts_with(<span class="string">&#39;/&#39;</span>) {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(fs) = fs {
-                <span class="kw">match </span>load_package_from_filesystem(fs, name.as_ref()).<span class="kw">await </span>{
+                <span class="kw">match </span>load_package_from_filesystem(fs, name.as_ref(), <span class="self">self</span>.runtime()).<span class="kw">await </span>{
                     <span class="prelude-val">Ok</span>(pkg) =&gt; {
                         cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
                         <span class="kw">return </span><span class="prelude-val">Some</span>(pkg);
@@ -209,6 +216,7 @@
 <span class="kw">async fn </span>load_package_from_filesystem(
     fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
     path: <span class="kw-2">&amp;</span>Path,
+    rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>f = fs
         .new_open_options()
@@ -218,7 +226,11 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(f.size() <span class="kw">as </span>usize);
     f.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.context(<span class="string">&quot;Read failed&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>pkg = <span class="kw">crate</span>::wapm::parse_static_webc(data).context(<span class="string">&quot;Unable to parse the package&quot;</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>container = Container::from_bytes(data).context(<span class="string">&quot;Unable to parse the WEBC file&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, rt)
+        .<span class="kw">await
+        </span>.context(<span class="string">&quot;Unable to load the package&quot;</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(pkg)
 }

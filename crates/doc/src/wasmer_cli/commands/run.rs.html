@@ -760,6 +760,36 @@
 <span id="758">758</span>
 <span id="759">759</span>
 <span id="760">760</span>
+<span id="761">761</span>
+<span id="762">762</span>
+<span id="763">763</span>
+<span id="764">764</span>
+<span id="765">765</span>
+<span id="766">766</span>
+<span id="767">767</span>
+<span id="768">768</span>
+<span id="769">769</span>
+<span id="770">770</span>
+<span id="771">771</span>
+<span id="772">772</span>
+<span id="773">773</span>
+<span id="774">774</span>
+<span id="775">775</span>
+<span id="776">776</span>
+<span id="777">777</span>
+<span id="778">778</span>
+<span id="779">779</span>
+<span id="780">780</span>
+<span id="781">781</span>
+<span id="782">782</span>
+<span id="783">783</span>
+<span id="784">784</span>
+<span id="785">785</span>
+<span id="786">786</span>
+<span id="787">787</span>
+<span id="788">788</span>
+<span id="789">789</span>
+<span id="790">790</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::commands::run::wasi::RunProperties;
 <span class="kw">use </span><span class="kw">crate</span>::common::get_cache_dir;
 <span class="kw">use </span><span class="kw">crate</span>::logging;
@@ -771,14 +801,16 @@
 <span class="kw">use </span>clap::Parser;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
 </span><span class="kw">use </span>std::fs::File;
-<span class="kw">use </span>std::io::Write;
 <span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::ops::Deref;
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::str::FromStr;
+<span class="kw">use </span>std::{io::Write, sync::Arc};
+<span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>wasmer::FunctionEnv;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_cache::{Cache, FileSystemCache, Hash};
+<span class="kw">use </span>wasmer_registry::WasmerConfig;
 <span class="kw">use </span>wasmer_types::Type <span class="kw">as </span>ValueType;
 <span class="kw">use </span>wasmer_wasix::runners::Runner;
 
@@ -1008,10 +1040,15 @@
     }
 
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>handle = runtime.handle().clone();
+
         <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
         </span>{
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(pf) = webc::Container::from_disk(<span class="self">self</span>.path.clone()) {
-                <span class="kw">return </span><span class="self">self</span>.run_container(pf, <span class="self">self</span>.command_name.as_deref(), <span class="kw-2">&amp;</span><span class="self">self</span>.args);
+                <span class="kw">return </span><span class="self">self</span>.run_container(pf, <span class="self">self</span>.command_name.as_deref(), <span class="kw-2">&amp;</span><span class="self">self</span>.args, handle);
             }
         }
         <span class="kw">let </span>(<span class="kw-2">mut </span>store, module) = <span class="self">self</span>.get_store_module()<span class="question-mark">?</span>;
@@ -1104,9 +1141,13 @@
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
+
+                    <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>runtime = Arc::new(<span class="self">self</span>.wasi.prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span>wasmer_dir, handle)<span class="question-mark">?</span>);
+
                     <span class="kw">let </span>(ctx, instance) = <span class="self">self
                         </span>.wasi
-                        .instantiate(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, program_name, <span class="self">self</span>.args.clone())
+                        .instantiate(<span class="kw-2">&amp;</span>module, program_name, <span class="self">self</span>.args.clone(), runtime, <span class="kw-2">&amp;mut </span>store)
                         .with_context(|| <span class="string">&quot;failed to instantiate WASI module&quot;</span>)<span class="question-mark">?</span>;
 
                     <span class="kw">let </span>capable_of_deep_sleep = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).capable_of_deep_sleep() };
@@ -1177,7 +1218,16 @@
         container: webc::Container,
         id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
         args: <span class="kw-2">&amp;</span>[String],
+        handle: Handle,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">use </span>wasmer_wasix::{
+            bin_factory::BinaryPackage,
+            runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
+            WasiRuntime,
+        };
+
+        <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>id = id
             .or_else(|| container.manifest().entrypoint.as_deref())
             .context(<span class="string">&quot;No command specified&quot;</span>)<span class="question-mark">?</span>;
@@ -1188,35 +1238,45 @@
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;No metadata found for the command, \&quot;{id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
-        runner.set_args(args.to_vec());
-        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
-            <span class="kw">return </span>runner.run_cmd(<span class="kw-2">&amp;</span>container, id).context(<span class="string">&quot;WASI runner failed&quot;</span>);
+        <span class="kw">let </span>runtime = <span class="self">self
+            </span>.wasi
+            .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span>wasmer_dir, handle)<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = Arc::new(runtime);
+        <span class="kw">let </span>pkg = runtime
+            .task_manager()
+            .block_on(BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;*</span>runtime))<span class="question-mark">?</span>;
+
+        <span class="kw">if </span>WasiRunner::can_run_command(command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new();
+            runner.set_args(args.to_vec());
+            <span class="kw">return </span>runner
+                .run_command(id, <span class="kw-2">&amp;</span>pkg, runtime)
+                .context(<span class="string">&quot;WASI runner failed&quot;</span>);
         }
 
-        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
-        runner.set_args(args.to_vec());
-        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
+        <span class="kw">if </span>EmscriptenRunner::can_run_command(command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">let </span><span class="kw-2">mut </span>runner = EmscriptenRunner::new();
+            runner.set_args(args.to_vec());
             <span class="kw">return </span>runner
-                .run_cmd(<span class="kw-2">&amp;</span>container, id)
+                .run_command(id, <span class="kw-2">&amp;</span>pkg, runtime)
                 .context(<span class="string">&quot;Emscripten runner failed&quot;</span>);
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
-        <span class="kw">let </span>(store, _compiler_type) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        runner
-            .config()
-            .args(args)
-            .store(store)
-            .addr(<span class="self">self</span>.wcgi.addr)
-            .envs(<span class="self">self</span>.wasi.env_vars.clone())
-            .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone());
-        <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
-            runner.config().forward_host_env();
-        }
-        <span class="kw">if </span>runner.can_run_command(id, command).unwrap_or(<span class="bool-val">false</span>) {
-            <span class="kw">return </span>runner.run_cmd(<span class="kw-2">&amp;</span>container, id).context(<span class="string">&quot;WCGI runner failed&quot;</span>);
+        <span class="kw">if </span>WcgiRunner::can_run_command(command).unwrap_or(<span class="bool-val">false</span>) {
+            <span class="kw">let </span><span class="kw-2">mut </span>runner = WcgiRunner::new();
+            runner
+                .config()
+                .args(args)
+                .addr(<span class="self">self</span>.wcgi.addr)
+                .envs(<span class="self">self</span>.wasi.env_vars.clone())
+                .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone());
+            <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
+                runner.config().forward_host_env();
+            }
+
+            <span class="kw">return </span>runner
+                .run_command(id, <span class="kw-2">&amp;</span>pkg, runtime)
+                .context(<span class="string">&quot;WCGI runner failed&quot;</span>);
         }
 
         <span class="macro">anyhow::bail!</span>(

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":[["InMemoryCache","A resolver that wraps a [`PackageResolver`] with an in-memory cache."]]};

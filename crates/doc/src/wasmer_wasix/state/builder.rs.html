@@ -977,6 +977,18 @@
 <span id="975">975</span>
 <span id="976">976</span>
 <span id="977">977</span>
+<span id="978">978</span>
+<span id="979">979</span>
+<span id="980">980</span>
+<span id="981">981</span>
+<span id="982">982</span>
+<span id="983">983</span>
+<span id="984">984</span>
+<span id="985">985</span>
+<span id="986">986</span>
+<span id="987">987</span>
+<span id="988">988</span>
+<span id="989">989</span>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -994,7 +1006,7 @@
 <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::PluggableRuntime;
 <span class="kw">use crate</span>::{
-    bin_factory::BinFactory,
+    bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
@@ -1041,7 +1053,7 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) runtime: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
 
     <span class="doccomment">/// List of webc dependencies to be injected.
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) uses: Vec&lt;String&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) uses: Vec&lt;BinaryPackage&gt;,
 
     <span class="doccomment">/// List of host commands to map into the WASI instance.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: HashMap&lt;String, PathBuf&gt;,
@@ -1084,7 +1096,7 @@
     <span class="attribute">#[error(<span class="string">&quot;wasi filesystem setup error: `{0}`&quot;</span>)]
     </span>WasiFsSetupError(String),
     <span class="attribute">#[error(transparent)]
-    </span>FileSystemError(FsError),
+    </span>FileSystemError(<span class="attribute">#[from] </span>FsError),
     <span class="attribute">#[error(<span class="string">&quot;wasi inherit error: `{0}`&quot;</span>)]
     </span>WasiInheritError(String),
     <span class="attribute">#[error(<span class="string">&quot;wasi include package: `{0}`&quot;</span>)]
@@ -1249,22 +1261,25 @@
     }
 
     <span class="doccomment">/// Adds a container this module inherits from
-    </span><span class="kw">pub fn </span>use_webc&lt;Name&gt;(<span class="kw-2">mut </span><span class="self">self</span>, webc: Name) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>Name: AsRef&lt;str&gt;,
-    {
-        <span class="self">self</span>.uses.push(webc.as_ref().to_string());
+    </span><span class="kw">pub fn </span>use_webc(<span class="kw-2">mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.add_webc(pkg);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Adds a container this module inherits from
+    </span><span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.uses.push(pkg);
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Adds a list of other containers this module inherits from
     </span><span class="kw">pub fn </span>uses&lt;I&gt;(<span class="kw-2">mut </span><span class="self">self</span>, uses: I) -&gt; <span class="self">Self
     </span><span class="kw">where
-        </span>I: IntoIterator&lt;Item = String&gt;,
+        </span>I: IntoIterator&lt;Item = BinaryPackage&gt;,
     {
-        uses.into_iter().for_each(|inherit| {
-            <span class="self">self</span>.uses.push(inherit);
-        });
+        <span class="kw">for </span>pkg <span class="kw">in </span>uses {
+            <span class="self">self</span>.add_webc(pkg);
+        }
         <span class="self">self
     </span>}
 
@@ -1764,7 +1779,7 @@
         <span class="kw">let </span>start = instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
 
         env.data(store).thread.set_status_running();
-        <span class="kw">let </span>res = <span class="kw">crate</span>::run_wasi_func_start(start, store);
+        <span class="kw">let </span><span class="kw-2">mut </span>res = <span class="kw">crate</span>::run_wasi_func_start(start, store);
 
         <span class="macro">tracing::trace!</span>(
             <span class="string">&quot;wasi[{}:{}]::main exit (code = {:?})&quot;</span>,
@@ -1775,7 +1790,16 @@
 
         <span class="kw">let </span>exit_code = <span class="kw">match </span><span class="kw-2">&amp;</span>res {
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; Errno::Success.into(),
-            <span class="prelude-val">Err</span>(err) =&gt; err.as_exit_code().unwrap_or_else(|| Errno::Noexec.into()),
+            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">match </span>err.as_exit_code() {
+                <span class="prelude-val">Some</span>(code) <span class="kw">if </span>code.is_success() =&gt; {
+                    <span class="comment">// This is actually not an error, so we need to fix up the
+                    // result
+                    </span>res = <span class="prelude-val">Ok</span>(());
+                    Errno::Success.into()
+                }
+                <span class="prelude-val">Some</span>(other) =&gt; other,
+                <span class="prelude-val">None </span>=&gt; Errno::Noexec.into(),
+            },
         };
 
         env.cleanup(store, <span class="prelude-val">Some</span>(exit_code));

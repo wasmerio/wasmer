@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":[["RegistryResolver","A [`PackageResolver`] that will resolve packages by fetching them from the WAPM registry."]]};

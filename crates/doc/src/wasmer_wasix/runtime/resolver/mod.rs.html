@@ -12,17 +12,47 @@
 <span id="10">10</span>
 <span id="11">11</span>
 <span id="12">12</span>
-</pre><pre class="rust"><code><span class="kw">mod </span>cache;
-<span class="kw">mod </span>registry;
-<span class="kw">mod </span>types;
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+</pre><pre class="rust"><code><span class="kw">mod </span>filesystem_source;
+<span class="kw">mod </span>in_memory_source;
+<span class="kw">mod </span>inputs;
+<span class="kw">mod </span>multi_source_registry;
+<span class="kw">mod </span>outputs;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>polyfills;
+<span class="kw">mod </span>resolve;
+<span class="kw">mod </span>source;
+<span class="kw">mod </span>wapm_source;
+<span class="kw">mod </span>web_source;
 
 <span class="kw">pub use </span><span class="self">self</span>::{
-    cache::InMemoryCache,
-    registry::RegistryResolver,
-    types::{
-        FileSystemMapping, Locator, PackageResolver, ResolvedCommand, ResolvedPackage,
-        ResolverError, WebcIdentifier,
+    filesystem_source::FileSystemSource,
+    in_memory_source::InMemorySource,
+    inputs::{
+        Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
+        WebcHash,
     },
+    multi_source_registry::MultiSource,
+    outputs::{
+        DependencyGraph, FileSystemMapping, ItemLocation, PackageId, Resolution, ResolvedPackage,
+    },
+    resolve::resolve,
+    source::Source,
+    wapm_source::WapmSource,
+    web_source::WebSource,
 };
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

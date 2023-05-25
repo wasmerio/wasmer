@@ -760,9 +760,6 @@
 <span id="758">758</span>
 <span id="759">759</span>
 <span id="760">760</span>
-<span id="761">761</span>
-<span id="762">762</span>
-<span id="763">763</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -794,6 +791,10 @@
     <span class="string">&quot;The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`).&quot;
 </span>);
 
+<span class="attribute">#[cfg(test)]
+#[macro_use]
+</span><span class="kw">extern crate </span>pretty_assertions;
+
 <span class="attribute">#[macro_use]
 </span><span class="kw">mod </span>macros;
 <span class="kw">pub mod </span>bin_factory;
@@ -801,7 +802,8 @@
 <span class="comment">// TODO: should this be pub?
 </span><span class="kw">pub mod </span>net;
 <span class="comment">// TODO: should this be pub?
-</span><span class="kw">pub mod </span>fs;
+</span><span class="kw">pub mod </span>capabilities;
+<span class="kw">pub mod </span>fs;
 <span class="kw">pub mod </span>http;
 <span class="kw">mod </span>rewind;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
@@ -810,10 +812,6 @@
 <span class="kw">mod </span>state;
 <span class="kw">mod </span>syscalls;
 <span class="kw">mod </span>utils;
-<span class="kw">pub mod </span>wapm;
-
-<span class="kw">pub mod </span>capabilities;
-<span class="kw">pub use </span>rewind::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// WAI based bindings.
 </span><span class="kw">mod </span>bindings;
@@ -853,21 +851,17 @@
         },
         WasiTtyState,
     },
+    rewind::<span class="kw-2">*</span>,
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
         PluggableRuntime, WasiRuntime,
     },
-    wapm::parse_static_webc,
-};
-
-<span class="kw">pub use </span><span class="kw">crate</span>::utils::is_wasix_module;
-
-<span class="kw">pub use crate</span>::{
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{rewind, rewind_ext, types, unwind},
+    utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
         store::{capture_snapshot, restore_snapshot, InstanceSnapshot},

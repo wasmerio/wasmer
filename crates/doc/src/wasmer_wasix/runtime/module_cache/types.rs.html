@@ -196,6 +196,7 @@
 <span id="194">194</span>
 <span id="195">195</span>
 <span id="196">196</span>
+<span id="197">197</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Debug, Display, Formatter},
     ops::Deref,
@@ -205,7 +206,7 @@
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>wasmer::{Engine, Module};
 
-<span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::AndThen;
+<span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::FallbackCache;
 
 <span class="doccomment">/// A cache for compiled WebAssembly modules.
 ///
@@ -243,7 +244,8 @@
         module: <span class="kw-2">&amp;</span>Module,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt;;
 
-    <span class="doccomment">/// Chain a second cache onto this one.
+    <span class="doccomment">/// Chain a second [`ModuleCache`] that will be used as a fallback if
+    /// lookups on the primary cache fail.
     ///
     /// The general assumption is that each subsequent cache in the chain will
     /// be significantly slower than the previous one.
@@ -254,14 +256,14 @@
     /// };
     ///
     /// let cache = SharedCache::default()
-    ///     .and_then(FileSystemCache::new(&quot;~/.local/cache&quot;));
+    ///     .with_fallback(FileSystemCache::new(&quot;~/.local/cache&quot;));
     /// ```
-    </span><span class="kw">fn </span>and_then&lt;C&gt;(<span class="self">self</span>, other: C) -&gt; AndThen&lt;<span class="self">Self</span>, C&gt;
+    </span><span class="kw">fn </span>with_fallback&lt;C&gt;(<span class="self">self</span>, other: C) -&gt; FallbackCache&lt;<span class="self">Self</span>, C&gt;
     <span class="kw">where
         </span><span class="self">Self</span>: Sized,
         C: ModuleCache,
     {
-        AndThen::new(<span class="self">self</span>, other)
+        FallbackCache::new(<span class="self">self</span>, other)
     }
 }
 
@@ -324,7 +326,7 @@
 
 <span class="kw">impl </span>ModuleHash {
     <span class="doccomment">/// Create a new [`ModuleHash`] from the raw SHA-256 hash.
-    </span><span class="kw">pub fn </span>from_raw(key: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>from_bytes(key: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
         ModuleHash(key)
     }
 
@@ -334,11 +336,11 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>hasher = Sha256::default();
         hasher.update(wasm);
-        ModuleHash::from_raw(hasher.finalize().into())
+        ModuleHash::from_bytes(hasher.finalize().into())
     }
 
     <span class="doccomment">/// Get the raw SHA-256 hash.
-    </span><span class="kw">pub fn </span>as_raw(<span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
+    </span><span class="kw">pub fn </span>as_bytes(<span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
         <span class="self">self</span>.<span class="number">0
     </span>}
 }
@@ -364,7 +366,7 @@
 
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>key_is_displayed_as_hex() {
-        <span class="kw">let </span>key = ModuleHash::from_raw([
+        <span class="kw">let </span>key = ModuleHash::from_bytes([
             <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x04</span>, <span class="number">0x05</span>, <span class="number">0x06</span>, <span class="number">0x07</span>, <span class="number">0x08</span>, <span class="number">0x09</span>, <span class="number">0x0a</span>, <span class="number">0x0b</span>, <span class="number">0x0c</span>, <span class="number">0x0d</span>,
             <span class="number">0x0e</span>, <span class="number">0x0f</span>, <span class="number">0x10</span>, <span class="number">0x11</span>, <span class="number">0x12</span>, <span class="number">0x13</span>, <span class="number">0x14</span>, <span class="number">0x15</span>, <span class="number">0x16</span>, <span class="number">0x17</span>, <span class="number">0x18</span>, <span class="number">0x19</span>, <span class="number">0x1a</span>, <span class="number">0x1b</span>,
             <span class="number">0x1c</span>, <span class="number">0x1d</span>, <span class="number">0x1e</span>, <span class="number">0x1f</span>,
@@ -389,7 +391,7 @@
 
         <span class="kw">let </span>hash = ModuleHash::sha256(wasm);
 
-        <span class="macro">assert_eq!</span>(hash.as_raw(), raw);
+        <span class="macro">assert_eq!</span>(hash.as_bytes(), raw);
     }
 }
 </code></pre></div>

@@ -124,44 +124,30 @@
 <span id="122">122</span>
 <span id="123">123</span>
 <span id="124">124</span>
-<span id="125">125</span>
-<span id="126">126</span>
-<span id="127">127</span>
-<span id="128">128</span>
-<span id="129">129</span>
-<span id="130">130</span>
-<span id="131">131</span>
-<span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running Emscripten modules
 
-</span><span class="kw">use </span>anyhow::{anyhow, Context, Error};
+</span><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>anyhow::{anyhow, Context, Error};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer::{FunctionEnv, Instance, Module, Store};
 <span class="kw">use </span>wasmer_emscripten::{
     generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
     EmscriptenGlobals,
 };
-<span class="kw">use </span>webc::{
-    metadata::{annotations::Emscripten, Command},
-    Container,
-};
+<span class="kw">use </span>webc::metadata::{annotations::Emscripten, Command};
 
-<span class="attribute">#[derive(Debug, PartialEq, Serialize, Deserialize)]
+<span class="kw">use crate</span>::{bin_factory::BinaryPackage, WasiRuntime};
+
+<span class="attribute">#[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>EmscriptenRunner {
     args: Vec&lt;String&gt;,
-    <span class="attribute">#[serde(skip, default)]
-    </span>store: Store,
 }
 
 <span class="kw">impl </span>EmscriptenRunner {
     <span class="doccomment">/// Constructs a new `EmscriptenRunner` given an `Store`
-    </span><span class="kw">pub fn </span>new(store: Store) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            args: Vec::new(),
-            store,
-        }
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        EmscriptenRunner::default()
     }
 
     <span class="doccomment">/// Returns the current arguments for this `EmscriptenRunner`
@@ -182,9 +168,7 @@
 }
 
 <span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>EmscriptenRunner {
-    <span class="kw">type </span>Output = ();
-
-    <span class="kw">fn </span>can_run_command(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span>str, command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
+    <span class="kw">fn </span>can_run_command(command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
         <span class="prelude-val">Ok</span>(command
             .runner
             .starts_with(webc::metadata::annotations::EMSCRIPTEN_RUNNER_URI))
@@ -194,31 +178,27 @@
     </span><span class="kw">fn </span>run_command(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
-        command: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>Container,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
-        <span class="kw">let </span>Emscripten {
-            atom: atom_name,
-            main_args,
-            ..
-        } = command.annotation(<span class="string">&quot;emscripten&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
-        <span class="kw">let </span>atom_name = atom_name.context(<span class="string">&quot;The atom name is required&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>atoms = container.atoms();
-        <span class="kw">let </span>atom_bytes = atoms
-            .get(<span class="kw-2">&amp;</span>atom_name)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>cmd = pkg
+            .get_command(command_name)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The package doesn&#39;t contain a \&quot;{command_name}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>Emscripten { main_args, .. } =
+            cmd.metadata().annotation(<span class="string">&quot;emscripten&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>module = Module::new(<span class="kw-2">&amp;</span><span class="self">self</span>.store, atom_bytes)<span class="question-mark">?</span>;
-        module.set_name(<span class="kw-2">&amp;</span>atom_name);
+        <span class="kw">let </span><span class="kw-2">mut </span>module = <span class="kw">crate</span>::runners::compile_module(cmd.atom(), <span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+        module.set_name(command_name);
 
-        <span class="kw">let </span>(<span class="kw-2">mut </span>globals, env) = prepare_emscripten_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>.store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>atom_name)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>store = runtime.new_store();
+        <span class="kw">let </span>(<span class="kw-2">mut </span>globals, env) = prepare_emscripten_env(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, command_name)<span class="question-mark">?</span>;
 
         exec_module(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.store,
+            <span class="kw-2">&amp;mut </span>store,
             <span class="kw-2">&amp;</span>module,
             <span class="kw-2">&amp;mut </span>globals,
             env,
-            <span class="kw-2">&amp;</span>atom_name,
+            command_name,
             main_args.unwrap_or_default(),
         )<span class="question-mark">?</span>;
 

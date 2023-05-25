@@ -28,6 +28,44 @@
 <span id="26">26</span>
 <span id="27">27</span>
 <span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
 </pre><pre class="rust"><code><span class="kw">mod </span>runner;
 
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner_rt_emscripten&quot;</span>)]
@@ -41,19 +79,57 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::runner::Runner;
 
-<span class="kw">use </span>anyhow::Error;
-<span class="kw">use </span>wasmer::{Engine, Module};
+<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>wasmer::Module;
 
-<span class="kw">pub type </span>CompileModule = <span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + Send + Sync;
+<span class="kw">use </span><span class="kw">crate</span>::runtime::{
+    module_cache::{CacheError, ModuleHash},
+    WasiRuntime,
+};
 
-<span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+<span class="doccomment">/// A directory that should be mapped from the host filesystem into a WASI
+/// instance (the &quot;guest&quot;).
+</span><span class="attribute">#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 </span><span class="kw">pub struct </span>MappedDirectory {
     <span class="kw">pub </span>host: std::path::PathBuf,
     <span class="kw">pub </span>guest: String,
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>default_compile(engine: <span class="kw-2">&amp;</span>Engine, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
-    <span class="kw">let </span>module = Module::new(engine, wasm)<span class="question-mark">?</span>;
+<span class="doccomment">/// Compile a module, trying to use a pre-compiled version if possible.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compile_module(wasm: <span class="kw-2">&amp;</span>[u8], runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
+    <span class="comment">// TODO(Michael-F-Bryan,theduke): This should be abstracted out into some
+    // sort of ModuleResolver component that is attached to the runtime and
+    // encapsulates finding a WebAssembly binary, compiling it, and caching.
+
+    </span><span class="kw">let </span>engine = runtime.engine().context(<span class="string">&quot;No engine provided&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>task_manager = runtime.task_manager().clone();
+    <span class="kw">let </span>module_cache = runtime.module_cache();
+
+    <span class="kw">let </span>hash = ModuleHash::sha256(wasm);
+    <span class="kw">let </span>result = task_manager.block_on(module_cache.load(hash, <span class="kw-2">&amp;</span>engine));
+
+    <span class="kw">match </span>result {
+        <span class="prelude-val">Ok</span>(module) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(module),
+        <span class="prelude-val">Err</span>(CacheError::NotFound) =&gt; {}
+        <span class="prelude-val">Err</span>(other) =&gt; {
+            <span class="macro">tracing::warn!</span>(
+                %hash,
+                error=<span class="kw-2">&amp;</span>other <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                <span class="string">&quot;Unable to load the cached module&quot;</span>,
+            );
+        }
+    }
+
+    <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, wasm)<span class="question-mark">?</span>;
+
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = task_manager.block_on(module_cache.save(hash, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module)) {
+        <span class="macro">tracing::warn!</span>(
+            %hash,
+            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+            <span class="string">&quot;Unable to cache the compiled module&quot;</span>,
+        );
+    }
+
     <span class="prelude-val">Ok</span>(module)
 }
 </code></pre></div>

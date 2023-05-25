@@ -194,66 +194,29 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>virtual_fs::WebcVolumeFileSystem;
-<span class="kw">use </span>wasmer::{Engine, Module, Store};
-<span class="kw">use </span>webc::{
-    metadata::{annotations::Wasi, Command},
-    Container,
-};
+<span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
 <span class="kw">use crate</span>::{
-    runners::{wasi_common::CommonWasiOptions, CompileModule, MappedDirectory},
-    PluggableRuntime, VirtualTaskManager, WasiEnvBuilder,
+    bin_factory::BinaryPackage,
+    runners::{wasi_common::CommonWasiOptions, MappedDirectory},
+    WasiEnvBuilder, WasiRuntime,
 };
 
-<span class="attribute">#[derive(Serialize, Deserialize)]
+<span class="attribute">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>WasiRunner {
     wasi: CommonWasiOptions,
-    <span class="attribute">#[serde(skip, default)]
-    </span>store: Store,
-    <span class="attribute">#[serde(skip, default)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) tasks: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;&gt;,
-    <span class="attribute">#[serde(skip, default)]
-    </span>compile: <span class="prelude-ty">Option</span>&lt;Box&lt;CompileModule&gt;&gt;,
 }
 
 <span class="kw">impl </span>WasiRunner {
-    <span class="doccomment">/// Constructs a new `WasiRunner` given an `Store`
-    </span><span class="kw">pub fn </span>new(store: Store) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            store,
-            wasi: CommonWasiOptions::default(),
-            tasks: <span class="prelude-val">None</span>,
-            compile: <span class="prelude-val">None</span>,
-        }
+    <span class="doccomment">/// Constructs a new `WasiRunner`.
+    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+        WasiRunner::default()
     }
-
-    <span class="doccomment">/// Sets the compile function
-    </span><span class="kw">pub fn </span>with_compile(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        compile: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Engine, <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.compile = <span class="prelude-val">Some</span>(Box::new(compile));
-        <span class="self">self
-    </span>}
 
     <span class="doccomment">/// Returns the current arguments for this `WasiRunner`
     </span><span class="kw">pub fn </span>get_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
@@ -331,69 +294,82 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_task_manager(<span class="kw-2">mut </span><span class="self">self</span>, tasks: <span class="kw">impl </span>VirtualTaskManager) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_task_manager(tasks);
+    <span class="doccomment">/// Add a package that should be available to the instance at runtime.
+    </span><span class="kw">pub fn </span>add_injected_package(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.injected_packages.push(pkg);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_task_manager(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tasks: <span class="kw">impl </span>VirtualTaskManager) {
-        <span class="self">self</span>.tasks = <span class="prelude-val">Some</span>(Arc::new(tasks));
-    }
+    <span class="doccomment">/// Add a package that should be available to the instance at runtime.
+    </span><span class="kw">pub fn </span>with_injected_package(<span class="kw-2">mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.add_injected_package(pkg);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Add packages that should be available to the instance at runtime.
+    </span><span class="kw">pub fn </span>add_injected_packages(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        packages: <span class="kw">impl </span>IntoIterator&lt;Item = BinaryPackage&gt;,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.injected_packages.extend(packages);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Add packages that should be available to the instance at runtime.
+    </span><span class="kw">pub fn </span>with_injected_packages(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        packages: <span class="kw">impl </span>IntoIterator&lt;Item = BinaryPackage&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.add_injected_packages(packages);
+        <span class="self">self
+    </span>}
 
     <span class="kw">fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        container: <span class="kw-2">&amp;</span>Container,
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name);
-        <span class="kw">let </span>container_fs = Arc::new(WebcVolumeFileSystem::mount_all(container));
+        <span class="kw">let </span>container_fs = Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs);
         <span class="self">self</span>.wasi
             .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container_fs, wasi)<span class="question-mark">?</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = <span class="kw-2">&amp;</span><span class="self">self</span>.tasks {
-            <span class="kw">let </span>rt = PluggableRuntime::new(Arc::clone(tasks));
-            builder.set_runtime(Arc::new(rt));
-        }
+        builder.add_webc(pkg.clone());
+        builder.set_runtime(runtime);
 
         <span class="prelude-val">Ok</span>(builder)
     }
 }
 
 <span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>WasiRunner {
-    <span class="kw">type </span>Output = ();
-
-    <span class="kw">fn </span>can_run_command(<span class="kw-2">&amp;</span><span class="self">self</span>, _command_name: <span class="kw-2">&amp;</span>str, command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
+    <span class="kw">fn </span>can_run_command(command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
         <span class="prelude-val">Ok</span>(command
             .runner
             .starts_with(webc::metadata::annotations::WASI_RUNNER_URI))
     }
 
-    <span class="attribute">#[tracing::instrument(skip(<span class="self">self</span>, command, container))]
+    <span class="attribute">#[tracing::instrument(skip_all)]
     </span><span class="kw">fn </span>run_command(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
-        command: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>Container,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
-        <span class="kw">let </span>wasi = command
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>cmd = pkg
+            .get_command(command_name)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The package doesn&#39;t contain a \&quot;{command_name}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>wasi = cmd
+            .metadata()
             .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
-        <span class="kw">let </span>atom_name = <span class="kw-2">&amp;</span>wasi.atom;
-        <span class="kw">let </span>atoms = container.atoms();
-        <span class="kw">let </span>atom = atoms
-            .get(atom_name)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to get the \&quot;{atom_name}\&quot; atom&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>compile = <span class="self">self
-            </span>.compile
-            .as_deref()
-            .unwrap_or(<span class="kw-2">&amp;</span><span class="kw">crate</span>::runners::default_compile);
-        <span class="kw">let </span><span class="kw-2">mut </span>module = compile(<span class="self">self</span>.store.engine(), atom)<span class="question-mark">?</span>;
-        module.set_name(atom_name);
+        <span class="kw">let </span>module = <span class="kw">crate</span>::runners::compile_module(cmd.atom(), <span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>store = runtime.new_store();
 
-        <span class="self">self</span>.prepare_webc_env(container, atom_name, <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?
-            </span>.run(module)<span class="question-mark">?</span>;
+        <span class="self">self</span>.prepare_webc_env(command_name, <span class="kw-2">&amp;</span>wasi, pkg, runtime)<span class="question-mark">?
+            </span>.run_with_store(module, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }

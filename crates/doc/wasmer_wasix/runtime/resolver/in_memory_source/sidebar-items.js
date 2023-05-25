@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["InMemorySource","A [`Source`] that tracks packages in memory."]]};

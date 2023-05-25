@@ -22,105 +22,27 @@
 <span id="20">20</span>
 <span id="21">21</span>
 <span id="22">22</span>
-<span id="23">23</span>
-<span id="24">24</span>
-<span id="25">25</span>
-<span id="26">26</span>
-<span id="27">27</span>
-<span id="28">28</span>
-<span id="29">29</span>
-<span id="30">30</span>
-<span id="31">31</span>
-<span id="32">32</span>
-<span id="33">33</span>
-<span id="34">34</span>
-<span id="35">35</span>
-<span id="36">36</span>
-<span id="37">37</span>
-<span id="38">38</span>
-<span id="39">39</span>
-<span id="40">40</span>
-<span id="41">41</span>
-<span id="42">42</span>
-<span id="43">43</span>
-<span id="44">44</span>
-<span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
-<span id="50">50</span>
-<span id="51">51</span>
-<span id="52">52</span>
-<span id="53">53</span>
-<span id="54">54</span>
-<span id="55">55</span>
-<span id="56">56</span>
-<span id="57">57</span>
-<span id="58">58</span>
-<span id="59">59</span>
-<span id="60">60</span>
-<span id="61">61</span>
-</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Error;
-<span class="kw">use </span>webc::{metadata::Command, Container};
+</pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>anyhow::Error;
+<span class="kw">use </span>webc::metadata::Command;
+
+<span class="kw">use crate</span>::{bin_factory::BinaryPackage, WasiRuntime};
 
 <span class="doccomment">/// Trait that all runners have to implement
 </span><span class="kw">pub trait </span>Runner {
-    <span class="doccomment">/// The return value of the output of the runner
-    </span><span class="kw">type </span>Output;
-
     <span class="doccomment">/// Returns whether the Runner will be able to run the `Command`
-    </span><span class="kw">fn </span>can_run_command(<span class="kw-2">&amp;</span><span class="self">self</span>, command_name: <span class="kw-2">&amp;</span>str, command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;;
+    </span><span class="kw">fn </span>can_run_command(command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt;
+    <span class="kw">where
+        </span><span class="self">Self</span>: Sized;
 
-    <span class="doccomment">/// Implementation to run the given command
-    ///
-    /// - use `cmd.annotations` to get the metadata for the given command
-    /// - use `container.get_atom()` to get the
+    <span class="doccomment">/// Run a command.
     </span><span class="kw">fn </span>run_command(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
-        cmd: <span class="kw-2">&amp;</span>Command,
-        container: <span class="kw-2">&amp;</span>Container,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt;;
-
-    <span class="doccomment">/// Runs the container if the container has an `entrypoint` in the manifest
-    </span><span class="kw">fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>, container: <span class="kw-2">&amp;</span>Container) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
-        <span class="kw">let </span>cmd = <span class="kw">match </span>container.manifest().entrypoint.as_ref() {
-            <span class="prelude-val">Some</span>(s) =&gt; s,
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Cannot run the package: not executable (no entrypoint in manifest)&quot;</span>);
-            }
-        };
-
-        <span class="self">self</span>.run_cmd(container, cmd)
-    }
-
-    <span class="doccomment">/// Runs the given `cmd` on the container
-    </span><span class="kw">fn </span>run_cmd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, container: <span class="kw-2">&amp;</span>Container, cmd: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, Error&gt; {
-        <span class="kw">let </span>command_to_exec = container
-            .manifest()
-            .commands
-            .get(cmd)
-            .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;command {cmd:?} not found in manifest&quot;</span>))<span class="question-mark">?</span>;
-
-        <span class="kw">match </span><span class="self">self</span>.can_run_command(cmd, command_to_exec) {
-            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {}
-            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; {
-                <span class="macro">anyhow::bail!</span>(
-                    <span class="string">&quot;Cannot run command {cmd:?} with runner {:?}&quot;</span>,
-                    command_to_exec.runner
-                );
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">anyhow::bail!</span>(
-                    <span class="string">&quot;Cannot run command {cmd:?} with runner {:?}: {e}&quot;</span>,
-                    command_to_exec.runner
-                );
-            }
-        }
-
-        <span class="self">self</span>.run_command(cmd, command_to_exec, container)
-    }
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="wasmer_wasix" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.65.0 (897e37553 2022-11-02)" ></div></body></html>

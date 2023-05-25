@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["CacheInfo",""],["CacheState","Classification of how valid an item is based on filesystem metadata."]],"fn":[["classify_cache_using_mtime",""],["headers",""],["sha256",""]],"struct":[["WebSource","A [`Source`] which can query arbitrary packages on the internet."]]};

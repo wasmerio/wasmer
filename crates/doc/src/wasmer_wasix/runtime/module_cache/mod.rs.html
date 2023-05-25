@@ -35,14 +35,80 @@
 <span id="33">33</span>
 <span id="34">34</span>
 <span id="35">35</span>
-</pre><pre class="rust"><code><span class="kw">mod </span>and_then;
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+<span id="55">55</span>
+<span id="56">56</span>
+<span id="57">57</span>
+<span id="58">58</span>
+<span id="59">59</span>
+<span id="60">60</span>
+<span id="61">61</span>
+<span id="62">62</span>
+<span id="63">63</span>
+<span id="64">64</span>
+<span id="65">65</span>
+<span id="66">66</span>
+<span id="67">67</span>
+<span id="68">68</span>
+</pre><pre class="rust"><code><span class="doccomment">//! Cache pre-compiled [`wasmer::Module`]s.
+//!
+//! The core of this module is the [`ModuleCache`] trait, which is designed to
+//! be implemented by different cache storage strategies, such as in-memory
+//! caches ([`SharedCache`] and [`ThreadLocalCache`]), file-based caches
+//! ([`FileSystemCache`]), or distributed caches. Implementing custom caching
+//! strategies allows you to optimize for your specific use case.
+//!
+//! ## Assumptions and Requirements
+//!
+//! The `module_cache` module makes several assumptions:
+//!
+//! - Cache keys are unique, typically derived from the original `*.wasm` or
+//!   `*.wat` file, and using the same key to load or save will always result in
+//!   the &quot;same&quot; module.
+//! - The [`ModuleCache::load()`] method will be called more often than the
+//!   [`ModuleCache::save()`] method, allowing for cache implementations to
+//!   optimize their strategy accordingly.
+//!
+//! Cache implementations are encouraged to take
+//! [`wasmer::Engine::deterministic_id()`] into account when saving and loading
+//! cached modules to ensure correct module retrieval.
+//!
+//! Cache implementations should choose a suitable eviction policy and implement
+//! invalidation transparently as part of [`ModuleCache::load()`] or
+//! [`ModuleCache::save()`].
+//!
+//! ## Combinators
+//!
+//! The `module_cache` module provides combinators for extending and combining
+//! caching strategies. For example, you could use the [`FallbackCache`] to
+//! chain a fast in-memory cache with a slower file-based cache as a fallback.
+
+</span><span class="kw">mod </span>fallback;
 <span class="kw">mod </span>filesystem;
 <span class="kw">mod </span>shared;
 <span class="kw">mod </span>thread_local;
 <span class="kw">mod </span>types;
 
 <span class="kw">pub use </span><span class="self">self</span>::{
-    and_then::AndThen,
+    fallback::FallbackCache,
     filesystem::FileSystemCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,

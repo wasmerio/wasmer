@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":[["Locator",""],["ResolverError",""]],"struct":[["FileSystemMapping",""],["ResolvedCommand",""],["ResolvedPackage",""],["WebcIdentifier",""]],"trait":[["PackageResolver",""]]};

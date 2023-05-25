@@ -202,11 +202,42 @@
 <span id="200">200</span>
 <span id="201">201</span>
 <span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
+<span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
 <span class="kw">pub mod </span>task_manager;
-
-<span class="kw">use crate</span>::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
 
 <span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnMemoryType, VirtualTaskManager};
 
@@ -218,9 +249,15 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
-<span class="kw">use </span><span class="kw">crate</span>::runtime::{
-    module_cache::ModuleCache,
-    resolver::{PackageResolver, RegistryResolver},
+<span class="kw">use crate</span>::{
+    http::DynHttpClient,
+    os::TtyBridge,
+    runtime::{
+        module_cache::ModuleCache,
+        package_loader::{BuiltinPackageLoader, PackageLoader},
+        resolver::{MultiSource, Source, WapmSource},
+    },
+    WasiTtyState,
 };
 
 <span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is
@@ -228,7 +265,7 @@
 </span><span class="attribute">#[allow(unused_variables)]
 </span><span class="kw">pub trait </span>WasiRuntime
 <span class="kw">where
-    </span><span class="self">Self</span>: fmt::Debug + Sync,
+    </span><span class="self">Self</span>: fmt::Debug,
 {
     <span class="doccomment">/// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
@@ -237,10 +274,14 @@
     <span class="doccomment">/// Retrieve the active [`VirtualTaskManager`].
     </span><span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;;
 
-    <span class="kw">fn </span>package_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt;;
+    <span class="doccomment">/// A package loader.
+    </span><span class="kw">fn </span>package_loader(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt;;
 
     <span class="doccomment">/// A cache for compiled modules.
     </span><span class="kw">fn </span>module_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;;
+
+    <span class="doccomment">/// The package registry.
+    </span><span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;;
 
     <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.
     </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
@@ -303,7 +344,8 @@
     <span class="kw">pub </span>rt: Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
     <span class="kw">pub </span>networking: DynVirtualNetworking,
     <span class="kw">pub </span>http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
-    <span class="kw">pub </span>resolver: Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt;,
+    <span class="kw">pub </span>package_loader: Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt;,
+    <span class="kw">pub </span>source: Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;,
     <span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
     <span class="kw">pub </span>module_cache: Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
@@ -323,8 +365,16 @@
         <span class="kw">let </span>http_client =
             <span class="kw">crate</span>::http::default_http_client().map(|client| Arc::new(client) <span class="kw">as </span>DynHttpClient);
 
-        <span class="kw">let </span>resolver =
-            RegistryResolver::from_env().expect(<span class="string">&quot;Loading the builtin resolver should never fail&quot;</span>);
+        <span class="kw">let </span>loader = BuiltinPackageLoader::from_env()
+            .expect(<span class="string">&quot;Loading the builtin resolver should never fail&quot;</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::new();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(client) = <span class="kw-2">&amp;</span>http_client {
+            source.add_source(WapmSource::new(
+                WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
+                client.clone(),
+            ));
+        }
 
         <span class="self">Self </span>{
             rt,
@@ -332,7 +382,8 @@
             http_client,
             engine: <span class="prelude-val">None</span>,
             tty: <span class="prelude-val">None</span>,
-            resolver: Arc::new(resolver),
+            source: Arc::new(source),
+            package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
         }
     }
@@ -355,19 +406,24 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_module_cache&lt;M&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, module_cache: M) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
-    </span><span class="kw">where
-        </span>M: ModuleCache + Send + Sync + <span class="lifetime">&#39;static</span>,
-    {
+    <span class="kw">pub fn </span>set_module_cache(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        module_cache: <span class="kw">impl </span>ModuleCache + Send + Sync + <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.module_cache = Arc::new(module_cache);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_resolver(
+    <span class="kw">pub fn </span>set_source(<span class="kw-2">&amp;mut </span><span class="self">self</span>, source: <span class="kw">impl </span>Source + Send + Sync + <span class="lifetime">&#39;static</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.source = Arc::new(source);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_package_loader(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        resolver: <span class="kw">impl </span>PackageResolver + Send + Sync + <span class="lifetime">&#39;static</span>,
+        package_loader: <span class="kw">impl </span>PackageLoader + Send + Sync + <span class="lifetime">&#39;static</span>,
     ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.resolver = Arc::new(resolver);
+        <span class="self">self</span>.package_loader = Arc::new(package_loader);
         <span class="self">self
     </span>}
 }
@@ -381,8 +437,16 @@
         <span class="self">self</span>.http_client.as_ref()
     }
 
-    <span class="kw">fn </span>package_resolver(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageResolver + Send + Sync&gt; {
-        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.resolver)
+    <span class="kw">fn </span>package_loader(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt; {
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.package_loader)
+    }
+
+    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt; {
+        Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.source)
+    }
+
+    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
+        <span class="self">self</span>.engine.clone()
     }
 
     <span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {

@@ -151,8 +151,6 @@
 <span id="149">149</span>
 <span id="150">150</span>
 <span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{any::Any, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -226,7 +224,7 @@ ARGS:
             state.args = args;
             env.state = Arc::new(state);
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(binary) = <span class="self">self</span>.get_package(what.clone()).<span class="kw">await </span>{
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(binary) = <span class="self">self</span>.get_package(<span class="kw-2">&amp;</span>what).<span class="kw">await </span>{
                 <span class="comment">// Now run the module
                 </span>spawn_exec(binary, name, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
             </span>} <span class="kw">else </span>{
@@ -248,12 +246,10 @@ ARGS:
         }
     }
 
-    <span class="kw">pub async fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
-        <span class="kw">let </span>resolver = <span class="self">self</span>.runtime.package_resolver();
-        <span class="kw">let </span>client = <span class="self">self</span>.runtime.http_client()<span class="question-mark">?</span>;
-        <span class="kw">let </span>pkg = name.parse().ok()<span class="question-mark">?</span>;
-        resolver.resolve_package(<span class="kw-2">&amp;</span>pkg, <span class="kw-2">&amp;</span>client).<span class="kw">await</span>.ok()
-    }
+    <span class="kw">pub async fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+        <span class="kw">let </span>specifier = name.parse()<span class="question-mark">?</span>;
+        BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span><span class="self">self</span>.runtime).<span class="kw">await
+    </span>}
 }
 
 <span class="kw">impl </span>VirtualCommand <span class="kw">for </span>CmdWasmer {

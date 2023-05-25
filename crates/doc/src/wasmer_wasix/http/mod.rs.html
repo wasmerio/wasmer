@@ -29,6 +29,8 @@
 <span id="27">27</span>
 <span id="28">28</span>
 <span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
 </pre><pre class="rust"><code><span class="kw">mod </span>client;
 <span class="kw">pub mod </span>client_impl;
 
@@ -36,6 +38,8 @@
 </span><span class="kw">pub mod </span>reqwest;
 
 <span class="kw">pub use </span><span class="self">self</span>::client::<span class="kw-2">*</span>;
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>USER_AGENT: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>), <span class="string">&quot;-&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>));
 
 <span class="doccomment">/// Try to instantiate a HTTP client that is suitable for the current platform.
 </span><span class="kw">pub fn </span>default_http_client() -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw">impl </span>HttpClient + Send + Sync + <span class="lifetime">&#39;static</span>&gt; {

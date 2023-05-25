@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["DependencyGraph","A dependency graph."],["FileSystemMapping",""],["ItemLocation",""],["PackageId","An identifier for a package within a dependency graph."],["Resolution",""],["ResolvedPackage","A package that has been resolved, but is not yet runnable."]]};

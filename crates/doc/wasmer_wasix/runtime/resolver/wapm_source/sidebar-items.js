@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["WAPM_WEBC_QUERY_ALL",""]],"fn":[["decode_summary",""]],"struct":[["WapmSource","A [`Source`] which will resolve dependencies by pinging a WAPM-like GraphQL endpoint."],["WapmWebQuery",""],["WapmWebQueryData",""],["WapmWebQueryGetPackage",""],["WapmWebQueryGetPackageVersion",""],["WapmWebQueryGetPackageVersionDistribution",""]]};
