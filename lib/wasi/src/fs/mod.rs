@@ -6,7 +6,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
@@ -409,10 +409,7 @@ impl WasiFs {
         let mut guard = self.has_unioned.lock().unwrap();
         if !guard.contains(&package_name) {
             guard.insert(package_name);
-
-            if let Some(fs) = binary.webc_fs.clone() {
-                sandbox_fs.union(&fs);
-            }
+            sandbox_fs.union(&binary.webc_fs);
         }
         true
     }
@@ -1127,17 +1124,17 @@ impl WasiFs {
                         }
                     }
                     Kind::Root { entries } => {
-                        match component.as_os_str().to_string_lossy().borrow() {
+                        match component {
                             // the root's parent is the root
-                            ".." => continue 'path_iter,
+                            Component::ParentDir => continue 'path_iter,
                             // the root's current directory is the root
-                            "." => continue 'path_iter,
-                            _ => (),
+                            Component::CurDir => continue 'path_iter,
+                            _ => {}
                         }
 
-                        if let Some(entry) =
-                            entries.get(component.as_os_str().to_string_lossy().as_ref())
-                        {
+                        let component = component.as_os_str().to_string_lossy();
+
+                        if let Some(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
                         } else {
                             // Root is not capable of having something other then preopenned folders

@@ -26,10 +26,10 @@ use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
 
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
-    bin_factory::{spawn_exec, BinFactory},
+    bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::WebcIdentifier,
+    runtime::resolver::PackageSpecifier,
     SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
 };
 
@@ -222,35 +222,37 @@ impl Console {
             tasks.block_on(self.draw_welcome());
         }
 
-        let webc_ident: WebcIdentifier = match webc.parse() {
+        let webc_ident: PackageSpecifier = match webc.parse() {
             Ok(ident) => ident,
             Err(e) => {
                 tracing::debug!(webc, error = &*e, "Unable to parse the WEBC identifier");
                 return Err(SpawnError::BadRequest);
             }
         };
-        let client = self.runtime.http_client().ok_or(SpawnError::UnknownError)?;
 
-        let resolved_package = tasks.block_on(
-            self.runtime
-                .package_resolver()
-                .resolve_package(&webc_ident, &client),
-        );
+        let resolved_package =
+            tasks.block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
 
-        let binary = if let Ok(binary) = resolved_package {
-            binary
-        } else {
-            let mut stderr = self.stderr.clone();
-            tasks.block_on(async {
-                virtual_fs::AsyncWriteExt::write_all(
-                    &mut stderr,
-                    format!("package not found [{}]\r\n", webc).as_bytes(),
-                )
-                .await
-                .ok();
-            });
-            tracing::debug!("failed to get webc dependency - {}", webc);
-            return Err(SpawnError::NotFound);
+        let binary = match resolved_package {
+            Ok(pkg) => pkg,
+            Err(e) => {
+                let mut stderr = self.stderr.clone();
+                tasks.block_on(async {
+                    let mut buffer = Vec::new();
+                    writeln!(buffer, "Error: {e}").ok();
+                    let mut source = e.source();
+                    while let Some(s) = source {
+                        writeln!(buffer, "  Caused by: {s}").ok();
+                        source = s.source();
+                    }
+
+                    virtual_fs::AsyncWriteExt::write_all(&mut stderr, &buffer)
+                        .await
+                        .ok();
+                });
+                tracing::debug!("failed to get webc dependency - {}", webc);
+                return Err(SpawnError::NotFound);
+            }
         };
 
         let wasi_process = env.process.clone();

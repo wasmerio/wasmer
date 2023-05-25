@@ -9,13 +9,25 @@ use std::{
 };
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
+use once_cell::sync::Lazy;
 use predicates::str::contains;
+use rand::Rng;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::get_wasmer_path;
 
-const RUST_LOG: &str = "info,wasmer_wasi::runners=debug,virtual_fs::trace_fs=trace";
 const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
+
+static RUST_LOG: Lazy<String> = Lazy::new(|| {
+    [
+        "info",
+        "wasmer_wasix::resolve=debug",
+        "wasmer_wasix::runners=debug",
+        "wasmer_wasix=debug",
+        "virtual_fs::trace_fs=trace",
+    ]
+    .join(",")
+});
 
 fn wasmer_run_unstable() -> std::process::Command {
     let mut cmd = std::process::Command::new("cargo");
@@ -23,15 +35,15 @@ fn wasmer_run_unstable() -> std::process::Command {
         .arg("--quiet")
         .arg("--package=wasmer-cli")
         .arg("--features=singlepass,cranelift")
+        .arg("--color=never")
         .arg("--")
         .arg("run-unstable");
-    cmd.env("RUST_LOG", RUST_LOG);
+    cmd.env("RUST_LOG", &*RUST_LOG);
     cmd
 }
 
 mod webc_on_disk {
     use super::*;
-    use rand::Rng;
 
     #[test]
     #[cfg_attr(
@@ -93,10 +105,39 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    fn wasi_runner_with_dependencies() {
+        let mut cmd = wasmer_run_unstable();
+        let port = random_port();
+        cmd.arg(fixtures::hello())
+            .arg(format!("--env=SERVER_PORT={port}"))
+            .arg("--net")
+            .arg("--")
+            .arg("--log-level=info");
+        let mut child = JoinableChild::spawn(cmd);
+        child.wait_for_stderr("listening");
+
+        // Make sure we get the page we want
+        let html = reqwest::blocking::get(format!("http://localhost:{port}/"))
+            .unwrap()
+            .text()
+            .unwrap();
+        assert!(html.contains("<title>Hello World</title>"), "{html}");
+
+        // and make sure our request was logged
+        child
+            .join()
+            .stderr(contains("incoming request: method=GET uri=/"));
+    }
+
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
     fn webc_files_with_multiple_commands_require_an_entrypoint_flag() {
         let assert = wasmer_run_unstable().arg(fixtures::wabt()).assert();
 
-        let msg = r#"Unable to determine the WEBC file's entrypoint. Please choose one of ["wat2wasm", "wast2json", "wasm2wat", "wasm-interp", "wasm-validate", "wasm-strip"]"#;
+        let msg = r#"Unable to determine the WEBC file's entrypoint. Please choose one of ["wasm-interp", "wasm-strip", "wasm-validate", "wasm2wat", "wast2json", "wat2wasm"]"#;
         assert.failure().stderr(contains(msg));
     }
 
@@ -125,7 +166,7 @@ mod webc_on_disk {
     )]
     fn wcgi_runner() {
         // Start the WCGI server in the background
-        let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
+        let port = random_port();
         let mut cmd = wasmer_run_unstable();
         cmd.arg(format!("--addr=127.0.0.1:{port}"))
             .arg(fixtures::static_server());
@@ -161,7 +202,7 @@ mod webc_on_disk {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
         // Start the WCGI server in the background
-        let port = rand::thread_rng().gen_range(10_000_u16..u16::MAX);
+        let port = random_port();
         let mut cmd = wasmer_run_unstable();
         cmd.arg(format!("--addr=127.0.0.1:{port}"))
             .arg(format!("--mapdir=/path/to:{}", temp.path().display()))
@@ -294,7 +335,7 @@ mod remote_webc {
         let assert = wasmer_run_unstable()
             .arg("saghul/quickjs")
             .arg("--entrypoint=quickjs")
-            .arg("--registry=https://wapm.io/")
+            .arg("--registry=wapm.io")
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
@@ -318,6 +359,33 @@ mod remote_webc {
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));
+    }
+
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
+    #[cfg_attr(
+        windows,
+        ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
+    )]
+    fn bash_using_coreutils() {
+        let assert = wasmer_run_unstable()
+            .arg("sharrattj/bash")
+            .arg("--entrypoint=bash")
+            .arg("--use=sharrattj/coreutils")
+            .arg("--registry=wapm.io")
+            .arg("--")
+            .arg("-c")
+            .arg("ls /bin")
+            .assert();
+
+        let some_expected_binaries = [
+            "arch", "base32", "base64", "baseenc", "basename", "bash", "cat",
+        ]
+        .join("\n");
+        assert.success().stdout(contains(some_expected_binaries));
     }
 }
 
@@ -345,6 +413,13 @@ mod fixtures {
     /// The QuickJS interpreter, compiled to a WASI module.
     pub fn qjs() -> PathBuf {
         Path::new(C_ASSET_PATH).join("qjs.wasm")
+    }
+
+    pub fn hello() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("webc")
+            .join("hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc")
     }
 
     /// The `wasmer.toml` file for QuickJS.
@@ -381,23 +456,25 @@ impl JoinableChild {
     /// Keep reading lines from the child's stdout until a line containing the
     /// desired text is found.
     fn wait_for_stdout(&mut self, text: &str) -> String {
-        let stderr = self
+        let stdout = self
             .0
             .as_mut()
             .and_then(|child| child.stdout.as_mut())
             .unwrap();
 
-        let mut all_output = String::new();
+        wait_for(text, stdout)
+    }
 
-        loop {
-            let line = read_line(stderr).unwrap();
-            let found = line.contains(text);
-            all_output.push_str(&line);
+    /// Keep reading lines from the child's stderr until a line containing the
+    /// desired text is found.
+    fn wait_for_stderr(&mut self, text: &str) -> String {
+        let stderr = self
+            .0
+            .as_mut()
+            .and_then(|child| child.stderr.as_mut())
+            .unwrap();
 
-            if found {
-                return all_output;
-            }
-        }
+        wait_for(text, stderr)
     }
 
     /// Kill the underlying [`std::process::Child`] and get an [`Assert`] we
@@ -406,6 +483,27 @@ impl JoinableChild {
         let mut child = self.0.take().unwrap();
         child.kill().unwrap();
         child.wait_with_output().unwrap().assert()
+    }
+}
+
+fn wait_for(text: &str, reader: &mut dyn Read) -> String {
+    let mut all_output = String::new();
+
+    loop {
+        let line = read_line(reader).unwrap();
+
+        if line.is_empty() {
+            eprintln!("=== All Output === ");
+            eprintln!("{all_output}");
+            panic!("EOF before \"{text}\" was found");
+        }
+
+        let found = line.contains(text);
+        all_output.push_str(&line);
+
+        if found {
+            return all_output;
+        }
     }
 }
 
@@ -476,4 +574,8 @@ fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
     }
 
     panic!("Didn't receive a response from \"{url}\" within the allocated time");
+}
+
+fn random_port() -> u16 {
+    rand::thread_rng().gen_range(10_000_u16..u16::MAX)
 }

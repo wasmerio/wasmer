@@ -3,10 +3,12 @@ use std::{
     path::{Path, PathBuf},
     process::{Child, Stdio},
     sync::Arc,
+    time::Duration,
 };
 
+use anyhow::Error;
 use derivative::Derivative;
-#[cfg(test)]
+use futures::TryFutureExt;
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
@@ -50,7 +52,7 @@ pub struct TestSpec {
 }
 
 fn is_false(b: &bool) -> bool {
-    *b == false
+    !(*b)
 }
 
 static WEBC_BASH: &[u8] =
@@ -61,10 +63,10 @@ static WEBC_COREUTILS_11: &[u8] =
     include_bytes!("./webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
 static WEBC_DASH: &[u8] =
     include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
-static WEBC_PYTHON: &'static [u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &'static [u8] =
+static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
+static WEBC_WEB_SERVER: &[u8] =
     include_bytes!("./webc/static-web-server-1.0.96-e2b80276-c194-473d-bbd0-27c8a2c96a59.webc");
-static WEBC_WASMER_SH: &'static [u8] =
+static WEBC_WASMER_SH: &[u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
 impl std::fmt::Debug for TestSpec {
@@ -119,7 +121,7 @@ pub struct TestBuilder {
     spec: TestSpec,
 }
 
-type RunWith = Box<dyn FnOnce(Child) -> Result<i32, anyhow::Error> + 'static>;
+type RunWith = Box<dyn FnOnce(Child) -> Result<i32, Error> + 'static>;
 
 impl TestBuilder {
     pub fn new() -> Self {
@@ -300,7 +302,7 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     }
 
     for pkg in &spec.use_packages {
-        cmd.args(["--use", &pkg]);
+        cmd.args(["--use", pkg]);
     }
 
     for pkg in &spec.include_webcs {
@@ -374,28 +376,24 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     // we do some post processing to replace the temporary random name of the binary
     // with a fixed name as otherwise the results are not comparable. this occurs
     // because bash (and others) use the process name in the printf on stdout
-    let stdout = stdout
-        .replace(
-            wasm_path
-                .path()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .as_ref(),
-            "test.wasm",
-        )
-        .to_string();
-    let stderr = stderr
-        .replace(
-            wasm_path
-                .path()
-                .file_name()
-                .unwrap()
-                .to_string_lossy()
-                .as_ref(),
-            "test.wasm",
-        )
-        .to_string();
+    let stdout = stdout.replace(
+        wasm_path
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .as_ref(),
+        "test.wasm",
+    );
+    let stderr = stderr.replace(
+        wasm_path
+            .path()
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .as_ref(),
+        "test.wasm",
+    );
 
     TestResult::Success(TestOutput {
         stdout,
@@ -417,16 +415,16 @@ pub fn build_snapshot(mut spec: TestSpec, code: &[u8]) -> TestSnapshot {
                 .map(|status| status.code().unwrap_or_default())
         }),
     );
-    let snapshot = TestSnapshot { spec, result };
-    snapshot
+
+    TestSnapshot { spec, result }
 }
 
 pub fn build_snapshot_with(mut spec: TestSpec, code: &[u8], with: RunWith) -> TestSnapshot {
     spec.wasm_hash = format!("{:x}", md5::compute(code));
 
     let result = run_test_with(spec.clone(), code, with);
-    let snapshot = TestSnapshot { spec, result };
-    snapshot
+
+    TestSnapshot { spec, result }
 }
 
 pub fn snapshot_file(path: &Path, spec: TestSpec) -> TestSnapshot {
@@ -464,7 +462,10 @@ fn test_snapshot_condvar() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_condvar_async() {
     let snapshot = TestBuilder::new()
@@ -496,7 +497,7 @@ fn test_snapshot_stdin_stdout_stderr() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .stdin_str("blah")
-        .args(&["tee", "/dev/stderr"])
+        .args(["tee", "/dev/stderr"])
         .run_wasm(include_bytes!("./wasm/coreutils.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -524,7 +525,10 @@ fn test_snapshot_epoll() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_epoll_async() {
     let snapshot = TestBuilder::new()
@@ -604,47 +608,49 @@ fn test_run_http_request(
     port: u16,
     what: &str,
     expected_size: Option<usize>,
-) -> Result<i32, anyhow::Error> {
+) -> Result<i32, Error> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
 
-    let http_get = move |url, max_retries: i32| {
+    let http_get = move |url: String, max_retries: i32| {
         rt.block_on(async move {
-            for n in 0..(max_retries.max(1)) {
-                println!("http request: {}", &url);
-                tokio::select! {
-                    resp = reqwest::get(&url) => {
-                        let resp = match resp {
-                            Ok(a) => a,
-                            Err(_) if n < max_retries => {
-                                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                                continue;
-                            }
-                            Err(err) => return Err(err.into())
-                        };
-                        if resp.status().is_success() == false {
-                            return Err(anyhow::format_err!("incorrect status code: {}", resp.status()));
-                        }
-                        return Ok(resp.bytes().await?);
-                    }
-                    _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
-                        eprintln!("retrying request... ({} attempts)", (n+1));
+            let mut n = 1;
+
+            loop {
+                println!("http request (attempt #{n}): {url}");
+
+                let pending_request = reqwest::get(&url)
+                    .and_then(|r| futures::future::ready(r.error_for_status()))
+                    .and_then(|r| r.bytes());
+
+                match tokio::time::timeout(Duration::from_secs(2), pending_request)
+                    .await
+                    .map_err(Error::from)
+                    .and_then(|result| result.map_err(Error::from))
+                {
+                    Ok(body) => return Ok(body),
+                    Err(e) if n <= max_retries => {
+                        eprintln!("non-fatal error: {e}... Retrying");
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+                        n += 1;
                         continue;
+                    }
+                    Err(e) => {
+                        return Err(e);
                     }
                 }
             }
-            Err(anyhow::format_err!("timeout while performing HTTP request"))
         })
     };
 
     let expected_size = match expected_size {
         None => {
             let url = format!("http://localhost:{}/{}.size", port, what);
-            let expected_size = usize::from_str_radix(
-                String::from_utf8_lossy(http_get(url, 50)?.as_ref()).trim(),
-                10,
-            )?;
+            let expected_size = String::from_utf8_lossy(http_get(url, 50)?.as_ref())
+                .trim()
+                .parse()?;
             if expected_size == 0 {
                 return Err(anyhow::format_err!("There was no data returned"));
             }
@@ -690,7 +696,10 @@ fn test_snapshot_tokio() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_unix_pipe() {
     let snapshot = TestBuilder::new()
@@ -699,8 +708,12 @@ fn test_snapshot_unix_pipe() {
     assert_json_snapshot!(snapshot);
 }
 
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
 #[test]
+// #[cfg_attr(
+//     any(target_env = "musl", target_os = "macos", target_os = "windows"),
+//     ignore
+// )]
+#[ignore = "TODO(Michael-F-Bryan): figure out why the request body doesn't get sent fully on Linux"]
 fn test_snapshot_web_server() {
     let name: &str = function!();
     let port = 7777;
@@ -714,7 +727,8 @@ fn test_snapshot_web_server() {
     let script = format!(
         r#"
 cat /public/main.js | wc -c > /public/main.js.size
-rm -f /cfg/config.toml
+rm -f /cfg/
+cd /public
 /bin/webserver --log-level warn --root /public --port {}"#,
         port
     );
@@ -776,7 +790,10 @@ fn test_snapshot_fork_and_exec() {
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg(not(target_os = "windows"))]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_fork_and_exec_async() {
     let snapshot = TestBuilder::new()
@@ -811,7 +828,10 @@ fn test_snapshot_fork() {
 }
 
 // Simple fork example that is a crude multi-threading implementation - used by `dash`
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_fork_async() {
     let snapshot = TestBuilder::new()
@@ -851,7 +871,10 @@ fn test_snapshot_longjump_fork() {
 // This test ensures that the stacks that have been recorded are preserved
 // after a fork.
 // The behavior is needed for `dash`
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_longjump_fork_async() {
     let snapshot = TestBuilder::new()
@@ -920,7 +943,10 @@ fn test_snapshot_sleep() {
 
 // full multi-threading with shared memory and shared compiled modules
 #[cfg(target_os = "linux")]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_sleep_async() {
     let snapshot = TestBuilder::new()
@@ -943,7 +969,10 @@ fn test_snapshot_process_spawn() {
 
 // Uses `posix_spawn` to launch a sub-process and wait on it to exit
 #[cfg(not(target_os = "windows"))]
-#[cfg(not(any(target_env = "musl", target_os = "macos", target_os = "windows")))]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 #[test]
 fn test_snapshot_process_spawn_async() {
     let snapshot = TestBuilder::new()

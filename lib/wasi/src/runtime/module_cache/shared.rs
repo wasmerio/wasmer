@@ -57,7 +57,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = SharedCache::default();
-        let key = ModuleHash::from_raw([0; 32]);
+        let key = ModuleHash::from_bytes([0; 32]);
 
         cache.save(key, &engine, &module).await.unwrap();
         let round_tripped = cache.load(key, &engine).await.unwrap();

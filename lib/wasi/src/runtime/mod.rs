@@ -1,8 +1,7 @@
 pub mod module_cache;
+pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
-
-use crate::{http::DynHttpClient, os::TtyBridge, WasiTtyState};
 
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 
@@ -14,9 +13,15 @@ use std::{
 use derivative::Derivative;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
-use crate::runtime::{
-    module_cache::ModuleCache,
-    resolver::{PackageResolver, RegistryResolver},
+use crate::{
+    http::DynHttpClient,
+    os::TtyBridge,
+    runtime::{
+        module_cache::ModuleCache,
+        package_loader::{BuiltinPackageLoader, PackageLoader},
+        resolver::{MultiSource, Source, WapmSource},
+    },
+    WasiTtyState,
 };
 
 /// Represents an implementation of the WASI runtime - by default everything is
@@ -24,7 +29,7 @@ use crate::runtime::{
 #[allow(unused_variables)]
 pub trait WasiRuntime
 where
-    Self: fmt::Debug + Sync,
+    Self: fmt::Debug,
 {
     /// Provides access to all the networking related functions such as sockets.
     /// By default networking is not implemented.
@@ -33,10 +38,14 @@ where
     /// Retrieve the active [`VirtualTaskManager`].
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
-    fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync>;
+    /// A package loader.
+    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync>;
 
     /// A cache for compiled modules.
     fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync>;
+
+    /// The package registry.
+    fn source(&self) -> Arc<dyn Source + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
     fn engine(&self) -> Option<wasmer::Engine> {
@@ -99,7 +108,8 @@ pub struct PluggableRuntime {
     pub rt: Arc<dyn VirtualTaskManager>,
     pub networking: DynVirtualNetworking,
     pub http_client: Option<DynHttpClient>,
-    pub resolver: Arc<dyn PackageResolver + Send + Sync>,
+    pub package_loader: Arc<dyn PackageLoader + Send + Sync>,
+    pub source: Arc<dyn Source + Send + Sync>,
     pub engine: Option<wasmer::Engine>,
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
@@ -119,8 +129,16 @@ impl PluggableRuntime {
         let http_client =
             crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
-        let resolver =
-            RegistryResolver::from_env().expect("Loading the builtin resolver should never fail");
+        let loader = BuiltinPackageLoader::from_env()
+            .expect("Loading the builtin resolver should never fail");
+
+        let mut source = MultiSource::new();
+        if let Some(client) = &http_client {
+            source.add_source(WapmSource::new(
+                WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
+                client.clone(),
+            ));
+        }
 
         Self {
             rt,
@@ -128,7 +146,8 @@ impl PluggableRuntime {
             http_client,
             engine: None,
             tty: None,
-            resolver: Arc::new(resolver),
+            source: Arc::new(source),
+            package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
         }
     }
@@ -151,19 +170,24 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_module_cache<M>(&mut self, module_cache: M) -> &mut Self
-    where
-        M: ModuleCache + Send + Sync + 'static,
-    {
+    pub fn set_module_cache(
+        &mut self,
+        module_cache: impl ModuleCache + Send + Sync + 'static,
+    ) -> &mut Self {
         self.module_cache = Arc::new(module_cache);
         self
     }
 
-    pub fn set_resolver(
+    pub fn set_source(&mut self, source: impl Source + Send + Sync + 'static) -> &mut Self {
+        self.source = Arc::new(source);
+        self
+    }
+
+    pub fn set_package_loader(
         &mut self,
-        resolver: impl PackageResolver + Send + Sync + 'static,
+        package_loader: impl PackageLoader + Send + Sync + 'static,
     ) -> &mut Self {
-        self.resolver = Arc::new(resolver);
+        self.package_loader = Arc::new(package_loader);
         self
     }
 }
@@ -177,8 +201,16 @@ impl WasiRuntime for PluggableRuntime {
         self.http_client.as_ref()
     }
 
-    fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync> {
-        Arc::clone(&self.resolver)
+    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
+        Arc::clone(&self.package_loader)
+    }
+
+    fn source(&self) -> Arc<dyn Source + Send + Sync> {
+        Arc::clone(&self.source)
+    }
+
+    fn engine(&self) -> Option<wasmer::Engine> {
+        self.engine.clone()
     }
 
     fn new_store(&self) -> wasmer::Store {

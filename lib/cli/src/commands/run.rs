@@ -9,14 +9,16 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 #[cfg(feature = "coredump")]
 use std::fs::File;
-use std::io::Write;
 use std::net::SocketAddr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{io::Write, sync::Arc};
+use tokio::runtime::Handle;
 use wasmer::FunctionEnv;
 use wasmer::*;
 use wasmer_cache::{Cache, FileSystemCache, Hash};
+use wasmer_registry::WasmerConfig;
 use wasmer_types::Type as ValueType;
 use wasmer_wasix::runners::Runner;
 
@@ -246,10 +248,15 @@ impl RunWithPathBuf {
     }
 
     fn inner_execute(&self) -> Result<()> {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        let handle = runtime.handle().clone();
+
         #[cfg(feature = "webc_runner")]
         {
             if let Ok(pf) = webc::Container::from_disk(self.path.clone()) {
-                return self.run_container(pf, self.command_name.as_deref(), &self.args);
+                return self.run_container(pf, self.command_name.as_deref(), &self.args, handle);
             }
         }
         let (mut store, module) = self.get_store_module()?;
@@ -342,9 +349,13 @@ impl RunWithPathBuf {
                                 .map(|f| f.to_string_lossy().to_string())
                         })
                         .unwrap_or_default();
+
+                    let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+                    let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone(), &wasmer_dir, handle)?);
+
                     let (ctx, instance) = self
                         .wasi
-                        .instantiate(&mut store, &module, program_name, self.args.clone())
+                        .instantiate(&module, program_name, self.args.clone(), runtime, &mut store)
                         .with_context(|| "failed to instantiate WASI module")?;
 
                     let capable_of_deep_sleep = unsafe { ctx.data(&store).capable_of_deep_sleep() };
@@ -415,7 +426,16 @@ impl RunWithPathBuf {
         container: webc::Container,
         id: Option<&str>,
         args: &[String],
+        handle: Handle,
     ) -> Result<(), anyhow::Error> {
+        use wasmer_wasix::{
+            bin_factory::BinaryPackage,
+            runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
+            WasiRuntime,
+        };
+
+        let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+
         let id = id
             .or_else(|| container.manifest().entrypoint.as_deref())
             .context("No command specified")?;
@@ -426,35 +446,45 @@ impl RunWithPathBuf {
             .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
 
         let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new(store);
-        runner.set_args(args.to_vec());
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(&container, id).context("WASI runner failed");
+        let runtime = self
+            .wasi
+            .prepare_runtime(store.engine().clone(), &wasmer_dir, handle)?;
+        let runtime = Arc::new(runtime);
+        let pkg = runtime
+            .task_manager()
+            .block_on(BinaryPackage::from_webc(&container, &*runtime))?;
+
+        if WasiRunner::can_run_command(command).unwrap_or(false) {
+            let mut runner = WasiRunner::new();
+            runner.set_args(args.to_vec());
+            return runner
+                .run_command(id, &pkg, runtime)
+                .context("WASI runner failed");
         }
 
-        let (store, _compiler_type) = self.store.get_store()?;
-        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new(store);
-        runner.set_args(args.to_vec());
-        if runner.can_run_command(id, command).unwrap_or(false) {
+        if EmscriptenRunner::can_run_command(command).unwrap_or(false) {
+            let mut runner = EmscriptenRunner::new();
+            runner.set_args(args.to_vec());
             return runner
-                .run_cmd(&container, id)
+                .run_command(id, &pkg, runtime)
                 .context("Emscripten runner failed");
         }
 
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(id);
-        let (store, _compiler_type) = self.store.get_store()?;
-        runner
-            .config()
-            .args(args)
-            .store(store)
-            .addr(self.wcgi.addr)
-            .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone());
-        if self.wasi.forward_host_env {
-            runner.config().forward_host_env();
-        }
-        if runner.can_run_command(id, command).unwrap_or(false) {
-            return runner.run_cmd(&container, id).context("WCGI runner failed");
+        if WcgiRunner::can_run_command(command).unwrap_or(false) {
+            let mut runner = WcgiRunner::new();
+            runner
+                .config()
+                .args(args)
+                .addr(self.wcgi.addr)
+                .envs(self.wasi.env_vars.clone())
+                .map_directories(self.wasi.mapped_dirs.clone());
+            if self.wasi.forward_host_env {
+                runner.config().forward_host_env();
+            }
+
+            return runner
+                .run_command(id, &pkg, runtime)
+                .context("WCGI runner failed");
         }
 
         anyhow::bail!(

@@ -19,6 +19,12 @@ impl FileSystemCache {
         }
     }
 
+    /// Get the directory that is typically used when caching compiled
+    /// packages inside `$WASMER_DIR`.
+    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
+        wasmer_dir.as_ref().join("compiled")
+    }
+
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
@@ -168,7 +174,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path());
-        let key = ModuleHash::from_raw([0; 32]);
+        let key = ModuleHash::from_bytes([0; 32]);
         let expected_path = cache.path(key, engine.deterministic_id());
 
         cache.save(key, &engine, &module).await.unwrap();
@@ -184,7 +190,7 @@ mod tests {
         let cache_dir = temp.path().join("this").join("doesn't").join("exist");
         assert!(!cache_dir.exists());
         let cache = FileSystemCache::new(&cache_dir);
-        let key = ModuleHash::from_raw([0; 32]);
+        let key = ModuleHash::from_bytes([0; 32]);
 
         cache.save(key, &engine, &module).await.unwrap();
 
@@ -195,7 +201,7 @@ mod tests {
     async fn missing_file() {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
-        let key = ModuleHash::from_raw([0; 32]);
+        let key = ModuleHash::from_bytes([0; 32]);
         let cache = FileSystemCache::new(temp.path());
 
         let err = cache.load(key, &engine).await.unwrap_err();
@@ -208,7 +214,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_raw([0; 32]);
+        let key = ModuleHash::from_bytes([0; 32]);
         let cache = FileSystemCache::new(temp.path());
         let expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
