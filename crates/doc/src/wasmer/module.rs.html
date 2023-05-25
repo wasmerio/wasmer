@@ -777,7 +777,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(module_imp::Module::deserialize(engine, bytes)<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    <span class="doccomment">/// Deserializes a serialized Module located in a `Path` into a `Module`.
     /// &gt; Note: the module has to be serialized before with the `serialize` method.
     ///
     /// # Usage
@@ -786,7 +786,7 @@
     /// # use wasmer::*;
     /// # let mut store = Store::default();
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
-    /// let module = Module::deserialize_from_file(&amp;store, path)?;
+    /// let module = Module::deserialize_from_file_checked(&amp;store, path)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -803,7 +803,7 @@
         )<span class="question-mark">?</span>))
     }
 
-    <span class="doccomment">/// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    <span class="doccomment">/// Deserializes a serialized Module located in a `Path` into a `Module`.
     /// &gt; Note: the module has to be serialized before with the `serialize` method.
     ///
     /// You should usually prefer the safer [`Module::deserialize_from_file`].
