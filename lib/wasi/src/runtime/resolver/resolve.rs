@@ -104,17 +104,54 @@ async fn resolve_dependency_graph(
         dependencies.insert(id, deps);
     }
 
-    check_for_cycles(&dependencies, root_id)?;
-    check_for_duplicate_versions(dependencies.keys())?;
-
-    Ok(DependencyGraph {
+    let graph = DependencyGraph {
         root: root_id.clone(),
         dependencies,
         package_info,
         distribution,
-    })
+    };
+
+    check_for_cycles(&graph.dependencies, &graph.root)?;
+    check_for_duplicate_versions(graph.dependencies.keys())?;
+    log_dependencies(&graph);
+
+    Ok(graph)
 }
 
+#[tracing::instrument(level = "debug", name = "dependencies", skip_all)]
+fn log_dependencies(graph: &DependencyGraph) {
+    let DependencyGraph {
+        root, dependencies, ..
+    } = graph;
+
+    tracing::debug!(
+        %root,
+        dependency_count=dependencies.len(),
+        "Resolved dependencies",
+    );
+
+    if tracing::enabled!(tracing::Level::TRACE) {
+        let mut to_print = VecDeque::new();
+        let mut visited = HashSet::new();
+        to_print.push_back(root);
+        while let Some(next) = to_print.pop_front() {
+            visited.insert(next);
+
+            let deps = &dependencies[next];
+            let pretty: BTreeMap<_, _> = deps
+                .iter()
+                .map(|(name, pkg_id)| (name, pkg_id.to_string()))
+                .collect();
+
+            tracing::trace!(
+                package=%next,
+                dependencies=?pretty,
+            );
+
+            to_print.extend(deps.values().filter(|pkg| !visited.contains(pkg)));
+        }
+    }
+}
 
 /// As a workaround for the lack of "proper" dependency merging, we'll make sure
 /// only one copy of each package is in the dependency tree. If the same package
@@ -642,7 +679,7 @@ mod tests {
                     ]
                 );
             }
-            _ => unreachable!("Expected a duplicate versions error, found {:?}"),
+            _ => unreachable!("Expected a duplicate versions error, found {:?}", result),
         }
     }
 
