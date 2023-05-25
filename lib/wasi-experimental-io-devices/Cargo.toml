@@ -14,7 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer = { version = "3.3.0", path = "../api", default-features=false }
+wasmer = { version = "4.0.0-alpha.1", path = "../api", default-features=false }
 wasmer-wasix = { version = "0.4.0", path = "../wasi", default-features=false }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.4.0" }
 tracing = "0.1"
