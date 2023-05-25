@@ -781,10 +781,10 @@ unsafe impl Sync for VMMemoryDefinition {}
 #[cfg(test)]
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
-    use crate::ModuleInfo;
     use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
+    use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmmemory_definition_offsets() {

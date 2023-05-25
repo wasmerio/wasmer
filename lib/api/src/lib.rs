@@ -502,14 +502,5 @@ pub use wat::parse_bytes as wat2wasm;
 #[cfg(feature = "wasmparser")]
 pub use wasmparser;
 
-// Deprecated types
-
-/// This type is deprecated, it has been replaced by TypedFunction.
-#[deprecated(
-    since = "3.0.0",
-    note = "NativeFunc has been replaced by TypedFunction"
-)]
-pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;
-
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

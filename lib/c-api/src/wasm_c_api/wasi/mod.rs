@@ -19,8 +19,8 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, Pipe, VirtualTaskManager,
-    WasiEnv, WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe,
+    VirtualTaskManager, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -400,7 +400,7 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 
 fn read_inner(
     tasks: &dyn VirtualTaskManager,
-    wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
+    wasi_file: &mut Box<dyn VirtualFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
     tasks.block_on(async {

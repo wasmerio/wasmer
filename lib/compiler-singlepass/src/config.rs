@@ -23,10 +23,6 @@ impl Singlepass {
         }
     }
 
-    fn enable_nan_canonicalization(&mut self) {
-        self.enable_nan_canonicalization = true;
-    }
-
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
         self

@@ -3,6 +3,7 @@ use wasmer_types::RawValue;
 
 use crate::native_type::NativeWasmTypeInto;
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::sys::engine::NativeEngineExt;
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
