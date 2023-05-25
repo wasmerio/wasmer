@@ -672,8 +672,6 @@ mod tests {
                 assert_eq!(
                     versions,
                     [
-                        Version::parse("1.0.0").unwrap(),
-                        Version::parse("1.1.0").unwrap(),
                         Version::parse("1.2.0").unwrap(),
                         Version::parse("1.5.0").unwrap(),
                     ]

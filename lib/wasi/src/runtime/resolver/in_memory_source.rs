@@ -110,21 +110,21 @@ mod tests {
 
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, PackageInfo},
-        Dependency,
+        Dependency, WebcHash,
     };
 
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
-    const COREUTILS_14: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
+    const COREUTILS_16: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
     const COREUTILS_11: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
-    const BASH: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
+    const BASH: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
 
     #[test]
     fn load_a_directory_tree() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("python-0.1.0.webc"), PYTHON).unwrap();
-        std::fs::write(temp.path().join("coreutils-1.0.14.webc"), COREUTILS_14).unwrap();
+        std::fs::write(temp.path().join("coreutils-1.0.16.webc"), COREUTILS_16).unwrap();
         std::fs::write(temp.path().join("coreutils-1.0.11.webc"), COREUTILS_11).unwrap();
         let nested = temp.path().join("nested");
         std::fs::create_dir(&nested).unwrap();
@@ -147,29 +147,25 @@ mod tests {
             PackageSummary {
                 pkg: PackageInfo {
                     name: "sharrattj/bash".to_string(),
-                    version: "1.0.12".parse().unwrap(),
+                    version: "1.0.16".parse().unwrap(),
                     dependencies: vec![Dependency {
                         alias: "coreutils".to_string(),
-                        pkg: "sharrattj/coreutils@^1.0.11".parse().unwrap()
+                        pkg: "sharrattj/coreutils@^1.0.16".parse().unwrap()
                     }],
-                    commands: ["bash", "sh"]
-                        .iter()
-                        .map(|name| crate::runtime::resolver::Command {
-                            name: name.to_string()
-                        })
-                        .collect(),
-                    entrypoint: None,
+                    commands: vec![crate::runtime::resolver::Command {
+                        name: "bash".to_string(),
+                    }],
+                    entrypoint: Some("bash".to_string()),
                 },
                 dist: DistributionInfo {
                     webc: crate::runtime::resolver::polyfills::url_from_file_path(
                         bash.canonicalize().unwrap()
                     )
                     .unwrap(),
-                    webc_sha256: [
-                        7, 226, 190, 131, 173, 231, 130, 245, 207, 185, 51, 189, 86, 85, 222, 37,
-                        27, 163, 170, 27, 25, 24, 211, 136, 186, 233, 174, 119, 66, 15, 134, 9
-                    ]
-                    .into(),
+                    webc_sha256: WebcHash::from_bytes([
+                        161, 101, 23, 194, 244, 92, 186, 213, 143, 33, 200, 128, 238, 23, 185, 174,
+                        180, 195, 144, 145, 78, 17, 227, 159, 118, 64, 83, 153, 0, 205, 253, 215,
+                    ]),
                 },
             }
         );
