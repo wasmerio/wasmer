@@ -274,6 +274,7 @@ mod tests {
                         },
                     ],
                     entrypoint: Some("wasmer-pack".to_string()),
+                    filesystem: Vec::new(),
                 },
                 dist: DistributionInfo {
                     webc: "https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc".parse().unwrap(),

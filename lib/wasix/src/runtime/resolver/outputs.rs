@@ -62,7 +62,8 @@ impl DependencyGraph {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FileSystemMapping {
+pub struct ResolvedFileSystemMapping {
+    // TODO: Change this to a new type that isn't coupled to the OS
     pub mount_path: PathBuf,
     pub volume_name: String,
     pub package: PackageId,
@@ -75,5 +76,5 @@ pub struct ResolvedPackage {
     pub commands: BTreeMap<String, ItemLocation>,
     pub entrypoint: Option<String>,
     /// A mapping from paths to the volumes that should be mounted there.
-    pub filesystem: Vec<FileSystemMapping>,
+    pub filesystem: Vec<ResolvedFileSystemMapping>,
 }

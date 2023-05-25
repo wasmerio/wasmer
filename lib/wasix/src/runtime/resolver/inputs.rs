@@ -182,6 +182,7 @@ pub struct PackageInfo {
     pub entrypoint: Option<String>,
     /// Any dependencies this package may have.
     pub dependencies: Vec<Dependency>,
+    pub filesystem: Vec<FileSystemMapping>,
 }
 
 impl PackageInfo {
@@ -209,12 +210,15 @@ impl PackageInfo {
             })
             .collect();
 
+        let filesystem = filesystem_mapping_from_manifest(manifest);
+
         Ok(PackageInfo {
             name,
             version: version.parse()?,
             dependencies,
             commands,
             entrypoint: manifest.entrypoint.clone(),
+            filesystem,
         })
     }
 
@@ -224,6 +228,28 @@ impl PackageInfo {
             version: self.version.clone(),
         }
     }
+}
+
+fn filesystem_mapping_from_manifest(_manifest: &Manifest) -> Vec<FileSystemMapping> {
+    // FIXME(Michael-F-Bryan): wapm2pirita never added filesystem mappings to the manifest
+    // That means we need to
+    // - Figure out whether filesystem mappings belong to the whole package or
+    //   if each command has their own set of mappings
+    // - Update wapm-targz-to-pirita to copy the [fs] table across
+    // - Re-generate all packages on WAPM
+    // - Update this function to copy metadata into our internal datastructures
+    Vec::new()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileSystemMapping {
+    /// The volume to be mounted.
+    pub volume_name: String,
+    /// Where the volume should be mounted within the resulting filesystem.
+    pub mount_path: String,
+    /// The name of the package this volume comes from (current package if
+    /// `None`).
+    pub dependency_name: Option<String>,
 }
 
 fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifier, Error> {

@@ -168,6 +168,7 @@ mod tests {
                         name: "bash".to_string(),
                     }],
                     entrypoint: Some("bash".to_string()),
+                    filesystem: Vec::new(),
                 },
                 dist: DistributionInfo {
                     webc: crate::runtime::resolver::utils::url_from_file_path(

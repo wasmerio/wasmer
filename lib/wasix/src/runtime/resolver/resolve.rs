@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    path::PathBuf,
+};
 
 use semver::Version;
 
@@ -7,7 +10,7 @@ use crate::runtime::resolver::{
     ResolvedPackage, Source,
 };
 
-use super::FileSystemMapping;
+use super::ResolvedFileSystemMapping;
 
 /// Given the [`PackageInfo`] for a root package, resolve its dependency graph
 /// and figure out how it could be executed.
@@ -293,18 +296,33 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 }
 
 fn resolve_filesystem_mapping(
-    _dependency_graph: &DependencyGraph,
-) -> Result<Vec<FileSystemMapping>, ResolveError> {
-    // TODO: Add filesystem mappings to summary and figure out the final mapping
-    // for this dependency graph.
-    // See <https://github.com/wasmerio/wasmer/issues/3744> for more.
-    Ok(Vec::new())
+    graph: &DependencyGraph,
+) -> Result<Vec<ResolvedFileSystemMapping>, ResolveError> {
+    let mut mappings = Vec::new();
+
+    for (id, pkg) in &graph.package_info {
+        for mapping in &pkg.filesystem {
+            let dep = match &mapping.dependency_name {
+                Some(name) => graph.dependencies[id].get(name).unwrap(),
+                None => id,
+            };
+            mappings.push(ResolvedFileSystemMapping {
+                mount_path: PathBuf::from(&mapping.mount_path),
+                volume_name: mapping.volume_name.clone(),
+                package: dep.clone(),
+            })
+        }
+    }
+
+    Ok(mappings)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use crate::runtime::resolver::{
-        inputs::{DistributionInfo, PackageInfo},
+        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
         Dependency, InMemorySource, MultiSource, PackageSpecifier,
     };
 
@@ -324,6 +342,7 @@ mod tests {
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: None,
+                filesystem: Vec::new(),
             };
             let dist = DistributionInfo {
                 webc: format!("http://localhost/{name}@{version}")
@@ -400,6 +419,29 @@ mod tests {
 
         fn with_entrypoint(&mut self, name: &str) -> &mut Self {
             self.summary.pkg.entrypoint = Some(name.to_string());
+            self
+        }
+
+        fn with_fs_mapping(&mut self, volume_name: &str, mount_path: &str) -> &mut Self {
+            self.summary.pkg.filesystem.push(FileSystemMapping {
+                volume_name: volume_name.to_string(),
+                mount_path: mount_path.to_string(),
+                dependency_name: None,
+            });
+            self
+        }
+
+        fn with_fs_mapping_from_dependency(
+            &mut self,
+            volume_name: &str,
+            mount_path: &str,
+            dependency: &str,
+        ) -> &mut Self {
+            self.summary.pkg.filesystem.push(FileSystemMapping {
+                volume_name: volume_name.to_string(),
+                mount_path: mount_path.to_string(),
+                dependency_name: Some(dependency.to_string()),
+            });
             self
         }
     }
@@ -896,5 +938,140 @@ mod tests {
         let message = print_cycle(&cycle);
 
         assert_eq!(message, "root@1.0.0 → dep@1.0.0 → root@1.0.0");
+    }
+
+    #[test]
+    fn filesystem_with_one_package_and_no_fs_tables() {
+        let mut builder = RegistryBuilder::new();
+        builder.register("root", "1.0.0");
+        let mut dep_builder = builder.start_dependency_graph();
+        dep_builder.insert("root", "1.0.0");
+        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
+        let root_id = pkg.id();
+        let graph = DependencyGraph {
+            root: root_id.clone(),
+            dependencies: dep_builder.finish(),
+            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
+            distribution: vec![(root_id, dist)].into_iter().collect(),
+        };
+
+        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+        assert_eq!(mappings, Vec::new());
+    }
+
+    #[test]
+    fn filesystem_with_one_package_and_one_fs_tables() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_fs_mapping("lib", "/lib");
+        let mut dep_builder = builder.start_dependency_graph();
+        dep_builder.insert("root", "1.0.0");
+        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
+        let root_id = pkg.id();
+        let graph = DependencyGraph {
+            root: root_id.clone(),
+            dependencies: dep_builder.finish(),
+            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
+            distribution: vec![(root_id, dist)].into_iter().collect(),
+        };
+
+        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+        assert_eq!(
+            mappings,
+            vec![ResolvedFileSystemMapping {
+                mount_path: PathBuf::from("/lib"),
+                volume_name: "lib".to_string(),
+                package: builder.get("root", "1.0.0").package_id(),
+            }]
+        );
+    }
+
+    #[test]
+    fn merge_fs_mappings_from_multiple_packages() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("first", "=1.0.0")
+            .with_dependency("second", "=1.0.0")
+            .with_fs_mapping("lib", "/root");
+        builder
+            .register("first", "1.0.0")
+            .with_fs_mapping("main", "/usr/local/lib/first");
+        builder
+            .register("second", "1.0.0")
+            .with_fs_mapping("main", "/usr/local/lib/second");
+        let mut dep_builder = builder.start_dependency_graph();
+        dep_builder
+            .insert("root", "1.0.0")
+            .with_dependency("first", "1.0.0")
+            .with_dependency("second", "1.0.0");
+        dep_builder.insert("first", "1.0.0");
+        dep_builder.insert("second", "1.0.0");
+        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
+        let root_id = pkg.id();
+        let graph = DependencyGraph {
+            root: root_id.clone(),
+            dependencies: dep_builder.finish(),
+            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
+            distribution: vec![(root_id, dist)].into_iter().collect(),
+        };
+
+        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+
+        assert_eq!(
+            mappings,
+            vec![
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/usr/local/lib/second"),
+                    volume_name: "main".to_string(),
+                    package: builder.get("second", "1.0.0").package_id(),
+                },
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/usr/local/lib/first"),
+                    volume_name: "main".to_string(),
+                    package: builder.get("first", "1.0.0").package_id(),
+                },
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/root"),
+                    volume_name: "lib".to_string(),
+                    package: builder.get("root", "1.0.0").package_id(),
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn use_fs_mapping_from_dependency() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("dep", "=1.0.0")
+            .with_fs_mapping_from_dependency("dep-volume", "/root", "dep");
+        builder.register("dep", "1.0.0");
+        let mut dep_builder = builder.start_dependency_graph();
+        dep_builder
+            .insert("root", "1.0.0")
+            .with_dependency("dep", "1.0.0");
+        dep_builder.insert("dep", "1.0.0");
+        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
+        let root_id = pkg.id();
+        let graph = DependencyGraph {
+            root: root_id.clone(),
+            dependencies: dep_builder.finish(),
+            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
+            distribution: vec![(root_id, dist)].into_iter().collect(),
+        };
+
+        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+
+        assert_eq!(
+            mappings,
+            vec![ResolvedFileSystemMapping {
+                mount_path: PathBuf::from("/root"),
+                volume_name: "dep-volume".to_string(),
+                package: builder.get("dep", "1.0.0").package_id(),
+            }]
+        );
     }
 }
