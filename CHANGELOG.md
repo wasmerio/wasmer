@@ -12,7 +12,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## 4.0.0-alpha.1 - 25/05/2023
 
 A new major release, with a few breaking changes and the removal of many deprecated functions. Also, some methods previously availbale from on `Engine` has been moved to the `NativeEngineExt` trait.
-Deserialize has changed, with the default version using artifact layout validation. The old function has been renamed to `_unchecked` variant. The speed impact is usualy negligeable, but the old funciton are still presetn if needed
+Deserialize has changed, with the default version using artifact layout validation. The old function has been renamed to `_unchecked` variant. The speed impact is usually negligeable , but the old function are still present if needed
 Many bugfixes and quality of life improvment on `wasmer run` and `wasmer run-unstable` (that will be merged into just `wasmer run soon`), like the removal of `--allow-multiple-wasi-versions` that is now active by default, or the logic for `wasmer config set registry.url` that has been fixed to work with `localhost:1234`
 
 ## Added
