@@ -2,7 +2,7 @@ use std::{any::Any, sync::Arc};
 
 use crate::{
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    VirtualBusError,
+    SpawnError,
 };
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasix_types::wasi::Errno;
@@ -55,15 +55,15 @@ impl CmdWasmer {
         config: &mut Option<WasiEnv>,
         what: Option<String>,
         mut args: Vec<String>,
-    ) -> Result<TaskJoinHandle, VirtualBusError> {
+    ) -> Result<TaskJoinHandle, SpawnError> {
         // If the first argument is a '--' then skip it
         if args.first().map(|a| a.as_str()) == Some("--") {
             args = args.into_iter().skip(1).collect();
         }
 
         if let Some(what) = what {
-            let store = store.take().ok_or(VirtualBusError::UnknownError)?;
-            let mut env = config.take().ok_or(VirtualBusError::UnknownError)?;
+            let store = store.take().ok_or(SpawnError::UnknownError)?;
+            let mut env = config.take().ok_or(SpawnError::UnknownError)?;
 
             // Set the arguments of the environment by replacing the state
             let mut state = env.state.fork();
@@ -116,9 +116,9 @@ impl VirtualCommand for CmdWasmer {
         name: &str,
         store: &mut Option<Store>,
         env: &mut Option<WasiEnv>,
-    ) -> Result<TaskJoinHandle, VirtualBusError> {
+    ) -> Result<TaskJoinHandle, SpawnError> {
         // Read the command we want to run
-        let env_inner = env.as_ref().ok_or(VirtualBusError::UnknownError)?;
+        let env_inner = env.as_ref().ok_or(SpawnError::UnknownError)?;
         let args = env_inner.state.args.clone();
         let mut args = args.iter().map(|s| s.as_str());
         let _alias = args.next();

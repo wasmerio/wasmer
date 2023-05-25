@@ -191,44 +191,56 @@ impl Engine {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    /// Deserializes a WebAssembly module
+    /// Deserializes a WebAssembly module which was previously serialized with
+    /// [`Module::serialize`].
     ///
     /// # Safety
     ///
-    /// The serialized content must represent a serialized WebAssembly module.
+    /// See [`Artifact::deserialize_unchecked`].
+    pub unsafe fn deserialize_unchecked(
+        &self,
+        bytes: &[u8],
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?))
+    }
+
+    /// Deserializes a WebAssembly module which was previously serialized with
+    /// [`Module::serialize`].
+    ///
+    /// # Safety
+    ///
+    /// See [`Artifact::deserialize`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
-    /// Deserializes a WebAssembly module
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn deserialize_checked(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize_checked(self, bytes)?))
-    }
-
-    /// Deserializes a WebAssembly module from a path
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn deserialize_from_file_checked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        let contents = std::fs::read(file_ref)?;
-        self.deserialize_checked(&contents)
-    }
-
-    /// Deserialize from a file path.
+    /// Deserializes a WebAssembly module from a path.
     ///
     /// # Safety
-    ///
     /// See [`Artifact::deserialize`].
     #[cfg(not(target_arch = "wasm32"))]
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
+        let contents = std::fs::read(file_ref)?;
+        self.deserialize(&contents)
+    }
+
+    /// Deserialize from a file path.
+    ///
+    /// # Safety
+    ///
+    /// See [`Artifact::deserialize_unchecked`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub unsafe fn deserialize_from_file_unchecked(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
         let mmap = Mmap::map(&file)?;
-        self.deserialize(&mmap)
+        self.deserialize_unchecked(&mmap)
     }
 
     /// A unique identifier for this object.

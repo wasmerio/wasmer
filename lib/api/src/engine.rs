@@ -135,24 +135,57 @@ impl Engine {
         ))
     }
 
-    #[deprecated(since = "3.2.0")]
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Deserializes a WebAssembly module
+    /// Deserializes a WebAssembly module which was previously serialized with
+    /// `Module::serialize`.
+    ///
+    /// NOTE: you should almost always prefer [`Self::deserialize`].
     ///
     /// # Safety
+    /// See [`Artifact::deserialize_unchecked`].
+    pub unsafe fn deserialize_unchecked(
+        &self,
+        bytes: &[u8],
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize_unchecked(&self.0, bytes)?))
+    }
+
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    /// Deserializes a WebAssembly module which was previously serialized with
+    /// `Module::serialize`.
     ///
-    /// The serialized content must represent a serialized WebAssembly module.
+    /// # Safety
+    /// See [`Artifact::deserialize`].
     pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(&self.0, bytes)?))
     }
 
-    #[deprecated(since = "3.2.0")]
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Deserializes a WebAssembly module from a path
+    /// Load a serialized WebAssembly module from a file and deserialize it.
+    ///
+    /// NOTE: you should almost always prefer [`Self::deserialize_from_file`].
     ///
     /// # Safety
+    /// See [`Artifact::deserialize_unchecked`].
+    pub unsafe fn deserialize_from_file_unchecked(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        let mut file = std::fs::File::open(file_ref)?;
+        let mut buffer = Vec::new();
+        // read the whole file
+        file.read_to_end(&mut buffer)?;
+        Ok(Arc::new(Artifact::deserialize_unchecked(
+            &self.0,
+            buffer.as_slice(),
+        )?))
+    }
+
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    /// Load a serialized WebAssembly module from a file and deserialize it.
     ///
-    /// The file's content must represent a serialized WebAssembly module.
+    /// # Safety
+    /// See [`Artifact::deserialize`].
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,

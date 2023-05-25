@@ -330,9 +330,6 @@ impl RunWithPathBuf {
                         if self.wasi.deny_multiple_wasi_versions {
                             let version_list = get_version_list(&wasi_versions);
                             bail!("Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.", version_list);
-                        } else if !self.wasi.allow_multiple_wasi_versions {
-                            let version_list = get_version_list(&wasi_versions);
-                            warning!("Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.", version_list);
                         }
                     }
 
@@ -472,7 +469,7 @@ impl RunWithPathBuf {
         if wasmer_compiler::Artifact::is_deserializable(&contents) {
             let engine = wasmer_compiler::EngineBuilder::headless();
             let store = Store::new(engine);
-            let module = Module::deserialize_from_file_checked(&store, &self.path)?;
+            let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
             return Ok((store, module));
         }
         let (store, compiler_type) = self.store.get_store()?;

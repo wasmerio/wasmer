@@ -1,4 +1,5 @@
 use virtual_fs::Pipe;
+use wasmer_wasix_types::wasi::ProcessHandles;
 
 use super::*;
 use crate::syscalls::*;
@@ -37,15 +38,15 @@ pub fn proc_spawn<M: MemorySize>(
     stderr: WasiStdioMode,
     working_dir: WasmPtr<u8, M>,
     working_dir_len: M::Offset,
-    ret_handles: WasmPtr<BusHandles, M>,
-) -> Result<BusErrno, WasiError> {
+    ret_handles: WasmPtr<ProcessHandles, M>,
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let control_plane = &env.control_plane;
     let memory = unsafe { env.memory_view(&ctx) };
-    let name = unsafe { get_input_str_bus_ok!(&memory, name, name_len) };
-    let args = unsafe { get_input_str_bus_ok!(&memory, args, args_len) };
-    let preopen = unsafe { get_input_str_bus_ok!(&memory, preopen, preopen_len) };
-    let working_dir = unsafe { get_input_str_bus_ok!(&memory, working_dir, working_dir_len) };
+    let name = unsafe { get_input_str_ok!(&memory, name, name_len) };
+    let args = unsafe { get_input_str_ok!(&memory, args, args_len) };
+    let preopen = unsafe { get_input_str_ok!(&memory, preopen, preopen_len) };
+    let working_dir = unsafe { get_input_str_ok!(&memory, working_dir, working_dir_len) };
 
     Span::current()
         .record("name", name.as_str())
@@ -53,7 +54,7 @@ pub fn proc_spawn<M: MemorySize>(
 
     if chroot == Bool::True {
         warn!("chroot is not currently supported",);
-        return Ok(BusErrno::Unsupported);
+        return Ok(Errno::Notsup);
     }
 
     let args: Vec<_> = args
@@ -86,8 +87,8 @@ pub fn proc_spawn<M: MemorySize>(
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    wasi_try_mem_bus_ok!(ret_handles.write(&memory, handles));
-    Ok(BusErrno::Success)
+    wasi_try_mem_ok!(ret_handles.write(&memory, handles));
+    Ok(Errno::Success)
 }
 
 pub fn proc_spawn_internal(
@@ -99,7 +100,7 @@ pub fn proc_spawn_internal(
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -> Result<Result<(BusHandles, FunctionEnvMut<'_, WasiEnv>), BusErrno>, WasiError> {
+) -> Result<Result<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>), Errno>, WasiError> {
     let env = ctx.data();
 
     // Build a new store that will be passed to the thread
@@ -110,7 +111,7 @@ pub fn proc_spawn_internal(
         Ok(x) => x,
         Err(err) => {
             // TODO: evaluate the appropriate error code, document it in the spec.
-            return Ok(Err(BusErrno::Denied));
+            return Ok(Err(Errno::Access));
         }
     };
     let child_process = child_env.process.clone();
@@ -133,7 +134,7 @@ pub fn proc_spawn_internal(
                     preopen
                 );
             }
-            return Ok(Err(BusErrno::Unsupported));
+            return Ok(Err(Errno::Notsup));
         }
     }
 
@@ -146,7 +147,7 @@ pub fn proc_spawn_internal(
     let (stdin, stdout, stderr) = {
         let (_, child_state, child_inodes) =
             unsafe { child_env.get_memory_and_wasi_state_and_inodes(&new_store, 0) };
-        let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, BusErrno> {
+        let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, Errno> {
             match mode {
                 WasiStdioMode::Piped => {
                     let (pipe1, pipe2) = Pipe::channel();
@@ -164,16 +165,21 @@ pub fn proc_spawn_internal(
                     );
 
                     let rights = crate::net::socket::all_socket_rights();
-                    let pipe = ctx
-                        .data()
-                        .state
-                        .fs
-                        .create_fd(rights, rights, Fdflags::empty(), 0, inode1)
-                        .map_err(|_| BusErrno::Internal)?;
-                    child_state
-                        .fs
-                        .create_fd_ext(rights, rights, Fdflags::empty(), 0, inode2, fd)
-                        .map_err(|_| BusErrno::Internal)?;
+                    let pipe = ctx.data().state.fs.create_fd(
+                        rights,
+                        rights,
+                        Fdflags::empty(),
+                        0,
+                        inode1,
+                    )?;
+                    child_state.fs.create_fd_ext(
+                        rights,
+                        rights,
+                        Fdflags::empty(),
+                        0,
+                        inode2,
+                        fd,
+                    )?;
 
                     trace!("fd_pipe (fd1={}, fd2={})", pipe, fd);
                     Ok(OptionFd {
@@ -221,20 +227,18 @@ pub fn proc_spawn_internal(
         match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
             Ok(a) => a,
             Err(err) => {
-                if err != VirtualBusError::NotFound {
+                if err != SpawnError::NotFound {
                     error!("builtin failed - {}", err);
                 }
                 // Now we actually spawn the process
                 let child_work =
                     bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
 
-                match __asyncify(&mut ctx, None, async move {
-                    Ok(child_work.await.map_err(vbus_error_into_bus_errno))
-                })?
-                .map_err(|err| BusErrno::Unknown)
+                match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
+                    .map_err(|err| Errno::Unknown)
                 {
                     Ok(Ok(a)) => a,
-                    Ok(Err(err)) => return Ok(Err(err)),
+                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(err))),
                     Err(err) => return Ok(Err(err)),
                 }
             }
@@ -248,8 +252,8 @@ pub fn proc_spawn_internal(
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
-    let handles = BusHandles {
-        bid: child_pid.raw(),
+    let handles = ProcessHandles {
+        pid: child_pid.raw(),
         stdin,
         stdout,
         stderr,

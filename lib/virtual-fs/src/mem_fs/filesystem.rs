@@ -20,6 +20,10 @@ pub struct FileSystem {
 }
 
 impl FileSystem {
+    pub fn set_memory_limiter(&self, limiter: crate::limiter::DynFsMemoryLimiter) {
+        self.inner.write().unwrap().limiter = Some(limiter);
+    }
+
     pub fn new_open_options_ext(&self) -> &FileSystem {
         self
     }
@@ -539,6 +543,7 @@ impl fmt::Debug for FileSystem {
 /// indexed by their respective `Inode` in a slab.
 pub(super) struct FileSystemInner {
     pub(super) storage: Slab<Node>,
+    pub(super) limiter: Option<crate::limiter::DynFsMemoryLimiter>,
 }
 
 #[derive(Debug)]
@@ -932,7 +937,10 @@ impl Default for FileSystemInner {
             },
         }));
 
-        Self { storage: slab }
+        Self {
+            storage: slab,
+            limiter: None,
+        }
     }
 }
 

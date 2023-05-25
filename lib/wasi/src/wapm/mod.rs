@@ -427,8 +427,8 @@ mod tests {
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
-    const COREUTILS: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc");
-    const BASH: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/bash-1.0.12-0103d733-1afb-4a56-b0ef-0e124139e996.webc");
+    const COREUTILS: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
+    const BASH: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
     const HELLO: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc");
 
     #[test]
@@ -471,7 +471,7 @@ mod tests {
         let pkg = parse_webc_v2(&coreutils).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/coreutils");
-        assert_eq!(pkg.version.to_string(), "1.0.14");
+        assert_eq!(pkg.version.to_string(), "1.0.16");
         assert_eq!(pkg.uses, Vec::<String>::new());
         assert_eq!(pkg.module_memory_footprint, 0);
         assert_eq!(pkg.file_system_memory_footprint, 44);
@@ -602,9 +602,9 @@ mod tests {
         let pkg = parse_webc_v2(&bash).unwrap();
 
         assert_eq!(pkg.package_name, "sharrattj/bash");
-        assert_eq!(pkg.version.to_string(), "1.0.12");
-        assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.11"]);
-        assert_eq!(pkg.module_memory_footprint, 0);
+        assert_eq!(pkg.version.to_string(), "1.0.16");
+        assert_eq!(pkg.uses, &["sharrattj/coreutils@1.0.16"]);
+        assert_eq!(pkg.module_memory_footprint, 1847052);
         assert_eq!(pkg.file_system_memory_footprint, 0);
         let commands = pkg.commands.read().unwrap();
         let commands: BTreeMap<&str, &[u8]> = commands
@@ -612,9 +612,8 @@ mod tests {
             .map(|cmd| (cmd.name(), cmd.atom()))
             .collect();
         let command_names: Vec<_> = commands.keys().copied().collect();
-        assert_eq!(command_names, &["bash", "sh"]);
+        assert_eq!(command_names, &["bash"]);
         assert_eq!(commands["bash"], bash.get_atom("bash").unwrap());
-        assert_eq!(commands["sh"], commands["bash"]);
     }
 
     #[test]
