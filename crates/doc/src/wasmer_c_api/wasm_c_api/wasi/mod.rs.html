@@ -693,8 +693,8 @@
 <span class="attribute">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
 </span><span class="kw">use </span>wasmer_api::{AsStoreMut, Imports, Module};
 <span class="kw">use </span>wasmer_wasix::{
-    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, Pipe, VirtualTaskManager,
-    WasiEnv, WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe,
+    VirtualTaskManager, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 };
 
 <span class="attribute">#[derive(Debug)]
@@ -1074,7 +1074,7 @@
 
 <span class="kw">fn </span>read_inner(
     tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
-    wasi_file: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>WasiFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    wasi_file: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
     inner_buffer: <span class="kw-2">&amp;mut </span>[u8],
 ) -&gt; isize {
     tasks.block_on(<span class="kw">async </span>{

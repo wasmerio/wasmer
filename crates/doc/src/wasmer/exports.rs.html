@@ -306,23 +306,6 @@
 <span id="304">304</span>
 <span id="305">305</span>
 <span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
 <span class="kw">use crate</span>::{Extern, Function, Global, Memory, Table, TypedFunction, WasmTypeList};
 <span class="kw">use </span>indexmap::IndexMap;
@@ -455,23 +438,6 @@
     <span class="doccomment">/// Get an export as a `Func`.
     </span><span class="kw">pub fn </span>get_function(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Function, ExportError&gt; {
         <span class="self">self</span>.get(name)
-    }
-
-    <span class="attribute">#[deprecated(
-        since = <span class="string">&quot;3.0.0&quot;</span>,
-        note = <span class="string">&quot;get_native_function() has been renamed to get_typed_function(), just like NativeFunc has been renamed to TypedFunction.&quot;
-    </span>)]
-    </span><span class="doccomment">/// Get an export as a `TypedFunction`.
-    </span><span class="kw">pub fn </span>get_native_function&lt;Args, Rets&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-        name: <span class="kw-2">&amp;</span>str,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TypedFunction&lt;Args, Rets&gt;, ExportError&gt;
-    <span class="kw">where
-        </span>Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        <span class="self">self</span>.get_typed_function(store, name)
     }
 
     <span class="doccomment">/// Get an export as a `TypedFunction`.

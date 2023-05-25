@@ -468,52 +468,6 @@
 <span id="466">466</span>
 <span id="467">467</span>
 <span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
-<span id="489">489</span>
-<span id="490">490</span>
-<span id="491">491</span>
-<span id="492">492</span>
-<span id="493">493</span>
-<span id="494">494</span>
-<span id="495">495</span>
-<span id="496">496</span>
-<span id="497">497</span>
-<span id="498">498</span>
-<span id="499">499</span>
-<span id="500">500</span>
-<span id="501">501</span>
-<span id="502">502</span>
-<span id="503">503</span>
-<span id="504">504</span>
-<span id="505">505</span>
-<span id="506">506</span>
-<span id="507">507</span>
-<span id="508">508</span>
-<span id="509">509</span>
-<span id="510">510</span>
-<span id="511">511</span>
-<span id="512">512</span>
-<span id="513">513</span>
-<span id="514">514</span>
 </pre><pre class="rust"><code><span class="attribute">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::function <span class="kw">as </span>function_impl;
 <span class="attribute">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
@@ -672,20 +626,6 @@
         <span class="self">Self</span>(function_impl::Function::new_with_env(store, env, ty, func))
     }
 
-    <span class="attribute">#[deprecated(
-        since = <span class="string">&quot;3.0.0&quot;</span>,
-        note = <span class="string">&quot;new_native() has been renamed to new_typed().&quot;
-    </span>)]
-    </span><span class="doccomment">/// Creates a new host `Function` from a native function.
-    </span><span class="kw">pub fn </span>new_native&lt;F, Args, Rets&gt;(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, func: F) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>F: HostFunction&lt;(), Args, Rets, WithoutEnv&gt; + <span class="lifetime">&#39;static </span>+ Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        <span class="self">Self</span>::new_typed(store, func)
-    }
-
     <span class="doccomment">/// Creates a new host `Function` from a native function.
     </span><span class="kw">pub fn </span>new_typed&lt;F, Args, Rets&gt;(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, func: F) -&gt; <span class="self">Self
     </span><span class="kw">where
@@ -694,24 +634,6 @@
         Rets: WasmTypeList,
     {
         <span class="self">Self</span>(function_impl::Function::new_typed(store, func))
-    }
-
-    <span class="attribute">#[deprecated(
-        since = <span class="string">&quot;3.0.0&quot;</span>,
-        note = <span class="string">&quot;new_native_with_env() has been renamed to new_typed_with_env().&quot;
-    </span>)]
-    </span><span class="doccomment">/// Creates a new host `Function` with an environment from a native function.
-    </span><span class="kw">pub fn </span>new_native_with_env&lt;T: Send + <span class="lifetime">&#39;static</span>, F, Args, Rets&gt;(
-        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-        env: <span class="kw-2">&amp;</span>FunctionEnv&lt;T&gt;,
-        func: F,
-    ) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>F: HostFunction&lt;T, Args, Rets, WithEnv&gt; + <span class="lifetime">&#39;static </span>+ Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        <span class="self">Self</span>::new_typed_with_env(store, env, func)
     }
 
     <span class="doccomment">/// Creates a new host `Function` with an environment from a typed function.
@@ -866,20 +788,6 @@
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>from_vm_funcref(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, funcref: VMFuncRef) -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>(function_impl::Function::from_vm_funcref(store, funcref))
-    }
-
-    <span class="doccomment">/// Transform this WebAssembly function into a native function.
-    /// See [`TypedFunction`] to learn more.
-    </span><span class="attribute">#[deprecated(since = <span class="string">&quot;3.0.0&quot;</span>, note = <span class="string">&quot;native() has been renamed to typed().&quot;</span>)]
-    </span><span class="kw">pub fn </span>native&lt;Args, Rets&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;TypedFunction&lt;Args, Rets&gt;, RuntimeError&gt;
-    <span class="kw">where
-        </span>Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        <span class="self">self</span>.typed(store)
     }
 
     <span class="doccomment">/// Transform this WebAssembly function into a typed function.

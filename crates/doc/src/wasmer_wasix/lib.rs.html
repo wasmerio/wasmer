@@ -763,10 +763,6 @@
 <span id="761">761</span>
 <span id="762">762</span>
 <span id="763">763</span>
-<span id="764">764</span>
-<span id="765">765</span>
-<span id="766">766</span>
-<span id="767">767</span>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attribute">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -837,10 +833,6 @@
 };
 
 <span class="kw">pub use </span>virtual_fs;
-<span class="attribute">#[deprecated(since = <span class="string">&quot;2.1.0&quot;</span>, note = <span class="string">&quot;Please use `virtual_fs::FsError`&quot;</span>)]
-</span><span class="kw">pub use </span>virtual_fs::FsError <span class="kw">as </span>WasiFsError;
-<span class="attribute">#[deprecated(since = <span class="string">&quot;2.1.0&quot;</span>, note = <span class="string">&quot;Please use `virtual_fs::VirtualFile`&quot;</span>)]
-</span><span class="kw">pub use </span>virtual_fs::VirtualFile <span class="kw">as </span>WasiFile;
 <span class="kw">pub use </span>virtual_fs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
 <span class="kw">pub use </span>virtual_net;
 <span class="kw">pub use </span>virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};

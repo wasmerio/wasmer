@@ -189,6 +189,7 @@
 <span id="187">187</span>
 <span id="188">188</span>
 <span id="189">189</span>
+<span id="190">190</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::AsEngineRef;
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::path::Path;
@@ -200,6 +201,7 @@
 };
 <span class="kw">use </span>wasmer_types::{ExportType, ImportType};
 
+<span class="kw">use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
 <span class="kw">use </span><span class="kw">crate</span>::vm::VMInstance;
 <span class="kw">use crate</span>::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 

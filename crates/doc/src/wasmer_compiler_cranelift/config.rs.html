@@ -235,10 +235,6 @@
 <span id="235">235</span>
 <span id="236">236</span>
 <span id="237">237</span>
-<span id="238">238</span>
-<span id="239">239</span>
-<span id="240">240</span>
-<span id="241">241</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::CraneliftCompiler;
 <span class="kw">use </span>cranelift_codegen::isa::{lookup, TargetIsa};
 <span class="kw">use </span>cranelift_codegen::settings::{<span class="self">self</span>, Configurable};
@@ -448,10 +444,6 @@
 
     <span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
-    }
-
-    <span class="kw">fn </span>enable_nan_canonicalization(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.enable_nan_canonicalization = <span class="bool-val">true</span>;
     }
 
     <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {

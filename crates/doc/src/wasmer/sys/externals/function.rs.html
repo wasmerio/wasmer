@@ -660,9 +660,11 @@
 <span id="658">658</span>
 <span id="659">659</span>
 <span id="660">660</span>
+<span id="661">661</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::externals::function::{HostFunction, WithEnv, WithoutEnv};
 <span class="kw">use </span><span class="kw">crate</span>::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
+<span class="kw">use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
 <span class="kw">use </span><span class="kw">crate</span>::vm::{VMExternFunction, VMFunctionCallback};
 <span class="kw">use crate</span>::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
 <span class="kw">use </span>std::panic::{<span class="self">self</span>, AssertUnwindSafe};

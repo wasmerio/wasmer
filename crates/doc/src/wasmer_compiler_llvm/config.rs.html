@@ -287,10 +287,6 @@
 <span id="285">285</span>
 <span id="286">286</span>
 <span id="287">287</span>
-<span id="288">288</span>
-<span id="289">289</span>
-<span id="290">290</span>
-<span id="291">291</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -550,10 +546,6 @@
     <span class="doccomment">/// Whether to verify compiler IR.
     </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
-    }
-
-    <span class="kw">fn </span>enable_nan_canonicalization(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.enable_nan_canonicalization = <span class="bool-val">true</span>;
     }
 
     <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {

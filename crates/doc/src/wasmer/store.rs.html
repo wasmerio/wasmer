@@ -291,61 +291,6 @@
 <span id="289">289</span>
 <span id="290">290</span>
 <span id="291">291</span>
-<span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
-<span id="297">297</span>
-<span id="298">298</span>
-<span id="299">299</span>
-<span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
-<span id="304">304</span>
-<span id="305">305</span>
-<span id="306">306</span>
-<span id="307">307</span>
-<span id="308">308</span>
-<span id="309">309</span>
-<span id="310">310</span>
-<span id="311">311</span>
-<span id="312">312</span>
-<span id="313">313</span>
-<span id="314">314</span>
-<span id="315">315</span>
-<span id="316">316</span>
-<span id="317">317</span>
-<span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::{AsEngineRef, Engine, EngineRef};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
@@ -423,45 +368,10 @@
         }
     }
 
-    <span class="attribute">#[deprecated(
-        since = <span class="string">&quot;3.0.0&quot;</span>,
-        note = <span class="string">&quot;Store::new_with_engine has been deprecated in favor of Store::new&quot;
-    </span>)]
-    </span><span class="doccomment">/// Creates a new `Store` with a specific [`Engine`].
-    </span><span class="kw">pub fn </span>new_with_engine(engine: <span class="kw">impl </span>Into&lt;Engine&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::new(engine)
-    }
-
     <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
     </span><span class="doccomment">/// Set the trap handler in this store.
     </span><span class="kw">pub fn </span>set_trap_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>, handler: <span class="prelude-ty">Option</span>&lt;Box&lt;TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;&gt;) {
         <span class="self">self</span>.inner.trap_handler = handler;
-    }
-
-    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-    #[deprecated(
-        since = <span class="string">&quot;3.2.0&quot;</span>,
-        note = <span class="string">&quot;store.new_with_tunables() has been deprecated in favor of engine.set_tunables()&quot;
-    </span>)]
-    </span><span class="doccomment">/// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    </span><span class="kw">pub fn </span>new_with_tunables(
-        engine: <span class="kw">impl </span>Into&lt;Engine&gt;,
-        tunables: <span class="kw">impl </span>Tunables + Send + Sync + <span class="lifetime">&#39;static</span>,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>engine = engine.into();
-        engine.set_tunables(tunables);
-
-        <span class="self">Self</span>::new(engine)
-    }
-
-    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-    #[deprecated(
-        since = <span class="string">&quot;3.2.0&quot;</span>,
-        note = <span class="string">&quot;store.tunables() has been deprecated in favor of store.engine().tunables()&quot;
-    </span>)]
-    </span><span class="doccomment">/// Returns the [`Tunables`].
-    </span><span class="kw">pub fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
-        <span class="self">self</span>.inner.engine.tunables()
     }
 
     <span class="doccomment">/// Returns the [`Engine`].
@@ -549,16 +459,6 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.objects
     }
 
-    <span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-    #[deprecated(
-        since = <span class="string">&quot;3.2.0&quot;</span>,
-        note = <span class="string">&quot;store.tunables() has been deprecated in favor of store.engine().tunables()&quot;
-    </span>)]
-    </span><span class="doccomment">/// Returns the [`Tunables`].
-    </span><span class="kw">pub fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
-        <span class="self">self</span>.inner.engine.tunables()
-    }
-
     <span class="doccomment">/// Returns the [`Engine`].
     </span><span class="kw">pub fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Engine {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.engine
@@ -587,16 +487,6 @@
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; StoreMut&lt;<span class="lifetime">&#39;a</span>&gt; {
-    <span class="doccomment">/// Returns the [`Tunables`].
-    </span><span class="attribute">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-    #[deprecated(
-        since = <span class="string">&quot;3.2.0&quot;</span>,
-        note = <span class="string">&quot;store.tunables() has been deprecated in favor of store.engine().tunables()&quot;
-    </span>)]
-    </span><span class="kw">pub fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
-        <span class="self">self</span>.inner.engine.tunables()
-    }
-
     <span class="doccomment">/// Returns the [`Engine`].
     </span><span class="kw">pub fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Engine {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.engine

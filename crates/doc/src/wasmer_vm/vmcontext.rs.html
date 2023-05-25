@@ -1587,10 +1587,10 @@
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>test_vmmemory_definition {
     <span class="kw">use </span><span class="kw">super</span>::VMMemoryDefinition;
-    <span class="kw">use </span><span class="kw">crate</span>::ModuleInfo;
     <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
     <span class="kw">use </span>memoffset::offset_of;
     <span class="kw">use </span>std::mem::size_of;
+    <span class="kw">use </span>wasmer_types::ModuleInfo;
 
     <span class="attribute">#[test]
     </span><span class="kw">fn </span>check_vmmemory_definition_offsets() {

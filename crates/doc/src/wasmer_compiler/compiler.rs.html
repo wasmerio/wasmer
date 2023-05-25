@@ -144,16 +144,6 @@
 <span id="144">144</span>
 <span id="145">145</span>
 <span id="146">146</span>
-<span id="147">147</span>
-<span id="148">148</span>
-<span id="149">149</span>
-<span id="150">150</span>
-<span id="151">151</span>
-<span id="152">152</span>
-<span id="153">153</span>
-<span id="154">154</span>
-<span id="155">155</span>
-<span id="156">156</span>
 </pre><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
@@ -189,16 +179,6 @@
     /// For compilers capable of doing so, this enables internal consistency
     /// checking.
     </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="comment">// By default we do nothing, each backend will need to customize this
-        // in case they create an IR that they can verify.
-    </span>}
-
-    <span class="doccomment">/// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    </span><span class="attribute">#[deprecated(note = <span class="string">&quot;Please use the canonicalize_nans instead&quot;</span>)]
-    </span><span class="kw">fn </span>enable_nan_canonicalization(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="comment">// By default we do nothing, each backend will need to customize this
         // in case they create an IR that they can verify.
     </span>}

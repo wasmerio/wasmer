@@ -215,11 +215,13 @@
 <span id="213">213</span>
 <span id="214">214</span>
 <span id="215">215</span>
+<span id="216">216</span>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{FromToNativeWasmType, RuntimeError, TypedFunction, WasmTypeList};
 <span class="kw">use </span>wasmer_types::RawValue;
 
 <span class="kw">use </span><span class="kw">crate</span>::native_type::NativeWasmTypeInto;
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
+<span class="kw">use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
 
 <span class="macro">macro_rules! </span>impl_native_traits {
     (  $( <span class="macro-nonterminal">$x</span>:ident ),* ) =&gt; {

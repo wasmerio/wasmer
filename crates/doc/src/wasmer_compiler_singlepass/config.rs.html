@@ -64,10 +64,6 @@
 <span id="64">64</span>
 <span id="65">65</span>
 <span id="66">66</span>
-<span id="67">67</span>
-<span id="68">68</span>
-<span id="69">69</span>
-<span id="70">70</span>
 </pre><pre class="rust"><code><span class="comment">// Allow unused imports while developing
 </span><span class="attribute">#![allow(unused_imports, dead_code)]
 
@@ -91,10 +87,6 @@
             enable_nan_canonicalization: <span class="bool-val">true</span>,
             middlewares: <span class="macro">vec!</span>[],
         }
-    }
-
-    <span class="kw">fn </span>enable_nan_canonicalization(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.enable_nan_canonicalization = <span class="bool-val">true</span>;
     }
 
     <span class="kw">pub fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
