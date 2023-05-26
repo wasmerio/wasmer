@@ -16,7 +16,7 @@ fn data_and_store_mut() -> Result<(), String> {
         &mut store,
         Env {
             value: 0i32,
-            global: global_mut.clone(),
+            global: global_mut,
         },
     );
     let mut envmut = env.into_mut(&mut store);

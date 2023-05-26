@@ -528,7 +528,7 @@ impl ExecutableTarget {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
                 let engine = runtime.engine().context("No engine available")?;
-                let module = Module::new(&engine, &wasm)?;
+                let module = Module::new(&engine, wasm)?;
                 Ok(ExecutableTarget::WebAssembly {
                     module,
                     path: path.to_path_buf(),
