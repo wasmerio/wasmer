@@ -299,10 +299,10 @@ impl VirtualConnectedSocket for LocalTcpStream {
         Ok(())
     }
 
-    fn poll_recv<'a>(
+    fn poll_recv(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &'a mut [MaybeUninit<u8>],
+        buf: &mut [MaybeUninit<u8>],
     ) -> Poll<Result<usize>> {
         use tokio::io::AsyncRead;
         let mut read_buf = tokio::io::ReadBuf::uninit(buf);

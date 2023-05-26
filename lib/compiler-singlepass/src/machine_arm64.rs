@@ -234,8 +234,7 @@ impl MachineARM64 {
                         temps.push(tmp);
                         tmp
                     };
-                    self.assembler
-                        .emit_mov_imm(Location::GPR(tmp), val as u64)?;
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), val)?;
                     Ok(Location::GPR(tmp))
                 }
             }
@@ -389,8 +388,7 @@ impl MachineARM64 {
                         CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
                     })?;
                     temps.push(tmp);
-                    self.assembler
-                        .emit_mov_imm(Location::GPR(gpr), val as u64)?;
+                    self.assembler.emit_mov_imm(Location::GPR(gpr), val)?;
                     self.assembler
                         .emit_mov(sz, Location::GPR(gpr), Location::SIMD(tmp))?;
                     self.release_gpr(gpr);

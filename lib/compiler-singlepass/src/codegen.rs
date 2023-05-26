@@ -1143,7 +1143,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let fsm = FunctionStateMap::new(
             machine.new_machine_state(),
-            local_func_index.index() as usize,
+            local_func_index.index(),
             32,
             (0..local_types.len())
                 .map(|_| WasmAbstractValue::Runtime)
@@ -6061,7 +6061,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .emit_call_register(this.machine.get_grp_for_call())
                     },
                     // [vmctx, func_index] -> funcref
-                    iter::once(Location::Imm32(function_index as u32)),
+                    iter::once(Location::Imm32(function_index)),
                     iter::once(WpType::I64),
                 )?;
 

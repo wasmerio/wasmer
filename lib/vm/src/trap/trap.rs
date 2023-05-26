@@ -91,7 +91,7 @@ impl Trap {
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match self {
             // We only try to downcast user errors
-            Trap::User(err) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
+            Self::User(err) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
             _ => Err(self),
         }
     }
@@ -100,7 +100,7 @@ impl Trap {
     pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
         match &self {
             // We only try to downcast user errors
-            Trap::User(err) if err.is::<T>() => err.downcast_ref::<T>(),
+            Self::User(err) if err.is::<T>() => err.downcast_ref::<T>(),
             _ => None,
         }
     }
@@ -108,7 +108,7 @@ impl Trap {
     /// Returns true if the `Trap` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match self {
-            Trap::User(err) => err.is::<T>(),
+            Self::User(err) => err.is::<T>(),
             _ => false,
         }
     }
@@ -117,7 +117,7 @@ impl Trap {
 impl std::error::Error for Trap {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self {
-            Trap::User(err) => Some(&**err),
+            Self::User(err) => Some(&**err),
             _ => None,
         }
     }
