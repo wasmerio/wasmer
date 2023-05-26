@@ -1,6 +1,8 @@
 use std::{collections::HashSet, ops::Deref, sync::Arc};
 
 use futures::future::BoxFuture;
+use http::{HeaderMap, Method, StatusCode};
+use url::Url;
 
 /// Defines http client permissions.
 #[derive(Clone, Debug)]
@@ -47,46 +49,62 @@ pub struct HttpRequestOptions {
 
 // TODO: use types from http crate?
 pub struct HttpRequest {
-    pub url: String,
-    pub method: String,
-    pub headers: Vec<(String, String)>,
+    pub url: Url,
+    pub method: Method,
+    pub headers: HeaderMap,
     pub body: Option<Vec<u8>>,
     pub options: HttpRequestOptions,
 }
 
 impl std::fmt::Debug for HttpRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let HttpRequest {
+            url,
+            method,
+            headers,
+            body,
+            options,
+        } = self;
+
         f.debug_struct("HttpRequest")
-            .field("url", &self.url)
-            .field("method", &self.method)
-            .field("headers", &self.headers)
-            .field("body", &self.body.as_deref().map(String::from_utf8_lossy))
-            .field("options", &self.options)
+            .field("url", &format_args!("{}", url))
+            .field("method", method)
+            .field("headers", headers)
+            .field("body", &body.as_deref().map(String::from_utf8_lossy))
+            .field("options", &options)
             .finish()
     }
 }
 
 // TODO: use types from http crate?
 pub struct HttpResponse {
-    pub pos: usize,
     pub body: Option<Vec<u8>>,
-    pub ok: bool,
     pub redirected: bool,
-    pub status: u16,
-    pub status_text: String,
-    pub headers: Vec<(String, String)>,
+    pub status: StatusCode,
+    pub headers: HeaderMap,
+}
+
+impl HttpResponse {
+    pub fn is_ok(&self) -> bool {
+        !self.status.is_client_error() && !self.status.is_server_error()
+    }
 }
 
 impl std::fmt::Debug for HttpResponse {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let HttpResponse {
+            body,
+            redirected,
+            status,
+            headers,
+        } = self;
+
         f.debug_struct("HttpResponse")
-            .field("pos", &self.pos)
-            .field("body", &self.body.as_deref().map(String::from_utf8_lossy))
-            .field("ok", &self.ok)
-            .field("redirected", &self.redirected)
-            .field("status", &self.status)
-            .field("status_text", &self.status_text)
-            .field("headers", &self.headers)
+            .field("ok", &self.is_ok())
+            .field("redirected", &redirected)
+            .field("status", &status)
+            .field("headers", &headers)
+            .field("body", &body.as_deref().map(String::from_utf8_lossy))
             .finish()
     }
 }

@@ -1,6 +1,10 @@
 use std::path::Path;
 
+use anyhow::Error;
+use http::{HeaderMap, StatusCode};
 use url::Url;
+
+use crate::http::{HttpResponse, USER_AGENT};
 
 /// Polyfill for [`Url::from_file_path()`] that works on `wasm32-unknown-unknown`.
 pub(crate) fn url_from_file_path(path: impl AsRef<Path>) -> Option<Url> {
@@ -23,6 +27,29 @@ pub(crate) fn url_from_file_path(path: impl AsRef<Path>) -> Option<Url> {
     buffer.insert_str(0, "file://");
 
     buffer.parse().ok()
+}
+
+pub(crate) fn webc_headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert("Accept", "application/webc".parse().unwrap());
+    headers.insert("User-Agent", USER_AGENT.parse().unwrap());
+    headers
+}
+
+pub(crate) fn http_error(response: &HttpResponse) -> Error {
+    let status = response.status;
+
+    if status == StatusCode::SERVICE_UNAVAILABLE {
+        if let Some(retry_after) = response
+            .headers
+            .get("Retry-After")
+            .and_then(|retry_after| retry_after.to_str().ok())
+        {
+            return anyhow::anyhow!("{status} (Retry After: {retry_after})");
+        }
+    }
+
+    Error::msg(status)
 }
 
 #[cfg(test)]

@@ -7,13 +7,14 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use http::Method;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 use webc::compat::Container;
 
 use crate::{
-    http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
+    http::{HttpClient, HttpRequest},
     runtime::resolver::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
     },
@@ -179,70 +180,55 @@ impl WebSource {
 
     async fn get_etag(&self, url: &Url) -> Result<String, Error> {
         let request = HttpRequest {
-            url: url.to_string(),
-            method: "HEAD".to_string(),
-            headers: headers(),
+            url: url.clone(),
+            method: Method::HEAD,
+            headers: super::polyfills::webc_headers(),
             body: None,
             options: Default::default(),
         };
-        let HttpResponse {
-            ok,
-            status,
-            status_text,
-            headers,
-            ..
-        } = self.client.request(request).await?;
 
-        if !ok {
-            anyhow::bail!("HEAD request to \"{url}\" failed with {status} {status_text}");
+        let response = self.client.request(request).await?;
+
+        if !response.is_ok() {
+            return Err(super::polyfills::http_error(&response)
+                .context(format!("The HEAD request to \"{url}\" failed")));
         }
 
-        let etag = headers
-            .into_iter()
-            .find(|(name, _)| name.to_string().to_lowercase() == "etag")
-            .map(|(_, value)| value)
-            .context("The HEAD request didn't contain an ETag header`")?;
+        let etag = response
+            .headers
+            .get("ETag")
+            .context("The HEAD request didn't contain an ETag header`")?
+            .to_str()
+            .context("The ETag wasn't valid UTF-8")?;
 
-        Ok(etag)
+        Ok(etag.to_string())
     }
 
     async fn fetch(&self, url: &Url) -> Result<(Vec<u8>, Option<String>), Error> {
         let request = HttpRequest {
-            url: url.to_string(),
-            method: "GET".to_string(),
-            headers: headers(),
+            url: url.clone(),
+            method: Method::GET,
+            headers: super::polyfills::webc_headers(),
             body: None,
             options: Default::default(),
         };
-        let HttpResponse {
-            ok,
-            status,
-            status_text,
-            headers,
-            body,
-            ..
-        } = self.client.request(request).await?;
+        let response = self.client.request(request).await?;
 
-        if !ok {
-            anyhow::bail!("HEAD request to \"{url}\" failed with {status} {status_text}");
+        if !response.is_ok() {
+            return Err(super::polyfills::http_error(&response)
+                .context(format!("The GET request to \"{url}\" failed")));
         }
 
-        let body = body.context("Response didn't contain a body")?;
+        let body = response.body.context("Response didn't contain a body")?;
 
-        let etag = headers
-            .into_iter()
-            .find(|(name, _)| name.to_string().to_lowercase() == "etag")
-            .map(|(_, value)| value);
+        let etag = response
+            .headers
+            .get("ETag")
+            .and_then(|etag| etag.to_str().ok())
+            .map(|etag| etag.to_string());
 
         Ok((body, etag))
     }
-}
-
-fn headers() -> Vec<(String, String)> {
-    vec![
-        ("Accept".to_string(), "application/webc".to_string()),
-        ("User-Agent".to_string(), USER_AGENT.to_string()),
-    ]
 }
 
 #[async_trait::async_trait]
@@ -388,7 +374,10 @@ mod tests {
     use std::{collections::VecDeque, sync::Mutex};
 
     use futures::future::BoxFuture;
+    use http::{header::IntoHeaderName, HeaderMap, StatusCode};
     use tempfile::TempDir;
+
+    use crate::http::HttpResponse;
 
     use super::*;
 
@@ -428,19 +417,15 @@ mod tests {
     impl ResponseBuilder {
         pub fn new() -> Self {
             ResponseBuilder(HttpResponse {
-                pos: 0,
                 body: None,
-                ok: true,
                 redirected: false,
-                status: 200,
-                status_text: "OK".to_string(),
-                headers: Vec::new(),
+                status: StatusCode::OK,
+                headers: HeaderMap::new(),
             })
         }
 
-        pub fn with_status(mut self, code: u16, text: impl Into<String>) -> Self {
+        pub fn with_status(mut self, code: StatusCode) -> Self {
             self.0.status = code;
-            self.0.status_text = text.into();
             self
         }
 
@@ -449,12 +434,12 @@ mod tests {
             self
         }
 
-        pub fn with_etag(self, value: impl Into<String>) -> Self {
+        pub fn with_etag(self, value: &str) -> Self {
             self.with_header("ETag", value)
         }
 
-        pub fn with_header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
-            self.0.headers.push((name.into(), value.into()));
+        pub fn with_header(mut self, name: impl IntoHeaderName, value: &str) -> Self {
+            self.0.headers.insert(name, value.parse().unwrap());
             self
         }
 
@@ -511,7 +496,7 @@ mod tests {
     async fn fall_back_to_stale_cache_if_request_fails() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
-            .with_status(500, "Internal Server Error")
+            .with_status(StatusCode::INTERNAL_SERVER_ERROR)
             .build()]));
         // Add something to the cache
         let python_path = temp.path().join(DUMMY_URL_HASH);
