@@ -1,13 +1,15 @@
 [package]
 name = "wasmer-workspace"
-version = "4.0.0-alpha.1"
 description = "Wasmer workspace"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
-edition = "2018"
 publish = false
 autoexamples = false
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 wasmer = { version = "=4.0.0-alpha.1", path = "lib/api", default-features = false }
@@ -69,11 +71,11 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2018"
+edition = "2021"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.66"
+rust-version = "1.67"
 version = "4.0.0-alpha.1"
 
 [build-dependencies]
