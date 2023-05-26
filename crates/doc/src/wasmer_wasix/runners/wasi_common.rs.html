@@ -310,6 +310,36 @@
 <span id="308">308</span>
 <span id="309">309</span>
 <span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -338,14 +368,13 @@
         container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, |path| {
-            builder.add_preopen_dir(path).map_err(Error::from)
-        })<span class="question-mark">?</span>;
+        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, builder)<span class="question-mark">?</span>;
 
         builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">if </span>fs.read_dir(<span class="string">&quot;.&quot;</span>.as_ref()).is_ok() {
-            <span class="comment">// Sometimes &quot;.&quot; won&#39;t be mounted so preopening will fail.
-            </span>builder.add_preopen_dir(<span class="string">&quot;.&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">if </span><span class="self">self</span>.mapped_dirs.iter().all(|m| m.guest != <span class="string">&quot;.&quot;</span>) {
+            <span class="comment">// The user hasn&#39;t mounted &quot;.&quot; to anything, so let&#39;s map it to &quot;/&quot;
+            </span>builder.add_map_dir(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
         }
 
         builder.set_fs(fs);
@@ -394,7 +423,7 @@
 <span class="kw">fn </span>prepare_filesystem(
     mapped_dirs: <span class="kw-2">&amp;</span>[MappedDirectory],
     container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem&gt;,
-    <span class="kw-2">mut </span>preopen: <span class="kw">impl </span>FnMut(<span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;,
+    builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Error&gt; {
     <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
 
@@ -403,12 +432,16 @@
 
         <span class="kw">for </span>dir <span class="kw">in </span>mapped_dirs {
             <span class="kw">let </span>MappedDirectory { host, guest } = dir;
-            <span class="kw">let </span>guest = PathBuf::from(guest);
+            <span class="kw">let </span><span class="kw-2">mut </span>guest = PathBuf::from(guest);
             <span class="macro">tracing::debug!</span>(
                 guest=%guest.display(),
                 host=%host.display(),
                 <span class="string">&quot;Mounting host folder&quot;</span>,
             );
+
+            <span class="kw">if </span>guest.is_relative() {
+                guest = apply_relative_path_mounting_hack(<span class="kw-2">&amp;</span>guest);
+            }
 
             <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = guest.parent() {
                 create_dir_all(<span class="kw-2">&amp;</span>root_fs, parent).with_context(|| {
@@ -426,7 +459,8 @@
                     )
                 })<span class="question-mark">?</span>;
 
-            preopen(<span class="kw-2">&amp;</span>guest)
+            builder
+                .add_preopen_dir(<span class="kw-2">&amp;</span>guest)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to preopen \&quot;{}\&quot;&quot;</span>, guest.display()))<span class="question-mark">?</span>;
         }
     }
@@ -442,6 +476,31 @@
     </span><span class="kw">let </span>container_fs = RelativeOrAbsolutePathHack(container_fs);
 
     <span class="prelude-val">Ok</span>(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
+}
+
+<span class="doccomment">/// HACK: We need this so users can mount host directories at relative paths.
+/// This assumes that the current directory when a runner starts will be &quot;/&quot;, so
+/// instead of mounting to a relative path, we just mount to &quot;/$path&quot;.
+///
+/// This isn&#39;t really a long-term solution because there is no guarantee what
+/// the current directory will be. The WASI spec also doesn&#39;t require the
+/// current directory to be part of the &quot;main&quot; filesystem at all, we really
+/// *should* be mounting to a relative directory but that isn&#39;t supported by our
+/// virtual fs layer.
+///
+/// See &lt;https://github.com/wasmerio/wasmer/issues/3794&gt; for more.
+</span><span class="kw">fn </span>apply_relative_path_mounting_hack(original: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+    <span class="macro">debug_assert!</span>(original.is_relative());
+
+    <span class="kw">let </span>mapped_path = Path::new(<span class="string">&quot;/&quot;</span>).join(original);
+
+    <span class="macro">tracing::debug!</span>(
+        original_path=%original.display(),
+        remapped_path=%mapped_path.display(),
+        <span class="string">&quot;Remapping a relative path&quot;
+    </span>);
+
+    mapped_path
 }
 
 <span class="kw">fn </span>create_dir_all(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -605,8 +664,9 @@
         }];
         <span class="kw">let </span>container = Container::from_bytes(PYTHON).unwrap();
         <span class="kw">let </span>webc_fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">&quot;&quot;</span>);
 
-        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span>mapping, Arc::new(webc_fs), |<span class="kw">_</span>| <span class="prelude-val">Ok</span>(())).unwrap();
+        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span>mapping, Arc::new(webc_fs), <span class="kw-2">&amp;mut </span>builder).unwrap();
 
         <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;/home/file.txt&quot;</span>.as_ref()).unwrap().is_file());
         <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;lib&quot;</span>.as_ref()).unwrap().is_dir());
