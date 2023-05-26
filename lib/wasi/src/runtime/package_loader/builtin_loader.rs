@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use bytes::Bytes;
+use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
 use webc::{
     compat::{Container, ContainerError},
@@ -16,7 +17,7 @@ use webc::{
 
 use crate::{
     bin_factory::BinaryPackage,
-    http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
+    http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::{
         package_loader::PackageLoader,
         resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
@@ -99,29 +100,22 @@ impl BuiltinPackageLoader {
         }
 
         let request = HttpRequest {
-            url: dist.webc.to_string(),
-            method: "GET".to_string(),
-            headers: vec![
-                ("Accept".to_string(), "application/webc".to_string()),
-                ("User-Agent".to_string(), USER_AGENT.to_string()),
-            ],
+            url: dist.webc.clone(),
+            method: Method::GET,
+            headers: headers(),
             body: None,
             options: Default::default(),
         };
 
-        let HttpResponse {
-            body,
-            ok,
-            status,
-            status_text,
-            ..
-        } = self.client.request(request).await?;
+        let response = self.client.request(request).await?;
 
-        if !ok {
-            anyhow::bail!("{status} {status_text}");
+        if !response.is_ok() {
+            let url = &dist.webc;
+            return Err(crate::runtime::resolver::polyfills::http_error(&response)
+                .context(format!("The GET request to \"{url}\" failed")));
         }
 
-        let body = body.context("The response didn't contain a body")?;
+        let body = response.body.context("The response didn't contain a body")?;
 
         Ok(body.into())
     }
@@ -211,6 +205,13 @@ impl PackageLoader for BuiltinPackageLoader {
     ) -> Result<BinaryPackage, Error> {
         super::load_package_tree(root, self, resolution).await
     }
+}
+
+fn headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert("Accept", "application/webc".parse().unwrap());
+    headers.insert("User-Agent", USER_AGENT.parse().unwrap());
+    headers
 }
 
 fn discover_wasmer_dir() -> Option<PathBuf> {
@@ -307,6 +308,7 @@ mod tests {
     use std::{collections::VecDeque, sync::Mutex};
 
     use futures::future::BoxFuture;
+    use http::{HeaderMap, StatusCode};
     use tempfile::TempDir;
 
     use crate::{
@@ -348,13 +350,10 @@ mod tests {
     async fn cache_misses_will_trigger_a_download() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([HttpResponse {
-            pos: 0,
             body: Some(PYTHON.to_vec()),
-            ok: true,
             redirected: false,
-            status: 200,
-            status_text: "OK".to_string(),
-            headers: Vec::new(),
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
         }]));
         let loader = BuiltinPackageLoader::new_with_client(temp.path(), client.clone());
         let summary = PackageSummary {
@@ -376,15 +375,11 @@ mod tests {
         // A HTTP request was sent
         let requests = client.requests.lock().unwrap();
         let request = &requests[0];
-        assert_eq!(request.url, summary.dist.webc.to_string());
+        assert_eq!(request.url, summary.dist.webc);
         assert_eq!(request.method, "GET");
-        assert_eq!(
-            request.headers,
-            [
-                ("Accept".to_string(), "application/webc".to_string()),
-                ("User-Agent".to_string(), USER_AGENT.to_string()),
-            ]
-        );
+        assert_eq!(request.headers.len(), 2);
+        assert_eq!(request.headers["Accept"], "application/webc");
+        assert_eq!(request.headers["User-Agent"], USER_AGENT);
         // Make sure we got the right package
         let manifest = container.manifest();
         assert_eq!(manifest.entrypoint.as_deref(), Some("python"));

@@ -2504,6 +2504,7 @@ dependencies = [
  "dummy-waker",
  "fastrand",
  "futures",
+ "http",
  "js-sys",
  "once_cell",
  "parking_lot",

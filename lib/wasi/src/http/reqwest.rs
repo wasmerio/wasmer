@@ -30,23 +30,14 @@ impl ReqwestHttpClient {
             .build()
             .context("Failed to construct http request")?;
 
-        let response = client.execute(request).await?;
+        let mut response = client.execute(request).await?;
+        let headers = std::mem::take(response.headers_mut());
 
-        let status = response.status().as_u16();
-        let status_text = response.status().as_str().to_string();
-        // TODO: prevent redundant header copy.
-        let headers = response
-            .headers()
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_string()))
-            .collect();
+        let status = response.status();
         let data = response.bytes().await?.to_vec();
 
         Ok(HttpResponse {
-            pos: 0usize,
-            ok: true,
             status,
-            status_text,
             redirected: false,
             body: Some(data),
             headers,

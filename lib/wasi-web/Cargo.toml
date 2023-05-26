@@ -41,6 +41,7 @@ dummy-waker = "^1"
 wat = "1.0"
 anyhow = "1.0.66"
 futures = "0.3.25"
+http = "0.2.9"
 
 [dependencies.parking_lot]
 version = "^0.11"
