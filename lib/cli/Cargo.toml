@@ -1,16 +1,17 @@
 [package]
 name = "wasmer-cli"
-version = "4.0.0-alpha.1"
 description = "Wasmer CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
 default-run = "wasmer"
-build = "build.rs"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [[bin]]
 name = "wasmer"

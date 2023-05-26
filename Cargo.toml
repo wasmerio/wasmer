@@ -67,6 +67,15 @@ exclude = [
 ]
 resolver = "2"
 
+[workspace.package]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+homepage = "https://wasmer.io/"
+license = "MIT"
+repository = "https://github.com/wasmerio/wasmer"
+rust-version = "1.66"
+version = "4.0.0-alpha.1"
+
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"

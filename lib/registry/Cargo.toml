@@ -1,9 +1,13 @@
 [package]
 name = "wasmer-registry"
 version = "4.6.0"
-edition = "2021"
-license = "MIT"
 description = "Crate to interact with the wasmer registry (wapm.io), download packages, etc."
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [features]
 build-package  = ["rusqlite", "indexmap", "wasmer-wasm-interface", "wasmparser", "rpassword", "minisign", "time"]

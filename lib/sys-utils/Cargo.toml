@@ -4,10 +4,12 @@ version = "0.5.0"
 description = "Wasmer utilities for a sys environment."
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 wasmer = { path = "../api", version = "=4.0.0-alpha.1", default-features = false, features = ["sys", "compiler"] }
