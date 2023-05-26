@@ -45,7 +45,7 @@ virtual-fs  = { version = "0.3.0", path = "../virtual-fs", default-features = fa
 virtual-net  = { version = "0.2.0", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
-webc = { version = "5.0" }
+webc = { version = "5.0.1" }
 wapm-targz-to-pirita = "0.2.1"
 wasmer-deploy-cli = { version = "0.1.9", default-features = false }
 
