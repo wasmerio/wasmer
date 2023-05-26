@@ -567,7 +567,7 @@ fn test_snapshot_readdir_tree() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .use_coreutils()
-        .args(&["/"])
+        .args(["/"])
         .run_wasm(include_bytes!("./wasm/example-readdir_tree.wasm"));
     assert_json_snapshot!(snapshot);
 }

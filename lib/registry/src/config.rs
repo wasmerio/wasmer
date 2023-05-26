@@ -193,7 +193,7 @@ impl WasmerConfig {
 
     pub fn from_file(wasmer_dir: &Path) -> Result<Self, String> {
         let path = Self::get_file_location(wasmer_dir);
-        match std::fs::read_to_string(&path) {
+        match std::fs::read_to_string(path) {
             Ok(config_toml) => Ok(toml::from_str(&config_toml).unwrap_or_else(|_| Self::default())),
             Err(_e) => Ok(Self::default()),
         }

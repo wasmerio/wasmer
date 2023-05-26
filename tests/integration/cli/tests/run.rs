@@ -778,7 +778,7 @@ fn run_invoke_works_with_nomain_wasi() -> anyhow::Result<()> {
     ";
 
     let random = rand::random::<u64>();
-    let module_file = std::env::temp_dir().join(&format!("{random}.wat"));
+    let module_file = std::env::temp_dir().join(format!("{random}.wat"));
     std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
     let output = Command::new(get_wasmer_path())
         .arg("run")
@@ -817,9 +817,9 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
         .arg(test_no_start_wat_path())
         .output()?;
 
-    assert_eq!(output.status.success(), false);
+    assert!(!output.status.success());
     let result = std::str::from_utf8(&output.stderr).unwrap().to_string();
-    assert_eq!(result.contains("Can not find any export functions."), true);
+    assert!(result.contains("Can not find any export functions."));
     Ok(())
 }
 

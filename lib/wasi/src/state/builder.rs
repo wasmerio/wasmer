@@ -633,7 +633,7 @@ impl WasiEnvBuilder {
         let stdin: Box<dyn VirtualFile + Send + Sync + 'static> = self
             .stdin
             .take()
-            .unwrap_or_else(|| Box::new(ArcFile::new(Box::new(super::Stdin::default()))));
+            .unwrap_or_else(|| Box::new(ArcFile::new(Box::<super::Stdin>::default())));
 
         let fs_backing = self
             .fs

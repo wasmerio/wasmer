@@ -143,6 +143,8 @@ pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #llvm_compiler_test
         }
     };
+
+    #[allow(clippy::useless_conversion)]
     x.into()
 }
 

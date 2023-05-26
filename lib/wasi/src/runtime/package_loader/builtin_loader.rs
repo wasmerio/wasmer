@@ -63,7 +63,7 @@ impl BuiltinPackageLoader {
     pub fn from_env() -> Result<Self, Error> {
         let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
         let client = crate::http::default_http_client().context("No HTTP client available")?;
-        let cache_dir = BuiltinPackageLoader::default_cache_dir(&wasmer_dir);
+        let cache_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
 
         Ok(BuiltinPackageLoader::new_with_client(
             cache_dir,
