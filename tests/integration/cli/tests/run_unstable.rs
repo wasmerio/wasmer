@@ -424,7 +424,7 @@ mod fixtures {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests")
             .join("webc")
-            .join("coreutils-1.0.14-076508e5-e704-463f-b467-f3d9658fc907.webc")
+            .join("coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc")
     }
 
     /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
