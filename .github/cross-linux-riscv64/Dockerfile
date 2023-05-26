@@ -6,13 +6,13 @@ ENV CROSS_DOCKER_IN_DOCKER=true
 
 RUN apt-get update  && \
     apt-get install --assume-yes --no-install-recommends \
-        ca-certificates \
-        curl \
-        cpio \
-        sharutils \
-        gnupg \
-        build-essential \
-        libc6-dev
+    ca-certificates \
+    curl \
+    cpio \
+    sharutils \
+    gnupg \
+    build-essential \
+    libc6-dev
 
 COPY install_deb.sh /
 
@@ -25,7 +25,7 @@ ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
 # install rust tools
 RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup -v toolchain install 1.65
+RUN rustup -v toolchain install 1.67
 # add docker the manual way
 COPY install_docker.sh /
 RUN /install_docker.sh
@@ -58,4 +58,4 @@ ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
-RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.65-x86_64-unknown-linux-gnu
+RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.67-x86_64-unknown-linux-gnu

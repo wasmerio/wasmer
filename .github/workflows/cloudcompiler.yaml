@@ -3,7 +3,7 @@ name: Release cloudcompiler.wasm
 env:
   RUST_BACKTRACE: 1
 
-on: 
+on:
   push:
     tags:
       # trigger action on release branch
@@ -21,7 +21,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.65
+          toolchain: 1.67
           target: ${{ matrix.target }}
       - name: Install wasm32-wasi target
         shell: bash
@@ -66,7 +66,7 @@ jobs:
         run: |
           git tag &&
           cat target/wasm32-wasi/release/cloudcompiler/wasmer.toml &&
-          echo "ls" && 
+          echo "ls" &&
           ls target/wasm32-wasi/release/cloudcompiler
       - name: Publish to WAPM
         uses: wasmerio/wapm-publish@v1
