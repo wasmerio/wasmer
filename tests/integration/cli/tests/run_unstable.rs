@@ -224,6 +224,27 @@ mod webc_on_disk {
                 "response generated method=GET uri=/path/to/file.txt status_code=200 OK",
             ));
     }
+
+    /// See https://github.com/wasmerio/wasmer/issues/3794
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
+    fn issue_3794_unable_to_mount_relative_paths() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
+
+        let assert = wasmer_run_unstable()
+            .arg(fixtures::coreutils())
+            .arg(format!("--mapdir=./some-dir/:{}", temp.path().display()))
+            .arg("--command-name=cat")
+            .arg("--")
+            .arg("./some-dir/message.txt")
+            .assert();
+
+        assert.success().stdout(contains("Hello, World!"));
+    }
 }
 
 mod wasm_on_disk {
@@ -397,6 +418,13 @@ mod fixtures {
     /// A WEBC file containing the Python interpreter, compiled to WASI.
     pub fn python() -> PathBuf {
         Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
+    }
+
+    pub fn coreutils() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("webc")
+            .join("coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc")
     }
 
     /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
