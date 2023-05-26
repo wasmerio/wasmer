@@ -47,6 +47,10 @@ impl FromStr for PackageSpecifier {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with('.') || s.starts_with('/') || s.starts_with('\\') {
+            return Ok(PackageSpecifier::Path(s.into()));
+        }
+
         if let Ok(url) = Url::parse(s) {
             if url.has_host() {
                 return Ok(PackageSpecifier::Url(url));
@@ -350,6 +354,16 @@ pub(crate) mod tests {
             (
                 "https://wapm/io/namespace/package@1.0.0",
                 PackageSpecifier::Url("https://wapm/io/namespace/package@1.0.0".parse().unwrap()),
+            ),
+            (
+                "/path/to/some/file.webc",
+                PackageSpecifier::Path("/path/to/some/file.webc".into()),
+            ),
+            ("./file.webc", PackageSpecifier::Path("./file.webc".into())),
+            #[cfg(windows)]
+            (
+                r"C:\Path\to\some\file.webc",
+                PackageSpecifier::Path(r"C:\Path\to\some\file.webc".into()),
             ),
         ];
 

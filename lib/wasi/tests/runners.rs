@@ -49,9 +49,8 @@ mod wasi {
                 .with_args(["--version"])
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
-        let result = handle.join().unwrap();
 
-        assert!(result.is_ok());
+        handle.join().unwrap().expect("Runner failed");
     }
 
     #[tokio::test]
@@ -67,6 +66,8 @@ mod wasi {
                 .run_command("python", &pkg, Arc::new(rt))
         });
         let err = handle.join().unwrap().unwrap_err();
+
+        dbg!(&err);
 
         let runtime_error = err
             .chain()
