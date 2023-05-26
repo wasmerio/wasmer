@@ -98,8 +98,7 @@ fn prepare_filesystem(
             );
 
             if guest.is_relative() {
-                guest = apply_relative_path_mounting_hack(&guest, builder)
-                    .context("Relative path quickfix failed")?;
+                guest = apply_relative_path_mounting_hack(&guest);
             }
 
             if let Some(parent) = guest.parent() {
@@ -138,21 +137,22 @@ fn prepare_filesystem(
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
-/// It works by telling the mounting code to mount the original host directory
-/// to a directory under "/" and then using map_dir() to make it visible in the
-/// right place.
+/// This assumes that the current directory when a runner starts will be "/", so
+/// instead of mounting to a relative path, we just mount to "/$path".
 ///
-/// In the long term, we should remove this nonsense and come up with a better
-/// solution for mounting relative directories.
+/// This isn't really a long-term solution because there is no guarantee what
+/// the current directory will be. The WASI spec also doesn't require the
+/// current directory to be part of the "main" filesystem at all, we really
+/// *should* be mounting to a relative directory but that isn't supported by our
+/// virtual fs layer.
 ///
 /// See <https://github.com/wasmerio/wasmer/issues/3794> for more.
 fn apply_relative_path_mounting_hack(
     original: &Path,
-    builder: &mut WasiEnvBuilder,
-) -> Result<PathBuf, Error> {
+) -> PathBuf {
     debug_assert!(original.is_relative());
 
-    let mapped_path = Path::new("/.__wasmer_internal").join(original);
+    let mapped_path = Path::new("/").join(original);
 
     tracing::debug!(
         original_path=%original.display(),
@@ -160,10 +160,7 @@ fn apply_relative_path_mounting_hack(
         "Remapping a relative path"
     );
 
-    let alias = original.display().to_string();
-    builder.add_map_dir(&alias, &mapped_path)?;
-
-    Ok(mapped_path)
+    mapped_path
 }
 
 fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
