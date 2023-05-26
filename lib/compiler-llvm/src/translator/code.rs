@@ -1062,7 +1062,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let function = &self.function;
 
         // Compute the offset into the storage.
-        let imm_offset = intrinsics.i64_ty.const_int(memarg.offset as u64, false);
+        let imm_offset = intrinsics.i64_ty.const_int(memarg.offset, false);
         let var_offset = builder.build_int_z_extend(var_offset, intrinsics.i64_ty, "");
         let offset = builder.build_int_add(var_offset, imm_offset, "");
 
