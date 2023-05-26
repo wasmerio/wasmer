@@ -1,6 +1,5 @@
 [package]
 name = "wasmer-wasm-interface"
-version = "4.0.0-alpha.1"
 description = "WASM Interface definition and parser"
 readme = "README.md"
 authors.workspace = true
@@ -9,6 +8,7 @@ homepage.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 bincode = { version = "1", optional = true }
