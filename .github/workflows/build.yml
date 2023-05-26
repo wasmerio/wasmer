@@ -2,6 +2,8 @@ name: Builds
 
 env:
   RUST_BACKTRACE: 1
+  CARGO_UNSTABLE_SPARSE_REGISTRY: "false"
+  MSRV: "1.67"
 
 on:
   push:
@@ -94,7 +96,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@stable

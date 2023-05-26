@@ -20,6 +20,8 @@ concurrency:
 
 env:
   RUST_BACKTRACE: 1
+  CARGO_UNSTABLE_SPARSE_REGISTRY: "false"
+  MSRV: "1.67"
 
 jobs:
 
@@ -49,7 +51,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           components: rustfmt, clippy
       - name: Install libtinfo
         shell: bash
@@ -101,7 +103,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
       - name: Install NodeJS
         uses: actions/setup-node@v2
         with:
@@ -135,7 +137,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: x86_64-unknown-linux-gnu
       - name: Install NodeJS
         uses: actions/setup-node@v2
@@ -153,7 +155,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
       - name: make test-build-docs-rs
@@ -181,7 +183,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: aarch64-unknown-linux-gnu
       - name: Build cross image
         run: |
@@ -241,7 +243,7 @@ jobs:
       - uses: actions/checkout@v3
       #- uses: dtolnay/rust-toolchain@stable
       #  with:
-      #    toolchain: 1.67
+      #    toolchain: ${{ env.MSRV }}
       #    target: riscv64gc-unknown-linux-gnu
       - name: Build cross image
         run: |
@@ -359,7 +361,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@stable
@@ -584,7 +586,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
@@ -685,7 +687,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.67
+          toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
