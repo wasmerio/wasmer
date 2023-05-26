@@ -2,7 +2,7 @@ use std::string::FromUtf8Error;
 use std::sync::Arc;
 
 use crate::bindings::wasix_http_client_v1 as sys;
-use crate::{capabilities::Capabilities, WasiRuntime};
+use crate::{capabilities::Capabilities, Runtime};
 
 use crate::{
     http::{DynHttpClient, HttpClientCapabilityV1},
@@ -29,7 +29,7 @@ impl std::fmt::Display for sys::Method<'_> {
 
 pub struct WasixHttpClientImpl {
     cap: Capabilities,
-    runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    runtime: Arc<dyn Runtime + Send + Sync>,
 }
 
 impl WasixHttpClientImpl {

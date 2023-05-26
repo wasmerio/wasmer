@@ -16,7 +16,7 @@ use wasmer::Module;
 
 use crate::runtime::{
     module_cache::{CacheError, ModuleHash},
-    WasiRuntime,
+    Runtime,
 };
 
 /// A directory that should be mapped from the host filesystem into a WASI
@@ -28,7 +28,7 @@ pub struct MappedDirectory {
 }
 
 /// Compile a module, trying to use a pre-compiled version if possible.
-pub(crate) fn compile_module(wasm: &[u8], runtime: &dyn WasiRuntime) -> Result<Module, Error> {
+pub(crate) fn compile_module(wasm: &[u8], runtime: &dyn Runtime) -> Result<Module, Error> {
     // TODO(Michael-F-Bryan,theduke): This should be abstracted out into some
     // sort of ModuleResolver component that is attached to the runtime and
     // encapsulates finding a WebAssembly binary, compiling it, and caching.

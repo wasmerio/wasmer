@@ -92,7 +92,7 @@ pub use crate::{
     rewind::*,
     runtime::{
         task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, WasiRuntime,
+        PluggableRuntime, Runtime,
     },
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,

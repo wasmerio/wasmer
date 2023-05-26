@@ -8,7 +8,7 @@ use webc::metadata::{annotations::Wasi, Command};
 use crate::{
     bin_factory::BinaryPackage,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    WasiEnvBuilder, WasiRuntime,
+    Runtime, WasiEnvBuilder,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -133,7 +133,7 @@ impl WasiRunner {
         program_name: &str,
         wasi: &Wasi,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
         let container_fs = Arc::clone(&pkg.webc_fs);
@@ -159,7 +159,7 @@ impl crate::runners::Runner for WasiRunner {
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let cmd = pkg
             .get_command(command_name)

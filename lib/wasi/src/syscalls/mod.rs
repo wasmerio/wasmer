@@ -106,7 +106,7 @@ pub(crate) use crate::{
         WasiFutex, WasiState,
     },
     utils::{self, map_io_err},
-    VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles, WasiRuntime,
+    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles,
     WasiVFork,
 };
 use crate::{

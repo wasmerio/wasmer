@@ -29,8 +29,8 @@ use wasmer_wasix::{
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
-    PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiRuntime, WasiVersion,
+    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiVersion,
 };
 
 use crate::utils::{parse_envvar, parse_mapdir};
@@ -155,7 +155,7 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
-        rt: Arc<dyn WasiRuntime + Send + Sync>,
+        rt: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<WasiEnvBuilder> {
         let args = args.into_iter().map(|arg| arg.into_bytes());
 
@@ -245,7 +245,7 @@ impl Wasi {
         engine: Engine,
         wasmer_dir: &Path,
         handle: Handle,
-    ) -> Result<impl WasiRuntime + Send + Sync> {
+    ) -> Result<impl Runtime + Send + Sync> {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
 
         if self.networking {
@@ -288,7 +288,7 @@ impl Wasi {
         module: &Module,
         program_name: String,
         args: Vec<String>,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
         store: &mut Store,
     ) -> Result<(WasiFunctionEnv, Instance)> {
         let builder = self.prepare(module, program_name, args, runtime)?;

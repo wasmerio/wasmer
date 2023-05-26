@@ -16,17 +16,17 @@ pub use self::{
     binary_package::*,
     exec::{spawn_exec, spawn_exec_module},
 };
-use crate::{os::command::Commands, WasiRuntime};
+use crate::{os::command::Commands, Runtime};
 
 #[derive(Debug, Clone)]
 pub struct BinFactory {
     pub(crate) commands: Commands,
-    runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
+    runtime: Arc<dyn Runtime + Send + Sync + 'static>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
 }
 
 impl BinFactory {
-    pub fn new(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>) -> BinFactory {
+    pub fn new(runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> BinFactory {
         BinFactory {
             commands: Commands::new_with_builtins(runtime.clone()),
             runtime,
@@ -34,7 +34,7 @@ impl BinFactory {
         }
     }
 
-    pub fn runtime(&self) -> &dyn WasiRuntime {
+    pub fn runtime(&self) -> &dyn Runtime {
         self.runtime.deref()
     }
 
@@ -97,7 +97,7 @@ impl BinFactory {
 async fn load_package_from_filesystem(
     fs: &dyn FileSystem,
     path: &Path,
-    rt: &dyn WasiRuntime,
+    rt: &dyn Runtime,
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut f = fs
         .new_open_options()

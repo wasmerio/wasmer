@@ -14,7 +14,7 @@ use wcgi_host::CgiDialect;
 
 use crate::{
     capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
-    VirtualTaskManager, WasiEnvBuilder, WasiRuntime,
+    Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -219,7 +219,7 @@ pub(crate) struct SharedState {
     #[derivative(Debug = "ignore")]
     pub(crate) callbacks: Arc<dyn Callbacks>,
     #[derivative(Debug = "ignore")]
-    pub(crate) runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    pub(crate) runtime: Arc<dyn Runtime + Send + Sync>,
 }
 
 impl Service<Request<Body>> for Handler {

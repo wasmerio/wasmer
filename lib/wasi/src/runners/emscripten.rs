@@ -11,7 +11,7 @@ use wasmer_emscripten::{
 };
 use webc::metadata::{annotations::Emscripten, Command};
 
-use crate::{bin_factory::BinaryPackage, WasiRuntime};
+use crate::{bin_factory::BinaryPackage, Runtime};
 
 #[derive(Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EmscriptenRunner {
@@ -53,7 +53,7 @@ impl crate::runners::Runner for EmscriptenRunner {
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let cmd = pkg
             .get_command(command_name)

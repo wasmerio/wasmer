@@ -16,7 +16,7 @@ use wasmer_wasix::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
         task_manager::tokio::TokioTaskManager,
     },
-    PluggableRuntime, WasiRuntime,
+    PluggableRuntime, Runtime,
 };
 use webc::Container;
 
@@ -218,7 +218,7 @@ fn client() -> Client {
     CLIENT.clone()
 }
 
-fn runtime() -> impl WasiRuntime + Send + Sync {
+fn runtime() -> impl Runtime + Send + Sync {
     let tasks = TokioTaskManager::new(Handle::current());
     let mut rt = PluggableRuntime::new(Arc::new(tasks));
 

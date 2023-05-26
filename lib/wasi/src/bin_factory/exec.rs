@@ -13,7 +13,7 @@ use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage};
-use crate::{runtime::SpawnMemoryType, WasiEnv, WasiFunctionEnv, WasiRuntime};
+use crate::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
 pub async fn spawn_exec(
@@ -21,7 +21,7 @@ pub async fn spawn_exec(
     name: &str,
     store: Store,
     env: WasiEnv,
-    runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
+    runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
     let key = binary.hash();
 
@@ -73,7 +73,7 @@ pub async fn spawn_exec(
 pub fn spawn_exec_module(
     module: Module,
     env: WasiEnv,
-    runtime: &Arc<dyn WasiRuntime + Send + Sync + 'static>,
+    runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
     // Create a new task manager
     let tasks = runtime.task_manager();

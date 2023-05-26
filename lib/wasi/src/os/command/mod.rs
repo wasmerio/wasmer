@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasix_types::wasi::Errno;
 
-use crate::{syscalls::stderr_write, SpawnError, WasiEnv, WasiRuntime};
+use crate::{syscalls::stderr_write, Runtime, SpawnError, WasiEnv};
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
@@ -43,7 +43,7 @@ impl Commands {
     }
 
     // TODO: this method should be somewhere on the runtime, not here.
-    pub fn new_with_builtins(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>) -> Self {
+    pub fn new_with_builtins(runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
         let mut cmd = Self::new();
         let cmd_wasmer = builtins::cmd_wasmer::CmdWasmer::new(runtime.clone());
         cmd.register_command(cmd_wasmer);

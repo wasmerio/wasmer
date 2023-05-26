@@ -39,7 +39,7 @@ use wasmer_wasix::{
         wasi::WasiRunner,
         wcgi::{AbortHandle, WcgiRunner},
     },
-    WasiRuntime,
+    Runtime,
 };
 use webc::{metadata::Manifest, v1::DirOrFile, Container};
 
@@ -118,7 +118,7 @@ impl RunUnstable {
     fn execute_target(
         &self,
         executable_target: ExecutableTarget,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
         store: &mut Store,
     ) -> Result<(), Error> {
         match executable_target {
@@ -135,7 +135,7 @@ impl RunUnstable {
         path: &Path,
         module: &Module,
         store: &mut Store,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
@@ -150,7 +150,7 @@ impl RunUnstable {
     fn execute_webc(
         &self,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
@@ -177,10 +177,7 @@ impl RunUnstable {
     }
 
     #[tracing::instrument(skip_all)]
-    fn load_injected_packages(
-        &self,
-        runtime: &dyn WasiRuntime,
-    ) -> Result<Vec<BinaryPackage>, Error> {
+    fn load_injected_packages(&self, runtime: &dyn Runtime) -> Result<Vec<BinaryPackage>, Error> {
         let mut dependencies = Vec::new();
 
         for name in &self.wasi.uses {
@@ -201,7 +198,7 @@ impl RunUnstable {
         command_name: &str,
         pkg: &BinaryPackage,
         uses: Vec<BinaryPackage>,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
             .with_args(self.args.clone())
@@ -220,7 +217,7 @@ impl RunUnstable {
         command_name: &str,
         pkg: &BinaryPackage,
         uses: Vec<BinaryPackage>,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
 
@@ -243,7 +240,7 @@ impl RunUnstable {
         &self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
         runner.set_args(self.args.clone());
@@ -288,7 +285,7 @@ impl RunUnstable {
         &self,
         wasm_path: &Path,
         module: &Module,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
         store: &mut Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
@@ -417,7 +414,7 @@ impl PackageSource {
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
-    fn resolve_target(&self, rt: &dyn WasiRuntime) -> Result<ExecutableTarget, Error> {
+    fn resolve_target(&self, rt: &dyn Runtime) -> Result<ExecutableTarget, Error> {
         match self {
             PackageSource::File(path) => ExecutableTarget::from_file(path, rt),
             PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt),
@@ -498,7 +495,7 @@ impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
     #[tracing::instrument(skip_all)]
-    fn from_dir(dir: &Path, runtime: &dyn WasiRuntime) -> Result<Self, Error> {
+    fn from_dir(dir: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
         let mut files = BTreeMap::new();
         load_files_from_disk(&mut files, dir, dir)?;
 
@@ -526,7 +523,7 @@ impl ExecutableTarget {
 
     /// Try to load a file into something that can be used to run it.
     #[tracing::instrument(skip_all)]
-    fn from_file(path: &Path, runtime: &dyn WasiRuntime) -> Result<Self, Error> {
+    fn from_file(path: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
         match TargetOnDisk::from_file(path)? {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
