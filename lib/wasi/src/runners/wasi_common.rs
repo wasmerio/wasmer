@@ -147,9 +147,7 @@ fn prepare_filesystem(
 /// virtual fs layer.
 ///
 /// See <https://github.com/wasmerio/wasmer/issues/3794> for more.
-fn apply_relative_path_mounting_hack(
-    original: &Path,
-) -> PathBuf {
+fn apply_relative_path_mounting_hack(original: &Path) -> PathBuf {
     debug_assert!(original.is_relative());
 
     let mapped_path = Path::new("/").join(original);
