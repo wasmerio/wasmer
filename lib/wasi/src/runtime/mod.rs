@@ -24,15 +24,15 @@ use crate::{
     WasiTtyState,
 };
 
-/// Represents an implementation of the WASI runtime - by default everything is
-/// unimplemented.
+/// Runtime components used when running WebAssembly programs.
+///
+/// Think of this as the "System" in "WebAssembly Systems Interface".
 #[allow(unused_variables)]
-pub trait WasiRuntime
+pub trait Runtime
 where
     Self: fmt::Debug,
 {
     /// Provides access to all the networking related functions such as sockets.
-    /// By default networking is not implemented.
     fn networking(&self) -> &DynVirtualNetworking;
 
     /// Retrieve the active [`VirtualTaskManager`].
@@ -67,7 +67,7 @@ where
         }
     }
 
-    /// Returns a HTTP client
+    /// Get a custom HTTP client
     fn http_client(&self) -> Option<&DynHttpClient> {
         None
     }
@@ -192,7 +192,7 @@ impl PluggableRuntime {
     }
 }
 
-impl WasiRuntime for PluggableRuntime {
+impl Runtime for PluggableRuntime {
     fn networking(&self) -> &DynVirtualNetworking {
         &self.networking
     }

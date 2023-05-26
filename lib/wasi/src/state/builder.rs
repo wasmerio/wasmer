@@ -21,7 +21,7 @@ use crate::{
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
+    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;
@@ -59,7 +59,7 @@ pub struct WasiEnvBuilder {
     pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) fs: Option<WasiFsRoot>,
-    pub(super) runtime: Option<Arc<dyn crate::WasiRuntime + Send + Sync + 'static>>,
+    pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
 
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
@@ -540,12 +540,12 @@ impl WasiEnvBuilder {
 
     /// Sets the WASI runtime implementation and overrides the default
     /// implementation
-    pub fn runtime(mut self, runtime: Arc<dyn WasiRuntime + Send + Sync>) -> Self {
+    pub fn runtime(mut self, runtime: Arc<dyn Runtime + Send + Sync>) -> Self {
         self.set_runtime(runtime);
         self
     }
 
-    pub fn set_runtime(&mut self, runtime: Arc<dyn WasiRuntime + Send + Sync>) {
+    pub fn set_runtime(&mut self, runtime: Arc<dyn Runtime + Send + Sync>) {
         self.runtime = Some(runtime);
     }
 

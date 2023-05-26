@@ -20,7 +20,7 @@ use crate::{
         wcgi::handler::{Handler, SharedState},
         MappedDirectory,
     },
-    WasiEnvBuilder, WasiRuntime,
+    Runtime, WasiEnvBuilder,
 };
 
 #[derive(Debug, Default)]
@@ -42,7 +42,7 @@ impl WcgiRunner {
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<Handler, Error> {
         let cmd = pkg
             .get_command(command_name)
@@ -95,7 +95,7 @@ impl crate::runners::Runner for WcgiRunner {
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let handler = self.prepare_handler(command_name, pkg, Arc::clone(&runtime))?;
         let callbacks = Arc::clone(&self.config.callbacks);

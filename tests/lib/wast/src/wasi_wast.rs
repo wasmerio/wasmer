@@ -13,8 +13,8 @@ use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
-    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
-    WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, Runtime,
+    VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 

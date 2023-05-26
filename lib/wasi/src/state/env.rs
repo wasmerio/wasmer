@@ -32,7 +32,7 @@ use crate::{
     },
     runtime::{resolver::PackageSpecifier, SpawnMemoryType},
     syscalls::{__asyncify_light, platform_clock_time_get},
-    VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv, WasiRuntime,
+    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
 
@@ -209,7 +209,7 @@ impl WasiInstanceHandles {
 #[derive(Debug)]
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
-    pub runtime: Arc<dyn WasiRuntime + Send + Sync>,
+    pub runtime: Arc<dyn Runtime + Send + Sync>,
     pub webc_dependencies: Vec<BinaryPackage>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -287,7 +287,7 @@ pub struct WasiEnv {
     /// (this can be used to ensure that threads own themselves or others)
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
-    pub runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
+    pub runtime: Arc<dyn Runtime + Send + Sync + 'static>,
 
     pub capabilities: Capabilities,
 
@@ -520,7 +520,7 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime(&self) -> &(dyn WasiRuntime) {
+    pub fn runtime(&self) -> &(dyn Runtime) {
         self.runtime.deref()
     }
 
@@ -536,7 +536,7 @@ impl WasiEnv {
     /// Overrides the runtime implementation for this environment
     pub fn set_runtime<R>(&mut self, runtime: R)
     where
-        R: WasiRuntime + Send + Sync + 'static,
+        R: Runtime + Send + Sync + 'static,
     {
         self.runtime = Arc::new(runtime);
     }

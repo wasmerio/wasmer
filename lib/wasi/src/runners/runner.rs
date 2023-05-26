@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Error;
 use webc::metadata::Command;
 
-use crate::{bin_factory::BinaryPackage, WasiRuntime};
+use crate::{bin_factory::BinaryPackage, Runtime};
 
 /// Trait that all runners have to implement
 pub trait Runner {
@@ -17,6 +17,6 @@ pub trait Runner {
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn WasiRuntime + Send + Sync>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error>;
 }

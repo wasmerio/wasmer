@@ -431,7 +431,7 @@ impl RunWithPathBuf {
         use wasmer_wasix::{
             bin_factory::BinaryPackage,
             runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
-            WasiRuntime,
+            Runtime,
         };
 
         let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;

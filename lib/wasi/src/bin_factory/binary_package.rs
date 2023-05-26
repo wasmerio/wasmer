@@ -11,7 +11,7 @@ use crate::{
         module_cache::ModuleHash,
         resolver::{PackageId, PackageInfo, PackageSpecifier},
     },
-    WasiRuntime,
+    Runtime,
 };
 
 #[derive(Derivative, Clone)]
@@ -76,10 +76,7 @@ pub struct BinaryPackage {
 impl BinaryPackage {
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
-    pub async fn from_webc(
-        container: &Container,
-        rt: &dyn WasiRuntime,
-    ) -> Result<Self, anyhow::Error> {
+    pub async fn from_webc(container: &Container, rt: &dyn Runtime) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
         let root_id = PackageId {
@@ -100,7 +97,7 @@ impl BinaryPackage {
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     pub async fn from_registry(
         specifier: &PackageSpecifier,
-        runtime: &dyn WasiRuntime,
+        runtime: &dyn Runtime,
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();
         let root_summary = source.latest(specifier).await?;

@@ -30,7 +30,7 @@ use crate::{
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::resolver::PackageSpecifier,
-    SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv,
 };
 
 #[derive(Derivative)]
@@ -46,7 +46,7 @@ pub struct Console {
     no_welcome: bool,
     prompt: String,
     env: HashMap<String, String>,
-    runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
+    runtime: Arc<dyn Runtime + Send + Sync + 'static>,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -55,10 +55,7 @@ pub struct Console {
 }
 
 impl Console {
-    pub fn new(
-        webc_boot_package: &str,
-        runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
-    ) -> Self {
+    pub fn new(webc_boot_package: &str, runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
         let prog = webc_boot_package
             .split_once(' ')
             .map(|a| a.1)

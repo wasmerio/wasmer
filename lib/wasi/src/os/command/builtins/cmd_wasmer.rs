@@ -10,7 +10,7 @@ use wasmer_wasix_types::wasi::Errno;
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage},
     syscalls::stderr_write,
-    VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    Runtime, VirtualTaskManagerExt, WasiEnv,
 };
 
 const HELP: &str = r#"USAGE:
@@ -35,13 +35,13 @@ use crate::os::command::VirtualCommand;
 
 #[derive(Debug, Clone)]
 pub struct CmdWasmer {
-    runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>,
+    runtime: Arc<dyn Runtime + Send + Sync + 'static>,
 }
 
 impl CmdWasmer {
     const NAME: &str = "wasmer";
 
-    pub fn new(runtime: Arc<dyn WasiRuntime + Send + Sync + 'static>) -> Self {
+    pub fn new(runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
         Self { runtime }
     }
 }
