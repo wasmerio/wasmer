@@ -21,7 +21,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
-use std::sync::{Mutex, Once};
+use std::sync::Once;
 use wasmer_types::TrapCode;
 
 /// Configuration for the the runtime VM
@@ -874,21 +874,18 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     f: F,
 ) -> Result<T, UnwindReason> {
     // Allocating a new stack is pretty expensive since it involves several
-    // system calls. We therefore keep a cache of pre-allocated stacks which
-    // allows them to be reused multiple times.
-    // FIXME(Amanieu): We should refactor this to avoid the lock.
-    lazy_static::lazy_static! {
-        static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
+    // system calls. We therefore cache a stack in thread-local storage.
+    thread_local! {
+        static STACK: Cell<Option<DefaultStack>> = Cell::new(None);
     }
-    let stack = STACK_POOL
-        .lock()
-        .unwrap()
-        .pop()
-        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
+
+    let mut stack = STACK.with(|cell| match cell.replace(None) {
+        Some(stack) => stack,
+        None => DefaultStack::new(stack_size).unwrap(),
+    });
 
     // Create a coroutine with a new stack to run the function on.
-    let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
+    let mut coro = ScopedCoroutine::with_stack(&mut stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
 
@@ -902,7 +899,7 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
 
     // Set up metadata for the trap handler for the duration of the coroutine
     // execution. This is restored to its previous value afterwards.
-    TrapHandlerContext::install(trap_handler, coro.trap_handler(), || {
+    let result = TrapHandlerContext::install(trap_handler, coro.trap_handler(), || {
         match coro.resume(()) {
             CoroutineResult::Yield(trap) => {
                 // This came from unwind_with which requires that there be only
@@ -914,7 +911,11 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
             }
             CoroutineResult::Return(result) => result,
         }
-    })
+    });
+
+    drop(coro);
+    STACK.with(|cell| cell.set(Some(stack)));
+    result
 }
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
