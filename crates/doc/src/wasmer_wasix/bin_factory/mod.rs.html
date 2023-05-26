@@ -135,17 +135,17 @@
     binary_package::<span class="kw-2">*</span>,
     exec::{spawn_exec, spawn_exec_module},
 };
-<span class="kw">use crate</span>::{os::command::Commands, WasiRuntime};
+<span class="kw">use crate</span>::{os::command::Commands, Runtime};
 
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>BinFactory {
     <span class="kw">pub</span>(<span class="kw">crate</span>) commands: Commands,
-    runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) local: Arc&lt;RwLock&lt;HashMap&lt;String, <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl </span>BinFactory {
-    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; BinFactory {
+    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; BinFactory {
         BinFactory {
             commands: Commands::new_with_builtins(runtime.clone()),
             runtime,
@@ -153,7 +153,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime {
+    <span class="kw">pub fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime {
         <span class="self">self</span>.runtime.deref()
     }
 
@@ -216,7 +216,7 @@
 <span class="kw">async fn </span>load_package_from_filesystem(
     fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
     path: <span class="kw-2">&amp;</span>Path,
-    rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
+    rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>f = fs
         .new_open_options()

@@ -204,7 +204,7 @@
 <span class="kw">use crate</span>::{
     bin_factory::BinaryPackage,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    WasiEnvBuilder, WasiRuntime,
+    Runtime, WasiEnvBuilder,
 };
 
 <span class="attribute">#[derive(Debug, Default, Clone)]
@@ -329,7 +329,7 @@
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name);
         <span class="kw">let </span>container_fs = Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs);
@@ -355,7 +355,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>cmd = pkg
             .get_command(command_name)

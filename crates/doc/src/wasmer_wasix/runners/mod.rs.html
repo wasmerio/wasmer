@@ -84,7 +84,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::{
     module_cache::{CacheError, ModuleHash},
-    WasiRuntime,
+    Runtime,
 };
 
 <span class="doccomment">/// A directory that should be mapped from the host filesystem into a WASI
@@ -96,7 +96,7 @@
 }
 
 <span class="doccomment">/// Compile a module, trying to use a pre-compiled version if possible.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compile_module(wasm: <span class="kw-2">&amp;</span>[u8], runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compile_module(wasm: <span class="kw-2">&amp;</span>[u8], runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
     <span class="comment">// TODO(Michael-F-Bryan,theduke): This should be abstracted out into some
     // sort of ModuleResolver component that is attached to the runtime and
     // encapsulates finding a WebAssembly binary, compiling it, and caching.

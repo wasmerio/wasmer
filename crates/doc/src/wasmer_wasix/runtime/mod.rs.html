@@ -260,15 +260,15 @@
     WasiTtyState,
 };
 
-<span class="doccomment">/// Represents an implementation of the WASI runtime - by default everything is
-/// unimplemented.
+<span class="doccomment">/// Runtime components used when running WebAssembly programs.
+///
+/// Think of this as the &quot;System&quot; in &quot;WebAssembly Systems Interface&quot;.
 </span><span class="attribute">#[allow(unused_variables)]
-</span><span class="kw">pub trait </span>WasiRuntime
+</span><span class="kw">pub trait </span>Runtime
 <span class="kw">where
     </span><span class="self">Self</span>: fmt::Debug,
 {
     <span class="doccomment">/// Provides access to all the networking related functions such as sockets.
-    /// By default networking is not implemented.
     </span><span class="kw">fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DynVirtualNetworking;
 
     <span class="doccomment">/// Retrieve the active [`VirtualTaskManager`].
@@ -303,7 +303,7 @@
         }
     }
 
-    <span class="doccomment">/// Returns a HTTP client
+    <span class="doccomment">/// Get a custom HTTP client
     </span><span class="kw">fn </span>http_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DynHttpClient&gt; {
         <span class="prelude-val">None
     </span>}
@@ -428,7 +428,7 @@
     </span>}
 }
 
-<span class="kw">impl </span>WasiRuntime <span class="kw">for </span>PluggableRuntime {
+<span class="kw">impl </span>Runtime <span class="kw">for </span>PluggableRuntime {
     <span class="kw">fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>DynVirtualNetworking {
         <span class="kw-2">&amp;</span><span class="self">self</span>.networking
     }

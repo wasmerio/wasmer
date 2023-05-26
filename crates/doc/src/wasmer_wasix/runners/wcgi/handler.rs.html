@@ -257,7 +257,7 @@
 
 <span class="kw">use crate</span>::{
     capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
-    VirtualTaskManager, WasiEnvBuilder, WasiRuntime,
+    Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 <span class="doccomment">/// The shared object that manages the instantiaion of WASI executables and
@@ -462,7 +462,7 @@
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
     <span class="attribute">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
 }
 
 <span class="kw">impl </span>Service&lt;Request&lt;Body&gt;&gt; <span class="kw">for </span>Handler {

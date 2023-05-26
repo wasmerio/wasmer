@@ -301,7 +301,7 @@
         wcgi::handler::{Handler, SharedState},
         MappedDirectory,
     },
-    WasiEnvBuilder, WasiRuntime,
+    Runtime, WasiEnvBuilder,
 };
 
 <span class="attribute">#[derive(Debug, Default)]
@@ -323,7 +323,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Handler, Error&gt; {
         <span class="kw">let </span>cmd = pkg
             .get_command(command_name)
@@ -376,7 +376,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>handler = <span class="self">self</span>.prepare_handler(command_name, pkg, Arc::clone(<span class="kw-2">&amp;</span>runtime))<span class="question-mark">?</span>;
         <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks);

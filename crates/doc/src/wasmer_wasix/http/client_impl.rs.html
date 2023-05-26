@@ -158,7 +158,7 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span><span class="kw">crate</span>::bindings::wasix_http_client_v1 <span class="kw">as </span>sys;
-<span class="kw">use crate</span>::{capabilities::Capabilities, WasiRuntime};
+<span class="kw">use crate</span>::{capabilities::Capabilities, Runtime};
 
 <span class="kw">use crate</span>::{
     http::{DynHttpClient, HttpClientCapabilityV1},
@@ -185,7 +185,7 @@
 
 <span class="kw">pub struct </span>WasixHttpClientImpl {
     cap: Capabilities,
-    runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
 }
 
 <span class="kw">impl </span>WasixHttpClientImpl {

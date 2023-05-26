@@ -112,7 +112,7 @@
 <span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use crate</span>::{syscalls::stderr_write, SpawnError, WasiEnv, WasiRuntime};
+<span class="kw">use crate</span>::{syscalls::stderr_write, Runtime, SpawnError, WasiEnv};
 
 <span class="kw">use </span><span class="kw">super</span>::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
@@ -150,7 +150,7 @@
     }
 
     <span class="comment">// TODO: this method should be somewhere on the runtime, not here.
-    </span><span class="kw">pub fn </span>new_with_builtins(runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new_with_builtins(runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>cmd = <span class="self">Self</span>::new();
         <span class="kw">let </span>cmd_wasmer = builtins::cmd_wasmer::CmdWasmer::new(runtime.clone());
         cmd.register_command(cmd_wasmer);

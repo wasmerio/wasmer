@@ -662,9 +662,6 @@
 <span id="660">660</span>
 <span id="661">661</span>
 <span id="662">662</span>
-<span id="663">663</span>
-<span id="664">664</span>
-<span id="665">665</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(missing_docs, unused)]
 
 </span><span class="kw">use </span>std::{
@@ -706,7 +703,7 @@
         wasi::WasiRunner,
         wcgi::{AbortHandle, WcgiRunner},
     },
-    WasiRuntime,
+    Runtime,
 };
 <span class="kw">use </span>webc::{metadata::Manifest, v1::DirOrFile, Container};
 
@@ -785,7 +782,7 @@
     <span class="kw">fn </span>execute_target(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         executable_target: ExecutableTarget,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">match </span>executable_target {
@@ -802,7 +799,7 @@
         path: <span class="kw-2">&amp;</span>Path,
         module: <span class="kw-2">&amp;</span>Module,
         store: <span class="kw-2">&amp;mut </span>Store,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">if </span>wasmer_emscripten::is_emscripten_module(module) {
             <span class="self">self</span>.execute_emscripten_module()
@@ -817,7 +814,7 @@
     </span><span class="kw">fn </span>execute_webc(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>id = <span class="kw">match </span><span class="self">self</span>.entrypoint.as_deref() {
             <span class="prelude-val">Some</span>(cmd) =&gt; cmd,
@@ -844,10 +841,7 @@
     }
 
     <span class="attribute">#[tracing::instrument(skip_all)]
-    </span><span class="kw">fn </span>load_injected_packages(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BinaryPackage&gt;, Error&gt; {
+    </span><span class="kw">fn </span>load_injected_packages(<span class="kw-2">&amp;</span><span class="self">self</span>, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BinaryPackage&gt;, Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>dependencies = Vec::new();
 
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.wasi.uses {
@@ -868,7 +862,7 @@
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
         uses: Vec&lt;BinaryPackage&gt;,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wasi::WasiRunner::new()
             .with_args(<span class="self">self</span>.args.clone())
@@ -887,7 +881,7 @@
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
         uses: Vec&lt;BinaryPackage&gt;,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
 
@@ -910,7 +904,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
         runner.set_args(<span class="self">self</span>.args.clone());
@@ -955,7 +949,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         wasm_path: <span class="kw-2">&amp;</span>Path,
         module: <span class="kw-2">&amp;</span>Module,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>program_name = wasm_path.display().to_string();
@@ -1084,7 +1078,7 @@
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
-    </span><span class="kw">fn </span>resolve_target(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutableTarget, Error&gt; {
+    </span><span class="kw">fn </span>resolve_target(<span class="kw-2">&amp;</span><span class="self">self</span>, rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutableTarget, Error&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             PackageSource::File(path) =&gt; ExecutableTarget::from_file(path, rt),
             PackageSource::Dir(d) =&gt; ExecutableTarget::from_dir(d, rt),
@@ -1165,7 +1159,7 @@
     <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
     </span><span class="attribute">#[tracing::instrument(skip_all)]
-    </span><span class="kw">fn </span>from_dir(dir: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+    </span><span class="kw">fn </span>from_dir(dir: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
         load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir)<span class="question-mark">?</span>;
 
@@ -1193,7 +1187,7 @@
 
     <span class="doccomment">/// Try to load a file into something that can be used to run it.
     </span><span class="attribute">#[tracing::instrument(skip_all)]
-    </span><span class="kw">fn </span>from_file(path: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>WasiRuntime) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+    </span><span class="kw">fn </span>from_file(path: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">match </span>TargetOnDisk::from_file(path)<span class="question-mark">? </span>{
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat =&gt; {
                 <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;

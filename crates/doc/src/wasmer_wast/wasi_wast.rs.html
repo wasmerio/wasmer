@@ -743,8 +743,8 @@
 <span class="kw">use </span>wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 <span class="kw">use </span>wasmer_wasix::types::wasi::{Filesize, Timestamp};
 <span class="kw">use </span>wasmer_wasix::{
-    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
-    WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, Runtime,
+    VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
 };
 <span class="kw">use </span>wast::parser::{<span class="self">self</span>, Parse, ParseBuffer, Parser};
 

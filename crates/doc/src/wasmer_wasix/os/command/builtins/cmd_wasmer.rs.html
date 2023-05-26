@@ -163,7 +163,7 @@
 <span class="kw">use crate</span>::{
     bin_factory::{spawn_exec, BinaryPackage},
     syscalls::stderr_write,
-    VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    Runtime, VirtualTaskManagerExt, WasiEnv,
 };
 
 <span class="kw">const </span>HELP: <span class="kw-2">&amp;</span>str = <span class="string">r#&quot;USAGE:
@@ -188,13 +188,13 @@ ARGS:
 
 <span class="attribute">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>CmdWasmer {
-    runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
 }
 
 <span class="kw">impl </span>CmdWasmer {
     <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer&quot;</span>;
 
-    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ runtime }
     }
 }

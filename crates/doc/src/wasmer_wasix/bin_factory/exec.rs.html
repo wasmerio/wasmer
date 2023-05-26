@@ -316,7 +316,7 @@
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
 <span class="kw">use super</span>::{BinFactory, BinaryPackage};
-<span class="kw">use crate</span>::{runtime::SpawnMemoryType, WasiEnv, WasiFunctionEnv, WasiRuntime};
+<span class="kw">use crate</span>::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
 
 <span class="attribute">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%name, %binary.package_name))]
 </span><span class="kw">pub async fn </span>spawn_exec(
@@ -324,7 +324,7 @@
     name: <span class="kw-2">&amp;</span>str,
     store: Store,
     env: WasiEnv,
-    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     <span class="kw">let </span>key = binary.hash();
 
@@ -376,7 +376,7 @@
 <span class="kw">pub fn </span>spawn_exec_module(
     module: Module,
     env: WasiEnv,
-    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
     <span class="comment">// Create a new task manager
     </span><span class="kw">let </span>tasks = runtime.task_manager();

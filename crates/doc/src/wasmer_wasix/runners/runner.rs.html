@@ -27,7 +27,7 @@
 <span class="kw">use </span>anyhow::Error;
 <span class="kw">use </span>webc::metadata::Command;
 
-<span class="kw">use crate</span>::{bin_factory::BinaryPackage, WasiRuntime};
+<span class="kw">use crate</span>::{bin_factory::BinaryPackage, Runtime};
 
 <span class="doccomment">/// Trait that all runners have to implement
 </span><span class="kw">pub trait </span>Runner {
@@ -41,7 +41,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
 }
 </code></pre></div>

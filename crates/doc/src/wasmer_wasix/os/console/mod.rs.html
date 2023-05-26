@@ -300,9 +300,6 @@
 <span id="298">298</span>
 <span id="299">299</span>
 <span id="300">300</span>
-<span id="301">301</span>
-<span id="302">302</span>
-<span id="303">303</span>
 </pre><pre class="rust"><code><span class="attribute">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -335,7 +332,7 @@
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::resolver::PackageSpecifier,
-    SpawnError, VirtualTaskManagerExt, WasiEnv, WasiRuntime,
+    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv,
 };
 
 <span class="attribute">#[derive(Derivative)]
@@ -351,7 +348,7 @@
     no_welcome: bool,
     prompt: String,
     env: HashMap&lt;String, String&gt;,
-    runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -360,10 +357,7 @@
 }
 
 <span class="kw">impl </span>Console {
-    <span class="kw">pub fn </span>new(
-        webc_boot_package: <span class="kw-2">&amp;</span>str,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
-    ) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(webc_boot_package: <span class="kw-2">&amp;</span>str, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>prog = webc_boot_package
             .split_once(<span class="string">&#39; &#39;</span>)
             .map(|a| a.<span class="number">1</span>)

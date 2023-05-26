@@ -557,8 +557,8 @@
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
-    PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiRuntime, WasiVersion,
+    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiVersion,
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
@@ -683,7 +683,7 @@
         module: <span class="kw-2">&amp;</span>Module,
         program_name: String,
         args: Vec&lt;String&gt;,
-        rt: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        rt: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder&gt; {
         <span class="kw">let </span>args = args.into_iter().map(|arg| arg.into_bytes());
 
@@ -773,7 +773,7 @@
         engine: Engine,
         wasmer_dir: <span class="kw-2">&amp;</span>Path,
         handle: Handle,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>WasiRuntime + Send + Sync&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
 
         <span class="kw">if </span><span class="self">self</span>.networking {
@@ -816,7 +816,7 @@
         module: <span class="kw-2">&amp;</span>Module,
         program_name: String,
         args: Vec&lt;String&gt;,
-        runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         store: <span class="kw-2">&amp;mut </span>Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFunctionEnv, Instance)&gt; {
         <span class="kw">let </span>builder = <span class="self">self</span>.prepare(module, program_name, args, runtime)<span class="question-mark">?</span>;

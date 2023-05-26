@@ -1223,7 +1223,7 @@
         <span class="kw">use </span>wasmer_wasix::{
             bin_factory::BinaryPackage,
             runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
-            WasiRuntime,
+            Runtime,
         };
 
         <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)<span class="question-mark">?</span>;

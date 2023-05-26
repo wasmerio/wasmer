@@ -1012,7 +1012,7 @@
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    WasiEnv, WasiFunctionEnv, WasiRuntime, WasiRuntimeError,
+    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::env::WasiEnvInit;
@@ -1050,7 +1050,7 @@
     <span class="kw">pub</span>(<span class="kw">super</span>) stderr: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) stdin: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) fs: <span class="prelude-ty">Option</span>&lt;WasiFsRoot&gt;,
-    <span class="kw">pub</span>(<span class="kw">super</span>) runtime: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::WasiRuntime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">super</span>) runtime: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;,
 
     <span class="doccomment">/// List of webc dependencies to be injected.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) uses: Vec&lt;BinaryPackage&gt;,
@@ -1531,12 +1531,12 @@
 
     <span class="doccomment">/// Sets the WASI runtime implementation and overrides the default
     /// implementation
-    </span><span class="kw">pub fn </span>runtime(<span class="kw-2">mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>runtime(<span class="kw-2">mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.set_runtime(runtime);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_runtime(<span class="kw-2">&amp;mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>WasiRuntime + Send + Sync&gt;) {
+    <span class="kw">pub fn </span>set_runtime(<span class="kw-2">&amp;mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;) {
         <span class="self">self</span>.runtime = <span class="prelude-val">Some</span>(runtime);
     }
 
