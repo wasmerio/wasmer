@@ -2,7 +2,7 @@ name: Builds
 
 env:
   RUST_BACKTRACE: 1
-  CARGO_UNSTABLE_SPARSE_REGISTRY: "false"
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   MSRV: "1.67"
 
 on:
