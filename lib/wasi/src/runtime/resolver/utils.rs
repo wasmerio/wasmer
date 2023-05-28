@@ -45,6 +45,10 @@ pub(crate) fn http_error(response: &HttpResponse) -> Error {
             .get("Retry-After")
             .and_then(|retry_after| retry_after.to_str().ok())
         {
+            tracing::debug!(
+                %retry_after,
+                "Received 503 Service Unavailable while looking up a package. The backend may still be generating the *.webc file.",
+            );
             return anyhow::anyhow!("{status} (Retry After: {retry_after})");
         }
     }

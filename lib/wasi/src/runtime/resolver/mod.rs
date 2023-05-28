@@ -3,7 +3,7 @@ mod in_memory_source;
 mod inputs;
 mod multi_source_registry;
 mod outputs;
-pub(crate) mod polyfills;
+pub(crate) mod utils;
 mod resolve;
 mod source;
 mod wapm_source;
