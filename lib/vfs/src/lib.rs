@@ -5,6 +5,7 @@ extern crate pretty_assertions;
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
+use std::future::Future;
 use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -16,8 +17,10 @@ use thiserror::Error;
 pub mod arc_box_file;
 pub mod arc_file;
 pub mod arc_fs;
+pub mod buffer_file;
 pub mod builder;
 pub mod combine_file;
+pub mod cow_file;
 pub mod dual_write_file;
 pub mod empty_fs;
 #[cfg(feature = "host-fs")]
@@ -46,8 +49,10 @@ mod webc_volume_fs;
 pub use arc_box_file::*;
 pub use arc_file::*;
 pub use arc_fs::*;
+pub use buffer_file::*;
 pub use builder::*;
 pub use combine_file::*;
+pub use cow_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
 pub use filesystems::FileSystems;
@@ -339,6 +344,20 @@ pub trait VirtualFile:
     /// on normal files
     fn get_special_fd(&self) -> Option<u32> {
         None
+    }
+
+    /// This method will copy a file from a source to this destination where
+    /// the default is to do a straight byte copy however file system implementors
+    /// may optimize this to do a zero copy
+    fn copy_reference<'a>(
+        &'a mut self,
+        mut src: Box<dyn VirtualFile + Send + Sync>,
+    ) -> Pin<Box<dyn Future<Output = std::io::Result<()>> + 'a>> {
+        Box::pin(async move {
+            let bytes_written = tokio::io::copy(&mut src, self).await?;
+            tracing::trace!(bytes_written, "Copying file into host filesystem",);
+            Ok(())
+        })
     }
 
     /// Polls the file for when there is data to be read

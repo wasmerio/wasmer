@@ -6,7 +6,7 @@ use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
 use super::*;
-use crate::{FsError, Result, VirtualFile};
+use crate::{CopyOnWriteFile, FsError, Result, VirtualFile};
 use std::borrow::Cow;
 use std::cmp;
 use std::convert::TryInto;
@@ -273,6 +273,29 @@ impl VirtualFile for FileHandle {
             },
             _ => None,
         }
+    }
+
+    fn copy_reference<'a>(
+        &'a mut self,
+        src: Box<dyn VirtualFile + Send + Sync>,
+    ) -> Pin<Box<dyn std::future::Future<Output = std::io::Result<()>> + 'a>> {
+        let inner = self.filesystem.inner.clone();
+        Box::pin(async move {
+            let mut fs = inner.write().unwrap();
+            let inode = fs.storage.get_mut(self.inode);
+            match inode {
+                Some(inode) => {
+                    *inode = Node::CustomFile(CustomFileNode {
+                        inode: inode.inode(),
+                        name: inode.name().to_string_lossy().to_string().into(),
+                        file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
+                        metadata: inode.metadata().clone(),
+                    });
+                    Ok(())
+                }
+                None => Err(std::io::ErrorKind::InvalidInput.into()),
+            }
+        })
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
