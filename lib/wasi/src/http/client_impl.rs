@@ -93,7 +93,7 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
             .headers
             .into_iter()
             .map(|h| {
-                let value = HeaderValue::from_bytes(&h.value).map_err(|e| e.to_string())?;
+                let value = HeaderValue::from_bytes(h.value).map_err(|e| e.to_string())?;
                 let key =
                     http::HeaderName::from_bytes(h.key.as_bytes()).map_err(|e| e.to_string())?;
                 Ok((key, value))
@@ -124,7 +124,7 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
         };
 
         let req = crate::http::HttpRequest {
-            url: Url::parse(&request.url).map_err(|e| e.to_string())?,
+            url: Url::parse(request.url).map_err(|e| e.to_string())?,
             method,
             headers,
             body,
