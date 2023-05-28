@@ -140,7 +140,7 @@ impl PackageSummary {
         let container = Container::from_disk(&path)?;
         let webc_sha256 = WebcHash::for_file(&path)?;
         let url =
-            crate::runtime::resolver::polyfills::url_from_file_path(&path).ok_or_else(|| {
+            crate::runtime::resolver::utils::url_from_file_path(&path).ok_or_else(|| {
                 anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
             })?;
 

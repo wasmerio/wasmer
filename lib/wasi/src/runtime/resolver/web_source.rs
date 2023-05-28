@@ -182,7 +182,7 @@ impl WebSource {
         let request = HttpRequest {
             url: url.clone(),
             method: Method::HEAD,
-            headers: super::polyfills::webc_headers(),
+            headers: super::utils::webc_headers(),
             body: None,
             options: Default::default(),
         };
@@ -190,7 +190,7 @@ impl WebSource {
         let response = self.client.request(request).await?;
 
         if !response.is_ok() {
-            return Err(super::polyfills::http_error(&response)
+            return Err(super::utils::http_error(&response)
                 .context(format!("The HEAD request to \"{url}\" failed")));
         }
 
@@ -208,14 +208,14 @@ impl WebSource {
         let request = HttpRequest {
             url: url.clone(),
             method: Method::GET,
-            headers: super::polyfills::webc_headers(),
+            headers: super::utils::webc_headers(),
             body: None,
             options: Default::default(),
         };
         let response = self.client.request(request).await?;
 
         if !response.is_ok() {
-            return Err(super::polyfills::http_error(&response)
+            return Err(super::utils::http_error(&response)
                 .context(format!("The GET request to \"{url}\" failed")));
         }
 

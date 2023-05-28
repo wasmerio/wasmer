@@ -170,7 +170,7 @@ mod tests {
                     entrypoint: Some("bash".to_string()),
                 },
                 dist: DistributionInfo {
-                    webc: crate::runtime::resolver::polyfills::url_from_file_path(
+                    webc: crate::runtime::resolver::utils::url_from_file_path(
                         bash.canonicalize().unwrap()
                     )
                     .unwrap(),

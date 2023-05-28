@@ -111,7 +111,7 @@ impl BuiltinPackageLoader {
 
         if !response.is_ok() {
             let url = &dist.webc;
-            return Err(crate::runtime::resolver::polyfills::http_error(&response)
+            return Err(crate::runtime::resolver::utils::http_error(&response)
                 .context(format!("The GET request to \"{url}\" failed")));
         }
 
