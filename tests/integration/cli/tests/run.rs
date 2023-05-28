@@ -704,9 +704,11 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the first time");
-    }
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n",
+        "failed to run https://wapm.io/python/python for the first time"
+    );
 
     let time = std::time::Instant::now();
 
@@ -718,9 +720,11 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
 
     dbg!(&output);
 
-    if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the second time");
-    }
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n",
+        "failed to run https://wapm.io/python/python for the second time"
+    );
 
     // package should be cached
     assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
