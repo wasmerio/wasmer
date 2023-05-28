@@ -115,7 +115,9 @@ impl BuiltinPackageLoader {
                 .context(format!("The GET request to \"{url}\" failed")));
         }
 
-        let body = response.body.context("The response didn't contain a body")?;
+        let body = response
+            .body
+            .context("The response didn't contain a body")?;
 
         Ok(body.into())
     }

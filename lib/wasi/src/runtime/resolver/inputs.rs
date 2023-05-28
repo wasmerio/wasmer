@@ -139,10 +139,9 @@ impl PackageSummary {
         let path = path.as_ref().canonicalize()?;
         let container = Container::from_disk(&path)?;
         let webc_sha256 = WebcHash::for_file(&path)?;
-        let url =
-            crate::runtime::resolver::utils::url_from_file_path(&path).ok_or_else(|| {
-                anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
-            })?;
+        let url = crate::runtime::resolver::utils::url_from_file_path(&path).ok_or_else(|| {
+            anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
+        })?;
 
         let pkg = PackageInfo::from_manifest(container.manifest())?;
         let dist = DistributionInfo {
