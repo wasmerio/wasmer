@@ -261,13 +261,13 @@ mod webc_on_disk {
             .arg(fixtures::python())
             .arg("--")
             .arg("-c")
-            .arg("ls -l /usr/coreutils/*.md && ls -l /lib/python3.6/")
+            .arg("ls -l /usr/coreutils/*.md && ls -l /lib/python3.6/*.py")
             .assert();
 
         assert
             .success()
             .stdout(contains("/usr/coreutils/README.md"))
-            .stdout(contains("/lib/python3.6/"));
+            .stdout(contains("/lib/python3.6/this.py"));
     }
 }
 
