@@ -553,21 +553,6 @@
 <span id="551">551</span>
 <span id="552">552</span>
 <span id="553">553</span>
-<span id="554">554</span>
-<span id="555">555</span>
-<span id="556">556</span>
-<span id="557">557</span>
-<span id="558">558</span>
-<span id="559">559</span>
-<span id="560">560</span>
-<span id="561">561</span>
-<span id="562">562</span>
-<span id="563">563</span>
-<span id="564">564</span>
-<span id="565">565</span>
-<span id="566">566</span>
-<span id="567">567</span>
-<span id="568">568</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Write <span class="kw">as _</span>,
     io::Write,
@@ -577,13 +562,14 @@
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>http::Method;
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>webc::compat::Container;
 
 <span class="kw">use crate</span>::{
-    http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
+    http::{HttpClient, HttpRequest},
     runtime::resolver::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
     },
@@ -749,70 +735,55 @@
 
     <span class="kw">async fn </span>get_etag(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
         <span class="kw">let </span>request = HttpRequest {
-            url: url.to_string(),
-            method: <span class="string">&quot;HEAD&quot;</span>.to_string(),
-            headers: headers(),
+            url: url.clone(),
+            method: Method::HEAD,
+            headers: <span class="kw">super</span>::utils::webc_headers(),
             body: <span class="prelude-val">None</span>,
             options: Default::default(),
         };
-        <span class="kw">let </span>HttpResponse {
-            ok,
-            status,
-            status_text,
-            headers,
-            ..
-        } = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">if </span>!ok {
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;HEAD request to \&quot;{url}\&quot; failed with {status} {status_text}&quot;</span>);
+        <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if </span>!response.is_ok() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">super</span>::utils::http_error(<span class="kw-2">&amp;</span>response)
+                .context(<span class="macro">format!</span>(<span class="string">&quot;The HEAD request to \&quot;{url}\&quot; failed&quot;</span>)));
         }
 
-        <span class="kw">let </span>etag = headers
-            .into_iter()
-            .find(|(name, <span class="kw">_</span>)| name.to_string().to_lowercase() == <span class="string">&quot;etag&quot;</span>)
-            .map(|(<span class="kw">_</span>, value)| value)
-            .context(<span class="string">&quot;The HEAD request didn&#39;t contain an ETag header`&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>etag = response
+            .headers
+            .get(<span class="string">&quot;ETag&quot;</span>)
+            .context(<span class="string">&quot;The HEAD request didn&#39;t contain an ETag header`&quot;</span>)<span class="question-mark">?
+            </span>.to_str()
+            .context(<span class="string">&quot;The ETag wasn&#39;t valid UTF-8&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(etag)
+        <span class="prelude-val">Ok</span>(etag.to_string())
     }
 
     <span class="kw">async fn </span>fetch(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;u8&gt;, <span class="prelude-ty">Option</span>&lt;String&gt;), Error&gt; {
         <span class="kw">let </span>request = HttpRequest {
-            url: url.to_string(),
-            method: <span class="string">&quot;GET&quot;</span>.to_string(),
-            headers: headers(),
+            url: url.clone(),
+            method: Method::GET,
+            headers: <span class="kw">super</span>::utils::webc_headers(),
             body: <span class="prelude-val">None</span>,
             options: Default::default(),
         };
-        <span class="kw">let </span>HttpResponse {
-            ok,
-            status,
-            status_text,
-            headers,
-            body,
-            ..
-        } = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">if </span>!ok {
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;HEAD request to \&quot;{url}\&quot; failed with {status} {status_text}&quot;</span>);
+        <span class="kw">if </span>!response.is_ok() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">super</span>::utils::http_error(<span class="kw-2">&amp;</span>response)
+                .context(<span class="macro">format!</span>(<span class="string">&quot;The GET request to \&quot;{url}\&quot; failed&quot;</span>)));
         }
 
-        <span class="kw">let </span>body = body.context(<span class="string">&quot;Response didn&#39;t contain a body&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>body = response.body.context(<span class="string">&quot;Response didn&#39;t contain a body&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>etag = headers
-            .into_iter()
-            .find(|(name, <span class="kw">_</span>)| name.to_string().to_lowercase() == <span class="string">&quot;etag&quot;</span>)
-            .map(|(<span class="kw">_</span>, value)| value);
+        <span class="kw">let </span>etag = response
+            .headers
+            .get(<span class="string">&quot;ETag&quot;</span>)
+            .and_then(|etag| etag.to_str().ok())
+            .map(|etag| etag.to_string());
 
         <span class="prelude-val">Ok</span>((body, etag))
     }
-}
-
-<span class="kw">fn </span>headers() -&gt; Vec&lt;(String, String)&gt; {
-    <span class="macro">vec!</span>[
-        (<span class="string">&quot;Accept&quot;</span>.to_string(), <span class="string">&quot;application/webc&quot;</span>.to_string()),
-        (<span class="string">&quot;User-Agent&quot;</span>.to_string(), USER_AGENT.to_string()),
-    ]
 }
 
 <span class="attribute">#[async_trait::async_trait]
@@ -958,7 +929,10 @@
     <span class="kw">use </span>std::{collections::VecDeque, sync::Mutex};
 
     <span class="kw">use </span>futures::future::BoxFuture;
+    <span class="kw">use </span>http::{header::IntoHeaderName, HeaderMap, StatusCode};
     <span class="kw">use </span>tempfile::TempDir;
+
+    <span class="kw">use </span><span class="kw">crate</span>::http::HttpResponse;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -998,19 +972,15 @@
     <span class="kw">impl </span>ResponseBuilder {
         <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
             ResponseBuilder(HttpResponse {
-                pos: <span class="number">0</span>,
                 body: <span class="prelude-val">None</span>,
-                ok: <span class="bool-val">true</span>,
                 redirected: <span class="bool-val">false</span>,
-                status: <span class="number">200</span>,
-                status_text: <span class="string">&quot;OK&quot;</span>.to_string(),
-                headers: Vec::new(),
+                status: StatusCode::OK,
+                headers: HeaderMap::new(),
             })
         }
 
-        <span class="kw">pub fn </span>with_status(<span class="kw-2">mut </span><span class="self">self</span>, code: u16, text: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">pub fn </span>with_status(<span class="kw-2">mut </span><span class="self">self</span>, code: StatusCode) -&gt; <span class="self">Self </span>{
             <span class="self">self</span>.<span class="number">0</span>.status = code;
-            <span class="self">self</span>.<span class="number">0</span>.status_text = text.into();
             <span class="self">self
         </span>}
 
@@ -1019,12 +989,12 @@
             <span class="self">self
         </span>}
 
-        <span class="kw">pub fn </span>with_etag(<span class="self">self</span>, value: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">pub fn </span>with_etag(<span class="self">self</span>, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
             <span class="self">self</span>.with_header(<span class="string">&quot;ETag&quot;</span>, value)
         }
 
-        <span class="kw">pub fn </span>with_header(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw">impl </span>Into&lt;String&gt;, value: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
-            <span class="self">self</span>.<span class="number">0</span>.headers.push((name.into(), value.into()));
+        <span class="kw">pub fn </span>with_header(<span class="kw-2">mut </span><span class="self">self</span>, name: <span class="kw">impl </span>IntoHeaderName, value: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+            <span class="self">self</span>.<span class="number">0</span>.headers.insert(name, value.parse().unwrap());
             <span class="self">self
         </span>}
 
@@ -1081,7 +1051,7 @@
     </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
-            .with_status(<span class="number">500</span>, <span class="string">&quot;Internal Server Error&quot;</span>)
+            .with_status(StatusCode::INTERNAL_SERVER_ERROR)
             .build()]));
         <span class="comment">// Add something to the cache
         </span><span class="kw">let </span>python_path = temp.path().join(DUMMY_URL_HASH);

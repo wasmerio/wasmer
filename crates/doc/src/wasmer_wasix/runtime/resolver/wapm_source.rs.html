@@ -292,19 +292,16 @@
 <span id="290">290</span>
 <span id="291">291</span>
 <span id="292">292</span>
-<span id="293">293</span>
-<span id="294">294</span>
-<span id="295">295</span>
-<span id="296">296</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>http::{HeaderMap, Method};
 <span class="kw">use </span>semver::Version;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>webc::metadata::Manifest;
 
 <span class="kw">use crate</span>::{
-    http::{HttpClient, HttpRequest, HttpResponse},
+    http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::resolver::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
     },
@@ -350,33 +347,22 @@
         <span class="kw">let </span>body = serde_json::to_string(<span class="kw-2">&amp;</span>body)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>request = HttpRequest {
-            url: <span class="self">self</span>.registry_endpoint.to_string(),
-            method: <span class="string">&quot;POST&quot;</span>.to_string(),
+            url: <span class="self">self</span>.registry_endpoint.clone(),
+            method: Method::POST,
             body: <span class="prelude-val">Some</span>(body.into_bytes()),
-            headers: <span class="macro">vec!</span>[
-                (
-                    <span class="string">&quot;User-Agent&quot;</span>.to_string(),
-                    <span class="kw">crate</span>::http::USER_AGENT.to_string(),
-                ),
-                (<span class="string">&quot;Content-Type&quot;</span>.to_string(), <span class="string">&quot;application/json&quot;</span>.to_string()),
-            ],
+            headers: headers(),
             options: Default::default(),
         };
 
-        <span class="kw">let </span>HttpResponse {
-            ok,
-            status,
-            status_text,
-            body,
-            ..
-        } = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">if </span>!ok {
+        <span class="kw">if </span>!response.is_ok() {
             <span class="kw">let </span>url = <span class="kw-2">&amp;</span><span class="self">self</span>.registry_endpoint;
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;\&quot;{url}\&quot; replied with {status} {status_text}&quot;</span>);
+            <span class="kw">let </span>status = response.status;
+            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;\&quot;{url}\&quot; replied with {status}&quot;</span>);
         }
 
-        <span class="kw">let </span>body = body.unwrap_or_default();
+        <span class="kw">let </span>body = response.body.unwrap_or_default();
         <span class="kw">let </span>response: WapmWebQuery =
             serde_json::from_slice(<span class="kw-2">&amp;</span>body).context(<span class="string">&quot;Unable to deserialize the response&quot;</span>)<span class="question-mark">?</span>;
 
@@ -397,6 +383,13 @@
 
         <span class="prelude-val">Ok</span>(summaries)
     }
+}
+
+<span class="kw">fn </span>headers() -&gt; HeaderMap {
+    <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
+    headers.insert(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json&quot;</span>.parse().unwrap());
+    headers.insert(<span class="string">&quot;User-Agent&quot;</span>, USER_AGENT.parse().unwrap());
+    headers
 }
 
 <span class="kw">fn </span>decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSummary, Error&gt; {
@@ -476,9 +469,12 @@
 
 <span class="attribute">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::collections::HashMap;
+    <span class="kw">use </span>http::{HeaderMap, StatusCode};
 
-    <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::inputs::{DistributionInfo, PackageInfo};
+    <span class="kw">use crate</span>::{
+        http::HttpResponse,
+        runtime::resolver::inputs::{DistributionInfo, PackageInfo},
+    };
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -498,12 +494,11 @@
             //      -H &quot;Content-Type: application/json&quot; \
             //      -X POST \
             //      -d &#39;@wasmer_pack_cli_request.json&#39; &gt; wasmer_pack_cli_response.json
-            </span><span class="macro">assert_eq!</span>(request.method, <span class="string">&quot;POST&quot;</span>);
-            <span class="macro">assert_eq!</span>(request.url, WapmSource::WAPM_PROD_ENDPOINT);
-            <span class="kw">let </span>headers: HashMap&lt;String, String&gt; = request.headers.into_iter().collect();
-            <span class="macro">assert_eq!</span>(headers.len(), <span class="number">2</span>);
-            <span class="macro">assert_eq!</span>(headers[<span class="string">&quot;User-Agent&quot;</span>], <span class="kw">crate</span>::http::USER_AGENT);
-            <span class="macro">assert_eq!</span>(headers[<span class="string">&quot;Content-Type&quot;</span>], <span class="string">&quot;application/json&quot;</span>);
+            </span><span class="macro">assert_eq!</span>(request.method, http::Method::POST);
+            <span class="macro">assert_eq!</span>(request.url.as_str(), WapmSource::WAPM_PROD_ENDPOINT);
+            <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">2</span>);
+            <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;User-Agent&quot;</span>], USER_AGENT);
+            <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;Content-Type&quot;</span>], <span class="string">&quot;application/json&quot;</span>);
 
             <span class="kw">let </span>body: serde_json::Value =
                 serde_json::from_slice(request.body.as_deref().unwrap()).unwrap();
@@ -513,13 +508,10 @@
 
             Box::pin(<span class="kw">async </span>{
                 <span class="prelude-val">Ok</span>(HttpResponse {
-                    pos: <span class="number">0</span>,
                     body: <span class="prelude-val">Some</span>(WASMER_PACK_CLI_RESPONSE.to_vec()),
-                    ok: <span class="bool-val">true</span>,
                     redirected: <span class="bool-val">false</span>,
-                    status: <span class="number">200</span>,
-                    status_text: <span class="string">&quot;OK&quot;</span>.to_string(),
-                    headers: Vec::new(),
+                    status: StatusCode::OK,
+                    headers: HeaderMap::new(),
                 })
             })
         }

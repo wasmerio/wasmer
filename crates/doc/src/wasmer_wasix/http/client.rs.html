@@ -110,9 +110,29 @@
 <span id="108">108</span>
 <span id="109">109</span>
 <span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, ops::Deref, sync::Arc};
 
 <span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>http::{HeaderMap, Method, StatusCode};
+<span class="kw">use </span>url::Url;
 
 <span class="doccomment">/// Defines http client permissions.
 </span><span class="attribute">#[derive(Clone, Debug)]
@@ -159,46 +179,62 @@
 
 <span class="comment">// TODO: use types from http crate?
 </span><span class="kw">pub struct </span>HttpRequest {
-    <span class="kw">pub </span>url: String,
-    <span class="kw">pub </span>method: String,
-    <span class="kw">pub </span>headers: Vec&lt;(String, String)&gt;,
+    <span class="kw">pub </span>url: Url,
+    <span class="kw">pub </span>method: Method,
+    <span class="kw">pub </span>headers: HeaderMap,
     <span class="kw">pub </span>body: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
     <span class="kw">pub </span>options: HttpRequestOptions,
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>HttpRequest {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">let </span>HttpRequest {
+            url,
+            method,
+            headers,
+            body,
+            options,
+        } = <span class="self">self</span>;
+
         f.debug_struct(<span class="string">&quot;HttpRequest&quot;</span>)
-            .field(<span class="string">&quot;url&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.url)
-            .field(<span class="string">&quot;method&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.method)
-            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.headers)
-            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.body.as_deref().map(String::from_utf8_lossy))
-            .field(<span class="string">&quot;options&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.options)
+            .field(<span class="string">&quot;url&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format_args!</span>(<span class="string">&quot;{}&quot;</span>, url))
+            .field(<span class="string">&quot;method&quot;</span>, method)
+            .field(<span class="string">&quot;headers&quot;</span>, headers)
+            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span>body.as_deref().map(String::from_utf8_lossy))
+            .field(<span class="string">&quot;options&quot;</span>, <span class="kw-2">&amp;</span>options)
             .finish()
     }
 }
 
 <span class="comment">// TODO: use types from http crate?
 </span><span class="kw">pub struct </span>HttpResponse {
-    <span class="kw">pub </span>pos: usize,
     <span class="kw">pub </span>body: <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;,
-    <span class="kw">pub </span>ok: bool,
     <span class="kw">pub </span>redirected: bool,
-    <span class="kw">pub </span>status: u16,
-    <span class="kw">pub </span>status_text: String,
-    <span class="kw">pub </span>headers: Vec&lt;(String, String)&gt;,
+    <span class="kw">pub </span>status: StatusCode,
+    <span class="kw">pub </span>headers: HeaderMap,
+}
+
+<span class="kw">impl </span>HttpResponse {
+    <span class="kw">pub fn </span>is_ok(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        !<span class="self">self</span>.status.is_client_error() &amp;&amp; !<span class="self">self</span>.status.is_server_error()
+    }
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>HttpResponse {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">let </span>HttpResponse {
+            body,
+            redirected,
+            status,
+            headers,
+        } = <span class="self">self</span>;
+
         f.debug_struct(<span class="string">&quot;HttpResponse&quot;</span>)
-            .field(<span class="string">&quot;pos&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.pos)
-            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.body.as_deref().map(String::from_utf8_lossy))
-            .field(<span class="string">&quot;ok&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.ok)
-            .field(<span class="string">&quot;redirected&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.redirected)
-            .field(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.status)
-            .field(<span class="string">&quot;status_text&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.status_text)
-            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.headers)
+            .field(<span class="string">&quot;ok&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.is_ok())
+            .field(<span class="string">&quot;redirected&quot;</span>, <span class="kw-2">&amp;</span>redirected)
+            .field(<span class="string">&quot;status&quot;</span>, <span class="kw-2">&amp;</span>status)
+            .field(<span class="string">&quot;headers&quot;</span>, <span class="kw-2">&amp;</span>headers)
+            .field(<span class="string">&quot;body&quot;</span>, <span class="kw-2">&amp;</span>body.as_deref().map(String::from_utf8_lossy))
             .finish()
     }
 }

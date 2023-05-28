@@ -396,9 +396,6 @@
 <span id="394">394</span>
 <span id="395">395</span>
 <span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -409,6 +406,7 @@
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>http::{HeaderMap, Method};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>webc::{
     compat::{Container, ContainerError},
@@ -417,7 +415,7 @@
 
 <span class="kw">use crate</span>::{
     bin_factory::BinaryPackage,
-    http::{HttpClient, HttpRequest, HttpResponse, USER_AGENT},
+    http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::{
         package_loader::PackageLoader,
         resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
@@ -500,29 +498,24 @@
         }
 
         <span class="kw">let </span>request = HttpRequest {
-            url: dist.webc.to_string(),
-            method: <span class="string">&quot;GET&quot;</span>.to_string(),
-            headers: <span class="macro">vec!</span>[
-                (<span class="string">&quot;Accept&quot;</span>.to_string(), <span class="string">&quot;application/webc&quot;</span>.to_string()),
-                (<span class="string">&quot;User-Agent&quot;</span>.to_string(), USER_AGENT.to_string()),
-            ],
+            url: dist.webc.clone(),
+            method: Method::GET,
+            headers: headers(),
             body: <span class="prelude-val">None</span>,
             options: Default::default(),
         };
 
-        <span class="kw">let </span>HttpResponse {
-            body,
-            ok,
-            status,
-            status_text,
-            ..
-        } = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">if </span>!ok {
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;{status} {status_text}&quot;</span>);
+        <span class="kw">if </span>!response.is_ok() {
+            <span class="kw">let </span>url = <span class="kw-2">&amp;</span>dist.webc;
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">crate</span>::runtime::resolver::utils::http_error(<span class="kw-2">&amp;</span>response)
+                .context(<span class="macro">format!</span>(<span class="string">&quot;The GET request to \&quot;{url}\&quot; failed&quot;</span>)));
         }
 
-        <span class="kw">let </span>body = body.context(<span class="string">&quot;The response didn&#39;t contain a body&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>body = response
+            .body
+            .context(<span class="string">&quot;The response didn&#39;t contain a body&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(body.into())
     }
@@ -612,6 +605,13 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
         <span class="kw">super</span>::load_package_tree(root, <span class="self">self</span>, resolution).<span class="kw">await
     </span>}
+}
+
+<span class="kw">fn </span>headers() -&gt; HeaderMap {
+    <span class="kw">let </span><span class="kw-2">mut </span>headers = HeaderMap::new();
+    headers.insert(<span class="string">&quot;Accept&quot;</span>, <span class="string">&quot;application/webc&quot;</span>.parse().unwrap());
+    headers.insert(<span class="string">&quot;User-Agent&quot;</span>, USER_AGENT.parse().unwrap());
+    headers
 }
 
 <span class="kw">fn </span>discover_wasmer_dir() -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
@@ -708,6 +708,7 @@
     <span class="kw">use </span>std::{collections::VecDeque, sync::Mutex};
 
     <span class="kw">use </span>futures::future::BoxFuture;
+    <span class="kw">use </span>http::{HeaderMap, StatusCode};
     <span class="kw">use </span>tempfile::TempDir;
 
     <span class="kw">use crate</span>::{
@@ -749,13 +750,10 @@
     </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([HttpResponse {
-            pos: <span class="number">0</span>,
             body: <span class="prelude-val">Some</span>(PYTHON.to_vec()),
-            ok: <span class="bool-val">true</span>,
             redirected: <span class="bool-val">false</span>,
-            status: <span class="number">200</span>,
-            status_text: <span class="string">&quot;OK&quot;</span>.to_string(),
-            headers: Vec::new(),
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
         }]));
         <span class="kw">let </span>loader = BuiltinPackageLoader::new_with_client(temp.path(), client.clone());
         <span class="kw">let </span>summary = PackageSummary {
@@ -777,15 +775,11 @@
         <span class="comment">// A HTTP request was sent
         </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
         <span class="kw">let </span>request = <span class="kw-2">&amp;</span>requests[<span class="number">0</span>];
-        <span class="macro">assert_eq!</span>(request.url, summary.dist.webc.to_string());
+        <span class="macro">assert_eq!</span>(request.url, summary.dist.webc);
         <span class="macro">assert_eq!</span>(request.method, <span class="string">&quot;GET&quot;</span>);
-        <span class="macro">assert_eq!</span>(
-            request.headers,
-            [
-                (<span class="string">&quot;Accept&quot;</span>.to_string(), <span class="string">&quot;application/webc&quot;</span>.to_string()),
-                (<span class="string">&quot;User-Agent&quot;</span>.to_string(), USER_AGENT.to_string()),
-            ]
-        );
+        <span class="macro">assert_eq!</span>(request.headers.len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;Accept&quot;</span>], <span class="string">&quot;application/webc&quot;</span>);
+        <span class="macro">assert_eq!</span>(request.headers[<span class="string">&quot;User-Agent&quot;</span>], USER_AGENT);
         <span class="comment">// Make sure we got the right package
         </span><span class="kw">let </span>manifest = container.manifest();
         <span class="macro">assert_eq!</span>(manifest.entrypoint.as_deref(), <span class="prelude-val">Some</span>(<span class="string">&quot;python&quot;</span>));

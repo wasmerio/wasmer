@@ -54,15 +54,6 @@
 <span id="52">52</span>
 <span id="53">53</span>
 <span id="54">54</span>
-<span id="55">55</span>
-<span id="56">56</span>
-<span id="57">57</span>
-<span id="58">58</span>
-<span id="59">59</span>
-<span id="60">60</span>
-<span id="61">61</span>
-<span id="62">62</span>
-<span id="63">63</span>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>std::convert::TryFrom;
@@ -95,23 +86,14 @@
             .build()
             .context(<span class="string">&quot;Failed to construct http request&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>response = client.execute(request).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>response = client.execute(request).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>headers = std::mem::take(response.headers_mut());
 
-        <span class="kw">let </span>status = response.status().as_u16();
-        <span class="kw">let </span>status_text = response.status().as_str().to_string();
-        <span class="comment">// TODO: prevent redundant header copy.
-        </span><span class="kw">let </span>headers = response
-            .headers()
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_string()))
-            .collect();
+        <span class="kw">let </span>status = response.status();
         <span class="kw">let </span>data = response.bytes().<span class="kw">await</span><span class="question-mark">?</span>.to_vec();
 
         <span class="prelude-val">Ok</span>(HttpResponse {
-            pos: <span class="number">0usize</span>,
-            ok: <span class="bool-val">true</span>,
             status,
-            status_text,
             redirected: <span class="bool-val">false</span>,
             body: <span class="prelude-val">Some</span>(data),
             headers,

@@ -154,15 +154,31 @@
 <span id="152">152</span>
 <span id="153">153</span>
 <span id="154">154</span>
-</pre><pre class="rust"><code><span class="kw">use </span>std::string::FromUtf8Error;
-<span class="kw">use </span>std::sync::Arc;
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+</pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="kw">crate</span>::bindings::wasix_http_client_v1 <span class="kw">as </span>sys;
-<span class="kw">use crate</span>::{capabilities::Capabilities, Runtime};
+<span class="kw">use </span>http::{HeaderMap, HeaderValue};
+<span class="kw">use </span>url::Url;
 
 <span class="kw">use crate</span>::{
+    bindings::wasix_http_client_v1 <span class="kw">as </span>sys,
+    capabilities::Capabilities,
     http::{DynHttpClient, HttpClientCapabilityV1},
-    WasiEnv,
+    Runtime, WasiEnv,
 };
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>sys::Method&lt;<span class="lifetime">&#39;_</span>&gt; {
@@ -248,11 +264,12 @@
             .headers
             .into_iter()
             .map(|h| {
-                <span class="kw">let </span>value = String::from_utf8(h.value.to_vec())<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>((h.key.to_string(), value))
+                <span class="kw">let </span>value = HeaderValue::from_bytes(h.value).map_err(|e| e.to_string())<span class="question-mark">?</span>;
+                <span class="kw">let </span>key =
+                    http::HeaderName::from_bytes(h.key.as_bytes()).map_err(|e| e.to_string())<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>((key, value))
             })
-            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, FromUtf8Error&gt;&gt;()
-            .map_err(|<span class="kw">_</span>| <span class="string">&quot;non-utf8 request header&quot;</span>)<span class="question-mark">?</span>;
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;HeaderMap, String&gt;&gt;()<span class="question-mark">?</span>;
 
         <span class="comment">// FIXME: stream body...
 
@@ -264,9 +281,22 @@
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         };
 
+        <span class="kw">let </span>method = <span class="kw">match </span>request.method {
+            sys::Method::Get =&gt; http::Method::GET,
+            sys::Method::Head =&gt; http::Method::HEAD,
+            sys::Method::Post =&gt; http::Method::POST,
+            sys::Method::Put =&gt; http::Method::PUT,
+            sys::Method::Delete =&gt; http::Method::DELETE,
+            sys::Method::Connect =&gt; http::Method::CONNECT,
+            sys::Method::Options =&gt; http::Method::OPTIONS,
+            sys::Method::Trace =&gt; http::Method::TRACE,
+            sys::Method::Patch =&gt; http::Method::PATCH,
+            sys::Method::Other(other) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Unknown method: {other}&quot;</span>)),
+        };
+
         <span class="kw">let </span>req = <span class="kw">crate</span>::http::HttpRequest {
-            url: request.url.to_string(),
-            method: request.method.to_string(),
+            url: Url::parse(request.url).map_err(|e| e.to_string())<span class="question-mark">?</span>,
+            method,
             headers,
             body,
             options: <span class="kw">crate</span>::http::HttpRequestOptions {
@@ -284,10 +314,10 @@
 
         <span class="kw">let </span>res_headers = res
             .headers
-            .into_iter()
-            .map(|(key, value)| sys::HeaderResult {
-                key,
-                value: value.into_bytes(),
+            .iter()
+            .map(|(name, value)| sys::HeaderResult {
+                key: name.to_string(),
+                value: value.as_bytes().to_vec(),
             })
             .collect();
 
@@ -299,7 +329,7 @@
 
         <span class="prelude-val">Ok</span>({
             sys::Response {
-                status: res.status,
+                status: res.status.as_u16(),
                 headers: res_headers,
                 body: res_body,
                 <span class="comment">// TODO: provide redirect urls?
