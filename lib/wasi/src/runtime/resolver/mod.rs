@@ -3,9 +3,9 @@ mod in_memory_source;
 mod inputs;
 mod multi_source_registry;
 mod outputs;
-pub(crate) mod utils;
 mod resolve;
 mod source;
+pub(crate) mod utils;
 mod wapm_source;
 mod web_source;
 
