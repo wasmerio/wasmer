@@ -414,7 +414,7 @@ pub fn ___syscall140(ctx: FunctionEnvMut<EmEnv>, _which: i32, mut varargs: VarAr
     let result_ptr_value: WasmPtr<i64> = varargs.get(&ctx);
     let whence: i32 = varargs.get(&ctx);
     let offset = offset_low;
-    let ret = unsafe { lseek(fd, offset as _, whence) };
+    let ret = unsafe { lseek(fd, offset as _, whence) as i64 };
     let memory = ctx.data().memory(0);
     let memory = memory.view(&ctx);
 
