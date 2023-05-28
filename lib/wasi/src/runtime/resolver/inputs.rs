@@ -47,7 +47,15 @@ impl FromStr for PackageSpecifier {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.starts_with('.') || s.starts_with('/') || s.starts_with('\\') {
+        // There is no function in std for checking if a string is a valid path
+        // and we can't do Path::new(s).exists() because that assumes the
+        // package being specified is on the local filesystem, so let's make a
+        // best-effort guess.
+        if s.starts_with('.') || s.starts_with('/') {
+            return Ok(PackageSpecifier::Path(s.into()));
+        }
+        #[cfg(windows)]
+        if s.contains('\\') {
             return Ok(PackageSpecifier::Path(s.into()));
         }
 
