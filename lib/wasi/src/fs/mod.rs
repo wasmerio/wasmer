@@ -281,7 +281,7 @@ impl WasiFsRoot {
                 Ok(())
             }
             WasiFsRoot::Backing(fs) => {
-                merge_filesystems_expensive(other, fs).await?;
+                merge_filesystems(other, fs).await?;
                 Ok(())
             }
         }
@@ -341,10 +341,8 @@ impl FileSystem for WasiFsRoot {
 
 /// Merge the contents of one filesystem into another.
 ///
-/// This is a pretty heavy-weight operation because it will copy the contents of
-/// each file from `source` into `destination`.
 #[tracing::instrument(level = "debug", skip_all)]
-async fn merge_filesystems_expensive(
+async fn merge_filesystems(
     source: &dyn FileSystem,
     destination: &dyn FileSystem,
 ) -> Result<(), virtual_fs::FsError> {
@@ -366,7 +364,7 @@ async fn merge_filesystems_expensive(
             }
         } else if metadata.is_file() {
             files.push(async move {
-                copy_file(source, destination, &path)
+                copy_reference(source, destination, &path)
                     .await
                     .map_err(virtual_fs::FsError::from)
             });
@@ -383,27 +381,20 @@ async fn merge_filesystems_expensive(
 }
 
 #[tracing::instrument(level = "trace", skip_all, fields(path=%path.display()))]
-async fn copy_file(
+async fn copy_reference(
     source: &dyn FileSystem,
     destination: &dyn FileSystem,
     path: &Path,
 ) -> Result<(), std::io::Error> {
-    let mut src = source.new_open_options().read(true).open(path)?;
+    let src = source.new_open_options().read(true).open(path)?;
     let mut dst = destination
         .new_open_options()
         .create(true)
         .write(true)
         .truncate(true)
         .open(path)?;
-    let bytes_written = tokio::io::copy(&mut src, &mut dst).await?;
 
-    tracing::trace!(
-        path=%path.display(),
-        bytes_written,
-        "Copying file into host filesystem",
-    );
-
-    Ok(())
+    dst.copy_reference(src).await
 }
 
 fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
