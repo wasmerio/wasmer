@@ -58,6 +58,9 @@ impl FromStr for PackageSpecifier {
         if s.contains('\\') {
             return Ok(PackageSpecifier::Path(s.into()));
         }
+        if Path::new(s).exists() {
+            return Ok(PackageSpecifier::Path(s.into()));
+        }
 
         if let Ok(url) = Url::parse(s) {
             if url.has_host() {
