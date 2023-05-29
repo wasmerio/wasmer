@@ -159,6 +159,7 @@ enum WasmerCLIOptions {
     Add(Add),
 
     /// (unstable) Run a WebAssembly file or WEBC container.
+    #[clap(alias = "run-unstable")]
     Run(Run),
 
     // DEPLOY commands
