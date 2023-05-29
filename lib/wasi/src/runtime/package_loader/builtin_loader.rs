@@ -89,13 +89,20 @@ impl BuiltinPackageLoader {
 
     async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
         if dist.webc.scheme() == "file" {
-            // Note: The Url::to_file_path() method is platform-specific
-            #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))]
-            if let Ok(path) = dist.webc.to_file_path() {
-                // FIXME: This will block the thread
-                let bytes = std::fs::read(&path)
-                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-                return Ok(bytes.into());
+            match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
+                Ok(path) => {
+                    // FIXME: This will block the thread
+                    let bytes = std::fs::read(&path)
+                        .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
+                    return Ok(bytes.into());
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        url=%dist.webc,
+                        error=&*e,
+                        "Unable to convert the file:// URL to a path",
+                    );
+                }
             }
         }
 
