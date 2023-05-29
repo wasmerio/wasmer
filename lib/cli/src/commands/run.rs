@@ -69,8 +69,7 @@ pub struct Run {
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
     wcgi: WcgiOptions,
-    #[cfg(feature = "sys")]
-    /// The stack size (default is 1048576)
+    /// Set the default stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
     /// The function or command to invoke.
