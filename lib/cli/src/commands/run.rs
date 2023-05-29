@@ -1,772 +1,638 @@
-use crate::commands::run::wasi::RunProperties;
-use crate::common::get_cache_dir;
-use crate::logging;
-use crate::package_source::PackageSource;
-use crate::store::{CompilerType, StoreOptions};
-use crate::suggestions::suggest_function_exports;
-use crate::warning;
-use anyhow::{anyhow, Context, Result};
-use clap::Parser;
-#[cfg(feature = "coredump")]
-use std::fs::File;
-use std::net::SocketAddr;
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::{io::Write, sync::Arc};
-use tokio::runtime::Handle;
-use wasmer::FunctionEnv;
-use wasmer::*;
-use wasmer_cache::{Cache, FileSystemCache, Hash};
-use wasmer_registry::WasmerConfig;
-use wasmer_types::Type as ValueType;
-use wasmer_wasix::runners::Runner;
+#![allow(missing_docs, unused)]
 
 mod wasi;
 
-pub(crate) use wasi::Wasi;
+use std::{
+    collections::BTreeMap,
+    fmt::{Binary, Display},
+    fs::File,
+    io::{ErrorKind, LineWriter, Read, Write},
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::{Arc, Mutex},
+    time::{Duration, SystemTime},
+};
 
-/// The options for the `wasmer run` subcommand, runs either a package, URL or a file
-#[derive(Debug, Parser, Clone)]
+use anyhow::{Context, Error};
+use clap::Parser;
+use clap_verbosity_flag::WarnLevel;
+use once_cell::sync::Lazy;
+use sha2::{Digest, Sha256};
+use tempfile::NamedTempFile;
+use tokio::runtime::Handle;
+use url::Url;
+use wapm_targz_to_pirita::{FileMap, TransformManifestFunctions};
+use wasmer::{
+    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
+    Value,
+};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::ArtifactBuild;
+use wasmer_registry::Package;
+use wasmer_wasix::{
+    bin_factory::BinaryPackage,
+    runners::{MappedDirectory, Runner},
+    runtime::resolver::PackageSpecifier,
+};
+use wasmer_wasix::{
+    runners::{
+        emscripten::EmscriptenRunner,
+        wasi::WasiRunner,
+        wcgi::{AbortHandle, WcgiRunner},
+    },
+    Runtime,
+};
+use webc::{metadata::Manifest, v1::DirOrFile, Container};
+
+use crate::{commands::run::wasi::Wasi, store::StoreOptions};
+
+static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
+    wasmer_registry::WasmerConfig::get_wasmer_dir()
+        .ok()
+        .or_else(|| dirs::home_dir().map(|home| home.join(".wasmer")))
+        .unwrap_or_else(|| PathBuf::from(".wasmer"))
+});
+
+/// The unstable `wasmer run` subcommand.
+#[derive(Debug, Parser)]
 pub struct Run {
-    /// File to run
-    #[clap(name = "SOURCE")]
-    pub(crate) path: PackageSource,
-    /// Options to run the file / package / URL with
     #[clap(flatten)]
-    pub(crate) options: RunWithoutFile,
-}
-
-/// Same as `wasmer run`, but without the required `path` argument (injected previously)
-#[derive(Debug, Parser, Clone, Default)]
-pub struct RunWithoutFile {
-    /// When installing packages with `wasmer $package`, force re-downloading the package
-    #[clap(long = "force", short = 'f')]
-    pub(crate) force_install: bool,
-
-    /// Disable the cache
-    #[clap(long = "disable-cache")]
-    pub(crate) disable_cache: bool,
-
-    /// Invoke a specified function
-    #[clap(long = "invoke", short = 'i')]
-    pub(crate) invoke: Option<String>,
-
-    /// The command name is a string that will override the first argument passed
-    /// to the wasm program. This is used in wapm to provide nicer output in
-    /// help commands and error messages of the running wasm program
-    #[clap(long = "command-name", hide = true)]
-    pub(crate) command_name: Option<String>,
-
-    /// A prehashed string, used to speed up start times by avoiding hashing the
-    /// wasm module. If the specified hash is not found, Wasmer will hash the module
-    /// as if no `cache-key` argument was passed.
-    #[clap(long = "cache-key", hide = true)]
-    pub(crate) cache_key: Option<String>,
-
+    verbosity: clap_verbosity_flag::Verbosity<WarnLevel>,
+    /// The Wasmer home directory.
+    #[clap(long = "wasmer-dir", env = "WASMER_DIR", default_value = WASMER_HOME.as_os_str())]
+    wasmer_dir: PathBuf,
     #[clap(flatten)]
-    pub(crate) store: StoreOptions,
-
-    // TODO: refactor WASI structure to allow shared options with Emscripten
+    store: StoreOptions,
     #[clap(flatten)]
-    pub(crate) wasi: Wasi,
-
-    /// Enable non-standard experimental IO devices
-    #[cfg(feature = "io-devices")]
-    #[clap(long = "enable-io-devices")]
-    pub(crate) enable_experimental_io_devices: bool,
-
-    /// Enable debug output
-    #[clap(long = "debug", short = 'd')]
-    pub(crate) debug: bool,
-
-    #[clap(long = "verbose")]
-    pub(crate) verbose: Option<u8>,
-
+    wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
-    pub(crate) wcgi: WcgiOptions,
-
-    /// Enable coredump generation after a WebAssembly trap.
-    #[clap(name = "COREDUMP PATH", long = "coredump-on-trap")]
-    coredump_on_trap: Option<PathBuf>,
-
+    wcgi: WcgiOptions,
     #[cfg(feature = "sys")]
     /// The stack size (default is 1048576)
     #[clap(long = "stack-size")]
-    pub(crate) stack_size: Option<usize>,
-
-    /// Application arguments
-    #[clap(value_name = "ARGS")]
-    pub(crate) args: Vec<String>,
+    stack_size: Option<usize>,
+    /// The function or command to invoke.
+    #[clap(short, long, aliases = &["command", "invoke", "command-name"])]
+    entrypoint: Option<String>,
+    /// Generate a coredump at this path if a WebAssembly trap occurs
+    #[clap(name = "COREDUMP PATH", long)]
+    coredump_on_trap: Option<PathBuf>,
+    /// The file, URL, or package to run.
+    #[clap(value_parser = PackageSource::infer)]
+    input: PackageSource,
+    /// Command-line arguments passed to the package
+    args: Vec<String>,
 }
 
-/// Same as `Run`, but uses a resolved local file path.
-#[derive(Debug, Clone, Default)]
-pub struct RunWithPathBuf {
-    /// File to run
-    pub(crate) path: PathBuf,
-    /// Options for running the file
-    pub(crate) options: RunWithoutFile,
-}
-
-impl Deref for RunWithPathBuf {
-    type Target = RunWithoutFile;
-    fn deref(&self) -> &Self::Target {
-        &self.options
-    }
-}
-
-impl RunWithPathBuf {
-    /// Execute the run command
-    pub fn execute(&self) -> Result<()> {
-        let mut self_clone = self.clone();
-
-        if self_clone.path.is_dir() {
-            let (manifest, pathbuf) = wasmer_registry::get_executable_file_from_path(
-                &self_clone.path,
-                self_clone.command_name.as_deref(),
-            )?;
-
-            // See https://github.com/wasmerio/wasmer/issues/3492 -
-            // we need IndexMap to have a stable ordering for the [fs] mapping,
-            // otherwise overlapping filesystem mappings might not work
-            // since we want to control the order of mounting directories from the
-            // wasmer.toml file
-            let default = indexmap::IndexMap::default();
-            let fs = manifest.fs.as_ref().unwrap_or(&default);
-            for (alias, real_dir) in fs.iter() {
-                let real_dir = self_clone.path.join(real_dir);
-                if !real_dir.exists() {
-                    #[cfg(feature = "debug")]
-                    if self_clone.debug {
-                        println!(
-                            "warning: cannot map {alias:?} to {}: directory does not exist",
-                            real_dir.display()
-                        );
-                    }
-                    continue;
-                }
-
-                self_clone.options.wasi.map_dir(alias, real_dir.clone());
-            }
-
-            self_clone.path = pathbuf;
-        }
-
-        if self.debug {
-            let level = match self_clone.verbose {
-                Some(1) => log::LevelFilter::Debug,
-                Some(_) | None => log::LevelFilter::Trace,
-            };
-            logging::set_up_logging(level);
-        }
-
-        let invoke_res = self_clone.inner_execute().with_context(|| {
-            format!(
-                "failed to run `{}`{}",
-                self_clone.path.display(),
-                if CompilerType::enabled().is_empty() {
-                    " (no compilers enabled)"
-                } else {
-                    ""
-                }
-            )
-        });
-
-        if let Err(err) = invoke_res {
-            #[cfg(feature = "coredump")]
-            if let Some(coredump_path) = self.coredump_on_trap.as_ref() {
-                let source_name = self.path.to_str().unwrap_or("unknown");
-                if let Err(coredump_err) = generate_coredump(&err, source_name, coredump_path) {
-                    eprintln!("warning: coredump failed to generate: {}", coredump_err);
-                    Err(err)
-                } else {
-                    Err(err.context(format!("core dumped at {}", coredump_path.display())))
-                }
-            } else {
-                Err(err)
-            }
-
-            #[cfg(not(feature = "coredump"))]
-            Err(err)
-        } else {
-            invoke_res
-        }
-    }
-
-    fn inner_module_init(&self, store: &mut Store, instance: &Instance) -> Result<()> {
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
-
-        // If this module exports an _initialize function, run that first.
-        if let Ok(initialize) = instance.exports.get_function("_initialize") {
-            initialize
-                .call(store, &[])
-                .with_context(|| "failed to run _initialize function")?;
-        }
-        Ok(())
-    }
-
-    fn inner_module_invoke_function(
-        store: &mut Store,
-        instance: &Instance,
-        path: &Path,
-        invoke: &str,
-        args: &[String],
-    ) -> Result<()> {
-        let result = Self::invoke_function(store, instance, path, invoke, args)?;
-        println!(
-            "{}",
-            result
-                .iter()
-                .map(|val| val.to_string())
-                .collect::<Vec<String>>()
-                .join(" ")
-        );
-        Ok(())
-    }
-
-    fn inner_module_run(&self, store: &mut Store, instance: &Instance) -> Result<i32> {
-        // Do we want to invoke a function?
-        if let Some(ref invoke) = self.invoke {
-            Self::inner_module_invoke_function(
-                store,
-                instance,
-                self.path.as_path(),
-                invoke,
-                &self.args,
-            )?;
-        } else {
-            let start: Function =
-                Self::try_find_function(instance, self.path.as_path(), "_start", &[])?;
-            start.call(store, &[])?;
-        }
-
-        Ok(0)
-    }
-
-    fn inner_execute(&self) -> Result<()> {
+impl Run {
+    pub fn execute(&self) -> Result<(), Error> {
+        crate::logging::set_up_logging(self.verbosity.log_level_filter());
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
         let handle = runtime.handle().clone();
 
-        #[cfg(feature = "webc_runner")]
-        {
-            if let Ok(pf) = webc::Container::from_disk(self.path.clone()) {
-                return self.run_container(pf, self.command_name.as_deref(), &self.args, handle);
-            }
-        }
-        let (mut store, module) = self.get_store_module()?;
-        #[cfg(feature = "emscripten")]
-        {
-            use wasmer_emscripten::{
-                generate_emscripten_env, is_emscripten_module, run_emscripten_instance, EmEnv,
-                EmscriptenGlobals,
-            };
-            // TODO: refactor this
-            if is_emscripten_module(&module) {
-                let em_env = EmEnv::new();
-                for (k, v) in self.wasi.env_vars.iter() {
-                    em_env.set_env_var(k, v);
-                }
-                // create an EmEnv with default global
-                let env = FunctionEnv::new(&mut store, em_env);
-                let mut emscripten_globals = EmscriptenGlobals::new(&mut store, &env, &module)
-                    .map_err(|e| anyhow!("{}", e))?;
-                env.as_mut(&mut store).set_data(
-                    &emscripten_globals.data,
-                    self.wasi
-                        .mapped_dirs
-                        .clone()
-                        .into_iter()
-                        .map(|d| (d.guest, d.host))
-                        .collect(),
-                );
-                let import_object =
-                    generate_emscripten_env(&mut store, &env, &mut emscripten_globals);
-                let mut instance = match Instance::new(&mut store, &module, &import_object) {
-                    Ok(instance) => instance,
-                    Err(e) => {
-                        let err: Result<(), _> = Err(e);
-                        #[cfg(feature = "wasi")]
-                        {
-                            if Wasi::has_wasi_imports(&module) {
-                                return err.with_context(|| "This module has both Emscripten and WASI imports. Wasmer does not currently support Emscripten modules using WASI imports.");
-                            }
-                        }
-                        return err.with_context(|| "Can't instantiate emscripten module");
-                    }
-                };
-
-                run_emscripten_instance(
-                    &mut instance,
-                    env.into_mut(&mut store),
-                    &mut emscripten_globals,
-                    if let Some(cn) = &self.command_name {
-                        cn
-                    } else {
-                        self.path.to_str().unwrap()
-                    },
-                    self.args.iter().map(|arg| arg.as_str()).collect(),
-                    self.invoke.clone(),
-                )?;
-                return Ok(());
-            }
+        #[cfg(feature = "sys")]
+        if self.stack_size.is_some() {
+            wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
-        // If WASI is enabled, try to execute it with it
-        #[cfg(feature = "wasi")]
-        let ret = {
-            use std::collections::BTreeSet;
-            use wasmer_wasix::WasiVersion;
+        let (mut store, _) = self.store.get_store()?;
+        let runtime =
+            self.wasi
+                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
 
-            let wasi_versions = Wasi::get_versions(&module);
-            match wasi_versions {
-                Some(wasi_versions) if !wasi_versions.is_empty() => {
-                    if wasi_versions.len() >= 2 {
-                        let get_version_list = |versions: &BTreeSet<WasiVersion>| -> String {
-                            versions
-                                .iter()
-                                .map(|v| format!("`{}`", v.get_namespace_str()))
-                                .collect::<Vec<String>>()
-                                .join(", ")
-                        };
-                        if self.wasi.deny_multiple_wasi_versions {
-                            let version_list = get_version_list(&wasi_versions);
-                            bail!("Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.", version_list);
-                        }
-                    }
+        let target = self
+            .input
+            .resolve_target(&runtime)
+            .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
 
-                    let program_name = self
-                        .command_name
-                        .clone()
-                        .or_else(|| {
-                            self.path
-                                .file_name()
-                                .map(|f| f.to_string_lossy().to_string())
-                        })
-                        .unwrap_or_default();
+        let result = self.execute_target(target, Arc::new(runtime), &mut store);
 
-                    let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
-                    let runtime = Arc::new(self.wasi.prepare_runtime(store.engine().clone(), &wasmer_dir, handle)?);
+        if let Err(e) = &result {
+            self.maybe_save_coredump(e);
+        }
 
-                    let (ctx, instance) = self
-                        .wasi
-                        .instantiate(&module, program_name, self.args.clone(), runtime, &mut store)
-                        .with_context(|| "failed to instantiate WASI module")?;
-
-                    let capable_of_deep_sleep = unsafe { ctx.data(&store).capable_of_deep_sleep() };
-                    ctx.data_mut(&mut store)
-                        .enable_deep_sleep = capable_of_deep_sleep;
-
-                    self.inner_module_init(&mut store, &instance)?;
-                    Wasi::run(
-                        RunProperties {
-                            ctx, path: self.path.clone(), invoke: self.invoke.clone(), args: self.args.clone()
-                        },
-                        store
-                    )
-                }
-                // not WASI
-                _ => {
-                    let instance = Instance::new(&mut store, &module, &imports! {})?;
-                    self.inner_module_init(&mut store, &instance)?;
-                    self.inner_module_run(&mut store, &instance)
-                }
-            }
-        }.map(|exit_code| {
-            std::io::stdout().flush().ok();
-            std::io::stderr().flush().ok();
-            std::process::exit(exit_code);
-        });
-
-        #[cfg(not(feature = "wasi"))]
-        let ret = {
-            let instance = Instance::new(&module, &imports! {})?;
-
-            // If this module exports an _initialize function, run that first.
-            if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                initialize
-                    .call(&[])
-                    .with_context(|| "failed to run _initialize function")?;
-            }
-
-            // Do we want to invoke a function?
-            if let Some(ref invoke) = self.invoke {
-                let result =
-                    Self::invoke_function(&instance, self.path.as_path(), invoke, &self.args)?;
-                println!(
-                    "{}",
-                    result
-                        .iter()
-                        .map(|val| val.to_string())
-                        .collect::<Vec<String>>()
-                        .join(" ")
-                );
-            } else {
-                let start: Function =
-                    Self.try_find_function(&instance, self.path.as_path(), "_start", &[])?;
-                let result = start.call(&[]);
-                #[cfg(feature = "wasi")]
-                self.wasi.handle_result(result)?;
-                #[cfg(not(feature = "wasi"))]
-                result?;
-            }
-        };
-
-        ret
+        result
     }
 
-    #[cfg(feature = "webc_runner")]
-    fn run_container(
+    fn execute_target(
         &self,
-        container: webc::Container,
-        id: Option<&str>,
-        args: &[String],
-        handle: Handle,
-    ) -> Result<(), anyhow::Error> {
-        use wasmer_wasix::{
-            bin_factory::BinaryPackage,
-            runners::{emscripten::EmscriptenRunner, wasi::WasiRunner, wcgi::WcgiRunner},
-            Runtime,
-        };
-
-        let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
-
-        let id = id
-            .or_else(|| container.manifest().entrypoint.as_deref())
-            .context("No command specified")?;
-        let command = container
-            .manifest()
-            .commands
-            .get(id)
-            .with_context(|| format!("No metadata found for the command, \"{id}\""))?;
-
-        let (store, _compiler_type) = self.store.get_store()?;
-        let runtime = self
-            .wasi
-            .prepare_runtime(store.engine().clone(), &wasmer_dir, handle)?;
-        let runtime = Arc::new(runtime);
-        let pkg = runtime
-            .task_manager()
-            .block_on(BinaryPackage::from_webc(&container, &*runtime))?;
-
-        if WasiRunner::can_run_command(command).unwrap_or(false) {
-            let mut runner = WasiRunner::new();
-            runner.set_args(args.to_vec());
-            return runner
-                .run_command(id, &pkg, runtime)
-                .context("WASI runner failed");
-        }
-
-        if EmscriptenRunner::can_run_command(command).unwrap_or(false) {
-            let mut runner = EmscriptenRunner::new();
-            runner.set_args(args.to_vec());
-            return runner
-                .run_command(id, &pkg, runtime)
-                .context("Emscripten runner failed");
-        }
-
-        if WcgiRunner::can_run_command(command).unwrap_or(false) {
-            let mut runner = WcgiRunner::new();
-            runner
-                .config()
-                .args(args)
-                .addr(self.wcgi.addr)
-                .envs(self.wasi.env_vars.clone())
-                .map_directories(self.wasi.mapped_dirs.clone());
-            if self.wasi.forward_host_env {
-                runner.config().forward_host_env();
+        executable_target: ExecutableTarget,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+        store: &mut Store,
+    ) -> Result<(), Error> {
+        match executable_target {
+            ExecutableTarget::WebAssembly { module, path } => {
+                self.execute_wasm(&path, &module, store, runtime)
             }
-
-            return runner
-                .run_command(id, &pkg, runtime)
-                .context("WCGI runner failed");
+            ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
         }
-
-        anyhow::bail!(
-            "Unable to find a runner that supports \"{}\"",
-            command.runner
-        );
     }
 
-    fn get_store_module(&self) -> Result<(Store, Module)> {
-        let contents = std::fs::read(self.path.clone())?;
-        #[cfg(not(feature = "jsc"))]
-        if wasmer_compiler::Artifact::is_deserializable(&contents) {
-            let engine = wasmer_compiler::EngineBuilder::headless();
-            let store = Store::new(engine);
-            let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
-            return Ok((store, module));
-        }
-        let (store, compiler_type) = self.store.get_store()?;
-        #[cfg(feature = "cache")]
-        let module_result: Result<Module> = if !self.disable_cache && contents.len() > 0x1000 {
-            self.get_module_from_cache(&store, &contents, &compiler_type)
+    #[tracing::instrument(skip_all)]
+    fn execute_wasm(
+        &self,
+        path: &Path,
+        module: &Module,
+        store: &mut Store,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        if wasmer_emscripten::is_emscripten_module(module) {
+            self.execute_emscripten_module()
+        } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
+            self.execute_wasi_module(path, module, runtime, store)
         } else {
-            Module::new(&store, contents).map_err(|e| e.into())
-        };
-        #[cfg(not(feature = "cache"))]
-        let module_result = Module::new(&store, &contents);
-
-        let mut module = module_result.with_context(|| {
-            format!(
-                "module instantiation failed (compiler: {})",
-                compiler_type.to_string()
-            )
-        })?;
-        // We set the name outside the cache, to make sure we dont cache the name
-        module.set_name(&self.path.file_name().unwrap_or_default().to_string_lossy());
-
-        Ok((store, module))
-    }
-
-    #[cfg(feature = "cache")]
-    fn get_module_from_cache(
-        &self,
-        store: &Store,
-        contents: &[u8],
-        compiler_type: &CompilerType,
-    ) -> Result<Module> {
-        // We try to get it from cache, in case caching is enabled
-        // and the file length is greater than 4KB.
-        // For files smaller than 4KB caching is not worth,
-        // as it takes space and the speedup is minimal.
-        let mut cache = self.get_cache(compiler_type)?;
-        // Try to get the hash from the provided `--cache-key`, otherwise
-        // generate one from the provided file `.wasm` contents.
-        let hash = self
-            .cache_key
-            .as_ref()
-            .and_then(|key| Hash::from_str(key).ok())
-            .unwrap_or_else(|| Hash::generate(contents));
-        match unsafe { cache.load(store, hash) } {
-            Ok(module) => Ok(module),
-            Err(e) => {
-                match e {
-                    DeserializeError::Io(_) => {
-                        // Do not notify on IO errors
-                    }
-                    err => {
-                        warning!("cached module is corrupted: {}", err);
-                    }
-                }
-                let module = Module::new(store, contents)?;
-                // Store the compiled Module in cache
-                cache.store(hash, &module)?;
-                Ok(module)
-            }
+            self.execute_pure_wasm_module(module, store)
         }
     }
 
-    #[cfg(feature = "cache")]
-    /// Get the Compiler Filesystem cache
-    fn get_cache(&self, compiler_type: &CompilerType) -> Result<FileSystemCache> {
-        let mut cache_dir_root = get_cache_dir();
-        cache_dir_root.push(compiler_type.to_string());
-        let mut cache = FileSystemCache::new(cache_dir_root)?;
+    #[tracing::instrument(skip_all)]
+    fn execute_webc(
+        &self,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let id = match self.entrypoint.as_deref() {
+            Some(cmd) => cmd,
+            None => infer_webc_entrypoint(pkg)?,
+        };
+        let cmd = pkg
+            .get_command(id)
+            .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
-        let extension = "wasmu";
-        cache.set_cache_extension(Some(extension));
-        Ok(cache)
-    }
+        let uses = self.load_injected_packages(&*runtime)?;
 
-    fn try_find_function(
-        instance: &Instance,
-        path: &Path,
-        name: &str,
-        args: &[String],
-    ) -> Result<Function> {
-        Ok(instance
-            .exports
-            .get_function(name)
-            .map_err(|e| {
-                if instance.module().info().functions.is_empty() {
-                    anyhow!("The module has no exported functions to call.")
-                } else {
-                    let suggested_functions = suggest_function_exports(instance.module(), "");
-                    let names = suggested_functions
-                        .iter()
-                        .take(3)
-                        .map(|arg| format!("`{}`", arg))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let suggested_command = format!(
-                        "wasmer {} -i {} {}",
-                        path.display(),
-                        suggested_functions.get(0).unwrap_or(&String::new()),
-                        args.join(" ")
-                    );
-                    let suggestion = if suggested_functions.is_empty() {
-                        String::from("Can not find any export functions.")
-                    } else {
-                        format!(
-                            "Similar functions found: {}.\nTry with: {}",
-                            names, suggested_command
-                        )
-                    };
-                    match e {
-                        ExportError::Missing(_) => {
-                            anyhow!("No export `{}` found in the module.\n{}", name, suggestion)
-                        }
-                        ExportError::IncompatibleType => anyhow!(
-                            "Export `{}` found, but is not a function.\n{}",
-                            name,
-                            suggestion
-                        ),
-                    }
-                }
-            })?
-            .clone())
-    }
-
-    fn invoke_function(
-        ctx: &mut impl AsStoreMut,
-        instance: &Instance,
-        path: &Path,
-        invoke: &str,
-        args: &[String],
-    ) -> Result<Box<[Value]>> {
-        let func: Function = Self::try_find_function(instance, path, invoke, args)?;
-        let func_ty = func.ty(ctx);
-        let required_arguments = func_ty.params().len();
-        let provided_arguments = args.len();
-        if required_arguments != provided_arguments {
-            bail!(
-                "Function expected {} arguments, but received {}: \"{}\"",
-                required_arguments,
-                provided_arguments,
-                args.join(" ")
+        if WcgiRunner::can_run_command(cmd.metadata())? {
+            self.run_wcgi(id, pkg, uses, runtime)
+        } else if WasiRunner::can_run_command(cmd.metadata())? {
+            self.run_wasi(id, pkg, uses, runtime)
+        } else if EmscriptenRunner::can_run_command(cmd.metadata())? {
+            self.run_emscripten(id, pkg, runtime)
+        } else {
+            anyhow::bail!(
+                "Unable to find a runner that supports \"{}\"",
+                cmd.metadata().runner
             );
         }
-        let invoke_args = args
-            .iter()
-            .zip(func_ty.params().iter())
-            .map(|(arg, param_type)| match param_type {
-                ValueType::I32 => {
-                    Ok(Value::I32(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a i32", arg)
-                    })?))
-                }
-                ValueType::I64 => {
-                    Ok(Value::I64(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a i64", arg)
-                    })?))
-                }
-                ValueType::F32 => {
-                    Ok(Value::F32(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a f32", arg)
-                    })?))
-                }
-                ValueType::F64 => {
-                    Ok(Value::F64(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a f64", arg)
-                    })?))
-                }
-                _ => Err(anyhow!(
-                    "Don't know how to convert {} into {:?}",
-                    arg,
-                    param_type
-                )),
-            })
-            .collect::<Result<Vec<_>>>()?;
-        Ok(func.call(ctx, &invoke_args)?)
     }
-}
 
-impl Run {
-    /// Executes the `wasmer run` command
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
-        // downloads and installs the package if necessary
-        let path_to_run = self.path.download_and_get_filepath()?;
-        RunWithPathBuf {
-            path: path_to_run,
-            options: self.options.clone(),
+    #[tracing::instrument(level = "debug", skip_all)]
+    fn load_injected_packages(&self, runtime: &dyn Runtime) -> Result<Vec<BinaryPackage>, Error> {
+        let mut dependencies = Vec::new();
+
+        for name in &self.wasi.uses {
+            let specifier = PackageSpecifier::parse(name)
+                .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
+            let pkg = runtime
+                .task_manager()
+                .block_on(BinaryPackage::from_registry(&specifier, runtime))
+                .with_context(|| format!("Unable to load \"{name}\""))?;
+            dependencies.push(pkg);
         }
-        .execute()
+
+        Ok(dependencies)
     }
 
-    /// Create Run instance for arguments/env,
-    /// assuming we're being run from a CFP binfmt interpreter.
-    pub fn from_binfmt_args() -> Run {
-        Self::from_binfmt_args_fallible().unwrap_or_else(|e| {
+    fn run_wasi(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        uses: Vec<BinaryPackage>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
+            .with_args(self.args.clone())
+            .with_envs(self.wasi.env_vars.clone())
+            .with_mapped_directories(self.wasi.mapped_dirs.clone())
+            .with_injected_packages(uses);
+        if self.wasi.forward_host_env {
+            runner.set_forward_host_env();
+        }
+
+        runner.run_command(command_name, pkg, runtime)
+    }
+
+    fn run_wcgi(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        uses: Vec<BinaryPackage>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
+
+        runner
+            .config()
+            .args(self.args.clone())
+            .addr(self.wcgi.addr)
+            .envs(self.wasi.env_vars.clone())
+            .map_directories(self.wasi.mapped_dirs.clone())
+            .callbacks(Callbacks::new(self.wcgi.addr))
+            .inject_packages(uses);
+        if self.wasi.forward_host_env {
+            runner.config().forward_host_env();
+        }
+
+        runner.run_command(command_name, pkg, runtime)
+    }
+
+    fn run_emscripten(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let mut runner = wasmer_wasix::runners::emscripten::EmscriptenRunner::new();
+        runner.set_args(self.args.clone());
+
+        runner.run_command(command_name, pkg, runtime)
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
+        let imports = Imports::default();
+        let instance = Instance::new(store, module, &imports)
+            .context("Unable to instantiate the WebAssembly module")?;
+
+        let entrypoint  = match &self.entrypoint {
+            Some(entry) => {
+                instance.exports
+                    .get_function(entry)
+                    .with_context(|| format!("The module doesn't contain a \"{entry}\" function"))?
+            },
+            None => {
+                instance.exports.get_function("_start")
+                    .context("The module doesn't contain a \"_start\" function. Either implement it or specify an entrypoint function.")?
+            }
+        };
+
+        let return_values = invoke_function(&instance, store, entrypoint, &self.args)?;
+
+        println!(
+            "{}",
+            return_values
+                .iter()
+                .map(|val| val.to_string())
+                .collect::<Vec<String>>()
+                .join(" ")
+        );
+
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn execute_wasi_module(
+        &self,
+        wasm_path: &Path,
+        module: &Module,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+        store: &mut Store,
+    ) -> Result<(), Error> {
+        let program_name = wasm_path.display().to_string();
+
+        let builder = self
+            .wasi
+            .prepare(module, program_name, self.args.clone(), runtime)?;
+
+        builder.run_with_store(module.clone(), store)?;
+
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn execute_emscripten_module(&self) -> Result<(), Error> {
+        anyhow::bail!("Emscripten packages are not currently supported")
+    }
+
+    #[allow(unused_variables)]
+    fn maybe_save_coredump(&self, e: &Error) {
+        #[cfg(feature = "coredump")]
+        if let Some(coredump) = &self.coredump_on_trap {
+            if let Err(e) = generate_coredump(e, self.input.to_string(), coredump) {
+                tracing::warn!(
+                    error = &*e as &dyn std::error::Error,
+                    coredump_path=%coredump.display(),
+                    "Unable to generate a coredump",
+                );
+            }
+        }
+    }
+
+    /// Create Run instance for arguments/env, assuming we're being run from a
+    /// CFP binfmt interpreter.
+    pub fn from_binfmt_args() -> Self {
+        Run::from_binfmt_args_fallible().unwrap_or_else(|e| {
             crate::error::PrettyError::report::<()>(
                 Err(e).context("Failed to set up wasmer binfmt invocation"),
             )
         })
     }
 
-    #[cfg(target_os = "linux")]
-    fn from_binfmt_args_fallible() -> Result<Run> {
+    fn from_binfmt_args_fallible() -> Result<Self, Error> {
+        if !cfg!(linux) {
+            anyhow::bail!("binfmt_misc is only available on linux.");
+        }
+
         let argv = std::env::args().collect::<Vec<_>>();
         let (_interpreter, executable, original_executable, args) = match &argv[..] {
-            [a, b, c, d @ ..] => (a, b, c, d),
+            [a, b, c, rest @ ..] => (a, b, c, rest),
             _ => {
                 bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
             }
         };
         let store = StoreOptions::default();
-        // TODO: store.compiler.features.all = true; ?
-        Ok(Self {
-            // unwrap is safe, since parsing never fails
-            path: PackageSource::parse(executable).unwrap(),
-            options: RunWithoutFile {
-                args: args.to_vec(),
-                command_name: Some(original_executable.to_string()),
-                store,
-                wasi: Wasi::for_binfmt_interpreter()?,
-                ..Default::default()
-            },
+        Ok(Run {
+            verbosity: clap_verbosity_flag::Verbosity::new(0, 0),
+            wasmer_dir: WASMER_HOME.clone(),
+            store,
+            wasi: Wasi::for_binfmt_interpreter()?,
+            wcgi: WcgiOptions::default(),
+            stack_size: None,
+            entrypoint: Some(original_executable.to_string()),
+            coredump_on_trap: None,
+            input: PackageSource::infer(executable)?,
+            args: args.to_vec(),
         })
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    fn from_binfmt_args_fallible() -> Result<Run> {
-        bail!("binfmt_misc is only available on linux.")
     }
 }
 
-#[cfg(feature = "coredump")]
-fn generate_coredump(
-    err: &anyhow::Error,
-    source_name: &str,
-    coredump_path: &PathBuf,
-) -> Result<()> {
-    let err = err
-        .downcast_ref::<wasmer::RuntimeError>()
-        .ok_or_else(|| anyhow!("no runtime error found to generate coredump with"))?;
+fn invoke_function(
+    instance: &Instance,
+    store: &mut Store,
+    func: &Function,
+    args: &[String],
+) -> Result<Box<[Value]>, Error> {
+    let func_ty = func.ty(store);
+    let required_arguments = func_ty.params().len();
+    let provided_arguments = args.len();
 
-    let mut coredump_builder =
-        wasm_coredump_builder::CoredumpBuilder::new().executable_name(source_name);
+    anyhow::ensure!(
+        required_arguments == provided_arguments,
+        "Function expected {} arguments, but received {}",
+        required_arguments,
+        provided_arguments,
+    );
 
-    {
-        let mut thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name("main");
+    let invoke_args = args
+        .iter()
+        .zip(func_ty.params().iter())
+        .map(|(arg, param_type)| {
+            parse_value(arg, *param_type)
+                .with_context(|| format!("Unable to convert {arg:?} to {param_type:?}"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
-        for frame in err.trace() {
-            let coredump_frame = wasm_coredump_builder::FrameBuilder::new()
-                .codeoffset(frame.func_offset() as u32)
-                .funcidx(frame.func_index())
-                .build();
-            thread_builder.add_frame(coredump_frame);
+    let return_values = func.call(store, &invoke_args)?;
+
+    Ok(return_values)
+}
+
+fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
+    let value = match ty {
+        Type::I32 => Value::I32(s.parse()?),
+        Type::I64 => Value::I64(s.parse()?),
+        Type::F32 => Value::F32(s.parse()?),
+        Type::F64 => Value::F64(s.parse()?),
+        Type::V128 => Value::V128(s.parse()?),
+        _ => anyhow::bail!("There is no known conversion from {s:?} to {ty:?}"),
+    };
+    Ok(value)
+}
+
+fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
+    if let Some(entrypoint) = pkg.entrypoint_cmd.as_deref() {
+        return Ok(entrypoint);
+    }
+
+    match pkg.commands.as_slice() {
+        [] => anyhow::bail!("The WEBC file doesn't contain any executable commands"),
+        [one] => Ok(one.name()),
+        [..] => {
+            let mut commands: Vec<_> = pkg.commands.iter().map(|cmd| cmd.name()).collect();
+            commands.sort();
+            anyhow::bail!(
+                "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
+                commands,
+            );
+        }
+    }
+}
+
+/// The input that was passed in via the command-line.
+#[derive(Debug, Clone, PartialEq)]
+enum PackageSource {
+    /// A file on disk (`*.wasm`, `*.webc`, etc.).
+    File(PathBuf),
+    /// A directory containing a `wasmer.toml` file
+    Dir(PathBuf),
+    /// A package to be downloaded (a URL, package name, etc.)
+    Package(PackageSpecifier),
+}
+
+impl PackageSource {
+    fn infer(s: &str) -> Result<PackageSource, Error> {
+        let path = Path::new(s);
+        if path.is_file() {
+            return Ok(PackageSource::File(path.to_path_buf()));
+        } else if path.is_dir() {
+            return Ok(PackageSource::Dir(path.to_path_buf()));
         }
 
-        coredump_builder.add_thread(thread_builder.build());
+        if let Ok(pkg) = PackageSpecifier::parse(s) {
+            return Ok(PackageSource::Package(pkg));
+        }
+
+        Err(anyhow::anyhow!(
+            "Unable to resolve \"{s}\" as a URL, package name, or file on disk"
+        ))
     }
+
+    /// Try to resolve the [`PackageSource`] to an executable artifact.
+    ///
+    /// This will try to automatically download and cache any resources from the
+    /// internet.
+    fn resolve_target(&self, rt: &dyn Runtime) -> Result<ExecutableTarget, Error> {
+        match self {
+            PackageSource::File(path) => ExecutableTarget::from_file(path, rt),
+            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt),
+            PackageSource::Package(pkg) => {
+                let pkg = rt
+                    .task_manager()
+                    .block_on(BinaryPackage::from_registry(pkg, rt))?;
+                Ok(ExecutableTarget::Package(pkg))
+            }
+        }
+    }
+}
+
+impl Display for PackageSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PackageSource::File(path) | PackageSource::Dir(path) => write!(f, "{}", path.display()),
+            PackageSource::Package(p) => write!(f, "{p}"),
+        }
+    }
+}
+
+/// We've been given the path for a file... What does it contain and how should
+/// that be run?
+#[derive(Debug, Clone)]
+enum TargetOnDisk {
+    WebAssemblyBinary,
+    Wat,
+    LocalWebc,
+    Artifact,
+}
+
+impl TargetOnDisk {
+    fn from_file(path: &Path) -> Result<TargetOnDisk, Error> {
+        // Normally the first couple hundred bytes is enough to figure
+        // out what type of file this is.
+        let mut buffer = [0_u8; 512];
+
+        let mut f = File::open(path)
+            .with_context(|| format!("Unable to open \"{}\" for reading", path.display(),))?;
+        let bytes_read = f.read(&mut buffer)?;
+
+        let leading_bytes = &buffer[..bytes_read];
+
+        if wasmer::is_wasm(leading_bytes) {
+            return Ok(TargetOnDisk::WebAssemblyBinary);
+        }
+
+        if webc::detect(leading_bytes).is_ok() {
+            return Ok(TargetOnDisk::LocalWebc);
+        }
+
+        #[cfg(feature = "compiler")]
+        if ArtifactBuild::is_deserializable(leading_bytes) {
+            return Ok(TargetOnDisk::Artifact);
+        }
+
+        // If we can't figure out the file type based on its content, fall back
+        // to checking the extension.
+
+        match path.extension().and_then(|s| s.to_str()) {
+            Some("wat") => Ok(TargetOnDisk::Wat),
+            Some("wasm") => Ok(TargetOnDisk::WebAssemblyBinary),
+            Some("webc") => Ok(TargetOnDisk::LocalWebc),
+            Some("wasmu") => Ok(TargetOnDisk::WebAssemblyBinary),
+            _ => anyhow::bail!("Unable to determine how to execute \"{}\"", path.display()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ExecutableTarget {
+    WebAssembly { module: Module, path: PathBuf },
+    Package(BinaryPackage),
+}
+
+impl ExecutableTarget {
+    /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
+    /// file.
+    fn from_dir(dir: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
+        let webc = construct_webc_in_memory(dir)?;
+        let container = Container::from_bytes(webc)?;
+
+        let pkg = runtime
+            .task_manager()
+            .block_on(BinaryPackage::from_webc(&container, runtime))?;
+
+        Ok(ExecutableTarget::Package(pkg))
+    }
+
+    /// Try to load a file into something that can be used to run it.
+    #[tracing::instrument(skip_all)]
+    fn from_file(path: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
+        match TargetOnDisk::from_file(path)? {
+            TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
+                let wasm = std::fs::read(path)?;
+                let engine = runtime.engine().context("No engine available")?;
+                let module = Module::new(&engine, wasm)?;
+                Ok(ExecutableTarget::WebAssembly {
+                    module,
+                    path: path.to_path_buf(),
+                })
+            }
+            TargetOnDisk::Artifact => {
+                let engine = runtime.engine().context("No engine available")?;
+                let module = unsafe { Module::deserialize_from_file(&engine, path)? };
+
+                Ok(ExecutableTarget::WebAssembly {
+                    module,
+                    path: path.to_path_buf(),
+                })
+            }
+            TargetOnDisk::LocalWebc => {
+                let container = Container::from_disk(path)?;
+                let pkg = runtime
+                    .task_manager()
+                    .block_on(BinaryPackage::from_webc(&container, runtime))?;
+                Ok(ExecutableTarget::Package(pkg))
+            }
+        }
+    }
+}
+
+#[tracing::instrument(level = "debug", skip_all)]
+fn construct_webc_in_memory(dir: &Path) -> Result<Vec<u8>, Error> {
+    let mut files = BTreeMap::new();
+    load_files_from_disk(&mut files, dir, dir)?;
+
+    let wasmer_toml = DirOrFile::File("wasmer.toml".into());
+    if let Some(toml_data) = files.remove(&wasmer_toml) {
+        // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+        // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
+        // manually patch things up if people have already migrated their
+        // projects.
+        files
+            .entry(DirOrFile::File("wapm.toml".into()))
+            .or_insert(toml_data);
+    }
+
+    let functions = TransformManifestFunctions::default();
+    let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)?;
+
+    Ok(webc)
+}
+
+
+#[cfg(feature = "coredump")]
+fn generate_coredump(err: &Error, source_name: String, coredump_path: &Path) -> Result<(), Error> {
+    let err: &wasmer::RuntimeError = match err.downcast_ref() {
+        Some(e) => e,
+        None => {
+            log::warn!("no runtime error found to generate coredump with");
+            return Ok(());
+        }
+    };
+
+    let mut coredump_builder =
+        wasm_coredump_builder::CoredumpBuilder::new().executable_name(&source_name);
+
+    let mut thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name("main");
+
+    for frame in err.trace() {
+        let coredump_frame = wasm_coredump_builder::FrameBuilder::new()
+            .codeoffset(frame.func_offset() as u32)
+            .funcidx(frame.func_index())
+            .build();
+        thread_builder.add_frame(coredump_frame);
+    }
+
+    coredump_builder.add_thread(thread_builder.build());
 
     let coredump = coredump_builder
         .serialize()
-        .map_err(|err| anyhow!("failed to serialize coredump: {}", err))?;
+        .map_err(Error::msg)
+        .context("Coredump serializing failed")?;
 
-    let mut f = File::create(coredump_path).context(format!(
-        "failed to create file at `{}`",
-        coredump_path.display()
-    ))?;
-    f.write_all(&coredump).with_context(|| {
+    std::fs::write(coredump_path, &coredump).with_context(|| {
         format!(
-            "failed to write coredump file at `{}`",
+            "Unable to save the coredump to \"{}\"",
             coredump_path.display()
         )
     })?;
@@ -785,6 +651,37 @@ impl Default for WcgiOptions {
     fn default() -> Self {
         Self {
             addr: ([127, 0, 0, 1], 8000).into(),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Callbacks {
+    stderr: Mutex<LineWriter<std::io::Stderr>>,
+    addr: SocketAddr,
+}
+
+impl Callbacks {
+    fn new(addr: SocketAddr) -> Self {
+        Callbacks {
+            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
+            addr,
+        }
+    }
+}
+
+impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
+    fn started(&self, _abort: AbortHandle) {
+        println!("WCGI Server running at http://{}/", self.addr);
+    }
+
+    fn on_stderr(&self, raw_message: &[u8]) {
+        if let Ok(mut stderr) = self.stderr.lock() {
+            // If the WCGI runner printed any log messages we want to make sure
+            // they get propagated to the user. Line buffering is important here
+            // because it helps prevent the output from becoming a complete
+            // mess.
+            let _ = stderr.write_all(raw_message);
         }
     }
 }

@@ -35,8 +35,6 @@ use wasmer_wasix::{
 
 use crate::utils::{parse_envvar, parse_mapdir};
 
-use super::RunWithPathBuf;
-
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
@@ -360,7 +358,10 @@ impl Wasi {
             }
         };
 
+        todo!("TODO(Michael-F-Bryan): Re-enable this");
+
         // Do we want to invoke a function?
+        #[cfg(never)]
         if let Some(ref invoke) = run.invoke {
             let res = RunWithPathBuf::inner_module_invoke_function(
                 &mut store,
