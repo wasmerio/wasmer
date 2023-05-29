@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use http::{HeaderMap, StatusCode};
 use anyhow::{Context, Error};
+use http::{HeaderMap, StatusCode};
 use url::Url;
 
 use crate::http::{HttpResponse, USER_AGENT};
