@@ -309,12 +309,13 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         cmd.arg("--include-webc").arg(pkg.webc.path());
     }
 
-    let log_level = if spec.debug_output {
-        "debug"
+    if spec.debug_output {
+        let log_level = ["info", "wasmer_wasix=debug", "wasmer_cli=debug"].join(",");
+        cmd.env("RUST_LOG", log_level);
     } else {
-        "never=error"
-    };
-    cmd.env("RUST_LOG", log_level);
+        cmd.env("RUST_LOG", "off");
+    }
+
     cmd.env("RUST_BACKTRACE", "1");
 
     cmd.arg(wasm_path.path());
