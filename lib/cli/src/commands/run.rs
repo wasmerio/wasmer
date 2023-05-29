@@ -34,6 +34,7 @@ use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
     runtime::resolver::PackageSpecifier,
+    WasiError,
 };
 use wasmer_wasix::{
     runners::{
@@ -45,7 +46,7 @@ use wasmer_wasix::{
 };
 use webc::{metadata::Manifest, v1::DirOrFile, Container};
 
-use crate::{commands::run::wasi::Wasi, store::StoreOptions};
+use crate::{commands::run::wasi::Wasi, error::PrettyError, store::StoreOptions};
 
 static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
     wasmer_registry::WasmerConfig::get_wasmer_dir()
@@ -86,7 +87,12 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute(&self) -> Result<(), Error> {
+    pub fn execute(&self) -> ! {
+        let result = self.execute_inner();
+        exit_with_wasi_exit_code(result);
+    }
+
+    fn execute_inner(&self) -> Result<(), Error> {
         crate::logging::set_up_logging(self.verbosity.log_level_filter());
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -684,4 +690,40 @@ impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
             let _ = stderr.write_all(raw_message);
         }
     }
+}
+
+/// Exit the current process, using the WASI exit code if the error contains
+/// one.
+fn exit_with_wasi_exit_code(result: Result<(), Error>) -> ! {
+    let exit_code = match result {
+        Ok(_) => 0,
+        Err(error) => {
+            match error.chain().find_map(get_exit_code) {
+                Some(exit_code) => exit_code.raw(),
+                None => {
+                    eprintln!("{:?}", PrettyError::new(error));
+                    // Something else happened
+                    1
+                }
+            }
+        }
+    };
+
+    std::io::stdout().flush().ok();
+    std::io::stderr().flush().ok();
+
+    std::process::exit(exit_code);
+}
+
+fn get_exit_code(
+    error: &(dyn std::error::Error + 'static),
+) -> Option<wasmer_wasix::types::wasi::ExitCode> {
+    if let Some(WasiError::Exit(exit_code)) = error.downcast_ref() {
+        return Some(*exit_code);
+    }
+    if let Some(error) = error.downcast_ref::<wasmer_wasix::WasiRuntimeError>() {
+        return error.as_exit_code();
+    }
+
+    None
 }
