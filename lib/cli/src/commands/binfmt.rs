@@ -67,7 +67,7 @@ impl Binfmt {
                     .and_then(|p| p.canonicalize())
                     .context("Cannot get path to wasmer executable")?;
                 let bin_path = temp_dir.path().join("wasmer-binfmt-interpreter");
-                fs::copy(&bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
+                fs::copy(bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
                 let bin_path = fs::canonicalize(&bin_path).with_context(|| {
                     format!(
                         "Couldn't get absolute path for {}",
