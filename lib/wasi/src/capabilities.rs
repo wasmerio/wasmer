@@ -16,6 +16,19 @@ impl Capabilities {
             threading: Default::default(),
         }
     }
+
+    /// Merges another [`Capabilities`] object into this one, overwriting fields
+    /// if necessary.
+    pub fn update(&mut self, other: Capabilities) {
+        let Capabilities {
+            insecure_allow_all,
+            http_client,
+            threading,
+        } = other;
+        self.insecure_allow_all |= insecure_allow_all;
+        self.http_client.update(http_client);
+        self.threading.update(threading);
+    }
 }
 
 impl Default for Capabilities {
@@ -35,4 +48,15 @@ pub struct CapabilityThreadingV1 {
     /// Flag that indicates if asynchronous threading is disabled
     /// (default = false)
     pub enable_asynchronous_threading: bool,
+}
+
+impl CapabilityThreadingV1 {
+    pub fn update(&mut self, other: CapabilityThreadingV1) {
+        let CapabilityThreadingV1 {
+            max_threads,
+            enable_asynchronous_threading,
+        } = other;
+        self.enable_asynchronous_threading |= enable_asynchronous_threading;
+        self.max_threads = max_threads.or(self.max_threads);
+    }
 }

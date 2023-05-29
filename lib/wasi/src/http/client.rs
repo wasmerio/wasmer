@@ -33,6 +33,15 @@ impl HttpClientCapabilityV1 {
     pub fn can_access_domain(&self, domain: &str) -> bool {
         self.allow_all || self.allowed_hosts.contains(domain)
     }
+
+    pub fn update(&mut self, other: HttpClientCapabilityV1) {
+        let HttpClientCapabilityV1 {
+            allow_all,
+            allowed_hosts,
+        } = other;
+        self.allow_all |= allow_all;
+        self.allowed_hosts.extend(allowed_hosts);
+    }
 }
 
 impl Default for HttpClientCapabilityV1 {

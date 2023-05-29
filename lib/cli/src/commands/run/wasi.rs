@@ -13,6 +13,7 @@ use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuild
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
@@ -217,15 +218,7 @@ impl Wasi {
                 )?
         };
 
-        if self.http_client {
-            let caps = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
-            builder.capabilities_mut().http_client = caps;
-        }
-
-        builder
-            .capabilities_mut()
-            .threading
-            .enable_asynchronous_threading = self.enable_async_threads;
+        *builder.capabilities_mut() = self.capabilities();
 
         #[cfg(feature = "experimental-io-devices")]
         {
@@ -236,6 +229,18 @@ impl Wasi {
         }
 
         Ok(builder)
+    }
+
+    pub fn capabilities(&self) -> Capabilities {
+        let mut caps = Capabilities::default();
+
+        if self.http_client {
+            caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
+        }
+
+        caps.threading.enable_asynchronous_threading = self.enable_async_threads;
+
+        caps
     }
 
     pub fn prepare_runtime(

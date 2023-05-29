@@ -7,6 +7,7 @@ use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     Runtime, WasiEnvBuilder,
 };
@@ -126,6 +127,10 @@ impl WasiRunner {
     ) -> Self {
         self.add_injected_packages(packages);
         self
+    }
+
+    pub fn capabilities(&mut self) -> &mut Capabilities {
+        &mut self.wasi.capabilities
     }
 
     fn prepare_webc_env(

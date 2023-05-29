@@ -15,6 +15,7 @@ use webc::metadata::{
 
 use crate::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
@@ -234,6 +235,10 @@ impl Config {
     ) -> &mut Self {
         self.wasi.injected_packages.extend(packages);
         self
+    }
+
+    pub fn capabilities(&mut self) -> &mut Capabilities {
+        &mut self.wasi.capabilities
     }
 }
 

@@ -217,6 +217,8 @@ impl Run {
             runner.set_forward_host_env();
         }
 
+        *runner.capabilities() = self.wasi.capabilities();
+
         runner.run_command(command_name, pkg, runtime)
     }
 
@@ -237,6 +239,7 @@ impl Run {
             .map_directories(self.wasi.mapped_dirs.clone())
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
+        *runner.config().capabilities() = self.wasi.capabilities();
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
         }
