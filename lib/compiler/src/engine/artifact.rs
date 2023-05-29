@@ -628,11 +628,11 @@ impl Artifact {
     /// Generate the metadata object for the module
     #[cfg(feature = "static-artifact-create")]
     #[allow(clippy::type_complexity)]
-    pub fn metadata<'data, 'a>(
+    pub fn metadata<'a>(
         compiler: &dyn Compiler,
         data: &'a [u8],
         metadata_prefix: Option<&str>,
-        target: &'data Target,
+        target: &Target,
         tunables: &dyn Tunables,
         features: &Features,
     ) -> Result<
