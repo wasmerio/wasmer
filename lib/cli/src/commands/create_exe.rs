@@ -189,7 +189,7 @@ impl CreateExe {
         let target = utils::target_triple_to_target(&target_triple, &self.cpu_features);
 
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&path);
+        let input_path = starting_cd.join(path);
         let output_path = starting_cd.join(&self.output);
 
         let url_or_version = match self
@@ -454,7 +454,7 @@ pub(super) fn compile_pirita_into_directory(
         if let Ok(a) = atom_path.canonicalize() {
             let opt_header_path = header_path.and_then(|p| p.canonicalize().ok());
             atom_path = pathdiff::diff_paths(&a, &target_dir).unwrap_or_else(|| a.clone());
-            header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(&h, &target_dir));
+            header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(h, &target_dir));
         }
         atoms.push(CommandEntrypoint {
             // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
@@ -998,7 +998,7 @@ pub(crate) fn create_header_files_in_dir(
             &ModuleMetadataSymbolRegistry {
                 prefix: prefix.clone(),
             },
-            metadata_length as usize,
+            metadata_length,
         );
 
         std::fs::write(&header_file_path, &header_file_src).map_err(|e| {
@@ -1257,10 +1257,10 @@ fn link_exe_from_dir(
 
     // remove file if it exists - if not done, can lead to errors on copy
     let output_path_normalized = normalize_path(&format!("{}", output_path.display()));
-    let _ = std::fs::remove_file(&output_path_normalized);
+    let _ = std::fs::remove_file(output_path_normalized);
     std::fs::copy(
-        &normalize_path(&format!("{}", out_path.display())),
-        &normalize_path(&format!("{}", output_path.display())),
+        normalize_path(&format!("{}", out_path.display())),
+        normalize_path(&format!("{}", output_path.display())),
     )
     .map_err(|e| {
         anyhow::anyhow!(
@@ -1523,7 +1523,7 @@ pub(super) mod utils {
             Some(v.canonicalize().unwrap_or(v))
         } else if let Some(local_tarball) = cross_subc.tarball.as_ref() {
             let (filename, tarball_dir) = find_filename(local_tarball, target)?;
-            Some(tarball_dir.join(&filename))
+            Some(tarball_dir.join(filename))
         } else {
             let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
@@ -1554,20 +1554,20 @@ pub(super) mod utils {
             if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
                 let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
                 let release = super::http_fetch::get_release(Some(wasmer_release.clone()))?;
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             } else if let Some(local_tarball) = local_tarball.as_ref() {
                 let (filename, tarball_dir) = find_filename(local_tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             } else {
                 let release = super::http_fetch::get_release(None)?;
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             }
         };
 

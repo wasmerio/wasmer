@@ -20,6 +20,6 @@ pub fn login_and_save_token(
         UpdateRegistry::Update,
     );
     let path = WasmerConfig::get_file_location(wasmer_dir);
-    config.save(&path)?;
+    config.save(path)?;
     crate::utils::get_username_registry_token(&registry, token)
 }

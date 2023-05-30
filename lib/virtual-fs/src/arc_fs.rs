@@ -1,5 +1,6 @@
 //! Wraps a clonable Arc of a file system - in practice this is useful so you
-//! can pass clonable file systems with a Box<dyn FileSystem> to other interfaces
+//! can pass clonable file systems with a `Box<dyn FileSystem>` to other
+//! interfaces
 
 use std::path::Path;
 use std::sync::Arc;

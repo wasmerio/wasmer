@@ -998,7 +998,7 @@ fn test_install_package() {
 
     assert_eq!(
         path,
-        get_checkouts_dir(wasmer_dir).join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
+        get_checkouts_dir(wasmer_dir).join(format!("{}@1.0.29", Package::hash_url(&wabt.url)))
     );
 
     let all_installed_packages = get_all_local_packages(wasmer_dir);

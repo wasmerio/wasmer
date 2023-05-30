@@ -343,8 +343,8 @@ fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
 }
 
 /// Parses the Element section of the wasm module.
-pub fn parse_element_section<'data>(
-    elements: ElementSectionReader<'data>,
+pub fn parse_element_section(
+    elements: ElementSectionReader<'_>,
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     environ.reserve_table_initializers(elements.get_count())?;

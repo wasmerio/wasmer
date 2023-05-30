@@ -114,9 +114,12 @@ pub enum UpdateRegistry {
 impl MultiRegistry {
     /// Gets the current (active) registry URL
     pub fn clear_current_registry_token(&mut self) {
-        self.tokens.retain(|i| i.registry != self.active_registry);
-        self.tokens
-            .retain(|i| i.registry != format_graphql(&self.active_registry));
+        let MultiRegistry {
+            active_registry,
+            tokens,
+        } = self;
+        tokens.retain(|i| i.registry != *active_registry);
+        tokens.retain(|i| i.registry != format_graphql(active_registry));
     }
 
     pub fn get_graphql_url(&self) -> String {
@@ -190,7 +193,7 @@ impl WasmerConfig {
 
     pub fn from_file(wasmer_dir: &Path) -> Result<Self, String> {
         let path = Self::get_file_location(wasmer_dir);
-        match std::fs::read_to_string(&path) {
+        match std::fs::read_to_string(path) {
             Ok(config_toml) => Ok(toml::from_str(&config_toml).unwrap_or_else(|_| Self::default())),
             Err(_e) => Ok(Self::default()),
         }

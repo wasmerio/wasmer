@@ -164,7 +164,7 @@ where
 {
     fn default() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Box::new(Default::default()))),
+            inner: Arc::new(Mutex::new(Box::default())),
         }
     }
 }
