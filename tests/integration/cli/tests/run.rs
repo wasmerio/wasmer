@@ -637,7 +637,10 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 
     assert_eq!(
         stderr_lines,
-        vec!["error: Could not find local file does/not/exist".to_string()]
+        [
+            "error: Unable to resolve \"does/not/exist@*\"",
+            "╰─▶ 1: Unable to find any packages that satisfy the query"
+        ],
     );
 
     Ok(())
