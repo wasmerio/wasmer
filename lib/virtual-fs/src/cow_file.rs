@@ -20,10 +20,10 @@ enum CowState {
     Copied,
 }
 impl CowState {
-    fn as_ref(&self) -> Option<&Box<dyn VirtualFile + Send + Sync>> {
+    fn as_ref(&self) -> Option<&(dyn VirtualFile + Send + Sync)> {
         match self {
-            Self::ReadOnly(inner) => Some(inner),
-            Self::Copying { inner, .. } => Some(inner),
+            Self::ReadOnly(inner) => Some(inner.as_ref()),
+            Self::Copying { inner, .. } => Some(inner.as_ref()),
             _ => None,
         }
     }
@@ -56,10 +56,6 @@ impl CopyOnWriteFile {
         }
     }
     fn poll_copy_progress(&mut self, cx: &mut Context) -> Poll<io::Result<()>> {
-        replace_with_or_abort(&mut self.state, |state| match state {
-            CowState::ReadOnly(inner) => CowState::Copying { pos: 0, inner },
-            state => state,
-        });
         if let CowState::Copying { ref mut inner, pos } = &mut self.state {
             let mut temp = [0u8; 8192];
 
@@ -78,7 +74,7 @@ impl CopyOnWriteFile {
                     Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                     Poll::Ready(Ok(())) => {}
                 }
-                if read_temp.remaining() <= 0 {
+                if read_temp.remaining() == 0 {
                     return Poll::Pending;
                 }
                 *pos += read_temp.remaining() as u64;
