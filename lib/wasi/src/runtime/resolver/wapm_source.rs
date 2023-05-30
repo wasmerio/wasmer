@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Error};
+use http::{HeaderMap, Method};
 use semver::Version;
 use url::Url;
 use webc::metadata::Manifest;
 
 use crate::{
-    http::{HttpClient, HttpRequest, HttpResponse},
+    http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::resolver::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
     },
@@ -52,33 +53,22 @@ impl Source for WapmSource {
         let body = serde_json::to_string(&body)?;
 
         let request = HttpRequest {
-            url: self.registry_endpoint.to_string(),
-            method: "POST".to_string(),
+            url: self.registry_endpoint.clone(),
+            method: Method::POST,
             body: Some(body.into_bytes()),
-            headers: vec![
-                (
-                    "User-Agent".to_string(),
-                    crate::http::USER_AGENT.to_string(),
-                ),
-                ("Content-Type".to_string(), "application/json".to_string()),
-            ],
+            headers: headers(),
             options: Default::default(),
         };
 
-        let HttpResponse {
-            ok,
-            status,
-            status_text,
-            body,
-            ..
-        } = self.client.request(request).await?;
+        let response = self.client.request(request).await?;
 
-        if !ok {
+        if !response.is_ok() {
             let url = &self.registry_endpoint;
-            anyhow::bail!("\"{url}\" replied with {status} {status_text}");
+            let status = response.status;
+            anyhow::bail!("\"{url}\" replied with {status}");
         }
 
-        let body = body.unwrap_or_default();
+        let body = response.body.unwrap_or_default();
         let response: WapmWebQuery =
             serde_json::from_slice(&body).context("Unable to deserialize the response")?;
 
@@ -99,6 +89,13 @@ impl Source for WapmSource {
 
         Ok(summaries)
     }
+}
+
+fn headers() -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Type", "application/json".parse().unwrap());
+    headers.insert("User-Agent", USER_AGENT.parse().unwrap());
+    headers
 }
 
 fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
@@ -178,9 +175,12 @@ pub struct WapmWebQueryGetPackageVersionDistribution {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use http::{HeaderMap, StatusCode};
 
-    use crate::runtime::resolver::inputs::{DistributionInfo, PackageInfo};
+    use crate::{
+        http::HttpResponse,
+        runtime::resolver::inputs::{DistributionInfo, PackageInfo},
+    };
 
     use super::*;
 
@@ -200,12 +200,11 @@ mod tests {
             //      -H "Content-Type: application/json" \
             //      -X POST \
             //      -d '@wasmer_pack_cli_request.json' > wasmer_pack_cli_response.json
-            assert_eq!(request.method, "POST");
-            assert_eq!(request.url, WapmSource::WAPM_PROD_ENDPOINT);
-            let headers: HashMap<String, String> = request.headers.into_iter().collect();
-            assert_eq!(headers.len(), 2);
-            assert_eq!(headers["User-Agent"], crate::http::USER_AGENT);
-            assert_eq!(headers["Content-Type"], "application/json");
+            assert_eq!(request.method, http::Method::POST);
+            assert_eq!(request.url.as_str(), WapmSource::WAPM_PROD_ENDPOINT);
+            assert_eq!(request.headers.len(), 2);
+            assert_eq!(request.headers["User-Agent"], USER_AGENT);
+            assert_eq!(request.headers["Content-Type"], "application/json");
 
             let body: serde_json::Value =
                 serde_json::from_slice(request.body.as_deref().unwrap()).unwrap();
@@ -215,13 +214,10 @@ mod tests {
 
             Box::pin(async {
                 Ok(HttpResponse {
-                    pos: 0,
                     body: Some(WASMER_PACK_CLI_RESPONSE.to_vec()),
-                    ok: true,
                     redirected: false,
-                    status: 200,
-                    status_text: "OK".to_string(),
-                    headers: Vec::new(),
+                    status: StatusCode::OK,
+                    headers: HeaderMap::new(),
                 })
             })
         }

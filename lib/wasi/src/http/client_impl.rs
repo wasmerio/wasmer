@@ -1,12 +1,13 @@
-use std::string::FromUtf8Error;
 use std::sync::Arc;
 
-use crate::bindings::wasix_http_client_v1 as sys;
-use crate::{capabilities::Capabilities, Runtime};
+use http::{HeaderMap, HeaderValue};
+use url::Url;
 
 use crate::{
+    bindings::wasix_http_client_v1 as sys,
+    capabilities::Capabilities,
     http::{DynHttpClient, HttpClientCapabilityV1},
-    WasiEnv,
+    Runtime, WasiEnv,
 };
 
 impl std::fmt::Display for sys::Method<'_> {
@@ -92,11 +93,12 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
             .headers
             .into_iter()
             .map(|h| {
-                let value = String::from_utf8(h.value.to_vec())?;
-                Ok((h.key.to_string(), value))
+                let value = HeaderValue::from_bytes(h.value).map_err(|e| e.to_string())?;
+                let key =
+                    http::HeaderName::from_bytes(h.key.as_bytes()).map_err(|e| e.to_string())?;
+                Ok((key, value))
             })
-            .collect::<Result<Vec<_>, FromUtf8Error>>()
-            .map_err(|_| "non-utf8 request header")?;
+            .collect::<Result<HeaderMap, String>>()?;
 
         // FIXME: stream body...
 
@@ -108,9 +110,22 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
             None => None,
         };
 
+        let method = match request.method {
+            sys::Method::Get => http::Method::GET,
+            sys::Method::Head => http::Method::HEAD,
+            sys::Method::Post => http::Method::POST,
+            sys::Method::Put => http::Method::PUT,
+            sys::Method::Delete => http::Method::DELETE,
+            sys::Method::Connect => http::Method::CONNECT,
+            sys::Method::Options => http::Method::OPTIONS,
+            sys::Method::Trace => http::Method::TRACE,
+            sys::Method::Patch => http::Method::PATCH,
+            sys::Method::Other(other) => return Err(format!("Unknown method: {other}")),
+        };
+
         let req = crate::http::HttpRequest {
-            url: request.url.to_string(),
-            method: request.method.to_string(),
+            url: Url::parse(request.url).map_err(|e| e.to_string())?,
+            method,
             headers,
             body,
             options: crate::http::HttpRequestOptions {
@@ -128,10 +143,10 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
 
         let res_headers = res
             .headers
-            .into_iter()
-            .map(|(key, value)| sys::HeaderResult {
-                key,
-                value: value.into_bytes(),
+            .iter()
+            .map(|(name, value)| sys::HeaderResult {
+                key: name.to_string(),
+                value: value.as_bytes().to_vec(),
             })
             .collect();
 
@@ -143,7 +158,7 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
 
         Ok({
             sys::Response {
-                status: res.status,
+                status: res.status.as_u16(),
                 headers: res_headers,
                 body: res_body,
                 // TODO: provide redirect urls?

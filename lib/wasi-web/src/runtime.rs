@@ -6,6 +6,7 @@ use std::time::Duration;
 use std::{future::Future, io, pin::Pin, sync::Arc, task::Poll};
 
 use futures::future::BoxFuture;
+use http::{HeaderMap, StatusCode};
 use js_sys::Promise;
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
@@ -20,7 +21,7 @@ use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
     runtime::task_manager::TaskWasm,
-    VirtualFile, VirtualNetworking, VirtualTaskManager, WasiRuntime, WasiThreadError, WasiTtyState,
+    VirtualFile, VirtualNetworking, VirtualTaskManager, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
 
@@ -416,7 +417,7 @@ impl VirtualFile for TermLog {
     }
 }
 
-impl WasiRuntime for WebRuntime {
+impl wasmer_wasix::Runtime for WebRuntime {
     fn networking(&self) -> &wasmer_wasix::virtual_net::DynVirtualNetworking {
         &self.net
     }
@@ -483,33 +484,28 @@ struct WebHttpClient {
 impl WebHttpClient {
     async fn do_request(request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
         let resp = crate::common::fetch(
-            &request.url,
-            &request.method,
+            request.url.as_str(),
+            request.method.as_str(),
             request.options.gzip,
             request.options.cors_proxy,
-            request.headers,
+            &request.headers,
             request.body,
         )
         .await?;
 
-        let ok = resp.ok();
         let redirected = resp.redirected();
-        let status = resp.status();
-        let status_text = resp.status_text();
+        let status = StatusCode::from_u16(resp.status())?;
 
         let data = crate::common::get_response_data(resp).await?;
 
-        let headers = Vec::new();
         // FIXME: we can't implement this as the method resp.headers().keys() is missing!
         // how else are we going to parse the headers?
+        let headers = HeaderMap::new();
 
         debug!("received {} bytes", data.len());
         let resp = HttpResponse {
-            pos: 0,
-            ok,
             redirected,
             status,
-            status_text,
             headers,
             body: Some(data),
         };

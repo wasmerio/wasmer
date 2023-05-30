@@ -29,7 +29,7 @@ impl Source for FileSystemSource {
         let container = Container::from_disk(&path)
             .with_context(|| format!("Unable to parse \"{}\"", path.display()))?;
 
-        let url = crate::runtime::resolver::polyfills::url_from_file_path(&path)
+        let url = crate::runtime::resolver::utils::url_from_file_path(&path)
             .ok_or_else(|| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
 
         let summary = PackageSummary {
