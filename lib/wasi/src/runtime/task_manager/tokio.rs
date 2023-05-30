@@ -168,9 +168,9 @@ impl VirtualTaskManager for TokioTaskManager {
             self.0.spawn_blocking(move || {
                 // Invoke the callback
                 tracing::trace!(
-                    "wasm task is running (pid={}, tid={})",
-                    ctx.data(&store).thread.pid(),
-                    ctx.data(&store).thread.tid()
+                    pid=ctx.data(&store).thread.pid(),
+                    tid=ctx.data(&store).thread.tid()
+                    "wasm task is running",
                 );
                 run(TaskWasmRunProperties {
                     ctx,
