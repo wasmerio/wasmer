@@ -173,7 +173,6 @@ impl WasiFunctionEnv {
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
         }
-        tracing::trace!("initializing with layout {:?}", self.data(store).layout);
 
         Ok(())
     }

@@ -10,7 +10,7 @@ use ::tokio::runtime::Handle;
 use bytes::Bytes;
 use futures::Future;
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
-use wasmer_wasix_types::wasi::{Errno, ExitCode};
+use wasmer_wasix_types::wasi::{Errno, ExitCode, Signal};
 
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
@@ -233,27 +233,45 @@ impl dyn VirtualTaskManager {
         task: Box<WasmResumeTask>,
         ctx: WasiFunctionEnv,
         mut store: Store,
+        process_signals: bool,
+        main_thread: bool,
         trigger: Pin<Box<AsyncifyFuture>>,
     ) -> Result<(), WasiThreadError> {
         // This poller will process any signals when the main working function is idle
         struct AsyncifyPollerOwned {
             thread: WasiThread,
+            process_signals: bool,
             trigger: Pin<Box<AsyncifyFuture>>,
         }
         impl Future for AsyncifyPollerOwned {
             type Output = Result<Bytes, ExitCode>;
             fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let work = self.trigger.as_mut();
-                Poll::Ready(if let Poll::Ready(res) = work.poll(cx) {
-                    Ok(res)
-                } else if let Some(forced_exit) = self.thread.try_join() {
+
+                if let Poll::Ready(res) = work.poll(cx) {
+                    return Poll::Ready(Ok(res));
+                }
+                if self.process_signals && self.thread.has_signals_or_subscribe(cx.waker()) {
+                    let signals = self.thread.signals().lock().unwrap();
+                    for sig in signals.0.iter() {
+                        if *sig == Signal::Sigint
+                            || *sig == Signal::Sigquit
+                            || *sig == Signal::Sigkill
+                            || *sig == Signal::Sigabrt
+                        {
+                            let exit_code = self.thread.set_or_get_exit_code_for_signal(*sig);
+                            tracing::trace!("exit signal while deep sleeping ({})", exit_code);
+                            return Poll::Ready(Err(exit_code));
+                        }
+                    }
+                }
+                if let Some(forced_exit) = self.thread.try_join() {
                     return Poll::Ready(Err(forced_exit.unwrap_or_else(|err| {
                         tracing::debug!("exit runtime error - {}", err);
                         Errno::Child.into()
                     })));
-                } else {
-                    return Poll::Pending;
-                })
+                }
+                Poll::Pending
             }
         }
 
@@ -275,6 +293,13 @@ impl dyn VirtualTaskManager {
                         Ok(r) => r,
                         Err(exit_code) => {
                             thread.set_status_finished(Ok(exit_code));
+
+                            if main_thread {
+                                props
+                                    .ctx
+                                    .data(&props.store)
+                                    .blocking_cleanup(Some(exit_code));
+                            }
                             return;
                         }
                     };
@@ -290,19 +315,20 @@ impl dyn VirtualTaskManager {
                 Box::pin(async move {
                     let mut poller = AsyncifyPollerOwned {
                         thread: thread_inner,
+                        process_signals,
                         trigger,
                     };
                     let res = Pin::new(&mut poller).await;
-                    let res = match res {
-                        Ok(res) => res,
+                    match res {
+                        Ok(res) => {
+                            tracing::trace!("deep sleep woken - res.len={}", res.len());
+                            Ok(res)
+                        }
                         Err(exit_code) => {
                             env.thread.set_status_finished(Ok(exit_code));
-                            return Err(exit_code);
+                            Err(exit_code)
                         }
-                    };
-
-                    tracing::trace!("deep sleep woken - {:?}", res);
-                    Ok(res)
+                    }
                 })
             })),
         )

@@ -82,8 +82,16 @@ impl Source for WapmSource {
         for pkg_version in versions {
             let version = Version::parse(&pkg_version.version)?;
             if version_constraint.matches(&version) {
-                let summary = decode_summary(pkg_version)?;
-                summaries.push(summary);
+                match decode_summary(pkg_version) {
+                    Ok(summary) => {
+                        summaries.push(summary);
+                    }
+                    Err(err) => {
+                        // Do not abort on errors, because the API might return
+                        // some invalid packages.
+                        tracing::debug!(error = &*err, "unable to decode package summary");
+                    }
+                }
             }
         }
 

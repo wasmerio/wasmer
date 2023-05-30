@@ -244,7 +244,14 @@ fn call_module<M: MemorySize>(
 
             /// Spawns the WASM process after a trigger
             unsafe {
-                tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                tasks.resume_wasm_after_poller(
+                    Box::new(respawn),
+                    ctx,
+                    store,
+                    deep.process_signals,
+                    false,
+                    deep.trigger,
+                )
             };
             Err(Errno::Unknown)
         }
