@@ -434,6 +434,8 @@ impl Wasi {
                                 Box::new(respawn),
                                 ctx,
                                 store,
+                                deep.process_signals,
+                                true,
                                 deep.trigger,
                             )
                         }

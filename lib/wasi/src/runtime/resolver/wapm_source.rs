@@ -98,7 +98,7 @@ impl Source for WapmSource {
                     Err(err) => {
                         // Do not abort on errors, because the API might return
                         // some invalid packages.
-                        tracing::warn!(error = &*err, "unable to decode package summary");
+                        tracing::debug!(error = &*err, "unable to decode package summary");
                     }
                 }
             }

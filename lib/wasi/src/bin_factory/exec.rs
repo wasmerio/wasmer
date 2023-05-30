@@ -231,7 +231,14 @@ fn call_module(
 
                     // Spawns the WASM process after a trigger
                     if let Err(err) = unsafe {
-                        tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                        tasks.resume_wasm_after_poller(
+                            Box::new(respawn),
+                            ctx,
+                            store,
+                            deep.process_signals,
+                            true,
+                            deep.trigger,
+                        )
                     } {
                         debug!("failed to go into deep sleep - {}", err);
                     }
