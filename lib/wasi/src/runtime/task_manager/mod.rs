@@ -260,7 +260,7 @@ impl dyn VirtualTaskManager {
                             || *sig == Signal::Sigabrt
                         {
                             let exit_code = self.thread.set_or_get_exit_code_for_signal(*sig);
-                            tracing::trace!("exit signal while deep sleeping ({})", exit_code);
+                            tracing::trace!(%exit_code, "exit signal while deep sleeping");
                             return Poll::Ready(Err(exit_code));
                         }
                     }
