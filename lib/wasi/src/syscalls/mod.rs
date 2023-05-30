@@ -416,7 +416,7 @@ where
         .try_inner()
         .map(|i| !i.signal_set)
         .unwrap_or(true);
-    tracing::trace!("asyncify (process_signals={process_signals})");
+    tracing::trace!(%process_signals, "asyncify");
 
     // Box up the trigger
     let mut trigger = Box::pin(trigger);
