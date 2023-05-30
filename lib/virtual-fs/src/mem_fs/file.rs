@@ -775,7 +775,7 @@ impl AsyncWrite for FileHandle {
                     let mut guard = node.file.lock().unwrap();
 
                     let file = Pin::new(guard.as_mut());
-                    if let Err(err) = file.start_seek(io::SeekFrom::Start(self.cursor as u64)) {
+                    if let Err(err) = file.start_seek(io::SeekFrom::Start(self.cursor)) {
                         return Poll::Ready(Err(err));
                     }
 

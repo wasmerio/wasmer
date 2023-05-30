@@ -1,14 +1,16 @@
 [package]
 name = "wasmer"
-version = "4.0.0-alpha.1"
 description = "High-performance WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 #####
 # This crate comes in 2 major flavors:

@@ -266,10 +266,10 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     fn close(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    fn poll_recv<'a>(
+    fn poll_recv(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &'a mut [MaybeUninit<u8>],
+        buf: &mut [MaybeUninit<u8>],
     ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket
@@ -293,10 +293,10 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
 
     /// Recv a packet from the socket
-    fn poll_recv_from<'a>(
+    fn poll_recv_from(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &'a mut [MaybeUninit<u8>],
+        buf: &mut [MaybeUninit<u8>],
     ) -> Poll<Result<(usize, SocketAddr)>>;
 
     /// Recv a packet from the socket
@@ -326,10 +326,10 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     fn try_flush(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    fn poll_recv<'a>(
+    fn poll_recv(
         &mut self,
         cx: &mut Context<'_>,
-        buf: &'a mut [MaybeUninit<u8>],
+        buf: &mut [MaybeUninit<u8>],
     ) -> Poll<Result<usize>>;
 
     /// Recv a packet from the socket

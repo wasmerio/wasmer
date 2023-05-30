@@ -64,7 +64,7 @@ impl CreateObj {
         let path = crate::common::normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&path);
+        let input_path = starting_cd.join(path);
         let temp_dir = tempfile::tempdir();
         let output_directory_path = match self.debug_dir.as_ref() {
             Some(s) => s.clone(),

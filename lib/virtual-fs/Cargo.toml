@@ -2,9 +2,12 @@
 name = "virtual-fs"
 version = "0.3.0"
 description = "Wasmer Virtual FileSystem"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-license = "MIT"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 libc = { version = "^0.2", default-features = false, optional = true }

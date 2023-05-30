@@ -73,7 +73,7 @@ pub fn fd_seek<M: MemorySize>(
                             drop(handle);
                             let mut fd_map = state.fs.fd_map.write().unwrap();
                             let fd_entry = fd_map.get_mut(&fd).ok_or(Errno::Badf)?;
-                            fd_entry.offset.store(end as u64, Ordering::Release);
+                            fd_entry.offset.store(end, Ordering::Release);
                             Ok(())
                         })?);
                     } else {

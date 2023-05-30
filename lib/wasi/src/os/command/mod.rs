@@ -21,9 +21,9 @@ where
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Executes the command.
-    fn exec<'a>(
+    fn exec(
         &self,
-        parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
+        parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         path: &str,
         store: &mut Option<Store>,
         config: &mut Option<WasiEnv>,
@@ -80,9 +80,9 @@ impl Commands {
     }
 
     /// Execute a command.
-    pub fn exec<'a>(
+    pub fn exec(
         &self,
-        parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
+        parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         path: &str,
         store: &mut Option<Store>,
         builder: &mut Option<WasiEnv>,
@@ -92,10 +92,14 @@ impl Commands {
             cmd.exec(parent_ctx, path.as_str(), store, builder)
         } else {
             unsafe {
-                let _ = stderr_write(
-                    parent_ctx,
-                    format!("wasm command unknown - {}\r\n", path).as_bytes(),
-                );
+                let _ = parent_ctx
+                    .data()
+                    .runtime()
+                    .task_manager()
+                    .block_on(stderr_write(
+                        parent_ctx,
+                        format!("wasm command unknown - {}\r\n", path).as_bytes(),
+                    ));
             }
 
             let res = OwnedTaskStatus::new(TaskStatus::Finished(Ok(Errno::Noent.into())));

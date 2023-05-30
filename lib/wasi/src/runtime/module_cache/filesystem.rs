@@ -50,7 +50,7 @@ impl ModuleCache for FileSystemCache {
 
         let uncompressed = read_compressed(&path)?;
 
-        let res = unsafe { Module::deserialize(&engine, &uncompressed) };
+        let res = unsafe { Module::deserialize(&engine, uncompressed) };
         match res {
             Ok(m) => Ok(m),
             Err(e) => {
