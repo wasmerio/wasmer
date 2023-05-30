@@ -251,7 +251,10 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[cfg_attr(windows, ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929")]
+    #[cfg_attr(
+        windows,
+        ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
+    )]
     fn merged_filesystem_contains_all_files() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::bash())
