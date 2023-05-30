@@ -986,11 +986,9 @@ fn test_install_package() {
         wabt.commands,
         "wat2wasm, wast2json, wasm2wat, wasm-interp, wasm-validate, wasm-strip"
     );
-    assert_eq!(
-        wabt.url,
-        "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/wabt/wabt-1.0.29.tar.gz"
-            .to_string()
-    );
+    // Note: we use signed URLs for downloading packages, so just make sure the
+    // URL is non-empty and let the install_package() call make sure it's valid
+    assert!(!wabt.url.is_empty());
 
     let fake_wasmer_dir = tempfile::TempDir::new().unwrap();
     let wasmer_dir = fake_wasmer_dir.path();
