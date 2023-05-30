@@ -62,6 +62,11 @@ pub async fn spawn_exec(
         }
     };
 
+    // Update the imports
+    for import in module.imports() {
+        tracing::trace!("import {}.{}", import.module(), import.name());
+    }
+
     // If the file system has not already been union'ed then do so
     env.state.fs.conditional_union(&binary);
     tracing::debug!("{:?}", env.state.fs);

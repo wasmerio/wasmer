@@ -259,6 +259,7 @@ where
                         time_to_sleep = Duration::MAX;
                     } else if clock_info.timeout == 1 {
                         time_to_sleep = Duration::ZERO;
+                        clock_subs.push((clock_info, s.userdata));
                     } else {
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
@@ -335,7 +336,7 @@ where
     };
 
     // If the time is infinite then we omit the time_to_sleep parameter
-    let timeout = match time_to_sleep {
+    let timeout = match time_to_sleep.clone() {
         Duration::ZERO => {
             Span::current().record("timeout_ns", "nonblocking");
             Some(Duration::ZERO)
@@ -350,7 +351,7 @@ where
         }
     };
     let tasks = env.tasks().clone();
-    let timeout = async move {
+    let timeout_task = async move {
         if let Some(timeout) = timeout {
             tasks.sleep_now(timeout).await;
         } else {
@@ -362,7 +363,7 @@ where
     let trigger = async move {
         tokio::select! {
             res = batch => res,
-            _ = timeout => Err(Errno::Timedout)
+            _ = timeout_task => Err(Errno::Timedout)
         }
     };
 
