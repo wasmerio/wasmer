@@ -269,19 +269,28 @@ impl WasiEnvBuilder {
         &mut self.args
     }
 
-    /// Adds a container this module inherits from
+    /// Adds a container this module inherits from.
+    ///
+    /// This will make all of the container's files and commands available to the
+    /// resulting WASI instance.
     pub fn use_webc(mut self, pkg: BinaryPackage) -> Self {
         self.add_webc(pkg);
         self
     }
 
-    /// Adds a container this module inherits from
+    /// Adds a container this module inherits from.
+    ///
+    /// This will make all of the container's files and commands available to the
+    /// resulting WASI instance.
     pub fn add_webc(&mut self, pkg: BinaryPackage) -> &mut Self {
         self.uses.push(pkg);
         self
     }
 
-    /// Adds a list of other containers this module inherits from
+    /// Adds a list of other containers this module inherits from.
+    ///
+    /// This will make all of the container's files and commands available to the
+    /// resulting WASI instance.
     pub fn uses<I>(mut self, uses: I) -> Self
     where
         I: IntoIterator<Item = BinaryPackage>,

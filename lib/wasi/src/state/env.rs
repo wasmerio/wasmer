@@ -849,18 +849,15 @@ impl WasiEnv {
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
     /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        // PERF: We should avoid all these copies in the WasiFsRoot::Backing case.
-
         let root_fs = &self.state.fs.root_fs;
+
         // We first need to copy any files in the package over to the
-        // temporary file system
-        match root_fs {
-            WasiFsRoot::Sandbox(root_fs) => {
-                root_fs.union(&pkg.webc_fs);
-            }
-            WasiFsRoot::Backing(_fs) => {
-                tracing::warn!("TODO: Manually copy each file across one-by-one");
-            }
+        // main file system
+        if let Err(e) = self.tasks().block_on(root_fs.merge(&pkg.webc_fs)) {
+            warn!(
+                error = &e as &dyn std::error::Error,
+                "Unable to merge the package's filesystem into the main one",
+            );
         }
 
         // Next, make sure all commands will be available
