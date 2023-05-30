@@ -277,7 +277,7 @@ fn get_volume_name<P: AsRef<Path>>(path: P) -> String {
     get_volume_name_opt(path).unwrap_or_else(|| "atom".to_string())
 }
 
-fn transform_into_read_dir<'a>(path: &Path, fs_entries: &[FsEntry<'a>]) -> crate::ReadDir {
+fn transform_into_read_dir(path: &Path, fs_entries: &[FsEntry<'_>]) -> crate::ReadDir {
     let entries = fs_entries
         .iter()
         .map(|e| crate::DirEntry {

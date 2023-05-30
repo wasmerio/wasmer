@@ -7,8 +7,13 @@ publish = false
 description = "Wasmer Web Terminal built on WASMER and ATE"
 license = "MIT OR Apache-2.0"
 keywords = [ "wasm", "browser", "terminal" ]
-repository = "https://github.com/john-sharratt/ate"
+repository = "https://github.com/wasmerio/wasmer"
 readme = "../README.md"
+homepage = "https://wasmer.io/"
+rust-version = "1.67"
+
+# This crate is in its own workspace because it gets compiled to WebAssembly
+[workspace]
 
 [dependencies]
 wasmer = { path = "../api", default_features = false, features = [ "js-default" ] }
@@ -84,7 +89,7 @@ features = [
   'Node',
   'NodeList',
   "ProgressEvent",
-  'Window',  
+  'Window',
   "Url",
   'UrlSearchParams',
   "WebSocket",

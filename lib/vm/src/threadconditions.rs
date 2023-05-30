@@ -150,7 +150,7 @@ mod tests {
 
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst.clone(), None).unwrap();
+            let ret = threadcond.do_wait(dst, None).unwrap();
             assert_eq!(ret, 0);
         });
         thread::sleep(Duration::from_millis(10));
@@ -169,7 +169,7 @@ mod tests {
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
             let ret = threadcond
-                .do_wait(dst.clone(), Some(Duration::from_millis(1)))
+                .do_wait(dst, Some(Duration::from_millis(1)))
                 .unwrap();
             assert_eq!(ret, 2);
         });
@@ -189,7 +189,7 @@ mod tests {
         thread::spawn(move || {
             let dst = NotifyLocation { address: 8 };
             let ret = threadcond
-                .do_wait(dst.clone(), Some(Duration::from_millis(10)))
+                .do_wait(dst, Some(Duration::from_millis(10)))
                 .unwrap();
             assert_eq!(ret, 2);
         });
@@ -210,12 +210,12 @@ mod tests {
 
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst.clone(), None).unwrap();
+            let ret = threadcond.do_wait(dst, None).unwrap();
             assert_eq!(ret, 0);
         });
         thread::spawn(move || {
             let dst = NotifyLocation { address: 0 };
-            let ret = threadcond2.do_wait(dst.clone(), None).unwrap();
+            let ret = threadcond2.do_wait(dst, None).unwrap();
             assert_eq!(ret, 0);
         });
         thread::sleep(Duration::from_millis(20));

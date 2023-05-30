@@ -125,7 +125,7 @@ impl GenCHeader {
 
         let output = crate::common::normalize_path(&self.output.display().to_string());
 
-        std::fs::write(&output, &header_file_src)
+        std::fs::write(&output, header_file_src)
             .map_err(|e| anyhow::anyhow!("{e}"))
             .with_context(|| anyhow::anyhow!("{output}"))?;
 

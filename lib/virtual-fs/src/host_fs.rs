@@ -398,7 +398,7 @@ impl VirtualFile for File {
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let cursor = match self.inner_std.seek(io::SeekFrom::Current(0)) {
+        let cursor = match self.inner_std.stream_position() {
             Ok(a) => a,
             Err(err) => return Poll::Ready(Err(err)),
         };

@@ -208,12 +208,11 @@ impl<'a> WasiTest<'a> {
 
             other => {
                 let fs: Box<dyn FileSystem + Send + Sync> = match other {
-                    WasiFileSystemKind::InMemory => Box::new(mem_fs::FileSystem::default()),
-                    WasiFileSystemKind::Tmp => Box::new(tmp_fs::TmpFileSystem::default()),
+                    WasiFileSystemKind::InMemory => Box::<mem_fs::FileSystem>::default(),
+                    WasiFileSystemKind::Tmp => Box::<tmp_fs::TmpFileSystem>::default(),
                     WasiFileSystemKind::PassthruMemory => {
-                        Box::new(passthru_fs::PassthruFileSystem::new(Box::new(
-                            mem_fs::FileSystem::default(),
-                        )))
+                        let fs = Box::<mem_fs::FileSystem>::default();
+                        Box::new(passthru_fs::PassthruFileSystem::new(fs))
                     }
                     WasiFileSystemKind::RootFileSystemBuilder => {
                         Box::new(RootFileSystemBuilder::new().build())

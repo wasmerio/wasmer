@@ -36,7 +36,7 @@ pub fn sock_send_file<M: MemorySize>(
         {
             let mut fd_map = state.fs.fd_map.write().unwrap();
             let fd_entry = wasi_try_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
-            fd_entry.offset.store(offset as u64, Ordering::Release);
+            fd_entry.offset.store(offset, Ordering::Release);
         }
 
         // Enter a loop that will process all the data

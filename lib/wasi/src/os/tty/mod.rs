@@ -160,7 +160,7 @@ impl Tty {
     }
 
     pub fn stdin_take(&mut self) -> Box<dyn VirtualFile + Send + Sync + 'static> {
-        let mut stdin: Box<dyn VirtualFile + Send + Sync + 'static> = Box::new(NullFile::default());
+        let mut stdin: Box<dyn VirtualFile + Send + Sync + 'static> = Box::<NullFile>::default();
         std::mem::swap(&mut self.stdin, &mut stdin);
         stdin
     }

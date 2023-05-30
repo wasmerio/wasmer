@@ -1605,7 +1605,7 @@ impl WasiFs {
     fn create_stdout(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,
-            Box::new(Stdout::default()),
+            Box::<Stdout>::default(),
             "stdout",
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
@@ -1616,7 +1616,7 @@ impl WasiFs {
     fn create_stdin(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,
-            Box::new(Stdin::default()),
+            Box::<Stdin>::default(),
             "stdin",
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
@@ -1627,7 +1627,7 @@ impl WasiFs {
     fn create_stderr(&self, inodes: &WasiInodes) {
         self.create_std_dev_inner(
             inodes,
-            Box::new(Stderr::default()),
+            Box::<Stderr>::default(),
             "stderr",
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,
@@ -1777,11 +1777,11 @@ impl std::fmt::Debug for WasiFs {
 pub fn default_fs_backing() -> Box<dyn virtual_fs::FileSystem + Send + Sync> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::new(virtual_fs::host_fs::FileSystem::default())
+            Box::<virtual_fs::host_fs::FileSystem>::default()
         } else if #[cfg(not(feature = "host-fs"))] {
-            Box::new(virtual_fs::mem_fs::FileSystem::default())
+            Box::<virtual_fs::mem_fs::FileSystem>::default()
         } else {
-            Box::new(FallbackFileSystem::default())
+            Box::<FallbackFileSystem>::default()
         }
     }
 }

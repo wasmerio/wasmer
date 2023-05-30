@@ -56,7 +56,7 @@ impl From<u32> for WasiProcessId {
 
 impl From<WasiProcessId> for u32 {
     fn from(val: WasiProcessId) -> Self {
-        val.0 as u32
+        val.0
     }
 }
 

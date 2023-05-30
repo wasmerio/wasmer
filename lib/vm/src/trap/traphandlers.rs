@@ -949,7 +949,10 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     struct SendWrapper<T>(T);
     unsafe impl<T> Send for SendWrapper<T> {}
     let wrapped = SendWrapper(f);
-    yielder.on_parent_stack(move || (wrapped.0)())
+    yielder.on_parent_stack(move || {
+        let wrapped = wrapped;
+        (wrapped.0)()
+    })
 }
 
 #[cfg(windows)]

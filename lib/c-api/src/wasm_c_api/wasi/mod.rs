@@ -352,7 +352,7 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer: *mut c_char,
     buffer_len: usize,
 ) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
     let store = env.store.store();
 
     let (stdout, tasks) = {
@@ -379,7 +379,7 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer: *mut c_char,
     buffer_len: usize,
 ) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
     let store = env.store.store();
     let (stderr, tasks) = {
         let data = env.inner.data(&store);

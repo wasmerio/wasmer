@@ -161,7 +161,7 @@ impl Init {
             .collect::<Vec<_>>()
             .join(NEWLINE);
 
-        std::fs::write(path, &toml_string)
+        std::fs::write(path, toml_string)
             .with_context(|| format!("Unable to write to \"{}\"", path.display()))?;
 
         Ok(())
@@ -426,7 +426,7 @@ fn construct_manifest(
             let outpath = p
                 .build_dir
                 .join("release")
-                .join(&format!("{package_name}.wasm"));
+                .join(format!("{package_name}.wasm"));
             let canonicalized_outpath = outpath.canonicalize().unwrap_or(outpath);
             let outpath_str =
                 crate::common::normalize_path(&canonicalized_outpath.display().to_string());

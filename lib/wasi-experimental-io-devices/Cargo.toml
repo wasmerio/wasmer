@@ -4,11 +4,13 @@ version = "0.5.0"
 description = "An experimental non-standard WASI/WASIX extension for graphics"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "types"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [badges]
 maintenance = { status = "experimental" }
