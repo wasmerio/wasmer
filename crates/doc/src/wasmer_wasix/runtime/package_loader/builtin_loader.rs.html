@@ -395,6 +395,13 @@
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
 <a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -486,13 +493,20 @@
 
     <span class="kw">async fn </span>download(<span class="kw-2">&amp;</span><span class="self">self</span>, dist: <span class="kw-2">&amp;</span>DistributionInfo) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt; {
         <span class="kw">if </span>dist.webc.scheme() == <span class="string">&quot;file&quot; </span>{
-            <span class="comment">// Note: The Url::to_file_path() method is platform-specific
-            </span><span class="attr">#[cfg(any(unix, windows, target_os = <span class="string">&quot;redox&quot;</span>, target_os = <span class="string">&quot;wasi&quot;</span>))]
-            </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(path) = dist.webc.to_file_path() {
-                <span class="comment">// FIXME: This will block the thread
-                </span><span class="kw">let </span>bytes = std::fs::read(<span class="kw-2">&amp;</span>path)
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes.into());
+            <span class="kw">match </span><span class="kw">crate</span>::runtime::resolver::utils::file_path_from_url(<span class="kw-2">&amp;</span>dist.webc) {
+                <span class="prelude-val">Ok</span>(path) =&gt; {
+                    <span class="comment">// FIXME: This will block the thread
+                    </span><span class="kw">let </span>bytes = std::fs::read(<span class="kw-2">&amp;</span>path)
+                        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes.into());
+                }
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::debug!</span>(
+                        url=%dist.webc,
+                        error=<span class="kw-2">&amp;*</span>e,
+                        <span class="string">&quot;Unable to convert the file:// URL to a path&quot;</span>,
+                    );
+                }
             }
         }
 

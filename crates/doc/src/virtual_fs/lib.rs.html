@@ -662,6 +662,25 @@
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
 <a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
 </pre><pre class="rust"><code><span class="attr">#[cfg(test)]
 #[macro_use]
 </span><span class="kw">extern crate </span>pretty_assertions;
@@ -669,6 +688,7 @@
 <span class="kw">use </span>std::any::Any;
 <span class="kw">use </span>std::ffi::OsString;
 <span class="kw">use </span>std::fmt;
+<span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::io;
 <span class="kw">use </span>std::ops::Deref;
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -680,8 +700,10 @@
 <span class="kw">pub mod </span>arc_box_file;
 <span class="kw">pub mod </span>arc_file;
 <span class="kw">pub mod </span>arc_fs;
+<span class="kw">pub mod </span>buffer_file;
 <span class="kw">pub mod </span>builder;
 <span class="kw">pub mod </span>combine_file;
+<span class="kw">pub mod </span>cow_file;
 <span class="kw">pub mod </span>dual_write_file;
 <span class="kw">pub mod </span>empty_fs;
 <span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)]
@@ -712,8 +734,10 @@
 <span class="kw">pub use </span>arc_box_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>arc_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>arc_fs::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>buffer_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>builder::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>combine_file::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>cow_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>dual_write_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>empty_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>filesystems::FileSystems;
@@ -1006,6 +1030,20 @@
     </span><span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
         <span class="prelude-val">None
     </span>}
+
+    <span class="doccomment">/// This method will copy a file from a source to this destination where
+    /// the default is to do a straight byte copy however file system implementors
+    /// may optimize this to do a zero copy
+    </span><span class="kw">fn </span>copy_reference&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
+        <span class="kw-2">mut </span>src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;,
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = std::io::Result&lt;()&gt;&gt; + <span class="lifetime">&#39;a</span>&gt;&gt; {
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span>bytes_written = tokio::io::copy(<span class="kw-2">&amp;mut </span>src, <span class="self">self</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">&quot;Copying file into host filesystem&quot;</span>,);
+            <span class="prelude-val">Ok</span>(())
+        })
+    }
 
     <span class="doccomment">/// Polls the file for when there is data to be read
     </span><span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt;;

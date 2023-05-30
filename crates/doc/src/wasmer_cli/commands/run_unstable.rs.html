@@ -661,6 +661,12 @@
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">use </span>std::{
@@ -683,7 +689,7 @@
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>wapm_targz_to_pirita::FileMap;
+<span class="kw">use </span>wapm_targz_to_pirita::{FileMap, TransformManifestFunctions};
 <span class="kw">use </span>wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -839,7 +845,7 @@
         }
     }
 
-    <span class="attr">#[tracing::instrument(skip_all)]
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">fn </span>load_injected_packages(<span class="kw-2">&amp;</span><span class="self">self</span>, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BinaryPackage&gt;, Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>dependencies = Vec::new();
 
@@ -1157,26 +1163,10 @@
 <span class="kw">impl </span>ExecutableTarget {
     <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    </span><span class="attr">#[tracing::instrument(skip_all)]
     </span><span class="kw">fn </span>from_dir(dir: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
-        load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>wasmer_toml = DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(toml_data) = files.remove(<span class="kw-2">&amp;</span>wasmer_toml) {
-            <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-            // using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we
-            // manually patch things up if people have already migrated their
-            // projects.
-            </span>files
-                .entry(DirOrFile::File(<span class="string">&quot;wapm.toml&quot;</span>.into()))
-                .or_insert(toml_data);
-        }
-
-        <span class="kw">let </span>functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-        <span class="kw">let </span>webc = wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>functions)<span class="question-mark">?</span>;
-
+        <span class="kw">let </span>webc = construct_webc_in_memory(dir)<span class="question-mark">?</span>;
         <span class="kw">let </span>container = Container::from_bytes(webc)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>pkg = runtime
             .task_manager()
             .block_on(BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, runtime))<span class="question-mark">?</span>;
@@ -1215,6 +1205,28 @@
             }
         }
     }
+}
+
+<span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+</span><span class="kw">fn </span>construct_webc_in_memory(dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
+    load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>wasmer_toml = DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(toml_data) = files.remove(<span class="kw-2">&amp;</span>wasmer_toml) {
+        <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+        // using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we
+        // manually patch things up if people have already migrated their
+        // projects.
+        </span>files
+            .entry(DirOrFile::File(<span class="string">&quot;wapm.toml&quot;</span>.into()))
+            .or_insert(toml_data);
+    }
+
+    <span class="kw">let </span>functions = TransformManifestFunctions::default();
+    <span class="kw">let </span>webc = wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>functions)<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(webc)
 }
 
 <span class="kw">fn </span>load_files_from_disk(files: <span class="kw-2">&amp;mut </span>FileMap, dir: <span class="kw-2">&amp;</span>Path, base: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {

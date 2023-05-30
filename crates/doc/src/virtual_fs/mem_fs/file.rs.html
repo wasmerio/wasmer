@@ -1399,6 +1399,29 @@
 <a href="#1399" id="1399">1399</a>
 <a href="#1400" id="1400">1400</a>
 <a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`
 //! implementations. They aren&#39;t exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
@@ -1408,7 +1431,7 @@
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::limiter::TrackedVec;
-<span class="kw">use crate</span>::{FsError, <span class="prelude-ty">Result</span>, VirtualFile};
+<span class="kw">use crate</span>::{CopyOnWriteFile, FsError, <span class="prelude-ty">Result</span>, VirtualFile};
 <span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::cmp;
 <span class="kw">use </span>std::convert::TryInto;
@@ -1675,6 +1698,29 @@
             },
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         }
+    }
+
+    <span class="kw">fn </span>copy_reference&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
+        src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;,
+    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>std::future::Future&lt;Output = std::io::Result&lt;()&gt;&gt; + <span class="lifetime">&#39;a</span>&gt;&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.filesystem.inner.clone();
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>fs = inner.write().unwrap();
+            <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
+            <span class="kw">match </span>inode {
+                <span class="prelude-val">Some</span>(inode) =&gt; {
+                    <span class="kw-2">*</span>inode = Node::CustomFile(CustomFileNode {
+                        inode: inode.inode(),
+                        name: inode.name().to_string_lossy().to_string().into(),
+                        file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
+                        metadata: inode.metadata().clone(),
+                    });
+                    <span class="prelude-val">Ok</span>(())
+                }
+                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(std::io::ErrorKind::InvalidInput.into()),
+            }
+        })
     }
 
     <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {

@@ -80,9 +80,48 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::path::Path;
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
-<span class="kw">use </span>anyhow::Error;
+<span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>http::{HeaderMap, StatusCode};
 <span class="kw">use </span>url::Url;
 
@@ -138,13 +177,39 @@
     Error::msg(status)
 }
 
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>file_path_from_url(url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt; {
+    <span class="macro">debug_assert_eq!</span>(url.scheme(), <span class="string">&quot;file&quot;</span>);
+
+    <span class="comment">// Note: The Url::to_file_path() method is platform-specific
+    </span><span class="macro">cfg_if::cfg_if! </span>{
+        <span class="kw">if </span><span class="attr">#[cfg(any(unix, windows, target_os = <span class="string">&quot;redox&quot;</span>, target_os = <span class="string">&quot;wasi&quot;</span>))] </span>{
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(path) = url.to_file_path() {
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
+            }
+
+            <span class="comment">// Sometimes we&#39;ll get a UNC-like path (e.g.
+            // &quot;file:///?\\C:/\\/path/to/file.txt&quot;) and Url::to_file_path()
+            // won&#39;t be able to handle the &quot;\\?&quot; so we try to &quot;massage&quot; the URL
+            // a bit.
+            // See &lt;https://github.com/servo/rust-url/issues/450&gt; for more.
+            </span><span class="kw">let </span>modified = url.as_str().replace(<span class="string">r&quot;\\?&quot;</span>, <span class="string">&quot;&quot;</span>).replace(<span class="string">&quot;//?&quot;</span>, <span class="string">&quot;&quot;</span>).replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
+            Url::parse(<span class="kw-2">&amp;</span>modified)
+                .ok()
+                .and_then(|url| url.to_file_path().ok())
+                .context(<span class="string">&quot;Unable to extract the file path&quot;</span>)
+        } <span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Url::to_file_path() is not supported on this platform&quot;</span>);
+        }
+    }
+}
+
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
     #[cfg(unix)]
-    </span><span class="kw">fn </span>behaviour_is_identical() {
+    </span><span class="kw">fn </span>from_file_path_behaviour_is_identical() {
         <span class="kw">let </span>inputs = [
             <span class="string">&quot;/&quot;</span>,
             <span class="string">&quot;/path&quot;</span>,
@@ -159,6 +224,19 @@
             <span class="kw">let </span>expected = Url::from_file_path(path).ok();
             <span class="macro">assert_eq!</span>(got, expected, <span class="string">&quot;Mismatch for \&quot;{path}\&quot;&quot;</span>);
         }
+    }
+
+    <span class="attr">#[test]
+    #[cfg(windows)]
+    </span><span class="kw">fn </span>to_file_path_can_handle_unc_paths() {
+        <span class="kw">let </span>path = Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>))
+            .canonicalize()
+            .unwrap();
+        <span class="kw">let </span>url = Url::from_file_path(<span class="kw-2">&amp;</span>path).unwrap();
+
+        <span class="kw">let </span>got = file_path_from_url(<span class="kw-2">&amp;</span>url).unwrap();
+
+        <span class="macro">assert_eq!</span>(got.canonicalize().unwrap(), path);
     }
 }
 </code></pre></div>

@@ -1890,13 +1890,105 @@
 <a href="#1889" id="1889">1889</a>
 <a href="#1890" id="1890">1890</a>
 <a href="#1891" id="1891">1891</a>
+<a href="#1892" id="1892">1892</a>
+<a href="#1893" id="1893">1893</a>
+<a href="#1894" id="1894">1894</a>
+<a href="#1895" id="1895">1895</a>
+<a href="#1896" id="1896">1896</a>
+<a href="#1897" id="1897">1897</a>
+<a href="#1898" id="1898">1898</a>
+<a href="#1899" id="1899">1899</a>
+<a href="#1900" id="1900">1900</a>
+<a href="#1901" id="1901">1901</a>
+<a href="#1902" id="1902">1902</a>
+<a href="#1903" id="1903">1903</a>
+<a href="#1904" id="1904">1904</a>
+<a href="#1905" id="1905">1905</a>
+<a href="#1906" id="1906">1906</a>
+<a href="#1907" id="1907">1907</a>
+<a href="#1908" id="1908">1908</a>
+<a href="#1909" id="1909">1909</a>
+<a href="#1910" id="1910">1910</a>
+<a href="#1911" id="1911">1911</a>
+<a href="#1912" id="1912">1912</a>
+<a href="#1913" id="1913">1913</a>
+<a href="#1914" id="1914">1914</a>
+<a href="#1915" id="1915">1915</a>
+<a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
 
 <span class="kw">use </span>std::{
     borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     sync::{
@@ -1906,6 +1998,7 @@
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::state::{Stderr, Stdin, Stdout};
+<span class="kw">use </span>futures::TryStreamExt;
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::io::AsyncWriteExt;
@@ -2160,6 +2253,25 @@
     Backing(Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;),
 }
 
+<span class="kw">impl </span>WasiFsRoot {
+    <span class="doccomment">/// Merge the contents of a filesystem into this one.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>merge(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        other: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            WasiFsRoot::Sandbox(fs) =&gt; {
+                fs.union(other);
+                <span class="prelude-val">Ok</span>(())
+            }
+            WasiFsRoot::Backing(fs) =&gt; {
+                merge_filesystems(other, fs).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(())
+            }
+        }
+    }
+}
+
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>WasiFsRoot {
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::ReadDir&gt; {
         <span class="kw">match </span><span class="self">self </span>{
@@ -2209,6 +2321,78 @@
             WasiFsRoot::Backing(fs) =&gt; fs.new_open_options(),
         }
     }
+}
+
+<span class="doccomment">/// Merge the contents of one filesystem into another.
+///
+</span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+</span><span class="kw">async fn </span>merge_filesystems(
+    source: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
+    destination: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;Falling back to a recursive copy to merge filesystems&quot;</span>);
+    <span class="kw">let </span>files = futures::stream::FuturesUnordered::new();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>to_check = VecDeque::new();
+    to_check.push_back(PathBuf::from(<span class="string">&quot;/&quot;</span>));
+
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(path) = to_check.pop_front() {
+        <span class="kw">let </span>metadata = source.metadata(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+
+        <span class="kw">if </span>metadata.is_dir() {
+            create_dir_all(destination, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+
+            <span class="kw">for </span>entry <span class="kw">in </span>source.read_dir(<span class="kw-2">&amp;</span>path)<span class="question-mark">? </span>{
+                <span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
+                to_check.push_back(entry.path);
+            }
+        } <span class="kw">else if </span>metadata.is_file() {
+            files.push(<span class="kw">async move </span>{
+                copy_reference(source, destination, <span class="kw-2">&amp;</span>path)
+                    .<span class="kw">await
+                    </span>.map_err(virtual_fs::FsError::from)
+            });
+        } <span class="kw">else </span>{
+            <span class="macro">tracing::debug!</span>(
+                path=%path.display(),
+                <span class="question-mark">?</span>metadata,
+                <span class="string">&quot;Skipping unknown file type while merging&quot;
+            </span>);
+        }
+    }
+
+    files.try_collect().<span class="kw">await
+</span>}
+
+<span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(path=%path.display()))]
+</span><span class="kw">async fn </span>copy_reference(
+    source: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
+    destination: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
+    path: <span class="kw-2">&amp;</span>Path,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
+    <span class="kw">let </span>src = source.new_open_options().read(<span class="bool-val">true</span>).open(path)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>dst = destination
+        .new_open_options()
+        .create(<span class="bool-val">true</span>)
+        .write(<span class="bool-val">true</span>)
+        .truncate(<span class="bool-val">true</span>)
+        .open(path)<span class="question-mark">?</span>;
+
+    dst.copy_reference(src).<span class="kw">await
+</span>}
+
+<span class="kw">fn </span>create_dir_all(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
+    <span class="kw">if </span>fs.metadata(path).is_ok() {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+    }
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+        create_dir_all(fs, parent)<span class="question-mark">?</span>;
+    }
+
+    fs.create_dir(path)<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Warning, modifying these fields directly may cause invariants to break and

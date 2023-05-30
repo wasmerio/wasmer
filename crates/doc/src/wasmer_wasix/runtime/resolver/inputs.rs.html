@@ -360,6 +360,31 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Display, Formatter},
     fs::File,
@@ -409,6 +434,21 @@
     <span class="kw">type </span><span class="prelude-val">Err </span>= anyhow::Error;
 
     <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+        <span class="comment">// There is no function in std for checking if a string is a valid path
+        // and we can&#39;t do Path::new(s).exists() because that assumes the
+        // package being specified is on the local filesystem, so let&#39;s make a
+        // best-effort guess.
+        </span><span class="kw">if </span>s.starts_with(<span class="string">&#39;.&#39;</span>) || s.starts_with(<span class="string">&#39;/&#39;</span>) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSpecifier::Path(s.into()));
+        }
+        <span class="attr">#[cfg(windows)]
+        </span><span class="kw">if </span>s.contains(<span class="string">&#39;\\&#39;</span>) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSpecifier::Path(s.into()));
+        }
+        <span class="kw">if </span>Path::new(s).exists() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSpecifier::Path(s.into()));
+        }
+
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(s) {
             <span class="kw">if </span>url.has_host() {
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSpecifier::Url(url));
@@ -712,6 +752,16 @@
             (
                 <span class="string">&quot;https://wapm/io/namespace/package@1.0.0&quot;</span>,
                 PackageSpecifier::Url(<span class="string">&quot;https://wapm/io/namespace/package@1.0.0&quot;</span>.parse().unwrap()),
+            ),
+            (
+                <span class="string">&quot;/path/to/some/file.webc&quot;</span>,
+                PackageSpecifier::Path(<span class="string">&quot;/path/to/some/file.webc&quot;</span>.into()),
+            ),
+            (<span class="string">&quot;./file.webc&quot;</span>, PackageSpecifier::Path(<span class="string">&quot;./file.webc&quot;</span>.into())),
+            <span class="attr">#[cfg(windows)]
+            </span>(
+                <span class="string">r&quot;C:\Path\to\some\file.webc&quot;</span>,
+                PackageSpecifier::Path(<span class="string">r&quot;C:\Path\to\some\file.webc&quot;</span>.into()),
             ),
         ];
 

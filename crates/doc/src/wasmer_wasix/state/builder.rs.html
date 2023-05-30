@@ -988,6 +988,15 @@
 <a href="#987" id="987">987</a>
 <a href="#988" id="988">988</a>
 <a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1259,19 +1268,28 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.args
     }
 
-    <span class="doccomment">/// Adds a container this module inherits from
+    <span class="doccomment">/// Adds a container this module inherits from.
+    ///
+    /// This will make all of the container&#39;s files and commands available to the
+    /// resulting WASI instance.
     </span><span class="kw">pub fn </span>use_webc(<span class="kw-2">mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.add_webc(pkg);
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Adds a container this module inherits from
+    <span class="doccomment">/// Adds a container this module inherits from.
+    ///
+    /// This will make all of the container&#39;s files and commands available to the
+    /// resulting WASI instance.
     </span><span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.uses.push(pkg);
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Adds a list of other containers this module inherits from
+    <span class="doccomment">/// Adds a list of other containers this module inherits from.
+    ///
+    /// This will make all of the container&#39;s files and commands available to the
+    /// resulting WASI instance.
     </span><span class="kw">pub fn </span>uses&lt;I&gt;(<span class="kw-2">mut </span><span class="self">self</span>, uses: I) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>I: IntoIterator&lt;Item = BinaryPackage&gt;,

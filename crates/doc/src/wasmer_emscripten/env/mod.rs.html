@@ -227,7 +227,7 @@
     malloc_ref.call(<span class="kw-2">&amp;mut </span>ctx, size).unwrap()
 }
 
-<span class="attr">#[warn(dead_code)]
+<span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub fn </span>call_malloc_with_cast&lt;T: Copy&gt;(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;EmEnv&gt;, size: u32) -&gt; WasmPtr&lt;T&gt; {
     WasmPtr::new(call_malloc(ctx, size))
 }
