@@ -161,9 +161,9 @@ impl VirtualTaskManager for TokioTaskManager {
         } else {
             // Run the callback on a dedicated thread
             tracing::trace!(
-                "wasm task will spawn now (pid={}, tid={})",
-                ctx.data(&store).thread.pid(),
-                ctx.data(&store).thread.tid()
+                pid=ctx.data(&store).thread.pid(),
+                tid=ctx.data(&store).thread.tid(),
+                "wasm task will spawn now",
             );
             self.0.spawn_blocking(move || {
                 // Invoke the callback
