@@ -33,6 +33,8 @@ pub struct RewindState {
 pub struct DeepSleepWork {
     /// This is the work that will be performed before the thread is rewoken
     pub trigger: Pin<Box<AsyncifyFuture>>,
+    /// Determines if the signals will be processed in this deep sleep
+    pub process_signals: bool,
     /// State that the thread will be rewound to
     pub rewind: RewindState,
 }

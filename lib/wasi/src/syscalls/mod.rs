@@ -416,6 +416,7 @@ where
         .try_inner()
         .map(|i| !i.signal_set)
         .unwrap_or(true);
+    tracing::trace!("asyncify (process_signals={process_signals})");
 
     // Box up the trigger
     let mut trigger = Box::pin(trigger);
@@ -446,10 +447,12 @@ where
             },
             // Determines when and if we should go into a deep sleep
             _ = deep_sleep_wait => {
+
                 let pid = ctx.data().pid();
                 let tid = ctx.data().tid();
                 tracing::trace!(%pid, %tid, "thread entering deep sleep");
-                deep_sleep::<M>(ctx, Box::pin(async move {
+
+                deep_sleep::<M>(ctx, process_signals, Box::pin(async move {
                     let result = trigger.await;
                     bincode::serialize(&result).unwrap().into()
                 }))?;
@@ -938,6 +941,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
 #[must_use = "you must return the result immediately so the stack can unwind"]
 pub(crate) fn deep_sleep<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    process_signals: bool,
     trigger: Pin<Box<AsyncifyFuture>>,
 ) -> Result<(), WasiError> {
     // Grab all the globals and serialize them
@@ -953,6 +957,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
         OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
             WasiError::DeepSleep(DeepSleepWork {
                 trigger,
+                process_signals,
                 rewind: RewindState {
                     memory_stack: memory_stack.freeze(),
                     rewind_stack: rewind_stack.freeze(),

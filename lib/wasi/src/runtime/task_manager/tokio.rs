@@ -128,11 +128,27 @@ impl VirtualTaskManager for TokioTaskManager {
         // If we have a trigger then we first need to run
         // the poller to completion
         if let Some(trigger) = task.trigger {
+            tracing::trace!(
+                "wasm task will wait for trigger (pid={}, tid={})",
+                ctx.data(&store).thread.pid(),
+                ctx.data(&store).thread.tid()
+            );
             let trigger = trigger();
             let handle = self.0.clone();
             self.0.spawn(async move {
+                tracing::trace!(
+                    "wasm task waiting for trigger (pid={}, tid={})",
+                    ctx.data(&store).thread.pid(),
+                    ctx.data(&store).thread.tid()
+                );
                 let result = trigger.await;
+
                 // Build the task that will go on the callback
+                tracing::trace!(
+                    "wasm task woken by trigger (pid={}, tid={})",
+                    ctx.data(&store).thread.pid(),
+                    ctx.data(&store).thread.tid()
+                );
                 handle.spawn_blocking(move || {
                     // Invoke the callback
                     run(TaskWasmRunProperties {
@@ -144,8 +160,18 @@ impl VirtualTaskManager for TokioTaskManager {
             });
         } else {
             // Run the callback on a dedicated thread
+            tracing::trace!(
+                "wasm task will spawn now (pid={}, tid={})",
+                ctx.data(&store).thread.pid(),
+                ctx.data(&store).thread.tid()
+            );
             self.0.spawn_blocking(move || {
                 // Invoke the callback
+                tracing::trace!(
+                    "wasm task is running (pid={}, tid={})",
+                    ctx.data(&store).thread.pid(),
+                    ctx.data(&store).thread.tid()
+                );
                 run(TaskWasmRunProperties {
                     ctx,
                     store,

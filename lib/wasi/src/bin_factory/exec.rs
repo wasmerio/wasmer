@@ -62,6 +62,11 @@ pub async fn spawn_exec(
         }
     };
 
+    // Update the imports
+    for import in module.imports() {
+        tracing::trace!("import {}.{}", import.module(), import.name());
+    }
+
     // If the file system has not already been union'ed then do so
     env.state.fs.conditional_union(&binary);
     tracing::debug!("{:?}", env.state.fs);
@@ -226,7 +231,14 @@ fn call_module(
 
                     // Spawns the WASM process after a trigger
                     if let Err(err) = unsafe {
-                        tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                        tasks.resume_wasm_after_poller(
+                            Box::new(respawn),
+                            ctx,
+                            store,
+                            deep.process_signals,
+                            true,
+                            deep.trigger,
+                        )
                     } {
                         debug!("failed to go into deep sleep - {}", err);
                     }
