@@ -56,7 +56,7 @@ impl WasiFunctionEnv {
 
         let instance = Instance::new(&mut store, &module, &import_object).map_err(|err| {
             tracing::warn!("failed to create instance - {}", err);
-            WasiThreadError::InstanceCreateFailed(err)
+            WasiThreadError::InstanceCreateFailed(Box::new(err))
         })?;
 
         init(&instance, &store).map_err(|err| {

@@ -76,12 +76,12 @@ impl SymbolRegistry for ShortNames {
 }
 
 impl LLVMCompiler {
-    fn compile_native_object<'data, 'module>(
+    fn compile_native_object(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         symbol_registry: &dyn SymbolRegistry,
         wasmer_metadata: &[u8],
     ) -> Result<Vec<u8>, CompileError> {
@@ -204,13 +204,13 @@ impl Compiler for LLVMCompiler {
         &self.config.middlewares
     }
 
-    fn experimental_native_compile_module<'data, 'module>(
+    fn experimental_native_compile_module(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
@@ -227,12 +227,12 @@ impl Compiler for LLVMCompiler {
 
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
-    fn compile_module<'data, 'module>(
+    fn compile_module(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let memory_styles = &compile_info.memory_styles;

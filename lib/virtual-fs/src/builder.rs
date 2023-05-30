@@ -73,19 +73,18 @@ impl RootFileSystemBuilder {
         if self.add_wasmer_command {
             let _ = tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from("/bin/wasmer"), Box::new(NullFile::default()));
+                .insert_device_file(PathBuf::from("/bin/wasmer"), Box::<NullFile>::default());
         }
         if self.default_dev_files {
             let _ = tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from("/dev/null"), Box::new(NullFile::default()));
+                .insert_device_file(PathBuf::from("/dev/null"), Box::<NullFile>::default());
             let _ = tmp
                 .new_open_options_ext()
-                .insert_device_file(PathBuf::from("/dev/zero"), Box::new(ZeroFile::default()));
-            let _ = tmp.new_open_options_ext().insert_device_file(
-                PathBuf::from("/dev/urandom"),
-                Box::new(RandomFile::default()),
-            );
+                .insert_device_file(PathBuf::from("/dev/zero"), Box::<ZeroFile>::default());
+            let _ = tmp
+                .new_open_options_ext()
+                .insert_device_file(PathBuf::from("/dev/urandom"), Box::<RandomFile>::default());
             let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/stdin"),
                 self.stdin
@@ -103,7 +102,7 @@ impl RootFileSystemBuilder {
             );
             let _ = tmp.new_open_options_ext().insert_device_file(
                 PathBuf::from("/dev/tty"),
-                self.tty.unwrap_or_else(|| Box::new(NullFile::default())),
+                self.tty.unwrap_or_else(|| Box::<NullFile>::default()),
             );
         }
         tmp

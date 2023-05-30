@@ -2,13 +2,15 @@
 name = "wai-bindgen-wasmer"
 description = "Generate WAI glue for a Rust Wasmer host"
 version = "0.5.0"
-edition = "2018"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 anyhow = "1.0"

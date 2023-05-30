@@ -964,9 +964,15 @@ fn get_bytes(
 fn test_install_package() {
     println!("test install package...");
     let registry = "https://registry.wapm.io/graphql";
-    if !test_if_registry_present(registry).unwrap_or(false) {
-        panic!("registry.wapm.io not reachable, test will fail");
+
+    match test_if_registry_present(registry) {
+        Ok(true) => {}
+        Ok(false) => panic!("registry.wapm.io not reachable, test will fail"),
+        Err(e) => {
+            panic!("registry.wapm.io not reachable: {e}");
+        }
     }
+
     println!("registry present");
 
     let wabt = query_package_from_registry(registry, "wasmer/wabt", Some("1.0.29")).unwrap();
@@ -982,7 +988,8 @@ fn test_install_package() {
     );
     assert_eq!(
         wabt.url,
-        "https://registry-cdn.wapm.io/packages/wasmer/wabt/wabt-1.0.29.tar.gz".to_string()
+        "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/wabt/wabt-1.0.29.tar.gz"
+            .to_string()
     );
 
     let fake_wasmer_dir = tempfile::TempDir::new().unwrap();
@@ -993,7 +1000,7 @@ fn test_install_package() {
 
     assert_eq!(
         path,
-        get_checkouts_dir(wasmer_dir).join(&format!("{}@1.0.29", Package::hash_url(&wabt.url)))
+        get_checkouts_dir(wasmer_dir).join(format!("{}@1.0.29", Package::hash_url(&wabt.url)))
     );
 
     let all_installed_packages = get_all_local_packages(wasmer_dir);

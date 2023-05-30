@@ -58,7 +58,7 @@ impl From<u32> for WasiThreadId {
 
 impl From<WasiThreadId> for u32 {
     fn from(t: WasiThreadId) -> u32 {
-        t.0 as u32
+        t.0
     }
 }
 
@@ -507,7 +507,8 @@ pub enum WasiThreadError {
     #[error("{0}")]
     ExportError(ExportError),
     #[error("Failed to create the instance")]
-    InstanceCreateFailed(InstantiationError),
+    // Note: Boxed so we can keep the error size down
+    InstanceCreateFailed(Box<InstantiationError>),
     #[error("Initialization function failed - {0}")]
     InitFailed(anyhow::Error),
     /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call

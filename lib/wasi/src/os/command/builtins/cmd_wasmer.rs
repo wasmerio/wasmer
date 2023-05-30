@@ -108,9 +108,9 @@ impl VirtualCommand for CmdWasmer {
         self
     }
 
-    fn exec<'a>(
+    fn exec(
         &self,
-        parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
+        parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         name: &str,
         store: &mut Option<Store>,
         env: &mut Option<WasiEnv>,

@@ -20,7 +20,12 @@ use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
-    runtime::task_manager::TaskWasm,
+    runtime::{
+        module_cache::{FileSystemCache, ModuleCache, ThreadLocalCache},
+        package_loader::{BuiltinPackageLoader, PackageLoader},
+        resolver::{Source, WapmSource},
+        task_manager::TaskWasm,
+    },
     VirtualFile, VirtualNetworking, VirtualTaskManager, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
@@ -48,7 +53,9 @@ pub(crate) struct WebRuntime {
     tty: TtyOptions,
 
     http_client: DynHttpClient,
-
+    package_loader: Arc<BuiltinPackageLoader>,
+    source: Arc<WapmSource>,
+    module_cache: Arc<dyn ModuleCache + Send + Sync>,
     net: wasmer_wasix::virtual_net::DynVirtualNetworking,
     tasks: Arc<dyn VirtualTaskManager>,
 }
@@ -69,14 +76,36 @@ impl WebRuntime {
             runtime,
         });
 
+        let http_client = Arc::new(WebHttpClient { pool: pool.clone() });
+        let source = WapmSource::new(
+            WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
+            http_client.clone(),
+        );
+
+        let wasmer_dir = std::env::current_dir().unwrap_or_else(|_| ".wasmer".into());
+
+        // Note: the package loader and module cache have tiered caching, so
+        // even if the filesystem cache fails (i.e. because we're compiled to
+        // wasm32-unknown-unknown and running in a browser), the in-memory layer
+        // should still work.
+        let package_loader = BuiltinPackageLoader::new_with_client(
+            BuiltinPackageLoader::default_cache_dir(&wasmer_dir),
+            http_client.clone(),
+        );
+        let module_cache = ThreadLocalCache::default().with_fallback(FileSystemCache::new(
+            FileSystemCache::default_cache_dir(&wasmer_dir),
+        ));
         WebRuntime {
-            pool: pool.clone(),
+            pool,
             tasks: runtime,
             tty: tty_options,
             #[cfg(feature = "webgl")]
             webgl_tx,
-            http_client: Arc::new(WebHttpClient { pool }),
+            http_client,
             net: Arc::new(WebVirtualNetworking),
+            module_cache: Arc::new(module_cache),
+            package_loader: Arc::new(package_loader),
+            source: Arc::new(source),
         }
     }
 }
@@ -432,6 +461,18 @@ impl wasmer_wasix::Runtime for WebRuntime {
 
     fn http_client(&self) -> Option<&DynHttpClient> {
         Some(&self.http_client)
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        Arc::clone(&self.module_cache)
+    }
+
+    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
+        Arc::clone(&self.package_loader) as Arc<dyn PackageLoader + Send + Sync>
+    }
+
+    fn source(&self) -> Arc<dyn Source + Send + Sync> {
+        Arc::clone(&self.source) as Arc<dyn Source + Send + Sync>
     }
 }
 

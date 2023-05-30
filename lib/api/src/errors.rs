@@ -81,8 +81,8 @@ struct RuntimeStringError {
 }
 
 impl RuntimeStringError {
-    fn new(msg: String) -> RuntimeStringError {
-        RuntimeStringError { details: msg }
+    fn new(msg: String) -> Self {
+        Self { details: msg }
     }
 }
 
