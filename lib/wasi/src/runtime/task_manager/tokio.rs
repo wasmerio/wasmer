@@ -137,9 +137,9 @@ impl VirtualTaskManager for TokioTaskManager {
             let handle = self.0.clone();
             self.0.spawn(async move {
                 tracing::trace!(
-                    "wasm task waiting for trigger (pid={}, tid={})",
-                    ctx.data(&store).thread.pid(),
-                    ctx.data(&store).thread.tid()
+                    pid=ctx.data(&store).thread.pid(),
+                    tid=ctx.data(&store).thread.tid(),
+                    "wasm task waiting for trigger",
                 );
                 let result = trigger.await;
 
