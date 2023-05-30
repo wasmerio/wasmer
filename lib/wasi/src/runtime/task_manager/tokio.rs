@@ -145,9 +145,9 @@ impl VirtualTaskManager for TokioTaskManager {
 
                 // Build the task that will go on the callback
                 tracing::trace!(
-                    "wasm task woken by trigger (pid={}, tid={})",
-                    ctx.data(&store).thread.pid(),
-                    ctx.data(&store).thread.tid()
+                    pid=ctx.data(&store).thread.pid(),
+                    tid=ctx.data(&store).thread.tid(),
+                    "wasm task woken by trigger",
                 );
                 handle.spawn_blocking(move || {
                     // Invoke the callback
