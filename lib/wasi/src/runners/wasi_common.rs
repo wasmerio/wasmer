@@ -122,7 +122,7 @@ fn prepare_filesystem(
                     format!("Unable to canonicalize path '{}'", guest_path.display())
                 })?;
 
-            if &guest_path == &Path::new("/") {
+            if guest_path == Path::new("/") {
             } else {
                 if let Some(parent) = guest_path.parent() {
                     create_dir_all(&root_fs, parent).with_context(|| {
@@ -139,11 +139,11 @@ fn prepare_filesystem(
                             guest_path.display()
                         )
                     })?;
-            }
 
-            builder
-                .add_preopen_dir(&guest_path)
-                .with_context(|| format!("Unable to preopen \"{}\"", guest_path.display()))?;
+                builder
+                    .add_preopen_dir(&guest_path)
+                    .with_context(|| format!("Unable to preopen \"{}\"", guest_path.display()))?;
+            }
         }
     }
 
@@ -175,7 +175,7 @@ fn apply_relative_path_mounting_hack(original: &Path) -> PathBuf {
     debug_assert!(original.is_relative());
 
     let root = Path::new("/");
-    let mapped_path = if &original == &Path::new(".") {
+    let mapped_path = if original == Path::new(".") {
         root.to_path_buf()
     } else {
         root.join(original)
