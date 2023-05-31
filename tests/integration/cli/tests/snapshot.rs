@@ -1248,7 +1248,7 @@ fn test_snapshot_quickjs() {
 fn replace_log_lines() {
     let src = "2023-05-29T11:12:50.466396Z\n2023-05-29T11:12:50.466396Z This is a log message\nthis is not";
 
-    let replaced = LOG_PATTERN.replace_all(src, "xXx").into_owned();
+    let replaced = LOG_PATTERN.replace_all(src, "").into_owned();
 
-    assert_eq!(replaced, "this is not!");
+    assert_eq!(replaced, "this is not");
 }
