@@ -491,8 +491,8 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
-        .arg("test.py")
+        .arg(format!("--mapdir=/app:{}", ASSET_PATH))
+        .arg("/app/test.py")
         .assert()
         .success();
 
@@ -502,8 +502,8 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
-        .arg("test.py")
+        .arg(format!("--mapdir=/app:{}", ASSET_PATH))
+        .arg("/app/test.py")
         .assert()
         .success();
 
