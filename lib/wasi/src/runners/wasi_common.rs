@@ -110,7 +110,7 @@ fn prepare_filesystem(
                 guest_path = apply_relative_path_mounting_hack(&guest_path);
             }
 
-            let host_path = std::fs::canonicalize(&host_path).with_context(|| {
+            let host_path = std::fs::canonicalize(host_path).with_context(|| {
                 format!("Unable to canonicalize host path '{}'", host_path.display())
             })?;
 
