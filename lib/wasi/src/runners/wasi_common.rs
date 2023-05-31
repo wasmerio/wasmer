@@ -110,11 +110,9 @@ fn prepare_filesystem(
                 guest_path = apply_relative_path_mounting_hack(&guest_path);
             }
 
-            let host_path = root_fs
-                .canonicalize_unchecked(&host_path)
-                .with_context(|| {
-                    format!("Unable to canonicalize path '{}'", host_path.display())
-                })?;
+            let host_path = root_fs.canonicalize_unchecked(host_path).with_context(|| {
+                format!("Unable to canonicalize path '{}'", host_path.display())
+            })?;
 
             let guest_path = root_fs
                 .canonicalize_unchecked(&guest_path)
