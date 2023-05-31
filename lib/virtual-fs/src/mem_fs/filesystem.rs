@@ -883,6 +883,13 @@ impl FileSystemInner {
 
         match components.next() {
             Some(Component::RootDir) => {}
+            Some(Component::Prefix(..)) => {
+                // We've received a UNC path, let's check for the root
+                // component to make sure it is absolute.
+                if !matches!(components.next(), Some(Component::RootDir)) {
+                    return Err(FsError::InvalidInput);
+                }
+            }
             _ => return Err(FsError::InvalidInput),
         }
 
