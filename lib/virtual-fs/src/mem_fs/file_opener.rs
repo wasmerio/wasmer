@@ -69,14 +69,15 @@ impl FileSystem {
 
     /// Inserts a arc file into the file system that references another file
     /// in another file system (does not copy the real data)
-    pub fn insert_arc_file(
+    pub fn insert_arc_file_at(
         &self,
-        path: PathBuf,
+        target_path: PathBuf,
         fs: Arc<dyn crate::FileSystem + Send + Sync>,
+        source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path.as_path());
+        let _ = crate::FileSystem::remove_file(self, target_path.as_path());
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
-            self.insert_inode(path.as_path())?;
+            self.insert_inode(target_path.as_path())?;
 
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
@@ -95,7 +96,7 @@ impl FileSystem {
                 let mut fs_lock = self.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Read the metadata or generate a dummy one
-                let meta = match fs.metadata(&path) {
+                let meta = match fs.metadata(&target_path) {
                     Ok(meta) => meta,
                     _ => {
                         let time = time();
@@ -118,7 +119,7 @@ impl FileSystem {
                     inode: inode_of_file,
                     name: name_of_file,
                     fs,
-                    path,
+                    path: source_path,
                     metadata: meta,
                 }));
 
@@ -136,16 +137,27 @@ impl FileSystem {
         Ok(())
     }
 
-    /// Inserts a arc directory into the file system that references another file
+    /// Inserts a arc file into the file system that references another file
     /// in another file system (does not copy the real data)
-    pub fn insert_arc_directory(
+    pub fn insert_arc_file(
         &self,
-        path: PathBuf,
+        target_path: PathBuf,
         fs: Arc<dyn crate::FileSystem + Send + Sync>,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_dir(self, path.as_path());
+        self.insert_arc_file_at(target_path.clone(), fs, target_path)
+    }
+
+    /// Inserts a arc directory into the file system that references another file
+    /// in another file system (does not copy the real data)
+    pub fn insert_arc_directory_at(
+        &self,
+        target_path: PathBuf,
+        other: Arc<dyn crate::FileSystem + Send + Sync>,
+        source_path: PathBuf,
+    ) -> Result<()> {
+        let _ = crate::FileSystem::remove_dir(self, target_path.as_path());
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
-            self.insert_inode(path.as_path())?;
+            self.insert_inode(target_path.as_path())?;
 
         let inode_of_parent = match inode_of_parent {
             InodeResolution::Found(a) => a,
@@ -169,8 +181,8 @@ impl FileSystem {
                     fs_lock.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
                         inode: inode_of_file,
                         name: name_of_file,
-                        fs,
-                        path,
+                        fs: other,
+                        path: source_path,
                         metadata: {
                             let time = time();
                             Metadata {
@@ -198,6 +210,16 @@ impl FileSystem {
             }
         };
         Ok(())
+    }
+
+    /// Inserts a arc directory into the file system that references another file
+    /// in another file system (does not copy the real data)
+    pub fn insert_arc_directory(
+        &self,
+        target_path: PathBuf,
+        other: Arc<dyn crate::FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        self.insert_arc_directory_at(target_path.clone(), other, target_path)
     }
 
     /// Inserts a arc file into the file system that references another file

@@ -50,6 +50,11 @@ impl TmpFileSystem {
     ) -> Result<()> {
         self.fs.mount(src_path, other, dst_path)
     }
+
+    /// Canonicalize a path without validating that it actually exists.
+    pub fn canonicalize_unchecked(&self, path: &Path) -> Result<PathBuf> {
+        self.fs.canonicalize_unchecked(path)
+    }
 }
 
 impl FileSystem for TmpFileSystem {
