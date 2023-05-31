@@ -245,6 +245,34 @@ mod webc_on_disk {
 
         assert.success().stdout(contains("Hello, World!"));
     }
+
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
+    #[cfg_attr(
+        windows,
+        ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
+    )]
+    fn merged_filesystem_contains_all_files() {
+        let assert = wasmer_run_unstable()
+            .arg(fixtures::bash())
+            .arg("--entrypoint=bash")
+            .arg("--use")
+            .arg(fixtures::coreutils())
+            .arg("--use")
+            .arg(fixtures::python())
+            .arg("--")
+            .arg("-c")
+            .arg("ls -l /usr/coreutils/*.md && ls -l /lib/python3.6/*.py")
+            .assert();
+
+        assert
+            .success()
+            .stdout(contains("/usr/coreutils/README.md"))
+            .stdout(contains("/lib/python3.6/this.py"));
+    }
 }
 
 mod wasm_on_disk {
@@ -324,24 +352,28 @@ mod wasm_on_disk {
     }
 }
 
-#[test]
-#[cfg_attr(
-    all(target_env = "musl", target_os = "linux"),
-    ignore = "wasmer run-unstable segfaults on musl"
-)]
-fn wasmer_package_directory() {
-    let temp = TempDir::new().unwrap();
-    std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
-    std::fs::copy(fixtures::qjs_wasmer_toml(), temp.path().join("wasmer.toml")).unwrap();
+mod local_directory {
+    use super::*;
 
-    let assert = wasmer_run_unstable()
-        .arg(temp.path())
-        .arg("--")
-        .arg("--eval")
-        .arg("console.log('Hello, World!')")
-        .assert();
+    #[test]
+    #[cfg_attr(
+        all(target_env = "musl", target_os = "linux"),
+        ignore = "wasmer run-unstable segfaults on musl"
+    )]
+    fn wasmer_package_directory() {
+        let temp = TempDir::new().unwrap();
+        std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
+        std::fs::copy(fixtures::qjs_wasmer_toml(), temp.path().join("wasmer.toml")).unwrap();
 
-    assert.success().stdout(contains("Hello, World!"));
+        let assert = wasmer_run_unstable()
+            .arg(temp.path())
+            .arg("--")
+            .arg("--eval")
+            .arg("console.log('Hello, World!')")
+            .assert();
+
+        assert.success().stdout(contains("Hello, World!"));
+    }
 }
 
 mod remote_webc {
@@ -402,6 +434,9 @@ mod remote_webc {
             .arg("ls /bin")
             .assert();
 
+        // Note: the resulting filesystem should contain the main command as
+        // well as the commands from all the --use packages
+
         let some_expected_binaries = [
             "arch", "base32", "base64", "baseenc", "basename", "bash", "cat",
         ]
@@ -425,6 +460,13 @@ mod fixtures {
             .join("tests")
             .join("webc")
             .join("coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc")
+    }
+
+    pub fn bash() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("webc")
+            .join("bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc")
     }
 
     /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
