@@ -28,7 +28,6 @@ fn test_no_start_wat_path() -> PathBuf {
 /// https://github.com/wasmerio/wasmer/issues/3535
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[ignore]
-#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 fn test_run_customlambda() {
     let assert = Command::new(get_wasmer_path())
