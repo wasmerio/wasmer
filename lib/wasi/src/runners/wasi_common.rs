@@ -124,7 +124,11 @@ fn prepare_filesystem(
                 })?;
 
             if guest_path == Path::new("/") {
-                root_fs.mount_directory_entries(&guest_path, &host_fs, &host_path)?;
+                root_fs
+                    .mount_directory_entries(&guest_path, &host_fs, &host_path)
+                    .with_context(|| {
+                        format!("Unable to mount \"{}\" to root", host_path.display(),)
+                    })?;
             } else {
                 if let Some(parent) = guest_path.parent() {
                     create_dir_all(&root_fs, parent).with_context(|| {

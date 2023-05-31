@@ -177,7 +177,8 @@ impl crate::runners::Runner for WasiRunner {
         let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
         let mut store = runtime.new_store();
 
-        self.prepare_webc_env(command_name, &wasi, pkg, runtime)?
+        self.prepare_webc_env(command_name, &wasi, pkg, runtime)
+            .context("Unable to prepare the WASI environment")?
             .run_with_store(module, &mut store)?;
 
         Ok(())
