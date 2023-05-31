@@ -882,14 +882,7 @@ impl FileSystemInner {
         let mut components = path.components();
 
         match components.next() {
-            Some(Component::RootDir) => {}
-            Some(Component::Prefix(..)) => {
-                // We've received a UNC path, let's check for the root
-                // component to make sure it is absolute.
-                if !matches!(components.next(), Some(Component::RootDir)) {
-                    return Err(FsError::InvalidInput);
-                }
-            }
+            Some(Component::RootDir) | Some(Component::Prefix(..)) => {}
             _ => return Err(FsError::InvalidInput),
         }
 
