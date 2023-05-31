@@ -55,7 +55,7 @@ impl FileOpener for StaticFileSystem {
                 let file = (*self.volumes)
                     .get(&volume)
                     .ok_or(FsError::EntryNotFound)?
-                    .get_file_entry(&format!("{}", path.display()))
+                    .get_file_entry(path.to_string_lossy().as_ref())
                     .map_err(|_e| FsError::EntryNotFound)?;
 
                 Ok(Box::new(WebCFile {
@@ -69,7 +69,7 @@ impl FileOpener for StaticFileSystem {
             }
             None => {
                 for (volume, v) in self.volumes.iter() {
-                    let entry = match v.get_file_entry(&format!("{}", path.display())) {
+                    let entry = match v.get_file_entry(path.to_string_lossy().as_ref()) {
                         Ok(s) => s,
                         Err(_) => continue, // error
                     };
