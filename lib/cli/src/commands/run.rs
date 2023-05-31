@@ -607,6 +607,26 @@ fn construct_webc_in_memory(dir: &Path) -> Result<Vec<u8>, Error> {
     Ok(webc)
 }
 
+fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {
+    let entries = dir
+        .read_dir()
+        .with_context(|| format!("Unable to read the contents of \"{}\"", dir.display()))?;
+
+    for entry in entries {
+        let path = entry?.path();
+        let relative_path = path.strip_prefix(base)?.to_path_buf();
+
+        if path.is_dir() {
+            load_files_from_disk(files, &path, base)?;
+            files.insert(DirOrFile::Dir(relative_path), Vec::new());
+        } else if path.is_file() {
+            let data = std::fs::read(&path)
+                .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
+            files.insert(DirOrFile::File(relative_path), data);
+        }
+    }
+    Ok(())
+}
 
 #[cfg(feature = "coredump")]
 fn generate_coredump(err: &Error, source_name: String, coredump_path: &Path) -> Result<(), Error> {

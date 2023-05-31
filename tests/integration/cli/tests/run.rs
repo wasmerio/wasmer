@@ -826,7 +826,8 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
 
     assert!(!output.status.success());
     let result = std::str::from_utf8(&output.stderr).unwrap().to_string();
-    assert!(result.contains("Can not find any export functions."));
+    eprintln!("RESULT: '{result}'");
+    assert!(result.contains("The module doesn't contain a \"_start\" function"),);
     Ok(())
 }
 
