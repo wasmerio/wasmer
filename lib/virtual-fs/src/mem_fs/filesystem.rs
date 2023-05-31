@@ -47,9 +47,21 @@ impl FileSystem {
         &self,
         target_path: &Path,
         other: &Arc<dyn crate::FileSystem + Send + Sync>,
-        source_path: &Path,
+        mut source_path: &Path,
     ) -> Result<()> {
         let fs_lock = self.inner.read().map_err(|_| FsError::Lock)?;
+
+        if cfg!(windows) {
+            // We need to take some care here because
+            // canonicalize_without_inode() doesn't accept Windows paths that
+            // start with a prefix (drive letters, UNC paths, etc.). If we
+            // somehow get one of those paths, we'll automatically trim it away.
+            let mut components = source_path.components();
+
+            if let Some(Component::Prefix(_)) = components.next() {
+                source_path = components.as_path();
+            }
+        }
 
         let (_target_path, root_inode) = match fs_lock.canonicalize(target_path) {
             Ok((p, InodeResolution::Found(inode))) => (p, inode),
@@ -882,7 +894,7 @@ impl FileSystemInner {
         let mut components = path.components();
 
         match components.next() {
-            Some(Component::RootDir) | Some(Component::Prefix(..)) => {}
+            Some(Component::RootDir) => {}
             _ => return Err(FsError::InvalidInput),
         }
 
