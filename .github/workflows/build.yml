@@ -2,6 +2,8 @@ name: Builds
 
 env:
   RUST_BACKTRACE: 1
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
+  MSRV: "1.67"
 
 on:
   push:
@@ -94,7 +96,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.65
+          toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@stable
@@ -224,7 +226,7 @@ jobs:
       - name: Install Nightly Rust for Headless
         uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: "nightly-2022-10-09"
+          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -242,7 +244,7 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2022-10-09
+          rustup override set nightly-2023-05-25
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
@@ -325,7 +327,7 @@ jobs:
       - name: Dist
         run: |
           make distribution-gnu
-        env: 
+        env:
           CARGO_TARGET: x86_64-pc-windows-gnu
           TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
@@ -358,7 +360,7 @@ jobs:
       - name: Dist
         run: |
           make distribution
-        env: 
+        env:
           CARGO_TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
@@ -387,7 +389,7 @@ jobs:
       - name: Dist
         run: |
           make distribution
-        env: 
+        env:
           CARGO_TARGET: x86_64-apple-darwin
           TARGET_DIR: target/x86_64-apple-darwin/release
       - name: Upload Artifacts

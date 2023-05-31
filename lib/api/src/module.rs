@@ -132,7 +132,7 @@ impl Module {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(engine, &wasm_bytes)?;
+        let mut module = Self::new(engine, wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
         let filename = canonical.as_path().to_str().unwrap();
@@ -238,7 +238,7 @@ impl Module {
     ///    a malicious actor could inject code into executable
     ///    memory.
     ///
-    /// And as such, the `deserialize` method is unsafe.
+    /// And as such, the `deserialize_unchecked` method is unsafe.
     ///
     /// # Usage
     ///
@@ -246,7 +246,7 @@ impl Module {
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// let module = Module::deserialize(&store, serialized_data)?;
+    /// let module = Module::deserialize_unchecked(&store, serialized_data)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -300,7 +300,7 @@ impl Module {
     /// # use wasmer::*;
     /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
-    /// let module = Module::deserialize_from_file_checked(&store, path)?;
+    /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
     /// # }
     /// ```

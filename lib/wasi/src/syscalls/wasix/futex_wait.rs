@@ -97,7 +97,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
         wasi_try_mem_ok!(timeout.read(&memory))
     };
     let timeout = match timeout.tag {
-        OptionTag::Some => Some(Duration::from_nanos(timeout.u as u64)),
+        OptionTag::Some => Some(Duration::from_nanos(timeout.u)),
         _ => None,
     };
     Span::current().record("timeout", &format!("{:?}", timeout));

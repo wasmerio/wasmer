@@ -1,14 +1,16 @@
 [package]
 name = "wasmer-compiler"
-version = "4.0.0-alpha.1"
 description = "Base compiler abstraction for Wasmer WebAssembly runtime"
 categories = ["wasm", "no-std"]
 keywords = ["wasm", "webassembly", "compiler"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=4.0.0-alpha.1", default-features = false }

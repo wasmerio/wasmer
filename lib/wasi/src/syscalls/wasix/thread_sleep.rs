@@ -32,7 +32,7 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     }
 
     if duration > 0 {
-        let duration = Duration::from_nanos(duration as u64);
+        let duration = Duration::from_nanos(duration);
         let tasks = env.tasks().clone();
         __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
             tasks.sleep_now(duration).await;

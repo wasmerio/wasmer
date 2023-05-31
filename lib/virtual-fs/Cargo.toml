@@ -2,9 +2,12 @@
 name = "virtual-fs"
 version = "0.3.0"
 description = "Wasmer Virtual FileSystem"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-license = "MIT"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 libc = { version = "^0.2", default-features = false, optional = true }
@@ -23,6 +26,7 @@ bytes = "1"
 tokio = { version = "1", features = ["io-util", "sync", "macros"], default_features = false }
 pin-project-lite = "0.2.9"
 indexmap = "1.9.2"
+replace_with = "0.1.7"
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
 getrandom = { version = "0.2" }

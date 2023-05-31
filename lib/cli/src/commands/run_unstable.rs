@@ -20,7 +20,7 @@ use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use tokio::runtime::Handle;
 use url::Url;
-use wapm_targz_to_pirita::FileMap;
+use wapm_targz_to_pirita::{FileMap, TransformManifestFunctions};
 use wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -176,7 +176,7 @@ impl RunUnstable {
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     fn load_injected_packages(&self, runtime: &dyn Runtime) -> Result<Vec<BinaryPackage>, Error> {
         let mut dependencies = Vec::new();
 
@@ -494,26 +494,10 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    #[tracing::instrument(skip_all)]
     fn from_dir(dir: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
-        let mut files = BTreeMap::new();
-        load_files_from_disk(&mut files, dir, dir)?;
-
-        let wasmer_toml = DirOrFile::File("wasmer.toml".into());
-        if let Some(toml_data) = files.remove(&wasmer_toml) {
-            // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-            // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
-            // manually patch things up if people have already migrated their
-            // projects.
-            files
-                .entry(DirOrFile::File("wapm.toml".into()))
-                .or_insert(toml_data);
-        }
-
-        let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-        let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)?;
-
+        let webc = construct_webc_in_memory(dir)?;
         let container = Container::from_bytes(webc)?;
+
         let pkg = runtime
             .task_manager()
             .block_on(BinaryPackage::from_webc(&container, runtime))?;
@@ -528,7 +512,7 @@ impl ExecutableTarget {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
                 let engine = runtime.engine().context("No engine available")?;
-                let module = Module::new(&engine, &wasm)?;
+                let module = Module::new(&engine, wasm)?;
                 Ok(ExecutableTarget::WebAssembly {
                     module,
                     path: path.to_path_buf(),
@@ -552,6 +536,28 @@ impl ExecutableTarget {
             }
         }
     }
+}
+
+#[tracing::instrument(level = "debug", skip_all)]
+fn construct_webc_in_memory(dir: &Path) -> Result<Vec<u8>, Error> {
+    let mut files = BTreeMap::new();
+    load_files_from_disk(&mut files, dir, dir)?;
+
+    let wasmer_toml = DirOrFile::File("wasmer.toml".into());
+    if let Some(toml_data) = files.remove(&wasmer_toml) {
+        // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+        // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
+        // manually patch things up if people have already migrated their
+        // projects.
+        files
+            .entry(DirOrFile::File("wapm.toml".into()))
+            .or_insert(toml_data);
+    }
+
+    let functions = TransformManifestFunctions::default();
+    let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)?;
+
+    Ok(webc)
 }
 
 fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {

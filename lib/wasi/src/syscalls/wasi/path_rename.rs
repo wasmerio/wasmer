@@ -125,7 +125,7 @@ pub fn path_rename<M: MemorySize>(
                 } else {
                     let path_clone = path.clone();
                     drop(guard);
-                    let out = state.fs_rename(&path_clone, &host_adjusted_target_path);
+                    let out = state.fs_rename(path_clone, &host_adjusted_target_path);
                     {
                         let mut guard = source_entry.write();
                         if let Kind::File { ref mut path, .. } = guard.deref_mut() {

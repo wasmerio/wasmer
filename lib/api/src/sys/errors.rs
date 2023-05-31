@@ -15,10 +15,10 @@ impl From<wasmer_compiler::LinkError> for LinkError {
 
 impl From<Trap> for RuntimeError {
     fn from(trap: Trap) -> Self {
-        if trap.is::<RuntimeError>() {
-            return trap.downcast::<RuntimeError>().unwrap();
+        if trap.is::<Self>() {
+            return trap.downcast::<Self>().unwrap();
         }
         let (wasm_trace, trap_code) = wasmer_compiler::get_trace_and_trapcode(&trap);
-        RuntimeError::new_from_source(trap, wasm_trace, trap_code)
+        Self::new_from_source(trap, wasm_trace, trap_code)
     }
 }

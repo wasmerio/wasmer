@@ -704,9 +704,11 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
         .arg("test.py")
         .output()?;
 
-    if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the first time");
-    }
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n",
+        "failed to run https://wapm.io/python/python for the first time"
+    );
 
     let time = std::time::Instant::now();
 
@@ -718,9 +720,11 @@ fn run_test_caching_works_for_packages_with_versions() -> anyhow::Result<()> {
 
     dbg!(&output);
 
-    if output.stdout != b"hello\n".to_vec() {
-        panic!("failed to run https://wapm.io/python/python for the second time");
-    }
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "hello\n",
+        "failed to run https://wapm.io/python/python for the second time"
+    );
 
     // package should be cached
     assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
@@ -778,7 +782,7 @@ fn run_invoke_works_with_nomain_wasi() -> anyhow::Result<()> {
     ";
 
     let random = rand::random::<u64>();
-    let module_file = std::env::temp_dir().join(&format!("{random}.wat"));
+    let module_file = std::env::temp_dir().join(format!("{random}.wat"));
     std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
     let output = Command::new(get_wasmer_path())
         .arg("run")
@@ -817,9 +821,9 @@ fn run_no_start_wasm_report_error() -> anyhow::Result<()> {
         .arg(test_no_start_wat_path())
         .output()?;
 
-    assert_eq!(output.status.success(), false);
+    assert!(!output.status.success());
     let result = std::str::from_utf8(&output.stderr).unwrap().to_string();
-    assert_eq!(result.contains("Can not find any export functions."), true);
+    assert!(result.contains("Can not find any export functions."));
     Ok(())
 }
 
