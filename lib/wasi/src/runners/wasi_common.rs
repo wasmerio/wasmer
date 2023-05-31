@@ -110,14 +110,17 @@ fn prepare_filesystem(
                 guest_path = apply_relative_path_mounting_hack(&guest_path);
             }
 
-            let host_path = root_fs.canonicalize_unchecked(host_path).with_context(|| {
-                format!("Unable to canonicalize path '{}'", host_path.display())
+            let host_path = std::fs::canonicalize(&host_path).with_context(|| {
+                format!("Unable to canonicalize host path '{}'", host_path.display())
             })?;
 
             let guest_path = root_fs
                 .canonicalize_unchecked(&guest_path)
                 .with_context(|| {
-                    format!("Unable to canonicalize path '{}'", guest_path.display())
+                    format!(
+                        "Unable to canonicalize guest path '{}'",
+                        guest_path.display()
+                    )
                 })?;
 
             if guest_path == Path::new("/") {
