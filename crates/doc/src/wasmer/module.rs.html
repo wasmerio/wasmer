@@ -723,7 +723,7 @@
     ///    a malicious actor could inject code into executable
     ///    memory.
     ///
-    /// And as such, the `deserialize` method is unsafe.
+    /// And as such, the `deserialize_unchecked` method is unsafe.
     ///
     /// # Usage
     ///
@@ -731,7 +731,7 @@
     /// # use wasmer::*;
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
     /// # let mut store = Store::default();
-    /// let module = Module::deserialize(&amp;store, serialized_data)?;
+    /// let module = Module::deserialize_unchecked(&amp;store, serialized_data)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -785,7 +785,7 @@
     /// # use wasmer::*;
     /// # let mut store = Store::default();
     /// # fn main() -&gt; anyhow::Result&lt;()&gt; {
-    /// let module = Module::deserialize_from_file_checked(&amp;store, path)?;
+    /// let module = Module::deserialize_from_file(&amp;store, path)?;
     /// # Ok(())
     /// # }
     /// ```
