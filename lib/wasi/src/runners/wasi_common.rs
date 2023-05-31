@@ -121,6 +121,7 @@ fn prepare_filesystem(
                 })?;
 
             if guest_path == Path::new("/") {
+                root_fs.mount_directory_entries(&guest_path, &host_fs, &host_path)?;
             } else {
                 if let Some(parent) = guest_path.parent() {
                     create_dir_all(&root_fs, parent).with_context(|| {
