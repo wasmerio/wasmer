@@ -444,7 +444,7 @@
                 <span class="kw">let </span>file = (<span class="kw-2">*</span><span class="self">self</span>.volumes)
                     .get(<span class="kw-2">&amp;</span>volume)
                     .ok_or(FsError::EntryNotFound)<span class="question-mark">?
-                    </span>.get_file_entry(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display()))
+                    </span>.get_file_entry(path.to_string_lossy().as_ref())
                     .map_err(|_e| FsError::EntryNotFound)<span class="question-mark">?</span>;
 
                 <span class="prelude-val">Ok</span>(Box::new(WebCFile {
@@ -458,7 +458,7 @@
             }
             <span class="prelude-val">None </span>=&gt; {
                 <span class="kw">for </span>(volume, v) <span class="kw">in </span><span class="self">self</span>.volumes.iter() {
-                    <span class="kw">let </span>entry = <span class="kw">match </span>v.get_file_entry(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, path.display())) {
+                    <span class="kw">let </span>entry = <span class="kw">match </span>v.get_file_entry(path.to_string_lossy().as_ref()) {
                         <span class="prelude-val">Ok</span>(s) =&gt; s,
                         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>, <span class="comment">// error
                     </span>};
