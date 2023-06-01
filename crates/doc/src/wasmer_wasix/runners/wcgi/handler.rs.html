@@ -311,11 +311,11 @@
         );
 
         <span class="kw">let </span>task_manager = <span class="self">self</span>.runtime.task_manager();
-        <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="self">self</span>.runtime.new_store();
+        <span class="kw">let </span>store = <span class="self">self</span>.runtime.new_store();
 
         <span class="kw">let </span>done = task_manager
             .runtime()
-            .spawn_blocking(<span class="kw">move </span>|| builder.run_with_store(module, <span class="kw-2">&amp;mut </span>store))
+            .spawn_blocking(<span class="kw">move </span>|| builder.run_with_store_async(module, store))
             .map_err(Error::from)
             .and_then(|r| <span class="kw">async </span>{ r.map_err(Error::from) });
 

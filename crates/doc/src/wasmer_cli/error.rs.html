@@ -144,6 +144,13 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
 </span><span class="kw">use </span>anyhow::{Chain, Error};
@@ -154,6 +161,13 @@
 <span class="doccomment">/// A `PrettyError` for printing `anyhow::Error` nicely.
 </span><span class="kw">pub struct </span>PrettyError {
     error: Error,
+}
+
+<span class="kw">impl </span>PrettyError {
+    <span class="doccomment">/// Create a new [`PrettyError`].
+    </span><span class="kw">pub fn </span>new(error: Error) -&gt; <span class="self">Self </span>{
+        PrettyError { error }
+    }
 }
 
 <span class="doccomment">/// A macro that prints a warning with nice colors

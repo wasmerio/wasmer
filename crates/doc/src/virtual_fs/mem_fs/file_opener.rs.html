@@ -746,6 +746,28 @@
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::filesystem::InodeResolution;
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{FileType, FsError, Metadata, OpenOptionsConfig, <span class="prelude-ty">Result</span>, VirtualFile};
@@ -817,14 +839,15 @@
 
     <span class="doccomment">/// Inserts a arc file into the file system that references another file
     /// in another file system (does not copy the real data)
-    </span><span class="kw">pub fn </span>insert_arc_file(
+    </span><span class="kw">pub fn </span>insert_arc_file_at(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        path: PathBuf,
+        target_path: PathBuf,
         fs: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
+        source_path: PathBuf,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_file(<span class="self">self</span>, path.as_path());
+        <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_file(<span class="self">self</span>, target_path.as_path());
         <span class="kw">let </span>(inode_of_parent, maybe_inode_of_file, name_of_file) =
-            <span class="self">self</span>.insert_inode(path.as_path())<span class="question-mark">?</span>;
+            <span class="self">self</span>.insert_inode(target_path.as_path())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode_of_parent = <span class="kw">match </span>inode_of_parent {
             InodeResolution::Found(a) =&gt; a,
@@ -843,7 +866,7 @@
                 </span><span class="kw">let </span><span class="kw-2">mut </span>fs_lock = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
                 <span class="comment">// Read the metadata or generate a dummy one
-                </span><span class="kw">let </span>meta = <span class="kw">match </span>fs.metadata(<span class="kw-2">&amp;</span>path) {
+                </span><span class="kw">let </span>meta = <span class="kw">match </span>fs.metadata(<span class="kw-2">&amp;</span>target_path) {
                     <span class="prelude-val">Ok</span>(meta) =&gt; meta,
                     <span class="kw">_ </span>=&gt; {
                         <span class="kw">let </span>time = time();
@@ -866,7 +889,7 @@
                     inode: inode_of_file,
                     name: name_of_file,
                     fs,
-                    path,
+                    path: source_path,
                     metadata: meta,
                 }));
 
@@ -884,16 +907,27 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="doccomment">/// Inserts a arc directory into the file system that references another file
+    <span class="doccomment">/// Inserts a arc file into the file system that references another file
     /// in another file system (does not copy the real data)
-    </span><span class="kw">pub fn </span>insert_arc_directory(
+    </span><span class="kw">pub fn </span>insert_arc_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        path: PathBuf,
+        target_path: PathBuf,
         fs: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_dir(<span class="self">self</span>, path.as_path());
+        <span class="self">self</span>.insert_arc_file_at(target_path.clone(), fs, target_path)
+    }
+
+    <span class="doccomment">/// Inserts a arc directory into the file system that references another file
+    /// in another file system (does not copy the real data)
+    </span><span class="kw">pub fn </span>insert_arc_directory_at(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        target_path: PathBuf,
+        other: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
+        source_path: PathBuf,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let _ </span>= <span class="kw">crate</span>::FileSystem::remove_dir(<span class="self">self</span>, target_path.as_path());
         <span class="kw">let </span>(inode_of_parent, maybe_inode_of_file, name_of_file) =
-            <span class="self">self</span>.insert_inode(path.as_path())<span class="question-mark">?</span>;
+            <span class="self">self</span>.insert_inode(target_path.as_path())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>inode_of_parent = <span class="kw">match </span>inode_of_parent {
             InodeResolution::Found(a) =&gt; a,
@@ -917,8 +951,8 @@
                     fs_lock.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
                         inode: inode_of_file,
                         name: name_of_file,
-                        fs,
-                        path,
+                        fs: other,
+                        path: source_path,
                         metadata: {
                             <span class="kw">let </span>time = time();
                             Metadata {
@@ -946,6 +980,16 @@
             }
         };
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Inserts a arc directory into the file system that references another file
+    /// in another file system (does not copy the real data)
+    </span><span class="kw">pub fn </span>insert_arc_directory(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        target_path: PathBuf,
+        other: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.insert_arc_directory_at(target_path.clone(), other, target_path)
     }
 
     <span class="doccomment">/// Inserts a arc file into the file system that references another file

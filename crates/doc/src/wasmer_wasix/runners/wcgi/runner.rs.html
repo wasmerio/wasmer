@@ -278,6 +278,11 @@
 <a href="#277" id="277">277</a>
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -295,6 +300,7 @@
 
 <span class="kw">use crate</span>::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
@@ -515,6 +521,10 @@
         <span class="self">self</span>.wasi.injected_packages.extend(packages);
         <span class="self">self
     </span>}
+
+    <span class="kw">pub fn </span>capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Capabilities {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.wasi.capabilities
+    }
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Config {

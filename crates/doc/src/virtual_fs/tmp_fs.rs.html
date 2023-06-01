@@ -85,6 +85,22 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Wraps the memory file system implementation - this has been
 //! enhanced to support mounting file systems, shared static files,
 //! readonly files, etc...
@@ -129,6 +145,17 @@
         <span class="self">self</span>.fs.union(other)
     }
 
+    <span class="doccomment">/// See [`mem_fs::FileSystem::mount_directory_entries`].
+    </span><span class="kw">pub fn </span>mount_directory_entries(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        target_path: <span class="kw-2">&amp;</span>Path,
+        other: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
+        source_path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.fs
+            .mount_directory_entries(target_path, other, source_path)
+    }
+
     <span class="kw">pub fn </span>mount(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         src_path: PathBuf,
@@ -136,6 +163,11 @@
         dst_path: PathBuf,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.fs.mount(src_path, other, dst_path)
+    }
+
+    <span class="doccomment">/// Canonicalize a path without validating that it actually exists.
+    </span><span class="kw">pub fn </span>canonicalize_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="self">self</span>.fs.canonicalize_unchecked(path)
     }
 }
 
