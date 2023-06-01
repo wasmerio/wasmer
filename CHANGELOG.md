@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.0.0-beta.1 - 01/06/2023
 
+This version introduce WASIX! The superset of WASI. Go to https://wasix.org for more details.
+This version also merged `wasmer run` and `wasmer run-unstable`. Both command still exists but are now exactly the same. `run-unstable` will be removed later, so swithc tu `wasmer run` if you were using it.
+
 ## Added
 
   - [#3818](https://github.com/wasmerio/wasmer/pull/3818) Added a quickfix for mounting relative directories
