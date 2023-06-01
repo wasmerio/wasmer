@@ -813,7 +813,7 @@ impl WasiEnvBuilder {
             %pid,
             %tid,
             %exit_code,
-            error=result.as_ref().err().map(|e| &*e as &dyn std::error::Error),
+            error=result.as_ref().err().map(|e| e as &dyn std::error::Error),
             "main exit",
         );
 
@@ -855,7 +855,7 @@ impl WasiEnvBuilder {
             %pid,
             %tid,
             %exit_code,
-            error=result.as_ref().err().map(|e| &*e as &dyn std::error::Error),
+            error=result.as_ref().err().map(|e| e as &dyn std::error::Error),
             "main exit",
         );
 
@@ -906,7 +906,7 @@ fn run_with_deep_sleep(
                 rewind_result,
             )
         } else {
-            crate::rewind_ext::<wasmer_types::Memory64>(
+            crate::rewind_ext::<wasmer_types::Memory32>(
                 env.env.clone().into_mut(&mut store),
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
