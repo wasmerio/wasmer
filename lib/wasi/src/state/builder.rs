@@ -845,7 +845,7 @@ impl WasiEnvBuilder {
 
         tasks.task_dedicated(Box::new(move || {
             run_with_deep_sleep(store, start, None, env, tx);
-        }));
+        }))?;
 
         let result = rx.recv()
         .expect("main thread terminated without a result, this normally means a panic occurred within the main thread");
@@ -918,7 +918,7 @@ fn run_with_deep_sleep(
         if errno != Errno::Success {
             let exit_code = ExitCode::from(errno);
             env.cleanup(&mut store, Some(exit_code));
-            sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(exit_code))));
+            let _ = sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(exit_code))));
             return;
         }
     }
@@ -942,16 +942,15 @@ fn handle_result(
 
             let tasks = env.data(&store).tasks().clone();
             let rewind = work.rewind;
-            let respawn = {
-                let env = env.clone();
-                move |ctx, store, res| {
-                    run_with_deep_sleep(store, start, Some((rewind, res)), env, sender)
-                }
+            let respawn = move |ctx, store, res| {
+                run_with_deep_sleep(store, start, Some((rewind, res)), ctx, sender)
             };
 
             // Spawns the WASM process after a trigger
             unsafe {
-                tasks.resume_wasm_after_poller(Box::new(respawn), env, store, work.trigger);
+                tasks
+                    .resume_wasm_after_poller(Box::new(respawn), env, store, work.trigger)
+                    .unwrap();
             }
 
             return;
@@ -963,7 +962,7 @@ fn handle_result(
 
     let (result, exit_code) = wasi_exit_code(result);
     env.cleanup(&mut store, Some(exit_code));
-    sender.send(result);
+    let _ = sender.send(result);
 }
 
 /// Builder for preopened directories.

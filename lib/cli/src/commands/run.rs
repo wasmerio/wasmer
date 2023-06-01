@@ -113,7 +113,7 @@ impl Run {
             .resolve_target(&runtime)
             .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
 
-        let result = self.execute_target(target, Arc::new(runtime), &mut store);
+        let result = self.execute_target(target, Arc::new(runtime), store);
 
         if let Err(e) = &result {
             self.maybe_save_coredump(e);
@@ -126,7 +126,7 @@ impl Run {
         &self,
         executable_target: ExecutableTarget,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        store: &mut Store,
+        store: Store,
     ) -> Result<(), Error> {
         match executable_target {
             ExecutableTarget::WebAssembly { module, path } => {
@@ -141,7 +141,7 @@ impl Run {
         &self,
         path: &Path,
         module: &Module,
-        store: &mut Store,
+        mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
@@ -149,7 +149,7 @@ impl Run {
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
             self.execute_wasi_module(path, module, runtime, store)
         } else {
-            self.execute_pure_wasm_module(module, store)
+            self.execute_pure_wasm_module(module, &mut store)
         }
     }
 
@@ -296,7 +296,7 @@ impl Run {
         wasm_path: &Path,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        store: &mut Store,
+        store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
@@ -304,7 +304,7 @@ impl Run {
             .wasi
             .prepare(module, program_name, self.args.clone(), runtime)?;
 
-        builder.run_with_store(module.clone(), store)?;
+        builder.run_with_store_async(module.clone(), store)?;
 
         Ok(())
     }
