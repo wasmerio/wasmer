@@ -120,11 +120,6 @@ compilers :=
 # Cranelift
 ##
 
-
-ifneq (, $(findstring cranelift,$(compilers)))
-	ENABLE_CRANELIFT := 1
-endif
-
 # If the user didn't disable the Cranelift compiler…
 ifneq ($(ENABLE_CRANELIFT), 0)
         # … then maybe the user forced to enable the Cranelift compiler.
@@ -136,6 +131,9 @@ ifneq ($(ENABLE_CRANELIFT), 0)
         endif
 endif
 
+ifneq (, $(findstring cranelift,$(compilers)))
+	ENABLE_CRANELIFT := 1
+endif
 
 ##
 # LLVM
@@ -400,10 +398,6 @@ check-capi:
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
 
-
-build-wasmer-debug:
-	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --features="webc_runner" --bin wasmer
-
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat,wasi,webc_runner" --bin wasmer
 
@@ -629,12 +623,6 @@ test-integration-cli: build-wasmer build-capi package-capi-headless package dist
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
 	WASMER_DIR=`pwd`/package $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli -- --nocapture --test-threads=1
-
-
-test-integration-cli-debug: build-wasmer-debug build-capi package-capi-headless package distribution
-	cp ./dist/wasmer.tar.gz ./link.tar.gz
-	rustup target add wasm32-wasi
-	WASMER_DIR=`pwd`/package $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner,debug -p wasmer-integration-tests-cli -- --test-threads=1
 
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
