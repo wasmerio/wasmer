@@ -9,6 +9,32 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.0.0-beta.1 - 01/06/2023
+
+This version introduce WASIX! The superset of WASI. Go to https://wasix.org for more details.
+This version also merged `wasmer run` and `wasmer run-unstable`. Both command still exists but are now exactly the same. `run-unstable` will be removed later, so switch to `wasmer run` if you were using it.
+
+## Added
+
+  - [#3818](https://github.com/wasmerio/wasmer/pull/3818) Added a quickfix for mounting relative directories
+
+## Changed
+
+  - [#3924](https://github.com/wasmerio/wasmer/pull/3924) Rename "wasmer run-unstable" to "wasmer run"
+  - [#3938](https://github.com/wasmerio/wasmer/pull/3938) Use unchecked deserialization for `_unchecked` module functions
+  - [#3918](https://github.com/wasmerio/wasmer/pull/3918) Workspace metadata
+  - [#3919](https://github.com/wasmerio/wasmer/pull/3919) Handle non-200 status codes when downloading packages
+  - [#3917](https://github.com/wasmerio/wasmer/pull/3917) Rename WasiRuntime to Runtime
+
+## Fixed
+
+  - [#3933](https://github.com/wasmerio/wasmer/pull/3933) Fix deserialize calls in doc comments
+  - [#3936](https://github.com/wasmerio/wasmer/pull/3936) Fix for excessive allocation
+  - [#3920](https://github.com/wasmerio/wasmer/pull/3920) Fix filesystem access when running python with `wasmer run-unstable .`
+  - [#3867](https://github.com/wasmerio/wasmer/pull/3867) lib/wasi: try quick fix for WasiFS::get_inode_at_path
+
+
+
 ## 4.0.0-alpha.1 - 25/05/2023
 
 A new major release, with a few breaking changes and the removal of many deprecated functions. Also, some methods previously available from on `Engine` has been moved to the `NativeEngineExt` trait.
