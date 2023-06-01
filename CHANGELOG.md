@@ -12,7 +12,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## 4.0.0-beta.1 - 01/06/2023
 
 This version introduce WASIX! The superset of WASI. Go to https://wasix.org for more details.
-This version also merged `wasmer run` and `wasmer run-unstable`. Both command still exists but are now exactly the same. `run-unstable` will be removed later, so swithc tu `wasmer run` if you were using it.
+This version also merged `wasmer run` and `wasmer run-unstable`. Both command still exists but are now exactly the same. `run-unstable` will be removed later, so switch to `wasmer run` if you were using it.
 
 ## Added
 
@@ -23,7 +23,7 @@ This version also merged `wasmer run` and `wasmer run-unstable`. Both command st
   - [#3924](https://github.com/wasmerio/wasmer/pull/3924) Rename "wasmer run-unstable" to "wasmer run"
   - [#3938](https://github.com/wasmerio/wasmer/pull/3938) Use unchecked deserialization for `_unchecked` module functions
   - [#3918](https://github.com/wasmerio/wasmer/pull/3918) Workspace metadata
-  - [#3919](https://github.com/wasmerio/wasmer/pull/3919) Handle non-200 status codes when downloading WEBC files
+  - [#3919](https://github.com/wasmerio/wasmer/pull/3919) Handle non-200 status codes when downloading packages
   - [#3917](https://github.com/wasmerio/wasmer/pull/3917) Rename WasiRuntime to Runtime
 
 ## Fixed
