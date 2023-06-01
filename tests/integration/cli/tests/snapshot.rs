@@ -254,6 +254,12 @@ impl TestBuilder {
     }
 }
 
+impl Default for TestBuilder {
+    fn default() -> Self {
+        TestBuilder::new()
+    }
+}
+
 pub fn wasm_dir() -> PathBuf {
     std::env::current_dir()
         .unwrap()

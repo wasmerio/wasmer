@@ -103,7 +103,7 @@ impl Run {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
-        let (mut store, _) = self.store.get_store()?;
+        let (store, _) = self.store.get_store()?;
         let runtime =
             self.wasi
                 .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
@@ -113,7 +113,15 @@ impl Run {
             .resolve_target(&runtime)
             .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
 
-        let result = self.execute_target(target, Arc::new(runtime), store);
+        let runtime: Arc<dyn Runtime + Send + Sync> = Arc::new(runtime);
+        let result = {
+            match target {
+                ExecutableTarget::WebAssembly { module, path } => {
+                    self.execute_wasm(&path, &module, store, runtime)
+                }
+                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
+            }
+        };
 
         if let Err(e) = &result {
             self.maybe_save_coredump(e);

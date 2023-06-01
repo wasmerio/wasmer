@@ -829,9 +829,8 @@ impl WasiEnvBuilder {
         module: Module,
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
-        let (instance, env) = self.instantiate(module, &mut store)?;
+        let (_, env) = self.instantiate(module, &mut store)?;
 
-        let start = instance.exports.get_function("_start")?.clone();
         env.data(&store).thread.set_status_running();
 
         let tasks = env.data(&store).tasks().clone();
@@ -844,11 +843,12 @@ impl WasiEnvBuilder {
         let (tx, rx) = std::sync::mpsc::channel();
 
         tasks.task_dedicated(Box::new(move || {
-            run_with_deep_sleep(store, start, None, env, tx);
+            run_with_deep_sleep(store, None, env, tx);
         }))?;
 
-        let result = rx.recv()
-        .expect("main thread terminated without a result, this normally means a panic occurred within the main thread");
+        let result = rx.recv().expect(
+            "main thread terminated without a result, this normally means a panic occurred",
+        );
         let (result, exit_code) = wasi_exit_code(result);
 
         tracing::trace!(
@@ -890,7 +890,6 @@ fn wasi_exit_code(
 
 fn run_with_deep_sleep(
     mut store: Store,
-    start: wasmer::Function,
     rewind_state: Option<(RewindState, Bytes)>,
     env: WasiFunctionEnv,
     sender: std::sync::mpsc::Sender<Result<(), WasiRuntimeError>>,
@@ -923,15 +922,36 @@ fn run_with_deep_sleep(
         }
     }
 
+    let instance = match env.data(&store).try_clone_instance() {
+        Some(instance) => instance,
+        None => {
+            tracing::debug!("Unable to clone the instance");
+            env.cleanup(&mut store, None);
+            let _ = sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(
+                Errno::Noexec.into(),
+            ))));
+            return;
+        }
+    };
+
+    let start = match instance.exports.get_function("_start") {
+        Ok(start) => start,
+        Err(e) => {
+            tracing::debug!("Unable to get the _start function");
+            env.cleanup(&mut store, None);
+            let _ = sender.send(Err(e.into()));
+            return;
+        }
+    };
+
     let result = start.call(&mut store, &[]);
-    handle_result(store, env, result, start, sender);
+    handle_result(store, env, result, sender);
 }
 
 fn handle_result(
     mut store: Store,
     env: WasiFunctionEnv,
     result: Result<Box<[wasmer::Value]>, RuntimeError>,
-    start: wasmer::Function,
     sender: std::sync::mpsc::Sender<Result<(), WasiRuntimeError>>,
 ) {
     let result = match result.map_err(|e| e.downcast::<WasiError>()) {
@@ -942,9 +962,8 @@ fn handle_result(
 
             let tasks = env.data(&store).tasks().clone();
             let rewind = work.rewind;
-            let respawn = move |ctx, store, res| {
-                run_with_deep_sleep(store, start, Some((rewind, res)), ctx, sender)
-            };
+            let respawn =
+                move |ctx, store, res| run_with_deep_sleep(store, Some((rewind, res)), ctx, sender);
 
             // Spawns the WASM process after a trigger
             unsafe {
