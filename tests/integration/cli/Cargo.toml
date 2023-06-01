@@ -22,6 +22,7 @@ assert_cmd = "2.0.8"
 predicates = "2.1.5"
 once_cell = "1.17.1"
 futures = "0.3.28"
+regex = "1.8.3"
 
 [dependencies]
 anyhow = "1"

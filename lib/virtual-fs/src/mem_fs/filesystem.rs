@@ -1,7 +1,7 @@
 //! This module contains the [`FileSystem`] type itself.
 
 use super::*;
-use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -26,6 +26,79 @@ impl FileSystem {
 
     pub fn new_open_options_ext(&self) -> &FileSystem {
         self
+    }
+
+    /// Canonicalize a path without validating that it actually exists.
+    pub fn canonicalize_unchecked(&self, path: &Path) -> Result<PathBuf> {
+        let lock = self.inner.read().map_err(|_| FsError::Lock)?;
+        lock.canonicalize_without_inode(path)
+    }
+
+    /// Merge all items from a given source path (directory) of a different file
+    /// system into this file system.
+    ///
+    /// Individual files and directories of the given path are mounted.
+    ///
+    /// This function is not recursive, only the items in the source_path are
+    /// mounted.
+    ///
+    /// See [`Self::union`] for mounting all inodes recursively.
+    pub fn mount_directory_entries(
+        &self,
+        target_path: &Path,
+        other: &Arc<dyn crate::FileSystem + Send + Sync>,
+        mut source_path: &Path,
+    ) -> Result<()> {
+        let fs_lock = self.inner.read().map_err(|_| FsError::Lock)?;
+
+        if cfg!(windows) {
+            // We need to take some care here because
+            // canonicalize_without_inode() doesn't accept Windows paths that
+            // start with a prefix (drive letters, UNC paths, etc.). If we
+            // somehow get one of those paths, we'll automatically trim it away.
+            let mut components = source_path.components();
+
+            if let Some(Component::Prefix(_)) = components.next() {
+                source_path = components.as_path();
+            }
+        }
+
+        let (_target_path, root_inode) = match fs_lock.canonicalize(target_path) {
+            Ok((p, InodeResolution::Found(inode))) => (p, inode),
+            Ok((_p, InodeResolution::Redirect(..))) => {
+                return Err(FsError::AlreadyExists);
+            }
+            Err(_) => {
+                // Root directory does not exist, so we can just mount.
+                return self.mount(target_path.to_path_buf(), other, source_path.to_path_buf());
+            }
+        };
+
+        let _root_node = match fs_lock.storage.get(root_inode).unwrap() {
+            Node::Directory(dir) => dir,
+            _ => {
+                return Err(FsError::AlreadyExists);
+            }
+        };
+
+        let source_path = fs_lock.canonicalize_without_inode(source_path)?;
+
+        std::mem::drop(fs_lock);
+
+        let source = other.read_dir(&source_path)?;
+        for entry in source.data {
+            let meta = entry.metadata?;
+
+            let entry_target_path = target_path.join(entry.path.file_name().unwrap());
+
+            if meta.is_file() {
+                self.insert_arc_file_at(entry_target_path, other.clone(), entry.path)?;
+            } else if meta.is_dir() {
+                self.insert_arc_directory_at(entry_target_path, other.clone(), entry.path)?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn union(&self, other: &Arc<dyn crate::FileSystem + Send + Sync>) {
@@ -90,11 +163,11 @@ impl FileSystem {
 
     pub fn mount(
         &self,
-        path: PathBuf,
+        target_path: PathBuf,
         other: &Arc<dyn crate::FileSystem + Send + Sync>,
-        dst: PathBuf,
+        source_path: PathBuf,
     ) -> Result<()> {
-        if crate::FileSystem::read_dir(self, path.as_path()).is_ok() {
+        if crate::FileSystem::read_dir(self, target_path.as_path()).is_ok() {
             return Err(FsError::AlreadyExists);
         }
 
@@ -104,7 +177,7 @@ impl FileSystem {
 
             // Canonicalize the path without checking the path exists,
             // because it's about to be created.
-            let path = guard.canonicalize_without_inode(path.as_path())?;
+            let path = guard.canonicalize_without_inode(target_path.as_path())?;
 
             // Check the path has a parent.
             let parent_of_path = path.parent().ok_or(FsError::BaseNotDirectory)?;
@@ -136,7 +209,7 @@ impl FileSystem {
                 inode: inode_of_directory,
                 name: name_of_directory,
                 fs: other.clone(),
-                path: dst,
+                path: source_path,
                 metadata: {
                     let time = time();
 
@@ -962,7 +1035,11 @@ impl DirectoryMustBeEmpty {
 
 #[cfg(test)]
 mod test_filesystem {
-    use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
+    use std::{borrow::Cow, path::Path};
+
+    use tokio::io::AsyncReadExt;
+
+    use crate::{mem_fs::*, ops, DirEntry, FileOpener, FileSystem as FS, FileType, FsError};
 
     macro_rules! path {
         ($path:expr) => {
@@ -1730,5 +1807,41 @@ mod test_filesystem {
         assert!(ops::is_file(&fs, "/top-level/file.txt"));
         assert!(ops::is_dir(&fs, "/top-level/nested"));
         assert!(ops::is_file(&fs, "/top-level/nested/another-file.txt"));
+    }
+
+    #[tokio::test]
+    async fn test_merge_flat() {
+        let main = FileSystem::default();
+
+        let other = FileSystem::default();
+        crate::ops::create_dir_all(&other, "/a/x").unwrap();
+        other
+            .insert_ro_file(&Path::new("/a/x/a.txt"), Cow::Borrowed(b"a"))
+            .unwrap();
+        other
+            .insert_ro_file(&Path::new("/a/x/b.txt"), Cow::Borrowed(b"b"))
+            .unwrap();
+        other
+            .insert_ro_file(&Path::new("/a/x/c.txt"), Cow::Borrowed(b"c"))
+            .unwrap();
+
+        let out = other.read_dir(&Path::new("/")).unwrap();
+        dbg!(&out);
+
+        let other: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(other);
+
+        main.mount_directory_entries(&Path::new("/"), &other, &Path::new("/a"))
+            .unwrap();
+
+        let mut buf = Vec::new();
+
+        let mut f = main
+            .new_open_options()
+            .read(true)
+            .open(&Path::new("/x/a.txt"))
+            .unwrap();
+        f.read_to_end(&mut buf).await.unwrap();
+
+        assert_eq!(buf, b"a");
     }
 }

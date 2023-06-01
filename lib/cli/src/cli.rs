@@ -9,8 +9,7 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, RunUnstable, SelfUpdate,
-    Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -40,9 +39,6 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 enum WasmerCLIOptions {
     /// List all locally installed packages
     List(List),
-
-    /// Run a WebAssembly file. Formats accepted: wasm, wat
-    Run(Run),
 
     /// Login into a wapm.io-like registry
     Login(Login),
@@ -163,7 +159,8 @@ enum WasmerCLIOptions {
     Add(Add),
 
     /// (unstable) Run a WebAssembly file or WEBC container.
-    RunUnstable(RunUnstable),
+    #[clap(alias = "run-unstable")]
+    Run(Run),
 
     // DEPLOY commands
     #[clap(subcommand)]
@@ -202,7 +199,6 @@ impl WasmerCLIOptions {
             Self::Binfmt(binfmt) => binfmt.execute(),
             Self::Whoami(whoami) => whoami.execute(),
             Self::Add(install) => install.execute(),
-            Self::RunUnstable(run2) => run2.execute(),
 
             // Deploy commands.
             Self::App(apps) => apps.run(),

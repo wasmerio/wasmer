@@ -42,6 +42,17 @@ impl TmpFileSystem {
         self.fs.union(other)
     }
 
+    /// See [`mem_fs::FileSystem::mount_directory_entries`].
+    pub fn mount_directory_entries(
+        &self,
+        target_path: &Path,
+        other: &Arc<dyn crate::FileSystem + Send + Sync>,
+        source_path: &Path,
+    ) -> Result<()> {
+        self.fs
+            .mount_directory_entries(target_path, other, source_path)
+    }
+
     pub fn mount(
         &self,
         src_path: PathBuf,
@@ -49,6 +60,11 @@ impl TmpFileSystem {
         dst_path: PathBuf,
     ) -> Result<()> {
         self.fs.mount(src_path, other, dst_path)
+    }
+
+    /// Canonicalize a path without validating that it actually exists.
+    pub fn canonicalize_unchecked(&self, path: &Path) -> Result<PathBuf> {
+        self.fs.canonicalize_unchecked(path)
     }
 }
 
