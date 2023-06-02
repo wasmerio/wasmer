@@ -16,7 +16,10 @@ use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-use webc::v1::{ParseOptions, WebCMmap};
+use webc::{
+    compat::{Container, Volume as WebcVolume},
+    PathSegments,
+};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -229,31 +232,30 @@ impl CreateExe {
         };
         std::fs::create_dir_all(&tempdir)?;
 
-        let atoms =
-            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
-                // pirita file
-                compile_pirita_into_directory(
-                    &pirita,
-                    &tempdir,
-                    &self.compiler,
-                    &self.cpu_features,
-                    &cross_compilation.target,
-                    &self.precompiled_atom,
-                    AllowMultiWasm::Allow,
-                    self.debug_dir.is_some(),
-                )
-            } else {
-                // wasm file
-                prepare_directory_from_single_wasm_file(
-                    &input_path,
-                    &tempdir,
-                    &self.compiler,
-                    &cross_compilation.target,
-                    &self.cpu_features,
-                    &self.precompiled_atom,
-                    self.debug_dir.is_some(),
-                )
-            }?;
+        let atoms = if let Ok(pirita) = Container::from_disk(&input_path) {
+            // pirita file
+            compile_pirita_into_directory(
+                &pirita,
+                &tempdir,
+                &self.compiler,
+                &self.cpu_features,
+                &cross_compilation.target,
+                &self.precompiled_atom,
+                AllowMultiWasm::Allow,
+                self.debug_dir.is_some(),
+            )
+        } else {
+            // wasm file
+            prepare_directory_from_single_wasm_file(
+                &input_path,
+                &tempdir,
+                &self.compiler,
+                &cross_compilation.target,
+                &self.cpu_features,
+                &self.precompiled_atom,
+                self.debug_dir.is_some(),
+            )
+        }?;
 
         get_module_infos(&store, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
@@ -334,7 +336,7 @@ pub enum AllowMultiWasm {
 /// Given a pirita file, compiles the .wasm files into the target directory
 #[allow(clippy::too_many_arguments)]
 pub(super) fn compile_pirita_into_directory(
-    pirita: &WebCMmap,
+    pirita: &Container,
     target_dir: &Path,
     compiler: &CompilerOptions,
     cpu_features: &[CpuFeature],
@@ -345,39 +347,17 @@ pub(super) fn compile_pirita_into_directory(
 ) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
     let all_atoms = match &allow_multi_wasm {
         AllowMultiWasm::Allow | AllowMultiWasm::Reject(None) => {
-            pirita.get_all_atoms().into_iter().collect::<Vec<_>>()
+            pirita.atoms().into_iter().collect::<Vec<_>>()
         }
         AllowMultiWasm::Reject(Some(s)) => {
-            vec![(
-                s.to_string(),
-                pirita
-                    .get_atom(&pirita.get_package_name(), s)
-                    .with_context(|| {
-                        anyhow::anyhow!(
-                            "could not find atom {s} in package {}",
-                            pirita.get_package_name()
-                        )
-                    })?,
-            )]
+            let atom = pirita
+                .get_atom(s)
+                .with_context(|| format!("could not find atom \"{s}\"",))?;
+            vec![(s.to_string(), atom)]
         }
     };
 
-    if allow_multi_wasm == AllowMultiWasm::Reject(None) && all_atoms.len() > 1 {
-        let keys = all_atoms
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect::<Vec<_>>();
-        return Err(anyhow::anyhow!(
-            "where <ATOM> is one of: {}",
-            keys.join(", ")
-        ))
-        .context(anyhow::anyhow!(
-            "note: use --atom <ATOM> to specify which atom to compile"
-        ))
-        .context(anyhow::anyhow!(
-            "cannot compile more than one atom at a time"
-        ));
-    }
+    allow_multi_wasm.validate(&all_atoms)?;
 
     std::fs::create_dir_all(target_dir)
         .map_err(|e| anyhow::anyhow!("cannot create / dir in {}: {e}", target_dir.display()))?;
@@ -392,7 +372,8 @@ pub(super) fn compile_pirita_into_directory(
         )
     })?;
 
-    let volume_bytes = pirita.get_volumes_as_fileblock();
+    let volumes = pirita.volumes();
+    let volume_bytes = volume_file_block(&volumes);
     let volume_name = "VOLUMES";
     let volume_path = target_dir.join("volumes").join("volume.o");
     write_volume_obj(&volume_bytes, volume_name, &volume_path, target)?;
@@ -477,6 +458,105 @@ pub(super) fn compile_pirita_into_directory(
     write_entrypoint(&target_dir, &entrypoint)?;
 
     Ok(atoms_from_file)
+}
+
+/// Serialize a set of volumes so they can be read by the C API.
+///
+/// This is really backwards, but the only way to create a v1 volume "fileblock"
+/// is by first reading every file in a [`webc::compat::Volume`], serializing it
+/// to webc v1's binary form, parsing those bytes into a [`webc::v1::Volume`],
+/// then constructing a dummy [`webc::v1::WebC`] object just so we can make a
+/// copy of its file block.
+fn volume_file_block(volumes: &BTreeMap<String, WebcVolume>) -> Vec<u8> {
+    let serialized_volumes: Vec<(&String, Vec<u8>)> = volumes
+        .iter()
+        .map(|(name, volume)| (name, serialize_volume_to_webc_v1(volume)))
+        .collect();
+
+    let parsed_volumes: indexmap::IndexMap<String, webc::v1::Volume<'_>> = serialized_volumes
+        .iter()
+        .filter_map(|(name, serialized_volume)| {
+            let volume = webc::v1::Volume::parse(serialized_volume).ok()?;
+            Some((name.to_string(), volume))
+        })
+        .collect();
+
+    let webc = webc::v1::WebC {
+        version: 0,
+        checksum: None,
+        signature: None,
+        manifest: webc::metadata::Manifest::default(),
+        atoms: webc::v1::Volume::default(),
+        volumes: parsed_volumes,
+    };
+
+    webc.get_volumes_as_fileblock()
+}
+
+fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
+    fn read_dir(
+        volume: &WebcVolume,
+        path: &mut PathSegments,
+        files: &mut BTreeMap<webc::v1::DirOrFile, Vec<u8>>,
+    ) {
+        for (segment, meta) in volume.read_dir(&*path).unwrap_or_default() {
+            path.push(segment);
+
+            match meta {
+                webc::compat::Metadata::Dir => {
+                    files.insert(
+                        webc::v1::DirOrFile::Dir(path.to_string().into()),
+                        Vec::new(),
+                    );
+                    read_dir(volume, path, files);
+                }
+                webc::compat::Metadata::File { .. } => {
+                    if let Some(contents) = volume.read_file(&*path) {
+                        files.insert(
+                            webc::v1::DirOrFile::File(path.to_string().into()),
+                            contents.into(),
+                        );
+                    }
+                }
+            }
+
+            path.pop();
+        }
+    }
+
+    let mut path = PathSegments::ROOT;
+    let mut files = BTreeMap::new();
+
+    read_dir(volume, &mut path, &mut files);
+
+    webc::v1::Volume::serialize_files(files)
+}
+
+impl AllowMultiWasm {
+    fn validate(
+        &self,
+        all_atoms: &Vec<(String, webc::compat::SharedBytes)>,
+    ) -> Result<(), anyhow::Error> {
+        if matches!(self, AllowMultiWasm::Reject(None)) && all_atoms.len() > 1 {
+            let keys = all_atoms
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
+
+            return Err(anyhow::anyhow!(
+                "where <ATOM> is one of: {}",
+                keys.join(", ")
+            ))
+            .context(anyhow::anyhow!(
+                "note: use --atom <ATOM> to specify which atom to compile"
+            ))
+            .context(anyhow::anyhow!(
+                "cannot compile more than one atom at a time"
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 /// Prefix map used during compilation of object files
