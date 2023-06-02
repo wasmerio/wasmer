@@ -226,12 +226,12 @@ unsafe fn wasi_env_with_filesystem_inner(
         config,
         &mut store.store_mut(),
         module,
-        std::mem::transmute(fs.ptr), // cast wasi_filesystem_t.ptr as &'static [u8]
+        &*(fs.ptr as *const u8), // cast wasi_filesystem_t.ptr as &'static [u8]
         fs.size,
         package,
     )?;
 
-    imports_set_buffer(&store, module, import_object, imports)?;
+    imports_set_buffer(store, module, import_object, imports)?;
 
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
@@ -268,7 +268,7 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
+    let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
     let mut builder = config.builder;
 
     if !config.inherit_stdout {
@@ -288,7 +288,7 @@ fn prepare_webc_env(
     }
     let env = builder.finalize(store).ok()?;
 
-    let import_object = env.import_object(store, &module).ok()?;
+    let import_object = env.import_object(store, module).ok()?;
     Some((env, import_object))
 }
 
