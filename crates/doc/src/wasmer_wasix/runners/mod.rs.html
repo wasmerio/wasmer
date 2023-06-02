@@ -65,6 +65,11 @@
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>runner;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;webc_runner_rt_emscripten&quot;</span>)]
@@ -95,6 +100,11 @@
 }
 
 <span class="doccomment">/// Compile a module, trying to use a pre-compiled version if possible.
+</span><span class="attr">#[cfg(any(
+    feature = <span class="string">&quot;webc_runner_rt_wasi&quot;</span>,
+    feature = <span class="string">&quot;webc_runner_rt_wcgi&quot;</span>,
+    feature = <span class="string">&quot;webc_runner_rt_emscripten&quot;</span>,
+))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>compile_module(wasm: <span class="kw-2">&amp;</span>[u8], runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;Module, Error&gt; {
     <span class="comment">// TODO(Michael-F-Bryan,theduke): This should be abstracted out into some
     // sort of ModuleResolver component that is attached to the runtime and

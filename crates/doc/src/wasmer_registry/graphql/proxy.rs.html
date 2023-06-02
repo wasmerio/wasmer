@@ -71,22 +71,12 @@
 <a href="#71" id="71">71</a>
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
-<a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Code for dealing with setting things up to proxy network requests
 
-</span><span class="kw">use </span>thiserror::Error;
+</span><span class="kw">use </span>std::env;
+
+<span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>thiserror::Error;
 
 <span class="attr">#[derive(Debug, Error)]
 </span><span class="kw">pub enum </span>ProxyError {
@@ -103,23 +93,8 @@
 <span class="kw">pub fn </span>maybe_set_up_proxy_blocking(
     builder: reqwest::blocking::ClientBuilder,
 ) -&gt; anyhow::Result&lt;reqwest::blocking::ClientBuilder&gt; {
-    <span class="kw">use </span>anyhow::Context;
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = maybe_set_up_proxy_inner()
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .context(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?
-    </span>{
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(builder.proxy(proxy));
-    }
-    <span class="prelude-val">Ok</span>(builder)
-}
-
-<span class="kw">pub fn </span>maybe_set_up_proxy(
-    builder: reqwest::ClientBuilder,
-) -&gt; anyhow::Result&lt;reqwest::ClientBuilder&gt; {
-    <span class="kw">use </span>anyhow::Context;
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = maybe_set_up_proxy_inner()
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-        .context(<span class="string">&quot;install_webc_package: failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) =
+        maybe_set_up_proxy_inner().context(<span class="string">&quot;failed to setup proxy for reqwest Client&quot;</span>)<span class="question-mark">?
     </span>{
         <span class="kw">return </span><span class="prelude-val">Ok</span>(builder.proxy(proxy));
     }
@@ -139,7 +114,6 @@
 /// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that
 /// there was a failure while attempting to set up the proxy.
 </span><span class="kw">fn </span>maybe_set_up_proxy_inner() -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;reqwest::Proxy&gt;&gt; {
-    <span class="kw">use </span>std::env;
     <span class="kw">let </span>proxy = <span class="kw">if let </span><span class="prelude-val">Ok</span>(proxy_url) = env::var(<span class="string">&quot;ALL_PROXY&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;all_proxy&quot;</span>)) {
         reqwest::Proxy::all(<span class="kw-2">&amp;</span>proxy_url).map(|proxy| (proxy_url, proxy, <span class="string">&quot;ALL_PROXY&quot;</span>))
     } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(https_proxy_url) = env::var(<span class="string">&quot;HTTPS_PROXY&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;https_proxy&quot;</span>))

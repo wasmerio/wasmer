@@ -2204,6 +2204,86 @@
 <a href="#2203" id="2203">2203</a>
 <a href="#2204" id="2204">2204</a>
 <a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
+<a href="#2264" id="2264">2264</a>
+<a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a>
+<a href="#2277" id="2277">2277</a>
+<a href="#2278" id="2278">2278</a>
+<a href="#2279" id="2279">2279</a>
+<a href="#2280" id="2280">2280</a>
+<a href="#2281" id="2281">2281</a>
+<a href="#2282" id="2282">2282</a>
+<a href="#2283" id="2283">2283</a>
+<a href="#2284" id="2284">2284</a>
+<a href="#2285" id="2285">2285</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -2222,7 +2302,10 @@
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_object::{emit_serialized, get_object_for_target};
 <span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-<span class="kw">use </span>webc::v1::{ParseOptions, WebCMmap};
+<span class="kw">use </span>webc::{
+    compat::{Container, Volume <span class="kw">as </span>WebcVolume},
+    PathSegments,
+};
 
 <span class="kw">const </span>LINK_SYSTEM_LIBRARIES_WINDOWS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">&quot;userenv&quot;</span>, <span class="string">&quot;Ws2_32&quot;</span>, <span class="string">&quot;advapi32&quot;</span>, <span class="string">&quot;bcrypt&quot;</span>];
 
@@ -2435,31 +2518,30 @@
         };
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>tempdir)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>atoms =
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) = WebCMmap::parse(input_path.clone(), <span class="kw-2">&amp;</span>ParseOptions::default()) {
-                <span class="comment">// pirita file
-                </span>compile_pirita_into_directory(
-                    <span class="kw-2">&amp;</span>pirita,
-                    <span class="kw-2">&amp;</span>tempdir,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
-                    <span class="kw-2">&amp;</span>cross_compilation.target,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom,
-                    AllowMultiWasm::Allow,
-                    <span class="self">self</span>.debug_dir.is_some(),
-                )
-            } <span class="kw">else </span>{
-                <span class="comment">// wasm file
-                </span>prepare_directory_from_single_wasm_file(
-                    <span class="kw-2">&amp;</span>input_path,
-                    <span class="kw-2">&amp;</span>tempdir,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
-                    <span class="kw-2">&amp;</span>cross_compilation.target,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom,
-                    <span class="self">self</span>.debug_dir.is_some(),
-                )
-            }<span class="question-mark">?</span>;
+        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) = Container::from_disk(<span class="kw-2">&amp;</span>input_path) {
+            <span class="comment">// pirita file
+            </span>compile_pirita_into_directory(
+                <span class="kw-2">&amp;</span>pirita,
+                <span class="kw-2">&amp;</span>tempdir,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
+                <span class="kw-2">&amp;</span>cross_compilation.target,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom,
+                AllowMultiWasm::Allow,
+                <span class="self">self</span>.debug_dir.is_some(),
+            )
+        } <span class="kw">else </span>{
+            <span class="comment">// wasm file
+            </span>prepare_directory_from_single_wasm_file(
+                <span class="kw-2">&amp;</span>input_path,
+                <span class="kw-2">&amp;</span>tempdir,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
+                <span class="kw-2">&amp;</span>cross_compilation.target,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.precompiled_atom,
+                <span class="self">self</span>.debug_dir.is_some(),
+            )
+        }<span class="question-mark">?</span>;
 
         get_module_infos(<span class="kw-2">&amp;</span>store, <span class="kw-2">&amp;</span>tempdir, <span class="kw-2">&amp;</span>atoms)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>entrypoint = get_entrypoint(<span class="kw-2">&amp;</span>tempdir)<span class="question-mark">?</span>;
@@ -2540,7 +2622,7 @@
 <span class="doccomment">/// Given a pirita file, compiles the .wasm files into the target directory
 </span><span class="attr">#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>compile_pirita_into_directory(
-    pirita: <span class="kw-2">&amp;</span>WebCMmap,
+    pirita: <span class="kw-2">&amp;</span>Container,
     target_dir: <span class="kw-2">&amp;</span>Path,
     compiler: <span class="kw-2">&amp;</span>CompilerOptions,
     cpu_features: <span class="kw-2">&amp;</span>[CpuFeature],
@@ -2551,39 +2633,17 @@
 ) -&gt; anyhow::Result&lt;Vec&lt;(String, Vec&lt;u8&gt;)&gt;&gt; {
     <span class="kw">let </span>all_atoms = <span class="kw">match </span><span class="kw-2">&amp;</span>allow_multi_wasm {
         AllowMultiWasm::Allow | AllowMultiWasm::Reject(<span class="prelude-val">None</span>) =&gt; {
-            pirita.get_all_atoms().into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+            pirita.atoms().into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
         }
         AllowMultiWasm::Reject(<span class="prelude-val">Some</span>(s)) =&gt; {
-            <span class="macro">vec!</span>[(
-                s.to_string(),
-                pirita
-                    .get_atom(<span class="kw-2">&amp;</span>pirita.get_package_name(), s)
-                    .with_context(|| {
-                        <span class="macro">anyhow::anyhow!</span>(
-                            <span class="string">&quot;could not find atom {s} in package {}&quot;</span>,
-                            pirita.get_package_name()
-                        )
-                    })<span class="question-mark">?</span>,
-            )]
+            <span class="kw">let </span>atom = pirita
+                .get_atom(s)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not find atom \&quot;{s}\&quot;&quot;</span>,))<span class="question-mark">?</span>;
+            <span class="macro">vec!</span>[(s.to_string(), atom)]
         }
     };
 
-    <span class="kw">if </span>allow_multi_wasm == AllowMultiWasm::Reject(<span class="prelude-val">None</span>) &amp;&amp; all_atoms.len() &gt; <span class="number">1 </span>{
-        <span class="kw">let </span>keys = all_atoms
-            .iter()
-            .map(|(name, <span class="kw">_</span>)| name.clone())
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;where &lt;ATOM&gt; is one of: {}&quot;</span>,
-            keys.join(<span class="string">&quot;, &quot;</span>)
-        ))
-        .context(<span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;note: use --atom &lt;ATOM&gt; to specify which atom to compile&quot;
-        </span>))
-        .context(<span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;cannot compile more than one atom at a time&quot;
-        </span>));
-    }
+    allow_multi_wasm.validate(<span class="kw-2">&amp;</span>all_atoms)<span class="question-mark">?</span>;
 
     std::fs::create_dir_all(target_dir)
         .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot create / dir in {}: {e}&quot;</span>, target_dir.display()))<span class="question-mark">?</span>;
@@ -2598,7 +2658,8 @@
         )
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>volume_bytes = pirita.get_volumes_as_fileblock();
+    <span class="kw">let </span>volumes = pirita.volumes();
+    <span class="kw">let </span>volume_bytes = volume_file_block(<span class="kw-2">&amp;</span>volumes);
     <span class="kw">let </span>volume_name = <span class="string">&quot;VOLUMES&quot;</span>;
     <span class="kw">let </span>volume_path = target_dir.join(<span class="string">&quot;volumes&quot;</span>).join(<span class="string">&quot;volume.o&quot;</span>);
     write_volume_obj(<span class="kw-2">&amp;</span>volume_bytes, volume_name, <span class="kw-2">&amp;</span>volume_path, target)<span class="question-mark">?</span>;
@@ -2683,6 +2744,105 @@
     write_entrypoint(<span class="kw-2">&amp;</span>target_dir, <span class="kw-2">&amp;</span>entrypoint)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(atoms_from_file)
+}
+
+<span class="doccomment">/// Serialize a set of volumes so they can be read by the C API.
+///
+/// This is really backwards, but the only way to create a v1 volume &quot;fileblock&quot;
+/// is by first reading every file in a [`webc::compat::Volume`], serializing it
+/// to webc v1&#39;s binary form, parsing those bytes into a [`webc::v1::Volume`],
+/// then constructing a dummy [`webc::v1::WebC`] object just so we can make a
+/// copy of its file block.
+</span><span class="kw">fn </span>volume_file_block(volumes: <span class="kw-2">&amp;</span>BTreeMap&lt;String, WebcVolume&gt;) -&gt; Vec&lt;u8&gt; {
+    <span class="kw">let </span>serialized_volumes: Vec&lt;(<span class="kw-2">&amp;</span>String, Vec&lt;u8&gt;)&gt; = volumes
+        .iter()
+        .map(|(name, volume)| (name, serialize_volume_to_webc_v1(volume)))
+        .collect();
+
+    <span class="kw">let </span>parsed_volumes: indexmap::IndexMap&lt;String, webc::v1::Volume&lt;<span class="lifetime">&#39;_</span>&gt;&gt; = serialized_volumes
+        .iter()
+        .filter_map(|(name, serialized_volume)| {
+            <span class="kw">let </span>volume = webc::v1::Volume::parse(serialized_volume).ok()<span class="question-mark">?</span>;
+            <span class="prelude-val">Some</span>((name.to_string(), volume))
+        })
+        .collect();
+
+    <span class="kw">let </span>webc = webc::v1::WebC {
+        version: <span class="number">0</span>,
+        checksum: <span class="prelude-val">None</span>,
+        signature: <span class="prelude-val">None</span>,
+        manifest: webc::metadata::Manifest::default(),
+        atoms: webc::v1::Volume::default(),
+        volumes: parsed_volumes,
+    };
+
+    webc.get_volumes_as_fileblock()
+}
+
+<span class="kw">fn </span>serialize_volume_to_webc_v1(volume: <span class="kw-2">&amp;</span>WebcVolume) -&gt; Vec&lt;u8&gt; {
+    <span class="kw">fn </span>read_dir(
+        volume: <span class="kw-2">&amp;</span>WebcVolume,
+        path: <span class="kw-2">&amp;mut </span>PathSegments,
+        files: <span class="kw-2">&amp;mut </span>BTreeMap&lt;webc::v1::DirOrFile, Vec&lt;u8&gt;&gt;,
+    ) {
+        <span class="kw">for </span>(segment, meta) <span class="kw">in </span>volume.read_dir(<span class="kw-2">&amp;*</span>path).unwrap_or_default() {
+            path.push(segment);
+
+            <span class="kw">match </span>meta {
+                webc::compat::Metadata::Dir =&gt; {
+                    files.insert(
+                        webc::v1::DirOrFile::Dir(path.to_string().into()),
+                        Vec::new(),
+                    );
+                    read_dir(volume, path, files);
+                }
+                webc::compat::Metadata::File { .. } =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(contents) = volume.read_file(<span class="kw-2">&amp;*</span>path) {
+                        files.insert(
+                            webc::v1::DirOrFile::File(path.to_string().into()),
+                            contents.into(),
+                        );
+                    }
+                }
+            }
+
+            path.pop();
+        }
+    }
+
+    <span class="kw">let </span><span class="kw-2">mut </span>path = PathSegments::ROOT;
+    <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
+
+    read_dir(volume, <span class="kw-2">&amp;mut </span>path, <span class="kw-2">&amp;mut </span>files);
+
+    webc::v1::Volume::serialize_files(files)
+}
+
+<span class="kw">impl </span>AllowMultiWasm {
+    <span class="kw">fn </span>validate(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        all_atoms: <span class="kw-2">&amp;</span>Vec&lt;(String, webc::compat::SharedBytes)&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>, AllowMultiWasm::Reject(<span class="prelude-val">None</span>)) &amp;&amp; all_atoms.len() &gt; <span class="number">1 </span>{
+            <span class="kw">let </span>keys = all_atoms
+                .iter()
+                .map(|(name, <span class="kw">_</span>)| name.clone())
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;where &lt;ATOM&gt; is one of: {}&quot;</span>,
+                keys.join(<span class="string">&quot;, &quot;</span>)
+            ))
+            .context(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;note: use --atom &lt;ATOM&gt; to specify which atom to compile&quot;
+            </span>))
+            .context(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;cannot compile more than one atom at a time&quot;
+            </span>));
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="doccomment">/// Prefix map used during compilation of object files

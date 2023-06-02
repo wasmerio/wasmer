@@ -899,12 +899,12 @@
         config,
         <span class="kw-2">&amp;mut </span>store.store_mut(),
         module,
-        std::mem::transmute(fs.ptr), <span class="comment">// cast wasi_filesystem_t.ptr as &amp;&#39;static [u8]
+        <span class="kw-2">&amp;*</span>(fs.ptr <span class="kw">as </span><span class="kw-2">*const </span>u8), <span class="comment">// cast wasi_filesystem_t.ptr as &amp;&#39;static [u8]
         </span>fs.size,
         package,
     )<span class="question-mark">?</span>;
 
-    imports_set_buffer(<span class="kw-2">&amp;</span>store, module, import_object, imports)<span class="question-mark">?</span>;
+    imports_set_buffer(store, module, import_object, imports)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
         inner: wasi_env,
@@ -941,7 +941,7 @@
         })
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">let </span>filesystem = Box::new(StaticFileSystem::init(slice, <span class="kw-2">&amp;</span>package_name)<span class="question-mark">?</span>);
+    <span class="kw">let </span>filesystem = Box::new(StaticFileSystem::init(slice, package_name)<span class="question-mark">?</span>);
     <span class="kw">let </span><span class="kw-2">mut </span>builder = config.builder;
 
     <span class="kw">if </span>!config.inherit_stdout {
@@ -961,7 +961,7 @@
     }
     <span class="kw">let </span>env = builder.finalize(store).ok()<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>import_object = env.import_object(store, <span class="kw-2">&amp;</span>module).ok()<span class="question-mark">?</span>;
+    <span class="kw">let </span>import_object = env.import_object(store, module).ok()<span class="question-mark">?</span>;
     <span class="prelude-val">Some</span>((env, import_object))
 }
 

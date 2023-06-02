@@ -133,14 +133,21 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
-<span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>wasmer_compiler::Artifact;
 <span class="kw">use </span>wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
 <span class="kw">use </span>wasmer_types::{CpuFeature, MetadataHeader, Triple};
-<span class="kw">use </span>webc::v1::WebC;
+<span class="kw">use </span>webc::{compat::SharedBytes, Container, DetectError};
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand
@@ -182,44 +189,25 @@
 
 <span class="kw">impl </span>GenCHeader {
     <span class="doccomment">/// Runs logic for the `gen-c-header` subcommand
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>path = <span class="kw">crate</span>::common::normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.path.display()));
-        <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::read(<span class="kw-2">&amp;</span>path)
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{path}&quot;</span>))<span class="question-mark">?</span>;
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>file: Bytes = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, <span class="self">self</span>.path.display()))<span class="question-mark">?
+            </span>.into();
         <span class="kw">let </span>prefix = <span class="kw">match </span><span class="self">self</span>.prefix.as_deref() {
             <span class="prelude-val">Some</span>(s) =&gt; s.to_string(),
             <span class="prelude-val">None </span>=&gt; <span class="kw">crate</span>::commands::PrefixMapCompilation::hash_for_bytes(<span class="kw-2">&amp;</span>file),
         };
 
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) = WebC::parse(<span class="kw-2">&amp;</span>file, <span class="kw-2">&amp;</span>webc::v1::ParseOptions::default()) {
-            <span class="kw">let </span>atoms = pirita
-                .manifest
-                .atoms
-                .iter()
-                .map(|a| a.<span class="number">0</span>.clone())
-                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-            <span class="kw">if </span>atoms.len() == <span class="number">1 </span>{
-                file = pirita
-                    .get_atom(<span class="kw-2">&amp;</span>pirita.get_package_name(), <span class="kw-2">&amp;</span>atoms[<span class="number">0</span>])
-                    .unwrap()
-                    .to_vec();
-            } <span class="kw">else if </span><span class="self">self</span>.atom.is_none() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;-&gt; note: available atoms are: {}&quot;</span>, atoms.join(<span class="string">&quot;, &quot;</span>)))
-                .context(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;file has multiple atoms, please specify which atom to generate the header file for&quot;</span>))<span class="question-mark">?</span>;
-            } <span class="kw">else </span>{
-                file = pirita
-                    .get_atom(<span class="kw-2">&amp;</span>pirita.get_package_name(), <span class="kw-2">&amp;</span>atoms[<span class="number">0</span>])
-                    .map_err(|<span class="kw">_</span>| {
-                        <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;-&gt; note: available atoms are: {}&quot;</span>, atoms.join(<span class="string">&quot;, &quot;</span>))
-                    })
-                    .context(<span class="macro">anyhow::anyhow!</span>(
-                        <span class="string">&quot;could not get atom {} from file (invalid atom name)&quot;</span>,
-                        <span class="kw-2">&amp;</span>atoms[<span class="number">0</span>]
-                    ))<span class="question-mark">?
-                    </span>.to_vec();
+        <span class="kw">let </span>atom = <span class="kw">match </span>Container::from_bytes(file.clone()) {
+            <span class="prelude-val">Ok</span>(webc) =&gt; <span class="self">self</span>.get_atom(<span class="kw-2">&amp;</span>webc)<span class="question-mark">?</span>,
+            <span class="prelude-val">Err</span>(webc::compat::ContainerError::Detect(DetectError::InvalidMagic { .. })) =&gt; {
+                <span class="comment">// we&#39;ve probably got a WebAssembly file
+                </span>file.into()
             }
-        }
+            <span class="prelude-val">Err</span>(other) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Error::new(other).context(<span class="string">&quot;Unable to parse the webc file&quot;</span>));
+            }
+        };
 
         <span class="kw">let </span>target_triple = <span class="self">self</span>.target_triple.clone().unwrap_or_else(Triple::host);
         <span class="kw">let </span>target = <span class="kw">crate</span>::commands::create_exe::utils::target_triple_to_target(
@@ -233,7 +221,7 @@
         <span class="kw">let </span>tunables = engine.tunables();
         <span class="kw">let </span>(metadata, <span class="kw">_</span>, <span class="kw">_</span>) = Artifact::metadata(
             compiler,
-            <span class="kw-2">&amp;</span>file,
+            <span class="kw-2">&amp;</span>atom,
             <span class="prelude-val">Some</span>(prefix.as_str()),
             <span class="kw-2">&amp;</span>target,
             tunables,
@@ -265,6 +253,30 @@
             .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{output}&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>get_atom(<span class="kw-2">&amp;</span><span class="self">self</span>, pirita: <span class="kw-2">&amp;</span>Container) -&gt; <span class="prelude-ty">Result</span>&lt;SharedBytes, Error&gt; {
+        <span class="kw">let </span>atoms = pirita.atoms();
+        <span class="kw">let </span>atom_names: Vec&lt;<span class="kw">_</span>&gt; = atoms.keys().map(|s| s.as_str()).collect();
+
+        <span class="kw">match </span><span class="kw-2">*</span>atom_names.as_slice() {
+            [] =&gt; <span class="prelude-val">Err</span>(Error::msg(<span class="string">&quot;The file doesn&#39;t contain any atoms&quot;</span>)),
+            [name] =&gt; <span class="prelude-val">Ok</span>(atoms[name].clone()),
+            [..] =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.atom {
+                <span class="prelude-val">Some</span>(name) =&gt; atoms
+                    .get(name)
+                    .cloned()
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The file doesn&#39;t contain a \&quot;{name}\&quot; atom&quot;</span>))
+                    .with_context(|| {
+                        <span class="macro">format!</span>(<span class="string">&quot;-&gt; note: available atoms are: {}&quot;</span>, atom_names.join(<span class="string">&quot;, &quot;</span>))
+                    }),
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="kw">let </span>err = Error::msg(<span class="string">&quot;file has multiple atoms, please specify which atom to generate the header file for&quot;</span>)
+                            .context(<span class="macro">format!</span>(<span class="string">&quot;-&gt; note: available atoms are: {}&quot;</span>, atom_names.join(<span class="string">&quot;, &quot;</span>)));
+                    <span class="prelude-val">Err</span>(err)
+                }
+            },
+        }
     }
 }
 </code></pre></div>

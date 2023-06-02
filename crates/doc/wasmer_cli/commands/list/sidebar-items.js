@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":[["List","Subcommand for listing packages"]]};

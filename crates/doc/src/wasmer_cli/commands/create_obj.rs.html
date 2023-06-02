@@ -170,8 +170,6 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 </span><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
@@ -258,11 +256,9 @@
         <span class="macro">println!</span>(<span class="string">&quot;Compiler: {}&quot;</span>, compiler_type.to_string());
         <span class="macro">println!</span>(<span class="string">&quot;Target: {}&quot;</span>, target.triple());
 
-        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(pirita) =
-            webc::v1::WebCMmap::parse(input_path.clone(), <span class="kw-2">&amp;</span>webc::v1::ParseOptions::default())
-        {
+        <span class="kw">let </span>atoms = <span class="kw">if let </span><span class="prelude-val">Ok</span>(webc) = webc::compat::Container::from_disk(<span class="kw-2">&amp;</span>input_path) {
             <span class="kw">crate</span>::commands::create_exe::compile_pirita_into_directory(
-                <span class="kw-2">&amp;</span>pirita,
+                <span class="kw-2">&amp;</span>webc,
                 <span class="kw-2">&amp;</span>output_directory_path,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.compiler,
                 <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features,
