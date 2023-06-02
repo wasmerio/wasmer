@@ -80,7 +80,7 @@ impl GenCHeader {
         let tunables = engine.tunables();
         let (metadata, _, _) = Artifact::metadata(
             compiler,
-            &file,
+            &atom,
             Some(prefix.as_str()),
             &target,
             tunables,
