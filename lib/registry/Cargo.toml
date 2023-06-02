@@ -12,9 +12,6 @@ rust-version.workspace = true
 [features]
 build-package  = ["rusqlite", "indexmap", "wasmer-wasm-interface", "wasmparser", "rpassword", "minisign", "time"]
 
-[dev-dependencies]
-rand = "0.8.5"
-
 [dependencies]
 dirs = "4.0.0"
 graphql_client = "0.11.0"
@@ -31,12 +28,10 @@ tar = "0.4.38"
 flate2 = "1.0.24"
 semver = "1.0.14"
 lzma-rs = "0.2.0"
-webc = { version = "5.0", features = ["mmap"] }
 hex = "0.4.3"
 tokio = "1.24.0"
 log = "0.4.17"
 regex = "1.7.0"
-fs_extra = "1.2.0"
 filetime = "0.2.19"
 tldextract = "0.6.0"
 console = "0.15.2"

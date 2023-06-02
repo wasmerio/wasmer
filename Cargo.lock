@@ -5958,7 +5958,6 @@ dependencies = [
  "dirs",
  "filetime",
  "flate2",
- "fs_extra",
  "futures-util",
  "graphql_client",
  "hex",
@@ -5968,7 +5967,6 @@ dependencies = [
  "log",
  "lzma-rs",
  "minisign",
- "rand",
  "regex",
  "reqwest",
  "rpassword",
@@ -5987,7 +5985,6 @@ dependencies = [
  "wasmer-toml",
  "wasmer-wasm-interface 4.0.0-beta.1",
  "wasmparser 0.51.4",
- "webc",
  "whoami",
 ]
 
