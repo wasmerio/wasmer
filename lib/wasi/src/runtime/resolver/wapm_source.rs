@@ -41,7 +41,6 @@ impl Source for WapmSource {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
             _ => return Ok(Vec::new()),
         };
-
         #[derive(serde::Serialize)]
         struct Body {
             query: String,
@@ -81,7 +80,7 @@ impl Source for WapmSource {
 
         for pkg_version in versions {
             let version = Version::parse(&pkg_version.version)?;
-            if version_constraint.matches(&version) {
+            if version_constraint.matches(&version) && pkg_version.manifest.is_some() {
                 let summary = decode_summary(pkg_version)?;
                 summaries.push(summary);
             }
@@ -109,17 +108,20 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
         ..
     } = pkg_version;
 
-    let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
+    let manifest: Manifest = serde_json::from_slice(manifest.expect("missing Manifest").as_bytes())
         .context("Unable to deserialize the manifest")?;
 
     let mut webc_sha256 = [0_u8; 32];
-    hex::decode_to_slice(&pirita_sha256_hash, &mut webc_sha256)?;
+    hex::decode_to_slice(
+        &pirita_sha256_hash.expect("missing sha256"),
+        &mut webc_sha256,
+    )?;
     let webc_sha256 = WebcHash::from_bytes(webc_sha256);
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(&manifest)?,
         dist: DistributionInfo {
-            webc: pirita_download_url.parse()?,
+            webc: pirita_download_url.expect("missing download url").parse()?,
             webc_sha256,
         },
     })
@@ -161,16 +163,16 @@ pub struct WapmWebQueryGetPackageVersion {
     pub version: String,
     /// A JSON string containing a [`Manifest`] definition.
     #[serde(rename = "piritaManifest")]
-    pub manifest: String,
+    pub manifest: Option<String>,
     pub distribution: WapmWebQueryGetPackageVersionDistribution,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
     #[serde(rename = "piritaDownloadUrl")]
-    pub pirita_download_url: String,
+    pub pirita_download_url: Option<String>,
     #[serde(rename = "piritaSha256Hash")]
-    pub pirita_sha256_hash: String,
+    pub pirita_sha256_hash: Option<String>,
 }
 
 #[cfg(test)]
