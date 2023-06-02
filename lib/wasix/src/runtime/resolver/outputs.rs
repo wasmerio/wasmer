@@ -1,15 +1,16 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     fmt::{self, Display, Formatter},
+    ops::Index,
     path::PathBuf,
-    unreachable,
 };
 
+use petgraph::{graph::NodeIndex, visit::EdgeRef};
 use semver::Version;
 
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Resolution {
     pub package: ResolvedPackage,
     pub graph: DependencyGraph,
@@ -24,7 +25,7 @@ pub struct ItemLocation {
 }
 
 /// An identifier for a package within a dependency graph.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PackageId {
     pub package_name: String,
     pub version: Version,
@@ -40,25 +41,122 @@ impl Display for PackageId {
     }
 }
 
-/// A dependency graph.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// An acyclic, directed dependency graph.
+#[derive(Debug, Clone)]
 pub struct DependencyGraph {
-    pub root: PackageId,
-    pub dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
-    pub package_info: HashMap<PackageId, PackageInfo>,
-    pub distribution: HashMap<PackageId, DistributionInfo>,
+    root: NodeIndex,
+    graph: petgraph::graph::DiGraph<Node, Edge>,
+    packages: BTreeMap<PackageId, NodeIndex>,
 }
 
 impl DependencyGraph {
-    pub fn root_info(&self) -> &PackageInfo {
-        match self.package_info.get(&self.root) {
-            Some(info) => info,
-            None => unreachable!(
-                "The dependency graph should always have package info for the root package, {}",
-                self.root
-            ),
+    pub(crate) fn new(
+        root: NodeIndex,
+        graph: petgraph::graph::DiGraph<Node, Edge>,
+        packages: BTreeMap<PackageId, NodeIndex>,
+    ) -> Self {
+        DependencyGraph {
+            root,
+            graph,
+            packages,
         }
     }
+
+    pub fn root_info(&self) -> &PackageInfo {
+        let Node { pkg, .. } = &self.graph[self.root];
+        pkg
+    }
+
+    pub fn root(&self) -> NodeIndex {
+        self.root
+    }
+
+    pub fn graph(&self) -> &petgraph::graph::DiGraph<Node, Edge> {
+        &self.graph
+    }
+
+    /// Get a mapping from [`PackageId`]s to [`NodeIndex`]s.
+    pub fn packages(&self) -> &BTreeMap<PackageId, NodeIndex> {
+        &self.packages
+    }
+
+    /// Get an iterator over all the packages in this dependency graph and their
+    /// dependency mappings.
+    pub fn iter_dependencies(
+        &self,
+    ) -> impl Iterator<Item = (&'_ PackageId, BTreeMap<&'_ str, &'_ PackageId>)> + '_ {
+        self.packages.iter().map(move |(id, index)| {
+            let dependencies: BTreeMap<_, _> = self
+                .graph
+                .edges(*index)
+                .map(|edge_ref| {
+                    (
+                        edge_ref.weight().alias.as_str(),
+                        &self.graph[edge_ref.target()].id,
+                    )
+                })
+                .collect();
+            (id, dependencies)
+        })
+    }
+}
+
+impl Index<NodeIndex> for DependencyGraph {
+    type Output = Node;
+
+    #[track_caller]
+    fn index(&self, index: NodeIndex) -> &Self::Output {
+        &self.graph[index]
+    }
+}
+
+impl Index<&NodeIndex> for DependencyGraph {
+    type Output = Node;
+
+    #[track_caller]
+    fn index(&self, index: &NodeIndex) -> &Self::Output {
+        &self[*index]
+    }
+}
+
+impl Index<&PackageId> for DependencyGraph {
+    type Output = Node;
+
+    #[track_caller]
+    fn index(&self, index: &PackageId) -> &Self::Output {
+        let index = self.packages[index];
+        &self[index]
+    }
+}
+
+impl PartialEq for DependencyGraph {
+    fn eq(&self, other: &Self) -> bool {
+        let DependencyGraph {
+            root,
+            graph,
+            packages,
+        } = self;
+
+        root.index() == other.root.index()
+            && *packages == other.packages
+            && petgraph::algo::is_isomorphic_matching(graph, &other.graph, Node::eq, Edge::eq)
+    }
+}
+
+impl Eq for DependencyGraph {}
+
+/// A node in the [`DependencyGraph`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Node {
+    pub id: PackageId,
+    pub pkg: PackageInfo,
+    pub dist: Option<DistributionInfo>,
+}
+
+/// An edge in the [`DependencyGraph`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Edge {
+    pub alias: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

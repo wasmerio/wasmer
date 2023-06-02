@@ -65,6 +65,7 @@ wcgi-host = { version = "0.1.2", optional = true }
 tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "cors"], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
+petgraph = "0.6.3"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
@@ -116,7 +117,7 @@ webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time"]
-sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest" ]
+sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest"]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 
@@ -127,21 +128,14 @@ js = ["virtual-fs/no-time", "getrandom/js", "chrono"]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
 
-host-vnet = [ "virtual-net/host-net" ]
+host-vnet = ["virtual-net/host-net"]
 host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["virtual-fs/host-fs"]
 
 logging = ["tracing/log"]
-disable-all-logging = [
-    "tracing/release_max_level_off",
-    "tracing/max_level_off"
-]
-enable-serde = [
-    "typetag",
-    "virtual-fs/enable-serde",
-    "wasmer-wasix-types/enable-serde",
-]
+disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
+enable-serde = ["typetag", "virtual-fs/enable-serde", "wasmer-wasix-types/enable-serde"]
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys"]

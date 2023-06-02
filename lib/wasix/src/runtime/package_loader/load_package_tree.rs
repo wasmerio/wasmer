@@ -215,13 +215,15 @@ async fn fetch_dependencies(
 
     let packages: FuturesUnordered<_> = packages
         .into_iter()
-        .map(|id| async {
+        .filter_map(|id| {
+            let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
             let summary = PackageSummary {
-                pkg: graph.package_info[&id].clone(),
-                dist: graph.distribution[&id].clone(),
+                pkg: pkg.clone(),
+                dist: dist.clone()?,
             };
-            loader.load(&summary).await.map(|webc| (id, webc))
+            Some((id, summary))
         })
+        .map(|(id, summary)| async move { loader.load(&summary).await.map(|webc| (id, webc)) })
         .collect();
 
     let packages: HashMap<PackageId, Container> = packages.try_collect().await?;

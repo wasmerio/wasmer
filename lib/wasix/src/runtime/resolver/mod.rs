@@ -18,8 +18,8 @@ pub use self::{
     },
     multi_source_registry::MultiSource,
     outputs::{
-        DependencyGraph, ItemLocation, PackageId, Resolution, ResolvedFileSystemMapping,
-        ResolvedPackage,
+        DependencyGraph, Edge, ItemLocation, Node, PackageId, Resolution,
+        ResolvedFileSystemMapping, ResolvedPackage,
     },
     resolve::resolve,
     source::Source,

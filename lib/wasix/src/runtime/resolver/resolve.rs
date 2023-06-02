@@ -1,11 +1,16 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, HashSet, VecDeque},
     path::PathBuf,
 };
 
+use petgraph::{
+    graph::{DiGraph, NodeIndex},
+    visit::EdgeRef,
+};
 use semver::Version;
 
 use crate::runtime::resolver::{
+    outputs::{Edge, Node},
     DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Resolution,
     ResolvedPackage, Source,
 };
@@ -71,20 +76,48 @@ async fn resolve_dependency_graph(
     root: &PackageInfo,
     source: &dyn Source,
 ) -> Result<DependencyGraph, ResolveError> {
-    let mut dependencies = HashMap::new();
-    let mut package_info = HashMap::new();
-    let mut distribution = HashMap::new();
+    let DiscoveredPackages {
+        root,
+        graph,
+        indices,
+        packages,
+    } = discover_dependencies(root_id, root, source).await?;
 
-    package_info.insert(root_id.clone(), root.clone());
+    check_for_duplicate_versions(indices.iter().copied().map(|ix| &graph[ix].id))?;
+    log_dependencies(&graph, root);
+
+    let graph = DependencyGraph::new(root, graph, packages);
+
+    Ok(graph)
+}
+
+async fn discover_dependencies(
+    root_id: &PackageId,
+    root: &PackageInfo,
+    source: &dyn Source,
+) -> Result<DiscoveredPackages, ResolveError> {
+    let mut nodes: BTreeMap<PackageId, NodeIndex> = BTreeMap::new();
+    let mut graph: DiGraph<Node, Edge> = DiGraph::new();
+
+    let root_index = graph.add_node(Node {
+        id: root_id.clone(),
+        pkg: root.clone(),
+        dist: None,
+    });
 
     let mut to_visit = VecDeque::new();
+    to_visit.push_back(root_index);
 
-    to_visit.push_back((root_id.clone(), root.clone()));
+    while let Some(index) = to_visit.pop_front() {
+        let mut deps = BTreeMap::new();
 
-    while let Some((id, info)) = to_visit.pop_front() {
-        let mut deps = HashMap::new();
+        let mut to_add = Vec::new();
 
-        for dep in &info.dependencies {
+        for dep in &graph[index].pkg.dependencies {
+            // Get the latest version that satisfies our requirement. If we were
+            // doing this more rigorously, we would be narrowing the version
+            // down using existing requirements and trying to reuse the same
+            // dependency when possible.
             let dep_summary = source
                 .latest(&dep.pkg)
                 .await
@@ -92,67 +125,85 @@ async fn resolve_dependency_graph(
             deps.insert(dep.alias().to_string(), dep_summary.package_id());
             let dep_id = dep_summary.package_id();
 
-            if dependencies.contains_key(&dep_id) {
+            if nodes.contains_key(&dep_id) {
                 // We don't need to visit this dependency again
                 continue;
             }
 
+            // Otherwise, add it to the graph and schedule its dependencies to
+            // be retrieved
+
             let PackageSummary { pkg, dist } = dep_summary;
 
-            to_visit.push_back((dep_id.clone(), pkg.clone()));
-            package_info.insert(dep_id.clone(), pkg);
-            distribution.insert(dep_id, dist);
+            to_add.push(Node {
+                id: dep_id,
+                pkg,
+                dist: Some(dist),
+            });
         }
 
-        dependencies.insert(id, deps);
+        for node in to_add {
+            let id = node.id.clone();
+            let index = graph.add_node(node);
+            nodes.insert(id, index);
+        }
     }
 
-    let graph = DependencyGraph {
-        root: root_id.clone(),
-        dependencies,
-        package_info,
-        distribution,
-    };
+    let sorted_indices =
+        petgraph::algo::toposort(&graph, None).map_err(|cycle| cycle_error(&graph, cycle))?;
 
-    check_for_cycles(&graph.dependencies, &graph.root)?;
-    check_for_duplicate_versions(graph.dependencies.keys())?;
-    log_dependencies(&graph);
+    Ok(DiscoveredPackages {
+        root: root_index,
+        graph,
+        indices: sorted_indices,
+        packages: nodes,
+    })
+}
 
-    Ok(graph)
+fn cycle_error(
+    graph: &petgraph::Graph<Node, Edge>,
+    cycle: petgraph::algo::Cycle<NodeIndex>,
+) -> ResolveError {
+    let cyclic_node = cycle.node_id();
+    let cycle: Vec<_> =
+        petgraph::algo::simple_paths::all_simple_paths(graph, cyclic_node, cyclic_node, 1, None)
+            .next()
+            .expect("We know there is at least one cycle");
+
+    let package_ids = cycle.into_iter().map(|ix| graph[ix].pkg.id()).collect();
+
+    ResolveError::Cycle(package_ids)
+}
+
+#[derive(Debug)]
+struct DiscoveredPackages {
+    root: NodeIndex,
+    graph: DiGraph<Node, Edge>,
+    /// All node indices, in topologically sorted order.
+    indices: Vec<NodeIndex>,
+    packages: BTreeMap<PackageId, NodeIndex>,
 }
 
 #[tracing::instrument(level = "debug", name = "dependencies", skip_all)]
-fn log_dependencies(graph: &DependencyGraph) {
-    let DependencyGraph {
-        root, dependencies, ..
-    } = graph;
-
+fn log_dependencies(graph: &DiGraph<Node, Edge>, root: NodeIndex) {
     tracing::debug!(
-        %root,
-        dependency_count=dependencies.len(),
+        root = root.index(),
+        dependency_count = graph.node_count(),
         "Resolved dependencies",
     );
 
     if tracing::enabled!(tracing::Level::TRACE) {
-        let mut to_print = VecDeque::new();
-        let mut visited = HashSet::new();
-        to_print.push_back(root);
-        while let Some(next) = to_print.pop_front() {
-            visited.insert(next);
+        petgraph::visit::depth_first_search(graph, [root], |event| {
+            if let petgraph::visit::DfsEvent::Discover(n, _) = event {
+                let package = &graph[n].id;
+                let dependencies: BTreeMap<_, _> = graph
+                    .edges(n)
+                    .map(|edge_ref| (&edge_ref.weight().alias, &graph[edge_ref.target()].id))
+                    .collect();
 
-            let deps = &dependencies[next];
-            let pretty: BTreeMap<_, _> = deps
-                .iter()
-                .map(|(name, pkg_id)| (name, pkg_id.to_string()))
-                .collect();
-
-            tracing::trace!(
-                package=%next,
-                dependencies=?pretty,
-            );
-
-            to_print.extend(deps.values().filter(|pkg| !visited.contains(pkg)));
-        }
+                tracing::trace!( %package, ?dependencies);
+            }
+        });
     }
 }
 
@@ -164,7 +215,7 @@ fn check_for_duplicate_versions<'a, I>(package_ids: I) -> Result<(), ResolveErro
 where
     I: Iterator<Item = &'a PackageId>,
 {
-    let mut package_versions: HashMap<&str, HashSet<&Version>> = HashMap::new();
+    let mut package_versions: BTreeMap<&str, HashSet<&Version>> = BTreeMap::new();
 
     for PackageId {
         package_name,
@@ -191,74 +242,30 @@ where
     Ok(())
 }
 
-/// Check for dependency cycles by doing a Depth First Search of the graph,
-/// starting at the root.
-fn check_for_cycles(
-    dependencies: &HashMap<PackageId, HashMap<String, PackageId>>,
-    root: &PackageId,
-) -> Result<(), ResolveError> {
-    fn search<'a>(
-        dependencies: &'a HashMap<PackageId, HashMap<String, PackageId>>,
-        id: &'a PackageId,
-        visited: &mut HashSet<&'a PackageId>,
-        stack: &mut Vec<&'a PackageId>,
-    ) -> Result<(), ResolveError> {
-        if let Some(index) = stack.iter().position(|item| *item == id) {
-            // we've detected a cycle!
-            let mut cycle: Vec<_> = stack.drain(index..).cloned().collect();
-            cycle.push(id.clone());
-            return Err(ResolveError::Cycle(cycle));
-        }
-
-        if visited.contains(&id) {
-            // We already know this dependency is fine
-            return Ok(());
-        }
-
-        stack.push(id);
-        for dep in dependencies[id].values() {
-            search(dependencies, dep, visited, stack)?;
-        }
-        stack.pop();
-
-        Ok(())
-    }
-
-    let mut visited = HashSet::new();
-    let mut stack = Vec::new();
-
-    search(dependencies, root, &mut visited, &mut stack)
-}
-
-/// Given a [`DependencyGraph`], figure out how the resulting "package" would
-/// look when loaded at runtime.
+/// Given some [`DiscoveredPackages`], figure out how the resulting "package"
+/// would look when loaded at runtime.
 fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage, ResolveError> {
     // FIXME: This code is all super naive and will break the moment there
     // are any conflicts or duplicate names.
     tracing::trace!("Resolving the package");
 
     let mut commands = BTreeMap::new();
-
-    let filesystem = resolve_filesystem_mapping(dependency_graph)?;
-
-    let mut to_check = VecDeque::new();
-    let mut visited = HashSet::new();
-
-    to_check.push_back(&dependency_graph.root);
+    let mut filesystem = Vec::new();
 
     let mut entrypoint = dependency_graph.root_info().entrypoint.clone();
 
-    while let Some(next) = to_check.pop_front() {
-        visited.insert(next);
-        let pkg = &dependency_graph.package_info[next];
+    for index in petgraph::algo::toposort(dependency_graph.graph(), None).expect("acyclic") {
+        let node = &dependency_graph[index];
+        let id = &node.id;
+        let pkg = &node.pkg;
 
-        // set the entrypoint, if necessary
+        // update the entrypoint, if necessary
         if entrypoint.is_none() {
             if let Some(entry) = &pkg.entrypoint {
                 tracing::trace!(
                     entrypoint = entry.as_str(),
-                    parent.name=next.package_name.as_str(),
-                    parent.version=%next.version,
+                    parent.name=id.package_name.as_str(),
+                    parent.version=%id.version,
                     "Inheriting the entrypoint",
                 );
 
@@ -266,47 +273,50 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
             }
         }
 
-        // Blindly copy across all commands
         for cmd in &pkg.commands {
-            let resolved = ItemLocation {
-                name: cmd.name.clone(),
-                package: next.clone(),
-            };
-            tracing::trace!(
-                command.name=cmd.name.as_str(),
-                pkg.name=next.package_name.as_str(),
-                pkg.version=%next.version,
-                "Discovered command",
-            );
-            commands.insert(cmd.name.clone(), resolved);
+            // Note: We are traversing in topological order with the root at the
+            // start, so if we ever see any duplicates we should prefer the
+            // earlier copy and skip the later one.
+
+            match commands.entry(cmd.name.clone()) {
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    let resolved = ItemLocation {
+                        name: cmd.name.clone(),
+                        package: id.clone(),
+                    };
+                    entry.insert(resolved);
+                    tracing::trace!(
+                        command.name=cmd.name.as_str(),
+                        pkg.name=id.package_name.as_str(),
+                        pkg.version=%id.version,
+                        "Discovered command",
+                    );
+                }
+                std::collections::btree_map::Entry::Occupied(_) => {
+                    tracing::trace!(
+                        command.name=cmd.name.as_str(),
+                        pkg.name=id.package_name.as_str(),
+                        pkg.version=%id.version,
+                        "Ignoring duplicate command",
+                    );
+                }
+            }
         }
 
-        let remaining_dependencies = dependency_graph.dependencies[next]
-            .values()
-            .filter(|id| !visited.contains(id));
-        to_check.extend(remaining_dependencies);
-    }
-
-    Ok(ResolvedPackage {
-        root_package: dependency_graph.root.clone(),
-        commands,
-        entrypoint,
-        filesystem,
-    })
-}
-
-fn resolve_filesystem_mapping(
-    graph: &DependencyGraph,
-) -> Result<Vec<ResolvedFileSystemMapping>, ResolveError> {
-    let mut mappings = Vec::new();
-
-    for (id, pkg) in &graph.package_info {
         for mapping in &pkg.filesystem {
             let dep = match &mapping.dependency_name {
-                Some(name) => graph.dependencies[id].get(name).unwrap(),
+                Some(name) => {
+                    let dep_index = dependency_graph
+                        .graph()
+                        .edges(index)
+                        .find(|edge| edge.weight().alias == *name)
+                        .unwrap()
+                        .target();
+                    &dependency_graph[dep_index].id
+                }
                 None => id,
             };
-            mappings.push(ResolvedFileSystemMapping {
+            filesystem.push(ResolvedFileSystemMapping {
                 mount_path: PathBuf::from(&mapping.mount_path),
                 volume_name: mapping.volume_name.clone(),
                 package: dep.clone(),
@@ -314,7 +324,12 @@ fn resolve_filesystem_mapping(
         }
     }
 
-    Ok(mappings)
+    Ok(ResolvedPackage {
+        root_package: dependency_graph.root_info().id(),
+        commands,
+        entrypoint,
+        filesystem,
+    })
 }
 
 #[cfg(test)]
@@ -371,7 +386,7 @@ mod tests {
 
         fn start_dependency_graph(&self) -> DependencyGraphBuilder<'_> {
             DependencyGraphBuilder {
-                dependencies: HashMap::new(),
+                dependencies: BTreeMap::new(),
                 source: &self.0,
             }
         }
@@ -455,7 +470,7 @@ mod tests {
 
     #[derive(Debug)]
     struct DependencyGraphBuilder<'source> {
-        dependencies: HashMap<PackageId, HashMap<String, PackageId>>,
+        dependencies: BTreeMap<PackageId, BTreeMap<String, PackageId>>,
         source: &'source InMemorySource,
     }
 
@@ -470,12 +485,51 @@ mod tests {
             DependencyGraphEntryBuilder {
                 builder: self,
                 pkg_id,
-                dependencies: HashMap::new(),
+                dependencies: BTreeMap::new(),
             }
         }
 
-        fn finish(self) -> HashMap<PackageId, HashMap<String, PackageId>> {
+        fn finish(self) -> BTreeMap<PackageId, BTreeMap<String, PackageId>> {
             self.dependencies
+        }
+
+        /// Using the dependency mapping that we've been building up, construct
+        /// a dependency graph using the specified root package.
+        fn graph(self, root_name: &str, version: &str) -> DependencyGraph {
+            let version = version.parse().unwrap();
+            let root_id = self.source.get(root_name, &version).unwrap().package_id();
+
+            let mut graph = DiGraph::new();
+            let mut nodes = BTreeMap::new();
+
+            for id in self.dependencies.keys() {
+                let PackageSummary { pkg, dist } =
+                    self.source.get(&id.package_name, &id.version).unwrap();
+                let index = graph.add_node(Node {
+                    id: pkg.id(),
+                    pkg: pkg.clone(),
+                    dist: Some(dist.clone()),
+                });
+                nodes.insert(id.clone(), index);
+            }
+
+            for (id, deps) in &self.dependencies {
+                let index = nodes[id];
+                for (dep_name, dep_id) in deps {
+                    let dep_index = nodes[dep_id];
+                    graph.add_edge(
+                        index,
+                        dep_index,
+                        Edge {
+                            alias: dep_name.clone(),
+                        },
+                    );
+                }
+            }
+
+            let root_index = nodes[&root_id];
+
+            DependencyGraph::new(root_index, graph, nodes)
         }
     }
 
@@ -483,7 +537,7 @@ mod tests {
     struct DependencyGraphEntryBuilder<'source, 'builder> {
         builder: &'builder mut DependencyGraphBuilder<'source>,
         pkg_id: PackageId,
-        dependencies: HashMap<String, PackageId>,
+        dependencies: BTreeMap<String, PackageId>,
     }
 
     impl<'source, 'builder> DependencyGraphEntryBuilder<'source, 'builder> {
@@ -527,6 +581,20 @@ mod tests {
         }
     }
 
+    fn deps(resolution: &Resolution) -> BTreeMap<PackageId, BTreeMap<String, PackageId>> {
+        resolution
+            .graph
+            .iter_dependencies()
+            .map(|(id, deps)| {
+                let deps = deps
+                    .into_iter()
+                    .map(|(name, dep_id)| (name.to_string(), dep_id.clone()))
+                    .collect();
+                (id.clone(), deps)
+            })
+            .collect()
+    }
+
     #[tokio::test]
     async fn no_deps_and_no_commands() {
         let mut builder = RegistryBuilder::new();
@@ -540,7 +608,7 @@ mod tests {
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph.insert("root", "1.0.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -565,7 +633,7 @@ mod tests {
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph.insert("root", "1.0.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -601,7 +669,7 @@ mod tests {
             .insert("root", "1.0.0")
             .with_dependency("dep", "1.0.0");
         dependency_graph.insert("dep", "1.0.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -638,7 +706,7 @@ mod tests {
             .insert("second", "1.0.0")
             .with_dependency("third", "1.0.0");
         dependency_graph.insert("third", "1.0.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -671,7 +739,7 @@ mod tests {
             .insert("root", "1.0.0")
             .with_dependency("dep", "1.0.2");
         dependency_graph.insert("dep", "1.0.2");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -760,7 +828,7 @@ mod tests {
             .insert("second", "1.0.0")
             .with_dependency("common", "1.2.0");
         dependency_graph.insert("common", "1.2.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -799,7 +867,7 @@ mod tests {
             .with_dependency("second", "1.0.0");
         dependency_graph.insert("first", "1.0.0");
         dependency_graph.insert("second", "1.0.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -841,7 +909,7 @@ mod tests {
             .insert("root", "1.0.0")
             .with_dependency("dep", "1.0.0");
         dependency_graph.insert("dep", "1.0.0");
-        assert_eq!(resolution.graph.dependencies, dependency_graph.finish());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
             ResolvedPackage {
@@ -946,17 +1014,11 @@ mod tests {
         builder.register("root", "1.0.0");
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder.insert("root", "1.0.0");
-        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
-        let root_id = pkg.id();
-        let graph = DependencyGraph {
-            root: root_id.clone(),
-            dependencies: dep_builder.finish(),
-            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
-            distribution: vec![(root_id, dist)].into_iter().collect(),
-        };
+        let graph = dep_builder.graph("root", "1.0.0");
 
-        let mappings = resolve_filesystem_mapping(&graph).unwrap();
-        assert_eq!(mappings, Vec::new());
+        let pkg = resolve_package(&graph).unwrap();
+
+        assert!(pkg.filesystem.is_empty());
     }
 
     #[test]
@@ -967,18 +1029,12 @@ mod tests {
             .with_fs_mapping("lib", "/lib");
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder.insert("root", "1.0.0");
-        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
-        let root_id = pkg.id();
-        let graph = DependencyGraph {
-            root: root_id.clone(),
-            dependencies: dep_builder.finish(),
-            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
-            distribution: vec![(root_id, dist)].into_iter().collect(),
-        };
+        let graph = dep_builder.graph("root", "1.0.0");
 
-        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+        let pkg = resolve_package(&graph).unwrap();
+
         assert_eq!(
-            mappings,
+            pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/lib"),
                 volume_name: "lib".to_string(),
@@ -1008,19 +1064,12 @@ mod tests {
             .with_dependency("second", "1.0.0");
         dep_builder.insert("first", "1.0.0");
         dep_builder.insert("second", "1.0.0");
-        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
-        let root_id = pkg.id();
-        let graph = DependencyGraph {
-            root: root_id.clone(),
-            dependencies: dep_builder.finish(),
-            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
-            distribution: vec![(root_id, dist)].into_iter().collect(),
-        };
+        let graph = dep_builder.graph("root", "1.0.0");
 
-        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+        let pkg = resolve_package(&graph).unwrap();
 
         assert_eq!(
-            mappings,
+            pkg.filesystem,
             vec![
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/second"),
@@ -1054,19 +1103,12 @@ mod tests {
             .insert("root", "1.0.0")
             .with_dependency("dep", "1.0.0");
         dep_builder.insert("dep", "1.0.0");
-        let PackageSummary { pkg, dist } = builder.get("root", "1.0.0").clone();
-        let root_id = pkg.id();
-        let graph = DependencyGraph {
-            root: root_id.clone(),
-            dependencies: dep_builder.finish(),
-            package_info: vec![(root_id.clone(), pkg)].into_iter().collect(),
-            distribution: vec![(root_id, dist)].into_iter().collect(),
-        };
+        let graph = dep_builder.graph("root", "1.0.0");
 
-        let mappings = resolve_filesystem_mapping(&graph).unwrap();
+        let pkg = resolve_package(&graph).unwrap();
 
         assert_eq!(
-            mappings,
+            pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/root"),
                 volume_name: "dep-volume".to_string(),
