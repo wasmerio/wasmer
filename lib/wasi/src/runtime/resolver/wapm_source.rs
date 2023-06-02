@@ -50,6 +50,7 @@ impl Source for WapmSource {
             query: WAPM_WEBC_QUERY_ALL.replace("$NAME", full_name),
         };
         let body = serde_json::to_string(&body)?;
+        tracing::trace!(%body, "Sending GraphQL query");
 
         let request = HttpRequest {
             url: self.registry_endpoint.clone(),
@@ -68,6 +69,11 @@ impl Source for WapmSource {
         }
 
         let body = response.body.unwrap_or_default();
+        tracing::trace!(
+            body=?String::from_utf8_lossy(&body),
+            "Received a response from GraphQL",
+        );
+
         let response: WapmWebQuery =
             serde_json::from_slice(&body).context("Unable to deserialize the response")?;
 
@@ -79,10 +85,20 @@ impl Source for WapmSource {
         };
 
         for pkg_version in versions {
+            tracing::trace!(?pkg_version, "checking package version");
+
             let version = Version::parse(&pkg_version.version)?;
-            if version_constraint.matches(&version) && pkg_version.manifest.is_some() {
-                let summary = decode_summary(pkg_version)?;
-                summaries.push(summary);
+            if version_constraint.matches(&version) {
+                match decode_summary(pkg_version) {
+                    Ok(summary) => summaries.push(summary),
+                    Err(e) => {
+                        tracing::debug!(
+                            version=%version,
+                            error=&*e,
+                            "Skipping version because its metadata couldn't be parsed"
+                        );
+                    }
+                }
             }
         }
 
@@ -108,20 +124,21 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
         ..
     } = pkg_version;
 
-    let manifest: Manifest = serde_json::from_slice(manifest.expect("missing Manifest").as_bytes())
+    let manifest = manifest.context("missing Manifest")?;
+    let hash = pirita_sha256_hash.context("missing sha256")?;
+    let url = pirita_download_url.context("missing download url")?;
+
+    let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context("Unable to deserialize the manifest")?;
 
     let mut webc_sha256 = [0_u8; 32];
-    hex::decode_to_slice(
-        &pirita_sha256_hash.expect("missing sha256"),
-        &mut webc_sha256,
-    )?;
+    hex::decode_to_slice(&hash, &mut webc_sha256)?;
     let webc_sha256 = WebcHash::from_bytes(webc_sha256);
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(&manifest)?,
         dist: DistributionInfo {
-            webc: pirita_download_url.expect("missing download url").parse()?,
+            webc: url.parse().context("Unable to parse the download URL")?,
             webc_sha256,
         },
     })
