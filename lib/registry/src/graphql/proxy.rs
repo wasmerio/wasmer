@@ -1,5 +1,8 @@
 //! Code for dealing with setting things up to proxy network requests
 
+use std::env;
+
+use anyhow::Context;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -17,23 +20,8 @@ pub enum ProxyError {
 pub fn maybe_set_up_proxy_blocking(
     builder: reqwest::blocking::ClientBuilder,
 ) -> anyhow::Result<reqwest::blocking::ClientBuilder> {
-    use anyhow::Context;
-    if let Some(proxy) = maybe_set_up_proxy_inner()
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context("install_webc_package: failed to setup proxy for reqwest Client")?
-    {
-        return Ok(builder.proxy(proxy));
-    }
-    Ok(builder)
-}
-
-pub fn maybe_set_up_proxy(
-    builder: reqwest::ClientBuilder,
-) -> anyhow::Result<reqwest::ClientBuilder> {
-    use anyhow::Context;
-    if let Some(proxy) = maybe_set_up_proxy_inner()
-        .map_err(|e| anyhow::anyhow!("{e}"))
-        .context("install_webc_package: failed to setup proxy for reqwest Client")?
+    if let Some(proxy) =
+        maybe_set_up_proxy_inner().context("failed to setup proxy for reqwest Client")?
     {
         return Ok(builder.proxy(proxy));
     }
@@ -53,7 +41,6 @@ pub fn maybe_set_up_proxy(
 /// `Ok(Some(proxy))` means that the proxy was set up successfully, and `Err(e)` that
 /// there was a failure while attempting to set up the proxy.
 fn maybe_set_up_proxy_inner() -> anyhow::Result<Option<reqwest::Proxy>> {
-    use std::env;
     let proxy = if let Ok(proxy_url) = env::var("ALL_PROXY").or_else(|_| env::var("all_proxy")) {
         reqwest::Proxy::all(&proxy_url).map(|proxy| (proxy_url, proxy, "ALL_PROXY"))
     } else if let Ok(https_proxy_url) = env::var("HTTPS_PROXY").or_else(|_| env::var("https_proxy"))
