@@ -1,6 +1,5 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 590
 expression: snapshot
 ---
 {
@@ -16,7 +15,6 @@ expression: snapshot
       "--port",
       "7778"
     ],
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": true,
     "enable_async_threads": true

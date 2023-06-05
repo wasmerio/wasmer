@@ -12,7 +12,6 @@ expression: snapshot
       "/dev/stderr"
     ],
     "stdin_hash": "6f1ed002ab5595859014ebf0951522d9",
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
