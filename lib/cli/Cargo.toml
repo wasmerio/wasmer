@@ -130,13 +130,9 @@ default = [
     "sys",
     "wat",
     "wast",
-    "cache",
-    "wasi",
-    "emscripten",
     "compiler",
     "wasmer-artifact-create",
     "static-artifact-create",
-    "webc_runner",
 ]
 backend = []
 coredump = [
@@ -184,7 +180,6 @@ static-artifact-load = ["compiler",
  ]
 experimental-io-devices = [
     "wasmer-wasix-experimental-io-devices",
-    "wasi"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -200,7 +195,7 @@ llvm = [
 ]
 disable-all-logging = ["wasmer-wasix/disable-all-logging", "log/release_max_level_off"]
 headless = []
-headless-minimal = ["headless", "disable-all-logging", "wasi"]
+headless-minimal = ["headless", "disable-all-logging"]
 
 # Optional
 enable-serde = [
@@ -209,14 +204,6 @@ enable-serde = [
   "wasmer-compiler/enable-serde",
   "wasmer-wasix/enable-serde",
 ]
-
-# Deprecated. These feature flags no longer protect anything.
-cache = []
-cache-blake3-pure = []
-debug = []
-wasi = []
-emscripten = []
-webc_runner = []
 
 [target.'cfg(target_os = "windows")'.dependencies]
 colored = "2.0.0"
