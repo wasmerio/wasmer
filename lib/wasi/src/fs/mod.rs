@@ -1978,6 +1978,7 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::WouldBlock => Errno::Again,
         FsError::WriteZero => Errno::Nospc,
         FsError::DirectoryNotEmpty => Errno::Notempty,
+        FsError::StorageFull => Errno::Overflow,
         FsError::Lock | FsError::UnknownError => Errno::Io,
     }
 }

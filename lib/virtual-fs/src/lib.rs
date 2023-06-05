@@ -481,6 +481,8 @@ pub enum FsError {
     /// Directory not Empty
     #[error("directory not empty")]
     DirectoryNotEmpty,
+    #[error("storage full")]
+    StorageFull,
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
@@ -506,6 +508,8 @@ impl From<io::Error> for FsError {
             io::ErrorKind::UnexpectedEof => FsError::UnexpectedEof,
             io::ErrorKind::WouldBlock => FsError::WouldBlock,
             io::ErrorKind::WriteZero => FsError::WriteZero,
+            // NOTE: Add this once the "io_error_more" Rust feature is stabilized
+            // io::ErrorKind::StorageFull => FsError::StorageFull,
             io::ErrorKind::Other => FsError::IOError,
             // if the following triggers, a new error type was added to this non-exhaustive enum
             _ => FsError::UnknownError,
@@ -541,6 +545,9 @@ impl From<FsError> for io::Error {
             FsError::NoDevice => io::ErrorKind::Other,
             FsError::DirectoryNotEmpty => io::ErrorKind::Other,
             FsError::UnknownError => io::ErrorKind::Other,
+            FsError::StorageFull => io::ErrorKind::Other,
+            // NOTE: Add this once the "io_error_more" Rust feature is stabilized
+            // FsError::StorageFull => io::ErrorKind::StorageFull,
         };
         kind.into()
     }
