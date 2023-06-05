@@ -1982,6 +1982,7 @@
 <a href="#1981" id="1981">1981</a>
 <a href="#1982" id="1982">1982</a>
 <a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -3962,6 +3963,7 @@
         FsError::WouldBlock =&gt; Errno::Again,
         FsError::WriteZero =&gt; Errno::Nospc,
         FsError::DirectoryNotEmpty =&gt; Errno::Notempty,
+        FsError::StorageFull =&gt; Errno::Overflow,
         FsError::Lock | FsError::UnknownError =&gt; Errno::Io,
     }
 }
