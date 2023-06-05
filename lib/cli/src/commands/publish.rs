@@ -24,7 +24,9 @@ pub struct Publish {
     /// Skip validation of the uploaded package
     #[clap(long)]
     pub no_validate: bool,
-    /// Directory containing the `wasmer.toml` (defaults to current root dir)
+    /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
+    ///
+    /// Defaults to current working directory.
     #[clap(name = "PACKAGE_PATH")]
     pub package_path: Option<String>,
 }
