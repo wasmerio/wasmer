@@ -53,6 +53,8 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 
 <span class="doccomment">/// Publish a package to the package registry.
@@ -79,7 +81,9 @@
     <span class="doccomment">/// Skip validation of the uploaded package
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>no_validate: bool,
-    <span class="doccomment">/// Directory containing the `wasmer.toml` (defaults to current root dir)
+    <span class="doccomment">/// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
+    ///
+    /// Defaults to current working directory.
     </span><span class="attr">#[clap(name = <span class="string">&quot;PACKAGE_PATH&quot;</span>)]
     </span><span class="kw">pub </span>package_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }

@@ -653,12 +653,47 @@
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 
-<span class="kw">use </span>anyhow::anyhow;
-<span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>anyhow::{anyhow, bail, Context};
 <span class="kw">use </span>flate2::{write::GzEncoder, Compression};
 <span class="kw">use </span>rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 <span class="kw">use </span>tar::Builder;
@@ -717,17 +752,54 @@
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::new(Vec::new());
 
-        <span class="kw">let </span>cwd = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
+        <span class="kw">let </span>input_path = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
             <span class="prelude-val">Some</span>(s) =&gt; std::env::current_dir()<span class="question-mark">?</span>.join(s),
             <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
         };
 
-        <span class="kw">let </span>manifest_path_buf = cwd.join(<span class="string">&quot;wasmer.toml&quot;</span>);
-        <span class="kw">let </span>manifest = std::fs::read_to_string(<span class="kw-2">&amp;</span>manifest_path_buf)
+        <span class="kw">let </span>manifest_path = <span class="kw">match </span>input_path.metadata() {
+            <span class="prelude-val">Ok</span>(metadata) =&gt; {
+                <span class="kw">if </span>metadata.is_dir() {
+                    <span class="kw">let </span>p = input_path.join(<span class="string">&quot;wasmer.toml&quot;</span>);
+                    <span class="kw">if </span>!p.is_file() {
+                        <span class="macro">bail!</span>(
+                            <span class="string">&quot;directory does not contain a &#39;wasmer.toml&#39; manifest - use &#39;wasmer init&#39; to initialize a new packagae, or specify a valid package directory or manifest file instead. (path: {})&quot;</span>,
+                            input_path.display()
+                        );
+                    }
+
+                    p
+                } <span class="kw">else if </span>metadata.is_file() {
+                    <span class="kw">if </span>input_path.extension().and_then(|x| x.to_str()) != <span class="prelude-val">Some</span>(<span class="string">&quot;toml&quot;</span>) {
+                        <span class="macro">bail!</span>(
+                            <span class="string">&quot;The specified file path is not a .toml file: &#39;{}&#39;&quot;</span>,
+                            input_path.display()
+                        );
+                    }
+                    input_path
+                } <span class="kw">else </span>{
+                    <span class="macro">bail!</span>(<span class="string">&quot;Invalid path specified: &#39;{}&#39;&quot;</span>, input_path.display());
+                }
+            }
+            <span class="prelude-val">Err</span>(err) <span class="kw">if </span>err.kind() == std::io::ErrorKind::NotFound =&gt; {
+                <span class="macro">bail!</span>(<span class="string">&quot;Specified path does not exist: &#39;{}&#39;&quot;</span>, input_path.display());
+            }
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">bail!</span>(<span class="string">&quot;Could not read path &#39;{}&#39;: {}&quot;</span>, input_path.display(), err);
+            }
+        };
+
+        <span class="kw">let </span>manifest = std::fs::read_to_string(<span class="kw-2">&amp;</span>manifest_path)
             .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find manifest: {e}&quot;</span>))
-            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, manifest_path_buf.display()))<span class="question-mark">?</span>;
+            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, manifest_path.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
-        manifest.base_directory_path = cwd.clone();
+
+        <span class="kw">let </span>manifest_path_canon = manifest_path.canonicalize()<span class="question-mark">?</span>;
+        <span class="kw">let </span>manifest_dir = manifest_path_canon
+            .parent()
+            .context(<span class="string">&quot;could not determine manifest parent directory&quot;</span>)<span class="question-mark">?
+            </span>.to_owned();
+        manifest.base_directory_path = manifest_dir.to_owned();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(package_name) = <span class="self">self</span>.package_name.as_ref() {
             manifest.package.name = package_name.to_string();
@@ -749,14 +821,14 @@
         };
 
         <span class="kw">if </span>!<span class="self">self</span>.no_validate {
-            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, cwd.clone())<span class="question-mark">?</span>;
+            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, manifest_dir.clone())<span class="question-mark">?</span>;
         }
 
-        builder.append_path_with_name(<span class="kw-2">&amp;</span>manifest_path_buf, PACKAGE_TOML_FALLBACK_NAME)<span class="question-mark">?</span>;
+        builder.append_path_with_name(<span class="kw-2">&amp;</span>manifest_dir, PACKAGE_TOML_FALLBACK_NAME)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>manifest_string = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>(readme, license) = construct_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>cwd)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(readme, license) = construct_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_dir)<span class="question-mark">?</span>;
 
         builder
             .finish()
