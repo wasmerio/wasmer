@@ -5,7 +5,10 @@ use std::{
     path::PathBuf,
 };
 
-use petgraph::{graph::NodeIndex, visit::EdgeRef};
+use petgraph::{
+    graph::{DiGraph, NodeIndex},
+    visit::EdgeRef,
+};
 use semver::Version;
 
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
@@ -45,16 +48,25 @@ impl Display for PackageId {
 #[derive(Debug, Clone)]
 pub struct DependencyGraph {
     root: NodeIndex,
-    graph: petgraph::graph::DiGraph<Node, Edge>,
+    graph: DiGraph<Node, Edge>,
     packages: BTreeMap<PackageId, NodeIndex>,
 }
 
 impl DependencyGraph {
     pub(crate) fn new(
         root: NodeIndex,
-        graph: petgraph::graph::DiGraph<Node, Edge>,
+        graph: DiGraph<Node, Edge>,
         packages: BTreeMap<PackageId, NodeIndex>,
     ) -> Self {
+        if cfg!(debug_assertions) {
+            // Note: We assume the packages table correctly maps PackageIds to
+            // node indices as part of the PartialEq implementation.
+            for (id, index) in &packages {
+                let node = &graph[*index];
+                assert_eq!(*id, node.id, "Mismatch for node {index:?}");
+            }
+        }
+
         DependencyGraph {
             root,
             graph,
@@ -71,7 +83,7 @@ impl DependencyGraph {
         self.root
     }
 
-    pub fn graph(&self) -> &petgraph::graph::DiGraph<Node, Edge> {
+    pub fn graph(&self) -> &DiGraph<Node, Edge> {
         &self.graph
     }
 
@@ -137,9 +149,24 @@ impl PartialEq for DependencyGraph {
             packages,
         } = self;
 
-        root.index() == other.root.index()
-            && *packages == other.packages
-            && petgraph::algo::is_isomorphic_matching(graph, &other.graph, Node::eq, Edge::eq)
+        // Make sure their roots are the same package
+        let this_root = graph.node_weight(*root);
+        let other_root = other.graph.node_weight(other.root);
+
+        match (this_root, other_root) {
+            (Some(lhs), Some(rhs)) if lhs == rhs => {}
+            _ => return false,
+        }
+
+        // the packages table *should* just be an optimisation. We've checked
+        // it is valid as part of DependencyGraph::new() and the entire graph
+        // is immutable, so it's fine to ignore.
+        let _ = packages;
+
+        // Most importantly, the graphs should be "the same" (i.e. if a node
+        // in one graph is a
+        // nodes are connected to the same nodes in both)
+        petgraph::algo::is_isomorphic_matching(graph, &other.graph, Node::eq, Edge::eq)
     }
 }
 
@@ -156,6 +183,7 @@ pub struct Node {
 /// An edge in the [`DependencyGraph`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge {
+    /// The name used by the package when referring to this dependency.
     pub alias: String,
 }
 
