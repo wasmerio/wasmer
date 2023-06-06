@@ -1317,7 +1317,7 @@ checksum = "64fba5a42bd76a17cad4bfa00de168ee1cbfa06a5e8ce992ae880218c05641a9"
 dependencies = [
  "byteorder",
  "dynasm",
- "memmap2",
+ "memmap2 0.5.10",
 ]
 
 [[package]]
@@ -2480,6 +2480,15 @@ name = "memmap2"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "memmap2"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d28bba84adfe6646737845bc5ebbfa2c08424eb1c37e94a1fd2a82adb56a872"
 dependencies = [
  "libc",
 ]
@@ -4025,6 +4034,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "900fba806f70c630b0a382d0d825e17a0f19fcd059a2ade1ff237bcddf446b31"
 dependencies = [
  "lazy_static",
+]
+
+[[package]]
+name = "shared-buffer"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96a4987984c21cbd48a683c00975a0a9652d1882e8e986c42223f65440f4668f"
+dependencies = [
+ "bytes",
+ "memmap2 0.6.2",
 ]
 
 [[package]]
@@ -5661,7 +5680,7 @@ dependencies = [
  "hashbrown 0.11.2",
  "lazy_static",
  "leb128",
- "memmap2",
+ "memmap2 0.5.10",
  "more-asserts",
  "region",
  "serde",
@@ -6446,9 +6465,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.0.2"
+version = "5.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42af14e63ed784e4f813bd5fb35bc84016fa8b245879809547247da6051107f0"
+checksum = "2041e22d0f634bec4f43f1fb77620fd68fb1adaa3f0a721fa682dcdb2e916840"
 dependencies = [
  "anyhow",
  "base64",
@@ -6457,7 +6476,6 @@ dependencies = [
  "indexmap",
  "leb128",
  "lexical-sort",
- "memmap2",
  "once_cell",
  "path-clean",
  "rand",
@@ -6465,6 +6483,7 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "sha2",
+ "shared-buffer",
  "thiserror",
  "url",
  "walkdir",

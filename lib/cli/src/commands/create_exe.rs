@@ -514,7 +514,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
                     if let Some(contents) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
-                            contents.into(),
+                            contents.to_vec(),
                         );
                     }
                 }
