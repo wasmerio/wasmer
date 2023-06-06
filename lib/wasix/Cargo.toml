@@ -30,7 +30,7 @@ chrono = { version = "^0.4", default-features = false, features = [ "wasmbind", 
 derivative = { version = "^2" }
 bytes = "1"
 webc = { version = "5.0.3", default-features = false }
-serde_cbor = { version = "0.11.2", optional = true }
+serde_cbor = { version = "0.11.2" }
 anyhow = { version = "1.0.66" }
 lazy_static = "1.4"
 sha2 = { version = "0.10" }
@@ -111,7 +111,7 @@ default = ["sys-default"]
 
 time = ["tokio/time"]
 
-webc_runner = ["serde_cbor"]
+webc_runner = []
 webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
