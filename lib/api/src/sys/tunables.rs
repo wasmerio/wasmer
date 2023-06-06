@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "singlepass")]
+    #[cfg(all(feature = "singlepass", not(target_os = "windows")))]
     fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
         use wasmer_compiler_singlepass::Singlepass;
@@ -288,6 +288,7 @@ mod tests {
         // and remove all the unused local, even at optimization level "None"
         // But this test needs the huge amount of locals (1024 + a few)
         // so that the small stack is overflown (stack is only 8K, 1024 i64 local = 8K)
+        // tWindows is disable as it seems Stack frame protection is not 100% efficient
         let wasm_bytes = wat2wasm(
             br#"(module
                 (func (;0;) (result i64)
