@@ -104,13 +104,13 @@ async fn discover_dependencies(
         pkg: root.clone(),
         dist: None,
     });
+    nodes.insert(root_id.clone(), root_index);
 
     let mut to_visit = VecDeque::new();
     to_visit.push_back(root_index);
 
     while let Some(index) = to_visit.pop_front() {
-        let mut deps = BTreeMap::new();
-
+        eprintln!("Checking {}", graph[index].id);
         let mut to_add = Vec::new();
 
         for dep in &graph[index].pkg.dependencies {
@@ -122,35 +122,49 @@ async fn discover_dependencies(
                 .latest(&dep.pkg)
                 .await
                 .map_err(ResolveError::Registry)?;
-            deps.insert(dep.alias().to_string(), dep_summary.package_id());
             let dep_id = dep_summary.package_id();
-
-            if nodes.contains_key(&dep_id) {
-                // We don't need to visit this dependency again
-                continue;
-            }
-
-            // Otherwise, add it to the graph and schedule its dependencies to
-            // be retrieved
 
             let PackageSummary { pkg, dist } = dep_summary;
 
-            to_add.push(Node {
+            let alias = dep.alias().to_string();
+            let node = Node {
                 id: dep_id,
                 pkg,
                 dist: Some(dist),
-            });
+            };
+            // Note: We can't add the node to the graph directly because we're
+            // still iterating over it.
+            to_add.push((alias, node));
         }
 
-        for node in to_add {
-            let id = node.id.clone();
-            let index = graph.add_node(node);
-            nodes.insert(id, index);
+        for (alias, node) in to_add {
+            let dep_id = node.id.clone();
+            eprintln!("{} -> {} (as {alias})", &graph[index].id, dep_id);
+
+            let dep_index = match nodes.get(&dep_id) {
+                Some(&ix) => ix,
+                None => {
+                    // Create a new node and schedule its dependencies to be
+                    // retrieved
+                    let ix = graph.add_node(node);
+                    eprintln!("Scheduling to check \"{dep_id}\"");
+                    nodes.insert(dep_id, ix);
+                    to_visit.push_back(ix);
+                    ix
+                }
+            };
+
+            graph.add_edge(index, dep_index, Edge { alias });
         }
     }
 
     let sorted_indices =
-        petgraph::algo::toposort(&graph, None).map_err(|cycle| cycle_error(&graph, cycle))?;
+        dbg!(petgraph::algo::toposort(&graph, None)).map_err(|cycle| cycle_error(&graph, cycle))?;
+    dbg!(sorted_indices
+        .iter()
+        .copied()
+        .map(|ix| &graph[ix].id)
+        .collect::<Vec<_>>());
 
     Ok(DiscoveredPackages {
         root: root_index,
@@ -164,6 +178,12 @@ fn cycle_error(
     graph: &petgraph::Graph<Node, Edge>,
     cycle: petgraph::algo::Cycle<NodeIndex>,
 ) -> ResolveError {
+    eprintln!(
+        "{}",
+        petgraph::dot::Dot::new(
+            &graph.map(|_, node| node.id.to_string(), |_, edge| edge.alias.clone()),
+        )
+    );
     let cyclic_node = cycle.node_id();
     let cycle: Vec<_> =
         petgraph::algo::simple_paths::all_simple_paths(graph, cyclic_node, cyclic_node, 1, None)
@@ -201,7 +221,7 @@ fn log_dependencies(graph: &DiGraph<Node, Edge>, root: NodeIndex) {
                     .map(|edge_ref| (&edge_ref.weight().alias, &graph[edge_ref.target()].id))
                     .collect();
 
-                tracing::trace!( %package, ?dependencies);
+                tracing::trace!(%package, ?dependencies);
             }
         });
     }
@@ -323,6 +343,12 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
             })
         }
     }
+
+    // Note: when resolving filesystem mappings, the first mapping will come
+    // from the root package and its dependencies will be following. However, we
+    // actually want things closer to the root package in the dependency tree to
+    // come later so they override their dependencies.
+    filesystem.reverse();
 
     Ok(ResolvedPackage {
         root_package: dependency_graph.root_info().id(),
@@ -1072,14 +1098,14 @@ mod tests {
             pkg.filesystem,
             vec![
                 ResolvedFileSystemMapping {
-                    mount_path: PathBuf::from("/usr/local/lib/second"),
-                    volume_name: "main".to_string(),
-                    package: builder.get("second", "1.0.0").package_id(),
-                },
-                ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/first"),
                     volume_name: "main".to_string(),
                     package: builder.get("first", "1.0.0").package_id(),
+                },
+                ResolvedFileSystemMapping {
+                    mount_path: PathBuf::from("/usr/local/lib/second"),
+                    volume_name: "main".to_string(),
+                    package: builder.get("second", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/root"),

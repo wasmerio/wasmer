@@ -121,7 +121,7 @@ mod tests {
     use tempfile::TempDir;
 
     use crate::runtime::resolver::{
-        inputs::{DistributionInfo, PackageInfo},
+        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
         Dependency, WebcHash,
     };
 
@@ -168,7 +168,11 @@ mod tests {
                         name: "bash".to_string(),
                     }],
                     entrypoint: Some("bash".to_string()),
-                    filesystem: Vec::new(),
+                    filesystem: vec![FileSystemMapping {
+                        volume_name: "atom".to_string(),
+                        mount_path: "/".to_string(),
+                        dependency_name: None,
+                    }],
                 },
                 dist: DistributionInfo {
                     webc: crate::runtime::resolver::utils::url_from_file_path(

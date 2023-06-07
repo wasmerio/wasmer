@@ -66,6 +66,10 @@ impl DependencyGraph {
                 assert_eq!(*id, node.id, "Mismatch for node {index:?}");
             }
         }
+        debug_assert!(
+            packages.values().any(|ix| *ix == root),
+            "The packages mapping doesn't contain the root node"
+        );
 
         DependencyGraph {
             root,
@@ -110,6 +114,12 @@ impl DependencyGraph {
                 .collect();
             (id, dependencies)
         })
+    }
+
+    /// Visualise this graph as a DOT program.
+    pub fn visualise(&self) -> String {
+        let graph = self.graph.map(|_, node| &node.id, |_, edge| &edge.alias);
+        petgraph::dot::Dot::new(&graph).to_string()
     }
 }
 
@@ -177,6 +187,9 @@ impl Eq for DependencyGraph {}
 pub struct Node {
     pub id: PackageId,
     pub pkg: PackageInfo,
+    /// Information about how the package is distributed.
+    ///
+    /// This will only ever be missing for the root package.
     pub dist: Option<DistributionInfo>,
 }
 
