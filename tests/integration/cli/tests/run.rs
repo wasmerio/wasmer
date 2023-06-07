@@ -497,19 +497,24 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     assert.stdout("hello\n");
 
-    let time = std::time::Instant::now();
-
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", ASSET_PATH))
         .arg("/app/test.py")
-        .assert()
-        .success();
+        .env(
+            "RUST_LOG",
+            "wasmer_wasix::runtime::package_loader::builtin_loader=debug",
+        )
+        .assert();
 
-    assert.stdout("hello\n");
-
-    // package should be cached
-    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+    assert
+        .success()
+        // it should have ran like normal
+        .stdout("hello\n")
+        // we hit the cache while fetching the package
+        .stderr(contains(
+            "builtin_loader: Cache hit! pkg.name=\"python\" pkg.version=0.1.0",
+        ));
 }
 
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
