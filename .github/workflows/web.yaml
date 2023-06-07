@@ -15,19 +15,15 @@ on:
 jobs:
   web:
     name: Build and Test (wasmer-web)
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        rust: [nightly]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
     - name: Install Rust
-      uses: actions/checkout@v3
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: ${{ matrix.rust }}
+        toolchain: nightly
 
     - name: Show Rust version
       run: |
@@ -40,7 +36,6 @@ jobs:
         cargo fmt --check
 
     - name: Check
-      continue-on-error: true
       env:
         CARGO_NET_GIT_FETCH_WITH_CLI: "true"
       run: |
