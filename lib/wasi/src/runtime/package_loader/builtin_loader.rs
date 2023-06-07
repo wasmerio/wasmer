@@ -79,7 +79,7 @@ impl BuiltinPackageLoader {
 
         if let Some(cached) = self.fs.lookup(hash).await? {
             // Note: We want to propagate it to the in-memory cache, too
-            tracing::debug!("Copying from the filesystem cache to the in-memory cache",);
+            tracing::debug!("Copying from the filesystem cache to the in-memory cache");
             self.in_memory.save(&cached, *hash);
             return Ok(Some(cached));
         }
