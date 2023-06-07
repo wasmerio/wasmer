@@ -1,6 +1,5 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 537
 expression: snapshot
 ---
 {
@@ -9,7 +8,6 @@ expression: snapshot
     "use_packages": [],
     "include_webcs": [],
     "cli_args": [],
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },

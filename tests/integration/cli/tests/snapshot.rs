@@ -10,16 +10,9 @@ use anyhow::Error;
 use derivative::Derivative;
 use futures::TryFutureExt;
 use insta::assert_json_snapshot;
-use regex::Regex;
 
-use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
-
-/// Logs tend to include unstable things like timestamps and function call
-/// durations, so we use this regex to remove them from our snapshot output.
-static LOG_PATTERN: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"\d+-\d+-\d+T\d+:\d+:\d+\.\d+[^\n]*\n").unwrap());
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize, Clone)]
 #[derivative(Debug, PartialEq)]
@@ -50,7 +43,6 @@ pub struct TestSpec {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub stdin_hash: Option<String>,
-    pub debug_output: bool,
     pub enable_threads: bool,
     pub enable_network: bool,
     #[serde(skip_serializing_if = "is_false")]
@@ -141,7 +133,6 @@ impl TestBuilder {
                 cli_args: Vec::new(),
                 stdin: None,
                 stdin_hash: None,
-                debug_output: false,
                 enable_threads: true,
                 enable_network: false,
                 enable_async_threads: false,
@@ -208,11 +199,6 @@ impl TestBuilder {
         self.use_pkg("sharrattj/bash")
             .include_static_package("sharrattj/bash@1.0.12", WEBC_BASH)
             .include_static_package("sharrattj/coreutils@1.0.11", WEBC_COREUTILS_11)
-    }
-
-    pub fn debug_output(mut self, show_debug: bool) -> Self {
-        self.spec.debug_output = show_debug;
-        self
     }
 
     // Enable thread support.
@@ -322,12 +308,7 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         cmd.arg("--include-webc").arg(pkg.webc.path());
     }
 
-    if spec.debug_output {
-        let log_level = ["info", "wasmer_wasix=debug", "wasmer_cli=debug"].join(",");
-        cmd.env("RUST_LOG", log_level);
-    } else {
-        cmd.env("RUST_LOG", "off");
-    }
+    cmd.env("RUST_LOG", "off");
 
     cmd.env("RUST_BACKTRACE", "1");
 
@@ -409,8 +390,6 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         "test.wasm",
     );
 
-    let stderr = LOG_PATTERN.replace_all(&stderr, "").into_owned();
-
     TestResult::Success(TestOutput {
         stdout,
         stderr,
@@ -473,7 +452,6 @@ macro_rules! function {
 fn test_snapshot_condvar() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .debug_output(true)
         .run_wasm(include_bytes!("./wasm/example-condvar.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -486,7 +464,6 @@ fn test_snapshot_condvar() {
 fn test_snapshot_condvar_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .debug_output(true)
         .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-condvar.wasm"));
     assert_json_snapshot!(snapshot);
@@ -906,7 +883,6 @@ fn test_snapshot_longjump_fork_async() {
 fn test_snapshot_multithreading() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .debug_output(true)
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -917,7 +893,6 @@ fn test_snapshot_multithreading() {
 fn test_snapshot_wasi_threads() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .debug_output(true)
         .enable_threads(true)
         .run_wasm(include_bytes!("./wasm/wasi-threads.wasm"));
     assert_json_snapshot!(snapshot);
@@ -929,7 +904,6 @@ fn test_snapshot_wasi_threads() {
 fn test_snapshot_threaded_memory() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .debug_output(true)
         .run_wasm(include_bytes!("./wasm/threaded-memory.wasm"));
     assert_json_snapshot!(snapshot);
 }
@@ -940,7 +914,6 @@ fn test_snapshot_threaded_memory() {
 fn test_snapshot_multithreading_async() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        .debug_output(true)
         .with_async_threads()
         .run_wasm(include_bytes!("./wasm/example-multi-threading.wasm"));
     assert_json_snapshot!(snapshot);
@@ -1248,13 +1221,4 @@ fn test_snapshot_quickjs() {
         .stdin_str("print(2+2);\n\\q\n")
         .run_wasm(include_bytes!("./wasm/qjs.wasm"));
     assert_json_snapshot!(snapshot);
-}
-
-#[test]
-fn replace_log_lines() {
-    let src = "2023-05-29T11:12:50.466396Z\n2023-05-29T11:12:50.466396Z This is a log message\nthis is not";
-
-    let replaced = LOG_PATTERN.replace_all(src, "").into_owned();
-
-    assert_eq!(replaced, "this is not");
 }
