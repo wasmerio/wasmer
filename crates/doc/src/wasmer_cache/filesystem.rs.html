@@ -291,7 +291,7 @@
 
         <span class="kw">let </span>engine = wasmer::Engine::default();
 
-        <span class="kw">let </span>bytes = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../wasi/tests/envvar.wasm&quot;</span>);
+        <span class="kw">let </span>bytes = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../wasix/tests/envvar.wasm&quot;</span>);
 
         <span class="kw">let </span>module = Module::from_binary(<span class="kw-2">&amp;</span>engine, bytes).unwrap();
         <span class="kw">let </span>key = Hash::generate(bytes);
