@@ -136,3 +136,88 @@ impl BinaryPackage {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, path::Path};
+
+    use tempfile::TempDir;
+    use virtual_fs::AsyncReadExt;
+
+    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn fs_table_can_map_directories_to_different_names() {
+        let temp = TempDir::new().unwrap();
+        let wasmer_toml = r#"
+            [package]
+            name = "some/package"
+            version = "0.0.0"
+            description = "a dummy package"
+
+            [fs]
+            "/public" = "./out"
+        "#;
+        std::fs::write(temp.path().join("wasmer.toml"), wasmer_toml).unwrap();
+        let out = temp.path().join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        let file_txt = "Hello, World!";
+        std::fs::write(out.join("file.txt"), file_txt).unwrap();
+        let webc = construct_webc_in_memory(temp.path());
+        let webc = Container::from_bytes(webc).unwrap();
+        let tasks = TokioTaskManager::new(tokio::runtime::Handle::current());
+        let runtime = PluggableRuntime::new(Arc::new(tasks));
+
+        let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
+
+        // We should have mapped "./out/file.txt" on the host to
+        // "/public/file.txt" on the guest.
+        let mut f = pkg
+            .webc_fs
+            .new_open_options()
+            .read(true)
+            .open("/public/file.txt")
+            .unwrap();
+        let mut buffer = String::new();
+        f.read_to_string(&mut buffer).await.unwrap();
+        assert_eq!(buffer, file_txt);
+    }
+
+    fn construct_webc_in_memory(dir: &Path) -> Vec<u8> {
+        let mut files = BTreeMap::new();
+        load_files_from_disk(&mut files, dir, dir);
+
+        let wasmer_toml = webc::v1::DirOrFile::File("wasmer.toml".into());
+        if let Some(toml_data) = files.remove(&wasmer_toml) {
+            // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
+            // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
+            // manually patch things up if people have already migrated their
+            // projects.
+            files
+                .entry(webc::v1::DirOrFile::File("wapm.toml".into()))
+                .or_insert(toml_data);
+        }
+
+        let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
+        wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions).unwrap()
+    }
+
+    fn load_files_from_disk(files: &mut wapm_targz_to_pirita::FileMap, dir: &Path, base: &Path) {
+        let entries = dir.read_dir().unwrap();
+
+        for entry in entries {
+            let path = entry.unwrap().path();
+            let relative_path = path.strip_prefix(base).unwrap().to_path_buf();
+
+            if path.is_dir() {
+                load_files_from_disk(files, &path, base);
+                files.insert(webc::v1::DirOrFile::Dir(relative_path), Vec::new());
+            } else if path.is_file() {
+                let data = std::fs::read(&path).unwrap();
+                files.insert(webc::v1::DirOrFile::File(relative_path), data);
+            }
+        }
+    }
+}

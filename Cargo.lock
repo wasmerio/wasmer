@@ -6152,6 +6152,7 @@ dependencies = [
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
+ "wapm-targz-to-pirita",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",
