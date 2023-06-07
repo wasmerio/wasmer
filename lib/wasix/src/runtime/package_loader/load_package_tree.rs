@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
 use webc::compat::{Container, Volume};
@@ -20,6 +20,9 @@ use crate::{
         },
     },
 };
+
+/// The maximum number of packages that will be loaded in parallel.
+const MAX_PARALLEL_DOWNLOADS: usize = 32;
 
 /// Given a fully resolved package, load it into memory for execution.
 #[tracing::instrument(level = "debug", skip_all)]
@@ -214,20 +217,24 @@ async fn fetch_dependencies(
     // We don't need to download the root package
     packages.remove(&pkg.root_package);
 
-    let packages: FuturesUnordered<_> = packages
-        .into_iter()
-        .filter_map(|id| {
-            let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
-            let summary = PackageSummary {
-                pkg: pkg.clone(),
-                dist: dist.clone()?,
-            };
-            Some((id, summary))
+    let packages = packages.into_iter().filter_map(|id| {
+        let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
+        let summary = PackageSummary {
+            pkg: pkg.clone(),
+            dist: dist.clone()?,
+        };
+        Some((id, summary))
+    });
+    let packages: HashMap<PackageId, Container> = futures::stream::iter(packages)
+        .map(|(id, s)| async move {
+            match loader.load(&s).await {
+                Ok(webc) => Ok((id, webc)),
+                Err(e) => Err(e),
+            }
         })
-        .map(|(id, summary)| async move { loader.load(&summary).await.map(|webc| (id, webc)) })
-        .collect();
-
-    let packages: HashMap<PackageId, Container> = packages.try_collect().await?;
+        .buffer_unordered(MAX_PARALLEL_DOWNLOADS)
+        .try_collect()
+        .await?;
 
     Ok(packages)
 }
