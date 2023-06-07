@@ -39,7 +39,8 @@ pub fn main() {
 
 pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/bash";
 //pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
-pub const DEFAULT_BOOT_USES: [&str; 2] = ["sharrattj/coreutils", "sharrattj/catsay"];
+//pub const DEFAULT_BOOT_USES: [&str; 2] = ["sharrattj/coreutils", "sharrattj/catsay"];
+pub const DEFAULT_BOOT_USES: [&str; 1] = ["sharrattj/coreutils"];
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {

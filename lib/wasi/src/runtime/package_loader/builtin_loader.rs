@@ -30,7 +30,7 @@ use crate::{
 pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
     in_memory: InMemoryCache,
-    fs: FileSystemCache,
+    cache: Option<FileSystemCache>,
 }
 
 impl BuiltinPackageLoader {
@@ -44,9 +44,17 @@ impl BuiltinPackageLoader {
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Self {
         BuiltinPackageLoader {
-            fs: FileSystemCache {
+            cache: Some(FileSystemCache {
                 cache_dir: cache_dir.into(),
-            },
+            }),
+            in_memory: InMemoryCache::default(),
+            client,
+        }
+    }
+
+    pub fn new_only_client(client: Arc<dyn HttpClient + Send + Sync>) -> Self {
+        BuiltinPackageLoader {
+            cache: None,
             in_memory: InMemoryCache::default(),
             client,
         }
@@ -77,11 +85,13 @@ impl BuiltinPackageLoader {
             return Ok(Some(cached));
         }
 
-        if let Some(cached) = self.fs.lookup(hash).await? {
-            // Note: We want to propagate it to the in-memory cache, too
-            tracing::debug!("Copying from the filesystem cache to the in-memory cache",);
-            self.in_memory.save(&cached, *hash);
-            return Ok(Some(cached));
+        if let Some(cache) = self.cache.as_ref() {
+            if let Some(cached) = cache.lookup(hash).await? {
+                // Note: We want to propagate it to the in-memory cache, too
+                tracing::debug!("Copying from the filesystem cache to the in-memory cache",);
+                self.in_memory.save(&cached, *hash);
+                return Ok(Some(cached));
+            }
         }
 
         Ok(None)
@@ -135,22 +145,27 @@ impl BuiltinPackageLoader {
         dist: &DistributionInfo,
     ) -> Result<Container, Error> {
         // First, save it to disk
-        self.fs.save(webc, dist).await?;
+        if let Some(cache) = self.cache.as_ref() {
+            cache.save(webc, dist).await?;
 
-        // Now try to load it again. The resulting container should use
-        // a memory-mapped file rather than an in-memory buffer.
-        match self.fs.lookup(&dist.webc_sha256).await? {
-            Some(container) => {
-                // we also want to make sure it's in the in-memory cache
-                self.in_memory.save(&container, dist.webc_sha256);
-
-                Ok(container)
+            // Now try to load it again. The resulting container should use
+            // a memory-mapped file rather than an in-memory buffer.
+            match cache.lookup(&dist.webc_sha256).await? {
+                Some(container) => Ok(container),
+                None => {
+                    // Something really weird has occurred and we can't see the
+                    // saved file. Just error out and let the fallback code do its
+                    // thing.
+                    Err(Error::msg("Unable to load the downloaded memory from disk"))
+                }
             }
-            None => {
-                // Something really weird has occurred and we can't see the
-                // saved file. Just error out and let the fallback code do its
-                // thing.
-                Err(Error::msg("Unable to load the downloaded memory from disk"))
+        } else {
+            match Container::from_bytes(webc.to_vec()) {
+                Ok(container) => {
+                    self.in_memory.save(&container, dist.webc_sha256);
+                    Ok(container)
+                }
+                Err(e) => Err(Error::new(e).context("Unable to load container")),
             }
         }
     }
@@ -393,7 +408,7 @@ mod tests {
         let manifest = container.manifest();
         assert_eq!(manifest.entrypoint.as_deref(), Some("python"));
         // it should have been automatically saved to disk
-        let path = loader.fs.path(&summary.dist.webc_sha256);
+        let path = loader.cache.path(&summary.dist.webc_sha256);
         assert!(path.exists());
         assert_eq!(std::fs::read(&path).unwrap(), PYTHON);
         // and cached in memory for next time

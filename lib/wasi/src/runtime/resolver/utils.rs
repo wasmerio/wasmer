@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Error};
+use anyhow::Error;
 use http::{HeaderMap, StatusCode};
 use url::Url;
 

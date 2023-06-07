@@ -21,7 +21,7 @@ use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
     runtime::{
-        module_cache::{FileSystemCache, ModuleCache, ThreadLocalCache},
+        module_cache::{ModuleCache, SharedCache, ThreadLocalCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{Source, WapmSource},
         task_manager::TaskWasm,
@@ -88,13 +88,8 @@ impl WebRuntime {
         // even if the filesystem cache fails (i.e. because we're compiled to
         // wasm32-unknown-unknown and running in a browser), the in-memory layer
         // should still work.
-        let package_loader = BuiltinPackageLoader::new_with_client(
-            BuiltinPackageLoader::default_cache_dir(&wasmer_dir),
-            http_client.clone(),
-        );
-        let module_cache = ThreadLocalCache::default().with_fallback(FileSystemCache::new(
-            FileSystemCache::default_cache_dir(&wasmer_dir),
-        ));
+        let package_loader = BuiltinPackageLoader::new_only_client(http_client.clone());
+        let module_cache = ThreadLocalCache::default().with_fallback(SharedCache::default());
         WebRuntime {
             pool,
             tasks: runtime,
