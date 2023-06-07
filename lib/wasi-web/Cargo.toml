@@ -17,7 +17,7 @@ rust-version = "1.67"
 
 [dependencies]
 wasmer = { path = "../api", default_features = false, features = [ "js-default" ] }
-wasmer-wasix = { path = "../wasi",  default-features = false, features = [ "js-default" ] }
+wasmer-wasix = { path = "../wasix",  default-features = false, features = [ "js-default" ] }
 #wasm-bindgen = { version = "0.2", features = [ "nightly", "serde-serialize" ] }
 wasm-bindgen = { version = "0.2", features = [ "serde-serialize" ] }
 wasm-bindgen-futures = "0.4"

@@ -140,7 +140,7 @@ mod tests {
 
         let engine = wasmer::Engine::default();
 
-        let bytes = include_bytes!("../../wasi/tests/envvar.wasm");
+        let bytes = include_bytes!("../../wasix/tests/envvar.wasm");
 
         let module = Module::from_binary(&engine, bytes).unwrap();
         let key = Hash::generate(bytes);
