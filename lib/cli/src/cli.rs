@@ -9,8 +9,7 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, RunUnstable, SelfUpdate,
-    Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -38,12 +37,6 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 )]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
-    /// List all locally installed packages
-    List(List),
-
-    /// Run a WebAssembly file. Formats accepted: wasm, wat
-    Run(Run),
-
     /// Login into a wapm.io-like registry
     Login(Login),
 
@@ -163,7 +156,8 @@ enum WasmerCLIOptions {
     Add(Add),
 
     /// (unstable) Run a WebAssembly file or WEBC container.
-    RunUnstable(RunUnstable),
+    #[clap(alias = "run-unstable")]
+    Run(Run),
 
     // DEPLOY commands
     #[clap(subcommand)]
@@ -191,7 +185,6 @@ impl WasmerCLIOptions {
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             Self::Init(init) => init.execute(),
-            Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
             Self::Publish(publish) => publish.execute(),
             #[cfg(feature = "static-artifact-create")]
@@ -202,7 +195,6 @@ impl WasmerCLIOptions {
             Self::Binfmt(binfmt) => binfmt.execute(),
             Self::Whoami(whoami) => whoami.execute(),
             Self::Add(install) => install.execute(),
-            Self::RunUnstable(run2) => run2.execute(),
 
             // Deploy commands.
             Self::App(apps) => apps.run(),
@@ -261,8 +253,9 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         match command.unwrap_or(&String::new()).as_ref() {
             "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
             | "gen-c-header" | "inspect" | "init" | "run" | "run-unstable" | "self-update"
-            | "validate" | "wast" | "binfmt" | "list" | "login" | "publish" | "app"
-            | "namespace" | "" => WasmerCLIOptions::parse(),
+            | "validate" | "wast" | "binfmt" | "login" | "publish" | "app" | "namespace" | "" => {
+                WasmerCLIOptions::parse()
+            }
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {

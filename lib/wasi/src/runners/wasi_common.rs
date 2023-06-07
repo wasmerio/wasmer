@@ -8,7 +8,10 @@ use anyhow::{Context, Error};
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
-use crate::{bin_factory::BinaryPackage, runners::MappedDirectory, WasiEnvBuilder};
+use crate::{
+    bin_factory::BinaryPackage, capabilities::Capabilities, runners::MappedDirectory,
+    WasiEnvBuilder,
+};
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct CommonWasiOptions {
@@ -17,6 +20,7 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
+    pub(crate) capabilities: Capabilities,
 }
 
 impl CommonWasiOptions {
@@ -43,6 +47,8 @@ impl CommonWasiOptions {
 
         self.populate_env(wasi, builder);
         self.populate_args(wasi, builder);
+
+        *builder.capabilities_mut() = self.capabilities.clone();
 
         Ok(())
     }
@@ -89,37 +95,61 @@ fn prepare_filesystem(
         let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
 
         for dir in mapped_dirs {
-            let MappedDirectory { host, guest } = dir;
-            let mut guest = PathBuf::from(guest);
+            let MappedDirectory {
+                host: host_path,
+                guest: guest_path,
+            } = dir;
+            let mut guest_path = PathBuf::from(guest_path);
             tracing::debug!(
-                guest=%guest.display(),
-                host=%host.display(),
+                guest=%guest_path.display(),
+                host=%host_path.display(),
                 "Mounting host folder",
             );
 
-            if guest.is_relative() {
-                guest = apply_relative_path_mounting_hack(&guest);
+            if guest_path.is_relative() {
+                guest_path = apply_relative_path_mounting_hack(&guest_path);
             }
 
-            if let Some(parent) = guest.parent() {
-                create_dir_all(&root_fs, parent).with_context(|| {
-                    format!("Unable to create the \"{}\" directory", parent.display())
-                })?;
-            }
+            let host_path = std::fs::canonicalize(host_path).with_context(|| {
+                format!("Unable to canonicalize host path '{}'", host_path.display())
+            })?;
 
-            root_fs
-                .mount(guest.clone(), &host_fs, host.clone())
+            let guest_path = root_fs
+                .canonicalize_unchecked(&guest_path)
                 .with_context(|| {
                     format!(
-                        "Unable to mount \"{}\" to \"{}\"",
-                        host.display(),
-                        guest.display()
+                        "Unable to canonicalize guest path '{}'",
+                        guest_path.display()
                     )
                 })?;
 
-            builder
-                .add_preopen_dir(&guest)
-                .with_context(|| format!("Unable to preopen \"{}\"", guest.display()))?;
+            if guest_path == Path::new("/") {
+                root_fs
+                    .mount_directory_entries(&guest_path, &host_fs, &host_path)
+                    .with_context(|| {
+                        format!("Unable to mount \"{}\" to root", host_path.display(),)
+                    })?;
+            } else {
+                if let Some(parent) = guest_path.parent() {
+                    create_dir_all(&root_fs, parent).with_context(|| {
+                        format!("Unable to create the \"{}\" directory", parent.display())
+                    })?;
+                }
+
+                root_fs
+                    .mount(guest_path.clone(), &host_fs, host_path.clone())
+                    .with_context(|| {
+                        format!(
+                            "Unable to mount \"{}\" to \"{}\"",
+                            host_path.display(),
+                            guest_path.display()
+                        )
+                    })?;
+
+                builder
+                    .add_preopen_dir(&guest_path)
+                    .with_context(|| format!("Unable to preopen \"{}\"", guest_path.display()))?;
+            }
         }
     }
 
@@ -150,7 +180,12 @@ fn prepare_filesystem(
 fn apply_relative_path_mounting_hack(original: &Path) -> PathBuf {
     debug_assert!(original.is_relative());
 
-    let mapped_path = Path::new("/").join(original);
+    let root = Path::new("/");
+    let mapped_path = if original == Path::new(".") {
+        root.to_path_buf()
+    } else {
+        root.join(original)
+    };
 
     tracing::debug!(
         original_path=%original.display(),

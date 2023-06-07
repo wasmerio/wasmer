@@ -13,6 +13,7 @@ use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuild
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
@@ -34,8 +35,6 @@ use wasmer_wasix::{
 };
 
 use crate::utils::{parse_envvar, parse_mapdir};
-
-use super::RunWithPathBuf;
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
@@ -219,15 +218,7 @@ impl Wasi {
                 )?
         };
 
-        if self.http_client {
-            let caps = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
-            builder.capabilities_mut().http_client = caps;
-        }
-
-        builder
-            .capabilities_mut()
-            .threading
-            .enable_asynchronous_threading = self.enable_async_threads;
+        *builder.capabilities_mut() = self.capabilities();
 
         #[cfg(feature = "experimental-io-devices")]
         {
@@ -238,6 +229,18 @@ impl Wasi {
         }
 
         Ok(builder)
+    }
+
+    pub fn capabilities(&self) -> Capabilities {
+        let mut caps = Capabilities::default();
+
+        if self.http_client {
+            caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
+        }
+
+        caps.threading.enable_asynchronous_threading = self.enable_async_threads;
+
+        caps
     }
 
     pub fn prepare_runtime(
@@ -295,162 +298,6 @@ impl Wasi {
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
 
         Ok((wasi_env, instance))
-    }
-
-    // Runs the Wasi process
-    pub fn run(run: RunProperties, store: Store) -> Result<i32> {
-        let tasks = run.ctx.data(&store).tasks().clone();
-
-        // The return value is passed synchronously and will block until the result is returned
-        // this is because the main thread can go into a deep sleep and exit the dedicated thread
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        // We run it in a blocking thread as the WASM function may otherwise hold
-        // up the IO operations
-        tasks.task_dedicated(Box::new(move || {
-            Self::run_with_deep_sleep(run, store, tx, None);
-        }))?;
-        rx.recv()
-            .expect("main thread terminated without a result, this normally means a panic occurred within the main thread")
-    }
-
-    // Runs the Wasi process (asynchronously)
-    pub fn run_with_deep_sleep(
-        run: RunProperties,
-        mut store: Store,
-        tx: Sender<Result<i32>>,
-        rewind_state: Option<(RewindState, Bytes)>,
-    ) {
-        // If we need to rewind then do so
-        let ctx = run.ctx;
-        if let Some((rewind_state, rewind_result)) = rewind_state {
-            if rewind_state.is_64bit {
-                let res = rewind_ext::<Memory64>(
-                    ctx.env.clone().into_mut(&mut store),
-                    rewind_state.memory_stack,
-                    rewind_state.rewind_stack,
-                    rewind_state.store_data,
-                    rewind_result,
-                );
-                if res != Errno::Success {
-                    tx.send(Ok(res as i32)).ok();
-                    return;
-                }
-            } else {
-                let res = rewind_ext::<Memory32>(
-                    ctx.env.clone().into_mut(&mut store),
-                    rewind_state.memory_stack,
-                    rewind_state.rewind_stack,
-                    rewind_state.store_data,
-                    rewind_result,
-                );
-                if res != Errno::Success {
-                    tx.send(Ok(res as i32)).ok();
-                    return;
-                }
-            }
-        }
-
-        // Get the instance from the environment
-        let instance = match ctx.data(&store).try_clone_instance() {
-            Some(inst) => inst,
-            None => {
-                tx.send(Ok(Errno::Noexec as i32)).ok();
-                return;
-            }
-        };
-
-        // Do we want to invoke a function?
-        if let Some(ref invoke) = run.invoke {
-            let res = RunWithPathBuf::inner_module_invoke_function(
-                &mut store,
-                &instance,
-                run.path.as_path(),
-                invoke,
-                &run.args,
-            )
-            .map(|()| 0);
-
-            ctx.cleanup(&mut store, None);
-
-            tx.send(res).unwrap();
-        } else {
-            let start: Function =
-                RunWithPathBuf::try_find_function(&instance, run.path.as_path(), "_start", &[])
-                    .unwrap();
-
-            let result = start.call(&mut store, &[]);
-            Self::handle_result(
-                RunProperties {
-                    ctx,
-                    path: run.path,
-                    invoke: run.invoke,
-                    args: run.args,
-                },
-                store,
-                result,
-                tx,
-            )
-        }
-    }
-
-    /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(
-        run: RunProperties,
-        mut store: Store,
-        result: Result<Box<[Value]>, RuntimeError>,
-        tx: Sender<Result<i32>>,
-    ) {
-        let ctx = run.ctx;
-        let ret: Result<i32> = match result {
-            Ok(_) => Ok(0),
-            Err(err) => {
-                match err.downcast::<WasiError>() {
-                    Ok(WasiError::Exit(exit_code)) => Ok(exit_code.raw()),
-                    Ok(WasiError::DeepSleep(deep)) => {
-                        let pid = ctx.data(&store).pid();
-                        let tid = ctx.data(&store).tid();
-                        tracing::trace!(%pid, %tid, "entered a deep sleep");
-
-                        // Create the respawn function
-                        let tasks = ctx.data(&store).tasks().clone();
-                        let rewind = deep.rewind;
-                        let respawn = {
-                            let path = run.path;
-                            let invoke = run.invoke;
-                            let args = run.args;
-                            move |ctx, store, res| {
-                                let run = RunProperties {
-                                    ctx,
-                                    path,
-                                    invoke,
-                                    args,
-                                };
-                                Self::run_with_deep_sleep(run, store, tx, Some((rewind, res)));
-                            }
-                        };
-
-                        // Spawns the WASM process after a trigger
-                        unsafe {
-                            tasks.resume_wasm_after_poller(
-                                Box::new(respawn),
-                                ctx,
-                                store,
-                                deep.trigger,
-                            )
-                        }
-                        .unwrap();
-                        return;
-                    }
-                    Ok(err) => Err(err.into()),
-                    Err(err) => Err(err.into()),
-                }
-            }
-        };
-
-        ctx.cleanup(&mut store, None);
-
-        tx.send(ret).unwrap();
     }
 
     pub fn for_binfmt_interpreter() -> Result<Self> {

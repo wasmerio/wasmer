@@ -7,6 +7,7 @@ use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     Runtime, WasiEnvBuilder,
 };
@@ -128,6 +129,10 @@ impl WasiRunner {
         self
     }
 
+    pub fn capabilities(&mut self) -> &mut Capabilities {
+        &mut self.wasi.capabilities
+    }
+
     fn prepare_webc_env(
         &self,
         program_name: &str,
@@ -170,10 +175,11 @@ impl crate::runners::Runner for WasiRunner {
             .unwrap_or_else(|| Wasi::new(command_name));
 
         let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
-        let mut store = runtime.new_store();
+        let store = runtime.new_store();
 
-        self.prepare_webc_env(command_name, &wasi, pkg, runtime)?
-            .run_with_store(module, &mut store)?;
+        self.prepare_webc_env(command_name, &wasi, pkg, runtime)
+            .context("Unable to prepare the WASI environment")?
+            .run_with_store_async(module, store)?;
 
         Ok(())
     }

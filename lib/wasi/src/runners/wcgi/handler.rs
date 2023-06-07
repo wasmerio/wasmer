@@ -69,11 +69,11 @@ impl Handler {
         );
 
         let task_manager = self.runtime.task_manager();
-        let mut store = self.runtime.new_store();
+        let store = self.runtime.new_store();
 
         let done = task_manager
             .runtime()
-            .spawn_blocking(move || builder.run_with_store(module, &mut store))
+            .spawn_blocking(move || builder.run_with_store_async(module, store))
             .map_err(Error::from)
             .and_then(|r| async { r.map_err(Error::from) });
 

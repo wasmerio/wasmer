@@ -10,9 +10,16 @@ use anyhow::Error;
 use derivative::Derivative;
 use futures::TryFutureExt;
 use insta::assert_json_snapshot;
+use regex::Regex;
 
+use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use wasmer_integration_tests_cli::get_wasmer_path;
+
+/// Logs tend to include unstable things like timestamps and function call
+/// durations, so we use this regex to remove them from our snapshot output.
+static LOG_PATTERN: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"\d+-\d+-\d+T\d+:\d+:\d+\.\d+[^\n]*\n").unwrap());
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize, Clone)]
 #[derivative(Debug, PartialEq)]
@@ -247,6 +254,12 @@ impl TestBuilder {
     }
 }
 
+impl Default for TestBuilder {
+    fn default() -> Self {
+        TestBuilder::new()
+    }
+}
+
 pub fn wasm_dir() -> PathBuf {
     std::env::current_dir()
         .unwrap()
@@ -309,12 +322,13 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         cmd.arg("--include-webc").arg(pkg.webc.path());
     }
 
-    let log_level = if spec.debug_output {
-        "debug"
+    if spec.debug_output {
+        let log_level = ["info", "wasmer_wasix=debug", "wasmer_cli=debug"].join(",");
+        cmd.env("RUST_LOG", log_level);
     } else {
-        "never=error"
-    };
-    cmd.env("RUST_LOG", log_level);
+        cmd.env("RUST_LOG", "off");
+    }
+
     cmd.env("RUST_BACKTRACE", "1");
 
     cmd.arg(wasm_path.path());
@@ -394,6 +408,8 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
             .as_ref(),
         "test.wasm",
     );
+
+    let stderr = LOG_PATTERN.replace_all(&stderr, "").into_owned();
 
     TestResult::Success(TestOutput {
         stdout,
@@ -1232,4 +1248,13 @@ fn test_snapshot_quickjs() {
         .stdin_str("print(2+2);\n\\q\n")
         .run_wasm(include_bytes!("./wasm/qjs.wasm"));
     assert_json_snapshot!(snapshot);
+}
+
+#[test]
+fn replace_log_lines() {
+    let src = "2023-05-29T11:12:50.466396Z\n2023-05-29T11:12:50.466396Z This is a log message\nthis is not";
+
+    let replaced = LOG_PATTERN.replace_all(src, "").into_owned();
+
+    assert_eq!(replaced, "this is not");
 }

@@ -2,8 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::anyhow;
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use flate2::{write::GzEncoder, Compression};
 use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 use tar::Builder;
@@ -62,17 +61,54 @@ impl Publish {
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let mut builder = Builder::new(Vec::new());
 
-        let cwd = match self.package_path.as_ref() {
+        let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
         };
 
-        let manifest_path_buf = cwd.join("wasmer.toml");
-        let manifest = std::fs::read_to_string(&manifest_path_buf)
+        let manifest_path = match input_path.metadata() {
+            Ok(metadata) => {
+                if metadata.is_dir() {
+                    let p = input_path.join("wasmer.toml");
+                    if !p.is_file() {
+                        bail!(
+                            "directory does not contain a 'wasmer.toml' manifest - use 'wasmer init' to initialize a new packagae, or specify a valid package directory or manifest file instead. (path: {})",
+                            input_path.display()
+                        );
+                    }
+
+                    p
+                } else if metadata.is_file() {
+                    if input_path.extension().and_then(|x| x.to_str()) != Some("toml") {
+                        bail!(
+                            "The specified file path is not a .toml file: '{}'",
+                            input_path.display()
+                        );
+                    }
+                    input_path
+                } else {
+                    bail!("Invalid path specified: '{}'", input_path.display());
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                bail!("Specified path does not exist: '{}'", input_path.display());
+            }
+            Err(err) => {
+                bail!("Could not read path '{}': {}", input_path.display(), err);
+            }
+        };
+
+        let manifest = std::fs::read_to_string(&manifest_path)
             .map_err(|e| anyhow::anyhow!("could not find manifest: {e}"))
-            .with_context(|| anyhow::anyhow!("{}", manifest_path_buf.display()))?;
+            .with_context(|| anyhow::anyhow!("{}", manifest_path.display()))?;
         let mut manifest = wasmer_toml::Manifest::parse(&manifest)?;
-        manifest.base_directory_path = cwd.clone();
+
+        let manifest_path_canon = manifest_path.canonicalize()?;
+        let manifest_dir = manifest_path_canon
+            .parent()
+            .context("could not determine manifest parent directory")?
+            .to_owned();
+        manifest.base_directory_path = manifest_dir.to_owned();
 
         if let Some(package_name) = self.package_name.as_ref() {
             manifest.package.name = package_name.to_string();
@@ -94,14 +130,14 @@ impl Publish {
         };
 
         if !self.no_validate {
-            validate::validate_directory(&manifest, &registry, cwd.clone())?;
+            validate::validate_directory(&manifest, &registry, manifest_dir.clone())?;
         }
 
-        builder.append_path_with_name(&manifest_path_buf, PACKAGE_TOML_FALLBACK_NAME)?;
+        builder.append_path_with_name(&manifest_dir, PACKAGE_TOML_FALLBACK_NAME)?;
 
         let manifest_string = toml::to_string(&manifest)?;
 
-        let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
+        let (readme, license) = construct_tar_gz(&mut builder, &manifest, &manifest_dir)?;
 
         builder
             .finish()
