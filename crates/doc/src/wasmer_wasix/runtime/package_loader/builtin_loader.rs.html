@@ -483,7 +483,7 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = <span class="self">self</span>.fs.lookup(hash).<span class="kw">await</span><span class="question-mark">? </span>{
             <span class="comment">// Note: We want to propagate it to the in-memory cache, too
-            </span><span class="macro">tracing::debug!</span>(<span class="string">&quot;Copying from the filesystem cache to the in-memory cache&quot;</span>,);
+            </span><span class="macro">tracing::debug!</span>(<span class="string">&quot;Copying from the filesystem cache to the in-memory cache&quot;</span>);
             <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>cached, <span class="kw-2">*</span>hash);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
         }
