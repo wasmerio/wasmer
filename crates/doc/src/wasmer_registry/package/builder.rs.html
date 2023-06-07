@@ -689,6 +689,103 @@
 <a href="#689" id="689">689</a>
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -750,8 +847,6 @@
 <span class="kw">impl </span>Publish {
     <span class="doccomment">/// Executes `wasmer publish`
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::new(Vec::new());
-
         <span class="kw">let </span>input_path = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
             <span class="prelude-val">Some</span>(s) =&gt; std::env::current_dir()<span class="question-mark">?</span>.join(s),
             <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
@@ -809,6 +904,9 @@
             manifest.package.version = version.clone();
         }
 
+        <span class="kw">let </span>archive_dir = tempfile::TempDir::new()<span class="question-mark">?</span>;
+        <span class="kw">let </span>archive_meta = construct_tar_gz(archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>registry = <span class="kw">match </span><span class="self">self</span>.registry.as_deref() {
             <span class="prelude-val">Some</span>(s) =&gt; <span class="kw">crate</span>::format_graphql(s),
             <span class="prelude-val">None </span>=&gt; {
@@ -821,30 +919,11 @@
         };
 
         <span class="kw">if </span>!<span class="self">self</span>.no_validate {
-            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, manifest_dir.clone())<span class="question-mark">?</span>;
+            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, manifest_dir)<span class="question-mark">?</span>;
         }
 
-        builder.append_path_with_name(<span class="kw-2">&amp;</span>manifest_dir, PACKAGE_TOML_FALLBACK_NAME)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>manifest_string = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>(readme, license) = construct_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_dir)<span class="question-mark">?</span>;
-
-        builder
-            .finish()
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to finish .tar.gz builder: {e}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>tar_archive_data = builder.into_inner().expect(<span class="string">&quot;tar archive was not finalized&quot;</span>);
-        <span class="kw">let </span>archive_name = <span class="string">&quot;package.tar.gz&quot;</span>.to_string();
-        <span class="kw">let </span>archive_dir = tempfile::TempDir::new()<span class="question-mark">?</span>;
-        <span class="kw">let </span>archive_dir_path: <span class="kw-2">&amp;</span>std::path::Path = archive_dir.as_ref();
-        fs::create_dir(archive_dir_path.join(<span class="string">&quot;wapm_package&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>archive_path = archive_dir_path.join(<span class="string">&quot;wapm_package&quot;</span>).join(<span class="kw-2">&amp;</span>archive_name);
-        <span class="kw">let </span><span class="kw-2">mut </span>compressed_archive = fs::File::create(<span class="kw-2">&amp;</span>archive_path).unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>gz_enc = GzEncoder::new(<span class="kw-2">&amp;mut </span>compressed_archive, Compression::best());
-
-        gz_enc.write_all(<span class="kw-2">&amp;</span>tar_archive_data).unwrap();
-        <span class="kw">let </span>_compressed_archive = gz_enc.finish().unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>compressed_archive_reader = fs::File::open(<span class="kw-2">&amp;</span>archive_path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>archive_path = <span class="kw-2">&amp;</span>archive_meta.archive_path;
+        <span class="kw">let </span><span class="kw-2">mut </span>compressed_archive_reader = fs::File::open(archive_path)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>maybe_signature_data = sign_compressed_archive(<span class="kw-2">&amp;mut </span>compressed_archive_reader)<span class="question-mark">?</span>;
         <span class="kw">let </span>archived_data_size = archive_path.metadata()<span class="question-mark">?</span>.len();
@@ -860,6 +939,9 @@
                 manifest.package.name, manifest.package.version
             );
 
+            <span class="kw">let </span>path = archive_dir.into_path();
+            <span class="macro">eprintln!</span>(<span class="string">&quot;Archive persisted at: {}&quot;</span>, path.display());
+
             <span class="macro">log::info!</span>(
                 <span class="string">&quot;Publish succeeded, but package was not published because it was run in dry-run mode&quot;
             </span>);
@@ -871,11 +953,17 @@
             <span class="prelude-val">Some</span>(registry),
             <span class="self">self</span>.token.clone(),
             <span class="kw-2">&amp;</span>manifest.package,
-            <span class="kw-2">&amp;</span>manifest_string,
-            <span class="kw-2">&amp;</span>license,
-            <span class="kw-2">&amp;</span>readme,
-            <span class="kw-2">&amp;</span>archive_name,
-            <span class="kw-2">&amp;</span>archive_path,
+            <span class="kw-2">&amp;</span>archive_meta.manifest_toml,
+            <span class="kw-2">&amp;</span>archive_meta.license,
+            <span class="kw-2">&amp;</span>archive_meta.readme,
+            <span class="kw-2">&amp;</span>archive_meta
+                .archive_path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+            archive_path,
             <span class="kw-2">&amp;</span>maybe_signature_data,
             archived_data_size,
             <span class="self">self</span>.quiet,
@@ -883,45 +971,65 @@
     }
 }
 
+<span class="kw">struct </span>ConstructedPackageArchive {
+    manifest_toml: String,
+    readme: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    license: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    archive_path: PathBuf,
+}
+
 <span class="kw">fn </span>construct_tar_gz(
-    builder: <span class="kw-2">&amp;mut </span>tar::Builder&lt;Vec&lt;u8&gt;&gt;,
+    archive_dir: <span class="kw-2">&amp;</span>Path,
     manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
-    cwd: <span class="kw-2">&amp;</span>Path,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="prelude-ty">Option</span>&lt;String&gt;, <span class="prelude-ty">Option</span>&lt;String&gt;), anyhow::Error&gt; {
+    manifest_path: <span class="kw-2">&amp;</span>Path,
+) -&gt; <span class="prelude-ty">Result</span>&lt;ConstructedPackageArchive, anyhow::Error&gt; {
+    <span class="comment">// This is an assert instead of returned error because this is a programmer error.
+    </span><span class="macro">debug_assert!</span>(manifest_path.is_file(), <span class="string">&quot;manifest path is not a file&quot;</span>);
+
+    <span class="kw">let </span>manifest_dir = manifest_path
+        .parent()
+        .context(<span class="string">&quot;manifest path has no parent directory&quot;</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::new(Vec::new());
+    builder.append_path_with_name(manifest_path, PACKAGE_TOML_FALLBACK_NAME)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>manifest_string = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>package = <span class="kw-2">&amp;</span>manifest.package;
     <span class="kw">let </span>modules = manifest.module.as_deref().unwrap_or_default();
 
     <span class="kw">let </span>readme = <span class="kw">match </span>package.readme.as_ref() {
         <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         <span class="prelude-val">Some</span>(s) =&gt; {
-            <span class="kw">let </span>path = append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s).map_err(
-                |(p, e)| PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e),
-            )<span class="question-mark">?</span>;
-            fs::read_to_string(path).ok()
+            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s)
+                .map_err(|(p, e)| {
+                    PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
+                })<span class="question-mark">?</span>;
+            <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
         }
     };
 
-    <span class="kw">let </span>license_file = <span class="kw">match </span>package.license_file.as_ref() {
+    <span class="kw">let </span>license = <span class="kw">match </span>package.license_file.as_ref() {
         <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         <span class="prelude-val">Some</span>(s) =&gt; {
-            <span class="kw">let </span>path = append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s).map_err(
-                |(p, e)| PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e),
-            )<span class="question-mark">?</span>;
-            fs::read_to_string(path).ok()
+            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s)
+                .map_err(|(p, e)| {
+                    PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
+                })<span class="question-mark">?</span>;
+            <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
         }
     };
 
     <span class="kw">for </span>module <span class="kw">in </span>modules {
-        append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>module.source).map_err(
-            |(normalized_path, <span class="kw">_</span>)| PackageBuildError::SourceMustBeFile {
+        append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>module.source)
+            .map_err(|(normalized_path, <span class="kw">_</span>)| PackageBuildError::SourceMustBeFile {
                 module: module.name.clone(),
                 path: normalized_path,
-            },
-        )<span class="question-mark">?</span>;
+            })<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
             <span class="kw">for </span>path <span class="kw">in </span>bindings.referenced_files(<span class="kw-2">&amp;</span>manifest.base_directory_path)<span class="question-mark">? </span>{
-                append_path_to_tar_gz(builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>path).map_err(
+                append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>path).map_err(
                     |(normalized_path, <span class="kw">_</span>)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -934,7 +1042,7 @@
     <span class="comment">// bundle the package filesystem
     </span><span class="kw">let </span>default = indexmap::IndexMap::default();
     <span class="kw">for </span>(_alias, path) <span class="kw">in </span>manifest.fs.as_ref().unwrap_or(<span class="kw-2">&amp;</span>default).iter() {
-        <span class="kw">let </span>normalized_path = normalize_path(cwd, path);
+        <span class="kw">let </span>normalized_path = normalize_path(manifest_dir, path);
         <span class="kw">let </span>path_metadata = normalized_path.metadata().map_err(|<span class="kw">_</span>| {
             PackageBuildError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
         })<span class="question-mark">?</span>;
@@ -951,7 +1059,25 @@
         })<span class="question-mark">?</span>;
     }
 
-    <span class="prelude-val">Ok</span>((readme, license_file))
+    builder
+        .finish()
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to finish .tar.gz builder: {e}&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>tar_archive_data = builder.into_inner().expect(<span class="string">&quot;tar archive was not finalized&quot;</span>);
+    <span class="kw">let </span>archive_name = <span class="string">&quot;package.tar.gz&quot;</span>.to_string();
+    fs::create_dir(archive_dir.join(<span class="string">&quot;wapm_package&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>archive_path = archive_dir.join(<span class="string">&quot;wapm_package&quot;</span>).join(archive_name);
+    <span class="kw">let </span><span class="kw-2">mut </span>compressed_archive = fs::File::create(<span class="kw-2">&amp;</span>archive_path).unwrap();
+    <span class="kw">let </span><span class="kw-2">mut </span>gz_enc = GzEncoder::new(<span class="kw-2">&amp;mut </span>compressed_archive, Compression::best());
+
+    gz_enc.write_all(<span class="kw-2">&amp;</span>tar_archive_data).unwrap();
+    <span class="kw">let </span>_compressed_archive = gz_enc.finish().unwrap();
+
+    <span class="prelude-val">Ok</span>(ConstructedPackageArchive {
+        manifest_toml: manifest_string,
+        archive_path,
+        readme,
+        license,
+    })
 }
 
 <span class="kw">fn </span>append_path_to_tar_gz(
@@ -1378,6 +1504,74 @@
                 <span class="kw">_ </span>=&gt; {}
             }
         }
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>std::io::Read;
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_construct_package_tar_gz() {
+        <span class="kw">let </span>manifest_str = <span class="string">r#&quot;[package]
+name = &quot;wasmer-tests/wcgi-always-panic&quot;
+version = &quot;0.6.0&quot;
+description = &quot;wasmer-tests/wcgi-always-panic website&quot;
+
+[[module]]
+name = &quot;wcgi-always-panic&quot;
+source = &quot;module.wasm&quot;
+abi = &quot;wasi&quot;
+
+[[command]]
+name = &quot;wcgi&quot;
+module = &quot;wcgi-always-panic&quot;
+runner = &quot;https://webc.org/runner/wcgi&quot;
+&quot;#</span>;
+
+        <span class="kw">let </span>archive_dir = tempfile::tempdir().unwrap();
+
+        <span class="kw">let </span>manifest_dir = tempfile::tempdir().unwrap();
+
+        <span class="kw">let </span>mp = manifest_dir.path();
+        <span class="kw">let </span>manifest_path = mp.join(<span class="string">&quot;wasmer.toml&quot;</span>);
+
+        std::fs::write(<span class="kw-2">&amp;</span>manifest_path, manifest_str).unwrap();
+        std::fs::write(mp.join(<span class="string">&quot;module.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest_str).unwrap();
+        manifest.base_directory_path = manifest_dir.path().to_owned();
+
+        <span class="kw">let </span>meta = construct_tar_gz(<span class="kw-2">&amp;</span>archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(<span class="kw-2">&amp;</span>meta.archive_path).unwrap());
+
+        <span class="kw">let </span>gz = flate2::read::GzDecoder::new(<span class="kw-2">&amp;mut </span>data);
+        <span class="kw">let </span><span class="kw-2">mut </span>archive = tar::Archive::new(gz);
+
+        <span class="kw">let </span>map = archive
+            .entries()
+            .unwrap()
+            .map(|res| {
+                <span class="kw">let </span><span class="kw-2">mut </span>entry = res.unwrap();
+                <span class="kw">let </span>name = entry.path().unwrap().to_str().unwrap().to_string();
+                <span class="kw">let </span><span class="kw-2">mut </span>contents = String::new();
+                entry.read_to_string(<span class="kw-2">&amp;mut </span>contents).unwrap();
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{name}:\n{contents}\n\n&quot;</span>);
+                (name, contents)
+            })
+            .collect::&lt;std::collections::HashMap&lt;String, String&gt;&gt;();
+
+        <span class="kw">let </span>expected: std::collections::HashMap&lt;String, String&gt; = [
+            (<span class="string">&quot;wapm.toml&quot;</span>.to_string(), manifest_str.to_string()),
+            (<span class="string">&quot;module.wasm&quot;</span>.to_string(), <span class="string">&quot;()&quot;</span>.to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        <span class="macro">pretty_assertions::assert_eq!</span>(map, expected);
     }
 }
 </code></pre></div>
