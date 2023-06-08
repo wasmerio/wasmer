@@ -161,7 +161,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg_attr(
-        feature = "sys-threads",
+        not(feature = "sys-threads"),
         ignore = "The tokio task manager isn't available on this platform"
     )]
     async fn fs_table_can_map_directories_to_different_names() {
