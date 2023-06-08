@@ -408,7 +408,11 @@ mod tests {
         let manifest = container.manifest();
         assert_eq!(manifest.entrypoint.as_deref(), Some("python"));
         // it should have been automatically saved to disk
-        let path = loader.cache.path(&summary.dist.webc_sha256);
+        let path = loader
+            .cache
+            .as_ref()
+            .unwrap()
+            .path(&summary.dist.webc_sha256);
         assert!(path.exists());
         assert_eq!(std::fs::read(&path).unwrap(), PYTHON);
         // and cached in memory for next time

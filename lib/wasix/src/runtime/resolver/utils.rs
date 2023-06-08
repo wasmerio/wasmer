@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Error};
+use anyhow::Error;
 use http::{HeaderMap, StatusCode};
 use url::Url;
 
@@ -62,6 +62,8 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
     // Note: The Url::to_file_path() method is platform-specific
     cfg_if::cfg_if! {
         if #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))] {
+            use anyhow::Context;
+
             if let Ok(path) = url.to_file_path() {
                 return Ok(path);
             }
