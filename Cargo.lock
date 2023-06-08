@@ -5967,6 +5967,7 @@ dependencies = [
  "log",
  "lzma-rs",
  "minisign",
+ "pretty_assertions",
  "regex",
  "reqwest",
  "rpassword",
