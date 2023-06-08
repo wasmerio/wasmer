@@ -32,7 +32,7 @@ pub fn sock_accept<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-/// ### `sock_accept()`
+/// ### `sock_accept_v2()`
 /// Accept a new incoming connection.
 /// Note: This is similar to `accept` in POSIX.
 ///
@@ -40,6 +40,7 @@ pub fn sock_accept<M: MemorySize>(
 ///
 /// * `fd` - The listening socket.
 /// * `flags` - The desired values of the file descriptor flags.
+/// * `ro_addr` - Returns the address and port of the client
 ///
 /// ## Return
 ///
