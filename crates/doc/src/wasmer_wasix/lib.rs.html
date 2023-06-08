@@ -759,6 +759,7 @@
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -1153,6 +1154,7 @@
         <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
         <span class="string">&quot;random_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, random_get::&lt;Memory32&gt;),
         <span class="string">&quot;sched_yield&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sched_yield::&lt;Memory32&gt;),
+        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory32&gt;),
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
         <span class="string">&quot;sock_send&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_send::&lt;Memory32&gt;),
         <span class="string">&quot;sock_shutdown&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_shutdown),
@@ -1265,8 +1267,8 @@
         <span class="string">&quot;sock_leave_multicast_v6&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v6::&lt;Memory32&gt;),
         <span class="string">&quot;sock_bind&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_bind::&lt;Memory32&gt;),
         <span class="string">&quot;sock_listen&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_listen::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory32&gt;),
-        <span class="string">&quot;sock_accept_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory32&gt;),
+        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory32&gt;),
+        <span class="string">&quot;sock_accept_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory32&gt;),
         <span class="string">&quot;sock_connect&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_connect::&lt;Memory32&gt;),
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory32&gt;),
         <span class="string">&quot;sock_recv_from&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv_from::&lt;Memory32&gt;),
@@ -1383,8 +1385,8 @@
         <span class="string">&quot;sock_leave_multicast_v6&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_leave_multicast_v6::&lt;Memory64&gt;),
         <span class="string">&quot;sock_bind&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_bind::&lt;Memory64&gt;),
         <span class="string">&quot;sock_listen&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_listen::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory64&gt;),
-        <span class="string">&quot;sock_accept_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept::&lt;Memory64&gt;),
+        <span class="string">&quot;sock_accept&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory64&gt;),
+        <span class="string">&quot;sock_accept_v2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_accept_v2::&lt;Memory64&gt;),
         <span class="string">&quot;sock_connect&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_connect::&lt;Memory64&gt;),
         <span class="string">&quot;sock_recv&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv::&lt;Memory64&gt;),
         <span class="string">&quot;sock_recv_from&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, sock_recv_from::&lt;Memory64&gt;),

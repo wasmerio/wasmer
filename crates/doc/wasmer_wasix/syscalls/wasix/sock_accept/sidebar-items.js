@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["sock_accept","`sock_accept()`"]]};
+window.SIDEBAR_ITEMS = {"fn":[["sock_accept","`sock_accept()`"],["sock_accept_internal",""],["sock_accept_v2","`sock_accept_v2()`"]]};
