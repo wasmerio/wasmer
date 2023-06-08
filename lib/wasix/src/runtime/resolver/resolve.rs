@@ -110,7 +110,6 @@ async fn discover_dependencies(
     to_visit.push_back(root_index);
 
     while let Some(index) = to_visit.pop_front() {
-        eprintln!("Checking {}", graph[index].id);
         let mut to_add = Vec::new();
 
         for dep in &graph[index].pkg.dependencies {
@@ -139,7 +138,6 @@ async fn discover_dependencies(
 
         for (alias, node) in to_add {
             let dep_id = node.id.clone();
-            eprintln!("{} -> {} (as {alias})", &graph[index].id, dep_id);
 
             let dep_index = match nodes.get(&dep_id) {
                 Some(&ix) => ix,
@@ -147,7 +145,6 @@ async fn discover_dependencies(
                     // Create a new node and schedule its dependencies to be
                     // retrieved
                     let ix = graph.add_node(node);
-                    eprintln!("Scheduling to check \"{dep_id}\"");
                     nodes.insert(dep_id, ix);
                     to_visit.push_back(ix);
                     ix

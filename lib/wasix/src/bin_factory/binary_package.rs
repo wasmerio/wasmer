@@ -143,6 +143,7 @@ mod tests {
 
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
+    use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 
     use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
 
@@ -189,22 +190,22 @@ mod tests {
         let mut files = BTreeMap::new();
         load_files_from_disk(&mut files, dir, dir);
 
-        let wasmer_toml = webc::v1::DirOrFile::File("wasmer.toml".into());
+        let wasmer_toml = DirOrFile::File("wasmer.toml".into());
         if let Some(toml_data) = files.remove(&wasmer_toml) {
             // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
             // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
             // manually patch things up if people have already migrated their
             // projects.
             files
-                .entry(webc::v1::DirOrFile::File("wapm.toml".into()))
+                .entry(DirOrFile::File("wapm.toml".into()))
                 .or_insert(toml_data);
         }
 
-        let functions = wapm_targz_to_pirita::TransformManifestFunctions::default();
-        wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions).unwrap()
+        let functions = TransformManifestFunctions::default();
+        wapm_targz_to_pirita::generate_webc_file(files, dir, &functions).unwrap()
     }
 
-    fn load_files_from_disk(files: &mut wapm_targz_to_pirita::FileMap, dir: &Path, base: &Path) {
+    fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) {
         let entries = dir.read_dir().unwrap();
 
         for entry in entries {
@@ -213,10 +214,10 @@ mod tests {
 
             if path.is_dir() {
                 load_files_from_disk(files, &path, base);
-                files.insert(webc::v1::DirOrFile::Dir(relative_path), Vec::new());
+                files.insert(DirOrFile::Dir(relative_path), Vec::new());
             } else if path.is_file() {
                 let data = std::fs::read(&path).unwrap();
-                files.insert(webc::v1::DirOrFile::File(relative_path), data);
+                files.insert(DirOrFile::File(relative_path), data);
             }
         }
     }

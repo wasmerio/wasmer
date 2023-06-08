@@ -282,7 +282,7 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 ///
 /// The TmpFileSystem *does* allow mounting at non-root paths, however it can't
 /// handle nested paths (e.g. mounting to "/lib" and "/lib/python3.10" - see
-/// https://github.com/wasmerio/wasmer/issues/3678 for more) and you aren't
+/// <https://github.com/wasmerio/wasmer/issues/3678> for more) and you aren't
 /// allowed to mount to "/" because it's a special directory that already
 /// exists.
 ///

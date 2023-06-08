@@ -78,6 +78,11 @@ repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.67"
 version = "4.0.0-beta.1"
 
+[workspace.dependencies]
+webc = { version = "5.0.4", default-features = false }
+wapm-targz-to-pirita = "0.3.0"
+wasmer-toml = "0.6.0"
+
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
