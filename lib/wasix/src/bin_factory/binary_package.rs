@@ -145,11 +145,25 @@ mod tests {
     use virtual_fs::AsyncReadExt;
     use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 
-    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
+    use crate::{runtime::task_manager::VirtualTaskManager, PluggableRuntime};
 
     use super::*;
 
+    fn task_manager() -> Arc<dyn VirtualTaskManager + Send + Sync> {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "sys-threads")] {
+                Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(tokio::runtime::Handle::current()))
+            } else {
+                unimplemented!("Unable to get the task manager")
+            }
+        }
+    }
+
     #[tokio::test]
+    #[cfg_attr(
+        feature = "sys-threads",
+        ignore = "The tokio task manager isn't available on this platform"
+    )]
     async fn fs_table_can_map_directories_to_different_names() {
         let temp = TempDir::new().unwrap();
         let wasmer_toml = r#"
@@ -168,8 +182,8 @@ mod tests {
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
         let webc = construct_webc_in_memory(temp.path());
         let webc = Container::from_bytes(webc).unwrap();
-        let tasks = TokioTaskManager::new(tokio::runtime::Handle::current());
-        let runtime = PluggableRuntime::new(Arc::new(tasks));
+        let tasks = task_manager();
+        let runtime = PluggableRuntime::new(tasks);
 
         let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
 
