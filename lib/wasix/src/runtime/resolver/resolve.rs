@@ -1061,7 +1061,7 @@ mod tests {
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
-            .with_fs_mapping("lib", "/lib", "/other/lib");
+            .with_fs_mapping("atom", "/publisher/lib", "/lib");
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder.insert("root", "1.0.0");
         let graph = dep_builder.graph("root", "1.0.0");
@@ -1072,8 +1072,8 @@ mod tests {
             pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/lib"),
-                original_path: "/other/lib".to_string(),
-                volume_name: "lib".to_string(),
+                original_path: "/publisher/lib".to_string(),
+                volume_name: "atom".to_string(),
                 package: builder.get("root", "1.0.0").package_id(),
             }]
         );
@@ -1086,14 +1086,14 @@ mod tests {
             .register("root", "1.0.0")
             .with_dependency("first", "=1.0.0")
             .with_dependency("second", "=1.0.0")
-            .with_fs_mapping("lib", "/root", "/root");
+            .with_fs_mapping("atom", "/root", "/root");
         builder.register("first", "1.0.0").with_fs_mapping(
-            "main",
+            "atom",
             "/usr/local/lib/first",
             "/usr/local/lib/first",
         );
         builder.register("second", "1.0.0").with_fs_mapping(
-            "main",
+            "atom",
             "/usr/local/lib/second",
             "/usr/local/lib/second",
         );
@@ -1113,20 +1113,20 @@ mod tests {
             vec![
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/first"),
-                    volume_name: "main".to_string(),
+                    volume_name: "atom".to_string(),
                     original_path: "/usr/local/lib/first".to_string(),
                     package: builder.get("first", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/second"),
                     original_path: "/usr/local/lib/second".to_string(),
-                    volume_name: "main".to_string(),
+                    volume_name: "atom".to_string(),
                     package: builder.get("second", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/root"),
                     original_path: "/root".to_string(),
-                    volume_name: "lib".to_string(),
+                    volume_name: "atom".to_string(),
                     package: builder.get("root", "1.0.0").package_id(),
                 }
             ]

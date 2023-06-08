@@ -171,6 +171,7 @@ mod tests {
                     filesystem: vec![FileSystemMapping {
                         volume_name: "atom".to_string(),
                         mount_path: "/".to_string(),
+                        original_path: "/".to_string(),
                         dependency_name: None,
                     }],
                 },
