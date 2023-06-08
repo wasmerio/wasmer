@@ -338,6 +338,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
             };
             filesystem.push(ResolvedFileSystemMapping {
                 mount_path: PathBuf::from(&mapping.mount_path),
+                original_path: mapping.original_path.clone(),
                 volume_name: mapping.volume_name.clone(),
                 package: dep.clone(),
             })
@@ -463,10 +464,16 @@ mod tests {
             self
         }
 
-        fn with_fs_mapping(&mut self, volume_name: &str, mount_path: &str) -> &mut Self {
+        fn with_fs_mapping(
+            &mut self,
+            volume_name: &str,
+            original_path: &str,
+            mount_path: &str,
+        ) -> &mut Self {
             self.summary.pkg.filesystem.push(FileSystemMapping {
                 volume_name: volume_name.to_string(),
                 mount_path: mount_path.to_string(),
+                original_path: original_path.to_string(),
                 dependency_name: None,
             });
             self
@@ -476,11 +483,13 @@ mod tests {
             &mut self,
             volume_name: &str,
             mount_path: &str,
+            original_path: &str,
             dependency: &str,
         ) -> &mut Self {
             self.summary.pkg.filesystem.push(FileSystemMapping {
                 volume_name: volume_name.to_string(),
                 mount_path: mount_path.to_string(),
+                original_path: original_path.to_string(),
                 dependency_name: Some(dependency.to_string()),
             });
             self
@@ -1052,7 +1061,7 @@ mod tests {
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
-            .with_fs_mapping("lib", "/lib");
+            .with_fs_mapping("lib", "/lib", "/other/lib");
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder.insert("root", "1.0.0");
         let graph = dep_builder.graph("root", "1.0.0");
@@ -1063,6 +1072,7 @@ mod tests {
             pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/lib"),
+                original_path: "/other/lib".to_string(),
                 volume_name: "lib".to_string(),
                 package: builder.get("root", "1.0.0").package_id(),
             }]
@@ -1076,13 +1086,17 @@ mod tests {
             .register("root", "1.0.0")
             .with_dependency("first", "=1.0.0")
             .with_dependency("second", "=1.0.0")
-            .with_fs_mapping("lib", "/root");
-        builder
-            .register("first", "1.0.0")
-            .with_fs_mapping("main", "/usr/local/lib/first");
-        builder
-            .register("second", "1.0.0")
-            .with_fs_mapping("main", "/usr/local/lib/second");
+            .with_fs_mapping("lib", "/root", "/root");
+        builder.register("first", "1.0.0").with_fs_mapping(
+            "main",
+            "/usr/local/lib/first",
+            "/usr/local/lib/first",
+        );
+        builder.register("second", "1.0.0").with_fs_mapping(
+            "main",
+            "/usr/local/lib/second",
+            "/usr/local/lib/second",
+        );
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder
             .insert("root", "1.0.0")
@@ -1100,15 +1114,18 @@ mod tests {
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/first"),
                     volume_name: "main".to_string(),
+                    original_path: "/usr/local/lib/first".to_string(),
                     package: builder.get("first", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/second"),
+                    original_path: "/usr/local/lib/second".to_string(),
                     volume_name: "main".to_string(),
                     package: builder.get("second", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/root"),
+                    original_path: "/root".to_string(),
                     volume_name: "lib".to_string(),
                     package: builder.get("root", "1.0.0").package_id(),
                 }
@@ -1122,7 +1139,7 @@ mod tests {
         builder
             .register("root", "1.0.0")
             .with_dependency("dep", "=1.0.0")
-            .with_fs_mapping_from_dependency("dep-volume", "/root", "dep");
+            .with_fs_mapping_from_dependency("dep-volume", "/root", "/root", "dep");
         builder.register("dep", "1.0.0");
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder
@@ -1137,6 +1154,7 @@ mod tests {
             pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/root"),
+                original_path: "/root".to_string(),
                 volume_name: "dep-volume".to_string(),
                 package: builder.get("dep", "1.0.0").package_id(),
             }]

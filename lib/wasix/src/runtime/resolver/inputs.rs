@@ -241,6 +241,7 @@ fn filesystem_mapping_from_manifest(
                     volume_name: mapping.volume_name,
                     mount_path: mapping.mount_path,
                     dependency_name: mapping.from,
+                    original_path: mapping.original_path,
                 })
                 .collect();
 
@@ -260,6 +261,7 @@ fn filesystem_mapping_from_manifest(
             Ok(vec![FileSystemMapping {
                 volume_name: "atom".to_string(),
                 mount_path: "/".to_string(),
+                original_path: "/".to_string(),
                 dependency_name: None,
             }])
         }
@@ -272,6 +274,8 @@ pub struct FileSystemMapping {
     pub volume_name: String,
     /// Where the volume should be mounted within the resulting filesystem.
     pub mount_path: String,
+    /// The path of the mapped item within its original volume.
+    pub original_path: String,
     /// The name of the package this volume comes from (current package if
     /// `None`).
     pub dependency_name: Option<String>,
