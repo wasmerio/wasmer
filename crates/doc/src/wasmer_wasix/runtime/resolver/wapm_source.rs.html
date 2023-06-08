@@ -398,6 +398,12 @@
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -600,7 +606,7 @@
 
     <span class="kw">use crate</span>::{
         http::HttpResponse,
-        runtime::resolver::inputs::{DistributionInfo, PackageInfo},
+        runtime::resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
     };
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -674,6 +680,12 @@
                         },
                     ],
                     entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer-pack&quot;</span>.to_string()),
+                    filesystem: <span class="macro">vec!</span>[FileSystemMapping {
+                        volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
+                        mount_path: <span class="string">&quot;/&quot;</span>.to_string(),
+                        original_path: <span class="string">&quot;/&quot;</span>.to_string(),
+                        dependency_name: <span class="prelude-val">None</span>,
+                    }],
                 },
                 dist: DistributionInfo {
                     webc: <span class="string">&quot;https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc&quot;</span>.parse().unwrap(),

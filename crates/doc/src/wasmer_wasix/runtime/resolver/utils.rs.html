@@ -119,9 +119,11 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
-<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>anyhow::Error;
 <span class="kw">use </span>http::{HeaderMap, StatusCode};
 <span class="kw">use </span>url::Url;
 
@@ -183,6 +185,8 @@
     <span class="comment">// Note: The Url::to_file_path() method is platform-specific
     </span><span class="macro">cfg_if::cfg_if! </span>{
         <span class="kw">if </span><span class="attr">#[cfg(any(unix, windows, target_os = <span class="string">&quot;redox&quot;</span>, target_os = <span class="string">&quot;wasi&quot;</span>))] </span>{
+            <span class="kw">use </span>anyhow::Context;
+
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(path) = url.to_file_path() {
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
             }

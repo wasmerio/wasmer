@@ -2800,7 +2800,7 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(contents) = volume.read_file(<span class="kw-2">&amp;*</span>path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
-                            contents.into(),
+                            contents.to_vec(),
                         );
                     }
                 }

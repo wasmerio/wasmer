@@ -402,6 +402,7 @@
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -776,6 +777,7 @@
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;asdf&quot;</span>.to_string()),
+                filesystem: Vec::new(),
             },
             dist: DistributionInfo {
                 webc: <span class="string">&quot;https://wapm.io/python/python&quot;</span>.parse().unwrap(),

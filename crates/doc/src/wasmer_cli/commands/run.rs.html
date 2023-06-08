@@ -782,7 +782,7 @@
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>wapm_targz_to_pirita::{FileMap, TransformManifestFunctions};
+<span class="kw">use </span>wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 <span class="kw">use </span>wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -804,7 +804,7 @@
     },
     Runtime,
 };
-<span class="kw">use </span>webc::{metadata::Manifest, v1::DirOrFile, Container};
+<span class="kw">use </span>webc::{metadata::Manifest, Container};
 
 <span class="kw">use crate</span>::{commands::run::wasi::Wasi, error::PrettyError, store::StoreOptions};
 
@@ -1370,7 +1370,7 @@
     }
 
     <span class="kw">let </span>functions = TransformManifestFunctions::default();
-    <span class="kw">let </span>webc = wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>functions)<span class="question-mark">?</span>;
+    <span class="kw">let </span>webc = wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="kw-2">&amp;</span>functions)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(webc)
 }
