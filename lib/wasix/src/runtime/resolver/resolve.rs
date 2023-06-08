@@ -158,13 +158,7 @@ async fn discover_dependencies(
         }
     }
 
-    let sorted_indices =
-        dbg!(petgraph::algo::toposort(&graph, None)).map_err(|cycle| cycle_error(&graph, cycle))?;
-    dbg!(sorted_indices
-        .iter()
-        .copied()
-        .map(|ix| &graph[ix].id)
-        .collect::<Vec<_>>());
+    let sorted_indices = petgraph::algo::toposort(&graph, None).map_err(|_| cycle_error(&graph))?;
 
     Ok(DiscoveredPackages {
         root: root_index,
@@ -174,24 +168,30 @@ async fn discover_dependencies(
     })
 }
 
-fn cycle_error(
-    graph: &petgraph::Graph<Node, Edge>,
-    cycle: petgraph::algo::Cycle<NodeIndex>,
-) -> ResolveError {
-    eprintln!(
-        "{}",
-        petgraph::dot::Dot::new(
-            &graph.map(|_, node| node.id.to_string(), |_, edge| edge.alias.clone()),
-        )
-    );
-    let cyclic_node = cycle.node_id();
-    let cycle: Vec<_> =
-        petgraph::algo::simple_paths::all_simple_paths(graph, cyclic_node, cyclic_node, 1, None)
-            .next()
-            .expect("We know there is at least one cycle");
+fn cycle_error(graph: &petgraph::Graph<Node, Edge>) -> ResolveError {
+    // We know the graph has at least one cycle, so use SCC to find it.
+    let mut cycle = petgraph::algo::kosaraju_scc(graph)
+        .into_iter()
+        .find(|cycle| cycle.len() > 1)
+        .expect("We know there is at least one cycle");
+
+    // we want the loop's starting node to be deterministic (for tests), and
+    // nodes with lower indices are normally closer to the root of the
+    // dependency tree.
+    let lowest_index_node = cycle.iter().copied().min().expect("Cycle is non-empty");
+
+    // We want the cycle vector to start with that node, so let's do a bit of
+    // shuffling
+    let offset = cycle
+        .iter()
+        .position(|&node| node == lowest_index_node)
+        .unwrap();
+    cycle.rotate_left(offset);
+
+    // Don't forget to make the cycle start and end with the same node
+    cycle.push(lowest_index_node);
 
     let package_ids = cycle.into_iter().map(|ix| graph[ix].pkg.id()).collect();
-
     ResolveError::Cycle(package_ids)
 }
 
