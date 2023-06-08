@@ -5200,9 +5200,9 @@ dependencies = [
 
 [[package]]
 name = "wapm-targz-to-pirita"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cedbf3ceb9070e8237e822134cc1c0162dd7b31cbd1c4ca586fb4d6be33f51b"
+checksum = "8d816eaf89496a0eefecb79f43463b07205701165c17790fa6f0eab5ae72bc39"
 dependencies = [
  "anyhow",
  "base64",
@@ -5220,7 +5220,6 @@ dependencies = [
  "tracing",
  "url",
  "validator",
- "wasmer-registry 4.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-toml",
  "webc",
 ]
