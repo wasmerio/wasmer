@@ -37,7 +37,7 @@ pub fn main() {
     set_panic_hook();
 }
 
-pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
+pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/dash";
 //pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
 pub const DEFAULT_BOOT_USES: [&'static str; 2] = ["sharrattj/coreutils", "john-sharratt/catsay"];
 
