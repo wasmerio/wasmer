@@ -151,7 +151,7 @@ impl Memory {
         new_store: &mut impl AsStoreMut,
     ) -> Option<Self> {
         self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
+            .and_then(|memory| memory.try_clone())
             .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 

@@ -27,8 +27,8 @@ mod pirita;
 use crate::http::{HttpRequest, HttpRequestOptions};
 use pirita::*;
 
-pub(crate) async fn fetch_webc(
-    cache_dir: &Path,
+pub async fn fetch_webc(
+    cache_dir: Option<&Path>,
     webc: &str,
     client: &(dyn HttpClient + Send + Sync),
     registry_endpoint: &Url,
@@ -109,7 +109,7 @@ pub fn parse_static_webc(data: Vec<u8>) -> Result<BinaryPackage, anyhow::Error> 
 }
 
 async fn download_webc(
-    cache_dir: &Path,
+    cache_dir: Option<&Path>,
     name: &str,
     pirita_download_url: String,
     client: &(dyn HttpClient + Send + Sync),
@@ -132,29 +132,33 @@ async fn download_webc(
         std::path::Path::new(cache_dir).join(&name)
     };
 
-    // fast path
-    let path = compute_path(cache_dir, name);
-
     #[cfg(feature = "sys")]
-    if path.exists() {
-        tracing::debug!(path=%path.display(), "Parsing cached WEBC file");
+    {
+        // fast path
+        let path = compute_path(cache_dir, name);
 
-        match Container::from_disk(&path) {
-            Ok(webc) => {
-                return parse_webc_v2(&webc)
-                    .with_context(|| format!("Could not parse webc at path '{}'", path.display()));
-            }
-            Err(err) => {
-                tracing::warn!(
-                    error = &err as &dyn std::error::Error,
-                    "failed to parse WEBC",
-                );
+        #[cfg(feature = "sys")]
+        if path.exists() {
+            tracing::debug!(path=%path.display(), "Parsing cached WEBC file");
+
+            match Container::from_disk(&path) {
+                Ok(webc) => {
+                    return parse_webc_v2(&webc).with_context(|| {
+                        format!("Could not parse webc at path '{}'", path.display())
+                    });
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "failed to parse WEBC",
+                    );
+                }
             }
         }
-    }
-    if let Ok(data) = std::fs::read(&path) {
-        if let Ok(webc) = parse_static_webc(data) {
-            return Ok(webc);
+        if let Ok(data) = std::fs::read(&path) {
+            if let Ok(webc) = parse_static_webc(data) {
+                return Ok(webc);
+            }
         }
     }
 

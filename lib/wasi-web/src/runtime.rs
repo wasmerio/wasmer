@@ -17,9 +17,14 @@ use tracing::{debug, error, info, trace, warn};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
-    http::{DynHttpClient, HttpRequest, HttpResponse},
+    bin_factory::BinaryPackage,
+    http::{DynHttpClient, HttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
-    runtime::task_manager::TaskWasm,
+    runtime::{
+        module_cache::{ModuleCache, ThreadLocalCache},
+        resolver::{PackageResolver, ResolverError, WebcIdentifier},
+        task_manager::TaskWasm,
+    },
     VirtualFile, VirtualNetworking, VirtualTaskManager, WasiRuntime, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
@@ -47,9 +52,34 @@ pub(crate) struct WebRuntime {
     tty: TtyOptions,
 
     http_client: DynHttpClient,
+    package_resolver: Arc<dyn PackageResolver + Send + Sync>,
+    module_cache: Arc<dyn ModuleCache + Send + Sync>,
 
     net: wasmer_wasix::virtual_net::DynVirtualNetworking,
     tasks: Arc<dyn VirtualTaskManager>,
+}
+
+#[derive(Debug, Default)]
+struct BasicResolver {}
+
+pub const WAPM_PROD_ENDPOINT: &str = "https://registry.wapm.io/graphql";
+
+#[async_trait::async_trait]
+impl PackageResolver for BasicResolver {
+    async fn resolve_package(
+        &self,
+        pkg: &WebcIdentifier,
+        client: &(dyn HttpClient + Send + Sync),
+    ) -> Result<BinaryPackage, ResolverError> {
+        wasmer_wasix::wapm::fetch_webc(
+            None,
+            &pkg.full_name,
+            client,
+            &url::Url::parse(WAPM_PROD_ENDPOINT).unwrap(),
+        )
+        .await
+        .map_err(|e| ResolverError::Other(e.into()))
+    }
 }
 
 impl WebRuntime {
@@ -68,6 +98,10 @@ impl WebRuntime {
             runtime,
         });
 
+        let http_client = Arc::new(WebHttpClient { pool: pool.clone() });
+
+        let package_resolver = BasicResolver::default();
+        let module_cache = ThreadLocalCache::default();
         WebRuntime {
             pool: pool.clone(),
             tasks: runtime,
@@ -75,7 +109,9 @@ impl WebRuntime {
             #[cfg(feature = "webgl")]
             webgl_tx,
             http_client: Arc::new(WebHttpClient { pool }),
+            package_resolver: Arc::new(package_resolver),
             net: Arc::new(WebVirtualNetworking),
+            module_cache: Arc::new(module_cache),
         }
     }
 }
@@ -427,6 +463,14 @@ impl WasiRuntime for WebRuntime {
 
     fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         Some(self)
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        Arc::clone(&self.module_cache)
+    }
+
+    fn package_resolver(&self) -> Arc<dyn PackageResolver + Send + Sync> {
+        Arc::clone(&self.package_resolver) as Arc<dyn PackageResolver + Send + Sync>
     }
 
     fn http_client(&self) -> Option<&DynHttpClient> {
