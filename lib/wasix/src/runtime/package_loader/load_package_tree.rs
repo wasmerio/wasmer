@@ -50,6 +50,7 @@ pub async fn load_package_tree(
         .ok()
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
+        entry: None,
         entrypoint_cmd: resolution.package.entrypoint.clone(),
         webc_fs: Arc::new(fs),
         commands,

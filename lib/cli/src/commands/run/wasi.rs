@@ -181,6 +181,7 @@ impl Wasi {
             .args(args)
             .envs(self.env_vars.clone())
             .uses(uses)
+            .include_webcs(self.include_webcs.clone())
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasix::is_wasix_module(module) {

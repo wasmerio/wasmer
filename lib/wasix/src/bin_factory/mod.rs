@@ -23,14 +23,20 @@ pub struct BinFactory {
     pub(crate) commands: Commands,
     runtime: Arc<dyn Runtime + Send + Sync + 'static>,
     pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
+    #[deprecated = "polyfill"]
+    module_cache: Option<Arc<crate::polyfill::ModuleCache>>,
 }
 
 impl BinFactory {
-    pub fn new(runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> BinFactory {
+    pub fn new(
+        runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+        module_cache: Option<Arc<crate::polyfill::ModuleCache>>,
+    ) -> BinFactory {
         BinFactory {
             commands: Commands::new_with_builtins(runtime.clone()),
             runtime,
             local: Arc::new(RwLock::new(HashMap::new())),
+            module_cache,
         }
     }
 

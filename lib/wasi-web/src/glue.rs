@@ -11,6 +11,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 use wasmer_wasix::{
     capabilities::Capabilities,
     os::{Console, InputEvent, Tty, TtyOptions},
+    polyfill::ModuleCache,
     Pipe,
 };
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
@@ -37,8 +38,8 @@ pub fn main() {
     set_panic_hook();
 }
 
-pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
-pub const DEFAULT_BOOT_USES: [&str; 1] = ["sharrattj/coreutils"];
+pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/bash";
+pub const DEFAULT_BOOT_USES: [&str; 2] = ["sharrattj/coreutils", "sharrattj/catsay"];
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
@@ -132,6 +133,8 @@ pub fn start() -> Result<(), JsValue> {
         tty_options,
     );
 
+    let compiled_modules = Arc::new(ModuleCache::new(None, None, false));
+
     let location = url::Url::parse(location.as_str()).unwrap();
     let mut console = if let Some(init) = location
         .query_pairs()
@@ -139,14 +142,16 @@ pub fn start() -> Result<(), JsValue> {
         .next()
         .map(|(_, val)| val.to_string())
     {
-        let mut console = Console::new(init.as_str(), runtime.clone());
+        let mut console = Console::new(init.as_str(), runtime.clone(), Some(compiled_modules));
         console = console.with_no_welcome(true);
         console
     } else {
-        let mut console = Console::new(DEFAULT_BOOT_WEBC, runtime.clone());
+        let mut console = Console::new(DEFAULT_BOOT_WEBC, runtime.clone(), Some(compiled_modules));
         console = console.with_uses(DEFAULT_BOOT_USES.iter().map(|a| a.to_string()).collect());
         console
     };
+
+    console = console.registry(WapmSource::WAPM_PROD_ENDPOINT);
 
     let mut env = HashMap::new();
     if let Some(origin) = location.domain().clone() {

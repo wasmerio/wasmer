@@ -61,6 +61,9 @@ impl BinaryPackageCommand {
 pub struct BinaryPackage {
     pub package_name: String,
     pub when_cached: Option<u128>,
+    #[deprecated = "polyfill needed for the short term"]
+    #[derivative(Debug = "ignore")]
+    pub entry: Option<SharedBytes>,
     /// The name of the [`BinaryPackageCommand`] which is this package's
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,

@@ -117,7 +117,7 @@ pub struct PluggableRuntime {
 }
 
 impl PluggableRuntime {
-    pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
+    pub fn new(rt: Arc<dyn VirtualTaskManager>, endpoint: &str) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
@@ -134,10 +134,7 @@ impl PluggableRuntime {
 
         let mut source = MultiSource::new();
         if let Some(client) = &http_client {
-            source.add_source(WapmSource::new(
-                WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
-                client.clone(),
-            ));
+            source.add_source(WapmSource::new(endpoint.parse().unwrap(), client.clone()));
         }
 
         Self {

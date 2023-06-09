@@ -29,7 +29,8 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::PackageSpecifier,
+    polyfill::ModuleCache,
+    runtime::resolver::{PackageSpecifier, WapmSource},
     Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv,
 };
 
@@ -38,6 +39,7 @@ use crate::{
 pub struct Console {
     user_agent: Option<String>,
     boot_cmd: String,
+    registry: String,
     uses: LinkedHashSet<String>,
     is_mobile: bool,
     is_ssh: bool,
@@ -52,10 +54,16 @@ pub struct Console {
     stderr: ArcBoxFile,
     capabilities: Capabilities,
     memfs_memory_limiter: Option<virtual_fs::limiter::DynFsMemoryLimiter>,
+    #[deprecated = "polyfill"]
+    compiled_modules: Option<Arc<ModuleCache>>,
 }
 
 impl Console {
-    pub fn new(webc_boot_package: &str, runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
+    pub fn new(
+        webc_boot_package: &str,
+        runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+        compiled_modules: Option<Arc<ModuleCache>>,
+    ) -> Self {
         let prog = webc_boot_package
             .split_once(' ')
             .map(|a| a.1)
@@ -66,6 +74,7 @@ impl Console {
         Self {
             boot_cmd: webc_boot_package.to_string(),
             uses,
+            registry: WapmSource::WAPM_PROD_ENDPOINT.to_string(),
             is_mobile: false,
             is_ssh: false,
             user_agent: None,
@@ -80,7 +89,13 @@ impl Console {
             stderr: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             capabilities: Default::default(),
             memfs_memory_limiter: None,
+            compiled_modules,
         }
+    }
+
+    pub fn with_registry(mut self, registry: &str) -> Self {
+        self.registry = registry.to_string();
+        self
     }
 
     pub fn with_prompt(mut self, prompt: String) -> Self {
@@ -182,6 +197,7 @@ impl Console {
 
         let env_init = WasiEnv::builder(prog)
             .stdin(Box::new(self.stdin.clone()))
+            .registry(self.registry.as_str())
             .args(args.iter())
             .envs(envs.iter())
             .sandbox_fs(root_fs)
@@ -191,6 +207,7 @@ impl Console {
             .unwrap()
             .stdout(Box::new(self.stdout.clone()))
             .stderr(Box::new(self.stderr.clone()))
+            .compiled_modules(self.compiled_modules.clone())
             .runtime(self.runtime.clone())
             .capabilities(self.capabilities.clone())
             .build_init()
@@ -230,25 +247,43 @@ impl Console {
         let resolved_package =
             tasks.block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
 
-        let binary = match resolved_package {
-            Ok(pkg) => pkg,
-            Err(e) => {
+        let binary = if let Some(compiled_modules) = self.compiled_modules.as_ref() {
+            if let Some(binary) = compiled_modules.get_webc(webc, self.runtime.deref()) {
+                binary
+            } else {
                 let mut stderr = self.stderr.clone();
                 tasks.block_on(async {
-                    let mut buffer = Vec::new();
-                    writeln!(buffer, "Error: {e}").ok();
-                    let mut source = e.source();
-                    while let Some(s) = source {
-                        writeln!(buffer, "  Caused by: {s}").ok();
-                        source = s.source();
-                    }
-
-                    virtual_fs::AsyncWriteExt::write_all(&mut stderr, &buffer)
-                        .await
-                        .ok();
+                    virtual_fs::AsyncWriteExt::write_all(
+                        &mut stderr,
+                        format!("package not found [{}]\r\n", webc).as_bytes(),
+                    )
+                    .await
+                    .ok();
                 });
                 tracing::debug!("failed to get webc dependency - {}", webc);
                 return Err(SpawnError::NotFound);
+            }
+        } else {
+            match resolved_package {
+                Ok(pkg) => pkg,
+                Err(e) => {
+                    let mut stderr = self.stderr.clone();
+                    tasks.block_on(async {
+                        let mut buffer = Vec::new();
+                        writeln!(buffer, "Error: {e}").ok();
+                        let mut source = e.source();
+                        while let Some(s) = source {
+                            writeln!(buffer, "  Caused by: {s}").ok();
+                            source = s.source();
+                        }
+
+                        virtual_fs::AsyncWriteExt::write_all(&mut stderr, &buffer)
+                            .await
+                            .ok();
+                    });
+                    tracing::debug!("failed to get webc dependency - {}", webc);
+                    return Err(SpawnError::NotFound);
+                }
             }
         };
 

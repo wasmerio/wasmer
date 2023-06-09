@@ -210,6 +210,8 @@ impl WasiInstanceHandles {
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn Runtime + Send + Sync>,
+    #[deprecated = "polyfill"]
+    pub module_cache: Option<Arc<crate::polyfill::ModuleCache>>,
     pub webc_dependencies: Vec<BinaryPackage>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -254,6 +256,7 @@ impl WasiEnvInit {
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
+            module_cache: None,
             webc_dependencies: self.webc_dependencies.clone(),
             mapped_commands: self.mapped_commands.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -292,6 +295,8 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+    #[deprecated = "polyfill"]
+    module_cache: Option<Arc<crate::polyfill::ModuleCache>>,
 
     pub capabilities: Capabilities,
 
@@ -325,6 +330,7 @@ impl Clone for WasiEnv {
             inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
+            module_cache: self.module_cache.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
         }
@@ -361,6 +367,7 @@ impl WasiEnv {
             inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
+            module_cache: self.module_cache.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
         };
@@ -421,6 +428,7 @@ impl WasiEnv {
             inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: init.runtime,
+            module_cache: init.module_cache,
             bin_factory: init.bin_factory,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,

@@ -43,6 +43,7 @@ pub mod net;
 pub mod capabilities;
 pub mod fs;
 pub mod http;
+pub mod polyfill;
 mod rewind;
 #[cfg(feature = "webc_runner")]
 pub mod runners;

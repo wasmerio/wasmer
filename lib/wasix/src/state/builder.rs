@@ -20,6 +20,7 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
+    runtime::resolver::WapmSource,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -53,6 +54,8 @@ pub struct WasiEnvBuilder {
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
     vfs_preopens: Vec<String>,
+    #[deprecated = "polyfill"]
+    pub(super) compiled_modules: Option<Arc<crate::polyfill::ModuleCache>>,
     #[allow(clippy::type_complexity)]
     pub(super) setup_fs_fn:
         Option<Box<dyn Fn(&WasiInodes, &mut WasiFs) -> Result<(), String> + Send>>,
@@ -62,8 +65,14 @@ pub struct WasiEnvBuilder {
     pub(super) fs: Option<WasiFsRoot>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
 
+    pub(super) registry: Option<String>,
+
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
+
+    /// List ofsupplied webc packages to use instead of downloading from the registry.
+    #[deprecated = "polyfill"]
+    pub(super) include_webcs: Vec<String>,
 
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
@@ -210,6 +219,12 @@ impl WasiEnvBuilder {
         &mut self.envs
     }
 
+    /// Sets the registry to use for this environment builder
+    pub fn registry(mut self, registry: &str) -> Self {
+        self.registry.replace(registry.to_string());
+        self
+    }
+
     /// Add an argument.
     ///
     /// Arguments must not contain the nul (0x0) byte
@@ -299,6 +314,28 @@ impl WasiEnvBuilder {
         for pkg in uses {
             self.add_webc(pkg);
         }
+        self
+    }
+
+    /// Includes a webc package to use instead of downloading them from the registry
+    #[deprecated = "polyfill"]
+    pub fn include_webc<Name>(mut self, webc: Name) -> Self
+    where
+        Name: AsRef<str>,
+    {
+        self.include_webcs.push(webc.as_ref().to_string());
+        self
+    }
+
+    /// Adds a list of webc packages to use instead of downloading them from the registry
+    #[deprecated = "polyfill"]
+    pub fn include_webcs<I>(mut self, webcs: I) -> Self
+    where
+        I: IntoIterator<Item = String>,
+    {
+        webcs.into_iter().for_each(|webc| {
+            self.include_webcs.push(webc);
+        });
         self
     }
 
@@ -559,6 +596,17 @@ impl WasiEnvBuilder {
         self.runtime = Some(runtime);
     }
 
+    /// Sets the compiled modules to use with this builder (sharing the
+    /// cached modules is better for performance and memory consumption)
+    #[deprecated = "polyfill"]
+    pub fn compiled_modules(
+        mut self,
+        compiled_modules: Option<Arc<crate::polyfill::ModuleCache>>,
+    ) -> Self {
+        self.compiled_modules = compiled_modules;
+        self
+    }
+
     pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
         self.set_capabilities(capabilities);
         self
@@ -705,10 +753,40 @@ impl WasiEnvBuilder {
             envs,
         };
 
+        let module_cache = if let Some(module_cache) = self.compiled_modules.as_ref() {
+            let module_cache = module_cache.clone();
+
+            // Add the supplied webc packages to the module cache
+            for include_webc in self.include_webcs.iter() {
+                let data = std::fs::read(include_webc.as_str()).map_err(|err| {
+                    WasiStateCreationError::WasiIncludePackageError(err.to_string())
+                })?;
+                let package = crate::polyfill::wapm::parse_static_webc(data).map_err(|err| {
+                    WasiStateCreationError::WasiIncludePackageError(err.to_string())
+                })?;
+
+                let mut package_name = package.package_name.to_string();
+                module_cache.add_webc(package_name.as_ref(), package.clone());
+                for version_part in package.version.to_string().split('.') {
+                    if !package_name.contains('@') {
+                        package_name.push('@');
+                    } else {
+                        package_name.push('.');
+                    }
+                    package_name.push_str(version_part);
+                    module_cache.add_webc(package_name.as_ref(), package.clone());
+                }
+            }
+            Some(module_cache)
+        } else {
+            None
+        };
+
         let runtime = self.runtime.unwrap_or_else(|| {
+            let registry = self.registry.clone().unwrap_or(WapmSource::WAPM_PROD_ENDPOINT.to_string());
             #[cfg(feature = "sys-thread")]
             {
-                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::shared())))
+                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::shared()), &registry))
             }
 
             #[cfg(not(feature = "sys-thread"))]
@@ -720,7 +798,7 @@ impl WasiEnvBuilder {
         let uses = self.uses;
         let map_commands = self.map_commands;
 
-        let bin_factory = BinFactory::new(runtime.clone());
+        let bin_factory = BinFactory::new(runtime.clone(), module_cache.clone());
 
         let capabilities = self.capabilites;
 
@@ -733,6 +811,7 @@ impl WasiEnvBuilder {
         let init = WasiEnvInit {
             state,
             runtime,
+            module_cache,
             webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,
