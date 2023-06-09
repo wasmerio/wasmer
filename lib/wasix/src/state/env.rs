@@ -226,6 +226,9 @@ pub struct WasiEnvInit {
 
     /// Indicates if the calling environment is capable of deep sleeping
     pub can_deep_sleep: bool,
+
+    /// Indicates if extra tracing should be output
+    pub extra_tracing: bool,
 }
 
 impl WasiEnvInit {
@@ -261,6 +264,7 @@ impl WasiEnvInit {
             thread: None,
             call_initialize: self.call_initialize,
             can_deep_sleep: self.can_deep_sleep,
+            extra_tracing: false,
         }
     }
 }
@@ -443,6 +447,12 @@ impl WasiEnv {
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let call_initialize = init.call_initialize;
         let spawn_type = init.memory_ty.take();
+
+        if init.extra_tracing {
+            for import in module.imports() {
+                tracing::trace!("import {}.{}", import.module(), import.name());
+            }
+        }
 
         let env = Self::from_init(init)?;
 
