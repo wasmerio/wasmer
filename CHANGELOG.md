@@ -9,6 +9,34 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.0.0-beta.2 - 09/06/2023
+
+## Added
+
+  - [#3913](https://github.com/wasmerio/wasmer/pull/3913) Add filesystem mappings to the resolver
+  - [#3971](https://github.com/wasmerio/wasmer/pull/3971) Added the missing sock_accept for preview1
+  - [#3957](https://github.com/wasmerio/wasmer/pull/3957) Added a test for small Stack (for #3808)
+  - [#3956](https://github.com/wasmerio/wasmer/pull/3956) feat(virtual-fs): Add FsError::StorageFull variant
+
+## Changed
+
+  - [#3710](https://github.com/wasmerio/wasmer/pull/3710) Implemented an asyncify based implementation of asynchronous threading
+  - [#3950](https://github.com/wasmerio/wasmer/pull/3950) tests: Remove debug_output option from snapshot tests.
+  - [#3961](https://github.com/wasmerio/wasmer/pull/3961) chore: Rename wasi dir to wasiX
+  - [#3967](https://github.com/wasmerio/wasmer/pull/3967) Use logs instead of timing to determine if the package cache was hit
+  - [#3955](https://github.com/wasmerio/wasmer/pull/3955) chore(cli): Remove redundant CLI feature flags
+  - [#3953](https://github.com/wasmerio/wasmer/pull/3953) feat: Allow custom manifest file paths in "wasmer publish"
+  - [#3433](https://github.com/wasmerio/wasmer/pull/3433) Module.deserialize - accept AsEngineRef
+  - [#3946](https://github.com/wasmerio/wasmer/pull/3946) Allow deserialized WAPM JSON even if some version have some NULL infos
+  - [#3944](https://github.com/wasmerio/wasmer/pull/3944) Port create-exe and the wasmer C API over to the webc compatibility layer
+
+## Fixed
+
+  - [#3975](https://github.com/wasmerio/wasmer/pull/3975) CLI: Fix deploy Command
+  - [#3969](https://github.com/wasmerio/wasmer/pull/3969) fix: Fix incorrect archive construction in wasmer publish
+
+
+
 ## 4.0.0-beta.1 - 01/06/2023
 
 This version introduce WASIX! The superset of WASI. Go to https://wasix.org for more details.
