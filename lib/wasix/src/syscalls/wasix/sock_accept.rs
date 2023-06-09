@@ -19,13 +19,69 @@ pub fn sock_accept<M: MemorySize>(
     sock: WasiFd,
     mut fd_flags: Fdflags,
     ro_fd: WasmPtr<WasiFd, M>,
+) -> Result<Errno, WasiError> {
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    let env = ctx.data();
+    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags));
+
+    wasi_try_mem_ok!(ro_fd.write(&memory, fd));
+
+    Ok(Errno::Success)
+}
+
+/// ### `sock_accept_v2()`
+/// Accept a new incoming connection.
+/// Note: This is similar to `accept` in POSIX.
+///
+/// ## Parameters
+///
+/// * `fd` - The listening socket.
+/// * `flags` - The desired values of the file descriptor flags.
+/// * `ro_addr` - Returns the address and port of the client
+///
+/// ## Return
+///
+/// New socket connection
+#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret, err)]
+pub fn sock_accept_v2<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    mut fd_flags: Fdflags,
+    ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
-    let tasks = ctx.data().tasks().clone();
-    let (child, addr, fd_flags) = wasi_try_ok!(__sock_asyncify(
-        ctx.data(),
+    let env = ctx.data();
+    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags));
+
+    wasi_try_mem_ok!(ro_fd.write(&memory, fd));
+    wasi_try_ok!(crate::net::write_ip_port(
+        &memory,
+        ro_addr,
+        addr.ip(),
+        addr.port()
+    ));
+
+    Ok(Errno::Success)
+}
+
+pub fn sock_accept_internal<M: MemorySize>(
+    env: &WasiEnv,
+    sock: WasiFd,
+    mut fd_flags: Fdflags,
+) -> Result<(WasiFd, SocketAddr), Errno> {
+    let state = env.state();
+    let inodes = &state.inodes;
+
+    let tasks = env.tasks().clone();
+    let (child, addr, fd_flags) = __sock_asyncify(
+        env,
         sock,
         Rights::SOCK_ACCEPT,
         move |socket, fd| async move {
@@ -36,11 +92,8 @@ pub fn sock_accept<M: MemorySize>(
                 .accept(tasks.deref(), fd_flags)
                 .await
                 .map(|a| (a.0, a.1, fd_flags))
-        }
-    ));
-
-    let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+        },
+    )?;
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {
@@ -64,16 +117,8 @@ pub fn sock_accept<M: MemorySize>(
     }
 
     let rights = Rights::all_socket();
-    let fd = wasi_try_ok!(state.fs.create_fd(rights, rights, new_flags, 0, inode));
+    let fd = state.fs.create_fd(rights, rights, new_flags, 0, inode)?;
     Span::current().record("fd", fd);
 
-    wasi_try_mem_ok!(ro_fd.write(&memory, fd));
-    wasi_try_ok!(crate::net::write_ip_port(
-        &memory,
-        ro_addr,
-        addr.ip(),
-        addr.port()
-    ));
-
-    Ok(Errno::Success)
+    Ok((fd, addr))
 }

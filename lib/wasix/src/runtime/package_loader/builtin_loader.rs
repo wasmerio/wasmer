@@ -372,6 +372,7 @@ mod tests {
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: Some("asdf".to_string()),
+                filesystem: Vec::new(),
             },
             dist: DistributionInfo {
                 webc: "https://wapm.io/python/python".parse().unwrap(),

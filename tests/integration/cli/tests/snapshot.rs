@@ -1084,6 +1084,17 @@ fn test_snapshot_dash_python() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
+fn test_snapshot_python_3_11_3() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .arg("-c")
+        .arg("print(10)")
+        .run_wasm(include_bytes!("./wasm/python-3.11.3.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
 fn test_snapshot_dash_dev_zero() {
     let snapshot = TestBuilder::new()
         .with_name(function!())

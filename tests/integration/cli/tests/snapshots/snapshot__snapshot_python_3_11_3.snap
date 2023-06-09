@@ -1,0 +1,25 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1093
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_python_3_11_3",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "-c",
+      "print(10)"
+    ],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "10\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

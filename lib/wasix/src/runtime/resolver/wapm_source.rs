@@ -200,7 +200,7 @@ mod tests {
 
     use crate::{
         http::HttpResponse,
-        runtime::resolver::inputs::{DistributionInfo, PackageInfo},
+        runtime::resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
     };
 
     use super::*;
@@ -274,6 +274,12 @@ mod tests {
                         },
                     ],
                     entrypoint: Some("wasmer-pack".to_string()),
+                    filesystem: vec![FileSystemMapping {
+                        volume_name: "atom".to_string(),
+                        mount_path: "/".to_string(),
+                        original_path: "/".to_string(),
+                        dependency_name: None,
+                    }],
                 },
                 dist: DistributionInfo {
                     webc: "https://registry-cdn.wapm.io/packages/wasmer/wasmer-pack-cli/wasmer-pack-cli-0.6.0-654a2ed8-875f-11ed-90e2-c6aeb50490de.webc".parse().unwrap(),
