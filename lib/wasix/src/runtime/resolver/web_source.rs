@@ -68,7 +68,7 @@ impl WebSource {
     }
 
     /// Download a package and cache it locally.
-    #[tracing::instrument(skip_all, fields(%url))]
+    #[tracing::instrument(level = "debug", skip_all, fields(%url))]
     async fn get_locally_cached_file(&self, url: &Url) -> Result<PathBuf, Error> {
         // This function is a bit tricky because we go to great lengths to avoid
         // unnecessary downloads.

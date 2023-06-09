@@ -41,6 +41,7 @@ impl Source for WapmSource {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
             _ => return Ok(Vec::new()),
         };
+
         #[derive(serde::Serialize)]
         struct Body {
             query: String,
@@ -49,16 +50,17 @@ impl Source for WapmSource {
         let body = Body {
             query: WASMER_WEBC_QUERY_ALL.replace("$NAME", full_name),
         };
-        let body = serde_json::to_string(&body)?;
-        tracing::trace!(%body, "Sending GraphQL query");
 
         let request = HttpRequest {
             url: self.registry_endpoint.clone(),
             method: Method::POST,
-            body: Some(body.into_bytes()),
+            body: Some(serde_json::to_string(&body)?.into_bytes()),
             headers: headers(),
             options: Default::default(),
         };
+
+        tracing::debug!(%request.url, %request.method, "Querying the GraphQL API");
+        tracing::trace!(?request.headers, request.body=body.query.as_str());
 
         let response = self.client.request(request).await?;
 
@@ -70,7 +72,10 @@ impl Source for WapmSource {
 
         let body = response.body.unwrap_or_default();
         tracing::trace!(
-            body=?String::from_utf8_lossy(&body),
+            %response.status,
+            %response.redirected,
+            ?response.headers,
+            response.body=?String::from_utf8_lossy(&body),
             "Received a response from GraphQL",
         );
 
