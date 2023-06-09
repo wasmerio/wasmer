@@ -1,8 +1,6 @@
 //! Logging functions for the debug feature.
 
-use tracing_subscriber::{
-    fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter,
-};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 /// Initialize logging based on the `$RUST_LOG` environment variable. Logs will
 /// be disabled when `$RUST_LOG` isn't set.
@@ -15,8 +13,7 @@ pub fn set_up_logging() {
         .with_writer(std::io::stderr)
         .compact();
 
-    let filter_layer = EnvFilter::builder()
-        .from_env_lossy();
+    let filter_layer = EnvFilter::builder().from_env_lossy();
 
     tracing_subscriber::registry()
         .with(filter_layer)
@@ -33,4 +30,3 @@ pub fn set_up_logging() {
 fn should_emit_colors() -> bool {
     isatty::stderr_isatty() && std::env::var_os("NO_COLOR").is_none()
 }
-
