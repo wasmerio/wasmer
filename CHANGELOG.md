@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.0.0-beta.2 - 09/06/2023
 
+This version added a missing `sock_accept` function to WASI preview1, and also greatly improved the filesystem mappings for the resolver, improving the ease of use of the abilty to run packages with the `wasmer run` command.
+
 ## Added
 
   - [#3913](https://github.com/wasmerio/wasmer/pull/3913) Add filesystem mappings to the resolver
