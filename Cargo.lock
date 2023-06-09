@@ -5680,7 +5680,7 @@ dependencies = [
  "wasmer-deploy-cli",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.8.0",
+ "wasmer-registry 5.0.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -6010,7 +6010,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "4.8.0"
+version = "5.0.0"
 dependencies = [
  "anyhow",
  "console",
