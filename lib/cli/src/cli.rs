@@ -223,6 +223,8 @@ pub fn wasmer_main() {
 }
 
 fn wasmer_main_inner() -> Result<(), anyhow::Error> {
+    crate::logging::set_up_logging();
+
     // We try to run wasmer with the normal arguments.
     // Eg. `wasmer <SUBCOMMAND>`
     // In case that fails, we fallback trying the Run subcommand directly.

@@ -5640,7 +5640,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "chrono",
  "clap 4.3.4",
- "clap-verbosity-flag",
  "colored 2.0.0",
  "dialoguer",
  "dirs",

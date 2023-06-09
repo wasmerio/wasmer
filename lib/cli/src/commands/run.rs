@@ -16,7 +16,6 @@ use std::{
 
 use anyhow::{Context, Error};
 use clap::Parser;
-use clap_verbosity_flag::WarnLevel;
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
@@ -58,8 +57,6 @@ static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
 pub struct Run {
-    #[clap(flatten)]
-    verbosity: clap_verbosity_flag::Verbosity<WarnLevel>,
     /// The Wasmer home directory.
     #[clap(long = "wasmer-dir", env = "WASMER_DIR", default_value = WASMER_HOME.as_os_str())]
     wasmer_dir: PathBuf,
@@ -92,7 +89,6 @@ impl Run {
     }
 
     fn execute_inner(&self) -> Result<(), Error> {
-        crate::logging::set_up_logging(self.verbosity.log_level_filter());
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -360,7 +356,6 @@ impl Run {
         };
         let store = StoreOptions::default();
         Ok(Run {
-            verbosity: clap_verbosity_flag::Verbosity::new(0, 0),
             wasmer_dir: WASMER_HOME.clone(),
             store,
             wasi: Wasi::for_binfmt_interpreter()?,
