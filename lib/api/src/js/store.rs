@@ -89,7 +89,7 @@ mod objects {
         /// Return an vector of all globals and converted to u128
         pub fn as_u128_globals(&self) -> Vec<u128> {
             self.iter_globals()
-                .map(|v| v.global.value().as_f64().unwrap() as u128)
+                .map(|v| v.global.value().as_f64().unwrap_or_default() as u128)
                 .collect()
         }
 
@@ -100,7 +100,7 @@ mod objects {
             assert!(idx < self.globals.len());
 
             let g = &self.globals[idx].global;
-            let cur_val = g.value().as_f64().unwrap();
+            let cur_val = g.value().as_f64().unwrap_or_default();
             let new_val = new_val as f64;
             if cur_val != new_val {
                 let new_value = JsValue::from(new_val);

@@ -215,7 +215,15 @@ pub fn proc_exec<M: MemorySize>(
                         error!("builtin failed - {}", err);
                     }
 
-                    let new_store = new_store.take().unwrap();
+                    let new_store = match new_store.take() {
+                        Some(a) => a,
+                        None => {
+                            error!("builtin failed - none");
+                            return OnCalledAction::Trap(Box::new(WasiError::Exit(
+                                ExitCode::Errno(Errno::Inval),
+                            )));
+                        }
+                    };
                     let env = builder.take().unwrap();
 
                     // Spawn a new process with this current execution environment
