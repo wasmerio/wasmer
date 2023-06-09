@@ -1301,6 +1301,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68b0cf012f1230e43cd00ebb729c6bb58707ecfa8ad08b52ef3a4ccd2697fc30"
+
+[[package]]
 name = "dynasm"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3731,6 +3737,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "schemars"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02c613288622e5f0c3fdc5dbd4db1c5fbe752746b1d1a56a0630b78fd00de44f"
+dependencies = [
+ "dyn-clone",
+ "schemars_derive",
+ "serde",
+ "serde_json",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "schemars_derive"
+version = "0.8.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "109da1e6b197438deb6db99952990c7f959572794b80ff93707d55a232545e7c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde_derive_internals",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3905,6 +3937,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.18",
+]
+
+[[package]]
+name = "serde_derive_internals"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85bf8229e7920a9f636479437026331ce11aa132b4dde37d121944a44d6e5f3c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -5482,9 +5525,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8e2e7ef256ead93466f60e8c7fdffd1f3f34fdf33ae7ff56cdf01f5dd4d53a9"
+checksum = "e473dc92e8deb9591c39ded19eeee073a430d57e5d400d4dd41547741637c697"
 dependencies = [
  "anyhow",
  "cynic",
@@ -5495,7 +5538,7 @@ dependencies = [
  "time 0.3.22",
  "tracing",
  "url",
- "wasmer-deploy-schema 0.0.3",
+ "wasmer-deploy-schema",
  "webc",
 ]
 
@@ -5755,9 +5798,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a0dbfd10317322e230aff6caf7ace1479fc5cb839ebd297b6bedb7e30c7130a"
+checksum = "c2df6291d23380a00c8ee10a00c9e8d776c682d0a92011ac5f41fe9b7e2ad559"
 dependencies = [
  "anyhow",
  "clap 4.3.2",
@@ -5782,7 +5825,7 @@ dependencies = [
  "url",
  "uuid",
  "wasmer-api",
- "wasmer-deploy-schema 0.0.4",
+ "wasmer-deploy-schema",
  "wasmer-deploy-util",
  "wasmer-registry 4.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-toml",
@@ -5791,30 +5834,17 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-schema"
-version = "0.0.3"
+version = "0.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89419a07705b5bdbb84bd9fae71fc7c0d47c45c0b593a1e39d8334177cd2ec20"
+checksum = "fa5f33abb644e7f4667c037b1f7183a25c6c88d748309ec480bdb6ee10b2da66"
 dependencies = [
+ "anyhow",
  "bytesize",
+ "schemars",
  "serde",
  "serde_json",
  "serde_path_to_error",
- "time 0.3.22",
- "url",
- "uuid",
- "wcgi-host",
-]
-
-[[package]]
-name = "wasmer-deploy-schema"
-version = "0.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08851e586b75833e53162b7bdef8ec0e04f0ed04e2623d6d1846d5ca92d42e37"
-dependencies = [
- "bytesize",
- "serde",
- "serde_json",
- "serde_path_to_error",
+ "serde_yaml 0.8.26",
  "time 0.3.22",
  "url",
  "uuid",
@@ -5823,12 +5853,12 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-util"
-version = "0.0.3"
+version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ed7ea0a8f5f5efcddba21e4ea251d90579309deef1cfa013a52a11421cfd635"
+checksum = "461a745d751ef47b1cb243c6e83e2bc4b180ca705b3b48328f8970415467a46e"
 dependencies = [
  "serde",
- "wasmer-deploy-schema 0.0.3",
+ "wasmer-deploy-schema",
  "wasmparser 0.95.0",
 ]
 
@@ -6442,6 +6472,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a762cf2b0ed389a2a2fb591d63a398c1a4c0f8bef938cfd040285a3c63b695cc"
 dependencies = [
  "http",
+ "schemars",
  "serde",
  "tokio",
  "wasmparser 0.95.0",
