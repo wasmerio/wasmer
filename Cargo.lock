@@ -313,9 +313,9 @@ dependencies = [
 
 [[package]]
 name = "blake3"
-version = "1.3.3"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42ae2468a89544a466886840aa467a25b766499f4f04bf7d9fcd10ecee9fccef"
+checksum = "729b71f35bd3fa1a4c86b85d32c8b9069ea7fe14f7a53cfabb65f62d4265b888"
 dependencies = [
  "arrayref",
  "arrayvec 0.7.2",
@@ -2435,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "proc-macro2",
  "proc-quote",
@@ -5060,7 +5060,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5169,7 +5169,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5275,7 +5275,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasi-test-generator"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "glob",
  "gumdrop",
@@ -5287,7 +5287,7 @@ dependencies = [
 
 [[package]]
 name = "wasix_http_client"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "http",
@@ -5488,7 +5488,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5560,7 +5560,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -5588,7 +5588,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "cc",
  "regex",
@@ -5598,7 +5598,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "blake3",
  "criterion",
@@ -5612,7 +5612,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "cc",
  "regex",
@@ -5622,7 +5622,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5680,7 +5680,7 @@ dependencies = [
  "wasmer-deploy-cli",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.7.0",
+ "wasmer-registry 5.0.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5692,7 +5692,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "backtrace",
  "cfg-if 1.0.0",
@@ -5717,7 +5717,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cli"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
  "atty",
@@ -5738,7 +5738,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -5757,7 +5757,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "byteorder",
  "cc",
@@ -5779,7 +5779,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -5827,7 +5827,7 @@ dependencies = [
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
- "wasmer-registry 4.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 4.7.0",
  "wasmer-toml",
  "webc",
 ]
@@ -5864,7 +5864,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -5876,7 +5876,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -5918,7 +5918,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
  "assert_cmd 2.0.11",
@@ -5945,11 +5945,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 
 [[package]]
 name = "wasmer-middlewares"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -5958,51 +5958,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "object 0.28.4",
  "thiserror",
  "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-registry"
-version = "4.7.0"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "pretty_assertions",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.17",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time 0.3.22",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "url",
- "wasmer-toml",
- "wasmer-wasm-interface 4.0.0-beta.1",
- "wasmparser 0.51.4",
- "whoami",
 ]
 
 [[package]]
@@ -6042,15 +6002,55 @@ dependencies = [
  "toml 0.5.11",
  "url",
  "wasmer-toml",
- "wasmer-wasm-interface 4.0.0-beta.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-wasm-interface 4.0.0-beta.1",
  "wasmparser 0.51.4",
  "webc",
  "whoami",
 ]
 
 [[package]]
+name = "wasmer-registry"
+version = "5.0.0"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "pretty_assertions",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time 0.3.22",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "url",
+ "wasmer-toml",
+ "wasmer-wasm-interface 4.0.0-beta.2",
+ "wasmparser 0.51.4",
+ "whoami",
+]
+
+[[package]]
 name = "wasmer-sys-utils"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "libc",
  "region",
@@ -6081,7 +6081,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -6098,7 +6098,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "backtrace",
  "cc",
@@ -6125,7 +6125,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6192,7 +6192,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -6207,7 +6207,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -6230,18 +6230,6 @@ dependencies = [
 [[package]]
 name = "wasmer-wasm-interface"
 version = "4.0.0-beta.1"
-dependencies = [
- "bincode",
- "either",
- "nom 5.1.3",
- "serde",
- "wasmparser 0.51.4",
- "wat",
-]
-
-[[package]]
-name = "wasmer-wasm-interface"
-version = "4.0.0-beta.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "beebc2fea7a6f5a5b2ed15b2f437d3923657f6a95dc9c57bdf8ad48b5a310233"
 dependencies = [
@@ -6252,8 +6240,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wasm-interface"
+version = "4.0.0-beta.2"
+dependencies = [
+ "bincode",
+ "either",
+ "nom 5.1.3",
+ "serde",
+ "wasmparser 0.51.4",
+ "wat",
+]
+
+[[package]]
 name = "wasmer-wast"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
  "serde",
@@ -6268,7 +6268,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "4.0.0-beta.1"
+version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
  "build-deps",
