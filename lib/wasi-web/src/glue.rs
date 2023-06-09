@@ -37,7 +37,7 @@ pub fn main() {
     set_panic_hook();
 }
 
-pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/bash";
+pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
 pub const DEFAULT_BOOT_USES: [&str; 1] = ["sharrattj/coreutils"];
 
 #[wasm_bindgen]
@@ -188,7 +188,7 @@ pub fn start() -> Result<(), JsValue> {
 
     let mut capabilities = Capabilities::default();
     capabilities.threading.max_threads = Some(50);
-    capabilities.threading.enable_asynchronous_threading = false;
+    capabilities.threading.enable_asynchronous_threading = true;
     console = console.with_capabilities(capabilities);
 
     let (tx, mut rx) = mpsc::unbounded_channel();
