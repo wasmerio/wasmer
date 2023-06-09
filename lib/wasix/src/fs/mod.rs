@@ -489,21 +489,25 @@ impl WasiFs {
 
     /// Will conditionally union the binary file system with this one
     /// if it has not already been unioned
-    pub fn conditional_union(&self, binary: &BinaryPackage) -> bool {
-        let sandbox_fs = match &self.root_fs {
-            WasiFsRoot::Sandbox(fs) => fs,
-            WasiFsRoot::Backing(_) => {
-                tracing::error!("can not perform a union on a backing file system");
-                return false;
-            }
-        };
+    pub async fn conditional_union(
+        &self,
+        binary: &BinaryPackage,
+    ) -> Result<(), virtual_fs::FsError> {
         let package_name = binary.package_name.to_string();
         let mut guard = self.has_unioned.lock().unwrap();
         if !guard.contains(&package_name) {
             guard.insert(package_name);
-            sandbox_fs.union(&binary.webc_fs);
+
+            match self.root_fs {
+                WasiFsRoot::Sandbox(ref sandbox_fs) => {
+                    sandbox_fs.union(&binary.webc_fs);
+                }
+                WasiFsRoot::Backing(ref fs) => {
+                    merge_filesystems(&binary.webc_fs, fs.deref()).await?;
+                }
+            }
         }
-        true
+        Ok(())
     }
 
     /// Created for the builder API. like `new` but with more information
