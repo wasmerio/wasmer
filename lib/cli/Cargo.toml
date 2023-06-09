@@ -45,8 +45,8 @@ virtual-fs  = { version = "0.4.0", path = "../virtual-fs", default-features = fa
 virtual-net  = { version = "0.3.0", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
-webc = { version = "5.0" }
-wapm-targz-to-pirita = "0.2.1"
+webc = { workspace = true }
+wapm-targz-to-pirita = { workspace = true }
 wasmer-deploy-cli = { version = "0.1.9", default-features = false }
 
 # Third-party dependencies.
@@ -67,7 +67,7 @@ dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
 prettytable-rs = "0.10.0"
-wasmer-toml = "0.6.0"
+wasmer-toml = { workspace = true }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"

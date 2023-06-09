@@ -22,7 +22,7 @@ use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use tokio::runtime::Handle;
 use url::Url;
-use wapm_targz_to_pirita::{FileMap, TransformManifestFunctions};
+use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 use wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -44,7 +44,7 @@ use wasmer_wasix::{
     },
     Runtime,
 };
-use webc::{metadata::Manifest, v1::DirOrFile, Container};
+use webc::{metadata::Manifest, Container};
 
 use crate::{commands::run::wasi::Wasi, error::PrettyError, store::StoreOptions};
 
@@ -610,7 +610,7 @@ fn construct_webc_in_memory(dir: &Path) -> Result<Vec<u8>, Error> {
     }
 
     let functions = TransformManifestFunctions::default();
-    let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, None, &functions)?;
+    let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, &functions)?;
 
     Ok(webc)
 }
