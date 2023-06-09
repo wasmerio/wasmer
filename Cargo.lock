@@ -5651,6 +5651,7 @@ dependencies = [
  "flate2",
  "hex",
  "indexmap",
+ "indicatif",
  "isatty",
  "libc",
  "log",

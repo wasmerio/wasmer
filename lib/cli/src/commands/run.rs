@@ -16,6 +16,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use clap::Parser;
+use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
@@ -32,7 +33,7 @@ use wasmer_registry::Package;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
-    runtime::resolver::PackageSpecifier,
+    runtime::{package_loader::PackageLoader, resolver::PackageSpecifier},
     WasiError,
 };
 use wasmer_wasix::{
@@ -46,6 +47,8 @@ use wasmer_wasix::{
 use webc::{metadata::Manifest, Container};
 
 use crate::{commands::run::wasi::Wasi, error::PrettyError, store::StoreOptions};
+
+const TICK: Duration = Duration::from_millis(250);
 
 static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
     wasmer_registry::WasmerConfig::get_wasmer_dir()
@@ -104,12 +107,23 @@ impl Run {
             self.wasi
                 .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
 
+        let progress = MultiProgress::new();
+
+        // This is a slow operation, so let's temporarily wrap the runtime with
+        // something that displays progress
+        let monitoring_runtime = MonitoringRuntime::new(runtime, progress.clone());
+        let pb = progress.add(ProgressBar::new_spinner().with_message("Getting Ready..."));
+        pb.enable_steady_tick(TICK);
+
         let target = self
             .input
-            .resolve_target(&runtime)
+            .resolve_target(&monitoring_runtime, &monitoring_runtime.progress)
             .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
 
-        let runtime: Arc<dyn Runtime + Send + Sync> = Arc::new(runtime);
+        pb.finish_and_clear();
+
+        let runtime: Arc<dyn Runtime + Send + Sync> = Arc::new(monitoring_runtime.runtime);
+
         let result = {
             match target {
                 ExecutableTarget::WebAssembly { module, path } => {
@@ -124,20 +138,6 @@ impl Run {
         }
 
         result
-    }
-
-    fn execute_target(
-        &self,
-        executable_target: ExecutableTarget,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-        store: Store,
-    ) -> Result<(), Error> {
-        match executable_target {
-            ExecutableTarget::WebAssembly { module, path } => {
-                self.execute_wasm(&path, &module, store, runtime)
-            }
-            ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
-        }
     }
 
     #[tracing::instrument(skip_all)]
@@ -464,10 +464,14 @@ impl PackageSource {
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
-    fn resolve_target(&self, rt: &dyn Runtime) -> Result<ExecutableTarget, Error> {
+    fn resolve_target(
+        &self,
+        rt: &dyn Runtime,
+        progress: &MultiProgress,
+    ) -> Result<ExecutableTarget, Error> {
         match self {
             PackageSource::File(path) => ExecutableTarget::from_file(path, rt),
-            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt),
+            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt, progress),
             PackageSource::Package(pkg) => {
                 let pkg = rt
                     .task_manager()
@@ -544,9 +548,22 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    fn from_dir(dir: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
+    fn from_dir(
+        dir: &Path,
+        runtime: &dyn Runtime,
+        progress: &MultiProgress,
+    ) -> Result<Self, Error> {
+        let pb = progress.add(
+            ProgressBar::new_spinner()
+                .with_message(format!("Loading \"{}\" into memory", dir.display())),
+        );
+        pb.enable_steady_tick(TICK);
+
         let webc = construct_webc_in_memory(dir)?;
         let container = Container::from_bytes(webc)?;
+
+        pb.finish_and_clear();
+        progress.remove(&pb);
 
         let pkg = runtime
             .task_manager()
@@ -751,4 +768,111 @@ fn get_exit_code(
     }
 
     None
+}
+
+#[derive(Debug)]
+struct MonitoringRuntime<R> {
+    runtime: R,
+    progress: MultiProgress,
+}
+
+impl<R> MonitoringRuntime<R> {
+    fn new(runtime: R, progress: MultiProgress) -> Self {
+        MonitoringRuntime { runtime, progress }
+    }
+}
+
+impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for MonitoringRuntime<R> {
+    fn networking(&self) -> &virtual_net::DynVirtualNetworking {
+        self.runtime.networking()
+    }
+
+    fn task_manager(&self) -> &Arc<dyn wasmer_wasix::VirtualTaskManager> {
+        self.runtime.task_manager()
+    }
+
+    fn package_loader(
+        &self,
+    ) -> Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync> {
+        let inner = self.runtime.package_loader();
+        Arc::new(MonitoringPackageLoader {
+            inner,
+            progress: self.progress.clone(),
+        })
+    }
+
+    fn module_cache(
+        &self,
+    ) -> Arc<dyn wasmer_wasix::runtime::module_cache::ModuleCache + Send + Sync> {
+        self.runtime.module_cache()
+    }
+
+    fn source(&self) -> Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync> {
+        let inner = self.runtime.source();
+        Arc::new(MonitoringSource {
+            inner,
+            progress: self.progress.clone(),
+        })
+    }
+}
+
+#[derive(Debug)]
+struct MonitoringSource {
+    inner: Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync>,
+    progress: MultiProgress,
+}
+
+#[async_trait::async_trait]
+impl wasmer_wasix::runtime::resolver::Source for MonitoringSource {
+    async fn query(
+        &self,
+        package: &PackageSpecifier,
+    ) -> Result<Vec<wasmer_wasix::runtime::resolver::PackageSummary>, Error> {
+        let pb = self
+            .progress
+            .add(ProgressBar::new_spinner().with_message(format!("Looking up {package}")));
+        pb.enable_steady_tick(TICK);
+
+        let result = self.inner.query(package).await;
+
+        pb.finish_and_clear();
+        self.progress.remove(&pb);
+
+        result
+    }
+}
+
+#[derive(Debug)]
+struct MonitoringPackageLoader {
+    inner: Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync>,
+    progress: MultiProgress,
+}
+
+#[async_trait::async_trait]
+impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageLoader {
+    async fn load(
+        &self,
+        summary: &wasmer_wasix::runtime::resolver::PackageSummary,
+    ) -> Result<Container, Error> {
+        let pkg_id = summary.package_id();
+        let pb = self
+            .progress
+            .add(ProgressBar::new_spinner().with_message(format!("Downloading {pkg_id}")));
+        pb.enable_steady_tick(TICK);
+
+        let result = self.inner.load(summary).await;
+
+        pb.finish_and_clear();
+        self.progress.remove(&pb);
+
+        result
+    }
+
+    async fn load_package_tree(
+        &self,
+        root: &Container,
+        resolution: &wasmer_wasix::runtime::resolver::Resolution,
+    ) -> Result<BinaryPackage, Error> {
+        self.inner.load_package_tree(root, resolution).await
+    }
 }
