@@ -314,6 +314,10 @@
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.
 
 </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
@@ -476,7 +480,10 @@
     </span>Run(Run),
 
     <span class="comment">// DEPLOY commands
-    </span><span class="attr">#[clap(subcommand)]
+    </span><span class="doccomment">/// Deploy apps to the Wasmer Edge.
+    </span>Deploy(wasmer_deploy_cli::cmd::publish::CmdAppPublish),
+
+    <span class="attr">#[clap(subcommand)]
     </span>App(wasmer_deploy_cli::cmd::app::CmdApp),
     Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
     <span class="attr">#[clap(subcommand)]
@@ -513,7 +520,8 @@
             <span class="self">Self</span>::Add(install) =&gt; install.execute(),
 
             <span class="comment">// Deploy commands.
-            </span><span class="self">Self</span>::App(apps) =&gt; apps.run(),
+            </span><span class="self">Self</span>::Deploy(c) =&gt; c.run(),
+            <span class="self">Self</span>::App(apps) =&gt; apps.run(),
             <span class="self">Self</span>::Ssh(ssh) =&gt; ssh.run(),
             <span class="self">Self</span>::Namespace(namespace) =&gt; namespace.run(),
         }
