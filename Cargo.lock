@@ -5060,7 +5060,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5169,7 +5169,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5287,7 +5287,7 @@ dependencies = [
 
 [[package]]
 name = "wasix_http_client"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "http",
@@ -5680,7 +5680,7 @@ dependencies = [
  "wasmer-deploy-cli",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 4.7.0",
+ "wasmer-registry 4.8.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5827,7 +5827,7 @@ dependencies = [
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
- "wasmer-registry 4.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 4.7.0",
  "wasmer-toml",
  "webc",
 ]
@@ -5968,46 +5968,6 @@ dependencies = [
 [[package]]
 name = "wasmer-registry"
 version = "4.7.0"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "pretty_assertions",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.17",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time 0.3.22",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "url",
- "wasmer-toml",
- "wasmer-wasm-interface 4.0.0-beta.2",
- "wasmparser 0.51.4",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
-version = "4.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abc018188be9bb86e1e548ad3e5eedc33e6a0fca703172b1dd4a605d35e82086"
 dependencies = [
@@ -6049,8 +6009,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-registry"
+version = "4.8.0"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "pretty_assertions",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.17",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time 0.3.22",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "url",
+ "wasmer-toml",
+ "wasmer-wasm-interface 4.0.0-beta.2",
+ "wasmparser 0.51.4",
+ "whoami",
+]
+
+[[package]]
 name = "wasmer-sys-utils"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "libc",
  "region",
@@ -6125,7 +6125,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6192,7 +6192,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -6207,7 +6207,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bitflags",
