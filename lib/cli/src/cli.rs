@@ -160,6 +160,9 @@ enum WasmerCLIOptions {
     Run(Run),
 
     // DEPLOY commands
+    /// Deploy apps to the Wasmer Edge.
+    Deploy(wasmer_deploy_cli::cmd::publish::CmdAppPublish),
+
     #[clap(subcommand)]
     App(wasmer_deploy_cli::cmd::app::CmdApp),
     Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
@@ -197,6 +200,7 @@ impl WasmerCLIOptions {
             Self::Add(install) => install.execute(),
 
             // Deploy commands.
+            Self::Deploy(c) => c.run(),
             Self::App(apps) => apps.run(),
             Self::Ssh(ssh) => ssh.run(),
             Self::Namespace(namespace) => namespace.run(),
