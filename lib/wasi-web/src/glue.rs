@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, trace, warn};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasmer_wasix::{
-    bin_factory::ModuleCache,
+    capabilities::Capabilities,
     os::{Console, InputEvent, Tty, TtyOptions},
     Pipe,
 };
@@ -39,7 +39,7 @@ pub fn main() {
 
 pub const DEFAULT_BOOT_WEBC: &'static str = "sharrattj/bash";
 //pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/dash";
-pub const DEFAULT_BOOT_USES: [&'static str; 2] = ["sharrattj/coreutils", "sharrattj/catsay"];
+pub const DEFAULT_BOOT_USES: [&'static str; 1] = ["sharrattj/coreutils"];
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
@@ -132,8 +132,6 @@ pub fn start() -> Result<(), JsValue> {
         tty_options,
     );
 
-    let compiled_modules = Arc::new(ModuleCache::new(None, None, false));
-
     let location = url::Url::parse(location.as_str()).unwrap();
     let mut console = if let Some(init) = location
         .query_pairs()
@@ -141,11 +139,11 @@ pub fn start() -> Result<(), JsValue> {
         .next()
         .map(|(_, val)| val.to_string())
     {
-        let mut console = Console::new(init.as_str(), runtime.clone(), compiled_modules);
+        let mut console = Console::new(init.as_str(), runtime.clone());
         console = console.with_no_welcome(true);
         console
     } else {
-        let mut console = Console::new(DEFAULT_BOOT_WEBC, runtime.clone(), compiled_modules);
+        let mut console = Console::new(DEFAULT_BOOT_WEBC, runtime.clone());
         console = console.with_uses(DEFAULT_BOOT_USES.iter().map(|a| a.to_string()).collect());
         console
     };

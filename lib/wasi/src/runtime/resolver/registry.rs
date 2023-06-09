@@ -89,7 +89,7 @@ impl PackageResolver for RegistryResolver {
         }
 
         crate::wapm::fetch_webc(
-            &self.cache_dir,
+            Some(&self.cache_dir),
             &pkg.full_name,
             client,
             &self.registry_endpoint,
