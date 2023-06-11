@@ -181,7 +181,11 @@ impl Wasi {
             .args(args)
             .envs(self.env_vars.clone())
             .uses(uses)
-            .include_webcs(self.include_webcs.clone())
+            .include_webcs(
+                self.include_webcs
+                    .iter()
+                    .map(|p| p.to_string_lossy().to_string()),
+            )
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasix::is_wasix_module(module) {
@@ -250,7 +254,10 @@ impl Wasi {
         wasmer_dir: &Path,
         handle: Handle,
     ) -> Result<impl Runtime + Send + Sync> {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        let mut rt = PluggableRuntime::new(
+            Arc::new(TokioTaskManager::new(handle)),
+            WapmSource::WAPM_PROD_ENDPOINT,
+        );
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());

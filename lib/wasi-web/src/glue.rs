@@ -12,6 +12,7 @@ use wasmer_wasix::{
     capabilities::Capabilities,
     os::{Console, InputEvent, Tty, TtyOptions},
     polyfill::ModuleCache,
+    runtime::resolver::WapmSource,
     Pipe,
 };
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
@@ -39,7 +40,8 @@ pub fn main() {
 }
 
 pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/bash";
-pub const DEFAULT_BOOT_USES: [&str; 2] = ["sharrattj/coreutils", "sharrattj/catsay"];
+//pub const DEFAULT_BOOT_USES: [&str; 2] = ["sharrattj/coreutils", "sharrattj/catsay"];
+pub const DEFAULT_BOOT_USES: [&str; 1] = ["sharrattj/coreutils"];
 
 #[wasm_bindgen]
 pub fn start() -> Result<(), JsValue> {
@@ -151,7 +153,7 @@ pub fn start() -> Result<(), JsValue> {
         console
     };
 
-    console = console.registry(WapmSource::WAPM_PROD_ENDPOINT);
+    console = console.with_registry(WapmSource::WAPM_PROD_ENDPOINT);
 
     let mut env = HashMap::new();
     if let Some(origin) = location.domain().clone() {

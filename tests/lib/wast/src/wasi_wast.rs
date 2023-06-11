@@ -10,6 +10,7 @@ use virtual_fs::{
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
+use wasmer_wasix::runtime::resolver::WapmSource;
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
@@ -101,7 +102,10 @@ impl<'a> WasiTest<'a> {
             out
         };
 
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        let mut rt = PluggableRuntime::new(
+            Arc::new(TokioTaskManager::shared()),
+            WapmSource::WAPM_PROD_ENDPOINT,
+        );
         rt.set_engine(Some(store.engine().clone()));
 
         let tasks = rt.task_manager().runtime().clone();

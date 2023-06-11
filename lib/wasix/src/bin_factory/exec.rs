@@ -41,7 +41,7 @@ pub async fn spawn_exec(
                 SpawnError::CompileError
             });
             if module.is_err() {
-                env.blocking_cleanup(Some(Errno::Noexec.into()));
+                env.cleanup(Some(Errno::Noexec.into())).await;
             }
             let module = module?;
 
@@ -57,7 +57,7 @@ pub async fn spawn_exec(
         }
         (None, None) => {
             error!("package has no entry [{}]", name,);
-            env.blocking_cleanup(Some(Errno::Noexec.into()));
+            env.cleanup(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }
     };
