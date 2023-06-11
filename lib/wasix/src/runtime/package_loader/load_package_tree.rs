@@ -1,24 +1,29 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    path::Path,
+    fmt::Debug,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::{Context, Error};
-use futures::{stream::FuturesUnordered, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
-use virtual_fs::{FileSystem, WebcVolumeFileSystem};
-use webc::compat::Container;
+use virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
+use webc::compat::{Container, Volume};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     runtime::{
         package_loader::PackageLoader,
         resolver::{
-            DependencyGraph, ItemLocation, PackageId, PackageSummary, Resolution, ResolvedPackage,
+            DependencyGraph, ItemLocation, PackageId, PackageSummary, Resolution,
+            ResolvedFileSystemMapping, ResolvedPackage,
         },
     },
 };
+
+/// The maximum number of packages that will be loaded in parallel.
+const MAX_PARALLEL_DOWNLOADS: usize = 32;
 
 /// Given a fully resolved package, load it into memory for execution.
 #[tracing::instrument(level = "debug", skip_all)]
@@ -213,33 +218,29 @@ async fn fetch_dependencies(
     // We don't need to download the root package
     packages.remove(&pkg.root_package);
 
-    let packages: FuturesUnordered<_> = packages
-        .into_iter()
-        .map(|id| async {
-            let summary = PackageSummary {
-                pkg: graph.package_info[&id].clone(),
-                dist: graph.distribution[&id].clone(),
-            };
-            loader.load(&summary).await.map(|webc| (id, webc))
+    let packages = packages.into_iter().filter_map(|id| {
+        let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
+        let summary = PackageSummary {
+            pkg: pkg.clone(),
+            dist: dist.clone()?,
+        };
+        Some((id, summary))
+    });
+    let packages: HashMap<PackageId, Container> = futures::stream::iter(packages)
+        .map(|(id, s)| async move {
+            match loader.load(&s).await {
+                Ok(webc) => Ok((id, webc)),
+                Err(e) => Err(e),
+            }
         })
-        .collect();
-
-    let packages: HashMap<PackageId, Container> = packages.try_collect().await?;
+        .buffer_unordered(MAX_PARALLEL_DOWNLOADS)
+        .try_collect()
+        .await?;
 
     Ok(packages)
 }
 
-fn filesystem(
-    packages: &HashMap<PackageId, Container>,
-    pkg: &ResolvedPackage,
-) -> Result<impl FileSystem + Send + Sync, Error> {
-    // FIXME: Take the [fs] table into account
-    // See <https://github.com/wasmerio/wasmer/issues/3744> for more
-    let root = &packages[&pkg.root_package];
-    let fs = WebcVolumeFileSystem::mount_all(root);
-    Ok(fs)
-}
-
+/// How many bytes worth of files does a directory contain?
 fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     let mut total = 0;
 
@@ -260,4 +261,182 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     }
 
     total
+}
+
+/// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
+/// package in a dependency tree, construct the resulting filesystem.
+///
+/// # Note to future readers
+///
+/// Sooo... this code is a bit convoluted because we're constrained by the
+/// filesystem implementations we've got available.
+///
+/// Ideally, we would create a WebcVolumeFileSystem for each volume we're
+/// using, then we'd have a single "union" filesystem which lets you mount
+/// filesystem objects under various paths and can deal with conflicts.
+///
+/// The OverlayFileSystem lets us make files from multiple filesystem
+/// implementations available at the same time, however all of the
+/// filesystems will be mounted at "/", when the user wants to mount volumes
+/// at arbitrary locations.
+///
+/// The TmpFileSystem *does* allow mounting at non-root paths, however it can't
+/// handle nested paths (e.g. mounting to "/lib" and "/lib/python3.10" - see
+/// <https://github.com/wasmerio/wasmer/issues/3678> for more) and you aren't
+/// allowed to mount to "/" because it's a special directory that already
+/// exists.
+///
+/// As a result, we'll duct-tape things together and hope for the best 🤞
+fn filesystem(
+    packages: &HashMap<PackageId, Container>,
+    pkg: &ResolvedPackage,
+) -> Result<impl FileSystem + Send + Sync, Error> {
+    let mut filesystems = Vec::new();
+    let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
+
+    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
+    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
+
+    for ResolvedFileSystemMapping {
+        mount_path,
+        volume_name,
+        package,
+        original_path,
+    } in &pkg.filesystem
+    {
+        // Note: We want to reuse existing Volume instances if we can. That way
+        // we can keep the memory usage down. A webc::compat::Volume is
+        // reference-counted, anyway.
+        let container_volumes = match volumes.entry(package) {
+            std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                // looks like we need to insert it
+                let container = packages.get(package)
+                    .with_context(|| format!(
+                        "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                        pkg.root_package,
+                        package,
+                    ))?;
+                &*entry.insert(container.volumes())
+            }
+        };
+
+        let volume = container_volumes.get(volume_name).with_context(|| {
+            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+        })?;
+
+        let original_path = PathBuf::from(original_path);
+        let mount_path = mount_path.clone();
+        // Get a filesystem which will map "$mount_dir/some-path" to
+        // "$original_path/some-path" on the original volume
+        let fs =
+            MappedPathFileSystem::new(WebcVolumeFileSystem::new(volume.clone()), move |path| {
+                let without_mount_dir = path
+                    .strip_prefix(&mount_path)
+                    .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
+                let path_on_original_volume = original_path.join(without_mount_dir);
+                Ok(path_on_original_volume)
+            });
+
+        filesystems.push(fs);
+    }
+
+    let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), filesystems);
+
+    Ok(fs)
+}
+
+/// A [`FileSystem`] implementation that lets you map the [`Path`] to something
+/// else.
+#[derive(Clone, PartialEq)]
+struct MappedPathFileSystem<F, M> {
+    inner: F,
+    map: M,
+}
+
+impl<F, M> MappedPathFileSystem<F, M>
+where
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn new(inner: F, map: M) -> Self {
+        MappedPathFileSystem { inner, map }
+    }
+
+    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
+        let path = (self.map)(path)?;
+
+        // Don't forget to make the path absolute again.
+        Ok(Path::new("/").join(path))
+    }
+}
+
+impl<M, F> FileSystem for MappedPathFileSystem<F, M>
+where
+    F: FileSystem,
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
+        let path = self.path(path)?;
+        self.inner.read_dir(&path)
+    }
+
+    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.create_dir(&path)
+    }
+
+    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.remove_dir(&path)
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
+        let from = self.path(from)?;
+        let to = self.path(to)?;
+        self.inner.rename(&from, &to)
+    }
+
+    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        let path = self.path(path)?;
+        self.inner.metadata(&path)
+    }
+
+    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.remove_file(&path)
+    }
+
+    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+        virtual_fs::OpenOptions::new(self)
+    }
+}
+
+impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
+where
+    F: FileSystem,
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn open(
+        &self,
+        path: &Path,
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
+        let path = self.path(path)?;
+        self.inner
+            .new_open_options()
+            .options(conf.clone())
+            .open(path)
+    }
+}
+
+impl<F, M> Debug for MappedPathFileSystem<F, M>
+where
+    F: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappedPathFileSystem")
+            .field("inner", &self.inner)
+            .field("map", &std::any::type_name::<M>())
+            .finish()
+    }
 }
