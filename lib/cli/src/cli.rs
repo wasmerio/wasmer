@@ -163,9 +163,14 @@ enum WasmerCLIOptions {
     /// Deploy apps to the Wasmer Edge.
     Deploy(wasmer_deploy_cli::cmd::publish::CmdAppPublish),
 
+    /// Manage deployed apps.
     #[clap(subcommand, alias = "apps")]
     App(wasmer_deploy_cli::cmd::app::CmdApp),
+
+    /// Create a dynamic on the Deploy Edge, and connect to it through SSH.
     Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+
+    /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]
     Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
