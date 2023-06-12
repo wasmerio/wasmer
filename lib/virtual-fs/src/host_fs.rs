@@ -3,6 +3,7 @@ use crate::{
     VirtualFile,
 };
 use bytes::{Buf, Bytes};
+use futures::future::LocalBoxFuture;
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
@@ -15,7 +16,6 @@ use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
-use tracing::debug;
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -67,49 +67,53 @@ impl crate::FileSystem for FileSystem {
         fs::remove_dir(path).map_err(Into::into)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        use filetime::{set_file_mtime, FileTime};
-        if from.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-        if to.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-        if !from.exists() {
-            return Err(FsError::EntryNotFound);
-        }
-        let from_parent = from.parent().unwrap();
-        let to_parent = to.parent().unwrap();
-        if !from_parent.exists() {
-            return Err(FsError::EntryNotFound);
-        }
-        if !to_parent.exists() {
-            return Err(FsError::EntryNotFound);
-        }
-        let result = if from_parent != to_parent {
-            let _ = std::fs::create_dir_all(to_parent);
-            if from.is_dir() {
-                fs_extra::move_items(
-                    &[from],
-                    to,
-                    &fs_extra::dir::CopyOptions {
-                        copy_inside: true,
-                        ..Default::default()
-                    },
-                )
-                .map(|_| ())
-                .map_err(|_| FsError::UnknownError)?;
-                let _ = fs_extra::remove_items(&[from]);
-                Ok(())
-            } else {
-                fs::copy(from, to).map(|_| ()).map_err(FsError::from)?;
-                fs::remove_file(from).map(|_| ()).map_err(Into::into)
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+        let from = from.to_owned();
+        let to = to.to_owned();
+        Box::pin(async move {
+            use filetime::{set_file_mtime, FileTime};
+            if from.parent().is_none() {
+                return Err(FsError::BaseNotDirectory);
             }
-        } else {
-            fs::rename(from, to).map_err(Into::into)
-        };
-        let _ = set_file_mtime(to, FileTime::now()).map(|_| ());
-        result
+            if to.parent().is_none() {
+                return Err(FsError::BaseNotDirectory);
+            }
+            if !from.exists() {
+                return Err(FsError::EntryNotFound);
+            }
+            let from_parent = from.parent().unwrap();
+            let to_parent = to.parent().unwrap();
+            if !from_parent.exists() {
+                return Err(FsError::EntryNotFound);
+            }
+            if !to_parent.exists() {
+                return Err(FsError::EntryNotFound);
+            }
+            let result = if from_parent != to_parent {
+                let _ = std::fs::create_dir_all(to_parent);
+                if from.is_dir() {
+                    fs_extra::move_items(
+                        &[&from],
+                        &to,
+                        &fs_extra::dir::CopyOptions {
+                            copy_inside: true,
+                            ..Default::default()
+                        },
+                    )
+                    .map(|_| ())
+                    .map_err(|_| FsError::UnknownError)?;
+                    let _ = fs_extra::remove_items(&[&from]);
+                    Ok(())
+                } else {
+                    fs::copy(&from, &to).map(|_| ()).map_err(FsError::from)?;
+                    fs::remove_file(&from).map(|_| ()).map_err(Into::into)
+                }
+            } else {
+                fs::rename(&from, &to).map_err(Into::into)
+            };
+            let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
+            result
+        })
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -385,12 +389,12 @@ impl VirtualFile for File {
         self.metadata().len()
     }
 
-    fn set_len(&mut self, new_size: u64) -> Result<()> {
+    fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
         fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> Result<()> {
-        fs::remove_file(&self.host_path).map_err(Into::into)
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+        Box::pin(async { fs::remove_file(&self.host_path).map_err(Into::into) })
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -517,13 +521,12 @@ impl VirtualFile for Stdout {
         0
     }
 
-    fn set_len(&mut self, _new_size: u64) -> Result<()> {
-        debug!("Calling VirtualFile::set_len on stdout; this is probably a bug");
-        Err(FsError::PermissionDenied)
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+        Ok(())
     }
 
-    fn unlink(&mut self) -> Result<()> {
-        Ok(())
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -692,13 +695,12 @@ impl VirtualFile for Stderr {
         0
     }
 
-    fn set_len(&mut self, _new_size: u64) -> Result<()> {
-        debug!("Calling VirtualFile::set_len on stderr; this is probably a bug");
-        Err(FsError::PermissionDenied)
+    fn set_len<'a>(&'a mut self, _new_size: u64) -> crate::Result<()> {
+        Ok(())
     }
 
-    fn unlink(&mut self) -> Result<()> {
-        Ok(())
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -821,12 +823,11 @@ impl VirtualFile for Stdin {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> Result<()> {
-        debug!("Calling VirtualFile::set_len on stdin; this is probably a bug");
-        Err(FsError::PermissionDenied)
-    }
-    fn unlink(&mut self) -> Result<()> {
+    fn set_len<'a>(&'a mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
+    }
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+        Box::pin(async { Ok(()) })
     }
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)
@@ -873,8 +874,8 @@ mod tests {
     use crate::FsError;
     use std::path::Path;
 
-    #[test]
-    fn test_new_filesystem() {
+    #[tokio::test]
+    async fn test_new_filesystem() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("foo2.txt"), b"").unwrap();
 
@@ -1006,8 +1007,8 @@ mod tests {
             .collect::<Vec<_>>()
     }
 
-    #[test]
-    fn test_rename() {
+    #[tokio::test]
+    async fn test_rename() {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
         std::fs::create_dir_all(temp.path().join("foo").join("qux")).unwrap();
@@ -1015,18 +1016,18 @@ mod tests {
         let bar = temp.path().join("bar");
 
         assert_eq!(
-            fs.rename(Path::new("/"), Path::new("/bar")),
+            fs.rename(Path::new("/"), Path::new("/bar")).await,
             Err(FsError::BaseNotDirectory),
             "renaming a directory that has no parent",
         );
         assert_eq!(
-            fs.rename(Path::new("/foo"), Path::new("/")),
+            fs.rename(Path::new("/foo"), Path::new("/")).await,
             Err(FsError::BaseNotDirectory),
             "renaming to a directory that has no parent",
         );
 
         assert_eq!(
-            fs.rename(&foo, &foo.join("bar").join("baz"),),
+            fs.rename(&foo, &foo.join("bar").join("baz"),).await,
             Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
@@ -1036,7 +1037,7 @@ mod tests {
         assert_eq!(fs.create_dir(&bar), Ok(()));
 
         assert_eq!(
-            fs.rename(&foo, &bar),
+            fs.rename(&foo, &bar).await,
             Ok(()),
             "renaming to a directory that has parent that exists",
         );
@@ -1097,19 +1098,21 @@ mod tests {
         assert_eq!(fs.create_dir(&foo), Ok(()), "create ./foo again",);
 
         assert_eq!(
-            fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt")),
+            fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt"))
+                .await,
             Ok(()),
             "renaming (and moving) a file",
         );
 
         assert_eq!(
-            fs.rename(&foo, &bar.join("baz")),
+            fs.rename(&foo, &bar.join("baz")).await,
             Ok(()),
             "renaming a directory",
         );
 
         assert_eq!(
-            fs.rename(&bar.join("hello1.txt"), &bar.join("world1.txt")),
+            fs.rename(&bar.join("hello1.txt"), &bar.join("world1.txt"))
+                .await,
             Ok(()),
             "renaming a file (in the same directory)",
         );
@@ -1133,8 +1136,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_metadata() {
+    #[tokio::test]
+    async fn test_metadata() {
         use std::thread::sleep;
         use std::time::Duration;
 
@@ -1171,7 +1174,7 @@ mod tests {
 
         let bar = temp.path().join("bar");
 
-        assert_eq!(fs.rename(&foo, &bar), Ok(()));
+        assert_eq!(fs.rename(&foo, &bar).await, Ok(()));
 
         let bar_metadata = fs.metadata(&bar).unwrap();
         assert!(bar_metadata.ft.dir);
@@ -1186,8 +1189,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_remove_file() {
+    #[tokio::test]
+    async fn test_remove_file() {
         let fs = FileSystem::default();
         let temp = TempDir::new().unwrap();
 
@@ -1221,8 +1224,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_readdir() {
+    #[tokio::test]
+    async fn test_readdir() {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
 

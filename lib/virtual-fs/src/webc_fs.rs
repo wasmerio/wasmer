@@ -3,6 +3,7 @@ use crate::{
     FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 use anyhow::anyhow;
+use futures::future::LocalBoxFuture;
 use std::convert::{TryFrom, TryInto};
 use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
 use std::ops::Deref;
@@ -157,11 +158,11 @@ where
     fn size(&self) -> u64 {
         self.entry.get_len()
     }
-    fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), FsError> {
-        Ok(())
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<(), FsError>> {
+        Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let remaining = self.entry.get_len() - self.cursor;
@@ -329,15 +330,21 @@ where
             result
         }
     }
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-        let from = normalizes_path(from);
-        let to = normalizes_path(to);
-        let result = self.memory.rename(Path::new(&from), Path::new(&to));
-        if self.volumes.iter().any(|v| v.get_file_entry(&from).is_ok()) {
-            Ok(())
-        } else {
-            result
-        }
+    fn rename<'a>(
+        &'a self,
+        from: &'a Path,
+        to: &'a Path,
+    ) -> LocalBoxFuture<'a, Result<(), FsError>> {
+        Box::pin(async {
+            let from = normalizes_path(from);
+            let to = normalizes_path(to);
+            let result = self.memory.rename(Path::new(&from), Path::new(&to)).await;
+            if self.volumes.iter().any(|v| v.get_file_entry(&from).is_ok()) {
+                Ok(())
+            } else {
+                result
+            }
+        })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);

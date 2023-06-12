@@ -1,6 +1,8 @@
 //! Used for /dev/zero - infinitely returns zero
 //! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
 
+use futures::future::LocalBoxFuture;
+use futures::Future;
 use replace_with::replace_with_or_abort;
 use std::io::{self, *};
 use std::pin::Pin;
@@ -54,6 +56,18 @@ impl CopyOnWriteFile {
             state: CowState::ReadOnly(inner),
             buf: BufferFile::default(),
         }
+    }
+    async fn copy_on_write(&mut self) -> io::Result<()> {
+        struct Poller<'a> {
+            inner: &'a mut CopyOnWriteFile,
+        }
+        impl<'a> Future for Poller<'a> {
+            type Output = io::Result<()>;
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                self.inner.poll_copy_start_and_progress(cx)
+            }
+        }
+        Poller { inner: self }.await
     }
     fn poll_copy_progress(&mut self, cx: &mut Context) -> Poll<io::Result<()>> {
         if let CowState::Copying { ref mut inner, pos } = &mut self.state {
@@ -201,12 +215,14 @@ impl VirtualFile for CopyOnWriteFile {
             None => self.buf.size(),
         }
     }
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+    fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
         self.buf.set_len(new_size)
     }
-    fn unlink(&mut self) -> crate::Result<()> {
-        self.buf.set_len(0)?;
-        Ok(())
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+        Box::pin(async {
+            self.copy_on_write().await?;
+            self.buf.set_len(0)
+        })
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         match self.poll_copy_progress(cx) {

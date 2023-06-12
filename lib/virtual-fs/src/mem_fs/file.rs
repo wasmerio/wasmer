@@ -2,6 +2,7 @@
 //! implementations. They aren't exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
+use futures::future::LocalBoxFuture;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
@@ -189,8 +190,8 @@ impl VirtualFile for FileHandle {
             Some(Node::ReadOnlyFile { .. }) => return Err(FsError::PermissionDenied),
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
-                self.lazy_load_arc_file_mut()
-                    .map(|file| file.set_len(new_size))??;
+                let file = self.lazy_load_arc_file_mut()?;
+                file.set_len(new_size)?;
             }
             _ => return Err(FsError::NotAFile),
         }
@@ -198,49 +199,51 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn unlink(&mut self) -> Result<()> {
-        let (inode_of_parent, position, inode_of_file) = {
-            // Read lock.
-            let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+        Box::pin(async {
+            let (inode_of_parent, position, inode_of_file) = {
+                // Read lock.
+                let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
-            // The inode of the file.
-            let inode_of_file = self.inode;
+                // The inode of the file.
+                let inode_of_file = self.inode;
 
-            // Find the position of the file in the parent, and the
-            // inode of the parent.
-            let (position, inode_of_parent) = fs
-                .storage
-                .iter()
-                .find_map(|(inode_of_parent, node)| match node {
-                    Node::Directory(DirectoryNode { children, .. }) => {
-                        children.iter().enumerate().find_map(|(nth, inode)| {
-                            if inode == &inode_of_file {
-                                Some((nth, inode_of_parent))
-                            } else {
-                                None
-                            }
-                        })
-                    }
+                // Find the position of the file in the parent, and the
+                // inode of the parent.
+                let (position, inode_of_parent) = fs
+                    .storage
+                    .iter()
+                    .find_map(|(inode_of_parent, node)| match node {
+                        Node::Directory(DirectoryNode { children, .. }) => {
+                            children.iter().enumerate().find_map(|(nth, inode)| {
+                                if inode == &inode_of_file {
+                                    Some((nth, inode_of_parent))
+                                } else {
+                                    None
+                                }
+                            })
+                        }
 
-                    _ => None,
-                })
-                .ok_or(FsError::BaseNotDirectory)?;
+                        _ => None,
+                    })
+                    .ok_or(FsError::BaseNotDirectory)?;
 
-            (inode_of_parent, position, inode_of_file)
-        };
+                (inode_of_parent, position, inode_of_file)
+            };
 
-        {
-            // Write lock.
-            let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
+            {
+                // Write lock.
+                let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
-            // Remove the file from the storage.
-            fs.storage.remove(inode_of_file);
+                // Remove the file from the storage.
+                fs.storage.remove(inode_of_file);
 
-            // Remove the child from the parent directory.
-            fs.remove_child_from_node(inode_of_parent, position)?;
-        }
+                // Remove the child from the parent directory.
+                fs.remove_child_from_node(inode_of_parent, position)?;
+            }
 
-        Ok(())
+            Ok(())
+        })
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -278,8 +281,8 @@ impl VirtualFile for FileHandle {
 
     fn copy_reference<'a>(
         &'a mut self,
-        src: Box<dyn VirtualFile + Send + Sync>,
-    ) -> Pin<Box<dyn std::future::Future<Output = std::io::Result<()>> + 'a>> {
+        src: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> LocalBoxFuture<'a, std::io::Result<()>> {
         let inner = self.filesystem.inner.clone();
         Box::pin(async move {
             let mut fs = inner.write().unwrap();
@@ -492,8 +495,8 @@ mod test_virtual_file {
         assert_eq!(file.size(), 0, "new file is empty");
     }
 
-    #[test]
-    fn test_set_len() {
+    #[tokio::test]
+    async fn test_set_len() {
         let fs = FileSystem::default();
 
         let mut file = fs
@@ -507,8 +510,8 @@ mod test_virtual_file {
         assert_eq!(file.size(), 7, "file has a new length");
     }
 
-    #[test]
-    fn test_unlink() {
+    #[tokio::test]
+    async fn test_unlink() {
         let fs = FileSystem::default();
 
         let mut file = fs
@@ -547,7 +550,7 @@ mod test_virtual_file {
             );
         }
 
-        assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+        assert_eq!(file.unlink().await, Ok(()), "unlinking the file");
 
         {
             let fs_inner = fs.inner.read().unwrap();

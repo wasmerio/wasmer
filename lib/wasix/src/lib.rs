@@ -155,9 +155,12 @@ pub enum SpawnError {
     /// Access denied
     #[error("access denied")]
     AccessDenied,
-    /// Internal error has occured
+    /// Internal error has occurred
     #[error("internal error")]
     InternalError,
+    /// An error occurred while preparing the file system
+    #[error("file system error")]
+    FileSystemError,
     /// Memory allocation failed
     #[error("memory allocation failed")]
     MemoryAllocationFailed,

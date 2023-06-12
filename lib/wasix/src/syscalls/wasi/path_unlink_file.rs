@@ -16,15 +16,15 @@ pub fn path_unlink_file<M: MemorySize>(
     fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let base_dir = wasi_try!(state.fs.get_fd(fd));
+    let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
     if !base_dir.rights.contains(Rights::PATH_UNLINK_FILE) {
-        return Errno::Access;
+        return Ok(Errno::Access);
     }
-    let mut path_str = unsafe { get_input_str!(&memory, path, path_len) };
+    let mut path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
     // Convert relative paths into absolute paths
@@ -32,8 +32,8 @@ pub fn path_unlink_file<M: MemorySize>(
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
     }
 
-    let inode = wasi_try!(state.fs.get_inode_at_path(inodes, fd, &path_str, false));
-    let (parent_inode, childs_name) = wasi_try!(state.fs.get_parent_inode_at_path(
+    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, &path_str, false));
+    let (parent_inode, childs_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(&path_str),
@@ -46,13 +46,13 @@ pub fn path_unlink_file<M: MemorySize>(
             Kind::Dir {
                 ref mut entries, ..
             } => {
-                let removed_inode = wasi_try!(entries.remove(&childs_name).ok_or(Errno::Inval));
+                let removed_inode = wasi_try_ok!(entries.remove(&childs_name).ok_or(Errno::Inval));
                 // TODO: make this a debug assert in the future
                 assert!(inode.ino() == removed_inode.ino());
                 debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
                 removed_inode
             }
-            Kind::Root { .. } => return Errno::Access,
+            Kind::Root { .. } => return Ok(Errno::Access),
             _ => unreachable!(
                 "Internal logic error in wasi::path_unlink_file, parent is not a directory"
             ),
@@ -71,17 +71,20 @@ pub fn path_unlink_file<M: MemorySize>(
                 Kind::File { handle, path, .. } => {
                     if let Some(h) = handle {
                         let mut h = h.write().unwrap();
-                        wasi_try!(h.unlink().map_err(fs_error_into_wasi_err));
+                        let state = state.clone();
+                        wasi_try_ok!(__asyncify_light(env, None, async move {
+                            h.unlink().await.map_err(fs_error_into_wasi_err)
+                        })?)
                     } else {
                         // File is closed
                         // problem with the abstraction, we can't call unlink because there's no handle
                         // drop mutable borrow on `path`
                         let path = path.clone();
                         drop(guard);
-                        wasi_try!(state.fs_remove_file(path));
+                        wasi_try_ok!(state.fs_remove_file(path));
                     }
                 }
-                Kind::Dir { .. } | Kind::Root { .. } => return Errno::Isdir,
+                Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
                 Kind::Symlink { .. } => {
                     // TODO: actually delete real symlinks and do nothing for virtual symlinks
                 }
@@ -90,5 +93,5 @@ pub fn path_unlink_file<M: MemorySize>(
         }
     }
 
-    Errno::Success
+    Ok(Errno::Success)
 }

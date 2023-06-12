@@ -3,6 +3,7 @@
 
 use crate::VirtualFile;
 use derivative::Derivative;
+use futures::future::LocalBoxFuture;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{
@@ -104,13 +105,15 @@ impl VirtualFile for ArcBoxFile {
         let inner = self.inner.lock().unwrap();
         inner.size()
     }
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+    fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink(&mut self) -> crate::Result<()> {
-        let mut inner = self.inner.lock().unwrap();
-        inner.unlink()
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+        Box::pin(async {
+            let mut inner = self.inner.lock().unwrap();
+            inner.unlink().await
+        })
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

@@ -4,6 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use futures::future::LocalBoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{FileOpener, FileSystem, OpenOptionsConfig, VirtualFile};
@@ -54,8 +55,12 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn rename(&self, from: &std::path::Path, to: &std::path::Path) -> crate::Result<()> {
-        self.0.rename(from, to)
+    fn rename<'a>(
+        &'a self,
+        from: &'a std::path::Path,
+        to: &'a std::path::Path,
+    ) -> LocalBoxFuture<'a, crate::Result<()>> {
+        Box::pin(async { self.0.rename(from, to).await })
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
@@ -84,11 +89,14 @@ where
         path: &std::path::Path,
         conf: &OpenOptionsConfig,
     ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync + 'static>> {
-        let file = self.0.new_open_options().options(conf.clone()).open(path)?;
-
+        let file = self
+            .0
+            .new_open_options()
+            .options(conf.clone())
+            .open(&path)?;
         Ok(Box::new(TraceFile {
             file,
-            path: path.to_path_buf(),
+            path: path.to_owned(),
         }))
     }
 }
@@ -126,8 +134,8 @@ impl VirtualFile for TraceFile {
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()), err)]
-    fn unlink(&mut self) -> crate::Result<()> {
-        self.file.unlink()
+    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+        Box::pin(async { self.file.unlink().await })
     }
 
     #[tracing::instrument(level = "trace", skip_all, fields(path=%self.path.display()))]

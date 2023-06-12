@@ -81,8 +81,8 @@ impl FileSystem for TmpFileSystem {
         self.fs.remove_dir(path)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        self.fs.rename(from, to)
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+        Box::pin(async { self.fs.rename(from, to).await })
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
