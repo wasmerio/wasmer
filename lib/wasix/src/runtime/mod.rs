@@ -135,7 +135,7 @@ impl PluggableRuntime {
         let mut source = MultiSource::new();
         if let Some(client) = &http_client {
             source.add_source(WapmSource::new(
-                WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
+                WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
                 client.clone(),
             ));
         }

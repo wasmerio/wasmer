@@ -37,10 +37,10 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 )]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
-    /// Login into a wapm.io-like registry
+    /// Login into a wasmer.io-like registry
     Login(Login),
 
-    /// Login into a wapm.io-like registry
+    /// Login into a wasmer.io-like registry
     #[clap(name = "publish")]
     Publish(Publish),
 
@@ -152,7 +152,7 @@ enum WasmerCLIOptions {
     /// Shows the current logged in user for the current active registry
     Whoami(Whoami),
 
-    /// Add a WAPM package's bindings to your application.
+    /// Add a Wasmer package's bindings to your application.
     Add(Add),
 
     /// (unstable) Run a WebAssembly file or WEBC container.

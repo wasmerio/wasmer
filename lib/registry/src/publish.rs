@@ -87,7 +87,7 @@ pub fn try_chunked_uploading(
         }
         SignArchiveResult::NoKeyRegistered => {
             // TODO: uncomment this when we actually want users to start using it
-            //warn!("Publishing package without a verifying signature. Consider registering a key pair with wapm");
+            //warn!("Publishing package without a verifying signature. Consider registering a key pair with wasmer");
             None
         }
     };

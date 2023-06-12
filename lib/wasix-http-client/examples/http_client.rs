@@ -3,7 +3,7 @@ use wasix_http_client::{Body, HttpClient, RequestBuilder};
 fn main() {
     let c = HttpClient::new().unwrap();
     let r = RequestBuilder::new()
-        .uri("http://ferris2.christoph.app.wapm.dev/http-client-test")
+        .uri("http://ferris2.christoph.app.wasmer.wtf/http-client-test")
         .body(Body::empty())
         .unwrap();
     eprintln!("fetching: {r:?}");
