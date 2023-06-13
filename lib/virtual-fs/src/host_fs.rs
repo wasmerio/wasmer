@@ -393,8 +393,9 @@ impl VirtualFile for File {
         fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
-        Box::pin(async { fs::remove_file(&self.host_path).map_err(Into::into) })
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
+        let path = self.host_path.clone();
+        Box::pin(async move { fs::remove_file(&path).map_err(Into::into) })
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -525,7 +526,7 @@ impl VirtualFile for Stdout {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
         Box::pin(async { Ok(()) })
     }
 
@@ -699,7 +700,7 @@ impl VirtualFile for Stderr {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
         Box::pin(async { Ok(()) })
     }
 
@@ -826,7 +827,7 @@ impl VirtualFile for Stdin {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
         Box::pin(async { Ok(()) })
     }
     fn get_special_fd(&self) -> Option<u32> {

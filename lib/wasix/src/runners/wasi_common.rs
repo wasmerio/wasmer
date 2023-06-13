@@ -5,7 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -246,7 +246,7 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.remove_dir(p))
     }
 
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> LocalBoxFuture<'a, virtual_fs::Result<()>> {
+    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();
         Box::pin(async move { self.0.rename(&from, &to).await })

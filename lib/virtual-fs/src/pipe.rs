@@ -390,7 +390,7 @@ impl VirtualFile for Pipe {
     }
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
         Box::pin(async { Ok(()) })
     }
 

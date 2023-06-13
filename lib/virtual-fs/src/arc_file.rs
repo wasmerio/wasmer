@@ -127,12 +127,11 @@ where
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
-        let fut = futures::future::poll_fn(|ctx| );
-        Box::pin(async {
-            let mut inner = self.inner.lock().unwrap();
-            inner.unlink().await
-        })
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+        let mut inner = self.inner.lock().unwrap();
+        let fut = inner.unlink();
+        drop(inner);
+        Box::pin(async move { fut.await })
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

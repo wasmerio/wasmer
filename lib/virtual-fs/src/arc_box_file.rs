@@ -111,13 +111,11 @@ impl VirtualFile for ArcBoxFile {
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
-        Box::pin(async {
-            let mut inner = self.inner.lock().unwrap();
-            let fut = inner.unlink();
-            drop(inner);
-            fut.await
-        })
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+        let mut inner = self.inner.lock().unwrap();
+        let fut = inner.unlink();
+        drop(inner);
+        Box::pin(async { fut.await })
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

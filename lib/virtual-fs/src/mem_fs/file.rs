@@ -199,14 +199,16 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
-        Box::pin(async {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
+        let filesystem = self.filesystem.clone();
+        let inode = self.inode.clone();
+        Box::pin(async move {
             let (inode_of_parent, position, inode_of_file) = {
                 // Read lock.
-                let fs = self.filesystem.inner.read().map_err(|_| FsError::Lock)?;
+                let fs = filesystem.inner.read().map_err(|_| FsError::Lock)?;
 
                 // The inode of the file.
-                let inode_of_file = self.inode;
+                let inode_of_file = inode;
 
                 // Find the position of the file in the parent, and the
                 // inode of the parent.
@@ -233,7 +235,7 @@ impl VirtualFile for FileHandle {
 
             {
                 // Write lock.
-                let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
+                let mut fs = filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Remove the file from the storage.
                 fs.storage.remove(inode_of_file);

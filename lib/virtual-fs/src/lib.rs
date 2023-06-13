@@ -336,7 +336,7 @@ pub trait VirtualFile:
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>>;
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>>;
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open

@@ -207,7 +207,7 @@ impl VirtualFile for File {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
         Box::pin(async { Err(FsError::PermissionDenied) })
     }
 

@@ -94,7 +94,7 @@ impl VirtualFile for DeviceFile {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
         Box::pin(async { Ok(()) })
     }
     fn get_special_fd(&self) -> Option<u32> {

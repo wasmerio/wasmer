@@ -8,7 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::BoxFuture;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
@@ -634,7 +634,7 @@ impl VirtualFile for OutputCapturerer {
     fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

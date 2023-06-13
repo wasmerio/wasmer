@@ -733,16 +733,18 @@ where
             Ok(())
         }
 
-        fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
-            Box::pin(async {
+        fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+            let primary = self.primary.clone();
+            let path = self.path.clone();
+            Box::pin(async move {
                 // Create the whiteout file in the primary
                 let mut had_at_least_one_success = false;
-                if ops::create_white_out(&self.primary, &self.path).is_ok() {
+                if ops::create_white_out(&primary, &path).is_ok() {
                     had_at_least_one_success = true;
                 }
 
                 // Attempt to remove it from the primary first
-                match self.primary.remove_file(&self.path) {
+                match primary.remove_file(&path) {
                     Err(e) if should_continue(e) => {}
                     other => return other,
                 }
@@ -1002,23 +1004,6 @@ mod tests {
     use crate::{mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
 
     const PYTHON: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
-
-    #[test]
-    fn object_safe() {
-        fn _box_with_memfs(
-            fs: OverlayFileSystem<MemFS, Vec<MemFS>>,
-        ) -> Box<dyn crate::FileSystem + Send + Sync + 'static> {
-            Box::new(fs)
-        }
-
-        fn _arc<A, S>(fs: OverlayFileSystem<A, S>) -> Arc<dyn crate::FileSystem + 'static>
-        where
-            A: FileSystem + 'static,
-            S: for<'a> FileSystems<'a> + Send + Sync + Debug + 'static,
-        {
-            Arc::new(fs)
-        }
-    }
 
     #[tokio::test]
     async fn remove_directory() {

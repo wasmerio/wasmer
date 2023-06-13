@@ -85,7 +85,7 @@ impl VirtualFile for BufferFile {
         self.data.get_mut().resize(new_size as usize, 0);
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

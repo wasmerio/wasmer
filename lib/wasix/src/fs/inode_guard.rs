@@ -8,7 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
 use virtual_net::NetworkError;
@@ -588,13 +588,17 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
-        Box::pin(async {
-            let mut guard = self.lock_write();
-            if let Some(file) = guard.as_mut() {
-                file.unlink().await
-            } else {
-                Err(FsError::IOError)
+    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
+        let mut guard = self.lock_write();
+        let fut = if let Some(file) = guard.as_mut() {
+            Ok(file.unlink())
+        } else {
+            Err(FsError::IOError)
+        };
+        Box::pin(async move {
+            match fut {
+                Ok(fut) => fut.await,
+                Err(err) => return Err(err),
             }
         })
     }

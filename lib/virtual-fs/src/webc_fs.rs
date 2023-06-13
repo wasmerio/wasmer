@@ -164,7 +164,7 @@ where
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
+    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

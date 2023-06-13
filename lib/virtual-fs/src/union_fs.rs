@@ -414,7 +414,7 @@ fn filter_mounts(
             }
         }
     }
-    ret.retain(|(a, b)| b.path.len() >= biggest_path);
+    ret.retain(|(_, b)| b.path.len() >= biggest_path);
     ret.into_iter()
 }
 

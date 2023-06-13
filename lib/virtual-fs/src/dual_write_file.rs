@@ -49,8 +49,9 @@ impl VirtualFile for DualWriteFile {
         self.inner.set_len(new_size)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
-        Box::pin(async { self.inner.unlink().await })
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
+        let fut = self.inner.unlink();
+        Box::pin(async { fut.await })
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

@@ -14,7 +14,7 @@ use std::{
 };
 
 use crate::state::{Stderr, Stdin, Stdout};
-use futures::{future::LocalBoxFuture, TryStreamExt};
+use futures::{future::BoxFuture, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
@@ -307,11 +307,12 @@ impl FileSystem for WasiFsRoot {
             WasiFsRoot::Backing(fs) => fs.remove_dir(path),
         }
     }
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> LocalBoxFuture<'a, virtual_fs::Result<()>> {
+    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();
+        let this = self.clone();
         Box::pin(async move {
-            match self {
+            match this {
                 WasiFsRoot::Sandbox(fs) => fs.rename(&from, &to).await,
                 WasiFsRoot::Backing(fs) => fs.rename(&from, &to).await,
             }
@@ -1888,7 +1889,7 @@ impl FileSystem for FallbackFileSystem {
     fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
         Self::fail();
     }
     fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
