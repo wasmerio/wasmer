@@ -1,4 +1,6 @@
-#![cfg(feature = "webc_runner")]
+// Exclude runner tests from wasm targets for now, since they don't run properly
+// there.
+#![cfg(not(target_family = "wasm"))]
 
 use std::{
     path::{Path, PathBuf},
@@ -20,7 +22,6 @@ use wasmer_wasix::{
 };
 use webc::Container;
 
-#[cfg(feature = "webc_runner_rt_wasi")]
 mod wasi {
     use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 

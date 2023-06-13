@@ -114,8 +114,6 @@ default = ["sys-default"]
 
 time = ["tokio/time"]
 
-webc_runner = []
-webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
