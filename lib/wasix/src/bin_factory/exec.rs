@@ -19,45 +19,23 @@ use crate::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
 pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
-    store: Store,
+    _store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    let key = binary.hash();
-
-    let compiled_modules = runtime.module_cache();
-    let module = compiled_modules.load(key, store.engine()).await.ok();
-
-    let module = match (module, binary.entrypoint_bytes()) {
-        (Some(a), _) => a,
-        (None, Some(entry)) => {
-            let module = Module::new(&store, entry).map_err(|err| {
-                error!(
-                    "failed to compile module [{}, len={}] - {}",
-                    name,
-                    entry.len(),
-                    err
-                );
-                SpawnError::CompileError
-            });
-            if module.is_err() {
-                env.cleanup(Some(Errno::Noexec.into())).await;
-            }
-            let module = module?;
-
-            if let Err(e) = compiled_modules.save(key, store.engine(), &module).await {
-                tracing::debug!(
-                    %key,
-                    package_name=%binary.package_name,
-                    error=&e as &dyn std::error::Error,
-                    "Unable to save the compiled module",
-                );
-            }
-            module
-        }
-        (None, None) => {
-            error!("package has no entry [{}]", name,);
+    let wasm = match binary.entrypoint_bytes() {
+        Some(wasm) => wasm,
+        None => {
+            error!("package has no entrypoint command [{}]", name,);
             env.cleanup(Some(Errno::Noexec.into())).await;
+            return Err(SpawnError::CompileError);
+        }
+    };
+
+    let module = match runtime.load_module_sync(wasm) {
+        Ok(module) => module,
+        Err(err) => {
+            error!("failed to compile module '{name}': {err}",);
             return Err(SpawnError::CompileError);
         }
     };
