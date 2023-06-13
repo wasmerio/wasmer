@@ -30,7 +30,7 @@ use crate::{
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::resolver::PackageSpecifier,
-    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv, WasiEnvBuilder,
+    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
 #[derive(Derivative)]
@@ -143,7 +143,7 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), anyhow::Error> {
+    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), SpawnError> {
         // Extract the program name from the arguments
         let empty_args: Vec<&str> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
@@ -166,7 +166,7 @@ impl Console {
             Ok(ident) => ident,
             Err(e) => {
                 tracing::debug!(webc, error = &*e, "Unable to parse the WEBC identifier");
-                return Err(SpawnError::BadRequest.into());
+                return Err(SpawnError::BadRequest);
             }
         };
 
@@ -195,7 +195,7 @@ impl Console {
                         .ok();
                 });
                 tracing::debug!("failed to get webc dependency - {}", webc);
-                return Err(SpawnError::NotFound.into());
+                return Err(SpawnError::NotFound);
             }
         };
 
@@ -219,7 +219,9 @@ impl Console {
             .with_envs(self.env.clone().into_iter())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
-            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), None)?;
+            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), None)
+            // TODO: better error conversion
+            .map_err(|err| SpawnError::Other(err.to_string()))?;
 
         // TODO: no unwrap!
         let env = builder.build()?;
@@ -247,7 +249,7 @@ impl Console {
                 .ok();
             });
             tracing::debug!("failed to load used dependency - {}", err);
-            return Err(SpawnError::BadRequest.into());
+            return Err(SpawnError::BadRequest);
         }
 
         // Build the config
