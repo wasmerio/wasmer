@@ -2091,6 +2091,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "derivative",
+ "futures",
  "getrandom",
  "indexmap",
  "lazy_static",
@@ -2179,7 +2180,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bitflags",
