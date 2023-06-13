@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::BoxFuture;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::{DirEntry, FileSystem, FsError};
@@ -134,7 +134,7 @@ pub fn copy_reference<'a>(
     source: &'a (impl FileSystem + ?Sized),
     destination: &'a (impl FileSystem + ?Sized),
     path: &'a Path,
-) -> LocalBoxFuture<'a, Result<(), std::io::Error>> {
+) -> BoxFuture<'a, Result<(), std::io::Error>> {
     Box::pin(async { copy_reference_ext(source, destination, path, path).await })
 }
 
