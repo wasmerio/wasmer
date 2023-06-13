@@ -201,7 +201,7 @@ impl VirtualFile for FileHandle {
 
     fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
         let filesystem = self.filesystem.clone();
-        let inode = self.inode.clone();
+        let inode = self.inode;
         Box::pin(async move {
             let (inode_of_parent, position, inode_of_file) = {
                 // Read lock.

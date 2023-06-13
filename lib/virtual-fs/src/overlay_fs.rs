@@ -162,7 +162,7 @@ where
 
         // It could be the case that the directory was earlier hidden in the secondaries
         // by a whiteout file, hence we need to make sure those are cleared out.
-        ops::remove_white_out(self.primary.as_ref(), &path);
+        ops::remove_white_out(self.primary.as_ref(), path);
 
         // Make sure the parent tree is in place on the primary, this is to cover the
         // scenario where the secondaries has a parent structure that is not yet in the
@@ -532,7 +532,7 @@ where
                                 // Remove the whiteout, create the parent structure and open
                                 // the new file on the primary
                                 if let Some(parent) = self.path.parent() {
-                                    ops::create_dir_all(&self.primary, &parent).ok();
+                                    ops::create_dir_all(&self.primary, parent).ok();
                                 }
                                 let dst = self
                                     .primary
@@ -716,7 +716,7 @@ where
                     // in the scenario where the length is set but the file is not
                     // polled then we need to make sure we create a file properly
                     if let Some(parent) = self.path.parent() {
-                        ops::create_dir_all(&self.primary, &parent).ok();
+                        ops::create_dir_all(&self.primary, parent).ok();
                     }
                     let dst = self
                         .primary

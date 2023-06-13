@@ -89,11 +89,7 @@ where
         path: &std::path::Path,
         conf: &OpenOptionsConfig,
     ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync + 'static>> {
-        let file = self
-            .0
-            .new_open_options()
-            .options(conf.clone())
-            .open(&path)?;
+        let file = self.0.new_open_options().options(conf.clone()).open(path)?;
         Ok(Box::new(TraceFile {
             file,
             path: path.to_owned(),
