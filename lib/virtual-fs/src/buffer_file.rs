@@ -5,7 +5,7 @@ use std::io::{self, *};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::VirtualFile;
@@ -81,11 +81,11 @@ impl VirtualFile for BufferFile {
     fn size(&self) -> u64 {
         self.data.get_ref().len() as u64
     }
-    fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         self.data.get_mut().resize(new_size as usize, 0);
         Ok(())
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

@@ -1,16 +1,18 @@
 //! Used for sharing references to the same file across multiple file systems,
 //! effectively this is a symbolic link without all the complex path redirection
 
-use crate::VirtualFile;
-use derivative::Derivative;
-use futures::future::LocalBoxFuture;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use std::{
     io::{self, *},
+    pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
+
+use derivative::Derivative;
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
+
+use crate::VirtualFile;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -105,14 +107,16 @@ impl VirtualFile for ArcBoxFile {
         let inner = self.inner.lock().unwrap();
         inner.size()
     }
-    fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
         Box::pin(async {
             let mut inner = self.inner.lock().unwrap();
-            inner.unlink().await
+            let fut = inner.unlink();
+            drop(inner);
+            fut.await
         })
     }
     fn is_open(&self) -> bool {

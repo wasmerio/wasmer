@@ -8,7 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use replace_with::replace_with_or_abort;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
@@ -104,6 +104,7 @@ impl<P, S> FileSystem for OverlayFileSystem<P, S>
 where
     P: FileSystem + Send + 'static,
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
+    for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
@@ -190,15 +191,10 @@ where
 
         // If the directory is contained in a secondary file system then we need to create a
         // whiteout file so that it is suppressed and is no longer returned in `readdir` calls.
-        let mut had_at_least_one_success = false;
-        for fs in self.secondaries.filesystems() {
-            if fs.read_dir(path).is_ok() {
-                if ops::create_white_out(&self.primary, path).is_ok() {
-                    had_at_least_one_success = true;
-                    break;
-                }
-            }
-        }
+
+        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+            fs.read_dir(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
+        });
 
         // Attempt to remove it from the primary, if this succeeds then we may have also
         // added the whiteout file in the earlier step, but are required in this case to
@@ -214,11 +210,7 @@ where
         self.permission_error_or_not_found(path)
     }
 
-    fn rename<'a>(
-        &'a self,
-        from: &'a Path,
-        to: &'a Path,
-    ) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         let from = from.to_owned();
         let to = to.to_owned();
         Box::pin(async move {
@@ -247,11 +239,13 @@ where
             // If we have not yet renamed the file it may still reside in
             // the secondaries, in which case we need to copy it to the
             // primary rather than rename it
-            for fs in self.secondaries.filesystems() {
-                if fs.metadata(&from).is_ok() {
-                    ops::copy_reference_ext(fs, &self.primary, &from, &to).await?;
-                    had_at_least_one_success = true;
-                    break;
+            if !had_at_least_one_success {
+                for fs in self.secondaries.filesystems() {
+                    if fs.metadata(&from).is_ok() {
+                        ops::copy_reference_ext(fs, &self.primary, &from, &to).await?;
+                        had_at_least_one_success = true;
+                        break;
+                    }
                 }
             }
 
@@ -311,14 +305,9 @@ where
 
         // If the file is contained in a secondary then then we need to create a
         // whiteout file so that it is suppressed.
-        let mut had_at_least_one_success = false;
-        for fs in self.secondaries.filesystems() {
-            if fs.metadata(path).is_ok() {
-                if ops::create_white_out(&self.primary, path).is_ok() {
-                    had_at_least_one_success = true;
-                }
-            }
-        }
+        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
+            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
+        });
 
         // Attempt to remove it from the primary
         match self.primary.remove_file(path) {
@@ -716,7 +705,7 @@ where
             self.state.as_ref().size()
         }
 
-        fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
+        fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
             self.new_size = Some(new_size);
             replace_with_or_abort(&mut self.state, |state| match state {
                 CowState::Copied(mut file) => {
@@ -744,7 +733,7 @@ where
             Ok(())
         }
 
-        fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+        fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
             Box::pin(async {
                 // Create the whiteout file in the primary
                 let mut had_at_least_one_success = false;

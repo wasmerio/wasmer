@@ -4,7 +4,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{FileOpener, FileSystem, OpenOptionsConfig, VirtualFile};
@@ -59,7 +59,7 @@ where
         &'a self,
         from: &'a std::path::Path,
         to: &'a std::path::Path,
-    ) -> LocalBoxFuture<'a, crate::Result<()>> {
+    ) -> BoxFuture<'a, crate::Result<()>> {
         Box::pin(async { self.0.rename(from, to).await })
     }
 
@@ -134,7 +134,7 @@ impl VirtualFile for TraceFile {
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()), err)]
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
         Box::pin(async { self.file.unlink().await })
     }
 

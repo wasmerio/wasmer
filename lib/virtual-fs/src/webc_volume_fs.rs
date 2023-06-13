@@ -7,7 +7,7 @@ use std::{
     task::Poll,
 };
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
@@ -108,11 +108,7 @@ impl FileSystem for WebcVolumeFileSystem {
         Err(FsError::PermissionDenied)
     }
 
-    fn rename<'a>(
-        &'a self,
-        from: &'a Path,
-        to: &'a Path,
-    ) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             // The original file should exist
             let _ = self.metadata(from)?;
@@ -211,7 +207,7 @@ impl VirtualFile for File {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
         Box::pin(async { Err(FsError::PermissionDenied) })
     }
 

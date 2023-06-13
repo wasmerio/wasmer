@@ -45,7 +45,7 @@ macro_rules! impl_virtualfile_on_std_streams {
                 Err(FsError::PermissionDenied)
             }
 
-            fn unlink<'a>(&'a mut self) -> futures::future::LocalBoxFuture<'a, Result<()>> {
+            fn unlink(&mut self) -> futures::future::BoxFuture<'_, Result<()>> {
                 Box::pin(async {
                     Ok(())
                 })

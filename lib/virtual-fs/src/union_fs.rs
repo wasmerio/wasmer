@@ -2,18 +2,14 @@
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 
-#![allow(dead_code)]
-#![allow(unused)]
 use crate::*;
-use std::borrow::Cow;
-use std::ops::Add;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicU32;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::Weak;
-#[allow(unused_imports, dead_code)]
-use tracing::{debug, error, info, trace, warn};
+
+use std::{
+    path::Path,
+    sync::{Arc, Mutex, Weak},
+};
+
+use tracing::{debug, trace};
 
 pub type TempHolding = Arc<Mutex<Option<Arc<Box<dyn FileSystem>>>>>;
 
@@ -262,7 +258,7 @@ impl FileSystem for UnionFileSystem {
         }
         Err(ret_error)
     }
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async {
             println!("rename: from={} to={}", from.display(), to.display());
             if from.parent().is_none() {
@@ -378,7 +374,7 @@ impl FileSystem for UnionFileSystem {
 
 fn filter_mounts(
     mounts: &[MountPoint],
-    mut target: &str,
+    target: &str,
 ) -> impl Iterator<Item = (String, StrongMountPoint)> {
     // On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
     #[cfg(target_os = "windows")]
@@ -466,13 +462,11 @@ impl FileOpener for UnionFileSystem {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, sync::Arc};
+    use std::path::Path;
 
     use tokio::io::AsyncWriteExt;
 
-    use crate::{
-        host_fs::FileSystem, mem_fs, ops, FileSystem as FileSystemTrait, FsError, UnionFileSystem,
-    };
+    use crate::{mem_fs, ops, FileSystem as FileSystemTrait, FsError, UnionFileSystem};
 
     fn gen_filesystem() -> UnionFileSystem {
         let mut union = UnionFileSystem::new();

@@ -2,7 +2,7 @@
 //! implementations. They aren't exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
@@ -199,7 +199,7 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async {
             let (inode_of_parent, position, inode_of_file) = {
                 // Read lock.
@@ -279,10 +279,10 @@ impl VirtualFile for FileHandle {
         }
     }
 
-    fn copy_reference<'a>(
-        &'a mut self,
+    fn copy_reference(
+        &mut self,
         src: Box<dyn VirtualFile + Send + Sync + 'static>,
-    ) -> LocalBoxFuture<'a, std::io::Result<()>> {
+    ) -> BoxFuture<'_, std::io::Result<()>> {
         let inner = self.filesystem.inner.clone();
         Box::pin(async move {
             let mut fs = inner.write().unwrap();

@@ -3,7 +3,7 @@ use crate::{
     VirtualFile,
 };
 use bytes::{Buf, Bytes};
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
@@ -67,7 +67,7 @@ impl crate::FileSystem for FileSystem {
         fs::remove_dir(path).map_err(Into::into)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();
         Box::pin(async move {
@@ -389,11 +389,11 @@ impl VirtualFile for File {
         self.metadata().len()
     }
 
-    fn set_len<'a>(&'a mut self, new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async { fs::remove_file(&self.host_path).map_err(Into::into) })
     }
 
@@ -525,7 +525,7 @@ impl VirtualFile for Stdout {
         Ok(())
     }
 
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async { Ok(()) })
     }
 
@@ -695,11 +695,11 @@ impl VirtualFile for Stderr {
         0
     }
 
-    fn set_len<'a>(&'a mut self, _new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
 
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async { Ok(()) })
     }
 
@@ -823,10 +823,10 @@ impl VirtualFile for Stdin {
     fn size(&self) -> u64 {
         0
     }
-    fn set_len<'a>(&'a mut self, _new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async { Ok(()) })
     }
     fn get_special_fd(&self) -> Option<u32> {

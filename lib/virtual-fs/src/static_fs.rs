@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use std::convert::TryInto;
@@ -114,10 +114,10 @@ impl VirtualFile for WebCFile {
     fn size(&self) -> u64 {
         self.entry.get_len()
     }
-    fn set_len<'a>(&'a mut self, _new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -277,11 +277,7 @@ impl FileSystem for StaticFileSystem {
             result
         }
     }
-    fn rename<'a>(
-        &'a self,
-        from: &'a Path,
-        to: &'a Path,
-    ) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             let from = normalizes_path(from);
             let to = normalizes_path(to);

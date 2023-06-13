@@ -65,7 +65,7 @@ where
     fs.create_dir(path)
 }
 
-static WHITEOUT_PREFIX: &'static str = ".wh.";
+static WHITEOUT_PREFIX: &str = ".wh.";
 
 /// Creates a white out file which hides it from secondary file systems
 pub fn create_white_out<F>(fs: &F, path: impl AsRef<Path>) -> Result<(), FsError>
@@ -131,8 +131,8 @@ pub fn is_white_out(path: impl AsRef<Path>) -> Option<PathBuf> {
 
 /// Copies the reference of a file from one file system to another
 pub fn copy_reference<'a>(
-    source: &'a dyn FileSystem,
-    destination: &'a dyn FileSystem,
+    source: &'a (impl FileSystem + ?Sized),
+    destination: &'a (impl FileSystem + ?Sized),
     path: &'a Path,
 ) -> LocalBoxFuture<'a, Result<(), std::io::Error>> {
     Box::pin(async { copy_reference_ext(source, destination, path, path).await })
@@ -140,8 +140,8 @@ pub fn copy_reference<'a>(
 
 /// Copies the reference of a file from one file system to another
 pub fn copy_reference_ext<'a>(
-    source: &'a dyn FileSystem,
-    destination: &'a dyn FileSystem,
+    source: &'a (impl FileSystem + ?Sized),
+    destination: &'a (impl FileSystem + ?Sized),
     from: &Path,
     to: &Path,
 ) -> LocalBoxFuture<'a, Result<(), std::io::Error>> {

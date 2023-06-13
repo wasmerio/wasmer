@@ -41,7 +41,7 @@ impl VirtualFile for CombineFile {
         self.tx.set_len(new_size)
     }
 
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>> {
         Box::pin(async { self.tx.unlink().await })
     }
 

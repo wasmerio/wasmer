@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -418,7 +418,7 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async {
             let name_of_to;
 

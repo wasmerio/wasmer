@@ -1,12 +1,14 @@
 //! Used for /dev/zero - infinitely returns zero
 //! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
 
-use std::io::{self, *};
-use std::iter;
-use std::pin::Pin;
-use std::task::{Context, Poll};
+use std::{
+    io::{self, IoSlice, SeekFrom},
+    iter,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::VirtualFile;
@@ -77,7 +79,7 @@ impl VirtualFile for ZeroFile {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

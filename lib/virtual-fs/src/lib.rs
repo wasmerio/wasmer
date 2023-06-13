@@ -2,7 +2,7 @@
 #[macro_use]
 extern crate pretty_assertions;
 
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
@@ -86,7 +86,7 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>>;
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
@@ -128,7 +128,7 @@ where
         (**self).remove_dir(path)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { (**self).rename(from, to).await })
     }
 
@@ -317,7 +317,7 @@ impl<'a> OpenOptions<'a> {
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile:
-    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable
+    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
@@ -336,7 +336,7 @@ pub trait VirtualFile:
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Request deletion of the file
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<()>>;
+    fn unlink(&mut self) -> BoxFuture<'_, Result<()>>;
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
@@ -354,10 +354,10 @@ pub trait VirtualFile:
     /// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to do a zero copy
-    fn copy_reference<'a>(
-        &'a mut self,
+    fn copy_reference(
+        &mut self,
         mut src: Box<dyn VirtualFile + Send + Sync + 'static>,
-    ) -> LocalBoxFuture<'a, std::io::Result<()>> {
+    ) -> BoxFuture<'_, std::io::Result<()>> {
         Box::pin(async move {
             let bytes_written = tokio::io::copy(&mut src, self).await?;
             tracing::trace!(bytes_written, "Copying file into host filesystem",);

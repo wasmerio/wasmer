@@ -3,7 +3,7 @@
 
 use crate::{ClonableVirtualFile, VirtualFile};
 use derivative::Derivative;
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{
@@ -127,7 +127,8 @@ where
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, crate::Result<()>> {
+    fn unlink(&mut self) -> BoxFuture<'_, crate::Result<()>> {
+        let fut = futures::future::poll_fn(|ctx| );
         Box::pin(async {
             let mut inner = self.inner.lock().unwrap();
             inner.unlink().await

@@ -2,23 +2,15 @@
 //! enhanced to support mounting file systems, shared static files,
 //! readonly files, etc...
 
-#![allow(dead_code)]
-#![allow(unused)]
-use std::collections::HashMap;
-use std::io::prelude::*;
-use std::io::SeekFrom;
-use std::io::{self};
-use std::path::{Path, PathBuf};
-use std::result::Result as StdResult;
-use std::sync::atomic::AtomicU32;
-use std::sync::Arc;
-use std::sync::Mutex;
-#[allow(unused_imports, dead_code)]
-use tracing::{debug, error, info, trace, warn};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use crate::mem_fs;
-use crate::Result as FsResult;
-use crate::*;
+use crate::{
+    limiter::DynFsMemoryLimiter, mem_fs, BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir,
+    Result,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct TmpFileSystem {
@@ -30,7 +22,7 @@ impl TmpFileSystem {
         Self::default()
     }
 
-    pub fn set_memory_limiter(&self, limiter: crate::limiter::DynFsMemoryLimiter) {
+    pub fn set_memory_limiter(&self, limiter: DynFsMemoryLimiter) {
         self.fs.set_memory_limiter(limiter);
     }
 
@@ -81,7 +73,7 @@ impl FileSystem for TmpFileSystem {
         self.fs.remove_dir(path)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { self.fs.rename(from, to).await })
     }
 

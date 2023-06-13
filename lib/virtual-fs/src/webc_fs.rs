@@ -1,19 +1,22 @@
-use crate::mem_fs::FileSystem as MemFileSystem;
-use crate::{
-    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
+use std::{
+    convert::{TryFrom, TryInto},
+    io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom},
+    ops::Deref,
+    path::{Path, PathBuf},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
+
 use anyhow::anyhow;
-use futures::future::LocalBoxFuture;
-use std::convert::{TryFrom, TryInto};
-use std::io::{self, Error as IoError, ErrorKind as IoErrorKind, SeekFrom};
-use std::ops::Deref;
-use std::path::Path;
-use std::path::PathBuf;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
+
+use crate::{
+    mem_fs::FileSystem as MemFileSystem, FileOpener, FileSystem, FsError, Metadata, OpenOptions,
+    OpenOptionsConfig, ReadDir, VirtualFile,
+};
 
 /// Custom file system wrapper to map requested file paths
 #[derive(Debug)]
@@ -161,7 +164,7 @@ where
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
         Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -330,11 +333,7 @@ where
             result
         }
     }
-    fn rename<'a>(
-        &'a self,
-        from: &'a Path,
-        to: &'a Path,
-    ) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             let from = normalizes_path(from);
             let to = normalizes_path(to);

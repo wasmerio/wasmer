@@ -24,7 +24,7 @@ impl FileSystem for EmptyFileSystem {
         Err(FsError::EntryNotFound)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> LocalBoxFuture<'a, Result<()>> {
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async { Err(FsError::EntryNotFound) })
     }
 

@@ -1,5 +1,5 @@
 use bytes::{Buf, Bytes};
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 #[cfg(feature = "futures")]
 use futures::Future;
 use std::io::IoSlice;
@@ -385,12 +385,12 @@ impl VirtualFile for Pipe {
 
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    fn set_len<'a>(&'a mut self, _new_size: u64) -> crate::Result<()> {
+    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
 
     /// Request deletion of the file
-    fn unlink<'a>(&'a mut self) -> LocalBoxFuture<'a, Result<(), FsError>> {
+    fn unlink(&mut self) -> BoxFuture<'_, Result<(), FsError>> {
         Box::pin(async { Ok(()) })
     }
 

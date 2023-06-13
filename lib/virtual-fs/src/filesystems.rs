@@ -4,7 +4,7 @@ use crate::FileSystem;
 pub trait FileSystems<'a>: 'a {
     // FIXME(Michael-F-Bryan): Rewrite this to use GATs when we bump the MSRV to
     // 1.65 or higher. That'll get rid of all the lifetimes and HRTBs.
-    type Iter: IntoIterator<Item = &'a (dyn FileSystem + Send)> + 'a;
+    type Iter: IntoIterator<Item = &'a (dyn FileSystem + Send)> + Send + 'a;
 
     /// Get something that can be used to iterate over the underlying
     /// filesystems.
