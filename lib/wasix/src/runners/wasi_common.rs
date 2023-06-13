@@ -169,7 +169,7 @@ fn prepare_filesystem(
     let container_fs = RelativeOrAbsolutePathHack(container_fs);
     let fs = OverlayFileSystem::new(root_fs, [container_fs]);
 
-    Ok(OverlayFileSystem::new(root_fs, [container_fs]))
+    Ok(fs)
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
