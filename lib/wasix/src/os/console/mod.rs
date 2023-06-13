@@ -30,7 +30,7 @@ use crate::{
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runtime::resolver::PackageSpecifier,
-    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv,
+    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv, WasiEnvBuilder,
 };
 
 #[derive(Derivative)]
@@ -46,7 +46,7 @@ pub struct Console {
     no_welcome: bool,
     prompt: String,
     env: HashMap<String, String>,
-    runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+    runtime: Arc<dyn Runtime + Send + Sync>,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -56,16 +56,9 @@ pub struct Console {
 
 impl Console {
     pub fn new(webc_boot_package: &str, runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
-        let prog = webc_boot_package
-            .split_once(' ')
-            .map(|a| a.1)
-            .unwrap_or(webc_boot_package);
-
-        let mut uses = LinkedHashSet::new();
-        uses.insert(prog.to_string());
         Self {
             boot_cmd: webc_boot_package.to_string(),
-            uses,
+            uses: LinkedHashSet::new(),
             is_mobile: false,
             is_ssh: false,
             user_agent: None,
@@ -150,14 +143,14 @@ impl Console {
         self
     }
 
-    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), SpawnError> {
+    pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), anyhow::Error> {
         // Extract the program name from the arguments
-        let empty_args: Vec<&[u8]> = Vec::new();
+        let empty_args: Vec<&str> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
             Some((webc, args)) => (
                 webc,
                 webc.split_once('/').map(|a| a.1).unwrap_or(webc),
-                args.split(' ').map(|a| a.as_bytes()).collect::<Vec<_>>(),
+                args.split(' ').collect::<Vec<_>>(),
             ),
             None => (
                 self.boot_cmd.as_str(),
@@ -168,69 +161,23 @@ impl Console {
                 empty_args,
             ),
         };
-        let envs = self.env.clone();
-
-        // Build a new store that will be passed to the threadimpo
-        let store = self.runtime.new_store();
-
-        let root_fs = RootFileSystemBuilder::new()
-            .with_tty(Box::new(CombineFile::new(
-                Box::new(self.stdout.clone()),
-                Box::new(self.stdin.clone()),
-            )))
-            .build();
-
-        let env_init = WasiEnv::builder(prog)
-            .stdin(Box::new(self.stdin.clone()))
-            .args(args.iter())
-            .envs(envs.iter())
-            .sandbox_fs(root_fs)
-            .preopen_dir(Path::new("/"))
-            .unwrap()
-            .map_dir(".", "/")
-            .unwrap()
-            .stdout(Box::new(self.stdout.clone()))
-            .stderr(Box::new(self.stderr.clone()))
-            .runtime(self.runtime.clone())
-            .capabilities(self.capabilities.clone())
-            .build_init()
-            // TODO: propagate better error
-            .map_err(|_e| SpawnError::InternalError)?;
-
-        // TODO: no unwrap!
-        let env = WasiEnv::from_init(env_init).unwrap();
-
-        if let Some(limiter) = &self.memfs_memory_limiter {
-            match &env.state.fs.root_fs {
-                crate::fs::WasiFsRoot::Sandbox(tmpfs) => {
-                    tmpfs.set_memory_limiter(limiter.clone());
-                }
-                crate::fs::WasiFsRoot::Backing(_) => {
-                    tracing::error!("tried to set a tmpfs memory limiter on a backing fs");
-                    return Err(SpawnError::BadRequest);
-                }
-            }
-        }
-
-        // TODO: this should not happen here...
-        // Display the welcome message
-        let tasks = env.tasks().clone();
-        if !self.whitelabel && !self.no_welcome {
-            tasks.block_on(self.draw_welcome());
-        }
 
         let webc_ident: PackageSpecifier = match webc.parse() {
             Ok(ident) => ident,
             Err(e) => {
                 tracing::debug!(webc, error = &*e, "Unable to parse the WEBC identifier");
-                return Err(SpawnError::BadRequest);
+                return Err(SpawnError::BadRequest.into());
             }
         };
 
-        let resolved_package =
-            tasks.block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
+        let tasks = self.runtime.task_manager().clone();
 
-        let binary = match resolved_package {
+        let resolved_package = tasks.block_on(BinaryPackage::from_registry(
+            &webc_ident,
+            self.runtime.as_ref(),
+        ));
+
+        let pkg = match resolved_package {
             Ok(pkg) => pkg,
             Err(e) => {
                 let mut stderr = self.stderr.clone();
@@ -248,9 +195,40 @@ impl Console {
                         .ok();
                 });
                 tracing::debug!("failed to get webc dependency - {}", webc);
-                return Err(SpawnError::NotFound);
+                return Err(SpawnError::NotFound.into());
             }
         };
+
+        let wasi_opts = webc::metadata::annotations::Wasi::new(prog);
+
+        let root_fs = RootFileSystemBuilder::new()
+            .with_tty(Box::new(CombineFile::new(
+                Box::new(self.stdout.clone()),
+                Box::new(self.stdin.clone()),
+            )))
+            .with_stdin(Box::new(self.stdin.clone()))
+            .with_stdout(Box::new(self.stdout.clone()))
+            .with_stderr(Box::new(self.stderr.clone()))
+            .build();
+
+        if let Some(limiter) = &self.memfs_memory_limiter {
+            root_fs.set_memory_limiter(limiter.clone());
+        }
+
+        let builder = crate::runners::wasi::WasiRunner::new()
+            .with_envs(self.env.clone().into_iter())
+            .with_args(args)
+            .with_capabilities(self.capabilities.clone())
+            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), None)?;
+
+        // TODO: no unwrap!
+        let env = builder.build()?;
+
+        // TODO: this should not happen here...
+        // Display the welcome message
+        if !self.whitelabel && !self.no_welcome {
+            tasks.block_on(self.draw_welcome());
+        }
 
         let wasi_process = env.process.clone();
 
@@ -269,12 +247,13 @@ impl Console {
                 .ok();
             });
             tracing::debug!("failed to load used dependency - {}", err);
-            return Err(SpawnError::BadRequest);
+            return Err(SpawnError::BadRequest.into());
         }
 
         // Build the config
         // Run the binary
-        let process = tasks.block_on(spawn_exec(binary, prog, store, env, &self.runtime))?;
+        let store = self.runtime.new_store();
+        let process = tasks.block_on(spawn_exec(pkg, prog, store, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))
