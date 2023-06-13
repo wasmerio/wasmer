@@ -163,10 +163,15 @@ enum WasmerCLIOptions {
     /// Deploy apps to the Wasmer Edge.
     Deploy(wasmer_deploy_cli::cmd::publish::CmdAppPublish),
 
-    #[clap(subcommand)]
+    /// Manage deployed apps.
+    #[clap(subcommand, alias = "apps")]
     App(wasmer_deploy_cli::cmd::app::CmdApp),
+
+    /// Create a dynamic on the Deploy Edge, and connect to it through SSH.
     Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
-    #[clap(subcommand)]
+
+    /// Manage Wasmer namespaces.
+    #[clap(subcommand, alias = "namespaces")]
     Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
 
@@ -255,11 +260,10 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
         match command.unwrap_or(&String::new()).as_ref() {
-            "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
-            | "gen-c-header" | "inspect" | "init" | "run" | "run-unstable" | "self-update"
-            | "validate" | "wast" | "binfmt" | "login" | "publish" | "app" | "namespace" | "" => {
-                WasmerCLIOptions::parse()
-            }
+            "add" | "app" | "apps" | "binfmt" | "cache" | "compile" | "config" | "create-obj"
+            | "create-exe" | "deploy" | "help" | "gen-c-header" | "inspect" | "init" | "login"
+            | "namespace" | "namespaces" | "publish" | "run" | "run-unstable" | "self-update"
+            | "validate" | "wast" | "ssh" | "" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {
