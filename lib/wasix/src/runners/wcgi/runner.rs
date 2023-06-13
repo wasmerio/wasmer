@@ -53,7 +53,7 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
+        let module = runtime.load_module_sync(cmd.atom())?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
