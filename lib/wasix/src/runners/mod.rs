@@ -2,9 +2,7 @@ mod runner;
 
 #[cfg(feature = "webc_runner_rt_emscripten")]
 pub mod emscripten;
-#[cfg(feature = "webc_runner_rt_wasi")]
 pub mod wasi;
-#[cfg(any(feature = "webc_runner_rt_wasi", feature = "webc_runner_rt_wcgi"))]
 mod wasi_common;
 #[cfg(feature = "webc_runner_rt_wcgi")]
 pub mod wcgi;
@@ -28,11 +26,6 @@ pub struct MappedDirectory {
 }
 
 /// Compile a module, trying to use a pre-compiled version if possible.
-#[cfg(any(
-    feature = "webc_runner_rt_wasi",
-    feature = "webc_runner_rt_wcgi",
-    feature = "webc_runner_rt_emscripten",
-))]
 pub(crate) fn compile_module(wasm: &[u8], runtime: &dyn Runtime) -> Result<Module, Error> {
     // TODO(Michael-F-Bryan,theduke): This should be abstracted out into some
     // sort of ModuleResolver component that is attached to the runtime and
