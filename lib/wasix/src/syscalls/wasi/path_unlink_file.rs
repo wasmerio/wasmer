@@ -71,9 +71,11 @@ pub fn path_unlink_file<M: MemorySize>(
                 Kind::File { handle, path, .. } => {
                     if let Some(h) = handle {
                         let mut h = h.write().unwrap();
-                        let state = state.clone();
+                        let state = state;
+                        let fut = h.unlink();
+                        drop(h);
                         wasi_try_ok!(__asyncify_light(env, None, async move {
-                            h.unlink().await.map_err(fs_error_into_wasi_err)
+                            fut.await.map_err(fs_error_into_wasi_err)
                         })?)
                     } else {
                         // File is closed

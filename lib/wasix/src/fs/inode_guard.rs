@@ -598,7 +598,7 @@ impl VirtualFile for WasiStateFileGuard {
         Box::pin(async move {
             match fut {
                 Ok(fut) => fut.await,
-                Err(err) => return Err(err),
+                Err(err) => Err(err),
             }
         })
     }

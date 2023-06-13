@@ -481,20 +481,23 @@ impl WasiFs {
         &self,
         binary: &BinaryPackage,
     ) -> Result<(), virtual_fs::FsError> {
-        let package_name = binary.package_name.to_string();
-        let mut guard = self.has_unioned.lock().unwrap();
-        if !guard.contains(&package_name) {
-            guard.insert(package_name);
+        let package_name = binary.package_name.clone();
 
-            match self.root_fs {
-                WasiFsRoot::Sandbox(ref sandbox_fs) => {
-                    sandbox_fs.union(&binary.webc_fs);
-                }
-                WasiFsRoot::Backing(ref fs) => {
-                    merge_filesystems(&binary.webc_fs, fs.deref()).await?;
-                }
+        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(package_name);
+
+        if !needs_to_be_unioned {
+            return Ok(());
+        }
+
+        match self.root_fs {
+            WasiFsRoot::Sandbox(ref sandbox_fs) => {
+                sandbox_fs.union(&binary.webc_fs);
+            }
+            WasiFsRoot::Backing(ref fs) => {
+                merge_filesystems(&binary.webc_fs, fs.deref()).await?;
             }
         }
+
         Ok(())
     }
 

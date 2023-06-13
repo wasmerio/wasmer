@@ -121,7 +121,7 @@ pub fn path_rename<M: MemorySize>(
                 // implements the logic of "I'm not actually a file, I'll try to be as needed".
                 let result = if let Some(h) = handle {
                     drop(guard);
-                    state = state.clone();
+                    let state = state;
                     __asyncify_light(env, None, async move {
                         state
                             .fs_rename(source_path, &host_adjusted_target_path)
@@ -131,7 +131,7 @@ pub fn path_rename<M: MemorySize>(
                     let path_clone = path.clone();
                     drop(guard);
                     let out = {
-                        let state = state.clone();
+                        let state = state;
                         let host_adjusted_target_path = host_adjusted_target_path.clone();
                         __asyncify_light(env, None, async move {
                             state
@@ -161,7 +161,7 @@ pub fn path_rename<M: MemorySize>(
             Kind::Dir { ref path, .. } => {
                 let cloned_path = path.clone();
                 let res = {
-                    let state = state.clone();
+                    let state = state;
                     let host_adjusted_target_path = host_adjusted_target_path.clone();
                     __asyncify_light(env, None, async move {
                         state
