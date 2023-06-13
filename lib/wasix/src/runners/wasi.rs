@@ -185,7 +185,7 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
+        let module = runtime.load_module_sync(cmd.atom())?;
         let store = runtime.new_store();
 
         self.prepare_webc_env(command_name, &wasi, pkg, runtime, None)
