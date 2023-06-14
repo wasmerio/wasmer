@@ -14,29 +14,65 @@ use crate::commands::{
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
-use clap::{error::ErrorKind, CommandFactory, Parser};
+use clap::{CommandFactory, Parser};
+
+/// The main function for the Wasmer CLI tool.
+pub fn wasmer_main() {
+    // We allow windows to print properly colors
+    #[cfg(windows)]
+    colored::control::set_virtual_terminal(true).unwrap();
+
+    PrettyError::report(wasmer_main_inner())
+}
+
+fn wasmer_main_inner() -> Result<(), anyhow::Error> {
+    if is_binfmt_interpreter() {
+        todo!();
+    }
+
+    let args = Args::parse();
+
+    if args.version {
+        return print_version(args.output.is_verbose());
+    }
+
+    args.execute()
+}
+
+/// Command-line arguments for the Wasmer CLI.
+#[derive(Parser, Debug)]
+#[clap(about, author)]
+#[cfg_attr(feature = "headless", clap(name = "wasmer-headless"))]
+#[cfg_attr(not(feature = "headless"), clap(name = "wasmer-headless"))]
+pub struct Args {
+    /// Print version info and exit.
+    #[clap(short = 'V', long)]
+    version: bool,
+    #[clap(flatten)]
+    output: crate::logging::Output,
+    #[clap(subcommand)]
+    cmd: Option<Cmd>,
+}
+
+impl Args {
+    fn execute(self) -> Result<(), anyhow::Error> {
+        if self.version {
+            return print_version(self.output.is_verbose());
+        }
+
+        if let Some(cmd) = self.cmd {
+            cmd.execute()
+        } else {
+            let help = Args::command().render_long_help();
+            eprintln!("{help}");
+            Ok(())
+        }
+    }
+}
 
 #[derive(Parser, Debug)]
-#[cfg_attr(
-    not(feature = "headless"),
-    clap(
-        name = "wasmer",
-        about = concat!("wasmer ", env!("CARGO_PKG_VERSION")),
-        version,
-        author
-    )
-)]
-#[cfg_attr(
-    feature = "headless",
-    clap(
-        name = "wasmer-headless",
-        about = concat!("wasmer ", env!("CARGO_PKG_VERSION")),
-        version,
-        author
-    )
-)]
 /// The options for the wasmer Command Line Interface
-enum WasmerCLIOptions {
+enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
 
@@ -175,7 +211,7 @@ enum WasmerCLIOptions {
     Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
 
-impl WasmerCLIOptions {
+impl Cmd {
     fn execute(self) -> Result<(), anyhow::Error> {
         use wasmer_deploy_cli::cmd::CliCommand;
 
@@ -213,113 +249,45 @@ impl WasmerCLIOptions {
     }
 }
 
-/// The main function for the Wasmer CLI tool.
-pub fn wasmer_main() {
-    // We allow windows to print properly colors
-    #[cfg(windows)]
-    colored::control::set_virtual_terminal(true).unwrap();
-
-    PrettyError::report(wasmer_main_inner())
-}
-
-fn wasmer_main_inner() -> Result<(), anyhow::Error> {
-    crate::logging::set_up_logging();
-
-    // We try to run wasmer with the normal arguments.
-    // Eg. `wasmer <SUBCOMMAND>`
-    // In case that fails, we fallback trying the Run subcommand directly.
-    // Eg. `wasmer myfile.wasm --dir=.`
-    //
-    // In case we've been run as wasmer-binfmt-interpreter myfile.wasm args,
-    // we assume that we're registered via binfmt_misc
-    let args = std::env::args().collect::<Vec<_>>();
-    let binpath = args.get(0).map(|s| s.as_ref()).unwrap_or("");
-
-    let firstarg = args.get(1).map(|s| s.as_str());
-    let secondarg = args.get(2).map(|s| s.as_str());
-
-    match (firstarg, secondarg) {
-        (None, _) | (Some("help"), _) | (Some("--help"), _) => {
-            return print_help(true);
-        }
-        (Some("-h"), _) => {
-            return print_help(false);
-        }
-        (Some("-vV"), _)
-        | (Some("version"), Some("--verbose"))
-        | (Some("--version"), Some("--verbose")) => {
-            return print_version(true);
-        }
-
-        (Some("-v"), _) | (Some("-V"), _) | (Some("version"), _) | (Some("--version"), _) => {
-            return print_version(false);
-        }
-        _ => {}
+fn is_binfmt_interpreter() -> bool {
+    if !cfg!(linux) {
+        return false;
     }
 
-    let command = args.get(1);
-    let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
-        WasmerCLIOptions::Run(Run::from_binfmt_args())
-    } else {
-        match command.unwrap_or(&String::new()).as_ref() {
-            "add" | "app" | "apps" | "binfmt" | "cache" | "compile" | "config" | "create-obj"
-            | "create-exe" | "deploy" | "help" | "gen-c-header" | "inspect" | "init" | "login"
-            | "namespace" | "namespaces" | "publish" | "run" | "run-unstable" | "self-update"
-            | "validate" | "wast" | "ssh" | "" => WasmerCLIOptions::parse(),
-            _ => {
-                WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
-                    match e.kind() {
-                        // This fixes a issue that:
-                        // 1. Shows the version twice when doing `wasmer -V`
-                        // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
-                        ErrorKind::DisplayVersion | ErrorKind::DisplayHelp => e.exit(),
-                        _ => WasmerCLIOptions::Run(Run::parse()),
-                    }
-                })
-            }
-        }
-    };
-
-    options.execute()
-}
-
-fn print_help(verbose: bool) -> Result<(), anyhow::Error> {
-    let mut cmd = WasmerCLIOptions::command();
-    if verbose {
-        let _ = cmd.print_long_help();
-    } else {
-        let _ = cmd.print_help();
-    }
-    Ok(())
+    // TODO: Figure out if we actually are running as the binfmt interpreter
+    false
 }
 
 #[allow(unused_mut, clippy::vec_init_then_push)]
 fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if !verbose {
         println!("wasmer {}", env!("CARGO_PKG_VERSION"));
-    } else {
-        println!(
-            "wasmer {} ({} {})",
-            env!("CARGO_PKG_VERSION"),
-            env!("WASMER_BUILD_GIT_HASH_SHORT"),
-            env!("WASMER_BUILD_DATE")
-        );
-        println!("binary: {}", env!("CARGO_PKG_NAME"));
-        println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
-        println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
-        println!("host: {}", target_lexicon::HOST);
-        println!("compiler: {}", {
-            let mut s = Vec::<&'static str>::new();
-
-            #[cfg(feature = "singlepass")]
-            s.push("singlepass");
-            #[cfg(feature = "cranelift")]
-            s.push("cranelift");
-            #[cfg(feature = "llvm")]
-            s.push("llvm");
-
-            s.join(",")
-        });
+        return Ok(());
     }
+
+    println!(
+        "wasmer {} ({} {})",
+        env!("CARGO_PKG_VERSION"),
+        env!("WASMER_BUILD_GIT_HASH_SHORT"),
+        env!("WASMER_BUILD_DATE")
+    );
+    println!("binary: {}", env!("CARGO_PKG_NAME"));
+    println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
+    println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
+    println!("host: {}", target_lexicon::HOST);
+
+    println!("compiler: {}", {
+        let mut s = Vec::<&'static str>::new();
+
+        #[cfg(feature = "singlepass")]
+        s.push("singlepass");
+        #[cfg(feature = "cranelift")]
+        s.push("cranelift");
+        #[cfg(feature = "llvm")]
+        s.push("llvm");
+
+        s.join(",")
+    });
+
     Ok(())
 }
