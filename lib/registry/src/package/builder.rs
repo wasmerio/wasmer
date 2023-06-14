@@ -453,7 +453,7 @@ pub struct PersonalKey {
     pub private_key_location: Option<String>,
     /// The type of private/public key this is
     pub key_type_identifier: String,
-    /// The time at which the key was registered with wapm
+    /// The time at which the key was registered with wasmer
     pub date_created: OffsetDateTime,
 }
 

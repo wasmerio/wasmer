@@ -375,7 +375,7 @@ mod tests {
                 filesystem: Vec::new(),
             },
             dist: DistributionInfo {
-                webc: "https://wapm.io/python/python".parse().unwrap(),
+                webc: "https://wasmer.io/python/python".parse().unwrap(),
                 webc_sha256: [0xaa; 32].into(),
             },
         };

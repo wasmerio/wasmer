@@ -30,11 +30,11 @@ pub fn maybe_set_up_proxy_blocking(
 
 /// Tries to set up a proxy
 ///
-/// This function reads from wapm config's `proxy.url` first, then checks
+/// This function reads from wasmer config's `proxy.url` first, then checks
 /// `ALL_PROXY`, `HTTPS_PROXY`, and `HTTP_PROXY` environment variables, in both
 /// upper case and lower case, in that order.
 ///
-/// If a proxy is specified in wapm config's `proxy.url`, it is assumed
+/// If a proxy is specified in wasmer config's `proxy.url`, it is assumed
 /// to be a general proxy
 ///
 /// A return value of `Ok(None)` means that there was no attempt to set up a proxy,

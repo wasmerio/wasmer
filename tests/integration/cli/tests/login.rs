@@ -37,7 +37,7 @@ fn login_works() -> anyhow::Result<()> {
     }
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
-    let expected = "Login for WAPM user \"ciuser\" saved\n";
+    let expected = "Login for Wasmer user \"ciuser\" saved\n";
     if stdout_output != expected {
         println!("expected:");
         println!("{expected}");

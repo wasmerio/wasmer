@@ -78,7 +78,7 @@ impl WebRuntime {
 
         let http_client = Arc::new(WebHttpClient { pool: pool.clone() });
         let source = WapmSource::new(
-            WapmSource::WAPM_PROD_ENDPOINT.parse().unwrap(),
+            WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
             http_client.clone(),
         );
 
