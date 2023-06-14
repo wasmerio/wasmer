@@ -163,8 +163,9 @@ fn prepare_filesystem(
     // supported or not, we'll add an adapter that automatically retries
     // operations using an absolute path if it failed using a relative path.
     let container_fs = RelativeOrAbsolutePathHack(container_fs);
+    let fs = OverlayFileSystem::new(root_fs, [container_fs]);
 
-    Ok(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
+    Ok(Box::new(fs))
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.

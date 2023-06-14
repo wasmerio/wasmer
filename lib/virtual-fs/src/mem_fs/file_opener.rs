@@ -327,7 +327,7 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        debug!("open: path={}", path.display());
+        debug!(path=%path.display(), "open");
 
         let read = conf.read();
         let mut write = conf.write();

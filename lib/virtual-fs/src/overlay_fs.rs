@@ -106,6 +106,7 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
+    #[tracing::instrument(level = "debug", skip_all, fields(path=%path.display()))]
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
         let mut had_at_least_one_success = false;
@@ -125,9 +126,17 @@ where
                         // unless the entry has comes before the white out, thus the order
                         // that the file systems are parsed is important to this logic.
                         if let Some(path) = entry.is_white_out() {
+                            tracing::trace!(
+                                path=%path.display(),
+                                "Found whiteout file",
+                            );
                             white_outs.insert(path);
                             continue;
                         } else if white_outs.contains(&entry.path) {
+                            tracing::trace!(
+                                path=%path.display(),
+                                "Skipping path because a whiteout exists",
+                            );
                             continue;
                         }
 
@@ -186,6 +195,10 @@ where
         // Whiteout files can not be removed, instead the original directory
         // must be removed or recreated.
         if ops::is_white_out(path).is_some() {
+            tracing::trace!(
+                path=%path.display(),
+                "Unable to remove a whited out directory",
+            );
             return Err(FsError::EntryNotFound);
         }
 
@@ -216,10 +229,20 @@ where
         Box::pin(async move {
             // Whiteout files can not be renamed
             if ops::is_white_out(&from).is_some() {
+                tracing::trace!(
+                    from=%from.display(),
+                    to=%to.display(),
+                    "Attempting to rename a file that was whited out"
+                );
                 return Err(FsError::EntryNotFound);
             }
             // You can not rename a file into a whiteout file
             if ops::is_white_out(&to).is_some() {
+                tracing::trace!(
+                    from=%from.display(),
+                    to=%to.display(),
+                    "Attempting to rename a file into a whiteout file"
+                );
                 return Err(FsError::InvalidInput);
             }
 
@@ -254,6 +277,10 @@ where
             if had_at_least_one_success {
                 for fs in self.secondaries.filesystems() {
                     if fs.metadata(&from).is_ok() {
+                        tracing::trace!(
+                            path=%from.display(),
+                            "Creating a whiteout for the file that was renamed",
+                        );
                         ops::create_white_out(&self.primary, &from).ok();
                         break;
                     }
@@ -338,6 +365,11 @@ where
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
         // Whiteout files can not be read, they are just markers
         if ops::is_white_out(path).is_some() {
+            tracing::trace!(
+                path=%path.display(),
+                options=?conf,
+                "Whiteout files can't be opened",
+            );
             return Err(FsError::InvalidInput);
         }
 
@@ -384,6 +416,10 @@ where
         // we are done as the secondary file or directory has been earlier
         // deleted via a white out
         if ops::has_white_out(&self.primary, path) {
+            tracing::trace!(
+                path=%path.display(),
+                "The file has been whited out",
+            );
             return Err(FsError::EntryNotFound);
         }
 
@@ -905,9 +941,15 @@ where
         }
     }
 
+
     for fs in secondaries.filesystems() {
         match fs.new_open_options().options(conf.clone()).open(path) {
             Ok(f) => {
+                tracing::trace!(
+                    path=%path.display(),
+                    options=?conf,
+                    "Opening the file in copy-on-write mode",
+                );
                 return Ok(Box::new(CopyOnWriteFile::<P> {
                     path: path.to_path_buf(),
                     primary: primary.clone(),
