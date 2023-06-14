@@ -32,7 +32,7 @@ pub async fn spawn_exec(
         }
     };
 
-    let module = match runtime.load_module_sync(wasm) {
+    let module = match runtime.load_module(wasm).await {
         Ok(module) => module,
         Err(err) => {
             error!("failed to compile module '{name}': {err}",);
