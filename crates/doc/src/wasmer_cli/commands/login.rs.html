@@ -93,8 +93,8 @@
 <span class="doccomment">/// Subcommand for listing packages
 </span><span class="attr">#[derive(Debug, Clone, Parser)]
 </span><span class="kw">pub struct </span>Login {
-    <span class="doccomment">/// Registry to log into (default: wapm.io)
-    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;wapm.io&quot;</span>)]
+    <span class="doccomment">/// Registry to log into (default: wasmer.io)
+    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;wasmer.io&quot;</span>)]
     </span><span class="kw">pub </span>registry: String,
     <span class="doccomment">/// Login token
     </span><span class="attr">#[clap(name = <span class="string">&quot;TOKEN&quot;</span>)]
@@ -142,7 +142,7 @@
         <span class="kw">let </span>wasmer_dir =
             WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
         <span class="kw">match </span>wasmer_registry::login::login_and_save_token(<span class="kw-2">&amp;</span>wasmer_dir, <span class="kw-2">&amp;</span><span class="self">self</span>.registry, <span class="kw-2">&amp;</span>token)<span class="question-mark">? </span>{
-            <span class="prelude-val">Some</span>(s) =&gt; <span class="macro">println!</span>(<span class="string">&quot;Login for WAPM user {:?} saved&quot;</span>, s),
+            <span class="prelude-val">Some</span>(s) =&gt; <span class="macro">println!</span>(<span class="string">&quot;Login for Wasmer user {:?} saved&quot;</span>, s),
             <span class="prelude-val">None </span>=&gt; <span class="macro">println!</span>(
                 <span class="string">&quot;Error: no user found on registry {:?} with token {:?}. Token saved regardless.&quot;</span>,
                 <span class="self">self</span>.registry, token
@@ -155,17 +155,17 @@
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_login_2() {
     <span class="kw">let </span>login = Login {
-        registry: <span class="string">&quot;wapm.dev&quot;</span>.to_string(),
+        registry: <span class="string">&quot;wasmer.wtf&quot;</span>.to_string(),
         token: <span class="prelude-val">None</span>,
     };
 
     <span class="macro">assert_eq!</span>(
         login.get_token_or_ask_user().unwrap(),
-        <span class="string">&quot;Please paste the login token from https://wapm.dev/settings/access-tokens&quot;
+        <span class="string">&quot;Please paste the login token from https://wasmer.wtf/settings/access-tokens&quot;
     </span>);
 
     <span class="kw">let </span>login = Login {
-        registry: <span class="string">&quot;wapm.dev&quot;</span>.to_string(),
+        registry: <span class="string">&quot;wasmer.wtf&quot;</span>.to_string(),
         token: <span class="prelude-val">Some</span>(<span class="string">&quot;abc&quot;</span>.to_string()),
     };
 

@@ -502,14 +502,14 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
-</pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the WAPM backend.
+</pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
 //! root directory.
 //!
 //! ```console
 //! $ make update-graphql-schema
-//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql &gt; lib/registry/graphql/schema.graphql
+//! curl -sSfL https://registry.wasmer.io/graphql/schema.graphql &gt; lib/registry/graphql/schema.graphql
 //! ```
 
 </span><span class="kw">pub mod </span>api;
@@ -644,7 +644,7 @@
 }
 
 <span class="doccomment">/// Returns the download info of the packages, on error returns all the available packages
-/// i.e. ((&quot;foo/python&quot;, &quot;wapm.io&quot;), (&quot;bar/python&quot; &quot;wapm.io&quot;)))
+/// i.e. ((&quot;foo/python&quot;, &quot;wasmer.io&quot;), (&quot;bar/python&quot; &quot;wasmer.io&quot;)))
 </span><span class="kw">pub fn </span>query_package_from_registry(
     registry_url: <span class="kw-2">&amp;</span>str,
     name: <span class="kw-2">&amp;</span>str,
@@ -921,7 +921,7 @@
     <span class="prelude-val">Ok</span>(registries)
 }
 
-<span class="doccomment">/// A library that exposes bindings to a WAPM package.
+<span class="doccomment">/// A library that exposes bindings to a Wasmer package.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Bindings {
     <span class="doccomment">/// A unique ID specifying this set of bindings.

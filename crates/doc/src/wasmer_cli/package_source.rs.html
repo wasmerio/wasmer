@@ -169,8 +169,8 @@
 <span class="attr">#[test]
 </span><span class="kw">fn </span>test_package_source() {
     <span class="macro">assert_eq!</span>(
-        PackageSource::parse(<span class="string">&quot;registry.wapm.io/graphql/python/python&quot;</span>).unwrap(),
-        PackageSource::File(<span class="string">&quot;registry.wapm.io/graphql/python/python&quot;</span>.to_string()),
+        PackageSource::parse(<span class="string">&quot;registry.wasmer.io/graphql/python/python&quot;</span>).unwrap(),
+        PackageSource::File(<span class="string">&quot;registry.wasmer.io/graphql/python/python&quot;</span>.to_string()),
     );
 
     <span class="macro">assert_eq!</span>(
@@ -225,8 +225,8 @@
     );
 
     <span class="macro">assert_eq!</span>(
-        PackageSource::parse(<span class="string">&quot;https://wapm.io/syrusakbary/python&quot;</span>).unwrap(),
-        PackageSource::Url(url::Url::parse(<span class="string">&quot;https://wapm.io/syrusakbary/python&quot;</span>).unwrap()),
+        PackageSource::parse(<span class="string">&quot;https://wasmer.io/syrusakbary/python&quot;</span>).unwrap(),
+        PackageSource::Url(url::Url::parse(<span class="string">&quot;https://wasmer.io/syrusakbary/python&quot;</span>).unwrap()),
     );
 
     <span class="macro">assert_eq!</span>(

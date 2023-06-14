@@ -211,11 +211,11 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
 
-<span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.
+<span class="doccomment">/// Add a Wasmer package&#39;s bindings to your application.
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Add {
     <span class="doccomment">/// The registry to fetch bindings from.
-    </span><span class="attr">#[clap(long, env = <span class="string">&quot;WAPM_REGISTRY&quot;</span>)]
+    </span><span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]
     </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Add the JavaScript bindings using &quot;npm install&quot;.
     </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
@@ -264,7 +264,7 @@
     }
 
     <span class="kw">fn </span>lookup_bindings(<span class="kw-2">&amp;</span><span class="self">self</span>, registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;Bindings&gt;, Error&gt; {
-        <span class="macro">println!</span>(<span class="string">&quot;Querying WAPM for package bindings&quot;</span>);
+        <span class="macro">println!</span>(<span class="string">&quot;Querying Wasmer for package bindings&quot;</span>);
 
         <span class="kw">let </span><span class="kw-2">mut </span>bindings_to_add = Vec::new();
         <span class="kw">let </span>language = <span class="self">self</span>.target()<span class="question-mark">?</span>.language();
@@ -286,7 +286,7 @@
                     WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
                 <span class="kw">let </span>cfg = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir)
                     .map_err(Error::msg)
-                    .context(<span class="string">&quot;Unable to load WAPM&#39;s config file&quot;</span>)<span class="question-mark">?</span>;
+                    .context(<span class="string">&quot;Unable to load Wasmer config file&quot;</span>)<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(cfg.registry.get_current_registry())
             }
         }

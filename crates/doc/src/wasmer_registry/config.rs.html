@@ -337,7 +337,7 @@
     </span><span class="attr">#[serde(default)]
     </span><span class="kw">pub </span>update_notifications_enabled: bool,
 
-    <span class="doccomment">/// The registry that wapm will connect to.
+    <span class="doccomment">/// The registry that wasmer will connect to.
     </span><span class="kw">pub </span>registry: MultiRegistry,
 
     <span class="doccomment">/// The proxy to use when connecting to the Internet.
@@ -376,7 +376,7 @@
 <span class="kw">impl </span>Default <span class="kw">for </span>MultiRegistry {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         MultiRegistry {
-            active_registry: format_graphql(<span class="string">&quot;wapm.io&quot;</span>),
+            active_registry: format_graphql(<span class="string">&quot;wasmer.io&quot;</span>),
             tokens: Vec::new(),
         }
     }
@@ -393,8 +393,8 @@
         <span class="comment">// Looks like we&#39;ve got a valid URL. Let&#39;s try to use it as-is.
         </span><span class="kw">if </span>url.has_host() {
             <span class="kw">if </span>url.path() == <span class="string">&quot;/&quot; </span>{
-                <span class="comment">// make sure we convert http://registry.wapm.io/ to
-                // http://registry.wapm.io/graphql
+                <span class="comment">// make sure we convert http://registry.wasmer.io/ to
+                // http://registry.wasmer.io/graphql
                 </span>url.set_path(<span class="string">&quot;/graphql&quot;</span>);
             }
 
@@ -412,8 +412,8 @@
     </span>registry.to_string()
 }
 
-<span class="doccomment">/// By convention, something like `&quot;wapm.io&quot;` should be converted to
-/// `&quot;https://registry.wapm.io/graphql&quot;`.
+<span class="doccomment">/// By convention, something like `&quot;wasmer.io&quot;` should be converted to
+/// `&quot;https://registry.wasmer.io/graphql&quot;`.
 </span><span class="kw">fn </span>endpoint_from_domain_name(domain_name: <span class="kw-2">&amp;</span>str) -&gt; String {
     <span class="kw">if </span>domain_name.contains(<span class="string">&quot;localhost&quot;</span>) {
         <span class="kw">return </span><span class="macro">format!</span>(<span class="string">&quot;http://{domain_name}/graphql&quot;</span>);
@@ -581,25 +581,25 @@
     </span><span class="kw">fn </span>test_registries_switch_token() {
         <span class="kw">let </span><span class="kw-2">mut </span>registries = MultiRegistry::default();
 
-        registries.set_current_registry(<span class="string">&quot;https://registry.wapm.dev&quot;</span>);
+        registries.set_current_registry(<span class="string">&quot;https://registry.wasmer.wtf&quot;</span>);
         <span class="macro">assert_eq!</span>(
             registries.get_current_registry(),
-            <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
+            <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>.to_string()
         );
         registries.set_login_token_for_registry(
-            <span class="string">&quot;https://registry.wapm.io&quot;</span>,
+            <span class="string">&quot;https://registry.wasmer.io&quot;</span>,
             <span class="string">&quot;token1&quot;</span>,
             UpdateRegistry::LeaveAsIs,
         );
         <span class="macro">assert_eq!</span>(
             registries.get_current_registry(),
-            <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>.to_string()
+            <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>.to_string()
         );
         <span class="macro">assert_eq!</span>(
             registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
             <span class="prelude-val">None
         </span>);
-        registries.set_current_registry(<span class="string">&quot;https://registry.wapm.io&quot;</span>);
+        registries.set_current_registry(<span class="string">&quot;https://registry.wasmer.io&quot;</span>);
         <span class="macro">assert_eq!</span>(
             registries.get_login_token_for_registry(<span class="kw-2">&amp;</span>registries.get_current_registry()),
             <span class="prelude-val">Some</span>(<span class="string">&quot;token1&quot;</span>.to_string())
@@ -615,21 +615,21 @@
     </span><span class="kw">fn </span>format_registry_urls() {
         <span class="kw">let </span>inputs = [
             <span class="comment">// Domain names work
-            </span>(<span class="string">&quot;wapm.io&quot;</span>, <span class="string">&quot;https://registry.wapm.io/graphql&quot;</span>),
-            (<span class="string">&quot;wapm.dev&quot;</span>, <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>),
+            </span>(<span class="string">&quot;wasmer.io&quot;</span>, <span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>),
+            (<span class="string">&quot;wasmer.wtf&quot;</span>, <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>),
             <span class="comment">// Plain URLs
             </span>(
-                <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>,
-                <span class="string">&quot;https://registry.wapm.dev/graphql&quot;</span>,
+                <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>,
+                <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>,
             ),
             (
-                <span class="string">&quot;https://registry.wapm.dev/something/else&quot;</span>,
-                <span class="string">&quot;https://registry.wapm.dev/something/else&quot;</span>,
+                <span class="string">&quot;https://registry.wasmer.wtf/something/else&quot;</span>,
+                <span class="string">&quot;https://registry.wasmer.wtf/something/else&quot;</span>,
             ),
             <span class="comment">// We don&#39;t automatically prepend the domain name with
             // &quot;registry&quot;, but we will make sure &quot;/&quot; gets turned into &quot;/graphql&quot;
-            </span>(<span class="string">&quot;https://wapm.dev/&quot;</span>, <span class="string">&quot;https://wapm.dev/graphql&quot;</span>),
-            (<span class="string">&quot;https://wapm.dev&quot;</span>, <span class="string">&quot;https://wapm.dev/graphql&quot;</span>),
+            </span>(<span class="string">&quot;https://wasmer.wtf/&quot;</span>, <span class="string">&quot;https://wasmer.wtf/graphql&quot;</span>),
+            (<span class="string">&quot;https://wasmer.wtf&quot;</span>, <span class="string">&quot;https://wasmer.wtf/graphql&quot;</span>),
             <span class="comment">// local development
             </span>(
                 <span class="string">&quot;http://localhost:8000/graphql&quot;</span>,

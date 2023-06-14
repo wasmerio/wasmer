@@ -361,10 +361,10 @@
 )]
 </span><span class="doccomment">/// The options for the wasmer Command Line Interface
 </span><span class="kw">enum </span>WasmerCLIOptions {
-    <span class="doccomment">/// Login into a wapm.io-like registry
+    <span class="doccomment">/// Login into a wasmer.io-like registry
     </span>Login(Login),
 
-    <span class="doccomment">/// Login into a wapm.io-like registry
+    <span class="doccomment">/// Login into a wasmer.io-like registry
     </span><span class="attr">#[clap(name = <span class="string">&quot;publish&quot;</span>)]
     </span>Publish(Publish),
 
@@ -476,7 +476,7 @@
     <span class="doccomment">/// Shows the current logged in user for the current active registry
     </span>Whoami(Whoami),
 
-    <span class="doccomment">/// Add a WAPM package&#39;s bindings to your application.
+    <span class="doccomment">/// Add a Wasmer package&#39;s bindings to your application.
     </span>Add(Add),
 
     <span class="doccomment">/// (unstable) Run a WebAssembly file or WEBC container.
