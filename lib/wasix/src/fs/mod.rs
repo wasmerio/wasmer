@@ -14,12 +14,12 @@ use std::{
 };
 
 use crate::state::{Stderr, Stdin, Stdout};
-use futures::TryStreamExt;
+use futures::{future::BoxFuture, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -307,11 +307,16 @@ impl FileSystem for WasiFsRoot {
             WasiFsRoot::Backing(fs) => fs.remove_dir(path),
         }
     }
-    fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.rename(from, to),
-            WasiFsRoot::Backing(fs) => fs.rename(from, to),
-        }
+    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
+        let from = from.to_owned();
+        let to = to.to_owned();
+        let this = self.clone();
+        Box::pin(async move {
+            match this {
+                WasiFsRoot::Sandbox(fs) => fs.rename(&from, &to).await,
+                WasiFsRoot::Backing(fs) => fs.rename(&from, &to).await,
+            }
+        })
     }
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
@@ -378,23 +383,6 @@ async fn merge_filesystems(
     }
 
     files.try_collect().await
-}
-
-#[tracing::instrument(level = "trace", skip_all, fields(path=%path.display()))]
-async fn copy_reference(
-    source: &dyn FileSystem,
-    destination: &dyn FileSystem,
-    path: &Path,
-) -> Result<(), std::io::Error> {
-    let src = source.new_open_options().read(true).open(path)?;
-    let mut dst = destination
-        .new_open_options()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(path)?;
-
-    dst.copy_reference(src).await
 }
 
 fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
@@ -489,21 +477,28 @@ impl WasiFs {
 
     /// Will conditionally union the binary file system with this one
     /// if it has not already been unioned
-    pub fn conditional_union(&self, binary: &BinaryPackage) -> bool {
-        let sandbox_fs = match &self.root_fs {
-            WasiFsRoot::Sandbox(fs) => fs,
-            WasiFsRoot::Backing(_) => {
-                tracing::error!("can not perform a union on a backing file system");
-                return false;
-            }
-        };
-        let package_name = binary.package_name.to_string();
-        let mut guard = self.has_unioned.lock().unwrap();
-        if !guard.contains(&package_name) {
-            guard.insert(package_name);
-            sandbox_fs.union(&binary.webc_fs);
+    pub async fn conditional_union(
+        &self,
+        binary: &BinaryPackage,
+    ) -> Result<(), virtual_fs::FsError> {
+        let package_name = binary.package_name.clone();
+
+        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(package_name);
+
+        if !needs_to_be_unioned {
+            return Ok(());
         }
-        true
+
+        match self.root_fs {
+            WasiFsRoot::Sandbox(ref sandbox_fs) => {
+                sandbox_fs.union(&binary.webc_fs);
+            }
+            WasiFsRoot::Backing(ref fs) => {
+                merge_filesystems(&binary.webc_fs, fs.deref()).await?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Created for the builder API. like `new` but with more information
@@ -1897,7 +1892,7 @@ impl FileSystem for FallbackFileSystem {
     fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
+    fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
         Self::fail();
     }
     fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
