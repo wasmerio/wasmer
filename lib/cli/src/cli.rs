@@ -27,15 +27,11 @@ pub fn wasmer_main() {
 
 fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     if is_binfmt_interpreter() {
-        todo!();
+        Run::from_binfmt_args().execute();
     }
 
     let args = Args::parse();
-
-    if args.version {
-        return print_version(args.output.is_verbose());
-    }
-
+    args.output.initialize_logging();
     args.execute()
 }
 
@@ -56,16 +52,22 @@ pub struct Args {
 
 impl Args {
     fn execute(self) -> Result<(), anyhow::Error> {
-        if self.version {
-            return print_version(self.output.is_verbose());
+        let Args {
+            cmd,
+            version,
+            output,
+        } = self;
+
+        if version {
+            return print_version(output.is_verbose());
         }
 
-        if let Some(cmd) = self.cmd {
+        if let Some(cmd) = cmd {
             cmd.execute()
         } else {
-            let help = Args::command().render_long_help();
-            eprintln!("{help}");
-            Ok(())
+            Args::command().print_long_help()?;
+            // Note: clap uses an exit code of 2 when CLI parsing fails
+            std::process::exit(2);
         }
     }
 }
@@ -250,15 +252,22 @@ impl Cmd {
 }
 
 fn is_binfmt_interpreter() -> bool {
-    if !cfg!(linux) {
-        return false;
-    }
+    cfg_if::cfg_if! {
+        if #[cfg(target_os = "linux")] {
+            use std::{ffi::OsStr, path::PathBuf};
 
-    // TODO: Figure out if we actually are running as the binfmt interpreter
-    false
+            // Note: we'll be invoked as
+            let binary_path = match std::env::args_os().next() {
+                Some(path) => PathBuf::from(path),
+                None => return false,
+            };
+            binary_path.file_name() == OsStr::from(Binfmt::FILENAME)
+        } else {
+            false
+        }
+    }
 }
 
-#[allow(unused_mut, clippy::vec_init_then_push)]
 fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     if !verbose {
         println!("wasmer {}", env!("CARGO_PKG_VERSION"));
@@ -276,18 +285,17 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
     println!("host: {}", target_lexicon::HOST);
 
-    println!("compiler: {}", {
-        let mut s = Vec::<&'static str>::new();
-
-        #[cfg(feature = "singlepass")]
-        s.push("singlepass");
-        #[cfg(feature = "cranelift")]
-        s.push("cranelift");
-        #[cfg(feature = "llvm")]
-        s.push("llvm");
-
-        s.join(",")
-    });
+    let mut compilers = Vec::<&'static str>::new();
+    if cfg!(feature = "singlepass") {
+        compilers.push("singlepass");
+    }
+    if cfg!(feature = "cranelift") {
+        compilers.push("cranelift");
+    }
+    if cfg!(feature = "llvm") {
+        compilers.push("llvm");
+    }
+    println!("compiler: {}", compilers.join(","));
 
     Ok(())
 }
