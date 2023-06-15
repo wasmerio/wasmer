@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.0.0-beta.3 - 15/06/2023
 
+More fixes and improvement to the virtual filesystem, and behind the scene work to unify wasmer tools for this new beta.
+RISC-V will now be built on newest Bookworm Debian release.
+
 ## Added
 
   - [#3990](https://github.com/wasmerio/wasmer/pull/3990) fix(cli): Fix deploy command and add some aliases
