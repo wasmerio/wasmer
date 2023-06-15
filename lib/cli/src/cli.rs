@@ -155,7 +155,7 @@ enum WasmerCLIOptions {
     /// Add a Wasmer package's bindings to your application.
     Add(Add),
 
-    /// (unstable) Run a WebAssembly file or WEBC container.
+    /// Run a WebAssembly file or Wasmer container.
     #[clap(alias = "run-unstable")]
     Run(Run),
 
