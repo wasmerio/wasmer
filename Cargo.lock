@@ -5067,7 +5067,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5177,7 +5177,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5294,7 +5294,7 @@ dependencies = [
 
 [[package]]
 name = "wasix_http_client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "http",
@@ -5687,7 +5687,7 @@ dependencies = [
  "wasmer-deploy-cli",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 5.0.0",
+ "wasmer-registry 5.1.0",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -6017,7 +6017,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.0.0"
+version = "5.1.0"
 dependencies = [
  "anyhow",
  "console",
@@ -6057,7 +6057,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "libc",
  "region",
@@ -6132,7 +6132,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6199,7 +6199,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -6214,7 +6214,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bitflags",
