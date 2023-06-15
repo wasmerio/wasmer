@@ -341,7 +341,10 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(wasmer_dir)?;
-        source.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
+        let cache_dir = WapmSource::default_cache_dir(wasmer_dir);
+        let wapm_source =
+            WapmSource::new(graphql_endpoint, Arc::clone(&client)).with_local_cache(cache_dir);
+        source.add_source(wapm_source);
 
         let cache_dir = WebSource::default_cache_dir(wasmer_dir);
         source.add_source(WebSource::new(cache_dir, client));
