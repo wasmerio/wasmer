@@ -53,6 +53,7 @@ fn seccheck(path: &Path) -> Result<()> {
 }
 
 impl Binfmt {
+    /// The filename used to register the wasmer CLI as a binfmt interpreter.
     pub const FILENAME: &str = "wasmer-binfmt-interpreter";
 
     /// execute [Binfmt]

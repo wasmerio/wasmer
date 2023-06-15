@@ -264,11 +264,9 @@ impl Cmd {
 fn is_binfmt_interpreter() -> bool {
     cfg_if::cfg_if! {
         if #[cfg(target_os = "linux")] {
-            use std::{ffi::OsStr, path::PathBuf};
-
-            // Note: we'll be invoked as
+            // Note: we'll be invoked by the kernel as Binfmt::FILENAME
             let binary_path = match std::env::args_os().next() {
-                Some(path) => PathBuf::from(path),
+                Some(path) => std::path::PathBuf::from(path),
                 None => return false,
             };
             binary_path.file_name().and_then(|f| f.to_str()) == Some(Binfmt::FILENAME)
