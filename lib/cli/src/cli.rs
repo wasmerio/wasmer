@@ -30,9 +30,19 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         Run::from_binfmt_args().execute();
     }
 
-    let args = Args::parse();
-    args.output.initialize_logging();
-    args.execute()
+    match Args::try_parse() {
+        Ok(args) => {
+            args.output.initialize_logging();
+            args.execute()
+        }
+        Err(e) if e.kind() == clap::error::ErrorKind::InvalidSubcommand => {
+            // Try to parse it as `wasmer some/package`
+            Run::parse().execute()
+        }
+        Err(e) => {
+            e.exit();
+        }
+    }
 }
 
 /// Command-line arguments for the Wasmer CLI.
