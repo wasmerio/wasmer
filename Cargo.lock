@@ -5810,9 +5810,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19c0d1ea63311f4e84b7df88a176fcaeced318d09b102c359f23eb81f8f3eb63"
+checksum = "401220ca92419731ffb670b6d6f8442fc32b110f6e9bb5658c4cfa658c48ab32"
 dependencies = [
  "anyhow",
  "clap 4.3.4",
