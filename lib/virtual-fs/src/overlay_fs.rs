@@ -393,7 +393,7 @@ where
             // does not then we need to make sure we create all the structure
             // in the primary
             if let Some(parent) = path.parent() {
-                if ops::exists(self, &parent) {
+                if ops::exists(self, parent) {
                     // We create the directory structure on the primary so that
                     // the new file can be created, this will make it override
                     // whatever is in the primary
@@ -418,7 +418,7 @@ where
         // we are done as the secondary file or directory has been earlier
         // deleted via a white out (when the create flag is set then
         // the white out marker is ignored)
-        if conf.create == false {
+        if !conf.create {
             if ops::has_white_out(&self.primary, path) {
                 tracing::trace!(
                     path=%path.display(),
@@ -432,7 +432,7 @@ where
         let require_mutations = conf.append || conf.write || conf.create_new | conf.truncate;
 
         // If the file is on a secondary then we should open it
-        if ops::has_white_out(&self.primary, path) == false {
+        if !ops::has_white_out(&self.primary, path) {
             for fs in self.secondaries.filesystems() {
                 let mut sub_conf = conf.clone();
                 sub_conf.create = false;
@@ -446,7 +446,7 @@ where
                         // to return a copy on write emulation so that the file can be
                         // copied from the secondary to the primary in the scenario that
                         // it is edited
-                        return open_copy_on_write(path, &conf, &self.primary, file);
+                        return open_copy_on_write(path, conf, &self.primary, file);
                     }
                     other => return other,
                 }
@@ -457,7 +457,7 @@ where
         if conf.create {
             // Create the parent structure and remove any whiteouts
             if let Some(parent) = path.parent() {
-                if ops::exists(self, &parent) {
+                if ops::exists(self, parent) {
                     ops::create_dir_all(&self.primary, parent)?;
                 }
             }
@@ -615,7 +615,7 @@ where
                                     .truncate(true)
                                     .open(&self.path);
                                 match dst {
-                                    Ok(dst) if had_white_out == true => {
+                                    Ok(dst) if had_white_out => {
                                         again = true;
                                         CowState::Copied(dst)
                                     }
@@ -993,14 +993,14 @@ where
         options=?conf,
         "Opening the file in copy-on-write mode",
     );
-    return Ok(Box::new(CopyOnWriteFile::<P> {
+    Ok(Box::new(CopyOnWriteFile::<P> {
         path: path.to_path_buf(),
         primary: primary.clone(),
         state: CowState::ReadOnly(file),
         readable: conf.read,
         append: conf.append,
         new_size: None,
-    }));
+    }))
 }
 
 impl<P, S> Debug for OverlayFileSystem<P, S>
