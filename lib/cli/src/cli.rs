@@ -37,6 +37,7 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
         }
         Err(e) if e.kind() == clap::error::ErrorKind::InvalidSubcommand => {
             // Try to parse it as `wasmer some/package`
+            crate::logging::Output::default().initialize_logging();
             Run::parse().execute()
         }
         Err(e) => {
