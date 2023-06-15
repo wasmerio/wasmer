@@ -418,14 +418,12 @@ where
         // we are done as the secondary file or directory has been earlier
         // deleted via a white out (when the create flag is set then
         // the white out marker is ignored)
-        if !conf.create {
-            if ops::has_white_out(&self.primary, path) {
-                tracing::trace!(
-                    path=%path.display(),
-                    "The file has been whited out",
-                );
-                return Err(FsError::EntryNotFound);
-            }
+        if !conf.create && ops::has_white_out(&self.primary, path) {
+            tracing::trace!(
+                path=%path.display(),
+                "The file has been whited out",
+            );
+            return Err(FsError::EntryNotFound);
         }
 
         // Determine if a mutation will be possible with the opened file
