@@ -41,7 +41,7 @@ pub async fn spawn_exec(
                 SpawnError::CompileError
             });
             if module.is_err() {
-                env.blocking_cleanup(Some(Errno::Noexec.into()));
+                env.cleanup(Some(Errno::Noexec.into())).await;
             }
             let module = module?;
 
@@ -57,13 +57,20 @@ pub async fn spawn_exec(
         }
         (None, None) => {
             error!("package has no entry [{}]", name,);
-            env.blocking_cleanup(Some(Errno::Noexec.into()));
+            env.cleanup(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }
     };
 
     // If the file system has not already been union'ed then do so
-    env.state.fs.conditional_union(&binary);
+    env.state
+        .fs
+        .conditional_union(&binary)
+        .await
+        .map_err(|err| {
+            tracing::warn!("failed to union file system - {err}");
+            SpawnError::FileSystemError
+        })?;
     tracing::debug!("{:?}", env.state.fs);
 
     // Now run the module

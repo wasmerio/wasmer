@@ -509,7 +509,10 @@ mod fixtures {
 
 /// A helper that wraps [`std::process::Child`] to make sure it gets terminated
 /// when it is no longer needed.
-struct JoinableChild(Option<std::process::Child>);
+struct JoinableChild {
+    command: std::process::Command,
+    child: Option<std::process::Child>,
+}
 
 impl JoinableChild {
     fn spawn(mut cmd: std::process::Command) -> Self {
@@ -520,14 +523,17 @@ impl JoinableChild {
             .spawn()
             .unwrap();
 
-        JoinableChild(Some(child))
+        JoinableChild {
+            child: Some(child),
+            command: cmd,
+        }
     }
 
     /// Keep reading lines from the child's stdout until a line containing the
     /// desired text is found.
     fn wait_for_stdout(&mut self, text: &str) -> String {
         let stdout = self
-            .0
+            .child
             .as_mut()
             .and_then(|child| child.stdout.as_mut())
             .unwrap();
@@ -539,7 +545,7 @@ impl JoinableChild {
     /// desired text is found.
     fn wait_for_stderr(&mut self, text: &str) -> String {
         let stderr = self
-            .0
+            .child
             .as_mut()
             .and_then(|child| child.stderr.as_mut())
             .unwrap();
@@ -550,7 +556,7 @@ impl JoinableChild {
     /// Kill the underlying [`std::process::Child`] and get an [`Assert`] we
     /// can use to check it.
     fn join(mut self) -> Assert {
-        let mut child = self.0.take().unwrap();
+        let mut child = self.child.take().unwrap();
         child.kill().unwrap();
         child.wait_with_output().unwrap().assert()
     }
@@ -597,8 +603,9 @@ fn read_line(reader: &mut dyn Read) -> Result<String, std::io::Error> {
 
 impl Drop for JoinableChild {
     fn drop(&mut self) {
-        if let Some(mut child) = self.0.take() {
+        if let Some(mut child) = self.child.take() {
             eprintln!("==== WARNING: Child was dropped before being joined ====");
+            eprintln!("Command: {:?}", self.command);
 
             let _ = child.kill();
 

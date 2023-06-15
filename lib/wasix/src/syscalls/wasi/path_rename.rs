@@ -25,31 +25,31 @@ pub fn path_rename<M: MemorySize>(
     new_fd: WasiFd,
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let mut source_str = unsafe { get_input_str!(&memory, old_path, old_path_len) };
+    let mut source_str = unsafe { get_input_str_ok!(&memory, old_path, old_path_len) };
     Span::current().record("old_path", source_str.as_str());
     source_str = ctx.data().state.fs.relative_path_to_absolute(source_str);
     let source_path = std::path::Path::new(&source_str);
-    let mut target_str = unsafe { get_input_str!(&memory, new_path, new_path_len) };
+    let mut target_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
     Span::current().record("new_path", target_str.as_str());
     target_str = ctx.data().state.fs.relative_path_to_absolute(target_str);
     let target_path = std::path::Path::new(&target_str);
 
     {
-        let source_fd = wasi_try!(state.fs.get_fd(old_fd));
+        let source_fd = wasi_try_ok!(state.fs.get_fd(old_fd));
         if !source_fd.rights.contains(Rights::PATH_RENAME_SOURCE) {
-            return Errno::Access;
+            return Ok(Errno::Access);
         }
-        let target_fd = wasi_try!(state.fs.get_fd(new_fd));
+        let target_fd = wasi_try_ok!(state.fs.get_fd(new_fd));
         if !target_fd.rights.contains(Rights::PATH_RENAME_TARGET) {
-            return Errno::Access;
+            return Ok(Errno::Access);
         }
     }
 
     // this is to be sure the source file is fetch from filesystem if needed
-    wasi_try!(state.fs.get_inode_at_path(
+    wasi_try_ok!(state.fs.get_inode_at_path(
         inodes,
         old_fd,
         source_path.to_str().as_ref().unwrap(),
@@ -61,11 +61,11 @@ pub fn path_rename<M: MemorySize>(
             .fs
             .get_inode_at_path(inodes, new_fd, target_path.to_str().as_ref().unwrap(), true);
     let (source_parent_inode, source_entry_name) =
-        wasi_try!(state
+        wasi_try_ok!(state
             .fs
             .get_parent_inode_at_path(inodes, old_fd, source_path, true));
     let (target_parent_inode, target_entry_name) =
-        wasi_try!(state
+        wasi_try_ok!(state
             .fs
             .get_parent_inode_at_path(inodes, new_fd, target_path, true));
     let mut need_create = true;
@@ -80,13 +80,13 @@ pub fn path_rename<M: MemorySize>(
                 out_path.push(std::path::Path::new(&target_entry_name));
                 out_path
             }
-            Kind::Root { .. } => return Errno::Notcapable,
+            Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return Errno::Inval
+                return Ok(Errno::Inval)
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 debug!("fatal internal logic error: parent of inode is not a directory");
-                return Errno::Inval;
+                return Ok(Errno::Inval);
             }
         }
     };
@@ -95,15 +95,15 @@ pub fn path_rename<M: MemorySize>(
         let mut guard = source_parent_inode.write();
         match guard.deref_mut() {
             Kind::Dir { entries, .. } => {
-                wasi_try!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
+                wasi_try_ok!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
             }
-            Kind::Root { .. } => return Errno::Notcapable,
+            Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return Errno::Inval
+                return Ok(Errno::Inval);
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 debug!("fatal internal logic error: parent of inode is not a directory");
-                return Errno::Inval;
+                return Ok(Errno::Inval);
             }
         }
     };
@@ -121,11 +121,24 @@ pub fn path_rename<M: MemorySize>(
                 // implements the logic of "I'm not actually a file, I'll try to be as needed".
                 let result = if let Some(h) = handle {
                     drop(guard);
-                    state.fs_rename(source_path, &host_adjusted_target_path)
+                    let state = state;
+                    __asyncify_light(env, None, async move {
+                        state
+                            .fs_rename(source_path, &host_adjusted_target_path)
+                            .await
+                    })?
                 } else {
                     let path_clone = path.clone();
                     drop(guard);
-                    let out = state.fs_rename(path_clone, &host_adjusted_target_path);
+                    let out = {
+                        let state = state;
+                        let host_adjusted_target_path = host_adjusted_target_path.clone();
+                        __asyncify_light(env, None, async move {
+                            state
+                                .fs_rename(path_clone, &host_adjusted_target_path)
+                                .await
+                        })?
+                    };
                     {
                         let mut guard = source_entry.write();
                         if let Kind::File { ref mut path, .. } = guard.deref_mut() {
@@ -141,14 +154,23 @@ pub fn path_rename<M: MemorySize>(
                     let mut guard = source_parent_inode.write();
                     if let Kind::Dir { entries, .. } = guard.deref_mut() {
                         entries.insert(source_entry_name, source_entry);
-                        return e;
+                        return Ok(e);
                     }
                 }
             }
             Kind::Dir { ref path, .. } => {
                 let cloned_path = path.clone();
-                if let Err(e) = state.fs_rename(cloned_path, &host_adjusted_target_path) {
-                    return e;
+                let res = {
+                    let state = state;
+                    let host_adjusted_target_path = host_adjusted_target_path.clone();
+                    __asyncify_light(env, None, async move {
+                        state
+                            .fs_rename(cloned_path, &host_adjusted_target_path)
+                            .await
+                    })?
+                };
+                if let Err(e) = res {
+                    return Ok(e);
                 }
                 {
                     drop(guard);
@@ -178,5 +200,5 @@ pub fn path_rename<M: MemorySize>(
         }
     }
 
-    Errno::Success
+    Ok(Errno::Success)
 }

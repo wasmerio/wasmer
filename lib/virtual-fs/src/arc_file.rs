@@ -3,6 +3,7 @@
 
 use crate::{ClonableVirtualFile, VirtualFile};
 use derivative::Derivative;
+use futures::future::BoxFuture;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{
@@ -126,9 +127,11 @@ where
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink(&mut self) -> crate::Result<()> {
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
         let mut inner = self.inner.lock().unwrap();
-        inner.unlink()
+        let fut = inner.unlink();
+        drop(inner);
+        Box::pin(async move { fut.await })
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

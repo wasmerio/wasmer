@@ -5068,6 +5068,7 @@ dependencies = [
  "derivative",
  "filetime",
  "fs_extra",
+ "futures",
  "getrandom",
  "indexmap",
  "lazy_static",
@@ -6256,6 +6257,7 @@ name = "wasmer-wast"
 version = "4.0.0-beta.2"
 dependencies = [
  "anyhow",
+ "futures",
  "serde",
  "tempfile",
  "thiserror",

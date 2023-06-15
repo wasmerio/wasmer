@@ -179,7 +179,7 @@ impl WasiState {
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
+    pub(crate) async fn fs_rename<P: AsRef<Path>, Q: AsRef<Path>>(
         &self,
         from: P,
         to: Q,
@@ -187,6 +187,7 @@ impl WasiState {
         self.fs
             .root_fs
             .rename(from.as_ref(), to.as_ref())
+            .await
             .map_err(fs_error_into_wasi_err)
     }
 

@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use futures::{StreamExt, TryStreamExt};
+use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
 use webc::compat::{Container, Volume};
@@ -390,10 +390,14 @@ where
         self.inner.remove_dir(&path)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
-        let from = self.path(from)?;
-        let to = self.path(to)?;
-        self.inner.rename(&from, &to)
+    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
+        let from = from.to_owned();
+        let to = to.to_owned();
+        Box::pin(async move {
+            let from = self.path(&from)?;
+            let to = self.path(&to)?;
+            self.inner.rename(&from, &to).await
+        })
     }
 
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
