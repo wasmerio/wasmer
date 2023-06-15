@@ -1,4 +1,4 @@
-FROM debian:sid AS openssl_riscv64
+FROM debian:bookworm AS openssl_riscv64
 #FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge
 
 # set CROSS_DOCKER_IN_DOCKER to inform `cross` that it is executed from within a container

@@ -16,10 +16,6 @@ Or by building it inside the codebase:
 cargo build --release --features "singlepass,cranelift"
 ```
 
-> Note: installing `wasmer` via Cargo (or manual install) will not install
-> the WAPM cli. If you want to use them together, please use the [wasmer installer](https://github.com/wasmerio/wasmer-install).
-
-
 ## Features
 
 The Wasmer supports the following features:

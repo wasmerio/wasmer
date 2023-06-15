@@ -1,11 +1,11 @@
-//! High-level interactions with the WAPM backend.
+//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo's
 //! root directory.
 //!
 //! ```console
 //! $ make update-graphql-schema
-//! curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
+//! curl -sSfL https://registry.wasmer.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
 
 pub mod api;
@@ -140,7 +140,7 @@ pub enum GetIfPackageHasNewVersionResult {
 }
 
 /// Returns the download info of the packages, on error returns all the available packages
-/// i.e. (("foo/python", "wapm.io"), ("bar/python" "wapm.io")))
+/// i.e. (("foo/python", "wasmer.io"), ("bar/python" "wasmer.io")))
 pub fn query_package_from_registry(
     registry_url: &str,
     name: &str,
@@ -417,7 +417,7 @@ pub fn get_all_available_registries(wasmer_dir: &Path) -> Result<Vec<String>, St
     Ok(registries)
 }
 
-/// A library that exposes bindings to a WAPM package.
+/// A library that exposes bindings to a Wasmer package.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Bindings {
     /// A unique ID specifying this set of bindings.

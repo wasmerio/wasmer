@@ -128,17 +128,17 @@ pub enum SpawnError {
     /// Failed during deserialization
     #[error("deserialization failed")]
     Deserialization,
-    /// Invalid WAPM process
-    #[error("invalid wapm")]
-    InvalidWapm,
-    /// Failed to fetch the WAPM process
+    /// Invalid Wasmer process
+    #[error("invalid wasmer")]
+    InvalidWasmer,
+    /// Failed to fetch the Wasmer process
     #[error("fetch failed")]
     FetchFailed,
-    /// Failed to compile the WAPM process
+    /// Failed to compile the Wasmer process
     #[error("compile error")]
     CompileError,
     /// Invalid ABI
-    #[error("WAPM process has an invalid ABI")]
+    #[error("Wasmer process has an invalid ABI")]
     InvalidABI,
     /// Bad handle
     #[error("bad handle")]
