@@ -5526,9 +5526,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c7a006dcf1643e126c8454cf96df7830f58a3010bb2dd90a049bd9409de2728"
+checksum = "96d3d713e203593b245f700f42f23ec632e6cf8c01be3ed2ce828b6948a261e4"
 dependencies = [
  "anyhow",
  "cynic",
@@ -5799,9 +5799,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bad78ad74181f86d414edf87cabf1eb1f677053ee73288a81aa733d661868ec7"
+checksum = "19c0d1ea63311f4e84b7df88a176fcaeced318d09b102c359f23eb81f8f3eb63"
 dependencies = [
  "anyhow",
  "clap 4.3.2",
@@ -5835,9 +5835,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-schema"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "127ff12dd458346f125ff86c60a2a71483597d112de0788fcef75bc8cade8454"
+checksum = "518852c619a39aebe90bf38f0a1c8669c6b9eaf78ba11b899ec240745df1166d"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -5854,9 +5854,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-util"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c2a3adae5454d7fbfdd3ddf92bac9b605e259a71e2361786a59844662cd256a"
+checksum = "94cb6c1cc25b066e81a2fdd7cd1774b68fbb733f4618e92f5b2e1e182c7d6894"
 dependencies = [
  "serde",
  "wasmer-deploy-schema",

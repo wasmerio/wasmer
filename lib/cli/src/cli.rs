@@ -161,7 +161,7 @@ enum WasmerCLIOptions {
 
     // DEPLOY commands
     /// Deploy apps to the Wasmer Edge.
-    Deploy(wasmer_deploy_cli::cmd::publish::CmdAppPublish),
+    Deploy(wasmer_deploy_cli::cmd::deploy::CmdDeploy),
 
     /// Manage deployed apps.
     #[clap(subcommand, alias = "apps")]
