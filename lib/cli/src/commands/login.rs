@@ -6,8 +6,8 @@ use wasmer_registry::WasmerConfig;
 /// Subcommand for listing packages
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
-    /// Registry to log into (default: wapm.io)
-    #[clap(long, default_value = "wapm.io")]
+    /// Registry to log into (default: wasmer.io)
+    #[clap(long, default_value = "wasmer.io")]
     pub registry: String,
     /// Login token
     #[clap(name = "TOKEN")]
@@ -55,7 +55,7 @@ impl Login {
         let wasmer_dir =
             WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
         match wasmer_registry::login::login_and_save_token(&wasmer_dir, &self.registry, &token)? {
-            Some(s) => println!("Login for WAPM user {:?} saved", s),
+            Some(s) => println!("Login for Wasmer user {:?} saved", s),
             None => println!(
                 "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
                 self.registry, token
@@ -68,17 +68,17 @@ impl Login {
 #[test]
 fn test_login_2() {
     let login = Login {
-        registry: "wapm.dev".to_string(),
+        registry: "wasmer.wtf".to_string(),
         token: None,
     };
 
     assert_eq!(
         login.get_token_or_ask_user().unwrap(),
-        "Please paste the login token from https://wapm.dev/settings/access-tokens"
+        "Please paste the login token from https://wasmer.wtf/settings/access-tokens"
     );
 
     let login = Login {
-        registry: "wapm.dev".to_string(),
+        registry: "wasmer.wtf".to_string(),
         token: Some("abc".to_string()),
     };
 

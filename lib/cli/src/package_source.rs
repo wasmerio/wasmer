@@ -48,8 +48,8 @@ impl PackageSource {
 #[test]
 fn test_package_source() {
     assert_eq!(
-        PackageSource::parse("registry.wapm.io/graphql/python/python").unwrap(),
-        PackageSource::File("registry.wapm.io/graphql/python/python".to_string()),
+        PackageSource::parse("registry.wasmer.io/graphql/python/python").unwrap(),
+        PackageSource::File("registry.wasmer.io/graphql/python/python".to_string()),
     );
 
     assert_eq!(
@@ -104,8 +104,8 @@ fn test_package_source() {
     );
 
     assert_eq!(
-        PackageSource::parse("https://wapm.io/syrusakbary/python").unwrap(),
-        PackageSource::Url(url::Url::parse("https://wapm.io/syrusakbary/python").unwrap()),
+        PackageSource::parse("https://wasmer.io/syrusakbary/python").unwrap(),
+        PackageSource::Url(url::Url::parse("https://wasmer.io/syrusakbary/python").unwrap()),
     );
 
     assert_eq!(

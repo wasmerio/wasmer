@@ -4,11 +4,11 @@ use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
 
-/// Add a WAPM package's bindings to your application.
+/// Add a Wasmer package's bindings to your application.
 #[derive(Debug, Parser)]
 pub struct Add {
     /// The registry to fetch bindings from.
-    #[clap(long, env = "WAPM_REGISTRY")]
+    #[clap(long, env = "WASMER_REGISTRY")]
     registry: Option<String>,
     /// Add the JavaScript bindings using "npm install".
     #[clap(long, groups = &["bindings", "js"])]
@@ -57,7 +57,7 @@ impl Add {
     }
 
     fn lookup_bindings(&self, registry: &str) -> Result<Vec<Bindings>, Error> {
-        println!("Querying WAPM for package bindings");
+        println!("Querying Wasmer for package bindings");
 
         let mut bindings_to_add = Vec::new();
         let language = self.target()?.language();
@@ -79,7 +79,7 @@ impl Add {
                     WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
                 let cfg = WasmerConfig::from_file(&wasmer_dir)
                     .map_err(Error::msg)
-                    .context("Unable to load WAPM's config file")?;
+                    .context("Unable to load Wasmer config file")?;
                 Ok(cfg.registry.get_current_registry())
             }
         }
