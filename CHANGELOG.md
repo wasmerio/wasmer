@@ -9,6 +9,27 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.0.0-beta.3 - 15/06/2023
+
+More fixes and improvement to the virtual filesystem, and behind the scene work to unify wasmer tools for this new beta.
+RISC-V will now be built on newest Bookworm Debian release.
+
+## Added
+
+  - [#3990](https://github.com/wasmerio/wasmer/pull/3990) fix(cli): Fix deploy command and add some aliases
+
+## Changed
+
+  - [#3998](https://github.com/wasmerio/wasmer/pull/3998) deps: Upgrade edge cli
+  - [#3989](https://github.com/wasmerio/wasmer/pull/3989) OverlayFS now has COW
+  - [#3991](https://github.com/wasmerio/wasmer/pull/3991) Renamed most appearances of Wapm to Wasmer
+  - [#3992](https://github.com/wasmerio/wasmer/pull/3992) [CI][RISCV64] Try to use bookworm debian instead of sid
+
+## Fixed
+
+
+
+
 ## 4.0.0-beta.2 - 09/06/2023
 
 This version added a missing `sock_accept` function to WASI preview1, and also greatly improved the filesystem mappings for the resolver, improving the ease of use of the abilty to run packages with the `wasmer run` command.
