@@ -271,7 +271,7 @@ fn is_binfmt_interpreter() -> bool {
                 Some(path) => PathBuf::from(path),
                 None => return false,
             };
-            binary_path.file_name() == OsStr::from(Binfmt::FILENAME)
+            binary_path.file_name().and_then(|f| f.to_str()) == Some(Binfmt::FILENAME)
         } else {
             false
         }
