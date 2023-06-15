@@ -96,15 +96,11 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Wraps a boxed file system with an implemented trait VirtualSystem - this is
 //! needed so that a `Box&lt;dyn VirtualFileSystem&gt;` can be wrapped in an Arc and
 //! shared - some of the interfaces pass around a `Box&lt;dyn VirtualFileSystem&gt;`
 
 </span><span class="kw">use </span>std::path::Path;
-<span class="attr">#[allow(unused_imports, dead_code)]
-</span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
 
 <span class="kw">use crate</span>::<span class="kw-2">*</span>;
 
@@ -132,8 +128,8 @@
         <span class="self">self</span>.fs.remove_dir(path)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.fs.rename(from, to)
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="self">self</span>.fs.rename(from, to).<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {

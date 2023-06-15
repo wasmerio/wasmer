@@ -227,10 +227,12 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Used for /dev/zero - infinitely returns zero
 //! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
 
-</span><span class="kw">use </span>replace_with::replace_with_or_abort;
+</span><span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>replace_with::replace_with_or_abort;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, <span class="kw-2">*</span>};
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::task::{Context, Poll};
@@ -433,9 +435,9 @@
     <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="self">self</span>.buf.set_len(new_size)
     }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.buf.set_len(<span class="number">0</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>ret = <span class="self">self</span>.buf.set_len(<span class="number">0</span>);
+        Box::pin(<span class="kw">async move </span>{ ret })
     }
     <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {

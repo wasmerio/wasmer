@@ -441,6 +441,10 @@
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
 <a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -449,7 +453,7 @@
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>futures::{StreamExt, TryStreamExt};
+<span class="kw">use </span>futures::{future::BoxFuture, StreamExt, TryStreamExt};
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
 <span class="kw">use </span>webc::compat::{Container, Volume};
@@ -833,10 +837,14 @@
         <span class="self">self</span>.inner.remove_dir(<span class="kw-2">&amp;</span>path)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
-        <span class="kw">let </span>from = <span class="self">self</span>.path(from)<span class="question-mark">?</span>;
-        <span class="kw">let </span>to = <span class="self">self</span>.path(to)<span class="question-mark">?</span>;
-        <span class="self">self</span>.inner.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to)
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>from = from.to_owned();
+        <span class="kw">let </span>to = to.to_owned();
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span>from = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>from)<span class="question-mark">?</span>;
+            <span class="kw">let </span>to = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>to)<span class="question-mark">?</span>;
+            <span class="self">self</span>.inner.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await
+        </span>})
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {

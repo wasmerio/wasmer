@@ -387,7 +387,11 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 <span class="kw">use </span>std::convert::TryInto;
@@ -502,11 +506,11 @@
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.entry.get_len()
     }
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
     <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span>remaining = <span class="self">self</span>.entry.get_len() - <span class="self">self</span>.cursor;
@@ -665,20 +669,22 @@
             result
         }
     }
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="kw">let </span>from = normalizes_path(from);
-        <span class="kw">let </span>to = normalizes_path(to);
-        <span class="kw">let </span>result = <span class="self">self</span>.memory.rename(Path::new(<span class="kw-2">&amp;</span>from), Path::new(<span class="kw-2">&amp;</span>to));
-        <span class="kw">if </span><span class="self">self
-            </span>.volumes
-            .values()
-            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>from).ok())
-            .is_some()
-        {
-            <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else </span>{
-            result
-        }
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{
+            <span class="kw">let </span>from = normalizes_path(from);
+            <span class="kw">let </span>to = normalizes_path(to);
+            <span class="kw">let </span>result = <span class="self">self</span>.memory.rename(Path::new(<span class="kw-2">&amp;</span>from), Path::new(<span class="kw-2">&amp;</span>to)).<span class="kw">await</span>;
+            <span class="kw">if </span><span class="self">self
+                </span>.volumes
+                .values()
+                .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>from).ok())
+                .is_some()
+            {
+                <span class="prelude-val">Ok</span>(())
+            } <span class="kw">else </span>{
+                result
+            }
+        })
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata, FsError&gt; {
         <span class="kw">let </span>path = normalizes_path(path);

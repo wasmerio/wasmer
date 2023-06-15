@@ -110,6 +110,7 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
 </pre><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -157,12 +158,13 @@
         <span class="self">self</span>.inner.size()
     }
 
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="self">self</span>.inner.set_len(new_size)
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.inner.unlink()
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        <span class="kw">let </span>fut = <span class="self">self</span>.inner.unlink();
+        Box::pin(<span class="kw">async </span>{ fut.<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {

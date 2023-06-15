@@ -98,6 +98,7 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -141,8 +142,9 @@
         <span class="self">self</span>.tx.set_len(new_size)
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.tx.unlink()
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        <span class="kw">let </span>fut = <span class="self">self</span>.tx.unlink();
+        Box::pin(<span class="kw">async </span>{ fut.<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {

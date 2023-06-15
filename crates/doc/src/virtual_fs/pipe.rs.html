@@ -519,7 +519,9 @@
 <a href="#519" id="519">519</a>
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
 </pre><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="attr">#[cfg(feature = <span class="string">&quot;futures&quot;</span>)]
 </span><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>std::io::IoSlice;
@@ -905,13 +907,13 @@
 
     <span class="doccomment">/// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    </span><span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+    </span><span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Request deletion of the file
-    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="prelude-val">Ok</span>(())
+    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
 
     <span class="doccomment">/// Indicates if the file is opened or closed. This function must not block

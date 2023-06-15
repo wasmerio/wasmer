@@ -110,7 +110,7 @@
 </span><span class="kw">pub trait </span>FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;: <span class="lifetime">&#39;a </span>{
     <span class="comment">// FIXME(Michael-F-Bryan): Rewrite this to use GATs when we bump the MSRV to
     // 1.65 or higher. That&#39;ll get rid of all the lifetimes and HRTBs.
-    </span><span class="kw">type </span>Iter: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileSystem&gt; + <span class="lifetime">&#39;a</span>;
+    </span><span class="kw">type </span>Iter: IntoIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">dyn </span>FileSystem + Send)&gt; + Send + <span class="lifetime">&#39;a</span>;
 
     <span class="doccomment">/// Get something that can be used to iterate over the underlying
     /// filesystems.
@@ -131,7 +131,7 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>Vec&lt;T&gt;
 <span class="kw">where
-    </span>T: FileSystem,
+    </span>T: FileSystem + Send,
 {
     <span class="kw">type </span>Iter = &lt;[T] <span class="kw">as </span>FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;&gt;::Iter;
 
@@ -142,15 +142,15 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T, <span class="kw">const </span>N: usize&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>[T; N]
 <span class="kw">where
-    </span>T: FileSystem,
+    </span>T: FileSystem + Send,
 {
-    <span class="kw">type </span>Iter = [<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileSystem; N];
+    <span class="kw">type </span>Iter = [<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">dyn </span>FileSystem + Send); N];
 
     <span class="kw">fn </span>filesystems(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Iter {
         <span class="comment">// TODO: rewrite this when array::each_ref() is stable
         </span><span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
         [(); N].map(|<span class="kw">_</span>| {
-            <span class="kw">let </span>f = <span class="kw-2">&amp;</span><span class="self">self</span>[i] <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem;
+            <span class="kw">let </span>f = <span class="kw-2">&amp;</span><span class="self">self</span>[i] <span class="kw">as </span><span class="kw-2">&amp;</span>(<span class="kw">dyn </span>FileSystem + Send);
             i += <span class="number">1</span>;
             f
         })
@@ -159,17 +159,17 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>[T]
 <span class="kw">where
-    </span>T: FileSystem,
+    </span>T: FileSystem + Send,
 {
-    <span class="kw">type </span>Iter = std::iter::Map&lt;std::slice::Iter&lt;<span class="lifetime">&#39;a</span>, T&gt;, <span class="kw">fn</span>(<span class="kw-2">&amp;</span>T) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem&gt;;
+    <span class="kw">type </span>Iter = std::iter::Map&lt;std::slice::Iter&lt;<span class="lifetime">&#39;a</span>, T&gt;, <span class="kw">fn</span>(<span class="kw-2">&amp;</span>T) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>FileSystem + Send)&gt;;
 
     <span class="kw">fn </span>filesystems(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Iter {
-        <span class="self">self</span>.iter().map(|fs| fs <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem)
+        <span class="self">self</span>.iter().map(|fs| fs <span class="kw">as </span><span class="kw-2">&amp;</span>(<span class="kw">dyn </span>FileSystem + Send))
     }
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>() {
-    <span class="kw">type </span>Iter = std::iter::Empty&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileSystem&gt;;
+    <span class="kw">type </span>Iter = std::iter::Empty&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">dyn </span>FileSystem + Send)&gt;;
 
     <span class="kw">fn </span>filesystems(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Iter {
         std::iter::empty()
@@ -190,14 +190,14 @@
             </span><span class="macro-nonterminal">$first</span>: FileSystem,
             $(<span class="macro-nonterminal">$rest</span>: FileSystem),*
         {
-            <span class="kw">type </span>Iter = [<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileSystem; <span class="macro">count!</span>(<span class="macro-nonterminal">$first </span>$(<span class="macro-nonterminal">$rest</span>)<span class="kw-2">*</span>)];
+            <span class="kw">type </span>Iter = [<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">dyn </span>FileSystem + Send); <span class="macro">count!</span>(<span class="macro-nonterminal">$first </span>$(<span class="macro-nonterminal">$rest</span>)<span class="kw-2">*</span>)];
 
             <span class="kw">fn </span>filesystems(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::Iter {
                 <span class="attr">#[allow(non_snake_case)]
                 </span><span class="kw">let </span>(<span class="macro-nonterminal">$first</span>, $(<span class="macro-nonterminal">$rest</span>),<span class="kw-2">*</span>) = <span class="self">self</span>;
 
                 [
-                    <span class="macro-nonterminal">$first </span><span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
+                    <span class="macro-nonterminal">$first </span><span class="kw">as </span><span class="kw-2">&amp;</span>(<span class="kw">dyn </span>FileSystem + Send),
                     $(<span class="macro-nonterminal">$rest</span>),*
                 ]
             }

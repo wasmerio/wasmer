@@ -1367,11 +1367,16 @@
 <a href="#1367" id="1367">1367</a>
 <a href="#1368" id="1368">1368</a>
 <a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
+<a href="#1371" id="1371">1371</a>
+<a href="#1372" id="1372">1372</a>
+<a href="#1373" id="1373">1373</a>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
 };
 <span class="kw">use </span>bytes::{Buf, Bytes};
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{de, Deserialize, Serialize};
 <span class="kw">use </span>std::convert::TryInto;
@@ -1384,7 +1389,6 @@
 <span class="kw">use </span>std::time::{SystemTime, UNIX_EPOCH};
 <span class="kw">use </span>tokio::fs <span class="kw">as </span>tfs;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
-<span class="kw">use </span>tracing::debug;
 
 <span class="attr">#[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
@@ -1436,49 +1440,53 @@
         fs::remove_dir(path).map_err(Into::into)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">use </span>filetime::{set_file_mtime, FileTime};
-        <span class="kw">if </span>from.parent().is_none() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-        }
-        <span class="kw">if </span>to.parent().is_none() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-        }
-        <span class="kw">if </span>!from.exists() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
-        }
-        <span class="kw">let </span>from_parent = from.parent().unwrap();
-        <span class="kw">let </span>to_parent = to.parent().unwrap();
-        <span class="kw">if </span>!from_parent.exists() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
-        }
-        <span class="kw">if </span>!to_parent.exists() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
-        }
-        <span class="kw">let </span>result = <span class="kw">if </span>from_parent != to_parent {
-            <span class="kw">let _ </span>= std::fs::create_dir_all(to_parent);
-            <span class="kw">if </span>from.is_dir() {
-                fs_extra::move_items(
-                    <span class="kw-2">&amp;</span>[from],
-                    to,
-                    <span class="kw-2">&amp;</span>fs_extra::dir::CopyOptions {
-                        copy_inside: <span class="bool-val">true</span>,
-                        ..Default::default()
-                    },
-                )
-                .map(|<span class="kw">_</span>| ())
-                .map_err(|<span class="kw">_</span>| FsError::UnknownError)<span class="question-mark">?</span>;
-                <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[from]);
-                <span class="prelude-val">Ok</span>(())
-            } <span class="kw">else </span>{
-                fs::copy(from, to).map(|<span class="kw">_</span>| ()).map_err(FsError::from)<span class="question-mark">?</span>;
-                fs::remove_file(from).map(|<span class="kw">_</span>| ()).map_err(Into::into)
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        <span class="kw">let </span>from = from.to_owned();
+        <span class="kw">let </span>to = to.to_owned();
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">use </span>filetime::{set_file_mtime, FileTime};
+            <span class="kw">if </span>from.parent().is_none() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
             }
-        } <span class="kw">else </span>{
-            fs::rename(from, to).map_err(Into::into)
-        };
-        <span class="kw">let _ </span>= set_file_mtime(to, FileTime::now()).map(|<span class="kw">_</span>| ());
-        result
+            <span class="kw">if </span>to.parent().is_none() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+            }
+            <span class="kw">if </span>!from.exists() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
+            }
+            <span class="kw">let </span>from_parent = from.parent().unwrap();
+            <span class="kw">let </span>to_parent = to.parent().unwrap();
+            <span class="kw">if </span>!from_parent.exists() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
+            }
+            <span class="kw">if </span>!to_parent.exists() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
+            }
+            <span class="kw">let </span>result = <span class="kw">if </span>from_parent != to_parent {
+                <span class="kw">let _ </span>= std::fs::create_dir_all(to_parent);
+                <span class="kw">if </span>from.is_dir() {
+                    fs_extra::move_items(
+                        <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>from],
+                        <span class="kw-2">&amp;</span>to,
+                        <span class="kw-2">&amp;</span>fs_extra::dir::CopyOptions {
+                            copy_inside: <span class="bool-val">true</span>,
+                            ..Default::default()
+                        },
+                    )
+                    .map(|<span class="kw">_</span>| ())
+                    .map_err(|<span class="kw">_</span>| FsError::UnknownError)<span class="question-mark">?</span>;
+                    <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>from]);
+                    <span class="prelude-val">Ok</span>(())
+                } <span class="kw">else </span>{
+                    fs::copy(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).map(|<span class="kw">_</span>| ()).map_err(FsError::from)<span class="question-mark">?</span>;
+                    fs::remove_file(<span class="kw-2">&amp;</span>from).map(|<span class="kw">_</span>| ()).map_err(Into::into)
+                }
+            } <span class="kw">else </span>{
+                fs::rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).map_err(Into::into)
+            };
+            <span class="kw">let _ </span>= set_file_mtime(<span class="kw-2">&amp;</span>to, FileTime::now()).map(|<span class="kw">_</span>| ());
+            result
+        })
     }
 
     <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1754,12 +1762,13 @@
         <span class="self">self</span>.metadata().len()
     }
 
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         fs::File::set_len(<span class="kw-2">&amp;</span><span class="self">self</span>.inner_std, new_size).map_err(Into::into)
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        fs::remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>.host_path).map_err(Into::into)
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.host_path.clone();
+        Box::pin(<span class="kw">async move </span>{ fs::remove_file(<span class="kw-2">&amp;</span>path).map_err(Into::into) })
     }
 
     <span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
@@ -1886,13 +1895,12 @@
         <span class="number">0
     </span>}
 
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Calling VirtualFile::set_len on stdout; this is probably a bug&quot;</span>);
-        <span class="prelude-val">Err</span>(FsError::PermissionDenied)
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
 
     <span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
@@ -2061,13 +2069,12 @@
         <span class="number">0
     </span>}
 
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Calling VirtualFile::set_len on stderr; this is probably a bug&quot;</span>);
-        <span class="prelude-val">Err</span>(FsError::PermissionDenied)
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
 
     <span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
@@ -2190,12 +2197,11 @@
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="number">0
     </span>}
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;Calling VirtualFile::set_len on stdin; this is probably a bug&quot;</span>);
-        <span class="prelude-val">Err</span>(FsError::PermissionDenied)
-    }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
+    }
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
     <span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
         <span class="prelude-val">Some</span>(<span class="number">0</span>)
@@ -2242,8 +2248,8 @@
     <span class="kw">use </span><span class="kw">crate</span>::FsError;
     <span class="kw">use </span>std::path::Path;
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_new_filesystem() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_new_filesystem() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join(<span class="string">&quot;foo2.txt&quot;</span>), <span class="string">b&quot;&quot;</span>).unwrap();
 
@@ -2375,8 +2381,8 @@
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_rename() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_rename() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>fs = FileSystem::default();
         std::fs::create_dir_all(temp.path().join(<span class="string">&quot;foo&quot;</span>).join(<span class="string">&quot;qux&quot;</span>)).unwrap();
@@ -2384,18 +2390,18 @@
         <span class="kw">let </span>bar = temp.path().join(<span class="string">&quot;bar&quot;</span>);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)),
+            fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming a directory that has no parent&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            fs.rename(Path::new(<span class="string">&quot;/foo&quot;</span>), Path::new(<span class="string">&quot;/&quot;</span>)),
+            fs.rename(Path::new(<span class="string">&quot;/foo&quot;</span>), Path::new(<span class="string">&quot;/&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;bar&quot;</span>).join(<span class="string">&quot;baz&quot;</span>),),
+            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;bar&quot;</span>).join(<span class="string">&quot;baz&quot;</span>),).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
         );
@@ -2405,7 +2411,7 @@
         </span><span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>bar), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar),
+            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming to a directory that has parent that exists&quot;</span>,
         );
@@ -2466,19 +2472,21 @@
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>foo), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;create ./foo again&quot;</span>,);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;hello2.txt&quot;</span>), <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;world2.txt&quot;</span>)),
+            fs.rename(<span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;hello2.txt&quot;</span>), <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;world2.txt&quot;</span>))
+                .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming (and moving) a file&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;baz&quot;</span>)),
+            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;baz&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;hello1.txt&quot;</span>), <span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;world1.txt&quot;</span>)),
+            fs.rename(<span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;hello1.txt&quot;</span>), <span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;world1.txt&quot;</span>))
+                .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
         );
@@ -2502,8 +2510,8 @@
         </span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_metadata() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_metadata() {
         <span class="kw">use </span>std::thread::sleep;
         <span class="kw">use </span>std::time::Duration;
 
@@ -2540,7 +2548,7 @@
 
         <span class="kw">let </span>bar = temp.path().join(<span class="string">&quot;bar&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
 
         <span class="kw">let </span>bar_metadata = fs.metadata(<span class="kw-2">&amp;</span>bar).unwrap();
         <span class="macro">assert!</span>(bar_metadata.ft.dir);
@@ -2555,8 +2563,8 @@
         </span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_remove_file() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_remove_file() {
         <span class="kw">let </span>fs = FileSystem::default();
         <span class="kw">let </span>temp = TempDir::new().unwrap();
 
@@ -2590,8 +2598,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_readdir() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_readdir() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>fs = FileSystem::default();
 

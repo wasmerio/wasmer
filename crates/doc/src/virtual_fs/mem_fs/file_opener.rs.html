@@ -1097,7 +1097,7 @@
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;open: path={}&quot;</span>, path.display());
+        <span class="macro">debug!</span>(path=%path.display(), <span class="string">&quot;open&quot;</span>);
 
         <span class="kw">let </span>read = conf.read();
         <span class="kw">let </span><span class="kw-2">mut </span>write = conf.write();
@@ -1236,7 +1236,7 @@
             <span class="comment">// The file doesn&#39;t already exist; it&#39;s OK to create it if:
             // 1. `create_new` is used with `write` or `append`,
             // 2. `create` is used with `write` or `append`.
-            </span><span class="prelude-val">None </span><span class="kw">if </span>(create_new || create) &amp;&amp; (write || append) =&gt; {
+            </span><span class="prelude-val">None </span><span class="kw">if </span>(create_new || create) &amp;&amp; (create_new || write || append) =&gt; {
                 <span class="comment">// Write lock.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
@@ -1377,7 +1377,7 @@
                     .write(<span class="bool-val">false</span>)
                     .create_new(<span class="bool-val">true</span>)
                     .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
-                <span class="prelude-val">Err</span>(FsError::PermissionDenied),
+                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
             ),
             <span class="string">&quot;creating a file without the `write` option&quot;</span>,
         );

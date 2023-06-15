@@ -257,6 +257,7 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,
 //! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
@@ -438,7 +439,7 @@
             .map_err(fs_error_into_wasi_err)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_rename&lt;P: AsRef&lt;Path&gt;, Q: AsRef&lt;Path&gt;&gt;(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>fs_rename&lt;P: AsRef&lt;Path&gt;, Q: AsRef&lt;Path&gt;&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         from: P,
         to: Q,
@@ -446,7 +447,8 @@
         <span class="self">self</span>.fs
             .root_fs
             .rename(from.as_ref(), to.as_ref())
-            .map_err(fs_error_into_wasi_err)
+            .<span class="kw">await
+            </span>.map_err(fs_error_into_wasi_err)
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fs_remove_file&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, path: P) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {

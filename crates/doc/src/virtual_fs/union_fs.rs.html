@@ -1103,22 +1103,24 @@
 <a href="#1103" id="1103">1103</a>
 <a href="#1104" id="1104">1104</a>
 <a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 
-</span><span class="attr">#![allow(dead_code)]
-#![allow(unused)]
 </span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span>std::borrow::Cow;
-<span class="kw">use </span>std::ops::Add;
-<span class="kw">use </span>std::path::{Path, PathBuf};
-<span class="kw">use </span>std::sync::atomic::AtomicU32;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::sync::Mutex;
-<span class="kw">use </span>std::sync::Weak;
-<span class="attr">#[allow(unused_imports, dead_code)]
-</span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
+
+<span class="kw">use </span>std::{
+    path::Path,
+    sync::{Arc, Mutex, Weak},
+};
+
+<span class="kw">use </span>tracing::{debug, trace};
 
 <span class="kw">pub type </span>TempHolding = Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt;&gt;&gt;;
 
@@ -1367,42 +1369,48 @@
         }
         <span class="prelude-val">Err</span>(ret_error)
     }
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">println!</span>(<span class="string">&quot;rename: from={} to={}&quot;</span>, from.display(), to.display());
-        <span class="kw">if </span>from.parent().is_none() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-        }
-        <span class="kw">if </span>to.parent().is_none() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-        }
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">let </span>from = from.to_string_lossy();
-        <span class="kw">let </span>to = to.to_string_lossy();
-        <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-        </span><span class="kw">let </span>to = to.replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, from.as_ref()) {
-            <span class="kw">let </span><span class="kw-2">mut </span>to = <span class="kw">if </span>to.starts_with(mount.path.as_str()) {
-                (to[mount.path.len()..]).to_string()
-            } <span class="kw">else </span>{
-                ret_error = FsError::UnknownError;
-                <span class="kw">continue</span>;
-            };
-            <span class="kw">if </span>!to.starts_with(<span class="string">&#39;/&#39;</span>) {
-                to = <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, to);
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{
+            <span class="macro">println!</span>(<span class="string">&quot;rename: from={} to={}&quot;</span>, from.display(), to.display());
+            <span class="kw">if </span>from.parent().is_none() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
             }
-            <span class="kw">match </span>mount.fs.rename(Path::new(<span class="kw-2">&amp;</span>path), Path::new(to.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="macro">trace!</span>(<span class="string">&quot;rename ok&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
+            <span class="kw">if </span>to.parent().is_none() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+            }
+            <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+            <span class="kw">let </span>from = from.to_string_lossy();
+            <span class="kw">let </span>to = to.to_string_lossy();
+            <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
+            </span><span class="kw">let </span>to = to.replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
+            <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, from.as_ref()) {
+                <span class="kw">let </span><span class="kw-2">mut </span>to = <span class="kw">if </span>to.starts_with(mount.path.as_str()) {
+                    (to[mount.path.len()..]).to_string()
+                } <span class="kw">else </span>{
+                    ret_error = FsError::UnknownError;
+                    <span class="kw">continue</span>;
+                };
+                <span class="kw">if </span>!to.starts_with(<span class="string">&#39;/&#39;</span>) {
+                    to = <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, to);
                 }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">trace!</span>(<span class="string">&quot;rename error (from={}, to={}) - {}&quot;</span>, from, to, err);
-                    ret_error = err;
+                <span class="kw">match </span>mount
+                    .fs
+                    .rename(Path::new(<span class="kw-2">&amp;</span>path), Path::new(to.as_str()))
+                    .<span class="kw">await
+                </span>{
+                    <span class="prelude-val">Ok</span>(ret) =&gt; {
+                        <span class="macro">trace!</span>(<span class="string">&quot;rename ok&quot;</span>);
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
+                    }
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">trace!</span>(<span class="string">&quot;rename error (from={}, to={}) - {}&quot;</span>, from, to, err);
+                        ret_error = err;
+                    }
                 }
             }
-        }
-        <span class="macro">trace!</span>(<span class="string">&quot;rename failed - {}&quot;</span>, ret_error);
-        <span class="prelude-val">Err</span>(ret_error)
+            <span class="macro">trace!</span>(<span class="string">&quot;rename failed - {}&quot;</span>, ret_error);
+            <span class="prelude-val">Err</span>(ret_error)
+        })
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
         <span class="macro">debug!</span>(<span class="string">&quot;metadata: path={}&quot;</span>, path.display());
@@ -1477,7 +1485,7 @@
 
 <span class="kw">fn </span>filter_mounts(
     mounts: <span class="kw-2">&amp;</span>[MountPoint],
-    <span class="kw-2">mut </span>target: <span class="kw-2">&amp;</span>str,
+    target: <span class="kw-2">&amp;</span>str,
 ) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (String, StrongMountPoint)&gt; {
     <span class="comment">// On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
     </span><span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
@@ -1517,7 +1525,7 @@
             }
         }
     }
-    ret.retain(|(a, b)| b.path.len() &gt;= biggest_path);
+    ret.retain(|(<span class="kw">_</span>, b)| b.path.len() &gt;= biggest_path);
     ret.into_iter()
 }
 
@@ -1565,13 +1573,11 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::{path::Path, sync::Arc};
+    <span class="kw">use </span>std::path::Path;
 
     <span class="kw">use </span>tokio::io::AsyncWriteExt;
 
-    <span class="kw">use crate</span>::{
-        host_fs::FileSystem, mem_fs, ops, FileSystem <span class="kw">as </span>FileSystemTrait, FsError, UnionFileSystem,
-    };
+    <span class="kw">use crate</span>::{mem_fs, ops, FileSystem <span class="kw">as </span>FileSystemTrait, FsError, UnionFileSystem};
 
     <span class="kw">fn </span>gen_filesystem() -&gt; UnionFileSystem {
         <span class="kw">let </span><span class="kw-2">mut </span>union = UnionFileSystem::new();
@@ -1753,12 +1759,12 @@
         <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_rename&quot;</span>]);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)),
+            fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming a directory that has no parent&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            fs.rename(Path::new(<span class="string">&quot;/foo&quot;</span>), Path::new(<span class="string">&quot;/&quot;</span>)),
+            fs.rename(Path::new(<span class="string">&quot;/foo&quot;</span>), Path::new(<span class="string">&quot;/&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
         );
@@ -1771,7 +1777,8 @@
             fs.rename(
                 Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>),
                 Path::new(<span class="string">&quot;/test_rename/bar/baz&quot;</span>)
-            ),
+            )
+            .<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
         );
@@ -1779,7 +1786,8 @@
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>), Path::new(<span class="string">&quot;/test_rename/bar&quot;</span>)),
+            fs.rename(Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>), Path::new(<span class="string">&quot;/test_rename/bar&quot;</span>))
+                .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming to a directory that has parent that exists&quot;</span>,
         );
@@ -1847,7 +1855,8 @@
             fs.rename(
                 Path::new(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>),
                 Path::new(<span class="string">&quot;/test_rename/foo/world2.txt&quot;</span>)
-            ),
+            )
+            .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming (and moving) a file&quot;</span>,
         );
@@ -1856,7 +1865,8 @@
             fs.rename(
                 Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>),
                 Path::new(<span class="string">&quot;/test_rename/bar/baz&quot;</span>)
-            ),
+            )
+            .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a directory&quot;</span>,
         );
@@ -1865,7 +1875,8 @@
             fs.rename(
                 Path::new(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>),
                 Path::new(<span class="string">&quot;/test_rename/bar/world1.txt&quot;</span>)
-            ),
+            )
+            .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
         );
@@ -1942,7 +1953,8 @@
             fs.rename(
                 Path::new(<span class="string">&quot;/test_metadata/foo&quot;</span>),
                 Path::new(<span class="string">&quot;/test_metadata/bar&quot;</span>)
-            ),
+            )
+            .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(())
         );
 

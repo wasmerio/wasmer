@@ -93,35 +93,19 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
-<a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a>
-<a href="#98" id="98">98</a>
-<a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Wraps the memory file system implementation - this has been
 //! enhanced to support mounting file systems, shared static files,
 //! readonly files, etc...
 
-</span><span class="attr">#![allow(dead_code)]
-#![allow(unused)]
-</span><span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::io::prelude::<span class="kw-2">*</span>;
-<span class="kw">use </span>std::io::SeekFrom;
-<span class="kw">use </span>std::io::{<span class="self">self</span>};
-<span class="kw">use </span>std::path::{Path, PathBuf};
-<span class="kw">use </span>std::result::Result <span class="kw">as </span>StdResult;
-<span class="kw">use </span>std::sync::atomic::AtomicU32;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::sync::Mutex;
-<span class="attr">#[allow(unused_imports, dead_code)]
-</span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
+</span><span class="kw">use </span>std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-<span class="kw">use </span><span class="kw">crate</span>::mem_fs;
-<span class="kw">use </span><span class="kw">crate</span>::Result <span class="kw">as </span>FsResult;
-<span class="kw">use crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use crate</span>::{
+    limiter::DynFsMemoryLimiter, mem_fs, BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir,
+    <span class="prelude-ty">Result</span>,
+};
 
 <span class="attr">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>TmpFileSystem {
@@ -133,7 +117,7 @@
         <span class="self">Self</span>::default()
     }
 
-    <span class="kw">pub fn </span>set_memory_limiter(<span class="kw-2">&amp;</span><span class="self">self</span>, limiter: <span class="kw">crate</span>::limiter::DynFsMemoryLimiter) {
+    <span class="kw">pub fn </span>set_memory_limiter(<span class="kw-2">&amp;</span><span class="self">self</span>, limiter: DynFsMemoryLimiter) {
         <span class="self">self</span>.fs.set_memory_limiter(limiter);
     }
 
@@ -184,8 +168,8 @@
         <span class="self">self</span>.fs.remove_dir(path)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.fs.rename(from, to)
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="self">self</span>.fs.rename(from, to).<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {

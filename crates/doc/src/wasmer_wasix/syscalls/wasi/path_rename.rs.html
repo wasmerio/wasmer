@@ -181,6 +181,28 @@
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -208,31 +230,31 @@
     new_fd: WasiFd,
     new_path: WasmPtr&lt;u8, M&gt;,
     new_path_len: M::Offset,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span><span class="kw-2">mut </span>source_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>source_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
     Span::current().record(<span class="string">&quot;old_path&quot;</span>, source_str.as_str());
     source_str = ctx.data().state.fs.relative_path_to_absolute(source_str);
     <span class="kw">let </span>source_path = std::path::Path::new(<span class="kw-2">&amp;</span>source_str);
-    <span class="kw">let </span><span class="kw-2">mut </span>target_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>target_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
     Span::current().record(<span class="string">&quot;new_path&quot;</span>, target_str.as_str());
     target_str = ctx.data().state.fs.relative_path_to_absolute(target_str);
     <span class="kw">let </span>target_path = std::path::Path::new(<span class="kw-2">&amp;</span>target_str);
 
     {
-        <span class="kw">let </span>source_fd = <span class="macro">wasi_try!</span>(state.fs.get_fd(old_fd));
+        <span class="kw">let </span>source_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(old_fd));
         <span class="kw">if </span>!source_fd.rights.contains(Rights::PATH_RENAME_SOURCE) {
-            <span class="kw">return </span>Errno::Access;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
-        <span class="kw">let </span>target_fd = <span class="macro">wasi_try!</span>(state.fs.get_fd(new_fd));
+        <span class="kw">let </span>target_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(new_fd));
         <span class="kw">if </span>!target_fd.rights.contains(Rights::PATH_RENAME_TARGET) {
-            <span class="kw">return </span>Errno::Access;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
     }
 
     <span class="comment">// this is to be sure the source file is fetch from filesystem if needed
-    </span><span class="macro">wasi_try!</span>(state.fs.get_inode_at_path(
+    </span><span class="macro">wasi_try_ok!</span>(state.fs.get_inode_at_path(
         inodes,
         old_fd,
         source_path.to_str().as_ref().unwrap(),
@@ -244,11 +266,11 @@
             .fs
             .get_inode_at_path(inodes, new_fd, target_path.to_str().as_ref().unwrap(), <span class="bool-val">true</span>);
     <span class="kw">let </span>(source_parent_inode, source_entry_name) =
-        <span class="macro">wasi_try!</span>(state
+        <span class="macro">wasi_try_ok!</span>(state
             .fs
             .get_parent_inode_at_path(inodes, old_fd, source_path, <span class="bool-val">true</span>));
     <span class="kw">let </span>(target_parent_inode, target_entry_name) =
-        <span class="macro">wasi_try!</span>(state
+        <span class="macro">wasi_try_ok!</span>(state
             .fs
             .get_parent_inode_at_path(inodes, new_fd, target_path, <span class="bool-val">true</span>));
     <span class="kw">let </span><span class="kw-2">mut </span>need_create = <span class="bool-val">true</span>;
@@ -263,13 +285,13 @@
                 out_path.push(std::path::Path::new(<span class="kw-2">&amp;</span>target_entry_name));
                 out_path
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Notcapable,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notcapable),
             Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } =&gt; {
-                <span class="kw">return </span>Errno::Inval
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval)
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;fatal internal logic error: parent of inode is not a directory&quot;</span>);
-                <span class="kw">return </span>Errno::Inval;
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
             }
         }
     };
@@ -278,15 +300,15 @@
         <span class="kw">let </span><span class="kw-2">mut </span>guard = source_parent_inode.write();
         <span class="kw">match </span>guard.deref_mut() {
             Kind::Dir { entries, .. } =&gt; {
-                <span class="macro">wasi_try!</span>(entries.remove(<span class="kw-2">&amp;</span>source_entry_name).ok_or(Errno::Noent))
+                <span class="macro">wasi_try_ok!</span>(entries.remove(<span class="kw-2">&amp;</span>source_entry_name).ok_or(Errno::Noent))
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Notcapable,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notcapable),
             Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } =&gt; {
-                <span class="kw">return </span>Errno::Inval
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } =&gt; {
                 <span class="macro">debug!</span>(<span class="string">&quot;fatal internal logic error: parent of inode is not a directory&quot;</span>);
-                <span class="kw">return </span>Errno::Inval;
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
             }
         }
     };
@@ -304,11 +326,24 @@
                 // implements the logic of &quot;I&#39;m not actually a file, I&#39;ll try to be as needed&quot;.
                 </span><span class="kw">let </span>result = <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = handle {
                     drop(guard);
-                    state.fs_rename(source_path, <span class="kw-2">&amp;</span>host_adjusted_target_path)
-                } <span class="kw">else </span>{
+                    <span class="kw">let </span>state = state;
+                    __asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                        state
+                            .fs_rename(source_path, <span class="kw-2">&amp;</span>host_adjusted_target_path)
+                            .<span class="kw">await
+                    </span>})<span class="question-mark">?
+                </span>} <span class="kw">else </span>{
                     <span class="kw">let </span>path_clone = path.clone();
                     drop(guard);
-                    <span class="kw">let </span>out = state.fs_rename(path_clone, <span class="kw-2">&amp;</span>host_adjusted_target_path);
+                    <span class="kw">let </span>out = {
+                        <span class="kw">let </span>state = state;
+                        <span class="kw">let </span>host_adjusted_target_path = host_adjusted_target_path.clone();
+                        __asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                            state
+                                .fs_rename(path_clone, <span class="kw-2">&amp;</span>host_adjusted_target_path)
+                                .<span class="kw">await
+                        </span>})<span class="question-mark">?
+                    </span>};
                     {
                         <span class="kw">let </span><span class="kw-2">mut </span>guard = source_entry.write();
                         <span class="kw">if let </span>Kind::File { <span class="kw-2">ref mut </span>path, .. } = guard.deref_mut() {
@@ -324,14 +359,23 @@
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = source_parent_inode.write();
                     <span class="kw">if let </span>Kind::Dir { entries, .. } = guard.deref_mut() {
                         entries.insert(source_entry_name, source_entry);
-                        <span class="kw">return </span>e;
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(e);
                     }
                 }
             }
             Kind::Dir { <span class="kw-2">ref </span>path, .. } =&gt; {
                 <span class="kw">let </span>cloned_path = path.clone();
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = state.fs_rename(cloned_path, <span class="kw-2">&amp;</span>host_adjusted_target_path) {
-                    <span class="kw">return </span>e;
+                <span class="kw">let </span>res = {
+                    <span class="kw">let </span>state = state;
+                    <span class="kw">let </span>host_adjusted_target_path = host_adjusted_target_path.clone();
+                    __asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                        state
+                            .fs_rename(cloned_path, <span class="kw-2">&amp;</span>host_adjusted_target_path)
+                            .<span class="kw">await
+                    </span>})<span class="question-mark">?
+                </span>};
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = res {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(e);
                 }
                 {
                     drop(guard);
@@ -361,7 +405,7 @@
         }
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

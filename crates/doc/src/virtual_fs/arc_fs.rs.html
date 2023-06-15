@@ -50,17 +50,11 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
-<a href="#53" id="53">53</a>
-<a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Wraps a clonable Arc of a file system - in practice this is useful so you
 //! can pass clonable file systems with a `Box&lt;dyn FileSystem&gt;` to other
 //! interfaces
 
-</span><span class="kw">use </span>std::path::Path;
-<span class="kw">use </span>std::sync::Arc;
-<span class="attr">#[allow(unused_imports, dead_code)]
-</span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
+</span><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use crate</span>::<span class="kw-2">*</span>;
 
@@ -88,8 +82,8 @@
         <span class="self">self</span>.fs.remove_dir(path)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="self">self</span>.fs.rename(from, to)
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="self">self</span>.fs.rename(from, to).<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {

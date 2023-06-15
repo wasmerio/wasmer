@@ -688,14 +688,21 @@
 <a href="#688" id="688">688</a>
 <a href="#689" id="689">689</a>
 <a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
 </pre><pre class="rust"><code><span class="attr">#[cfg(test)]
 #[macro_use]
 </span><span class="kw">extern crate </span>pretty_assertions;
 
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>std::any::Any;
 <span class="kw">use </span>std::ffi::OsString;
 <span class="kw">use </span>std::fmt;
-<span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::io;
 <span class="kw">use </span>std::ops::Deref;
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -770,11 +777,13 @@
 
 <span class="kw">pub trait </span>ClonableVirtualFile: VirtualFile + Clone {}
 
+<span class="kw">pub use </span>ops::{copy_reference, copy_reference_ext};
+
 <span class="kw">pub trait </span>FileSystem: fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>+ Upcastable {
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt;;
     <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
     <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt;;
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt;;
     <span class="doccomment">/// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren&#39;t implemented
@@ -798,7 +807,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;D, F&gt; FileSystem <span class="kw">for </span>D
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl</span>&lt;D, F&gt; FileSystem <span class="kw">for </span>D
 <span class="kw">where
     </span>D: Deref&lt;Target = F&gt; + std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
     F: FileSystem + <span class="question-mark">?</span>Sized,
@@ -815,8 +825,8 @@
         (<span class="kw-2">**</span><span class="self">self</span>).remove_dir(path)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        (<span class="kw-2">**</span><span class="self">self</span>).rename(from, to)
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ (<span class="kw-2">**</span><span class="self">self</span>).rename(from, to).<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
@@ -1004,7 +1014,7 @@
 <span class="doccomment">/// This trait relies on your file closing when it goes out of scope via `Drop`
 </span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, typetag::serde)]
 </span><span class="kw">pub trait </span>VirtualFile:
-    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable
+    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
     <span class="doccomment">/// the last time the file was accessed in nanoseconds as a UNIX timestamp
     </span><span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64;
@@ -1023,7 +1033,7 @@
     </span><span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
     <span class="doccomment">/// Request deletion of the file
-    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt;;
 
     <span class="doccomment">/// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
@@ -1041,10 +1051,10 @@
     <span class="doccomment">/// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to do a zero copy
-    </span><span class="kw">fn </span>copy_reference&lt;<span class="lifetime">&#39;a</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
-        <span class="kw-2">mut </span>src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;,
-    ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = std::io::Result&lt;()&gt;&gt; + <span class="lifetime">&#39;a</span>&gt;&gt; {
+    </span><span class="kw">fn </span>copy_reference(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="kw-2">mut </span>src: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    ) -&gt; BoxFuture&lt;<span class="lifetime">&#39;_</span>, std::io::Result&lt;()&gt;&gt; {
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">let </span>bytes_written = tokio::io::copy(<span class="kw-2">&amp;mut </span>src, <span class="self">self</span>).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="macro">tracing::trace!</span>(bytes_written, <span class="string">&quot;Copying file into host filesystem&quot;</span>,);
@@ -1285,6 +1295,10 @@
             .file_name()
             .unwrap_or(<span class="self">self</span>.path.as_os_str())
             .to_owned()
+    }
+
+    <span class="kw">pub fn </span>is_white_out(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
+        ops::is_white_out(<span class="kw-2">&amp;</span><span class="self">self</span>.path)
     }
 }
 

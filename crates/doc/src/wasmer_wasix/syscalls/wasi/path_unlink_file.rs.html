@@ -93,6 +93,11 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -111,15 +116,15 @@
     fd: WasiFd,
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
-    <span class="kw">let </span>base_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>base_dir = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
     <span class="kw">if </span>!base_dir.rights.contains(Rights::PATH_UNLINK_FILE) {
-        <span class="kw">return </span>Errno::Access;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">&quot;path&quot;</span>, path_str.as_str());
 
     <span class="comment">// Convert relative paths into absolute paths
@@ -127,8 +132,8 @@
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
     }
 
-    <span class="kw">let </span>inode = <span class="macro">wasi_try!</span>(state.fs.get_inode_at_path(inodes, fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
-    <span class="kw">let </span>(parent_inode, childs_name) = <span class="macro">wasi_try!</span>(state.fs.get_parent_inode_at_path(
+    <span class="kw">let </span>inode = <span class="macro">wasi_try_ok!</span>(state.fs.get_inode_at_path(inodes, fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
+    <span class="kw">let </span>(parent_inode, childs_name) = <span class="macro">wasi_try_ok!</span>(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(<span class="kw-2">&amp;</span>path_str),
@@ -141,13 +146,13 @@
             Kind::Dir {
                 <span class="kw-2">ref mut </span>entries, ..
             } =&gt; {
-                <span class="kw">let </span>removed_inode = <span class="macro">wasi_try!</span>(entries.remove(<span class="kw-2">&amp;</span>childs_name).ok_or(Errno::Inval));
+                <span class="kw">let </span>removed_inode = <span class="macro">wasi_try_ok!</span>(entries.remove(<span class="kw-2">&amp;</span>childs_name).ok_or(Errno::Inval));
                 <span class="comment">// TODO: make this a debug assert in the future
                 </span><span class="macro">assert!</span>(inode.ino() == removed_inode.ino());
                 <span class="macro">debug_assert!</span>(inode.stat.read().unwrap().st_nlink &gt; <span class="number">0</span>);
                 removed_inode
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Access,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access),
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
                 <span class="string">&quot;Internal logic error in wasi::path_unlink_file, parent is not a directory&quot;
             </span>),
@@ -166,17 +171,22 @@
                 Kind::File { handle, path, .. } =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = handle {
                         <span class="kw">let </span><span class="kw-2">mut </span>h = h.write().unwrap();
-                        <span class="macro">wasi_try!</span>(h.unlink().map_err(fs_error_into_wasi_err));
+                        <span class="kw">let </span>state = state;
+                        <span class="kw">let </span>fut = h.unlink();
+                        drop(h);
+                        <span class="macro">wasi_try_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                            fut.<span class="kw">await</span>.map_err(fs_error_into_wasi_err)
+                        })<span class="question-mark">?</span>)
                     } <span class="kw">else </span>{
                         <span class="comment">// File is closed
                         // problem with the abstraction, we can&#39;t call unlink because there&#39;s no handle
                         // drop mutable borrow on `path`
                         </span><span class="kw">let </span>path = path.clone();
                         drop(guard);
-                        <span class="macro">wasi_try!</span>(state.fs_remove_file(path));
+                        <span class="macro">wasi_try_ok!</span>(state.fs_remove_file(path));
                     }
                 }
-                Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Isdir,
+                Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir),
                 Kind::Symlink { .. } =&gt; {
                     <span class="comment">// TODO: actually delete real symlinks and do nothing for virtual symlinks
                 </span>}
@@ -185,7 +195,7 @@
         }
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

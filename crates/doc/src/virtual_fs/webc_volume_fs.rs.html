@@ -640,6 +640,13 @@
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::Cursor,
@@ -649,6 +656,7 @@
     task::Poll,
 };
 
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>webc::{
     compat::{Container, SharedBytes, Volume},
@@ -749,19 +757,21 @@
         </span><span class="prelude-val">Err</span>(FsError::PermissionDenied)
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="comment">// The original file should exist
-        </span><span class="kw">let _ </span>= <span class="self">self</span>.metadata(from)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{
+            <span class="comment">// The original file should exist
+            </span><span class="kw">let _ </span>= <span class="self">self</span>.metadata(from)<span class="question-mark">?</span>;
 
-        <span class="comment">// we also want to make sure the destination&#39;s folder exists, too
-        </span><span class="kw">let </span>dest_parent = to.parent().unwrap_or_else(|| Path::new(<span class="string">&quot;/&quot;</span>));
-        <span class="kw">let </span>parent_meta = <span class="self">self</span>.metadata(dest_parent)<span class="question-mark">?</span>;
-        <span class="kw">if </span>!parent_meta.is_dir() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-        }
+            <span class="comment">// we also want to make sure the destination&#39;s folder exists, too
+            </span><span class="kw">let </span>dest_parent = to.parent().unwrap_or_else(|| Path::new(<span class="string">&quot;/&quot;</span>));
+            <span class="kw">let </span>parent_meta = <span class="self">self</span>.metadata(dest_parent)<span class="question-mark">?</span>;
+            <span class="kw">if </span>!parent_meta.is_dir() {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+            }
 
-        <span class="comment">// but we are a readonly filesystem, so you can&#39;t modify anything
-        </span><span class="prelude-val">Err</span>(FsError::PermissionDenied)
+            <span class="comment">// but we are a readonly filesystem, so you can&#39;t modify anything
+            </span><span class="prelude-val">Err</span>(FsError::PermissionDenied)
+        })
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata, FsError&gt; {
@@ -846,8 +856,8 @@
         <span class="prelude-val">Err</span>(FsError::PermissionDenied)
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="prelude-val">Err</span>(FsError::PermissionDenied)
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Err</span>(FsError::PermissionDenied) })
     }
 
     <span class="kw">fn </span>poll_read_ready(
@@ -1258,8 +1268,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>rename_is_not_allowed() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>rename_is_not_allowed() {
         <span class="kw">let </span>container = Container::from_bytes(PYTHON_WEBC).unwrap();
         <span class="kw">let </span>volumes = container.volumes();
         <span class="kw">let </span>volume = volumes[<span class="string">&quot;atom&quot;</span>].clone();
@@ -1267,17 +1277,21 @@
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="string">&quot;/lib&quot;</span>.as_ref(), <span class="string">&quot;/other&quot;</span>.as_ref()).unwrap_err(),
+            fs.rename(<span class="string">&quot;/lib&quot;</span>.as_ref(), <span class="string">&quot;/other&quot;</span>.as_ref())
+                .<span class="kw">await
+                </span>.unwrap_err(),
             FsError::PermissionDenied,
         );
         <span class="macro">assert_eq!</span>(
             fs.rename(<span class="string">&quot;/this/does/not/exist&quot;</span>.as_ref(), <span class="string">&quot;/another&quot;</span>.as_ref())
-                .unwrap_err(),
+                .<span class="kw">await
+                </span>.unwrap_err(),
             FsError::EntryNotFound,
         );
         <span class="macro">assert_eq!</span>(
             fs.rename(<span class="string">&quot;/lib/python.wasm&quot;</span>.as_ref(), <span class="string">&quot;/lib/another.wasm&quot;</span>.as_ref())
-                .unwrap_err(),
+                .<span class="kw">await
+                </span>.unwrap_err(),
             FsError::PermissionDenied,
         );
     }

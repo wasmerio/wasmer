@@ -229,11 +229,115 @@
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Common [`FileSystem`] operations.
 </span><span class="attr">#![allow(dead_code)] </span><span class="comment">// Most of these helpers are used during testing
 
-</span><span class="kw">use </span>std::{collections::VecDeque, path::Path};
+</span><span class="kw">use </span>std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+};
 
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 <span class="kw">use crate</span>::{DirEntry, FileSystem, FsError};
@@ -290,6 +394,102 @@
     }
 
     fs.create_dir(path)
+}
+
+<span class="kw">static </span>WHITEOUT_PREFIX: <span class="kw-2">&amp;</span>str = <span class="string">&quot;.wh.&quot;</span>;
+
+<span class="doccomment">/// Creates a white out file which hides it from secondary file systems
+</span><span class="kw">pub fn </span>create_white_out&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt;
+<span class="kw">where
+    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+{
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
+        <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
+        path.set_file_name(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+            create_dir_all(fs, parent).ok();
+        }
+
+        fs.new_open_options()
+            .create_new(<span class="bool-val">true</span>)
+            .truncate(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .open(path)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+    }
+}
+
+<span class="doccomment">/// Removes a white out file from the primary
+</span><span class="kw">pub fn </span>remove_white_out&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;)
+<span class="kw">where
+    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+{
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
+        <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
+        path.set_file_name(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
+        fs.remove_file(<span class="kw-2">&amp;</span>path).ok();
+    }
+}
+
+<span class="doccomment">/// Returns true if the path has been hidden by a whiteout file
+</span><span class="kw">pub fn </span>has_white_out&lt;F&gt;(fs: <span class="kw-2">&amp;</span>F, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; bool
+<span class="kw">where
+    </span>F: FileSystem + <span class="question-mark">?</span>Sized,
+{
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
+        <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
+        path.set_file_name(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WHITEOUT_PREFIX, filename.to_string_lossy()));
+        fs.metadata(<span class="kw-2">&amp;</span>path).is_ok()
+    } <span class="kw">else </span>{
+        <span class="bool-val">false
+    </span>}
+}
+
+<span class="doccomment">/// Returns true if the path is a whiteout file
+</span><span class="kw">pub fn </span>is_white_out(path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;PathBuf&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = path.as_ref().file_name() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(filename) = filename.to_string_lossy().strip_prefix(WHITEOUT_PREFIX) {
+            <span class="kw">let </span><span class="kw-2">mut </span>path = path.as_ref().to_owned();
+            path.set_file_name(filename);
+            <span class="kw">return </span><span class="prelude-val">Some</span>(path);
+        }
+    }
+    <span class="prelude-val">None
+</span>}
+
+<span class="doccomment">/// Copies the reference of a file from one file system to another
+</span><span class="kw">pub fn </span>copy_reference&lt;<span class="lifetime">&#39;a</span>&gt;(
+    source: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    destination: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path,
+) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
+    Box::pin(<span class="kw">async </span>{ copy_reference_ext(source, destination, path, path).<span class="kw">await </span>})
+}
+
+<span class="doccomment">/// Copies the reference of a file from one file system to another
+</span><span class="kw">pub fn </span>copy_reference_ext&lt;<span class="lifetime">&#39;a</span>&gt;(
+    source: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    destination: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>FileSystem + <span class="question-mark">?</span>Sized),
+    from: <span class="kw-2">&amp;</span>Path,
+    to: <span class="kw-2">&amp;</span>Path,
+) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
+    <span class="kw">let </span>from = from.to_owned();
+    <span class="kw">let </span>to = to.to_owned();
+    Box::pin(<span class="kw">async move </span>{
+        <span class="kw">let </span>src = source.new_open_options().read(<span class="bool-val">true</span>).open(from)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>dst = destination
+            .new_open_options()
+            .create(<span class="bool-val">true</span>)
+            .write(<span class="bool-val">true</span>)
+            .truncate(<span class="bool-val">true</span>)
+            .open(to)<span class="question-mark">?</span>;
+
+        dst.copy_reference(src).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    })
 }
 
 <span class="doccomment">/// Asynchronously write some bytes to a file.

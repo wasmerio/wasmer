@@ -374,6 +374,10 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -381,6 +385,7 @@
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
@@ -538,8 +543,9 @@
     // supported or not, we&#39;ll add an adapter that automatically retries
     // operations using an absolute path if it failed using a relative path.
     </span><span class="kw">let </span>container_fs = RelativeOrAbsolutePathHack(container_fs);
+    <span class="kw">let </span>fs = OverlayFileSystem::new(root_fs, [container_fs]);
 
-    <span class="prelude-val">Ok</span>(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
+    <span class="prelude-val">Ok</span>(Box::new(fs))
 }
 
 <span class="doccomment">/// HACK: We need this so users can mount host directories at relative paths.
@@ -621,8 +627,10 @@
         <span class="self">self</span>.execute(path, |fs, p| fs.remove_dir(p))
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
-        <span class="self">self</span>.execute(from, |fs, p| fs.rename(p, to))
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>from = from.to_owned();
+        <span class="kw">let </span>to = to.to_owned();
+        Box::pin(<span class="kw">async move </span>{ <span class="self">self</span>.<span class="number">0</span>.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await </span>})
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {

@@ -1978,11 +1978,6 @@
 <a href="#1977" id="1977">1977</a>
 <a href="#1978" id="1978">1978</a>
 <a href="#1979" id="1979">1979</a>
-<a href="#1980" id="1980">1980</a>
-<a href="#1981" id="1981">1981</a>
-<a href="#1982" id="1982">1982</a>
-<a href="#1983" id="1983">1983</a>
-<a href="#1984" id="1984">1984</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -1999,12 +1994,12 @@
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::state::{Stderr, Stdin, Stdout};
-<span class="kw">use </span>futures::TryStreamExt;
+<span class="kw">use </span>futures::{future::BoxFuture, TryStreamExt};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::io::AsyncWriteExt;
 <span class="kw">use </span>tracing::{debug, trace};
-<span class="kw">use </span>virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile};
+<span class="kw">use </span>virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
 <span class="kw">use </span>wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -2292,11 +2287,16 @@
             WasiFsRoot::Backing(fs) =&gt; fs.remove_dir(path),
         }
     }
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;()&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            WasiFsRoot::Sandbox(fs) =&gt; fs.rename(from, to),
-            WasiFsRoot::Backing(fs) =&gt; fs.rename(from, to),
-        }
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, virtual_fs::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>from = from.to_owned();
+        <span class="kw">let </span>to = to.to_owned();
+        <span class="kw">let </span>this = <span class="self">self</span>.clone();
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">match </span>this {
+                WasiFsRoot::Sandbox(fs) =&gt; fs.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await</span>,
+                WasiFsRoot::Backing(fs) =&gt; fs.rename(<span class="kw-2">&amp;</span>from, <span class="kw-2">&amp;</span>to).<span class="kw">await</span>,
+            }
+        })
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::Metadata&gt; {
         <span class="kw">match </span><span class="self">self </span>{
@@ -2363,23 +2363,6 @@
     }
 
     files.try_collect().<span class="kw">await
-</span>}
-
-<span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(path=%path.display()))]
-</span><span class="kw">async fn </span>copy_reference(
-    source: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
-    destination: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
-    path: <span class="kw-2">&amp;</span>Path,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
-    <span class="kw">let </span>src = source.new_open_options().read(<span class="bool-val">true</span>).open(path)<span class="question-mark">?</span>;
-    <span class="kw">let </span><span class="kw-2">mut </span>dst = destination
-        .new_open_options()
-        .create(<span class="bool-val">true</span>)
-        .write(<span class="bool-val">true</span>)
-        .truncate(<span class="bool-val">true</span>)
-        .open(path)<span class="question-mark">?</span>;
-
-    dst.copy_reference(src).<span class="kw">await
 </span>}
 
 <span class="kw">fn </span>create_dir_all(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
@@ -2474,22 +2457,29 @@
 
     <span class="doccomment">/// Will conditionally union the binary file system with this one
     /// if it has not already been unioned
-    </span><span class="kw">pub fn </span>conditional_union(<span class="kw-2">&amp;</span><span class="self">self</span>, binary: <span class="kw-2">&amp;</span>BinaryPackage) -&gt; bool {
-        <span class="kw">let </span>sandbox_fs = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.root_fs {
-            WasiFsRoot::Sandbox(fs) =&gt; fs,
-            WasiFsRoot::Backing(<span class="kw">_</span>) =&gt; {
-                <span class="macro">tracing::error!</span>(<span class="string">&quot;can not perform a union on a backing file system&quot;</span>);
-                <span class="kw">return </span><span class="bool-val">false</span>;
-            }
-        };
-        <span class="kw">let </span>package_name = binary.package_name.to_string();
-        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.has_unioned.lock().unwrap();
-        <span class="kw">if </span>!guard.contains(<span class="kw-2">&amp;</span>package_name) {
-            guard.insert(package_name);
-            sandbox_fs.union(<span class="kw-2">&amp;</span>binary.webc_fs);
+    </span><span class="kw">pub async fn </span>conditional_union(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        binary: <span class="kw-2">&amp;</span>BinaryPackage,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
+        <span class="kw">let </span>package_name = binary.package_name.clone();
+
+        <span class="kw">let </span>needs_to_be_unioned = <span class="self">self</span>.has_unioned.lock().unwrap().insert(package_name);
+
+        <span class="kw">if </span>!needs_to_be_unioned {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
-        <span class="bool-val">true
-    </span>}
+
+        <span class="kw">match </span><span class="self">self</span>.root_fs {
+            WasiFsRoot::Sandbox(<span class="kw-2">ref </span>sandbox_fs) =&gt; {
+                sandbox_fs.union(<span class="kw-2">&amp;</span>binary.webc_fs);
+            }
+            WasiFsRoot::Backing(<span class="kw-2">ref </span>fs) =&gt; {
+                merge_filesystems(<span class="kw-2">&amp;</span>binary.webc_fs, fs.deref()).<span class="kw">await</span><span class="question-mark">?</span>;
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
 
     <span class="doccomment">/// Created for the builder API. like `new` but with more information
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new_with_preopen(
@@ -3882,7 +3872,7 @@
     <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="self">Self</span>::fail();
     }
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, _from: <span class="kw-2">&amp;</span>Path, _to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, _from: <span class="kw-2">&amp;</span>Path, _to: <span class="kw-2">&amp;</span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
         <span class="self">Self</span>::fail();
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;virtual_fs::Metadata, FsError&gt; {

@@ -1845,10 +1845,16 @@
 <a href="#1845" id="1845">1845</a>
 <a href="#1846" id="1846">1846</a>
 <a href="#1847" id="1847">1847</a>
+<a href="#1848" id="1848">1848</a>
+<a href="#1849" id="1849">1849</a>
+<a href="#1850" id="1850">1850</a>
+<a href="#1851" id="1851">1851</a>
+<a href="#1852" id="1852">1852</a>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{DirEntry, FileSystem <span class="kw">as _</span>, FileType, FsError, Metadata, OpenOptions, ReadDir, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>slab::Slab;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::convert::identity;
@@ -2264,112 +2270,114 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>name_of_to;
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{
+            <span class="kw">let </span>name_of_to;
 
-        <span class="kw">let </span>(
-            (position_of_from, inode, inode_of_from_parent),
-            (inode_of_to_parent, name_of_to),
-            inode_dest,
-        ) = {
-            <span class="comment">// Read lock.
-            </span><span class="kw">let </span>fs = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
-
-            <span class="kw">let </span>from = fs.canonicalize_without_inode(from)<span class="question-mark">?</span>;
-            <span class="kw">let </span>to = fs.canonicalize_without_inode(to)<span class="question-mark">?</span>;
-
-            <span class="comment">// Check the paths have parents.
-            </span><span class="kw">let </span>parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)<span class="question-mark">?</span>;
-            <span class="kw">let </span>parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)<span class="question-mark">?</span>;
-
-            <span class="comment">// Check the names.
-            </span><span class="kw">let </span>name_of_from = from
-                .file_name()
-                .ok_or(FsError::InvalidInput)<span class="question-mark">?
-                </span>.to_os_string();
-            name_of_to = to.file_name().ok_or(FsError::InvalidInput)<span class="question-mark">?</span>.to_os_string();
-
-            <span class="comment">// Find the parent inodes.
-            </span><span class="kw">let </span>inode_of_from_parent = <span class="kw">match </span>fs.inode_of_parent(parent_of_from)<span class="question-mark">? </span>{
-                InodeResolution::Found(a) =&gt; a,
-                InodeResolution::Redirect(..) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
-                }
-            };
-            <span class="kw">let </span>inode_of_to_parent = <span class="kw">match </span>fs.inode_of_parent(parent_of_to)<span class="question-mark">? </span>{
-                InodeResolution::Found(a) =&gt; a,
-                InodeResolution::Redirect(..) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
-                }
-            };
-
-            <span class="comment">// Find the inode of the dest file if it exists
-            </span><span class="kw">let </span>maybe_position_and_inode_of_file =
-                fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, <span class="kw-2">&amp;</span>name_of_to)<span class="question-mark">?</span>;
-
-            <span class="comment">// Get the child indexes to update in the parent nodes, in
-            // addition to the inode of the directory to update.
-            </span><span class="kw">let </span>(position_of_from, inode) = fs
-                .as_parent_get_position_and_inode(inode_of_from_parent, <span class="kw-2">&amp;</span>name_of_from)<span class="question-mark">?
-                </span>.ok_or(FsError::EntryNotFound)<span class="question-mark">?</span>;
-
-            (
+            <span class="kw">let </span>(
                 (position_of_from, inode, inode_of_from_parent),
                 (inode_of_to_parent, name_of_to),
-                maybe_position_and_inode_of_file,
-            )
-        };
+                inode_dest,
+            ) = {
+                <span class="comment">// Read lock.
+                </span><span class="kw">let </span>fs = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>inode = <span class="kw">match </span>inode {
-            InodeResolution::Found(a) =&gt; a,
-            InodeResolution::Redirect(..) =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
-            }
-        };
+                <span class="kw">let </span>from = fs.canonicalize_without_inode(from)<span class="question-mark">?</span>;
+                <span class="kw">let </span>to = fs.canonicalize_without_inode(to)<span class="question-mark">?</span>;
 
-        {
-            <span class="comment">// Write lock.
-            </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
+                <span class="comment">// Check the paths have parents.
+                </span><span class="kw">let </span>parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)<span class="question-mark">?</span>;
+                <span class="kw">let </span>parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)<span class="question-mark">?</span>;
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>((position, inode_of_file)) = inode_dest {
-                <span class="comment">// Remove the file from the storage.
-                </span><span class="kw">match </span>inode_of_file {
-                    InodeResolution::Found(inode_of_file) =&gt; {
-                        fs.storage.remove(inode_of_file);
-                    }
+                <span class="comment">// Check the names.
+                </span><span class="kw">let </span>name_of_from = from
+                    .file_name()
+                    .ok_or(FsError::InvalidInput)<span class="question-mark">?
+                    </span>.to_os_string();
+                name_of_to = to.file_name().ok_or(FsError::InvalidInput)<span class="question-mark">?</span>.to_os_string();
+
+                <span class="comment">// Find the parent inodes.
+                </span><span class="kw">let </span>inode_of_from_parent = <span class="kw">match </span>fs.inode_of_parent(parent_of_from)<span class="question-mark">? </span>{
+                    InodeResolution::Found(a) =&gt; a,
                     InodeResolution::Redirect(..) =&gt; {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
                     }
+                };
+                <span class="kw">let </span>inode_of_to_parent = <span class="kw">match </span>fs.inode_of_parent(parent_of_to)<span class="question-mark">? </span>{
+                    InodeResolution::Found(a) =&gt; a,
+                    InodeResolution::Redirect(..) =&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
+                    }
+                };
+
+                <span class="comment">// Find the inode of the dest file if it exists
+                </span><span class="kw">let </span>maybe_position_and_inode_of_file =
+                    fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, <span class="kw-2">&amp;</span>name_of_to)<span class="question-mark">?</span>;
+
+                <span class="comment">// Get the child indexes to update in the parent nodes, in
+                // addition to the inode of the directory to update.
+                </span><span class="kw">let </span>(position_of_from, inode) = fs
+                    .as_parent_get_position_and_inode(inode_of_from_parent, <span class="kw-2">&amp;</span>name_of_from)<span class="question-mark">?
+                    </span>.ok_or(FsError::EntryNotFound)<span class="question-mark">?</span>;
+
+                (
+                    (position_of_from, inode, inode_of_from_parent),
+                    (inode_of_to_parent, name_of_to),
+                    maybe_position_and_inode_of_file,
+                )
+            };
+
+            <span class="kw">let </span>inode = <span class="kw">match </span>inode {
+                InodeResolution::Found(a) =&gt; a,
+                InodeResolution::Redirect(..) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
+                }
+            };
+
+            {
+                <span class="comment">// Write lock.
+                </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>((position, inode_of_file)) = inode_dest {
+                    <span class="comment">// Remove the file from the storage.
+                    </span><span class="kw">match </span>inode_of_file {
+                        InodeResolution::Found(inode_of_file) =&gt; {
+                            fs.storage.remove(inode_of_file);
+                        }
+                        InodeResolution::Redirect(..) =&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
+                        }
+                    }
+
+                    fs.remove_child_from_node(inode_of_to_parent, position)<span class="question-mark">?</span>;
                 }
 
-                fs.remove_child_from_node(inode_of_to_parent, position)<span class="question-mark">?</span>;
-            }
+                <span class="comment">// Update the file name, and update the modified time.
+                </span>fs.update_node_name(inode, name_of_to)<span class="question-mark">?</span>;
 
-            <span class="comment">// Update the file name, and update the modified time.
-            </span>fs.update_node_name(inode, name_of_to)<span class="question-mark">?</span>;
+                <span class="comment">// The parents are different. Let&#39;s update them.
+                </span><span class="kw">if </span>inode_of_from_parent != inode_of_to_parent {
+                    <span class="comment">// Remove the file from its parent, and update the
+                    // modified time.
+                    </span>fs.remove_child_from_node(inode_of_from_parent, position_of_from)<span class="question-mark">?</span>;
 
-            <span class="comment">// The parents are different. Let&#39;s update them.
-            </span><span class="kw">if </span>inode_of_from_parent != inode_of_to_parent {
-                <span class="comment">// Remove the file from its parent, and update the
-                // modified time.
-                </span>fs.remove_child_from_node(inode_of_from_parent, position_of_from)<span class="question-mark">?</span>;
-
-                <span class="comment">// Add the file to its new parent, and update the modified
-                // time.
-                </span>fs.add_child_to_node(inode_of_to_parent, inode)<span class="question-mark">?</span>;
-            }
-            <span class="comment">// Otherwise, we need to at least update the modified time of the parent.
-            </span><span class="kw">else </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>inode = fs.storage.get_mut(inode_of_from_parent);
-                <span class="kw">match </span>inode.as_mut() {
-                    <span class="prelude-val">Some</span>(Node::Directory(node)) =&gt; node.metadata.modified = time(),
-                    <span class="prelude-val">Some</span>(Node::ArcDirectory(node)) =&gt; node.metadata.modified = time(),
-                    <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::UnknownError),
+                    <span class="comment">// Add the file to its new parent, and update the modified
+                    // time.
+                    </span>fs.add_child_to_node(inode_of_to_parent, inode)<span class="question-mark">?</span>;
+                }
+                <span class="comment">// Otherwise, we need to at least update the modified time of the parent.
+                </span><span class="kw">else </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>inode = fs.storage.get_mut(inode_of_from_parent);
+                    <span class="kw">match </span>inode.as_mut() {
+                        <span class="prelude-val">Some</span>(Node::Directory(node)) =&gt; node.metadata.modified = time(),
+                        <span class="prelude-val">Some</span>(Node::ArcDirectory(node)) =&gt; node.metadata.modified = time(),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::UnknownError),
+                    }
                 }
             }
-        }
 
-        <span class="prelude-val">Ok</span>(())
+            <span class="prelude-val">Ok</span>(())
+        })
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
@@ -2886,7 +2894,7 @@
 
     <span class="kw">use </span>tokio::io::AsyncReadExt;
 
-    <span class="kw">use crate</span>::{mem_fs::<span class="kw-2">*</span>, ops, DirEntry, FileOpener, FileSystem <span class="kw">as </span>FS, FileType, FsError};
+    <span class="kw">use crate</span>::{mem_fs::<span class="kw-2">*</span>, ops, DirEntry, FileSystem <span class="kw">as </span>FS, FileType, FsError};
 
     <span class="macro">macro_rules! </span>path {
         (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
@@ -3072,17 +3080,17 @@
         }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_rename() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_rename() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)),
+            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming a directory that has no parent&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)),
+            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
             <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
         );
@@ -3091,7 +3099,7 @@
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo/qux&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/baz&quot;</span>)),
+            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/baz&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
         );
@@ -3196,19 +3204,21 @@
         }
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello2.txt&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/foo/world2.txt&quot;</span>)),
+            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello2.txt&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/foo/world2.txt&quot;</span>))
+                .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming (and moving) a file&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/baz&quot;</span>)),
+            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/baz&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello1.txt&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/world1.txt&quot;</span>)),
+            fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/bar/hello1.txt&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar/world1.txt&quot;</span>))
+                .<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
         );
@@ -3296,8 +3306,8 @@
         }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_metadata() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_metadata() {
         <span class="kw">use </span>std::thread::sleep;
         <span class="kw">use </span>std::time::Duration;
 
@@ -3334,7 +3344,7 @@
 
         sleep(Duration::from_secs(<span class="number">3</span>));
 
-        <span class="macro">assert_eq!</span>(fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.rename(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>), <span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(

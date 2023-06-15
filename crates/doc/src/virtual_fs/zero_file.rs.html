@@ -86,14 +86,20 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Used for /dev/zero - infinitely returns zero
 //! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
 
-</span><span class="kw">use </span>std::io::{<span class="self">self</span>, <span class="kw-2">*</span>};
-<span class="kw">use </span>std::iter;
-<span class="kw">use </span>std::pin::Pin;
-<span class="kw">use </span>std::task::{Context, Poll};
+</span><span class="kw">use </span>std::{
+    io::{<span class="self">self</span>, IoSlice, SeekFrom},
+    iter,
+    pin::Pin,
+    task::{Context, Poll},
+};
 
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 <span class="kw">use </span><span class="kw">crate</span>::VirtualFile;
@@ -164,8 +170,8 @@
     <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
     <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))

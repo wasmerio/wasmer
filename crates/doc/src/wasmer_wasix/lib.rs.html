@@ -760,6 +760,9 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -917,9 +920,12 @@
     <span class="doccomment">/// Access denied
     </span><span class="attr">#[error(<span class="string">&quot;access denied&quot;</span>)]
     </span>AccessDenied,
-    <span class="doccomment">/// Internal error has occured
+    <span class="doccomment">/// Internal error has occurred
     </span><span class="attr">#[error(<span class="string">&quot;internal error&quot;</span>)]
     </span>InternalError,
+    <span class="doccomment">/// An error occurred while preparing the file system
+    </span><span class="attr">#[error(<span class="string">&quot;file system error&quot;</span>)]
+    </span>FileSystemError,
     <span class="doccomment">/// Memory allocation failed
     </span><span class="attr">#[error(<span class="string">&quot;memory allocation failed&quot;</span>)]
     </span>MemoryAllocationFailed,

@@ -328,6 +328,8 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the standard I/O streams, i.e. “emulated”
 //! `stdin`, `stdout` and `stderr`.
 
@@ -371,12 +373,14 @@
                 <span class="number">0
             </span>}
 
-            <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+            <span class="kw">fn </span>set_len(&amp; <span class="kw-2">mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
                 <span class="prelude-val">Err</span>(FsError::PermissionDenied)
             }
 
-            <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-                <span class="prelude-val">Ok</span>(())
+            <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
+                Box::pin(<span class="kw">async </span>{
+                    <span class="prelude-val">Ok</span>(())
+                })
             }
 
             <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: std::pin::Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::task::Poll&lt;std::io::Result&lt;usize&gt;&gt; {

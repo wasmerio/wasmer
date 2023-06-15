@@ -137,18 +137,26 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Used for sharing references to the same file across multiple file systems,
 //! effectively this is a symbolic link without all the complex path redirection
 
-</span><span class="kw">use </span><span class="kw">crate</span>::VirtualFile;
-<span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>std::pin::Pin;
-<span class="kw">use </span>std::task::{Context, Poll};
-<span class="kw">use </span>std::{
+</span><span class="kw">use </span>std::{
     io::{<span class="self">self</span>, <span class="kw-2">*</span>},
+    pin::Pin,
     sync::{Arc, Mutex},
+    task::{Context, Poll},
 };
+
+<span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
+
+<span class="kw">use </span><span class="kw">crate</span>::VirtualFile;
 
 <span class="attr">#[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -247,9 +255,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
-        inner.unlink()
+        <span class="kw">let </span>fut = inner.unlink();
+        drop(inner);
+        Box::pin(<span class="kw">async </span>{ fut.<span class="kw">await </span>})
     }
     <span class="kw">fn </span>is_open(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();

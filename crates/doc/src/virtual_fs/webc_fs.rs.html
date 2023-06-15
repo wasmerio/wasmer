@@ -476,21 +476,31 @@
 <a href="#476" id="476">476</a>
 <a href="#477" id="477">477</a>
 <a href="#478" id="478">478</a>
-</pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFileSystem;
-<span class="kw">use crate</span>::{
-    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    convert::{TryFrom, TryInto},
+    io::{<span class="self">self</span>, Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind, SeekFrom},
+    ops::Deref,
+    path::{Path, PathBuf},
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
 };
+
 <span class="kw">use </span>anyhow::anyhow;
-<span class="kw">use </span>std::convert::{TryFrom, TryInto};
-<span class="kw">use </span>std::io::{<span class="self">self</span>, Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind, SeekFrom};
-<span class="kw">use </span>std::ops::Deref;
-<span class="kw">use </span>std::path::Path;
-<span class="kw">use </span>std::path::PathBuf;
-<span class="kw">use </span>std::pin::Pin;
-<span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::task::{Context, Poll};
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
+
+<span class="kw">use crate</span>::{
+    mem_fs::FileSystem <span class="kw">as </span>MemFileSystem, FileOpener, FileSystem, FsError, Metadata, OpenOptions,
+    OpenOptionsConfig, ReadDir, VirtualFile,
+};
 
 <span class="doccomment">/// Custom file system wrapper to map requested file paths
 </span><span class="attr">#[derive(Debug)]
@@ -635,11 +645,11 @@
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.entry.get_len()
     }
-    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+    <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="prelude-val">Ok</span>(())
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
     }
     <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span>remaining = <span class="self">self</span>.entry.get_len() - <span class="self">self</span>.cursor;
@@ -807,15 +817,17 @@
             result
         }
     }
-    <span class="kw">fn </span>rename(<span class="kw-2">&amp;</span><span class="self">self</span>, from: <span class="kw-2">&amp;</span>Path, to: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
-        <span class="kw">let </span>from = normalizes_path(from);
-        <span class="kw">let </span>to = normalizes_path(to);
-        <span class="kw">let </span>result = <span class="self">self</span>.memory.rename(Path::new(<span class="kw-2">&amp;</span>from), Path::new(<span class="kw-2">&amp;</span>to));
-        <span class="kw">if </span><span class="self">self</span>.volumes.iter().any(|v| v.get_file_entry(<span class="kw-2">&amp;</span>from).is_ok()) {
-            <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else </span>{
-            result
-        }
+    <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+        Box::pin(<span class="kw">async </span>{
+            <span class="kw">let </span>from = normalizes_path(from);
+            <span class="kw">let </span>to = normalizes_path(to);
+            <span class="kw">let </span>result = <span class="self">self</span>.memory.rename(Path::new(<span class="kw-2">&amp;</span>from), Path::new(<span class="kw-2">&amp;</span>to)).<span class="kw">await</span>;
+            <span class="kw">if </span><span class="self">self</span>.volumes.iter().any(|v| v.get_file_entry(<span class="kw-2">&amp;</span>from).is_ok()) {
+                <span class="prelude-val">Ok</span>(())
+            } <span class="kw">else </span>{
+                result
+            }
+        })
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata, FsError&gt; {
         <span class="kw">let </span>path = normalizes_path(path);
