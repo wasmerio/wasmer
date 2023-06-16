@@ -15,13 +15,13 @@ apt-get install --assume-yes --no-install-recommends \
   sharutils \
   gnupg
 
-## Add port from bookworm to get some riscv packages
-#debsource="deb http://deb.debian.org/debian-ports bookworm main"
-#
-## temporarily use debian sources rather than ubuntu.
-#touch /etc/apt/sources.list
-#mv /etc/apt/sources.list /etc/apt/sources.list.bak
-#echo -e "${debsource}" > /etc/apt/sources.list
+# Add port from bookworm to get some riscv packages
+debsource="deb http://deb.debian.org/debian-ports bookworm main"
+
+# temporarily use debian sources rather than ubuntu.
+touch /etc/apt/sources.list
+mv /etc/apt/sources.list /etc/apt/sources.list.bak
+echo -e "${debsource}" > /etc/apt/sources.list
 
 dpkg --add-architecture "${arch}" || echo "foreign-architecture ${arch}" \
   > /etc/dpkg/dpkg.cfg.d/multiarch
