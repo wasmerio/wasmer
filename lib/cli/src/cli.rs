@@ -36,7 +36,12 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
             args.execute()
         }
         Err(e) => {
-            if e.kind() == clap::error::ErrorKind::InvalidSubcommand {
+            let might_be_wasmer_run = matches!(
+                e.kind(),
+                clap::error::ErrorKind::InvalidSubcommand | clap::error::ErrorKind::UnknownArgument
+            );
+
+            if might_be_wasmer_run {
                 if let Ok(run) = Run::try_parse() {
                     // Try to parse the command using the `wasmer some/package`
                     // shorthand. Note that this has discoverability issues
