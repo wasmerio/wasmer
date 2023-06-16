@@ -166,7 +166,15 @@ impl Source for WapmSource {
             tracing::trace!(?pkg_version, "checking package version");
             let version = Version::parse(&pkg_version.version)?;
 
-            if !pkg_version.is_archived && version_constraint.matches(&version) {
+            if pkg_version.is_archived {
+                tracing::debug!(
+                    pkg.version=%version,
+                    "Skipping an archived version",
+                );
+                continue;
+            }
+
+            if version_constraint.matches(&version) {
                 match decode_summary(pkg_version) {
                     Ok(summary) => summaries.push(summary),
                     Err(e) => {
