@@ -1,7 +1,7 @@
 mod filesystem_source;
 mod in_memory_source;
 mod inputs;
-mod multi_source_registry;
+mod multi_source;
 mod outputs;
 mod resolve;
 mod source;
@@ -16,7 +16,7 @@ pub use self::{
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
         WebcHash,
     },
-    multi_source_registry::MultiSource,
+    multi_source::MultiSource,
     outputs::{
         DependencyGraph, Edge, ItemLocation, Node, PackageId, Resolution,
         ResolvedFileSystemMapping, ResolvedPackage,
