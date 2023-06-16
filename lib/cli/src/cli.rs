@@ -35,12 +35,18 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
             args.output.initialize_logging();
             args.execute()
         }
-        Err(e) if e.kind() == clap::error::ErrorKind::InvalidSubcommand => {
-            // Try to parse it as `wasmer some/package`
-            crate::logging::Output::default().initialize_logging();
-            Run::parse().execute()
-        }
         Err(e) => {
+            if e.kind() == clap::error::ErrorKind::InvalidSubcommand {
+                if let Ok(run) = Run::try_parse() {
+                    // Try to parse the command using the `wasmer some/package`
+                    // shorthand. Note that this has discoverability issues
+                    // because it's not shown as part of the main argument
+                    // parser's help, but that's fine.
+                    crate::logging::Output::default().initialize_logging();
+                    run.execute();
+                }
+            }
+
             e.exit();
         }
     }
@@ -48,9 +54,16 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
 
 /// Command-line arguments for the Wasmer CLI.
 #[derive(Parser, Debug)]
-#[clap(about, author)]
-#[cfg_attr(feature = "headless", clap(name = "wasmer-headless"))]
-#[cfg_attr(not(feature = "headless"), clap(name = "wasmer-headless"))]
+#[clap(author, version)]
+#[clap(disable_version_flag = true)] // handled manually
+#[cfg_attr(feature = "headless", clap(
+    name = "wasmer-headless",
+    about = concat!("wasmer-headless ", env!("CARGO_PKG_VERSION")),
+))]
+#[cfg_attr(not(feature = "headless"), clap(
+    name = "wasmer",
+    about = concat!("wasmer ", env!("CARGO_PKG_VERSION")),
+))]
 pub struct Args {
     /// Print version info and exit.
     #[clap(short = 'V', long)]
