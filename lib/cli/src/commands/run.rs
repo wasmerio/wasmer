@@ -814,6 +814,22 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
             progress: self.progress.clone(),
         })
     }
+
+    fn engine(&self) -> Option<wasmer::Engine> {
+        self.runtime.engine()
+    }
+
+    fn new_store(&self) -> wasmer::Store {
+        self.runtime.new_store()
+    }
+
+    fn http_client(&self) -> Option<&wasmer_wasix::http::DynHttpClient> {
+        self.runtime.http_client()
+    }
+
+    fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
+        self.runtime.tty()
+    }
 }
 
 #[derive(Debug)]
