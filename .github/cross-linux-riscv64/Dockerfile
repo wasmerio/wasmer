@@ -1,5 +1,5 @@
-FROM debian:bookworm AS openssl_riscv64
-#FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:edge
+FROM debian:unstable AS openssl_riscv64
+#FROM ghcr.io/cross-rs/riscv64gc-unknown-linux-gnu:edge AS openssl_riscv64
 
 # set CROSS_DOCKER_IN_DOCKER to inform `cross` that it is executed from within a container
 ENV CROSS_DOCKER_IN_DOCKER=true
@@ -14,12 +14,15 @@ RUN apt-get update  && \
     build-essential \
     libc6-dev
 
-COPY install_deb.sh /
+#COPY install_deb.sh /
 
 #install libssl-dev for riscv64!
-RUN /install_deb.sh riscv64 libssl-dev
-ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
-ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
+#RUN /install_deb.sh riscv64 libssl-dev
+#RUN dpkg --add-architecture riscv64
+#RUN apt-get update
+#RUN apt-get install libssl-dev:riscv64
+#ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/usr/include
+#ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/usr/lib/riscv64-linux-gnu
 
 
 # install rust tools
@@ -59,3 +62,9 @@ ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
 RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.67-x86_64-unknown-linux-gnu
+
+#compile libssl-dev for riscv64!
+COPY build_openssl.sh /
+RUN /build_openssl.sh
+ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_INCLUDE_DIR=/openssl_riscv64/include
+ENV RISCV64GC_UNKNOWN_LINUX_GNU_OPENSSL_LIB_DIR=/openssl_riscv64/lib
