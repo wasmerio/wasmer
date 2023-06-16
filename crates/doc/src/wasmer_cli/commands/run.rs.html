@@ -753,11 +753,6 @@
 <a href="#752" id="752">752</a>
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -776,7 +771,6 @@
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>clap_verbosity_flag::WarnLevel;
 <span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tempfile::NamedTempFile;
@@ -818,8 +812,6 @@
 <span class="doccomment">/// The unstable `wasmer run` subcommand.
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Run {
-    <span class="attr">#[clap(flatten)]
-    </span>verbosity: clap_verbosity_flag::Verbosity&lt;WarnLevel&gt;,
     <span class="doccomment">/// The Wasmer home directory.
     </span><span class="attr">#[clap(long = <span class="string">&quot;wasmer-dir&quot;</span>, env = <span class="string">&quot;WASMER_DIR&quot;</span>, default_value = WASMER_HOME.as_os_str())]
     </span>wasmer_dir: PathBuf,
@@ -852,7 +844,6 @@
     }
 
     <span class="kw">fn </span>execute_inner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">crate</span>::logging::set_up_logging(<span class="self">self</span>.verbosity.log_level_filter());
         <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()<span class="question-mark">?</span>;
@@ -1120,7 +1111,6 @@
         };
         <span class="kw">let </span>store = StoreOptions::default();
         <span class="prelude-val">Ok</span>(Run {
-            verbosity: clap_verbosity_flag::Verbosity::new(<span class="number">0</span>, <span class="number">0</span>),
             wasmer_dir: WASMER_HOME.clone(),
             store,
             wasi: Wasi::for_binfmt_interpreter()<span class="question-mark">?</span>,

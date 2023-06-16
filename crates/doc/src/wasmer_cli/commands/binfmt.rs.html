@@ -150,6 +150,9 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>std::env;
@@ -205,6 +208,9 @@
 }
 
 <span class="kw">impl </span>Binfmt {
+    <span class="doccomment">/// The filename used to register the wasmer CLI as a binfmt interpreter.
+    </span><span class="kw">pub const </span>FILENAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>;
+
     <span class="doccomment">/// execute [Binfmt]
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if </span>!<span class="self">self</span>.binfmt_misc.exists() {
@@ -218,7 +224,7 @@
                 <span class="kw">let </span>bin_path_orig: PathBuf = env::current_exe()
                     .and_then(|p| p.canonicalize())
                     .context(<span class="string">&quot;Cannot get path to wasmer executable&quot;</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>bin_path = temp_dir.path().join(<span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>);
+                <span class="kw">let </span>bin_path = temp_dir.path().join(Binfmt::FILENAME);
                 fs::copy(bin_path_orig, <span class="kw-2">&amp;</span>bin_path).context(<span class="string">&quot;Copy wasmer binary to temp folder&quot;</span>)<span class="question-mark">?</span>;
                 <span class="kw">let </span>bin_path = fs::canonicalize(<span class="kw-2">&amp;</span>bin_path).with_context(|| {
                     <span class="macro">format!</span>(

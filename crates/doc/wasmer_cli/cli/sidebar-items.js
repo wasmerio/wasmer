@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["WasmerCLIOptions","The options for the wasmer Command Line Interface"]],"fn":[["print_help",""],["print_version",""],["wasmer_main","The main function for the Wasmer CLI tool."],["wasmer_main_inner",""]]};
+window.SIDEBAR_ITEMS = {"enum":[["Cmd","The options for the wasmer Command Line Interface"]],"fn":[["is_binfmt_interpreter",""],["print_version",""],["wasmer_main","The main function for the Wasmer CLI tool."],["wasmer_main_inner",""]],"struct":[["Args","Command-line arguments for the Wasmer CLI."]]};

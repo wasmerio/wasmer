@@ -322,6 +322,11 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.
 
 </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
@@ -338,29 +343,96 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::commands::{CreateObj, GenCHeader};
 <span class="kw">use </span><span class="kw">crate</span>::error::PrettyError;
-<span class="kw">use </span>clap::{error::ErrorKind, CommandFactory, Parser};
+<span class="kw">use </span>clap::{CommandFactory, Parser};
+
+<span class="doccomment">/// The main function for the Wasmer CLI tool.
+</span><span class="kw">pub fn </span>wasmer_main() {
+    <span class="comment">// We allow windows to print properly colors
+    </span><span class="attr">#[cfg(windows)]
+    </span>colored::control::set_virtual_terminal(<span class="bool-val">true</span>).unwrap();
+
+    PrettyError::report(wasmer_main_inner())
+}
+
+<span class="kw">fn </span>wasmer_main_inner() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">if </span>is_binfmt_interpreter() {
+        Run::from_binfmt_args().execute();
+    }
+
+    <span class="kw">match </span>Args::try_parse() {
+        <span class="prelude-val">Ok</span>(args) =&gt; {
+            args.output.initialize_logging();
+            args.execute()
+        }
+        <span class="prelude-val">Err</span>(e) =&gt; {
+            <span class="kw">let </span>might_be_wasmer_run = <span class="macro">matches!</span>(
+                e.kind(),
+                clap::error::ErrorKind::InvalidSubcommand | clap::error::ErrorKind::UnknownArgument
+            );
+
+            <span class="kw">if </span>might_be_wasmer_run {
+                <span class="kw">if let </span><span class="prelude-val">Ok</span>(run) = Run::try_parse() {
+                    <span class="comment">// Try to parse the command using the `wasmer some/package`
+                    // shorthand. Note that this has discoverability issues
+                    // because it&#39;s not shown as part of the main argument
+                    // parser&#39;s help, but that&#39;s fine.
+                    </span><span class="kw">crate</span>::logging::Output::default().initialize_logging();
+                    run.execute();
+                }
+            }
+
+            e.exit();
+        }
+    }
+}
+
+<span class="doccomment">/// Command-line arguments for the Wasmer CLI.
+</span><span class="attr">#[derive(Parser, Debug)]
+#[clap(author, version)]
+#[clap(disable_version_flag = <span class="bool-val">true</span>)] </span><span class="comment">// handled manually
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;headless&quot;</span>, clap(
+    name = <span class="string">&quot;wasmer-headless&quot;</span>,
+    about = <span class="macro">concat!</span>(<span class="string">&quot;wasmer-headless &quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>)),
+))]
+#[cfg_attr(not(feature = <span class="string">&quot;headless&quot;</span>), clap(
+    name = <span class="string">&quot;wasmer&quot;</span>,
+    about = <span class="macro">concat!</span>(<span class="string">&quot;wasmer &quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>)),
+))]
+</span><span class="kw">pub struct </span>Args {
+    <span class="doccomment">/// Print version info and exit.
+    </span><span class="attr">#[clap(short = <span class="string">&#39;V&#39;</span>, long)]
+    </span>version: bool,
+    <span class="attr">#[clap(flatten)]
+    </span>output: <span class="kw">crate</span>::logging::Output,
+    <span class="attr">#[clap(subcommand)]
+    </span>cmd: <span class="prelude-ty">Option</span>&lt;Cmd&gt;,
+}
+
+<span class="kw">impl </span>Args {
+    <span class="kw">fn </span>execute(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>Args {
+            cmd,
+            version,
+            output,
+        } = <span class="self">self</span>;
+
+        <span class="kw">if </span>version {
+            <span class="kw">return </span>print_version(output.is_verbose());
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = cmd {
+            cmd.execute()
+        } <span class="kw">else </span>{
+            Args::command().print_long_help()<span class="question-mark">?</span>;
+            <span class="comment">// Note: clap uses an exit code of 2 when CLI parsing fails
+            </span>std::process::exit(<span class="number">2</span>);
+        }
+    }
+}
 
 <span class="attr">#[derive(Parser, Debug)]
-#[cfg_attr(
-    not(feature = <span class="string">&quot;headless&quot;</span>),
-    clap(
-        name = <span class="string">&quot;wasmer&quot;</span>,
-        about = <span class="macro">concat!</span>(<span class="string">&quot;wasmer &quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>)),
-        version,
-        author
-    )
-)]
-#[cfg_attr(
-    feature = <span class="string">&quot;headless&quot;</span>,
-    clap(
-        name = <span class="string">&quot;wasmer-headless&quot;</span>,
-        about = <span class="macro">concat!</span>(<span class="string">&quot;wasmer &quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>)),
-        version,
-        author
-    )
-)]
 </span><span class="doccomment">/// The options for the wasmer Command Line Interface
-</span><span class="kw">enum </span>WasmerCLIOptions {
+</span><span class="kw">enum </span>Cmd {
     <span class="doccomment">/// Login into a wasmer.io-like registry
     </span>Login(Login),
 
@@ -499,7 +571,7 @@
     </span>Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
 
-<span class="kw">impl </span>WasmerCLIOptions {
+<span class="kw">impl </span>Cmd {
     <span class="kw">fn </span>execute(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">use </span>wasmer_deploy_cli::cmd::CliCommand;
 
@@ -537,112 +609,50 @@
     }
 }
 
-<span class="doccomment">/// The main function for the Wasmer CLI tool.
-</span><span class="kw">pub fn </span>wasmer_main() {
-    <span class="comment">// We allow windows to print properly colors
-    </span><span class="attr">#[cfg(windows)]
-    </span>colored::control::set_virtual_terminal(<span class="bool-val">true</span>).unwrap();
-
-    PrettyError::report(wasmer_main_inner())
-}
-
-<span class="kw">fn </span>wasmer_main_inner() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-    <span class="comment">// We try to run wasmer with the normal arguments.
-    // Eg. `wasmer &lt;SUBCOMMAND&gt;`
-    // In case that fails, we fallback trying the Run subcommand directly.
-    // Eg. `wasmer myfile.wasm --dir=.`
-    //
-    // In case we&#39;ve been run as wasmer-binfmt-interpreter myfile.wasm args,
-    // we assume that we&#39;re registered via binfmt_misc
-    </span><span class="kw">let </span>args = std::env::args().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-    <span class="kw">let </span>binpath = args.get(<span class="number">0</span>).map(|s| s.as_ref()).unwrap_or(<span class="string">&quot;&quot;</span>);
-
-    <span class="kw">let </span>firstarg = args.get(<span class="number">1</span>).map(|s| s.as_str());
-    <span class="kw">let </span>secondarg = args.get(<span class="number">2</span>).map(|s| s.as_str());
-
-    <span class="kw">match </span>(firstarg, secondarg) {
-        (<span class="prelude-val">None</span>, <span class="kw">_</span>) | (<span class="prelude-val">Some</span>(<span class="string">&quot;help&quot;</span>), <span class="kw">_</span>) | (<span class="prelude-val">Some</span>(<span class="string">&quot;--help&quot;</span>), <span class="kw">_</span>) =&gt; {
-            <span class="kw">return </span>print_help(<span class="bool-val">true</span>);
-        }
-        (<span class="prelude-val">Some</span>(<span class="string">&quot;-h&quot;</span>), <span class="kw">_</span>) =&gt; {
-            <span class="kw">return </span>print_help(<span class="bool-val">false</span>);
-        }
-        (<span class="prelude-val">Some</span>(<span class="string">&quot;-vV&quot;</span>), <span class="kw">_</span>)
-        | (<span class="prelude-val">Some</span>(<span class="string">&quot;version&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">&quot;--verbose&quot;</span>))
-        | (<span class="prelude-val">Some</span>(<span class="string">&quot;--version&quot;</span>), <span class="prelude-val">Some</span>(<span class="string">&quot;--verbose&quot;</span>)) =&gt; {
-            <span class="kw">return </span>print_version(<span class="bool-val">true</span>);
-        }
-
-        (<span class="prelude-val">Some</span>(<span class="string">&quot;-v&quot;</span>), <span class="kw">_</span>) | (<span class="prelude-val">Some</span>(<span class="string">&quot;-V&quot;</span>), <span class="kw">_</span>) | (<span class="prelude-val">Some</span>(<span class="string">&quot;version&quot;</span>), <span class="kw">_</span>) | (<span class="prelude-val">Some</span>(<span class="string">&quot;--version&quot;</span>), <span class="kw">_</span>) =&gt; {
-            <span class="kw">return </span>print_version(<span class="bool-val">false</span>);
-        }
-        <span class="kw">_ </span>=&gt; {}
+<span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {
+    <span class="macro">cfg_if::cfg_if! </span>{
+        <span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)] </span>{
+            <span class="comment">// Note: we&#39;ll be invoked by the kernel as Binfmt::FILENAME
+            </span><span class="kw">let </span>binary_path = <span class="kw">match </span>std::env::args_os().next() {
+                <span class="prelude-val">Some</span>(path) =&gt; std::path::PathBuf::from(path),
+                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+            };
+            binary_path.file_name().and_then(|f| f.to_str()) == <span class="prelude-val">Some</span>(Binfmt::FILENAME)
+        } <span class="kw">else </span>{
+            <span class="bool-val">false
+        </span>}
     }
-
-    <span class="kw">let </span>command = args.get(<span class="number">1</span>);
-    <span class="kw">let </span>options = <span class="kw">if </span><span class="macro">cfg!</span>(target_os = <span class="string">&quot;linux&quot;</span>) &amp;&amp; binpath.ends_with(<span class="string">&quot;wasmer-binfmt-interpreter&quot;</span>) {
-        WasmerCLIOptions::Run(Run::from_binfmt_args())
-    } <span class="kw">else </span>{
-        <span class="kw">match </span>command.unwrap_or(<span class="kw-2">&amp;</span>String::new()).as_ref() {
-            <span class="string">&quot;add&quot; </span>| <span class="string">&quot;app&quot; </span>| <span class="string">&quot;apps&quot; </span>| <span class="string">&quot;binfmt&quot; </span>| <span class="string">&quot;cache&quot; </span>| <span class="string">&quot;compile&quot; </span>| <span class="string">&quot;config&quot; </span>| <span class="string">&quot;create-obj&quot;
-            </span>| <span class="string">&quot;create-exe&quot; </span>| <span class="string">&quot;deploy&quot; </span>| <span class="string">&quot;help&quot; </span>| <span class="string">&quot;gen-c-header&quot; </span>| <span class="string">&quot;inspect&quot; </span>| <span class="string">&quot;init&quot; </span>| <span class="string">&quot;login&quot;
-            </span>| <span class="string">&quot;namespace&quot; </span>| <span class="string">&quot;namespaces&quot; </span>| <span class="string">&quot;publish&quot; </span>| <span class="string">&quot;run&quot; </span>| <span class="string">&quot;run-unstable&quot; </span>| <span class="string">&quot;self-update&quot;
-            </span>| <span class="string">&quot;validate&quot; </span>| <span class="string">&quot;wast&quot; </span>| <span class="string">&quot;ssh&quot; </span>| <span class="string">&quot;&quot; </span>=&gt; WasmerCLIOptions::parse(),
-            <span class="kw">_ </span>=&gt; {
-                WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
-                    <span class="kw">match </span>e.kind() {
-                        <span class="comment">// This fixes a issue that:
-                        // 1. Shows the version twice when doing `wasmer -V`
-                        // 2. Shows the run help (instead of normal help) when doing `wasmer --help`
-                        </span>ErrorKind::DisplayVersion | ErrorKind::DisplayHelp =&gt; e.exit(),
-                        <span class="kw">_ </span>=&gt; WasmerCLIOptions::Run(Run::parse()),
-                    }
-                })
-            }
-        }
-    };
-
-    options.execute()
 }
 
-<span class="kw">fn </span>print_help(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>cmd = WasmerCLIOptions::command();
-    <span class="kw">if </span>verbose {
-        <span class="kw">let _ </span>= cmd.print_long_help();
-    } <span class="kw">else </span>{
-        <span class="kw">let _ </span>= cmd.print_help();
-    }
-    <span class="prelude-val">Ok</span>(())
-}
-
-<span class="attr">#[allow(unused_mut, clippy::vec_init_then_push)]
-</span><span class="kw">fn </span>print_version(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<span class="kw">fn </span>print_version(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     <span class="kw">if </span>!verbose {
         <span class="macro">println!</span>(<span class="string">&quot;wasmer {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>));
-    } <span class="kw">else </span>{
-        <span class="macro">println!</span>(
-            <span class="string">&quot;wasmer {} ({} {})&quot;</span>,
-            <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>),
-            <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_GIT_HASH_SHORT&quot;</span>),
-            <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_DATE&quot;</span>)
-        );
-        <span class="macro">println!</span>(<span class="string">&quot;binary: {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>));
-        <span class="macro">println!</span>(<span class="string">&quot;commit-hash: {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_GIT_HASH&quot;</span>));
-        <span class="macro">println!</span>(<span class="string">&quot;commit-date: {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_DATE&quot;</span>));
-        <span class="macro">println!</span>(<span class="string">&quot;host: {}&quot;</span>, target_lexicon::HOST);
-        <span class="macro">println!</span>(<span class="string">&quot;compiler: {}&quot;</span>, {
-            <span class="kw">let </span><span class="kw-2">mut </span>s = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;::new();
-
-            <span class="attr">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)]
-            </span>s.push(<span class="string">&quot;singlepass&quot;</span>);
-            <span class="attr">#[cfg(feature = <span class="string">&quot;cranelift&quot;</span>)]
-            </span>s.push(<span class="string">&quot;cranelift&quot;</span>);
-            <span class="attr">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]
-            </span>s.push(<span class="string">&quot;llvm&quot;</span>);
-
-            s.join(<span class="string">&quot;,&quot;</span>)
-        });
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     }
+
+    <span class="macro">println!</span>(
+        <span class="string">&quot;wasmer {} ({} {})&quot;</span>,
+        <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>),
+        <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_GIT_HASH_SHORT&quot;</span>),
+        <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_DATE&quot;</span>)
+    );
+    <span class="macro">println!</span>(<span class="string">&quot;binary: {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>));
+    <span class="macro">println!</span>(<span class="string">&quot;commit-hash: {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_GIT_HASH&quot;</span>));
+    <span class="macro">println!</span>(<span class="string">&quot;commit-date: {}&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;WASMER_BUILD_DATE&quot;</span>));
+    <span class="macro">println!</span>(<span class="string">&quot;host: {}&quot;</span>, target_lexicon::HOST);
+
+    <span class="kw">let </span><span class="kw-2">mut </span>compilers = Vec::&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt;::new();
+    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;singlepass&quot;</span>) {
+        compilers.push(<span class="string">&quot;singlepass&quot;</span>);
+    }
+    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;cranelift&quot;</span>) {
+        compilers.push(<span class="string">&quot;cranelift&quot;</span>);
+    }
+    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;llvm&quot;</span>) {
+        compilers.push(<span class="string">&quot;llvm&quot;</span>);
+    }
+    <span class="macro">println!</span>(<span class="string">&quot;compiler: {}&quot;</span>, compilers.join(<span class="string">&quot;,&quot;</span>));
+
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div>
