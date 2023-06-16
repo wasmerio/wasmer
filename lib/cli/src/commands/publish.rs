@@ -77,7 +77,7 @@ fn invalidate_graphql_query_cache() -> Result<(), anyhow::Error> {
         .map_err(anyhow::Error::msg)
         .context("Unable to determine the wasmer dir")?;
 
-    let cache_dir = WapmSource::invalidate_local_cache(wasmer_dir)?;
+    WapmSource::invalidate_local_cache(wasmer_dir)?;
 
     Ok(())
 }
