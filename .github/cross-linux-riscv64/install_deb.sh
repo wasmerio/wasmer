@@ -27,9 +27,9 @@ dpkg --add-architecture "${arch}" || echo "foreign-architecture ${arch}" \
   > /etc/dpkg/dpkg.cfg.d/multiarch
 
 # Add Debian keys.
-curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{12,13}.asc' -O
-curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{12,13}-security.asc' -O
-curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/release-{12,13}.asc' -O
+curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{11,12}.asc' -O
+curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{11,12}-security.asc' -O
+curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/release-{11,12}.asc' -O
 curl --retry 3 -sSfL 'https://www.ports.debian.org/archive_{2023}.key' -O
 
 for key in *.asc *.key; do
