@@ -403,6 +403,19 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -492,7 +505,8 @@
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
 
-    <span class="kw">async fn </span>download(<span class="kw-2">&amp;</span><span class="self">self</span>, dist: <span class="kw-2">&amp;</span>DistributionInfo) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt; {
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%dist.webc, %dist.webc_sha256))]
+    </span><span class="kw">async fn </span>download(<span class="kw-2">&amp;</span><span class="self">self</span>, dist: <span class="kw-2">&amp;</span>DistributionInfo) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt; {
         <span class="kw">if </span>dist.webc.scheme() == <span class="string">&quot;file&quot; </span>{
             <span class="kw">match </span><span class="kw">crate</span>::runtime::resolver::utils::file_path_from_url(<span class="kw-2">&amp;</span>dist.webc) {
                 <span class="prelude-val">Ok</span>(path) =&gt; {
@@ -519,7 +533,18 @@
             options: Default::default(),
         };
 
+        <span class="macro">tracing::debug!</span>(%request.url, %request.method, <span class="string">&quot;Downloading a webc file&quot;</span>);
+        <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>request.headers);
+
         <span class="kw">let </span>response = <span class="self">self</span>.client.request(request).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="macro">tracing::trace!</span>(
+            %response.status,
+            %response.redirected,
+            <span class="question-mark">?</span>response.headers,
+            response.len=response.body.as_ref().map(|body| body.len()),
+            <span class="string">&quot;Received a response&quot;</span>,
+        );
 
         <span class="kw">if </span>!response.is_ok() {
             <span class="kw">let </span>url = <span class="kw-2">&amp;</span>dist.webc;
@@ -534,7 +559,8 @@
         <span class="prelude-val">Ok</span>(body.into())
     }
 
-    <span class="kw">async fn </span>save_and_load_as_mmapped(
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>save_and_load_as_mmapped(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         webc: <span class="kw-2">&amp;</span>[u8],
         dist: <span class="kw-2">&amp;</span>DistributionInfo,

@@ -30,7 +30,7 @@
 </pre><pre class="rust"><code><span class="kw">mod </span>filesystem_source;
 <span class="kw">mod </span>in_memory_source;
 <span class="kw">mod </span>inputs;
-<span class="kw">mod </span>multi_source_registry;
+<span class="kw">mod </span>multi_source;
 <span class="kw">mod </span>outputs;
 <span class="kw">mod </span>resolve;
 <span class="kw">mod </span>source;
@@ -45,7 +45,7 @@
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
         WebcHash,
     },
-    multi_source_registry::MultiSource,
+    multi_source::MultiSource,
     outputs::{
         DependencyGraph, Edge, ItemLocation, Node, PackageId, Resolution,
         ResolvedFileSystemMapping, ResolvedPackage,

@@ -372,10 +372,17 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc},
+    time::Duration,
 };
 
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
@@ -409,6 +416,8 @@
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
+
+<span class="kw">const </span>WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(<span class="number">10 </span>* <span class="number">60</span>);
 
 <span class="attr">#[derive(Debug, Parser, Clone, Default)]
 </span><span class="doccomment">/// WASI Options
@@ -715,7 +724,10 @@
         source.add_source(preloaded);
 
         <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(wasmer_dir)<span class="question-mark">?</span>;
-        source.add_source(WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client)));
+        <span class="kw">let </span>cache_dir = WapmSource::default_cache_dir(wasmer_dir);
+        <span class="kw">let </span>wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
+            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+        source.add_source(wapm_source);
 
         <span class="kw">let </span>cache_dir = WebSource::default_cache_dir(wasmer_dir);
         source.add_source(WebSource::new(cache_dir, client));

@@ -622,7 +622,7 @@
     }
 
     <span class="doccomment">/// Download a package and cache it locally.
-    </span><span class="attr">#[tracing::instrument(skip_all, fields(%url))]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%url))]
     </span><span class="kw">async fn </span>get_locally_cached_file(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, Error&gt; {
         <span class="comment">// This function is a bit tricky because we go to great lengths to avoid
         // unnecessary downloads.
