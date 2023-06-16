@@ -1,10 +1,14 @@
-use std::fs::{read_dir, File, OpenOptions, ReadDir};
-use std::future::Future;
-use std::io::{self, Read, SeekFrom};
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::sync::{mpsc, Arc, Mutex};
-use std::task::{Context, Poll};
+use std::{
+    fs::{read_dir, File, OpenOptions, ReadDir},
+    future::Future,
+    io::{self, Read, SeekFrom},
+    path::{Path, PathBuf},
+    pin::Pin,
+    sync::{mpsc, Arc, Mutex},
+    task::{Context, Poll},
+};
+
+use futures::future::BoxFuture;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
@@ -630,8 +634,8 @@ impl VirtualFile for OutputCapturerer {
     fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), FsError> {
-        Ok(())
+    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
+        Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))

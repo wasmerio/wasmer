@@ -19,6 +19,7 @@ wast = "38.0"
 serde = "1"
 tempfile = "3.4.0"
 thiserror = "1.0"
+futures = "0.3"
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
 
 [features]

@@ -2,10 +2,7 @@
 //! can pass clonable file systems with a `Box<dyn FileSystem>` to other
 //! interfaces
 
-use std::path::Path;
-use std::sync::Arc;
-#[allow(unused_imports, dead_code)]
-use tracing::{debug, error, info, trace, warn};
+use std::{path::Path, sync::Arc};
 
 use crate::*;
 
@@ -33,8 +30,8 @@ impl FileSystem for ArcFileSystem {
         self.fs.remove_dir(path)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        self.fs.rename(from, to)
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async { self.fs.rename(from, to).await })
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {

@@ -2091,6 +2091,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "derivative",
+ "futures",
  "getrandom",
  "indexmap",
  "lazy_static",

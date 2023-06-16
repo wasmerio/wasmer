@@ -3,8 +3,6 @@
 //! shared - some of the interfaces pass around a `Box<dyn VirtualFileSystem>`
 
 use std::path::Path;
-#[allow(unused_imports, dead_code)]
-use tracing::{debug, error, info, trace, warn};
 
 use crate::*;
 
@@ -32,8 +30,8 @@ impl FileSystem for PassthruFileSystem {
         self.fs.remove_dir(path)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        self.fs.rename(from, to)
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async { self.fs.rename(from, to).await })
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {

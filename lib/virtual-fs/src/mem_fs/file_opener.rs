@@ -327,7 +327,7 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        debug!("open: path={}", path.display());
+        debug!(path=%path.display(), "open");
 
         let read = conf.read();
         let mut write = conf.write();
@@ -466,7 +466,7 @@ impl crate::FileOpener for FileSystem {
             // The file doesn't already exist; it's OK to create it if:
             // 1. `create_new` is used with `write` or `append`,
             // 2. `create` is used with `write` or `append`.
-            None if (create_new || create) && (write || append) => {
+            None if (create_new || create) && (create_new || write || append) => {
                 // Write lock.
                 let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
@@ -607,7 +607,7 @@ mod test_file_opener {
                     .write(false)
                     .create_new(true)
                     .open(path!("/foo.txt")),
-                Err(FsError::PermissionDenied),
+                Ok(_),
             ),
             "creating a file without the `write` option",
         );

@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use futures::future::BoxFuture;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -162,8 +163,9 @@ fn prepare_filesystem(
     // supported or not, we'll add an adapter that automatically retries
     // operations using an absolute path if it failed using a relative path.
     let container_fs = RelativeOrAbsolutePathHack(container_fs);
+    let fs = OverlayFileSystem::new(root_fs, [container_fs]);
 
-    Ok(Box::new(OverlayFileSystem::new(root_fs, [container_fs])))
+    Ok(Box::new(fs))
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
@@ -245,8 +247,10 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.remove_dir(p))
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
-        self.execute(from, |fs, p| fs.rename(p, to))
+    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
+        let from = from.to_owned();
+        let to = to.to_owned();
+        Box::pin(async move { self.0.rename(&from, &to).await })
     }
 
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {

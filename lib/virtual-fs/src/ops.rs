@@ -1,8 +1,12 @@
 //! Common [`FileSystem`] operations.
 #![allow(dead_code)] // Most of these helpers are used during testing
 
-use std::{collections::VecDeque, path::Path};
+use std::{
+    collections::VecDeque,
+    path::{Path, PathBuf},
+};
 
+use futures::future::BoxFuture;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use crate::{DirEntry, FileSystem, FsError};
@@ -59,6 +63,102 @@ where
     }
 
     fs.create_dir(path)
+}
+
+static WHITEOUT_PREFIX: &str = ".wh.";
+
+/// Creates a white out file which hides it from secondary file systems
+pub fn create_white_out<F>(fs: &F, path: impl AsRef<Path>) -> Result<(), FsError>
+where
+    F: FileSystem + ?Sized,
+{
+    if let Some(filename) = path.as_ref().file_name() {
+        let mut path = path.as_ref().to_owned();
+        path.set_file_name(format!("{}{}", WHITEOUT_PREFIX, filename.to_string_lossy()));
+
+        if let Some(parent) = path.parent() {
+            create_dir_all(fs, parent).ok();
+        }
+
+        fs.new_open_options()
+            .create_new(true)
+            .truncate(true)
+            .write(true)
+            .open(path)?;
+        Ok(())
+    } else {
+        Err(FsError::EntryNotFound)
+    }
+}
+
+/// Removes a white out file from the primary
+pub fn remove_white_out<F>(fs: &F, path: impl AsRef<Path>)
+where
+    F: FileSystem + ?Sized,
+{
+    if let Some(filename) = path.as_ref().file_name() {
+        let mut path = path.as_ref().to_owned();
+        path.set_file_name(format!("{}{}", WHITEOUT_PREFIX, filename.to_string_lossy()));
+        fs.remove_file(&path).ok();
+    }
+}
+
+/// Returns true if the path has been hidden by a whiteout file
+pub fn has_white_out<F>(fs: &F, path: impl AsRef<Path>) -> bool
+where
+    F: FileSystem + ?Sized,
+{
+    if let Some(filename) = path.as_ref().file_name() {
+        let mut path = path.as_ref().to_owned();
+        path.set_file_name(format!("{}{}", WHITEOUT_PREFIX, filename.to_string_lossy()));
+        fs.metadata(&path).is_ok()
+    } else {
+        false
+    }
+}
+
+/// Returns true if the path is a whiteout file
+pub fn is_white_out(path: impl AsRef<Path>) -> Option<PathBuf> {
+    if let Some(filename) = path.as_ref().file_name() {
+        if let Some(filename) = filename.to_string_lossy().strip_prefix(WHITEOUT_PREFIX) {
+            let mut path = path.as_ref().to_owned();
+            path.set_file_name(filename);
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// Copies the reference of a file from one file system to another
+pub fn copy_reference<'a>(
+    source: &'a (impl FileSystem + ?Sized),
+    destination: &'a (impl FileSystem + ?Sized),
+    path: &'a Path,
+) -> BoxFuture<'a, Result<(), std::io::Error>> {
+    Box::pin(async { copy_reference_ext(source, destination, path, path).await })
+}
+
+/// Copies the reference of a file from one file system to another
+pub fn copy_reference_ext<'a>(
+    source: &'a (impl FileSystem + ?Sized),
+    destination: &'a (impl FileSystem + ?Sized),
+    from: &Path,
+    to: &Path,
+) -> BoxFuture<'a, Result<(), std::io::Error>> {
+    let from = from.to_owned();
+    let to = to.to_owned();
+    Box::pin(async move {
+        let src = source.new_open_options().read(true).open(from)?;
+        let mut dst = destination
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(to)?;
+
+        dst.copy_reference(src).await?;
+        Ok(())
+    })
 }
 
 /// Asynchronously write some bytes to a file.

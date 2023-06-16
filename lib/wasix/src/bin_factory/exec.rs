@@ -68,8 +68,8 @@ pub async fn spawn_exec(
         .conditional_union(&binary)
         .await
         .map_err(|err| {
-            tracing::error!("failed to union file system - {}", err);
-            SpawnError::InternalError
+            tracing::warn!("failed to union file system - {err}");
+            SpawnError::FileSystemError
         })?;
     tracing::debug!("{:?}", env.state.fs);
 

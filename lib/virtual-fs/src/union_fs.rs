@@ -2,18 +2,14 @@
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 
-#![allow(dead_code)]
-#![allow(unused)]
 use crate::*;
-use std::borrow::Cow;
-use std::ops::Add;
-use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicU32;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::sync::Weak;
-#[allow(unused_imports, dead_code)]
-use tracing::{debug, error, info, trace, warn};
+
+use std::{
+    path::Path,
+    sync::{Arc, Mutex, Weak},
+};
+
+use tracing::{debug, trace};
 
 pub type TempHolding = Arc<Mutex<Option<Arc<Box<dyn FileSystem>>>>>;
 
@@ -262,42 +258,48 @@ impl FileSystem for UnionFileSystem {
         }
         Err(ret_error)
     }
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        println!("rename: from={} to={}", from.display(), to.display());
-        if from.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-        if to.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-        let mut ret_error = FsError::EntryNotFound;
-        let from = from.to_string_lossy();
-        let to = to.to_string_lossy();
-        #[cfg(target_os = "windows")]
-        let to = to.replace('\\', "/");
-        for (path, mount) in filter_mounts(&self.mounts, from.as_ref()) {
-            let mut to = if to.starts_with(mount.path.as_str()) {
-                (to[mount.path.len()..]).to_string()
-            } else {
-                ret_error = FsError::UnknownError;
-                continue;
-            };
-            if !to.starts_with('/') {
-                to = format!("/{}", to);
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async {
+            println!("rename: from={} to={}", from.display(), to.display());
+            if from.parent().is_none() {
+                return Err(FsError::BaseNotDirectory);
             }
-            match mount.fs.rename(Path::new(&path), Path::new(to.as_str())) {
-                Ok(ret) => {
-                    trace!("rename ok");
-                    return Ok(ret);
+            if to.parent().is_none() {
+                return Err(FsError::BaseNotDirectory);
+            }
+            let mut ret_error = FsError::EntryNotFound;
+            let from = from.to_string_lossy();
+            let to = to.to_string_lossy();
+            #[cfg(target_os = "windows")]
+            let to = to.replace('\\', "/");
+            for (path, mount) in filter_mounts(&self.mounts, from.as_ref()) {
+                let mut to = if to.starts_with(mount.path.as_str()) {
+                    (to[mount.path.len()..]).to_string()
+                } else {
+                    ret_error = FsError::UnknownError;
+                    continue;
+                };
+                if !to.starts_with('/') {
+                    to = format!("/{}", to);
                 }
-                Err(err) => {
-                    trace!("rename error (from={}, to={}) - {}", from, to, err);
-                    ret_error = err;
+                match mount
+                    .fs
+                    .rename(Path::new(&path), Path::new(to.as_str()))
+                    .await
+                {
+                    Ok(ret) => {
+                        trace!("rename ok");
+                        return Ok(ret);
+                    }
+                    Err(err) => {
+                        trace!("rename error (from={}, to={}) - {}", from, to, err);
+                        ret_error = err;
+                    }
                 }
             }
-        }
-        trace!("rename failed - {}", ret_error);
-        Err(ret_error)
+            trace!("rename failed - {}", ret_error);
+            Err(ret_error)
+        })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         debug!("metadata: path={}", path.display());
@@ -372,7 +374,7 @@ impl FileSystem for UnionFileSystem {
 
 fn filter_mounts(
     mounts: &[MountPoint],
-    mut target: &str,
+    target: &str,
 ) -> impl Iterator<Item = (String, StrongMountPoint)> {
     // On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
     #[cfg(target_os = "windows")]
@@ -412,7 +414,7 @@ fn filter_mounts(
             }
         }
     }
-    ret.retain(|(a, b)| b.path.len() >= biggest_path);
+    ret.retain(|(_, b)| b.path.len() >= biggest_path);
     ret.into_iter()
 }
 
@@ -460,13 +462,11 @@ impl FileOpener for UnionFileSystem {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::Path, sync::Arc};
+    use std::path::Path;
 
     use tokio::io::AsyncWriteExt;
 
-    use crate::{
-        host_fs::FileSystem, mem_fs, ops, FileSystem as FileSystemTrait, FsError, UnionFileSystem,
-    };
+    use crate::{mem_fs, ops, FileSystem as FileSystemTrait, FsError, UnionFileSystem};
 
     fn gen_filesystem() -> UnionFileSystem {
         let mut union = UnionFileSystem::new();
@@ -648,12 +648,12 @@ mod tests {
         let _ = fs_extra::remove_items(&["./test_rename"]);
 
         assert_eq!(
-            fs.rename(Path::new("/"), Path::new("/bar")),
+            fs.rename(Path::new("/"), Path::new("/bar")).await,
             Err(FsError::BaseNotDirectory),
             "renaming a directory that has no parent",
         );
         assert_eq!(
-            fs.rename(Path::new("/foo"), Path::new("/")),
+            fs.rename(Path::new("/foo"), Path::new("/")).await,
             Err(FsError::BaseNotDirectory),
             "renaming to a directory that has no parent",
         );
@@ -666,7 +666,8 @@ mod tests {
             fs.rename(
                 Path::new("/test_rename/foo"),
                 Path::new("/test_rename/bar/baz")
-            ),
+            )
+            .await,
             Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
@@ -674,7 +675,8 @@ mod tests {
         assert_eq!(fs.create_dir(Path::new("/test_rename/bar")), Ok(()));
 
         assert_eq!(
-            fs.rename(Path::new("/test_rename/foo"), Path::new("/test_rename/bar")),
+            fs.rename(Path::new("/test_rename/foo"), Path::new("/test_rename/bar"))
+                .await,
             Ok(()),
             "renaming to a directory that has parent that exists",
         );
@@ -742,7 +744,8 @@ mod tests {
             fs.rename(
                 Path::new("/test_rename/bar/hello2.txt"),
                 Path::new("/test_rename/foo/world2.txt")
-            ),
+            )
+            .await,
             Ok(()),
             "renaming (and moving) a file",
         );
@@ -751,7 +754,8 @@ mod tests {
             fs.rename(
                 Path::new("/test_rename/foo"),
                 Path::new("/test_rename/bar/baz")
-            ),
+            )
+            .await,
             Ok(()),
             "renaming a directory",
         );
@@ -760,7 +764,8 @@ mod tests {
             fs.rename(
                 Path::new("/test_rename/bar/hello1.txt"),
                 Path::new("/test_rename/bar/world1.txt")
-            ),
+            )
+            .await,
             Ok(()),
             "renaming a file (in the same directory)",
         );
@@ -837,7 +842,8 @@ mod tests {
             fs.rename(
                 Path::new("/test_metadata/foo"),
                 Path::new("/test_metadata/bar")
-            ),
+            )
+            .await,
             Ok(())
         );
 

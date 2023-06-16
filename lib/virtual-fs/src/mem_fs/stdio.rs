@@ -41,12 +41,14 @@ macro_rules! impl_virtualfile_on_std_streams {
                 0
             }
 
-            fn set_len(&mut self, _new_size: u64) -> Result<()> {
+            fn set_len(& mut self, _new_size: u64) -> Result<()> {
                 Err(FsError::PermissionDenied)
             }
 
-            fn unlink(&mut self) -> Result<()> {
-                Ok(())
+            fn unlink(&mut self) -> futures::future::BoxFuture<'static, Result<()>> {
+                Box::pin(async {
+                    Ok(())
+                })
             }
 
             fn poll_read_ready(self: std::pin::Pin<&mut Self>, _cx: &mut std::task::Context<'_>) -> std::task::Poll<std::io::Result<usize>> {

@@ -2,10 +2,10 @@
 #[macro_use]
 extern crate pretty_assertions;
 
+use futures::future::BoxFuture;
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
-use std::future::Future;
 use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
@@ -80,11 +80,13 @@ pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
+pub use ops::{copy_reference, copy_reference_ext};
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
-    fn rename(&self, from: &Path, to: &Path) -> Result<()>;
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
@@ -108,6 +110,7 @@ impl dyn FileSystem + 'static {
     }
 }
 
+#[async_trait::async_trait]
 impl<D, F> FileSystem for D
 where
     D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
@@ -125,8 +128,8 @@ where
         (**self).remove_dir(path)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        (**self).rename(from, to)
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async { (**self).rename(from, to).await })
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
@@ -314,7 +317,7 @@ impl<'a> OpenOptions<'a> {
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile:
-    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable
+    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
@@ -333,7 +336,7 @@ pub trait VirtualFile:
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> Result<()>;
+    fn unlink(&mut self) -> BoxFuture<'static, Result<()>>;
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
@@ -351,10 +354,10 @@ pub trait VirtualFile:
     /// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to do a zero copy
-    fn copy_reference<'a>(
-        &'a mut self,
-        mut src: Box<dyn VirtualFile + Send + Sync>,
-    ) -> Pin<Box<dyn Future<Output = std::io::Result<()>> + 'a>> {
+    fn copy_reference(
+        &mut self,
+        mut src: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> BoxFuture<'_, std::io::Result<()>> {
         Box::pin(async move {
             let bytes_written = tokio::io::copy(&mut src, self).await?;
             tracing::trace!(bytes_written, "Copying file into host filesystem",);
@@ -595,6 +598,10 @@ impl DirEntry {
             .file_name()
             .unwrap_or(self.path.as_os_str())
             .to_owned()
+    }
+
+    pub fn is_white_out(&self) -> Option<PathBuf> {
+        ops::is_white_out(&self.path)
     }
 }
 

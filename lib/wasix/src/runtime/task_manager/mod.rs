@@ -23,6 +23,9 @@ pub enum SpawnMemoryType<'a> {
     // TODO: is there a way to get rid of the memory reference
     ShareMemory(Memory, StoreRef<'a>),
     // TODO: is there a way to get rid of the memory reference
+    // Note: The message sender is triggered once the memory
+    // has been copied, this makes sure its not modified until
+    // its been properly copied
     CopyMemory(Memory, StoreRef<'a>),
 }
 

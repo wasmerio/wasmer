@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use futures::future::BoxFuture;
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -417,112 +418,114 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-        let name_of_to;
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
+        Box::pin(async {
+            let name_of_to;
 
-        let (
-            (position_of_from, inode, inode_of_from_parent),
-            (inode_of_to_parent, name_of_to),
-            inode_dest,
-        ) = {
-            // Read lock.
-            let fs = self.inner.read().map_err(|_| FsError::Lock)?;
-
-            let from = fs.canonicalize_without_inode(from)?;
-            let to = fs.canonicalize_without_inode(to)?;
-
-            // Check the paths have parents.
-            let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
-            let parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)?;
-
-            // Check the names.
-            let name_of_from = from
-                .file_name()
-                .ok_or(FsError::InvalidInput)?
-                .to_os_string();
-            name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
-
-            // Find the parent inodes.
-            let inode_of_from_parent = match fs.inode_of_parent(parent_of_from)? {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(..) => {
-                    return Err(FsError::InvalidInput);
-                }
-            };
-            let inode_of_to_parent = match fs.inode_of_parent(parent_of_to)? {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(..) => {
-                    return Err(FsError::InvalidInput);
-                }
-            };
-
-            // Find the inode of the dest file if it exists
-            let maybe_position_and_inode_of_file =
-                fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, &name_of_to)?;
-
-            // Get the child indexes to update in the parent nodes, in
-            // addition to the inode of the directory to update.
-            let (position_of_from, inode) = fs
-                .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
-                .ok_or(FsError::EntryNotFound)?;
-
-            (
+            let (
                 (position_of_from, inode, inode_of_from_parent),
                 (inode_of_to_parent, name_of_to),
-                maybe_position_and_inode_of_file,
-            )
-        };
+                inode_dest,
+            ) = {
+                // Read lock.
+                let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
-        let inode = match inode {
-            InodeResolution::Found(a) => a,
-            InodeResolution::Redirect(..) => {
-                return Err(FsError::InvalidInput);
-            }
-        };
+                let from = fs.canonicalize_without_inode(from)?;
+                let to = fs.canonicalize_without_inode(to)?;
 
-        {
-            // Write lock.
-            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+                // Check the paths have parents.
+                let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
+                let parent_of_to = to.parent().ok_or(FsError::BaseNotDirectory)?;
 
-            if let Some((position, inode_of_file)) = inode_dest {
-                // Remove the file from the storage.
-                match inode_of_file {
-                    InodeResolution::Found(inode_of_file) => {
-                        fs.storage.remove(inode_of_file);
-                    }
+                // Check the names.
+                let name_of_from = from
+                    .file_name()
+                    .ok_or(FsError::InvalidInput)?
+                    .to_os_string();
+                name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
+
+                // Find the parent inodes.
+                let inode_of_from_parent = match fs.inode_of_parent(parent_of_from)? {
+                    InodeResolution::Found(a) => a,
                     InodeResolution::Redirect(..) => {
                         return Err(FsError::InvalidInput);
                     }
+                };
+                let inode_of_to_parent = match fs.inode_of_parent(parent_of_to)? {
+                    InodeResolution::Found(a) => a,
+                    InodeResolution::Redirect(..) => {
+                        return Err(FsError::InvalidInput);
+                    }
+                };
+
+                // Find the inode of the dest file if it exists
+                let maybe_position_and_inode_of_file =
+                    fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, &name_of_to)?;
+
+                // Get the child indexes to update in the parent nodes, in
+                // addition to the inode of the directory to update.
+                let (position_of_from, inode) = fs
+                    .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
+                    .ok_or(FsError::EntryNotFound)?;
+
+                (
+                    (position_of_from, inode, inode_of_from_parent),
+                    (inode_of_to_parent, name_of_to),
+                    maybe_position_and_inode_of_file,
+                )
+            };
+
+            let inode = match inode {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(..) => {
+                    return Err(FsError::InvalidInput);
+                }
+            };
+
+            {
+                // Write lock.
+                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+                if let Some((position, inode_of_file)) = inode_dest {
+                    // Remove the file from the storage.
+                    match inode_of_file {
+                        InodeResolution::Found(inode_of_file) => {
+                            fs.storage.remove(inode_of_file);
+                        }
+                        InodeResolution::Redirect(..) => {
+                            return Err(FsError::InvalidInput);
+                        }
+                    }
+
+                    fs.remove_child_from_node(inode_of_to_parent, position)?;
                 }
 
-                fs.remove_child_from_node(inode_of_to_parent, position)?;
-            }
+                // Update the file name, and update the modified time.
+                fs.update_node_name(inode, name_of_to)?;
 
-            // Update the file name, and update the modified time.
-            fs.update_node_name(inode, name_of_to)?;
+                // The parents are different. Let's update them.
+                if inode_of_from_parent != inode_of_to_parent {
+                    // Remove the file from its parent, and update the
+                    // modified time.
+                    fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
 
-            // The parents are different. Let's update them.
-            if inode_of_from_parent != inode_of_to_parent {
-                // Remove the file from its parent, and update the
-                // modified time.
-                fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
-
-                // Add the file to its new parent, and update the modified
-                // time.
-                fs.add_child_to_node(inode_of_to_parent, inode)?;
-            }
-            // Otherwise, we need to at least update the modified time of the parent.
-            else {
-                let mut inode = fs.storage.get_mut(inode_of_from_parent);
-                match inode.as_mut() {
-                    Some(Node::Directory(node)) => node.metadata.modified = time(),
-                    Some(Node::ArcDirectory(node)) => node.metadata.modified = time(),
-                    _ => return Err(FsError::UnknownError),
+                    // Add the file to its new parent, and update the modified
+                    // time.
+                    fs.add_child_to_node(inode_of_to_parent, inode)?;
+                }
+                // Otherwise, we need to at least update the modified time of the parent.
+                else {
+                    let mut inode = fs.storage.get_mut(inode_of_from_parent);
+                    match inode.as_mut() {
+                        Some(Node::Directory(node)) => node.metadata.modified = time(),
+                        Some(Node::ArcDirectory(node)) => node.metadata.modified = time(),
+                        _ => return Err(FsError::UnknownError),
+                    }
                 }
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
@@ -1039,7 +1042,7 @@ mod test_filesystem {
 
     use tokio::io::AsyncReadExt;
 
-    use crate::{mem_fs::*, ops, DirEntry, FileOpener, FileSystem as FS, FileType, FsError};
+    use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
 
     macro_rules! path {
         ($path:expr) => {
@@ -1225,17 +1228,17 @@ mod test_filesystem {
         }
     }
 
-    #[test]
-    fn test_rename() {
+    #[tokio::test]
+    async fn test_rename() {
         let fs = FileSystem::default();
 
         assert_eq!(
-            fs.rename(path!("/"), path!("/bar")),
+            fs.rename(path!("/"), path!("/bar")).await,
             Err(FsError::BaseNotDirectory),
             "renaming a directory that has no parent",
         );
         assert_eq!(
-            fs.rename(path!("/foo"), path!("/")),
+            fs.rename(path!("/foo"), path!("/")).await,
             Err(FsError::BaseNotDirectory),
             "renaming to a directory that has no parent",
         );
@@ -1244,7 +1247,7 @@ mod test_filesystem {
         assert_eq!(fs.create_dir(path!("/foo/qux")), Ok(()));
 
         assert_eq!(
-            fs.rename(path!("/foo"), path!("/bar/baz")),
+            fs.rename(path!("/foo"), path!("/bar/baz")).await,
             Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
@@ -1349,19 +1352,21 @@ mod test_filesystem {
         }
 
         assert_eq!(
-            fs.rename(path!("/bar/hello2.txt"), path!("/foo/world2.txt")),
+            fs.rename(path!("/bar/hello2.txt"), path!("/foo/world2.txt"))
+                .await,
             Ok(()),
             "renaming (and moving) a file",
         );
 
         assert_eq!(
-            fs.rename(path!("/foo"), path!("/bar/baz")),
+            fs.rename(path!("/foo"), path!("/bar/baz")).await,
             Ok(()),
             "renaming a directory",
         );
 
         assert_eq!(
-            fs.rename(path!("/bar/hello1.txt"), path!("/bar/world1.txt")),
+            fs.rename(path!("/bar/hello1.txt"), path!("/bar/world1.txt"))
+                .await,
             Ok(()),
             "renaming a file (in the same directory)",
         );
@@ -1449,8 +1454,8 @@ mod test_filesystem {
         }
     }
 
-    #[test]
-    fn test_metadata() {
+    #[tokio::test]
+    async fn test_metadata() {
         use std::thread::sleep;
         use std::time::Duration;
 
@@ -1487,7 +1492,7 @@ mod test_filesystem {
 
         sleep(Duration::from_secs(3));
 
-        assert_eq!(fs.rename(path!("/foo"), path!("/bar")), Ok(()));
+        assert_eq!(fs.rename(path!("/foo"), path!("/bar")).await, Ok(()));
 
         assert!(
             matches!(

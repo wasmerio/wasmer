@@ -7,6 +7,7 @@ use std::{
     task::Poll,
 };
 
+use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
@@ -107,19 +108,21 @@ impl FileSystem for WebcVolumeFileSystem {
         Err(FsError::PermissionDenied)
     }
 
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-        // The original file should exist
-        let _ = self.metadata(from)?;
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
+        Box::pin(async {
+            // The original file should exist
+            let _ = self.metadata(from)?;
 
-        // we also want to make sure the destination's folder exists, too
-        let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
-        let parent_meta = self.metadata(dest_parent)?;
-        if !parent_meta.is_dir() {
-            return Err(FsError::BaseNotDirectory);
-        }
+            // we also want to make sure the destination's folder exists, too
+            let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
+            let parent_meta = self.metadata(dest_parent)?;
+            if !parent_meta.is_dir() {
+                return Err(FsError::BaseNotDirectory);
+            }
 
-        // but we are a readonly filesystem, so you can't modify anything
-        Err(FsError::PermissionDenied)
+            // but we are a readonly filesystem, so you can't modify anything
+            Err(FsError::PermissionDenied)
+        })
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
@@ -204,8 +207,8 @@ impl VirtualFile for File {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> crate::Result<()> {
-        Err(FsError::PermissionDenied)
+    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+        Box::pin(async { Err(FsError::PermissionDenied) })
     }
 
     fn poll_read_ready(
@@ -616,8 +619,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn rename_is_not_allowed() {
+    #[tokio::test]
+    async fn rename_is_not_allowed() {
         let container = Container::from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -625,16 +628,20 @@ mod tests {
         let fs = WebcVolumeFileSystem::new(volume);
 
         assert_eq!(
-            fs.rename("/lib".as_ref(), "/other".as_ref()).unwrap_err(),
+            fs.rename("/lib".as_ref(), "/other".as_ref())
+                .await
+                .unwrap_err(),
             FsError::PermissionDenied,
         );
         assert_eq!(
             fs.rename("/this/does/not/exist".as_ref(), "/another".as_ref())
+                .await
                 .unwrap_err(),
             FsError::EntryNotFound,
         );
         assert_eq!(
             fs.rename("/lib/python.wasm".as_ref(), "/lib/another.wasm".as_ref())
+                .await
                 .unwrap_err(),
             FsError::PermissionDenied,
         );

@@ -309,8 +309,8 @@ impl VirtualFile for TermStdout {
         Ok(())
     }
 
-    fn unlink(&mut self) -> wasmer_wasix::virtual_fs::Result<()> {
-        Ok(())
+    fn unlink(&mut self) -> BoxFuture<'static, wasmer_wasix::virtual_fs::Result<()>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn poll_read_ready(
@@ -422,8 +422,8 @@ impl VirtualFile for TermLog {
         Ok(())
     }
 
-    fn unlink(&mut self) -> wasmer_wasix::virtual_fs::Result<()> {
-        Ok(())
+    fn unlink(&mut self) -> BoxFuture<'static, wasmer_wasix::virtual_fs::Result<()>> {
+        Box::pin(async { Ok(()) })
     }
 
     fn poll_read_ready(

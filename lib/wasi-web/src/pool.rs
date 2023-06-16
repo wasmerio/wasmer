@@ -52,11 +52,10 @@ pub type BoxRun<'a> = Box<dyn FnOnce() + Send + 'a>;
 pub type BoxRunAsync<'a, T> =
     Box<dyn FnOnce() -> Pin<Box<dyn Future<Output = T> + 'static>> + Send + 'a>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 enum WasmMemoryType {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
-    CopyMemory(MemoryType),
     ShareMemory(MemoryType),
 }
 
@@ -207,6 +206,66 @@ extern "C" {
     fn schedule_task(task: JsValue, module: js_sys::WebAssembly::Module, memory: JsValue);
 }
 
+fn copy_memory(memory: JsValue, ty: MemoryType) -> Result<JsValue, WasiThreadError> {
+    let memory_js = memory
+        .clone()
+        .dyn_into::<js_sys::WebAssembly::Memory>()
+        .unwrap();
+
+    let descriptor = js_sys::Object::new();
+
+    // Annotation is here to prevent spurious IDE warnings.
+    #[allow(unused_unsafe)]
+    unsafe {
+        js_sys::Reflect::set(&descriptor, &"initial".into(), &ty.minimum.0.into()).unwrap();
+        if let Some(max) = ty.maximum {
+            js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.0.into()).unwrap();
+        }
+        js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
+    }
+
+    let new_memory = js_sys::WebAssembly::Memory::new(&descriptor).map_err(|_e| {
+        WasiThreadError::MemoryCreateFailed(wasmer::MemoryError::Generic(
+            "Error while creating the memory".to_owned(),
+        ))
+    })?;
+
+    let src_buffer = memory_js.buffer();
+    let src_size: u64 = src_buffer
+        .unchecked_ref::<js_sys::ArrayBuffer>()
+        .byte_length()
+        .into();
+    let src_view = js_sys::Uint8Array::new(&src_buffer);
+
+    let pages = ((src_size as usize - 1) / wasmer::WASM_PAGE_SIZE) + 1;
+    new_memory.grow(pages as u32);
+
+    let dst_buffer = new_memory.buffer();
+    let dst_view = js_sys::Uint8Array::new(&dst_buffer);
+
+    #[cfg(feature = "tracing")]
+    trace!(%src_size, "memory copy started {}");
+
+    {
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < src_size {
+            let remaining = src_size - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            let end = offset.checked_add(sublen.try_into().unwrap()).unwrap();
+            src_view
+                .subarray(offset.try_into().unwrap(), end.try_into().unwrap())
+                .copy_to(&mut chunk[..sublen]);
+            dst_view
+                .subarray(offset.try_into().unwrap(), end.try_into().unwrap())
+                .copy_from(&chunk[..sublen]);
+            offset += sublen as u64;
+        }
+    }
+
+    Ok(new_memory.into())
+}
+
 impl WebThreadPool {
     pub fn new(size: usize) -> Result<WebThreadPool, JsValue> {
         info!("pool::create(size={})", size);
@@ -300,7 +359,15 @@ impl WebThreadPool {
             SpawnMemoryType::CopyMemory(m, store) => {
                 memory_ty = Some(m.ty(&store));
                 memory = m.as_jsvalue(&store);
-                WasmMemoryType::CopyMemory(m.ty(&store))
+
+                // We copy the memory here rather than later as
+                // the fork syscalls need to copy the memory
+                // synchronously before the next thread accesses
+                // and before the fork parent resumes, otherwise
+                // there will be memory corruption
+                memory = copy_memory(memory, m.ty(&store))?;
+
+                WasmMemoryType::ShareMemory(m.ty(&store))
             }
             SpawnMemoryType::ShareMemory(m, store) => {
                 memory_ty = Some(m.ty(&store));
@@ -358,7 +425,7 @@ fn _build_ctx_and_store(
     let spawn_type = match run_type {
         WasmMemoryType::CreateMemory => SpawnMemoryType::CreateMemory,
         WasmMemoryType::CreateMemoryOfType(mem) => SpawnMemoryType::CreateMemoryOfType(mem),
-        WasmMemoryType::CopyMemory(ty) | WasmMemoryType::ShareMemory(ty) => {
+        WasmMemoryType::ShareMemory(ty) => {
             let memory = match Memory::from_jsvalue(&mut temp_store, &ty, &memory) {
                 Ok(a) => a,
                 Err(_) => {
@@ -366,15 +433,7 @@ fn _build_ctx_and_store(
                     return None;
                 }
             };
-            match run_type {
-                WasmMemoryType::CopyMemory(_) => {
-                    SpawnMemoryType::CopyMemory(memory, temp_store.as_store_ref())
-                }
-                WasmMemoryType::ShareMemory(_) => {
-                    SpawnMemoryType::ShareMemory(memory, temp_store.as_store_ref())
-                }
-                _ => unreachable!(),
-            }
+            SpawnMemoryType::ShareMemory(memory, temp_store.as_store_ref())
         }
     };
 
