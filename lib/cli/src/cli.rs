@@ -155,13 +155,13 @@ enum WasmerCLIOptions {
     /// Add a Wasmer package's bindings to your application.
     Add(Add),
 
-    /// (unstable) Run a WebAssembly file or WEBC container.
+    /// Run a WebAssembly file or Wasmer container.
     #[clap(alias = "run-unstable")]
     Run(Run),
 
     // DEPLOY commands
     /// Deploy apps to the Wasmer Edge.
-    Deploy(wasmer_deploy_cli::cmd::publish::CmdAppPublish),
+    Deploy(wasmer_deploy_cli::cmd::deploy::CmdDeploy),
 
     /// Manage deployed apps.
     #[clap(subcommand, alias = "apps")]
