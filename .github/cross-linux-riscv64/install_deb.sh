@@ -27,18 +27,18 @@ dpkg --add-architecture "${arch}" || echo "foreign-architecture ${arch}" \
   > /etc/dpkg/dpkg.cfg.d/multiarch
 
 # Add Debian keys.
-#curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{7.0,8,9,10,11}.asc' -O
-#curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{8,9,10,11}-security.asc' -O
-#curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/release-{7,8,9,10,11}.asc' -O
-#curl --retry 3 -sSfL 'https://www.ports.debian.org/archive_{2020,2021,2022,2023}.key' -O
-#
-#for key in *.asc *.key; do
-#  apt-key add "${key}"
-#  rm "${key}"
-#done
-#
-## allow apt-get to retry downloads
-#echo 'APT::Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries
+curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{12,13}.asc' -O
+curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/archive-key-{12,13}-security.asc' -O
+curl --retry 3 -sSfL 'https://ftp-master.debian.org/keys/release-{12,13}.asc' -O
+curl --retry 3 -sSfL 'https://www.ports.debian.org/archive_{2023}.key' -O
+
+for key in *.asc *.key; do
+  apt-key add "${key}"
+  rm "${key}"
+done
+
+# allow apt-get to retry downloads
+echo 'APT::Acquire::Retries "3";' > /etc/apt/apt.conf.d/80-retries
 
 apt-get update
 for dep in $@; do
