@@ -45,9 +45,9 @@ impl WapmSource {
     }
 
     /// Cache query results locally.
-    pub fn with_local_cache(self, cache_dir: impl Into<PathBuf>) -> Self {
+    pub fn with_local_cache(self, cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
         WapmSource {
-            cache: Some(FileSystemCache::new(cache_dir)),
+            cache: Some(FileSystemCache::new(cache_dir, timeout)),
             ..self
         }
     }
@@ -216,12 +216,10 @@ struct FileSystemCache {
 }
 
 impl FileSystemCache {
-    const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10 * 60);
-
-    fn new(cache_dir: impl Into<PathBuf>) -> Self {
+    fn new(cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
         FileSystemCache {
             cache_dir: cache_dir.into(),
-            timeout: FileSystemCache::DEFAULT_TIMEOUT,
+            timeout,
         }
     }
 
