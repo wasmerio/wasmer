@@ -52,6 +52,20 @@ impl WapmSource {
         }
     }
 
+    /// Clean the local cache.
+    ///
+    /// This is a workaround used primarily when publishing and will probably
+    /// be removed in the future.
+    pub fn invalidate_local_cache(wasmer_dir: impl AsRef<Path>) -> Result<(), Error> {
+        let cache_dir = WapmSource::default_cache_dir(wasmer_dir);
+
+        std::fs::remove_dir_all(&cache_dir).with_context(|| {
+            format!("Unable to delete the \"{}\" directory", cache_dir.display())
+        })?;
+
+        Ok(())
+    }
+
     async fn lookup_package(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
         if let Some(cache) = &self.cache {
             match cache.lookup_cached_query(package_name) {

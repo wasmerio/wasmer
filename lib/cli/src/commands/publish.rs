@@ -1,4 +1,7 @@
+use anyhow::Context;
 use clap::Parser;
+use wasmer_registry::WasmerConfig;
+use wasmer_wasix::runtime::resolver::WapmSource;
 
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]
@@ -44,7 +47,16 @@ impl Publish {
             no_validate: self.no_validate,
             package_path: self.package_path.clone(),
         };
-        publish.execute().map_err(on_error)
+        publish.execute().map_err(on_error)?;
+
+        if let Err(e) = invalidate_graphql_query_cache() {
+            tracing::warn!(
+                error = &*e,
+                "Unable to invalidate the cache used for package version queries",
+            );
+        }
+
+        Ok(())
     }
 }
 
@@ -53,4 +65,19 @@ fn on_error(e: anyhow::Error) -> anyhow::Error {
     sentry::integrations::anyhow::capture_anyhow(&e);
 
     e
+}
+
+// HACK: We want to invalidate the cache used for GraphQL queries so
+// the current user sees the results of publishing immediately. There
+// are cleaner ways to achieve this, but for now we're just going to
+// clear out the whole GraphQL query cache.
+// See https://github.com/wasmerio/wasmer/pull/3983 for more
+fn invalidate_graphql_query_cache() -> Result<(), anyhow::Error> {
+    let wasmer_dir = WasmerConfig::get_wasmer_dir()
+        .map_err(anyhow::Error::msg)
+        .context("Unable to determine the wasmer dir")?;
+
+    let cache_dir = WapmSource::invalidate_local_cache(wasmer_dir)?;
+
+    Ok(())
 }
