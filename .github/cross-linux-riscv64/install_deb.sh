@@ -16,7 +16,7 @@ apt-get install --assume-yes --no-install-recommends \
   gnupg
 
 # Add port from bookworm to get some riscv packages
-debsource="deb http://deb.debian.org/debian-ports bookworm main"
+debsource="deb http://deb.debian.org/debian-ports unstable main"
 
 # temporarily use debian sources rather than ubuntu.
 touch /etc/apt/sources.list
