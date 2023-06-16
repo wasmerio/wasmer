@@ -89,7 +89,7 @@ impl WebRuntime {
         // wasm32-unknown-unknown and running in a browser), the in-memory layer
         // should still work.
         let package_loader = BuiltinPackageLoader::new_only_client(http_client.clone());
-        let module_cache = ThreadLocalCache::default().with_fallback(SharedCache::default());
+        let module_cache = ThreadLocalCache::default();
         WebRuntime {
             pool,
             tasks: runtime,

@@ -80,6 +80,7 @@ struct WasmRunCommand {
     trigger: Option<WasmRunTrigger>,
     update_layout: bool,
     result: Option<Result<Bytes, ExitCode>>,
+    pool: WebThreadPool,
 }
 
 trait AssertSendSync: Send + Sync {}
@@ -389,6 +390,7 @@ impl WebThreadPool {
             snapshot,
             update_layout,
             result: None,
+            pool: self.clone(),
         });
         let task = Box::into_raw(task);
 
@@ -705,8 +707,16 @@ pub fn wasm_entry_point(
 ) {
     // Grab the run wrapper that passes us the rust variables (and extract the callback)
     let task = task_ptr as *mut WasmRunCommand;
-    let task = unsafe { Box::from_raw(task) };
+    let mut task = unsafe { Box::from_raw(task) };
     let run = (*task).run;
+
+    // If there is a trigger then run it
+    let trigger = task.trigger.take();
+    if let Some(trigger) = trigger {
+        let trigger_run = trigger.run;
+        let tasks = task.env.tasks();
+        task.result = Some(tasks.block_on(trigger_run()));
+    }
 
     // Invoke the callback which will run the web assembly module
     if let Some((ctx, store)) = _build_ctx_and_store(
@@ -738,6 +748,18 @@ pub fn schedule_wasm_task(
 
     // We will pass it on now
     let trigger = task.trigger.take();
+    let trigger_rx = if let Some(trigger) = trigger {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        task.pool.spawn_shared(Box::new(|| {
+            Box::pin(async move {
+                let run = trigger.run;
+                tx.send(run().await).ok();
+            })
+        }));
+        Some(rx)
+    } else {
+        None
+    };
 
     // We will now spawn the process in its own thread
     let mut opts = WorkerOptions::new();
@@ -745,9 +767,8 @@ pub fn schedule_wasm_task(
     opts.name(&*format!("Wasm-Thread"));
 
     wasm_bindgen_futures::spawn_local(async move {
-        if let Some(trigger) = trigger {
-            let run = trigger.run;
-            task.result = Some(run().await);
+        if let Some(mut trigger_rx) = trigger_rx {
+            task.result = trigger_rx.recv().await;
         }
 
         let task = Box::into_raw(task);

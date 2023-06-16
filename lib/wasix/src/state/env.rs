@@ -7,6 +7,7 @@ use std::{
 };
 
 use derivative::Derivative;
+use futures::future::BoxFuture;
 use rand::Rng;
 use tracing::{trace, warn};
 use virtual_fs::{AsyncWriteExt, FileSystem, FsError, VirtualFile};
@@ -31,7 +32,7 @@ use crate::{
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     runtime::{resolver::PackageSpecifier, SpawnMemoryType},
-    syscalls::{__asyncify_light, platform_clock_time_get},
+    syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
@@ -1010,32 +1011,29 @@ impl WasiEnv {
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
     pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
-        __asyncify_light(self, None, async {
-            self.cleanup(exit_code).await;
-            Ok(())
-        })
-        .ok();
+        let cleanup = self.cleanup(exit_code);
+
+        #[cfg(feature = "js")]
+        self.tasks()
+            .task_shared(Box::new(|| {
+                Box::pin(async move {
+                    cleanup.await;
+                })
+            }))
+            .ok();
+
+        #[cfg(feature = "sys")]
+        self.tasks().block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub async fn cleanup(&self, exit_code: Option<ExitCode>) {
+    pub fn cleanup(&self, exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
             trace!("wasi[{}]:: cleaning up open file handles", self.pid());
-
-            // Perform the clean operation using the asynchronous runtime
-            let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
-            tokio::select! {
-                _ = timeout => {
-                    tracing::warn!(
-                        "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                    );
-                },
-                _ = self.state.fs.close_all() => { }
-            }
 
             // Now send a signal that the thread is terminated
             self.process.signal_process(Signal::Sigquit);
@@ -1043,6 +1041,22 @@ impl WasiEnv {
             // Terminate the process
             let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
             self.process.terminate(exit_code);
+
+            let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
+            let state = self.state.clone();
+            Box::pin(async move {
+                // Perform the clean operation using the asynchronous runtime
+                tokio::select! {
+                    _ = timeout => {
+                        tracing::warn!(
+                            "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                        );
+                    },
+                    _ = state.fs.close_all() => { }
+                }
+            })
+        } else {
+            Box::pin(async {})
         }
     }
 }
