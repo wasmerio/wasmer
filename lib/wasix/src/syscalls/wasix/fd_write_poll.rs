@@ -6,7 +6,12 @@ use super::*;
 use crate::{state::conv_waker_id, syscalls::*};
 
 /// ### `fd_write()`
-/// Write data to the file descriptor
+///
+/// Polls a write operation on a file descriptor
+///
+/// If it is not possible to write to the file descriptor at this time then
+/// the runtime will register a waker that will be woken when the file is writable again.
+///
 /// Inputs:
 /// - `Fd`
 ///     File descriptor (opened with writing) to write to

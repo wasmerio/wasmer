@@ -146,7 +146,6 @@ pub use thread_exit::*;
 pub use thread_id::*;
 pub use thread_join::*;
 pub use thread_join_poll::*;
-
 pub use thread_parallelism::*;
 pub use thread_signal::*;
 pub use thread_sleep::*;

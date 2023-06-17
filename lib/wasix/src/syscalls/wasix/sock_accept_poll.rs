@@ -4,6 +4,7 @@ use super::*;
 use crate::{state::conv_waker_id, syscalls::*};
 
 /// ### `sock_accept_poll()`
+///
 /// Polls to accept a new incoming connection. Will also register
 /// a waker when a connection is waiting
 ///

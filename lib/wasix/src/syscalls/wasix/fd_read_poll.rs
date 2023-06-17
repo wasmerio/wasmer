@@ -8,10 +8,10 @@ use crate::{fs::NotificationInner, state::conv_waker_id, syscalls::*};
 
 /// ### `fd_read_poll()`
 ///
-/// Polls to read data from file descriptor
+/// Polls for readable data from file descriptor
 ///
 /// If there is no data available on the file and it would block then instead
-/// it will register a waker that will be woken when the file is readable again
+/// it will register a waker that will be woken when the file is readable again.
 ///
 /// Inputs:
 /// - `Fd fd`
@@ -20,6 +20,8 @@ use crate::{fs::NotificationInner, state::conv_waker_id, syscalls::*};
 ///     Vectors where data will be stored
 /// - `u32 iovs_len`
 ///     Length of data in `iovs`
+/// - `waker`
+///     ID of the waker that will be invoked when the file descriptor becomes readable again
 /// Output:
 /// - `u32 *nread`
 ///     Number of bytes read

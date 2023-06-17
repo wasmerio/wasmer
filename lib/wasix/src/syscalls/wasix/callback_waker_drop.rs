@@ -3,7 +3,10 @@ use crate::syscalls::*;
 
 /// ### `callback_waker_wake()`
 ///
-/// Sets the callback to drop events for task wakers
+/// Sets the callback that the runtime will execute whenever a task waker
+/// goes out of scope and needs to be dropped
+///
+/// The default callback that will be invoked is `_waker_drop`
 ///
 /// ### Parameters
 ///

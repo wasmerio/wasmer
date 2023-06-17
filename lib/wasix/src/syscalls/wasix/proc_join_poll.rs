@@ -17,10 +17,11 @@ enum JoinStatusResult {
 }
 
 /// ### `proc_join_poll()`
+///
 /// Polls to join the child process, blocking this one until the other finishes.
 ///
 /// If the process can not join then it will register a waker that will be woken
-/// when the process can be joined
+/// when the process can be joined.
 ///
 /// ## Parameters
 ///

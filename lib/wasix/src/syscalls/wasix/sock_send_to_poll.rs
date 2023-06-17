@@ -4,7 +4,9 @@ use super::*;
 use crate::{state::conv_waker_id, syscalls::*};
 
 /// ### `sock_send_to_poll()`
+///
 /// Polls to send a message on a socket to a specific address.
+///
 /// Note: This is similar to `sendto` in POSIX, though it also supports writing
 /// the data from multiple buffers in the manner of `writev` and it will
 /// register a waker for when space is available to send

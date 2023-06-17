@@ -6,7 +6,9 @@ use super::*;
 use crate::{state::conv_waker_id, syscalls::*};
 
 /// ### `sock_recv_poll()`
+///
 /// Polls for a message from a socket.
+///
 /// Note: This is similar to `recv` in POSIX, though it also supports reading
 /// the data into multiple buffers in the manner of `readv` and it will
 /// register a waker if no data is available

@@ -6,7 +6,9 @@ use super::*;
 use crate::{state::conv_waker_id, syscalls::*};
 
 /// ### `sock_send_poll()`
+///
 /// Polls to send a message on a socket.
+///
 /// Note: This is similar to `send` in POSIX, though it also supports writing
 /// the data from multiple buffers in the manner of `writev`  nd it will
 /// register a waker for when the socket can send data again

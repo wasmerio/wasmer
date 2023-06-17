@@ -18,6 +18,7 @@ use crate::{state::conv_waker_id, syscalls::*};
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
+/// * `waker` - ID of the waker that will be invoked when this futex is woken
 //#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait_poll<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,

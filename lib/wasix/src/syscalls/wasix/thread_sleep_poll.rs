@@ -8,7 +8,7 @@ use crate::{state::conv_waker_id, syscalls::*};
 /// ### `thread_sleep_poll()`
 ///
 /// Polls the current thread to sleep for a period of time
-/// The registered waker will be woken when the sleep period is reached
+/// The registered waker will be woken when the sleep period is reached.
 ///
 /// ## Parameters
 ///

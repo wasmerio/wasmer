@@ -3,7 +3,10 @@ use crate::syscalls::*;
 
 /// ### `callback_waker_wake()`
 ///
-/// Sets the callback to wake events for tasks
+/// Sets the callback that the runtime will execute whenever a task waker
+/// has been triggered and needs to be woken up
+///
+/// The default callback that will be invoked is `_waker_wake`
 ///
 /// ### Parameters
 ///
