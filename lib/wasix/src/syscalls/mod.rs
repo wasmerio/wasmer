@@ -316,7 +316,7 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            for (id, woken) in self.ctx.data().state.wakers.pop_wakes_or_subscribe(cx) {
+            for (id, woken) in self.ctx.data().state.wakers.pop_wakes_and_subscribe(cx) {
                 WasiEnv::process_one_wake_internal(self.ctx, id, woken);
             }
             if let Some(exit_code) = self.ctx.data().should_exit() {
@@ -363,7 +363,7 @@ where
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
         }
-        let wakes = self.ctx.data().state.wakers.pop_wakes_or_subscribe(cx);
+        let wakes = self.ctx.data().state.wakers.pop_wakes_and_subscribe(cx);
         for (id, woken) in wakes {
             WasiEnv::process_one_wake_internal(self.ctx, id, woken);
         }
@@ -399,7 +399,7 @@ pub enum AsyncifyAction<'a, R> {
     /// the current function
     Unwind,
     /// The asynchronous operation is pending and
-    /// will be woken when its ready to be repeated
+    /// will be woken when its ready to be repeated by a poll syscall
     Pending,
 }
 
@@ -527,9 +527,6 @@ where
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
             }
             if self.env.thread.has_signals_or_subscribe(cx.waker()) {
-                return Poll::Ready(Ok(Err(Errno::Intr)));
-            }
-            if self.env.state.wakers.has_wakes_or_subscribe(cx) {
                 return Poll::Ready(Ok(Err(Errno::Intr)));
             }
             Poll::Pending

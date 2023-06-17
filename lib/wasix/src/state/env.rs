@@ -569,6 +569,9 @@ impl WasiEnv {
     pub(crate) fn process_signals_and_wakes_and_exit(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
+        // Check for any wakers have been triggered
+        Self::process_wakes_internal(ctx)?;
+
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
@@ -577,20 +580,21 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         if !inner.signal_set {
             let signals = env.thread.pop_signals();
-            let signal_cnt = signals.len();
-            for sig in signals {
-                if sig == Signal::Sigint
-                    || sig == Signal::Sigquit
-                    || sig == Signal::Sigkill
-                    || sig == Signal::Sigabrt
-                {
-                    let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
-                    return Err(WasiError::Exit(exit_code));
-                } else {
-                    trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+            if !signals.is_empty() {
+                for sig in signals {
+                    if sig == Signal::Sigint
+                        || sig == Signal::Sigquit
+                        || sig == Signal::Sigkill
+                        || sig == Signal::Sigabrt
+                    {
+                        let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
+                        return Err(WasiError::Exit(exit_code));
+                    } else {
+                        trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+                    }
                 }
+                return Ok(Ok(true));
             }
-            return Ok(Ok(signal_cnt > 0));
         }
 
         // Check for forced exit
@@ -623,9 +627,6 @@ impl WasiEnv {
         } else {
             false
         };
-
-        // Check for any wakers have been triggered
-        Self::process_wakes_internal(ctx)?;
 
         Ok(Ok(ret))
     }

@@ -252,7 +252,7 @@ pub fn proc_exec<M: MemorySize>(
                     }
                     AsyncifyAction::Pending => {
                         warn!(
-                            "failed to execve as the process poll is pending when we did not poll not be spawned (fork)"
+                            "failed to execve as the process poll is pending when we did not pass a waker"
                         );
                         Err(WasiError::Exit(Errno::Noexec.into()))
                     }

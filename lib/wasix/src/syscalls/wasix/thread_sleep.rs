@@ -23,6 +23,7 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+
     if let Some(()) = unsafe { handle_rewind::<M, _>(&mut ctx) } {
         return Ok(Errno::Success);
     }

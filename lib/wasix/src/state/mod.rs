@@ -166,7 +166,7 @@ impl WasiWakers {
     }
 
     /// Returns all the woken wakers that are waiting to be processed
-    pub fn pop_wakes_or_subscribe(&self, cx: &mut Context<'_>) -> Vec<(WakerId, bool)> {
+    pub fn pop_wakes_and_subscribe(&self, cx: &mut Context<'_>) -> Vec<(WakerId, bool)> {
         let mut inner = self.inner.lock().unwrap();
 
         let mut ret = {
@@ -181,15 +181,6 @@ impl WasiWakers {
             ret.push((id, woken));
         }
         ret
-    }
-
-    /// Returns true if wakers exists, otherwise it will subscribe for events
-    pub fn has_wakes_or_subscribe(&self, cx: &mut Context<'_>) -> bool {
-        let mut inner = self.inner.lock().unwrap();
-        while let Poll::Ready(Some((id, woken))) = inner.rx.poll_recv(cx) {
-            inner.buffer.push((id, woken));
-        }
-        inner.buffer.len() > 0
     }
 }
 
