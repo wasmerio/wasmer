@@ -9,6 +9,7 @@ use wasmer_types::{
 };
 use wasmer_types::{ExportType, ImportType};
 
+use crate::sys::engine::NativeEngineExt;
 use crate::vm::VMInstance;
 use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
 
@@ -69,6 +70,19 @@ impl Module {
         self.artifact.serialize().map(|bytes| bytes.into())
     }
 
+    pub unsafe fn deserialize_unchecked(
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        let bytes = bytes.into_bytes();
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .0
+            .deserialize_unchecked(&bytes)?;
+        Ok(Self::from_artifact(artifact))
+    }
+
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
@@ -78,16 +92,15 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
-    pub fn deserialize_checked(
+    pub unsafe fn deserialize_from_file_unchecked(
         engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
+        path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let bytes = bytes.into_bytes();
         let artifact = engine
             .as_engine_ref()
             .engine()
             .0
-            .deserialize_checked(&bytes)?;
+            .deserialize_from_file_unchecked(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -100,18 +113,6 @@ impl Module {
             .engine()
             .0
             .deserialize_from_file(path.as_ref())?;
-        Ok(Self::from_artifact(artifact))
-    }
-
-    pub fn deserialize_from_file_checked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .0
-            .deserialize_from_file_checked(path.as_ref())?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -136,8 +137,10 @@ impl Module {
                 return Err(InstantiationError::DifferentStores);
             }
         }
+        let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
         let (engine, objects) = store_mut.engine_and_objects_mut();
+        let config = engine.tunables().vmconfig();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
                 engine.tunables(),
@@ -153,10 +156,8 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact.finish_instantiation(
-                store.as_store_ref().signal_handler(),
-                &mut instance_handle,
-            )?;
+            self.artifact
+                .finish_instantiation(config, signal_handler, &mut instance_handle)?;
 
             Ok(instance_handle)
         }

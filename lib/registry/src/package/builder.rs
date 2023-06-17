@@ -2,8 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use anyhow::anyhow;
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
 use flate2::{write::GzEncoder, Compression};
 use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 use tar::Builder;
@@ -60,19 +59,54 @@ enum PackageBuildError {
 impl Publish {
     /// Executes `wasmer publish`
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let mut builder = Builder::new(Vec::new());
-
-        let cwd = match self.package_path.as_ref() {
+        let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
         };
 
-        let manifest_path_buf = cwd.join("wasmer.toml");
-        let manifest = std::fs::read_to_string(&manifest_path_buf)
+        let manifest_path = match input_path.metadata() {
+            Ok(metadata) => {
+                if metadata.is_dir() {
+                    let p = input_path.join("wasmer.toml");
+                    if !p.is_file() {
+                        bail!(
+                            "directory does not contain a 'wasmer.toml' manifest - use 'wasmer init' to initialize a new packagae, or specify a valid package directory or manifest file instead. (path: {})",
+                            input_path.display()
+                        );
+                    }
+
+                    p
+                } else if metadata.is_file() {
+                    if input_path.extension().and_then(|x| x.to_str()) != Some("toml") {
+                        bail!(
+                            "The specified file path is not a .toml file: '{}'",
+                            input_path.display()
+                        );
+                    }
+                    input_path
+                } else {
+                    bail!("Invalid path specified: '{}'", input_path.display());
+                }
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                bail!("Specified path does not exist: '{}'", input_path.display());
+            }
+            Err(err) => {
+                bail!("Could not read path '{}': {}", input_path.display(), err);
+            }
+        };
+
+        let manifest = std::fs::read_to_string(&manifest_path)
             .map_err(|e| anyhow::anyhow!("could not find manifest: {e}"))
-            .with_context(|| anyhow::anyhow!("{}", manifest_path_buf.display()))?;
+            .with_context(|| anyhow::anyhow!("{}", manifest_path.display()))?;
         let mut manifest = wasmer_toml::Manifest::parse(&manifest)?;
-        manifest.base_directory_path = cwd.clone();
+
+        let manifest_path_canon = manifest_path.canonicalize()?;
+        let manifest_dir = manifest_path_canon
+            .parent()
+            .context("could not determine manifest parent directory")?
+            .to_owned();
+        manifest.base_directory_path = manifest_dir.to_owned();
 
         if let Some(package_name) = self.package_name.as_ref() {
             manifest.package.name = package_name.to_string();
@@ -81,6 +115,9 @@ impl Publish {
         if let Some(version) = self.version.as_ref() {
             manifest.package.version = version.clone();
         }
+
+        let archive_dir = tempfile::TempDir::new()?;
+        let archive_meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path)?;
 
         let registry = match self.registry.as_deref() {
             Some(s) => crate::format_graphql(s),
@@ -94,30 +131,11 @@ impl Publish {
         };
 
         if !self.no_validate {
-            validate::validate_directory(&manifest, &registry, cwd.clone())?;
+            validate::validate_directory(&manifest, &registry, manifest_dir)?;
         }
 
-        builder.append_path_with_name(&manifest_path_buf, PACKAGE_TOML_FALLBACK_NAME)?;
-
-        let manifest_string = toml::to_string(&manifest)?;
-
-        let (readme, license) = construct_tar_gz(&mut builder, &manifest, &cwd)?;
-
-        builder
-            .finish()
-            .map_err(|e| anyhow::anyhow!("failed to finish .tar.gz builder: {e}"))?;
-        let tar_archive_data = builder.into_inner().expect("tar archive was not finalized");
-        let archive_name = "package.tar.gz".to_string();
-        let archive_dir = tempfile::TempDir::new()?;
-        let archive_dir_path: &std::path::Path = archive_dir.as_ref();
-        fs::create_dir(archive_dir_path.join("wapm_package"))?;
-        let archive_path = archive_dir_path.join("wapm_package").join(&archive_name);
-        let mut compressed_archive = fs::File::create(&archive_path).unwrap();
-        let mut gz_enc = GzEncoder::new(&mut compressed_archive, Compression::best());
-
-        gz_enc.write_all(&tar_archive_data).unwrap();
-        let _compressed_archive = gz_enc.finish().unwrap();
-        let mut compressed_archive_reader = fs::File::open(&archive_path)?;
+        let archive_path = &archive_meta.archive_path;
+        let mut compressed_archive_reader = fs::File::open(archive_path)?;
 
         let maybe_signature_data = sign_compressed_archive(&mut compressed_archive_reader)?;
         let archived_data_size = archive_path.metadata()?.len();
@@ -133,6 +151,9 @@ impl Publish {
                 manifest.package.name, manifest.package.version
             );
 
+            let path = archive_dir.into_path();
+            eprintln!("Archive persisted at: {}", path.display());
+
             log::info!(
                 "Publish succeeded, but package was not published because it was run in dry-run mode"
             );
@@ -144,11 +165,17 @@ impl Publish {
             Some(registry),
             self.token.clone(),
             &manifest.package,
-            &manifest_string,
-            &license,
-            &readme,
-            &archive_name,
-            &archive_path,
+            &archive_meta.manifest_toml,
+            &archive_meta.license,
+            &archive_meta.readme,
+            &archive_meta
+                .archive_path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string(),
+            archive_path,
             &maybe_signature_data,
             archived_data_size,
             self.quiet,
@@ -156,45 +183,65 @@ impl Publish {
     }
 }
 
+struct ConstructedPackageArchive {
+    manifest_toml: String,
+    readme: Option<String>,
+    license: Option<String>,
+    archive_path: PathBuf,
+}
+
 fn construct_tar_gz(
-    builder: &mut tar::Builder<Vec<u8>>,
+    archive_dir: &Path,
     manifest: &wasmer_toml::Manifest,
-    cwd: &Path,
-) -> Result<(Option<String>, Option<String>), anyhow::Error> {
+    manifest_path: &Path,
+) -> Result<ConstructedPackageArchive, anyhow::Error> {
+    // This is an assert instead of returned error because this is a programmer error.
+    debug_assert!(manifest_path.is_file(), "manifest path is not a file");
+
+    let manifest_dir = manifest_path
+        .parent()
+        .context("manifest path has no parent directory")?;
+
+    let mut builder = Builder::new(Vec::new());
+    builder.append_path_with_name(manifest_path, PACKAGE_TOML_FALLBACK_NAME)?;
+
+    let manifest_string = toml::to_string(&manifest)?;
+
     let package = &manifest.package;
     let modules = manifest.module.as_deref().unwrap_or_default();
 
     let readme = match package.readme.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, s).map_err(
-                |(p, e)| PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e),
-            )?;
-            fs::read_to_string(path).ok()
+            let path = append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, s)
+                .map_err(|(p, e)| {
+                    PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+                })?;
+            Some(std::fs::read_to_string(path)?)
         }
     };
 
-    let license_file = match package.license_file.as_ref() {
+    let license = match package.license_file.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(builder, &manifest.base_directory_path, s).map_err(
-                |(p, e)| PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e),
-            )?;
-            fs::read_to_string(path).ok()
+            let path = append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, s)
+                .map_err(|(p, e)| {
+                    PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+                })?;
+            Some(std::fs::read_to_string(path)?)
         }
     };
 
     for module in modules {
-        append_path_to_tar_gz(builder, &manifest.base_directory_path, &module.source).map_err(
-            |(normalized_path, _)| PackageBuildError::SourceMustBeFile {
+        append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, &module.source)
+            .map_err(|(normalized_path, _)| PackageBuildError::SourceMustBeFile {
                 module: module.name.clone(),
                 path: normalized_path,
-            },
-        )?;
+            })?;
 
         if let Some(bindings) = &module.bindings {
             for path in bindings.referenced_files(&manifest.base_directory_path)? {
-                append_path_to_tar_gz(builder, &manifest.base_directory_path, &path).map_err(
+                append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, &path).map_err(
                     |(normalized_path, _)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -207,7 +254,7 @@ fn construct_tar_gz(
     // bundle the package filesystem
     let default = indexmap::IndexMap::default();
     for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
-        let normalized_path = normalize_path(cwd, path);
+        let normalized_path = normalize_path(manifest_dir, path);
         let path_metadata = normalized_path.metadata().map_err(|_| {
             PackageBuildError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
         })?;
@@ -224,7 +271,25 @@ fn construct_tar_gz(
         })?;
     }
 
-    Ok((readme, license_file))
+    builder
+        .finish()
+        .map_err(|e| anyhow::anyhow!("failed to finish .tar.gz builder: {e}"))?;
+    let tar_archive_data = builder.into_inner().expect("tar archive was not finalized");
+    let archive_name = "package.tar.gz".to_string();
+    fs::create_dir(archive_dir.join("wapm_package"))?;
+    let archive_path = archive_dir.join("wapm_package").join(archive_name);
+    let mut compressed_archive = fs::File::create(&archive_path).unwrap();
+    let mut gz_enc = GzEncoder::new(&mut compressed_archive, Compression::best());
+
+    gz_enc.write_all(&tar_archive_data).unwrap();
+    let _compressed_archive = gz_enc.finish().unwrap();
+
+    Ok(ConstructedPackageArchive {
+        manifest_toml: manifest_string,
+        archive_path,
+        readme,
+        license,
+    })
 }
 
 fn append_path_to_tar_gz(
@@ -388,7 +453,7 @@ pub struct PersonalKey {
     pub private_key_location: Option<String>,
     /// The type of private/public key this is
     pub key_type_identifier: String,
-    /// The time at which the key was registered with wapm
+    /// The time at which the key was registered with wasmer
     pub date_created: OffsetDateTime,
 }
 
@@ -651,5 +716,73 @@ mod validate {
                 _ => {}
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Read;
+
+    use super::*;
+
+    #[test]
+    fn test_construct_package_tar_gz() {
+        let manifest_str = r#"[package]
+name = "wasmer-tests/wcgi-always-panic"
+version = "0.6.0"
+description = "wasmer-tests/wcgi-always-panic website"
+
+[[module]]
+name = "wcgi-always-panic"
+source = "module.wasm"
+abi = "wasi"
+
+[[command]]
+name = "wcgi"
+module = "wcgi-always-panic"
+runner = "https://webc.org/runner/wcgi"
+"#;
+
+        let archive_dir = tempfile::tempdir().unwrap();
+
+        let manifest_dir = tempfile::tempdir().unwrap();
+
+        let mp = manifest_dir.path();
+        let manifest_path = mp.join("wasmer.toml");
+
+        std::fs::write(&manifest_path, manifest_str).unwrap();
+        std::fs::write(mp.join("module.wasm"), "()").unwrap();
+
+        let mut manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
+        manifest.base_directory_path = manifest_dir.path().to_owned();
+
+        let meta = construct_tar_gz(&archive_dir.path(), &manifest, &manifest_path).unwrap();
+
+        let mut data = std::io::Cursor::new(std::fs::read(&meta.archive_path).unwrap());
+
+        let gz = flate2::read::GzDecoder::new(&mut data);
+        let mut archive = tar::Archive::new(gz);
+
+        let map = archive
+            .entries()
+            .unwrap()
+            .map(|res| {
+                let mut entry = res.unwrap();
+                let name = entry.path().unwrap().to_str().unwrap().to_string();
+                let mut contents = String::new();
+                entry.read_to_string(&mut contents).unwrap();
+                eprintln!("{name}:\n{contents}\n\n");
+                (name, contents)
+            })
+            .collect::<std::collections::HashMap<String, String>>();
+
+        let expected: std::collections::HashMap<String, String> = [
+            ("wapm.toml".to_string(), manifest_str.to_string()),
+            ("module.wasm".to_string(), "()".to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        pretty_assertions::assert_eq!(map, expected);
     }
 }

@@ -1,10 +1,14 @@
-use std::fs::{read_dir, File, OpenOptions, ReadDir};
-use std::future::Future;
-use std::io::{self, Read, SeekFrom};
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
-use std::sync::{mpsc, Arc, Mutex};
-use std::task::{Context, Poll};
+use std::{
+    fs::{read_dir, File, OpenOptions, ReadDir},
+    future::Future,
+    io::{self, Read, SeekFrom},
+    path::{Path, PathBuf},
+    pin::Pin,
+    sync::{mpsc, Arc, Mutex},
+    task::{Context, Poll},
+};
+
+use futures::future::BoxFuture;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
@@ -13,8 +17,8 @@ use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
-    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
-    WasiEnv, WasiEnvBuilder, WasiRuntime, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, Runtime,
+    VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -208,12 +212,11 @@ impl<'a> WasiTest<'a> {
 
             other => {
                 let fs: Box<dyn FileSystem + Send + Sync> = match other {
-                    WasiFileSystemKind::InMemory => Box::new(mem_fs::FileSystem::default()),
-                    WasiFileSystemKind::Tmp => Box::new(tmp_fs::TmpFileSystem::default()),
+                    WasiFileSystemKind::InMemory => Box::<mem_fs::FileSystem>::default(),
+                    WasiFileSystemKind::Tmp => Box::<tmp_fs::TmpFileSystem>::default(),
                     WasiFileSystemKind::PassthruMemory => {
-                        Box::new(passthru_fs::PassthruFileSystem::new(Box::new(
-                            mem_fs::FileSystem::default(),
-                        )))
+                        let fs = Box::<mem_fs::FileSystem>::default();
+                        Box::new(passthru_fs::PassthruFileSystem::new(fs))
                     }
                     WasiFileSystemKind::RootFileSystemBuilder => {
                         Box::new(RootFileSystemBuilder::new().build())
@@ -631,8 +634,8 @@ impl VirtualFile for OutputCapturerer {
     fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), FsError> {
-        Ok(())
+    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
+        Box::pin(async { Ok(()) })
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))

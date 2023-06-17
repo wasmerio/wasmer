@@ -24,6 +24,13 @@ use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
 use std::sync::{Mutex, Once};
 use wasmer_types::TrapCode;
 
+/// Configuration for the the runtime VM
+/// Currently only the stack size is configurable
+pub struct VMConfig {
+    /// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
+    pub wasm_stack_size: Option<usize>,
+}
+
 // TrapInformation can be stored in the "Undefined Instruction" itself.
 // On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
@@ -613,12 +620,13 @@ pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
     vmctx: VMFunctionContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_handler, || {
+    catch_traps(trap_handler, config, || {
         mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec);
@@ -633,6 +641,7 @@ pub unsafe fn wasmer_call_trampoline(
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F, R>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
     closure: F,
 ) -> Result<R, Trap>
 where
@@ -640,13 +649,10 @@ where
 {
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
-
-    on_wasm_stack(
-        DEFAULT_STACK_SIZE.load(Ordering::Relaxed),
-        trap_handler,
-        closure,
-    )
-    .map_err(UnwindReason::into_trap)
+    let stack_size = config
+        .wasm_stack_size
+        .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
+    on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:
@@ -942,7 +948,10 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     struct SendWrapper<T>(T);
     unsafe impl<T> Send for SendWrapper<T> {}
     let wrapped = SendWrapper(f);
-    yielder.on_parent_stack(move || (wrapped.0)())
+    yielder.on_parent_stack(move || {
+        let wrapped = wrapped;
+        (wrapped.0)()
+    })
 }
 
 #[cfg(windows)]

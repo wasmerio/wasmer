@@ -12,7 +12,7 @@ The GraphQL API schema used for generating queries and mutations is located at
 To update it to a deployed version of the backend, run:
 
 ```bash
-npx get-graphql-schema https://registry.wapm.dev/graphql > graphql/schema.graphql
+npx get-graphql-schema https://registry.wasmer.wtf/graphql > graphql/schema.graphql
 ```
 
 ### Formatting GraphQL Files

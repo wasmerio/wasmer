@@ -64,7 +64,7 @@ impl CreateObj {
         let path = crate::common::normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&path);
+        let input_path = starting_cd.join(path);
         let temp_dir = tempfile::tempdir();
         let output_directory_path = match self.debug_dir.as_ref() {
             Some(s) => s.clone(),
@@ -84,11 +84,9 @@ impl CreateObj {
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
 
-        let atoms = if let Ok(pirita) =
-            webc::v1::WebCMmap::parse(input_path.clone(), &webc::v1::ParseOptions::default())
-        {
+        let atoms = if let Ok(webc) = webc::compat::Container::from_disk(&input_path) {
             crate::commands::create_exe::compile_pirita_into_directory(
-                &pirita,
+                &webc,
                 &output_directory_path,
                 &self.compiler,
                 &self.cpu_features,

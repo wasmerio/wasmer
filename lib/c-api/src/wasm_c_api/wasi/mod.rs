@@ -19,8 +19,8 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, Pipe, VirtualTaskManager,
-    WasiEnv, WasiEnvBuilder, WasiFile, WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe,
+    VirtualTaskManager, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -226,12 +226,12 @@ unsafe fn wasi_env_with_filesystem_inner(
         config,
         &mut store.store_mut(),
         module,
-        std::mem::transmute(fs.ptr), // cast wasi_filesystem_t.ptr as &'static [u8]
+        &*(fs.ptr as *const u8), // cast wasi_filesystem_t.ptr as &'static [u8]
         fs.size,
         package,
     )?;
 
-    imports_set_buffer(&store, module, import_object, imports)?;
+    imports_set_buffer(store, module, import_object, imports)?;
 
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
@@ -268,7 +268,7 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
+    let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
     let mut builder = config.builder;
 
     if !config.inherit_stdout {
@@ -288,7 +288,7 @@ fn prepare_webc_env(
     }
     let env = builder.finalize(store).ok()?;
 
-    let import_object = env.import_object(store, &module).ok()?;
+    let import_object = env.import_object(store, module).ok()?;
     Some((env, import_object))
 }
 
@@ -352,7 +352,7 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer: *mut c_char,
     buffer_len: usize,
 ) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
     let store = env.store.store();
 
     let (stdout, tasks) = {
@@ -379,7 +379,7 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer: *mut c_char,
     buffer_len: usize,
 ) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
     let store = env.store.store();
     let (stderr, tasks) = {
         let data = env.inner.data(&store);
@@ -400,7 +400,7 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 
 fn read_inner(
     tasks: &dyn VirtualTaskManager,
-    wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
+    wasi_file: &mut Box<dyn VirtualFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
     tasks.block_on(async {

@@ -13,8 +13,8 @@
     <a href="https://docs.wasmer.io">
       <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
     </a>
-    <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20us!&color=brighgreen" alt="Slack channel">
+    <a href="https://discord.gg/qBTfsNP7N8">
+      <img src="https://img.shields.io/discord/1110300506942881873" alt="Wasmer on Discord">
     </a>
   </p>
 </div>

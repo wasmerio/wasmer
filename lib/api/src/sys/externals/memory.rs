@@ -1,5 +1,6 @@
 use super::memory_view::MemoryView;
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::sys::engine::NativeEngineExt;
 use crate::vm::VMExternMemory;
 use crate::MemoryAccessError;
 use crate::MemoryType;
@@ -65,26 +66,20 @@ impl Memory {
 
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects());
-        mem.try_clone().map(|mem| mem.into())
+        let cloned = mem.try_clone()?;
+        Ok(cloned.into())
     }
 
     /// Copying the memory will actually copy all the bytes in the memory to
     /// a identical byte copy of the original that can be put into a new store
-    pub fn try_copy(&self, store: &impl AsStoreRef) -> Option<Box<dyn LinearMemory + 'static>> {
-        self.try_clone(store).and_then(|mut mem| mem.copy().ok())
-    }
-
-    #[deprecated = "use `try_clone` and `try_copy` instead"]
-    pub fn duplicate_in_store(
+    pub fn try_copy(
         &self,
         store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        self.try_clone(&store)
-            .and_then(|mut memory| memory.copy().ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+    ) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let mut mem = self.try_clone(store)?;
+        mem.copy()
     }
 
     /// To `VMExtern`.

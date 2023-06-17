@@ -1,37 +1,40 @@
-use crate::anyhow::Context;
-use crate::utils::{parse_envvar, parse_mapdir};
-use anyhow::Result;
-use bytes::Bytes;
 use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc},
 };
+
+use anyhow::{Context, Result};
+use bytes::Bytes;
+use clap::Parser;
+use tokio::runtime::Handle;
+use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
-use wasmer::{
-    AsStoreMut, Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
-};
-use wasmer_registry::WasmerConfig;
+use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
+    capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
+    http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::MappedDirectory,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
-        resolver::{PackageResolver, RegistryResolver},
+        package_loader::{BuiltinPackageLoader, PackageLoader},
+        resolver::{
+            FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
+            WebSource,
+        },
         task_manager::tokio::TokioTaskManager,
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
-    PluggableRuntime, RewindState, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiVersion,
 };
 
-use clap::Parser;
-
-use super::RunWithPathBuf;
+use crate::utils::{parse_envvar, parse_mapdir};
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
@@ -62,7 +65,7 @@ pub struct Wasi {
 
     /// List of other containers this module depends on
     #[clap(long = "use", name = "USE")]
-    uses: Vec<String>,
+    pub(crate) uses: Vec<String>,
 
     /// List of webc packages that are explicitly included for execution
     /// Note: these packages will be used instead of those in the registry
@@ -101,13 +104,13 @@ pub struct Wasi {
     #[clap(long)]
     pub http_client: bool,
 
-    /// Allow WASI modules to import multiple versions of WASI without a warning.
-    #[clap(long = "allow-multiple-wasi-versions")]
-    pub allow_multiple_wasi_versions: bool,
-
     /// Require WASI modules to only import 1 version of WASI.
     #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
+
+    /// The registry to use.
+    #[clap(long, env = "WASMER_REGISTRY", value_parser = parse_registry)]
+    pub registry: Option<Url>,
 }
 
 pub struct RunProperties {
@@ -148,10 +151,10 @@ impl Wasi {
 
     pub fn prepare(
         &self,
-        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
+        rt: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<WasiEnvBuilder> {
         let args = args.into_iter().map(|arg| arg.into_bytes());
 
@@ -162,17 +165,22 @@ impl Wasi {
             .map(|(a, b)| (a.to_string(), b.to_string()))
             .collect::<HashMap<_, _>>();
 
-        let engine = store.as_store_mut().engine().clone();
-
-        let rt = self
-            .prepare_runtime(engine)
-            .context("Unable to prepare the wasi runtime")?;
+        let mut uses = Vec::new();
+        for name in &self.uses {
+            let specifier = PackageSpecifier::parse(name)
+                .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
+            let pkg = rt
+                .task_manager()
+                .block_on(BinaryPackage::from_registry(&specifier, &*rt))
+                .with_context(|| format!("Unable to load \"{name}\""))?;
+            uses.push(pkg);
+        }
 
         let builder = WasiEnv::builder(program_name)
-            .runtime(Arc::new(rt))
+            .runtime(Arc::clone(&rt))
             .args(args)
             .envs(self.env_vars.clone())
-            .uses(self.uses.clone())
+            .uses(uses)
             .map_commands(map_commands);
 
         let mut builder = if wasmer_wasix::is_wasix_module(module) {
@@ -210,15 +218,7 @@ impl Wasi {
                 )?
         };
 
-        if self.http_client {
-            let caps = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
-            builder.capabilities_mut().http_client = caps;
-        }
-
-        builder
-            .capabilities_mut()
-            .threading
-            .enable_asynchronous_threading = self.enable_async_threads;
+        *builder.capabilities_mut() = self.capabilities();
 
         #[cfg(feature = "experimental-io-devices")]
         {
@@ -231,8 +231,25 @@ impl Wasi {
         Ok(builder)
     }
 
-    fn prepare_runtime(&self, engine: Engine) -> Result<PluggableRuntime> {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+    pub fn capabilities(&self) -> Capabilities {
+        let mut caps = Capabilities::default();
+
+        if self.http_client {
+            caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
+        }
+
+        caps.threading.enable_asynchronous_threading = self.enable_async_threads;
+
+        caps
+    }
+
+    pub fn prepare_runtime(
+        &self,
+        engine: Engine,
+        wasmer_dir: &Path,
+        handle: Handle,
+    ) -> Result<impl Runtime + Send + Sync> {
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
@@ -246,16 +263,23 @@ impl Wasi {
             rt.set_tty(tty);
         }
 
-        let wasmer_home = WasmerConfig::get_wasmer_dir().map_err(anyhow::Error::msg)?;
+        let client =
+            wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
+        let client = Arc::new(client);
 
-        let resolver = self
-            .prepare_resolver(&wasmer_home)
-            .context("Unable to prepare the package resolver")?;
+        let package_loader = self
+            .prepare_package_loader(wasmer_dir, client.clone())
+            .context("Unable to prepare the package loader")?;
+
+        let registry = self.prepare_source(wasmer_dir, client)?;
+
+        let cache_dir = FileSystemCache::default_cache_dir(wasmer_dir);
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .and_then(FileSystemCache::new(wasmer_home.join("compiled")));
+            .with_fallback(FileSystemCache::new(cache_dir));
 
-        rt.set_resolver(resolver)
+        rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
+            .set_source(registry)
             .set_engine(Some(engine));
 
         Ok(rt)
@@ -264,170 +288,16 @@ impl Wasi {
     /// Helper function for instantiating a module with Wasi imports for the `Run` command.
     pub fn instantiate(
         &self,
-        store: &mut impl AsStoreMut,
         module: &Module,
         program_name: String,
         args: Vec<String>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+        store: &mut Store,
     ) -> Result<(WasiFunctionEnv, Instance)> {
-        let builder = self.prepare(store, module, program_name, args)?;
+        let builder = self.prepare(module, program_name, args, runtime)?;
         let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
+
         Ok((wasi_env, instance))
-    }
-
-    // Runs the Wasi process
-    pub fn run(run: RunProperties, store: Store) -> Result<i32> {
-        let tasks = run.ctx.data(&store).tasks().clone();
-
-        // The return value is passed synchronously and will block until the result is returned
-        // this is because the main thread can go into a deep sleep and exit the dedicated thread
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        // We run it in a blocking thread as the WASM function may otherwise hold
-        // up the IO operations
-        tasks.task_dedicated(Box::new(move || {
-            Self::run_with_deep_sleep(run, store, tx, None);
-        }))?;
-        rx.recv()
-            .expect("main thread terminated without a result, this normally means a panic occurred within the main thread")
-    }
-
-    // Runs the Wasi process (asynchronously)
-    pub fn run_with_deep_sleep(
-        run: RunProperties,
-        mut store: Store,
-        tx: Sender<Result<i32>>,
-        rewind_state: Option<(RewindState, Bytes)>,
-    ) {
-        // If we need to rewind then do so
-        let ctx = run.ctx;
-        if let Some((rewind_state, rewind_result)) = rewind_state {
-            if rewind_state.is_64bit {
-                let res = rewind_ext::<Memory64>(
-                    ctx.env.clone().into_mut(&mut store),
-                    rewind_state.memory_stack,
-                    rewind_state.rewind_stack,
-                    rewind_state.store_data,
-                    rewind_result,
-                );
-                if res != Errno::Success {
-                    tx.send(Ok(res as i32)).ok();
-                    return;
-                }
-            } else {
-                let res = rewind_ext::<Memory32>(
-                    ctx.env.clone().into_mut(&mut store),
-                    rewind_state.memory_stack,
-                    rewind_state.rewind_stack,
-                    rewind_state.store_data,
-                    rewind_result,
-                );
-                if res != Errno::Success {
-                    tx.send(Ok(res as i32)).ok();
-                    return;
-                }
-            }
-        }
-
-        // Get the instance from the environment
-        let instance = match ctx.data(&store).try_clone_instance() {
-            Some(inst) => inst,
-            None => {
-                tx.send(Ok(Errno::Noexec as i32)).ok();
-                return;
-            }
-        };
-
-        // Do we want to invoke a function?
-        if let Some(ref invoke) = run.invoke {
-            let res = RunWithPathBuf::inner_module_invoke_function(
-                &mut store,
-                &instance,
-                run.path.as_path(),
-                invoke,
-                &run.args,
-            )
-            .map(|()| 0);
-
-            ctx.cleanup(&mut store, None);
-
-            tx.send(res).unwrap();
-        } else {
-            let start: Function =
-                RunWithPathBuf::try_find_function(&instance, run.path.as_path(), "_start", &[])
-                    .unwrap();
-
-            let result = start.call(&mut store, &[]);
-            Self::handle_result(
-                RunProperties {
-                    ctx,
-                    path: run.path,
-                    invoke: run.invoke,
-                    args: run.args,
-                },
-                store,
-                result,
-                tx,
-            )
-        }
-    }
-
-    /// Helper function for handling the result of a Wasi _start function.
-    pub fn handle_result(
-        run: RunProperties,
-        mut store: Store,
-        result: Result<Box<[Value]>, RuntimeError>,
-        tx: Sender<Result<i32>>,
-    ) {
-        let ctx = run.ctx;
-        let ret: Result<i32> = match result {
-            Ok(_) => Ok(0),
-            Err(err) => {
-                match err.downcast::<WasiError>() {
-                    Ok(WasiError::Exit(exit_code)) => Ok(exit_code.raw()),
-                    Ok(WasiError::DeepSleep(deep)) => {
-                        let pid = ctx.data(&store).pid();
-                        let tid = ctx.data(&store).tid();
-                        tracing::trace!(%pid, %tid, "entered a deep sleep");
-
-                        // Create the respawn function
-                        let tasks = ctx.data(&store).tasks().clone();
-                        let rewind = deep.rewind;
-                        let respawn = {
-                            let path = run.path;
-                            let invoke = run.invoke;
-                            let args = run.args;
-                            move |ctx, store, res| {
-                                let run = RunProperties {
-                                    ctx,
-                                    path,
-                                    invoke,
-                                    args,
-                                };
-                                Self::run_with_deep_sleep(run, store, tx, Some((rewind, res)));
-                            }
-                        };
-
-                        // Spawns the WASM process after a trigger
-                        unsafe {
-                            tasks.resume_wasm_after_poller(
-                                Box::new(respawn),
-                                ctx,
-                                store,
-                                deep.trigger,
-                            )
-                        }
-                        .unwrap();
-                        return;
-                    }
-                    Ok(err) => Err(err.into()),
-                    Err(err) => Err(err.into()),
-                }
-            }
-        };
-
-        ctx.cleanup(&mut store, None);
-
-        tx.send(ret).unwrap();
     }
 
     pub fn for_binfmt_interpreter() -> Result<Self> {
@@ -443,37 +313,61 @@ impl Wasi {
         })
     }
 
-    fn prepare_resolver(&self, wasmer_home: &Path) -> Result<impl PackageResolver> {
-        let mut resolver = wapm_resolver(wasmer_home)?;
+    fn prepare_package_loader(
+        &self,
+        wasmer_dir: &Path,
+        client: Arc<dyn HttpClient + Send + Sync>,
+    ) -> Result<impl PackageLoader + Send + Sync> {
+        let checkout_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
+        let loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
+        Ok(loader)
+    }
 
+    fn prepare_source(
+        &self,
+        wasmer_dir: &Path,
+        client: Arc<dyn HttpClient + Send + Sync>,
+    ) -> Result<impl Source + Send + Sync> {
+        let mut source = MultiSource::new();
+
+        // Note: This should be first so our "preloaded" sources get a chance to
+        // override the main registry.
+        let mut preloaded = InMemorySource::new();
         for path in &self.include_webcs {
-            let pkg = preload_webc(path)
+            preloaded
+                .add_webc(path)
                 .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
-            resolver.add_preload(pkg);
+        }
+        source.add_source(preloaded);
+
+        let graphql_endpoint = self.graphql_endpoint(wasmer_dir)?;
+        source.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
+
+        let cache_dir = WebSource::default_cache_dir(wasmer_dir);
+        source.add_source(WebSource::new(cache_dir, client));
+
+        source.add_source(FileSystemSource::default());
+
+        Ok(source)
+    }
+
+    fn graphql_endpoint(&self, wasmer_dir: &Path) -> Result<Url> {
+        if let Some(endpoint) = &self.registry {
+            return Ok(endpoint.clone());
         }
 
-        Ok(resolver.with_cache())
+        let config =
+            wasmer_registry::WasmerConfig::from_file(wasmer_dir).map_err(anyhow::Error::msg)?;
+        let graphql_endpoint = config.registry.get_graphql_url();
+        let graphql_endpoint = graphql_endpoint
+            .parse()
+            .with_context(|| format!("Unable to parse \"{graphql_endpoint}\" as a URL"))?;
+
+        Ok(graphql_endpoint)
     }
 }
 
-fn wapm_resolver(wasmer_home: &Path) -> Result<RegistryResolver, anyhow::Error> {
-    // FIXME(Michael-F-Bryan): Ideally, all of this would in the
-    // RegistryResolver::from_env() constructor, but we don't want to add
-    // wasmer-registry as a dependency of wasmer-wasix just yet.
-    let cache_dir = wasmer_registry::get_webc_dir(wasmer_home);
-    let config =
-        wasmer_registry::WasmerConfig::from_file(wasmer_home).map_err(anyhow::Error::msg)?;
-
-    let registry = config.registry.get_graphql_url();
-    let registry = registry
-        .parse()
-        .with_context(|| format!("Unable to parse \"{registry}\" as a URL"))?;
-
-    Ok(RegistryResolver::new(cache_dir, registry))
-}
-
-fn preload_webc(path: &Path) -> Result<BinaryPackage> {
-    let bytes = std::fs::read(path)?;
-    let webc = wasmer_wasix::wapm::parse_static_webc(bytes)?;
-    Ok(webc)
+fn parse_registry(r: &str) -> Result<Url> {
+    let url = wasmer_registry::format_graphql(r).parse()?;
+    Ok(url)
 }

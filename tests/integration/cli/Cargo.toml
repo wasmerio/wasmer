@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-integration-tests-cli"
-version = "3.3.0"
+version = "4.0.0-beta.3"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "CLI integration tests"
 repository = "https://github.com/wasmerio/wasmer"
@@ -20,6 +20,9 @@ reqwest = { version = "0.11.14", features = ["json", "blocking"] }
 tokio = { version = "1", features = [ "rt", "rt-multi-thread", "macros" ] }
 assert_cmd = "2.0.8"
 predicates = "2.1.5"
+once_cell = "1.17.1"
+futures = "0.3.28"
+regex = "1.8.3"
 
 [dependencies]
 anyhow = "1"
@@ -33,3 +36,4 @@ derivative = { version = "^2" }
 [features]
 default = ["webc_runner"]
 webc_runner = []
+debug = []

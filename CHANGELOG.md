@@ -9,6 +9,133 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.0.0-beta.3 - 15/06/2023
+
+More fixes and improvement to the virtual filesystem, and behind the scene work to unify wasmer tools for this new beta.
+RISC-V will now be built on newest Bookworm Debian release.
+
+## Added
+
+  - [#3990](https://github.com/wasmerio/wasmer/pull/3990) fix(cli): Fix deploy command and add some aliases
+
+## Changed
+
+  - [#3998](https://github.com/wasmerio/wasmer/pull/3998) deps: Upgrade edge cli
+  - [#3989](https://github.com/wasmerio/wasmer/pull/3989) OverlayFS now has COW
+  - [#3991](https://github.com/wasmerio/wasmer/pull/3991) Renamed most appearances of Wapm to Wasmer
+  - [#3992](https://github.com/wasmerio/wasmer/pull/3992) [CI][RISCV64] Try to use bookworm debian instead of sid
+
+## Fixed
+
+
+
+
+## 4.0.0-beta.2 - 09/06/2023
+
+This version added a missing `sock_accept` function to WASI preview1, and also greatly improved the filesystem mappings for the resolver, improving the ease of use of the abilty to run packages with the `wasmer run` command.
+
+## Added
+
+  - [#3913](https://github.com/wasmerio/wasmer/pull/3913) Add filesystem mappings to the resolver
+  - [#3971](https://github.com/wasmerio/wasmer/pull/3971) Added the missing sock_accept for preview1
+  - [#3957](https://github.com/wasmerio/wasmer/pull/3957) Added a test for small Stack (for #3808)
+  - [#3956](https://github.com/wasmerio/wasmer/pull/3956) feat(virtual-fs): Add FsError::StorageFull variant
+
+## Changed
+
+  - [#3710](https://github.com/wasmerio/wasmer/pull/3710) Implemented an asyncify based implementation of asynchronous threading
+  - [#3950](https://github.com/wasmerio/wasmer/pull/3950) tests: Remove debug_output option from snapshot tests.
+  - [#3961](https://github.com/wasmerio/wasmer/pull/3961) chore: Rename wasi dir to wasiX
+  - [#3967](https://github.com/wasmerio/wasmer/pull/3967) Use logs instead of timing to determine if the package cache was hit
+  - [#3955](https://github.com/wasmerio/wasmer/pull/3955) chore(cli): Remove redundant CLI feature flags
+  - [#3953](https://github.com/wasmerio/wasmer/pull/3953) feat: Allow custom manifest file paths in "wasmer publish"
+  - [#3433](https://github.com/wasmerio/wasmer/pull/3433) Module.deserialize - accept AsEngineRef
+  - [#3946](https://github.com/wasmerio/wasmer/pull/3946) Allow deserialized WAPM JSON even if some version have some NULL infos
+  - [#3944](https://github.com/wasmerio/wasmer/pull/3944) Port create-exe and the wasmer C API over to the webc compatibility layer
+
+## Fixed
+
+  - [#3975](https://github.com/wasmerio/wasmer/pull/3975) CLI: Fix deploy Command
+  - [#3969](https://github.com/wasmerio/wasmer/pull/3969) fix: Fix incorrect archive construction in wasmer publish
+
+
+
+## 4.0.0-beta.1 - 01/06/2023
+
+This version introduce WASIX! The superset of WASI. Go to https://wasix.org for more details.
+This version also merged `wasmer run` and `wasmer run-unstable`. Both command still exists but are now exactly the same. `run-unstable` will be removed later, so switch to `wasmer run` if you were using it.
+
+## Added
+
+  - [#3818](https://github.com/wasmerio/wasmer/pull/3818) Added a quickfix for mounting relative directories
+
+## Changed
+
+  - [#3924](https://github.com/wasmerio/wasmer/pull/3924) Rename "wasmer run-unstable" to "wasmer run"
+  - [#3938](https://github.com/wasmerio/wasmer/pull/3938) Use unchecked deserialization for `_unchecked` module functions
+  - [#3918](https://github.com/wasmerio/wasmer/pull/3918) Workspace metadata
+  - [#3919](https://github.com/wasmerio/wasmer/pull/3919) Handle non-200 status codes when downloading packages
+  - [#3917](https://github.com/wasmerio/wasmer/pull/3917) Rename WasiRuntime to Runtime
+
+## Fixed
+
+  - [#3933](https://github.com/wasmerio/wasmer/pull/3933) Fix deserialize calls in doc comments
+  - [#3936](https://github.com/wasmerio/wasmer/pull/3936) Fix for excessive allocation
+  - [#3920](https://github.com/wasmerio/wasmer/pull/3920) Fix filesystem access when running python with `wasmer run-unstable .`
+  - [#3867](https://github.com/wasmerio/wasmer/pull/3867) lib/wasi: try quick fix for WasiFS::get_inode_at_path
+
+
+
+## 4.0.0-alpha.1 - 25/05/2023
+
+A new major release, with a few breaking changes and the removal of many deprecated functions. Also, some methods previously available from on `Engine` has been moved to the `NativeEngineExt` trait.
+Deserialize has changed, with the default version using artifact layout validation. The old function has been renamed to `_unchecked` variant. The speed impact is usually negligeable , but the old function are still present if needed
+Many bugfixes and improvements on `wasmer run` and `wasmer run-unstable` (that will be merged into just `wasmer run` soon). `--allow-multiple-wasi-versions` CLI flag is now removed that is now removed and active by default. Logic for `wasmer config set registry.url` that has been fixed to work with `localhost:1234`
+
+## Added
+
+  - [#3879](https://github.com/wasmerio/wasmer/pull/3879) Add compiler features to wai-bindgen-wasmer
+  - [#1212](https://github.com/wasmerio/wasmer/pull/1212) Add support for GDB JIT debugging
+
+## Changed
+
+  - [#3852](https://github.com/wasmerio/wasmer/pull/3852) Re-work package resolution and make runners use it
+  - [#3910](https://github.com/wasmerio/wasmer/pull/3910) Removed all deprecated functions
+  - [#3900](https://github.com/wasmerio/wasmer/pull/3900) lib/virtual-net: tokio::net::lookup_host requires host:port format
+  - [#3906](https://github.com/wasmerio/wasmer/pull/3906) WASIX updates after superset changes
+  - [#3907](https://github.com/wasmerio/wasmer/pull/3907) Choose subversion of tracing crate in wasix
+  - [#3873](https://github.com/wasmerio/wasmer/pull/3873) Initial implementation for poll on pipe
+  - [#3904](https://github.com/wasmerio/wasmer/pull/3904) Changed tunables to have a VMConfig settings
+  - [#3902](https://github.com/wasmerio/wasmer/pull/3902) TmpFs Memory Usage Tracking and Limiting
+  - [#3894](https://github.com/wasmerio/wasmer/pull/3894) Rework Module deserialization functions
+  - [#3899](https://github.com/wasmerio/wasmer/pull/3899) enable integration tests with debug binary
+  - [#3889](https://github.com/wasmerio/wasmer/pull/3889) Bump llvm
+  - [#3881](https://github.com/wasmerio/wasmer/pull/3881) Use `js-default` feature in wai-bindgen-wasmer
+  - [#3874](https://github.com/wasmerio/wasmer/pull/3874) refactor!: Memory API Modifications (try_clone/copy, duplicate_in_store)
+  - [#3763](https://github.com/wasmerio/wasmer/pull/3763) Implement NativeWasmTypeInto for u32 and u64
+  - [#3866](https://github.com/wasmerio/wasmer/pull/3866) Align vfs and vnet directories with crate names
+  - [#3864](https://github.com/wasmerio/wasmer/pull/3864) feat(cli): Integrate deploy commands
+  - [#3771](https://github.com/wasmerio/wasmer/pull/3771) Asynchronous threading phase2
+  - [#3710](https://github.com/wasmerio/wasmer/pull/3710) Implemented an asyncify based implementation of asynchronous threading
+  - [#3859](https://github.com/wasmerio/wasmer/pull/3859) Support static linking on Windows
+  - [#3856](https://github.com/wasmerio/wasmer/pull/3856) Switch FileSystemCache to use checked artifact deserialization
+  - [#3854](https://github.com/wasmerio/wasmer/pull/3854) deps: Upgrade clap to v4
+  - [#3849](https://github.com/wasmerio/wasmer/pull/3849) Support MinGW
+  - [#3841](https://github.com/wasmerio/wasmer/pull/3841) Introduce a module cache abstraction
+  - [#3400](https://github.com/wasmerio/wasmer/pull/3400) Use the wasm_bindgen_downcast crate for downcasting JsValues
+  - [#3831](https://github.com/wasmerio/wasmer/pull/3831) Introduce a package resolver
+  - [#3843](https://github.com/wasmerio/wasmer/pull/3843) Adapted the publishing script
+
+## Fixed
+
+  - [#3867](https://github.com/wasmerio/wasmer/pull/3867) lib/wasi: try quick fix for WasiFS::get_inode_at_path
+  - [#3891](https://github.com/wasmerio/wasmer/pull/3891) Fix typos in docs
+  - [#3898](https://github.com/wasmerio/wasmer/pull/3898) fix: Use fallback home directory detection in config commands.
+  - [#3861](https://github.com/wasmerio/wasmer/pull/3861) fuzz: fix build error
+  - [#3853](https://github.com/wasmerio/wasmer/pull/3853) Fix cargo update
+
+
+
 ## 3.3.0 - 03/05/2023
 
 Along a few important bugfixes, this version introduce JavaScriptCore support, with full WASI support.

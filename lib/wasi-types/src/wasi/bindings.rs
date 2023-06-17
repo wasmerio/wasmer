@@ -447,113 +447,6 @@ impl core::fmt::Display for Errno {
     }
 }
 impl std::error::Error for Errno {}
-#[repr(u32)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum BusErrno {
-    #[doc = " No error occurred. Call completed successfully."]
-    Success,
-    #[doc = " Failed during serialization"]
-    Ser,
-    #[doc = " Failed during deserialization"]
-    Des,
-    #[doc = " Invalid WAPM process"]
-    Wapm,
-    #[doc = " Failed to fetch the WAPM process"]
-    Fetch,
-    #[doc = " Failed to compile the WAPM process"]
-    Compile,
-    #[doc = " Invalid ABI"]
-    Abi,
-    #[doc = " Call was aborted"]
-    Aborted,
-    #[doc = " Bad handle"]
-    Badhandle,
-    #[doc = " Invalid topic"]
-    Topic,
-    #[doc = " Invalid callback"]
-    Badcb,
-    #[doc = " Call is unsupported"]
-    Unsupported,
-    #[doc = " Bad request"]
-    Badrequest,
-    #[doc = " Access denied"]
-    Denied,
-    #[doc = " Internal error has occured"]
-    Internal,
-    #[doc = " Memory allocation failed"]
-    Alloc,
-    #[doc = " Invocation has failed"]
-    Invoke,
-    #[doc = " Already consumed"]
-    Consumed,
-    #[doc = " Memory access violation"]
-    Memviolation,
-    #[doc = " Some other unhandled error. If you see this, it's probably a bug."]
-    Unknown,
-}
-impl BusErrno {
-    pub fn name(&self) -> &'static str {
-        match self {
-            BusErrno::Success => "success",
-            BusErrno::Ser => "ser",
-            BusErrno::Des => "des",
-            BusErrno::Wapm => "wapm",
-            BusErrno::Fetch => "fetch",
-            BusErrno::Compile => "compile",
-            BusErrno::Abi => "abi",
-            BusErrno::Aborted => "aborted",
-            BusErrno::Badhandle => "badhandle",
-            BusErrno::Topic => "topic",
-            BusErrno::Badcb => "badcb",
-            BusErrno::Unsupported => "unsupported",
-            BusErrno::Badrequest => "badrequest",
-            BusErrno::Denied => "denied",
-            BusErrno::Internal => "internal",
-            BusErrno::Alloc => "alloc",
-            BusErrno::Invoke => "invoke",
-            BusErrno::Consumed => "consumed",
-            BusErrno::Memviolation => "memviolation",
-            BusErrno::Unknown => "unknown",
-        }
-    }
-    pub fn message(&self) -> &'static str {
-        match self {
-            BusErrno::Success => "No error occurred. Call completed successfully.",
-            BusErrno::Ser => "Failed during serialization",
-            BusErrno::Des => "Failed during deserialization",
-            BusErrno::Wapm => "Invalid WAPM process",
-            BusErrno::Fetch => "Failed to fetch the WAPM process",
-            BusErrno::Compile => "Failed to compile the WAPM process",
-            BusErrno::Abi => "Invalid ABI",
-            BusErrno::Aborted => "Call was aborted",
-            BusErrno::Badhandle => "Bad handle",
-            BusErrno::Topic => "Invalid topic",
-            BusErrno::Badcb => "Invalid callback",
-            BusErrno::Unsupported => "Call is unsupported",
-            BusErrno::Badrequest => "Bad request",
-            BusErrno::Denied => "Access denied",
-            BusErrno::Internal => "Internal error has occured",
-            BusErrno::Alloc => "Memory allocation failed",
-            BusErrno::Invoke => "Invocation has failed",
-            BusErrno::Consumed => "Already consumed",
-            BusErrno::Memviolation => "Memory access violation",
-            BusErrno::Unknown => {
-                "Some other unhandled error. If you see this, it's probably a bug."
-            }
-        }
-    }
-}
-impl core::fmt::Debug for BusErrno {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "BusErrno::{}", &self.name())
-    }
-}
-impl core::fmt::Display for BusErrno {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{} (error {})", self.name(), *self as i32)
-    }
-}
-impl std::error::Error for BusErrno {}
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " File descriptor rights, determining which actions may be performed."]
     pub struct Rights : u64 {
@@ -679,8 +572,10 @@ pub enum Filetype {
     SocketStream,
     #[doc = " The file refers to a symbolic link inode."]
     SymbolicLink,
-    #[doc = " The file descriptor or file refers to a FIFO."]
-    Fifo,
+    #[doc = " The file descriptor or file refers to a raw socket."]
+    SocketRaw,
+    #[doc = " The file descriptor or file refers to a sequential packet socket."]
+    SocketSeqpacket,
 }
 impl core::fmt::Debug for Filetype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -693,7 +588,8 @@ impl core::fmt::Debug for Filetype {
             Filetype::SocketDgram => f.debug_tuple("Filetype::SocketDgram").finish(),
             Filetype::SocketStream => f.debug_tuple("Filetype::SocketStream").finish(),
             Filetype::SymbolicLink => f.debug_tuple("Filetype::SymbolicLink").finish(),
-            Filetype::Fifo => f.debug_tuple("Filetype::Fifo").finish(),
+            Filetype::SocketRaw => f.debug_tuple("Filetype::SocketRaw").finish(),
+            Filetype::SocketSeqpacket => f.debug_tuple("Filetype::SocketSeqpacket").finish(),
         }
     }
 }
@@ -1049,16 +945,18 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
 #[repr(u16)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Socktype {
-    Dgram,
+    Unknown,
     Stream,
+    Dgram,
     Raw,
     Seqpacket,
 }
 impl core::fmt::Debug for Socktype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Socktype::Dgram => f.debug_tuple("Socktype::Dgram").finish(),
+            Socktype::Unknown => f.debug_tuple("Socktype::Uknown").finish(),
             Socktype::Stream => f.debug_tuple("Socktype::Stream").finish(),
+            Socktype::Dgram => f.debug_tuple("Socktype::Dgram").finish(),
             Socktype::Raw => f.debug_tuple("Socktype::Raw").finish(),
             Socktype::Seqpacket => f.debug_tuple("Socktype::Seqpacket").finish(),
         }
@@ -1301,8 +1199,6 @@ impl core::fmt::Debug for Tty {
     }
 }
 
-pub type Bid = u32;
-pub type Cid = u64;
 #[doc = " __wasi_option_t"]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1316,34 +1212,6 @@ impl core::fmt::Debug for OptionTag {
             OptionTag::None => f.debug_tuple("OptionTag::None").finish(),
             OptionTag::Some => f.debug_tuple("OptionTag::Some").finish(),
         }
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct OptionBid {
-    pub tag: OptionTag,
-    pub bid: Bid,
-}
-impl core::fmt::Debug for OptionBid {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("OptionBid")
-            .field("tag", &self.tag)
-            .field("bid", &self.bid)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct OptionCid {
-    pub tag: OptionTag,
-    pub cid: Cid,
-}
-impl core::fmt::Debug for OptionCid {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("OptionCid")
-            .field("tag", &self.tag)
-            .field("cid", &self.cid)
-            .finish()
     }
 }
 #[repr(C)]
@@ -1376,59 +1244,19 @@ impl core::fmt::Debug for OptionFd {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct BusHandles {
-    pub bid: Bid,
+pub struct ProcessHandles {
+    pub pid: Pid,
     pub stdin: OptionFd,
     pub stdout: OptionFd,
     pub stderr: OptionFd,
 }
-impl core::fmt::Debug for BusHandles {
+impl core::fmt::Debug for ProcessHandles {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusHandles")
-            .field("bid", &self.bid)
+        f.debug_struct("ProcessHandles")
+            .field("pid", &self.pid)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
             .field("stderr", &self.stderr)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventExit {
-    pub bid: Bid,
-    pub rval: ExitCode,
-}
-impl core::fmt::Debug for BusEventExit {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventExit")
-            .field("bid", &self.bid)
-            .field("rval", &self.rval)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventFault {
-    pub cid: Cid,
-    pub err: BusErrno,
-}
-impl core::fmt::Debug for BusEventFault {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventFault")
-            .field("cid", &self.cid)
-            .field("err", &self.err)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventClose {
-    pub cid: Cid,
-}
-impl core::fmt::Debug for BusEventClose {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventClose")
-            .field("cid", &self.cid)
             .finish()
     }
 }
@@ -2387,7 +2215,7 @@ impl core::fmt::Debug for OptionTimestamp {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
 pub enum Signal {
-    Sigunknown = 0,
+    Signone = 0,
     Sighup,
     Sigint,
     Sigquit,
@@ -2423,7 +2251,7 @@ pub enum Signal {
 impl core::fmt::Debug for Signal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Signal::Sigunknown => f.debug_tuple("Signal::Sigunknown").finish(),
+            Signal::Signone => f.debug_tuple("Signal::Signone").finish(),
             Signal::Sighup => f.debug_tuple("Signal::Sighup").finish(),
             Signal::Sigint => f.debug_tuple("Signal::Sigint").finish(),
             Signal::Sigquit => f.debug_tuple("Signal::Sigquit").finish(),
@@ -2788,51 +2616,6 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusErrno {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-unsafe impl wasmer::FromToNativeWasmType for BusErrno {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Success,
-            1 => Self::Ser,
-            2 => Self::Des,
-            3 => Self::Wapm,
-            4 => Self::Fetch,
-            5 => Self::Compile,
-            6 => Self::Abi,
-            7 => Self::Aborted,
-            8 => Self::Badhandle,
-            9 => Self::Topic,
-            10 => Self::Badcb,
-            11 => Self::Unsupported,
-            12 => Self::Badrequest,
-            13 => Self::Denied,
-            14 => Self::Internal,
-            15 => Self::Alloc,
-            16 => Self::Invoke,
-            17 => Self::Consumed,
-            18 => Self::Memviolation,
-            19 => Self::Unknown,
-
-            q => todo!("could not serialize number {q} to enum BusErrno"),
-        }
-    }
-
-    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Rights {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
@@ -2861,7 +2644,8 @@ unsafe impl wasmer::FromToNativeWasmType for Filetype {
             5 => Self::SocketDgram,
             6 => Self::SocketStream,
             7 => Self::SymbolicLink,
-            8 => Self::Fifo,
+            8 => Self::SocketRaw,
+            9 => Self::SocketSeqpacket,
 
             q => todo!("could not serialize number {q} to enum Filetype"),
         }
@@ -3305,43 +3089,13 @@ unsafe impl wasmer::FromToNativeWasmType for OptionTag {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for OptionBid {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for OptionCid {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for OptionPid {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusHandles {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventExit {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventFault {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventClose {
+unsafe impl ValueType for ProcessHandles {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3737,7 +3491,7 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Sigunknown,
+            0 => Self::Signone,
             1 => Self::Sighup,
             2 => Self::Sigint,
             3 => Self::Sigquit,
@@ -3770,7 +3524,7 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
             30 => Self::Sigpwr,
             31 => Self::Sigsys,
 
-            _ => Self::Sigunknown,
+            _ => Self::Signone,
         }
     }
 

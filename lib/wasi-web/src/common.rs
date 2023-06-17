@@ -141,7 +141,7 @@ pub async fn fetch(
     method: &str,
     _gzip: bool,
     cors_proxy: Option<String>,
-    headers: Vec<(String, String)>,
+    headers: &http::HeaderMap,
     data: Option<Vec<u8>>,
 ) -> Result<Response, anyhow::Error> {
     let mut opts = RequestInit::new();
@@ -162,7 +162,8 @@ pub async fn fetch(
 
         let set_headers = request.headers();
         for (name, val) in headers.iter() {
-            set_headers.set(name.as_str(), val.as_str()).map_err(|_| {
+            let val = String::from_utf8_lossy(val.as_bytes());
+            set_headers.set(name.as_str(), &val).map_err(|_| {
                 anyhow::anyhow!("could not apply request header: '{name}': '{val}'")
             })?;
         }
@@ -188,8 +189,9 @@ pub async fn fetch(
 
             let set_headers = request.headers();
             for (name, val) in headers.iter() {
-                set_headers.set(name.as_str(), val.as_str()).map_err(|_| {
-                    anyhow::anyhow!("Could not apply request header: '{name}': '{val}'")
+                let value = String::from_utf8_lossy(val.as_bytes());
+                set_headers.set(name.as_str(), &value).map_err(|_| {
+                    anyhow::anyhow!("Could not apply request header: '{name}': '{value}'")
                 })?;
             }
 

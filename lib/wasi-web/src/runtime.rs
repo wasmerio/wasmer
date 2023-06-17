@@ -6,6 +6,7 @@ use std::time::Duration;
 use std::{future::Future, io, pin::Pin, sync::Arc, task::Poll};
 
 use futures::future::BoxFuture;
+use http::{HeaderMap, StatusCode};
 use js_sys::Promise;
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
@@ -19,8 +20,13 @@ use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
-    runtime::task_manager::TaskWasm,
-    VirtualFile, VirtualNetworking, VirtualTaskManager, WasiRuntime, WasiThreadError, WasiTtyState,
+    runtime::{
+        module_cache::{FileSystemCache, ModuleCache, ThreadLocalCache},
+        package_loader::{BuiltinPackageLoader, PackageLoader},
+        resolver::{Source, WapmSource},
+        task_manager::TaskWasm,
+    },
+    VirtualFile, VirtualNetworking, VirtualTaskManager, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
 
@@ -47,7 +53,9 @@ pub(crate) struct WebRuntime {
     tty: TtyOptions,
 
     http_client: DynHttpClient,
-
+    package_loader: Arc<BuiltinPackageLoader>,
+    source: Arc<WapmSource>,
+    module_cache: Arc<dyn ModuleCache + Send + Sync>,
     net: wasmer_wasix::virtual_net::DynVirtualNetworking,
     tasks: Arc<dyn VirtualTaskManager>,
 }
@@ -68,14 +76,36 @@ impl WebRuntime {
             runtime,
         });
 
+        let http_client = Arc::new(WebHttpClient { pool: pool.clone() });
+        let source = WapmSource::new(
+            WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
+            http_client.clone(),
+        );
+
+        let wasmer_dir = std::env::current_dir().unwrap_or_else(|_| ".wasmer".into());
+
+        // Note: the package loader and module cache have tiered caching, so
+        // even if the filesystem cache fails (i.e. because we're compiled to
+        // wasm32-unknown-unknown and running in a browser), the in-memory layer
+        // should still work.
+        let package_loader = BuiltinPackageLoader::new_with_client(
+            BuiltinPackageLoader::default_cache_dir(&wasmer_dir),
+            http_client.clone(),
+        );
+        let module_cache = ThreadLocalCache::default().with_fallback(FileSystemCache::new(
+            FileSystemCache::default_cache_dir(&wasmer_dir),
+        ));
         WebRuntime {
-            pool: pool.clone(),
+            pool,
             tasks: runtime,
             tty: tty_options,
             #[cfg(feature = "webgl")]
             webgl_tx,
-            http_client: Arc::new(WebHttpClient { pool }),
+            http_client,
             net: Arc::new(WebVirtualNetworking),
+            module_cache: Arc::new(module_cache),
+            package_loader: Arc::new(package_loader),
+            source: Arc::new(source),
         }
     }
 }
@@ -416,7 +446,7 @@ impl VirtualFile for TermLog {
     }
 }
 
-impl WasiRuntime for WebRuntime {
+impl wasmer_wasix::Runtime for WebRuntime {
     fn networking(&self) -> &wasmer_wasix::virtual_net::DynVirtualNetworking {
         &self.net
     }
@@ -431,6 +461,18 @@ impl WasiRuntime for WebRuntime {
 
     fn http_client(&self) -> Option<&DynHttpClient> {
         Some(&self.http_client)
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        Arc::clone(&self.module_cache)
+    }
+
+    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
+        Arc::clone(&self.package_loader) as Arc<dyn PackageLoader + Send + Sync>
+    }
+
+    fn source(&self) -> Arc<dyn Source + Send + Sync> {
+        Arc::clone(&self.source) as Arc<dyn Source + Send + Sync>
     }
 }
 
@@ -483,33 +525,28 @@ struct WebHttpClient {
 impl WebHttpClient {
     async fn do_request(request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
         let resp = crate::common::fetch(
-            &request.url,
-            &request.method,
+            request.url.as_str(),
+            request.method.as_str(),
             request.options.gzip,
             request.options.cors_proxy,
-            request.headers,
+            &request.headers,
             request.body,
         )
         .await?;
 
-        let ok = resp.ok();
         let redirected = resp.redirected();
-        let status = resp.status();
-        let status_text = resp.status_text();
+        let status = StatusCode::from_u16(resp.status())?;
 
         let data = crate::common::get_response_data(resp).await?;
 
-        let headers = Vec::new();
         // FIXME: we can't implement this as the method resp.headers().keys() is missing!
         // how else are we going to parse the headers?
+        let headers = HeaderMap::new();
 
         debug!("received {} bytes", data.len());
         let resp = HttpResponse {
-            pos: 0,
-            ok,
             redirected,
             status,
-            status_text,
             headers,
             body: Some(data),
         };

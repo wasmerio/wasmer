@@ -41,16 +41,6 @@ pub trait CompilerConfig {
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
     /// deterministically across different architectures.
-    #[deprecated(note = "Please use the canonicalize_nans instead")]
-    fn enable_nan_canonicalization(&mut self) {
-        // By default we do nothing, each backend will need to customize this
-        // in case they create an IR that they can verify.
-    }
-
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
     fn canonicalize_nans(&mut self, _enable: bool) {
         // By default we do nothing, each backend will need to customize this
         // in case they create an IR that they can verify.
@@ -87,11 +77,7 @@ pub trait Compiler: Send {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
-    fn validate_module<'data>(
-        &self,
-        features: &Features,
-        data: &'data [u8],
-    ) -> Result<(), CompileError> {
+    fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
         let wasm_features = WasmFeatures {
             bulk_memory: features.bulk_memory,
             threads: features.threads,
@@ -120,25 +106,25 @@ pub trait Compiler: Send {
     /// Compiles a parsed module.
     ///
     /// It returns the [`Compilation`] or a [`CompileError`].
-    fn compile_module<'data, 'module>(
+    fn compile_module(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        module: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError>;
 
     /// Compiles a module into a native object file.
     ///
     /// It returns the bytes as a `&[u8]` or a [`CompileError`].
-    fn experimental_native_compile_module<'data, 'module>(
+    fn experimental_native_compile_module(
         &self,
         _target: &Target,
-        _module: &'module CompileModuleInfo,
+        _module: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
-        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         _wasmer_metadata: &[u8],

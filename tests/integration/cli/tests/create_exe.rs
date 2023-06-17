@@ -63,7 +63,7 @@ impl WasmerCreateExe {
         output.current_dir(&self.current_dir);
         output.arg("create-exe");
         output.arg(&self.wasm_path.canonicalize()?);
-        output.arg(&self.compiler.to_flag());
+        output.arg(self.compiler.to_flag());
         output.args(self.extra_cli_flags.iter());
         output.arg("-o");
         output.arg(&self.native_executable_path);
@@ -138,7 +138,7 @@ impl WasmerCreateObj {
         output.current_dir(&self.current_dir);
         output.arg("create-obj");
         output.arg(&self.wasm_path.canonicalize()?);
-        output.arg(&self.compiler.to_flag());
+        output.arg(self.compiler.to_flag());
         output.args(self.extra_cli_flags.iter());
         output.arg("-o");
         output.arg(&self.output_object_path);
@@ -429,9 +429,9 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let executable_path = operating_dir.join("multicommand.exe");
 
     WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: operating_dir,
         wasm_path,
-        native_executable_path: executable_path.clone(),
+        native_executable_path: executable_path,
         compiler: Compiler::Cranelift,
         extra_cli_flags: create_exe_flags,
         ..Default::default()
@@ -638,7 +638,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
-    let mut create_exe_args = args.clone();
+    let mut create_exe_args = args;
     create_exe_args.push("--precompiled-atom".to_string());
     create_exe_args.push(format!("qjs:abc123:{}", object_path.display()));
     create_exe_args.push("--debug-dir".to_string());

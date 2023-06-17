@@ -332,8 +332,8 @@ impl LinearMemory for VMOwnedMemory {
     }
 
     /// Owned memory can not be cloned (this will always return None)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        None
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        Err(MemoryError::MemoryNotShared)
     }
 
     /// Copies this memory to a new memory
@@ -429,8 +429,8 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Shared memory can always be cloned
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        Some(Box::new(self.clone()))
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        Ok(Box::new(self.clone()))
     }
 
     /// Copies this memory to a new memory
@@ -506,7 +506,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.try_clone()
     }
 
@@ -637,7 +637,7 @@ where
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 
     /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 
     #[doc(hidden)]
     /// # Safety

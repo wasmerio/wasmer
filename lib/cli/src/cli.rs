@@ -9,8 +9,7 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, List, Login, Publish, Run, RunUnstable, SelfUpdate,
-    Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -38,16 +37,10 @@ use clap::{error::ErrorKind, CommandFactory, Parser};
 )]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
-    /// List all locally installed packages
-    List(List),
-
-    /// Run a WebAssembly file. Formats accepted: wasm, wat
-    Run(Run),
-
-    /// Login into a wapm.io-like registry
+    /// Login into a wasmer.io-like registry
     Login(Login),
 
-    /// Login into a wapm.io-like registry
+    /// Login into a wasmer.io-like registry
     #[clap(name = "publish")]
     Publish(Publish),
 
@@ -159,15 +152,33 @@ enum WasmerCLIOptions {
     /// Shows the current logged in user for the current active registry
     Whoami(Whoami),
 
-    /// Add a WAPM package's bindings to your application.
+    /// Add a Wasmer package's bindings to your application.
     Add(Add),
 
-    /// (unstable) Run a WebAssembly file or WEBC container.
-    RunUnstable(RunUnstable),
+    /// Run a WebAssembly file or Wasmer container.
+    #[clap(alias = "run-unstable")]
+    Run(Run),
+
+    // DEPLOY commands
+    /// Deploy apps to the Wasmer Edge.
+    Deploy(wasmer_deploy_cli::cmd::deploy::CmdDeploy),
+
+    /// Manage deployed apps.
+    #[clap(subcommand, alias = "apps")]
+    App(wasmer_deploy_cli::cmd::app::CmdApp),
+
+    /// Create a dynamic on the Deploy Edge, and connect to it through SSH.
+    Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+
+    /// Manage Wasmer namespaces.
+    #[clap(subcommand, alias = "namespaces")]
+    Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
 }
 
 impl WasmerCLIOptions {
-    fn execute(&self) -> Result<(), anyhow::Error> {
+    fn execute(self) -> Result<(), anyhow::Error> {
+        use wasmer_deploy_cli::cmd::CliCommand;
+
         match self {
             Self::Run(options) => options.execute(),
             Self::SelfUpdate(options) => options.execute(),
@@ -182,7 +193,6 @@ impl WasmerCLIOptions {
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             Self::Init(init) => init.execute(),
-            Self::List(list) => list.execute(),
             Self::Login(login) => login.execute(),
             Self::Publish(publish) => publish.execute(),
             #[cfg(feature = "static-artifact-create")]
@@ -193,7 +203,12 @@ impl WasmerCLIOptions {
             Self::Binfmt(binfmt) => binfmt.execute(),
             Self::Whoami(whoami) => whoami.execute(),
             Self::Add(install) => install.execute(),
-            Self::RunUnstable(run2) => run2.execute(),
+
+            // Deploy commands.
+            Self::Deploy(c) => c.run(),
+            Self::App(apps) => apps.run(),
+            Self::Ssh(ssh) => ssh.run(),
+            Self::Namespace(namespace) => namespace.run(),
         }
     }
 }
@@ -244,12 +259,11 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     let options = if cfg!(target_os = "linux") && binpath.ends_with("wasmer-binfmt-interpreter") {
         WasmerCLIOptions::Run(Run::from_binfmt_args())
     } else {
-        match command.unwrap_or(&"".to_string()).as_ref() {
-            "add" | "cache" | "compile" | "config" | "create-obj" | "create-exe" | "help"
-            | "gen-c-header" | "inspect" | "init" | "run" | "run-unstable" | "self-update"
-            | "validate" | "wast" | "binfmt" | "list" | "login" | "publish" => {
-                WasmerCLIOptions::parse()
-            }
+        match command.unwrap_or(&String::new()).as_ref() {
+            "add" | "app" | "apps" | "binfmt" | "cache" | "compile" | "config" | "create-obj"
+            | "create-exe" | "deploy" | "help" | "gen-c-header" | "inspect" | "init" | "login"
+            | "namespace" | "namespaces" | "publish" | "run" | "run-unstable" | "self-update"
+            | "validate" | "wast" | "ssh" | "" => WasmerCLIOptions::parse(),
             _ => {
                 WasmerCLIOptions::try_parse_from(args.iter()).unwrap_or_else(|e| {
                     match e.kind() {
