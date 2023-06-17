@@ -21,7 +21,7 @@ use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
     runtime::{
-        module_cache::{ModuleCache, SharedCache, ThreadLocalCache},
+        module_cache::ModuleCache,
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{Source, WapmSource},
         task_manager::TaskWasm,
@@ -37,6 +37,7 @@ use super::webgl::WebGl;
 #[cfg(feature = "webgl")]
 use super::webgl::WebGlCommand;
 use super::{common::*, pool::WebThreadPool};
+use crate::module_cache::WebWorkerModuleCache;
 
 #[derive(Debug)]
 pub(crate) enum TerminalCommandRx {
@@ -89,7 +90,7 @@ impl WebRuntime {
         // wasm32-unknown-unknown and running in a browser), the in-memory layer
         // should still work.
         let package_loader = BuiltinPackageLoader::new_only_client(http_client.clone());
-        let module_cache = ThreadLocalCache::default();
+        let module_cache = WebWorkerModuleCache::default();
         WebRuntime {
             pool,
             tasks: runtime,

@@ -48,6 +48,9 @@ pub struct TaskWasmRunProperties {
 /// Callback that will be invoked
 pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
 
+/// Callback that will be invoked
+pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
+
 /// Represents a WASM task that will be executed on a dedicated thread
 pub struct TaskWasm<'a, 'b> {
     pub run: Box<TaskWasmRun>,
