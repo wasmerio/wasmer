@@ -161,6 +161,7 @@ impl Source for WapmSource {
             Some(WapmWebQueryGetPackage { versions }) => versions,
             None => return Ok(Vec::new()),
         };
+        let mut archived_versions = Vec::new();
 
         for pkg_version in versions {
             tracing::trace!(?pkg_version, "checking package version");
@@ -171,6 +172,7 @@ impl Source for WapmSource {
                     pkg.version=%version,
                     "Skipping an archived version",
                 );
+                archived_versions.push(version);
                 continue;
             }
 
@@ -184,6 +186,25 @@ impl Source for WapmSource {
                             "Skipping version because its metadata couldn't be parsed"
                         );
                     }
+                }
+            }
+        }
+
+        if summaries.is_empty() {
+            match archived_versions.as_slice() {
+                [] => {
+                    // looks like this package couldn't be satisfied at all.
+                }
+                [version] => {
+                    anyhow::bail!(
+                        "The only version satisfying the constraint, {version}, is archived"
+                    );
+                }
+                [first, rest @ ..] => {
+                    let num_others = rest.len();
+                    anyhow::bail!(
+                        "Unable to satisfy the request, {first}, and {num_others} are all archived"
+                    );
                 }
             }
         }
