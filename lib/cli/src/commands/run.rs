@@ -92,6 +92,12 @@ impl Run {
     }
 
     fn execute_inner(self, output: Output) -> Result<(), Error> {
+        let pb = ProgressBar::new_spinner();
+        pb.set_draw_target(output.draw_target());
+        pb.enable_steady_tick(TICK);
+
+        pb.set_message("Initializing the WebAssembly VM");
+
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -107,18 +113,13 @@ impl Run {
             self.wasi
                 .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
 
-        let progress = MultiProgress::new();
-        progress.set_draw_target(output.draw_target());
-
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
-        let monitoring_runtime = MonitoringRuntime::new(runtime, progress.clone());
-        let pb = progress.add(ProgressBar::new_spinner().with_message("Getting Ready..."));
-        pb.enable_steady_tick(TICK);
+        let monitoring_runtime = MonitoringRuntime::new(runtime, pb.clone());
 
         let target = self
             .input
-            .resolve_target(&monitoring_runtime, &monitoring_runtime.progress)
+            .resolve_target(&monitoring_runtime, &pb)
             .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
 
         pb.finish_and_clear();
@@ -468,12 +469,13 @@ impl PackageSource {
     fn resolve_target(
         &self,
         rt: &dyn Runtime,
-        progress: &MultiProgress,
+        pb: &ProgressBar,
     ) -> Result<ExecutableTarget, Error> {
         match self {
-            PackageSource::File(path) => ExecutableTarget::from_file(path, rt),
-            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt, progress),
+            PackageSource::File(path) => ExecutableTarget::from_file(path, rt, pb),
+            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt, pb),
             PackageSource::Package(pkg) => {
+                pb.set_message("Loading from the registry");
                 let pkg = rt
                     .task_manager()
                     .block_on(BinaryPackage::from_registry(pkg, rt))?;
@@ -549,23 +551,13 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    fn from_dir(
-        dir: &Path,
-        runtime: &dyn Runtime,
-        progress: &MultiProgress,
-    ) -> Result<Self, Error> {
-        let pb = progress.add(
-            ProgressBar::new_spinner()
-                .with_message(format!("Loading \"{}\" into memory", dir.display())),
-        );
-        pb.enable_steady_tick(TICK);
+    fn from_dir(dir: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
+        pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
 
         let webc = construct_webc_in_memory(dir)?;
         let container = Container::from_bytes(webc)?;
 
-        pb.finish_and_clear();
-        progress.remove(&pb);
-
+        pb.set_message("Resolving dependencies");
         let pkg = runtime
             .task_manager()
             .block_on(BinaryPackage::from_webc(&container, runtime))?;
@@ -575,11 +567,14 @@ impl ExecutableTarget {
 
     /// Try to load a file into something that can be used to run it.
     #[tracing::instrument(skip_all)]
-    fn from_file(path: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
+    fn from_file(path: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
+        pb.set_message(format!("Loading from \"{}\"", path.display()));
+
         match TargetOnDisk::from_file(path)? {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
                 let engine = runtime.engine().context("No engine available")?;
+                pb.set_message("Compiling to WebAssembly");
                 let module = Module::new(&engine, wasm)?;
                 Ok(ExecutableTarget::WebAssembly {
                     module,
@@ -588,6 +583,7 @@ impl ExecutableTarget {
             }
             TargetOnDisk::Artifact => {
                 let engine = runtime.engine().context("No engine available")?;
+                pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
 
                 Ok(ExecutableTarget::WebAssembly {
@@ -597,6 +593,7 @@ impl ExecutableTarget {
             }
             TargetOnDisk::LocalWebc => {
                 let container = Container::from_disk(path)?;
+                pb.set_message("Resolving dependencies");
                 let pkg = runtime
                     .task_manager()
                     .block_on(BinaryPackage::from_webc(&container, runtime))?;
@@ -774,11 +771,11 @@ fn get_exit_code(
 #[derive(Debug)]
 struct MonitoringRuntime<R> {
     runtime: R,
-    progress: MultiProgress,
+    progress: ProgressBar,
 }
 
 impl<R> MonitoringRuntime<R> {
-    fn new(runtime: R, progress: MultiProgress) -> Self {
+    fn new(runtime: R, progress: ProgressBar) -> Self {
         MonitoringRuntime { runtime, progress }
     }
 }
@@ -836,7 +833,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 #[derive(Debug)]
 struct MonitoringSource {
     inner: Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync>,
-    progress: MultiProgress,
+    progress: ProgressBar,
 }
 
 #[async_trait::async_trait]
@@ -845,24 +842,15 @@ impl wasmer_wasix::runtime::resolver::Source for MonitoringSource {
         &self,
         package: &PackageSpecifier,
     ) -> Result<Vec<wasmer_wasix::runtime::resolver::PackageSummary>, Error> {
-        let pb = self
-            .progress
-            .add(ProgressBar::new_spinner().with_message(format!("Looking up {package}")));
-        pb.enable_steady_tick(TICK);
-
-        let result = self.inner.query(package).await;
-
-        pb.finish_and_clear();
-        self.progress.remove(&pb);
-
-        result
+        self.progress.set_message(format!("Looking up {package}"));
+        self.inner.query(package).await
     }
 }
 
 #[derive(Debug)]
 struct MonitoringPackageLoader {
     inner: Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync>,
-    progress: MultiProgress,
+    progress: ProgressBar,
 }
 
 #[async_trait::async_trait]
@@ -872,15 +860,9 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         summary: &wasmer_wasix::runtime::resolver::PackageSummary,
     ) -> Result<Container, Error> {
         let pkg_id = summary.package_id();
-        let pb = self
-            .progress
-            .add(ProgressBar::new_spinner().with_message(format!("Downloading {pkg_id}")));
-        pb.enable_steady_tick(TICK);
+        self.progress.set_message(format!("Downloading {pkg_id}"));
 
         let result = self.inner.load(summary).await;
-
-        pb.finish_and_clear();
-        self.progress.remove(&pb);
 
         result
     }
