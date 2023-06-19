@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use wasmer_registry::WasmerConfig;
 
 static NOTE: &str =
-    "# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest";
+    "# See more keys and definitions at https://docs.wasmer.io/registry/manifest";
 
 const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 
