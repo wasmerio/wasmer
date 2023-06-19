@@ -156,7 +156,10 @@ pub enum CompileError {
 
     /// The compiler cannot compile for the given target.
     /// This can refer to the OS, the chipset or any other aspect of the target system.
-    #[cfg_attr(feature = "std", error("The target {0} is not yet supported (see https://docs.wasmer.io/runtime/features)"))]
+    #[cfg_attr(
+        feature = "std",
+        error("The target {0} is not yet supported (see https://docs.wasmer.io/runtime/features)")
+    )]
     UnsupportedTarget(String),
 
     /// Insufficient resources available for execution.
