@@ -46,7 +46,7 @@ use wasmer_wasix::{
 };
 use webc::{metadata::Manifest, Container};
 
-use crate::{commands::run::wasi::Wasi, error::PrettyError, store::StoreOptions};
+use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions};
 
 const TICK: Duration = Duration::from_millis(250);
 
@@ -86,12 +86,12 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute(&self) -> ! {
-        let result = self.execute_inner();
+    pub fn execute(self, output: Output) -> ! {
+        let result = self.execute_inner(output);
         exit_with_wasi_exit_code(result);
     }
 
-    fn execute_inner(&self) -> Result<(), Error> {
+    fn execute_inner(self, output: Output) -> Result<(), Error> {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -108,6 +108,7 @@ impl Run {
                 .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
 
         let progress = MultiProgress::new();
+        progress.set_draw_target(output.draw_target());
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
