@@ -1,6 +1,5 @@
 mod callback_signal;
-mod callback_waker_drop;
-mod callback_waker_wake;
+mod callback_wake;
 mod chdir;
 mod fd_pipe;
 mod fd_read_poll;
@@ -80,8 +79,7 @@ mod tty_get;
 mod tty_set;
 
 pub use callback_signal::*;
-pub use callback_waker_drop::*;
-pub use callback_waker_wake::*;
+pub use callback_wake::*;
 pub use chdir::*;
 pub use fd_pipe::*;
 pub use fd_read_poll::*;

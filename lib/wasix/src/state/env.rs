@@ -1,8 +1,9 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
+    task::Context,
     time::Duration,
 };
 
@@ -83,15 +84,10 @@ pub struct WasiInstanceHandles {
     /// when a CTRL-C is pressed.
     pub(crate) signal_set: bool,
 
-    /// Represents the callback for waking an asynchronous task (name = "_waker_wake")
+    /// Represents the callback for waking an asynchronous task (name = "_wake")
     /// [this takes a pointer to waker that will be woken]
     #[derivative(Debug = "ignore")]
-    pub(crate) waker_wake: Option<TypedFunction<u64, ()>>,
-
-    /// Represents the callback for dropping a waker (name = "_waker_drop")
-    /// [this takes a pointer to waker that will be dropped]
-    #[derivative(Debug = "ignore")]
-    pub(crate) waker_drop: Option<TypedFunction<u64, ()>>,
+    pub(crate) wake: Option<TypedFunction<(i64, i64, i64, i64, i64, i64, i64, i64), ()>>,
 
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
@@ -182,14 +178,7 @@ impl WasiInstanceHandles {
                 .exports
                 .get_typed_function(store, "asyncify_get_state")
                 .ok(),
-            waker_wake: instance
-                .exports
-                .get_typed_function(store, "_waker_wake")
-                .ok(),
-            waker_drop: instance
-                .exports
-                .get_typed_function(store, "_waker_drop")
-                .ok(),
+            wake: instance.exports.get_typed_function(store, "_wake").ok(),
             instance,
         }
     }
@@ -571,9 +560,6 @@ impl WasiEnv {
     pub(crate) fn process_signals_and_wakes_and_exit(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
-        // Check for any wakers have been triggered
-        Self::process_wakes_internal(ctx)?;
-
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
@@ -706,39 +692,59 @@ impl WasiEnv {
 
     pub(crate) fn process_wakes_internal(
         ctx: &mut FunctionEnvMut<'_, Self>,
+        cx: &mut Context<'_>,
     ) -> Result<(), WasiError> {
         let env = ctx.data();
         let state = env.state();
 
-        // Invoke the callback for each occurance of a wake
-        for (id, woken) in state.wakers.pop_wakes() {
-            Self::process_one_wake_internal(ctx, id, woken)?;
+        let mut wakes = state.wakers.pop_wakes_and_subscribe(cx);
+        while wakes.is_empty() == false {
+            Self::process_wakes_internal_callback(ctx, &mut wakes)?;
         }
         Ok(())
     }
 
-    pub(crate) fn process_one_wake_internal(
+    fn process_wakes_internal_callback(
         ctx: &mut FunctionEnvMut<'_, Self>,
-        id: WakerId,
-        woken: bool,
+        wakes: &mut VecDeque<(WakerId, bool)>,
     ) -> Result<(), WasiError> {
         let env = ctx.data();
         let inner = env
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
 
-        let handler = match woken {
-            true => inner.waker_wake.clone(),
-            false => inner.waker_drop.clone(),
-        };
+        let handler = inner.wake.clone();
         if let Some(handler) = handler {
             // Record the stack pointer
             let offset = unsafe {
                 get_memory_stack_offset(ctx).map_err(|_| WasiError::Exit(Errno::Inval.into()))?
             };
 
+            // Construct the parameters
+            let mut waker_pop = || match wakes.pop_front() {
+                Some((waker_id, true)) => {
+                    trace!("waker triggered {waker_id}");
+                    waker_id as i64
+                }
+                Some((waker_id, false)) => {
+                    trace!("waker dropped {waker_id}");
+                    0i64 - (waker_id as i64)
+                }
+                None => 0,
+            };
+            let waker0 = waker_pop();
+            let waker1 = waker_pop();
+            let waker2 = waker_pop();
+            let waker3 = waker_pop();
+            let waker4 = waker_pop();
+            let waker5 = waker_pop();
+            let waker6 = waker_pop();
+            let waker7 = waker_pop();
+
             // Call the callback (which will potentially modify the stack)
-            let call_ret = handler.call(ctx, id.try_into().map_err(|_| Errno::Overflow).unwrap());
+            let call_ret = handler.call(
+                ctx, waker0, waker1, waker2, waker3, waker4, waker5, waker6, waker7,
+            );
 
             // Restore the stack to its previous loation
             let (env, mut store) = ctx.data_and_store_mut();
@@ -748,27 +754,19 @@ impl WasiEnv {
             if let Err(err) = call_ret {
                 match err.downcast::<WasiError>() {
                     Ok(wasi_err) => {
-                        warn!(
-                            "wasi[{}]::waker handler wasi error - {}",
-                            ctx.data().pid(),
-                            wasi_err
-                        );
+                        warn!("waker error - {wasi_err}");
                         return Err(wasi_err);
                     }
                     Err(runtime_err) => {
-                        warn!(
-                            "wasi[{}]::waker handler runtime error - {}",
-                            ctx.data().pid(),
-                            runtime_err
-                        );
+                        warn!("waker error - {runtime_err}");
                         return Err(WasiError::Exit(Errno::Intr.into()));
                     }
                 }
-            } else {
-                trace!("wasi[{}]::waker handler triggered {}", ctx.data().pid(), id);
             }
         } else {
-            warn!("wasi[{}]::waker handler orphaned {}", ctx.data().pid(), id);
+            while let Some((waker_id, _)) = wakes.pop_front() {
+                warn!("waker orphaned {waker_id}");
+            }
         }
         Ok(())
     }

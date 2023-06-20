@@ -316,12 +316,7 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            for (id, woken) in self.ctx.data().state.wakers.pop_wakes_and_subscribe(cx) {
-                WasiEnv::process_one_wake_internal(self.ctx, id, woken);
-            }
-            if let Some(exit_code) = self.ctx.data().should_exit() {
-                return Poll::Ready(Err(WasiError::Exit(exit_code)));
-            }
+            WasiEnv::process_wakes_internal(self.ctx, cx);
             if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
                 if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
                     return Poll::Ready(Err(err));
@@ -363,10 +358,7 @@ where
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
         }
-        let wakes = self.ctx.data().state.wakers.pop_wakes_and_subscribe(cx);
-        for (id, woken) in wakes {
-            WasiEnv::process_one_wake_internal(self.ctx, id, woken);
-        }
+        WasiEnv::process_wakes_internal(self.ctx, cx);
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
