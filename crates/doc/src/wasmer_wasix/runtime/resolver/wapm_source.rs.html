@@ -712,9 +712,6 @@
 <a href="#711" id="711">711</a>
 <a href="#712" id="712">712</a>
 <a href="#713" id="713">713</a>
-<a href="#714" id="714">714</a>
-<a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -730,7 +727,8 @@
 <span class="kw">use crate</span>::{
     http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
+        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
+        WebcHash,
     },
 };
 
@@ -864,10 +862,10 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>WapmSource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, Error&gt; {
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">let </span>(full_name, version_constraint) = <span class="kw">match </span>package {
             PackageSpecifier::Registry { full_name, version } =&gt; (full_name, version),
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::Unsupported),
         };
 
         <span class="kw">let </span>response: WapmWebQuery = <span class="self">self</span>.lookup_package(full_name).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -876,13 +874,24 @@
 
         <span class="kw">let </span>versions = <span class="kw">match </span>response.data.get_package {
             <span class="prelude-val">Some</span>(WapmWebQueryGetPackage { versions }) =&gt; versions,
-            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::NotFound),
         };
         <span class="kw">let </span><span class="kw-2">mut </span>archived_versions = Vec::new();
 
         <span class="kw">for </span>pkg_version <span class="kw">in </span>versions {
-            <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>pkg_version, <span class="string">&quot;checking package version&quot;</span>);
-            <span class="kw">let </span>version = Version::parse(<span class="kw-2">&amp;</span>pkg_version.version)<span class="question-mark">?</span>;
+            <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>pkg_version, <span class="string">&quot;Checking a package version&quot;</span>);
+
+            <span class="kw">let </span>version = <span class="kw">match </span>Version::parse(<span class="kw-2">&amp;</span>pkg_version.version) {
+                <span class="prelude-val">Ok</span>(v) =&gt; v,
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::debug!</span>(
+                        pkg.version = pkg_version.version.as_str(),
+                        error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        <span class="string">&quot;Skipping a version because it doesn&#39;t have a valid version numer&quot;</span>,
+                    );
+                    <span class="kw">continue</span>;
+                }
+            };
 
             <span class="kw">if </span>pkg_version.is_archived {
                 <span class="macro">tracing::debug!</span>(
@@ -908,25 +917,10 @@
         }
 
         <span class="kw">if </span>summaries.is_empty() {
-            <span class="kw">match </span>archived_versions.as_slice() {
-                [] =&gt; {
-                    <span class="comment">// looks like this package couldn&#39;t be satisfied at all.
-                </span>}
-                [version] =&gt; {
-                    <span class="macro">anyhow::bail!</span>(
-                        <span class="string">&quot;The only version satisfying the constraint, {version}, is archived&quot;
-                    </span>);
-                }
-                [first, rest @ ..] =&gt; {
-                    <span class="kw">let </span>num_others = rest.len();
-                    <span class="macro">anyhow::bail!</span>(
-                        <span class="string">&quot;Unable to satisfy the request, {first}, and {num_others} are all archived&quot;
-                    </span>);
-                }
-            }
+            <span class="prelude-val">Err</span>(QueryError::NoMatches { archived_versions })
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(summaries)
         }
-
-        <span class="prelude-val">Ok</span>(summaries)
     }
 }
 

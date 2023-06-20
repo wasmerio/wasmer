@@ -319,14 +319,6 @@
 <a href="#318" id="318">318</a>
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.
 
 </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
@@ -344,6 +336,7 @@
 </span><span class="kw">use </span><span class="kw">crate</span>::commands::{CreateObj, GenCHeader};
 <span class="kw">use </span><span class="kw">crate</span>::error::PrettyError;
 <span class="kw">use </span>clap::{CommandFactory, Parser};
+<span class="kw">use </span>wasmer_deploy_cli::cmd::CliCommand;
 
 <span class="doccomment">/// The main function for the Wasmer CLI tool.
 </span><span class="kw">pub fn </span>wasmer_main() {
@@ -356,14 +349,11 @@
 
 <span class="kw">fn </span>wasmer_main_inner() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     <span class="kw">if </span>is_binfmt_interpreter() {
-        Run::from_binfmt_args().execute();
+        Run::from_binfmt_args().execute(<span class="kw">crate</span>::logging::Output::default());
     }
 
     <span class="kw">match </span>Args::try_parse() {
-        <span class="prelude-val">Ok</span>(args) =&gt; {
-            args.output.initialize_logging();
-            args.execute()
-        }
+        <span class="prelude-val">Ok</span>(args) =&gt; args.execute(),
         <span class="prelude-val">Err</span>(e) =&gt; {
             <span class="kw">let </span>might_be_wasmer_run = <span class="macro">matches!</span>(
                 e.kind(),
@@ -376,8 +366,9 @@
                     // shorthand. Note that this has discoverability issues
                     // because it&#39;s not shown as part of the main argument
                     // parser&#39;s help, but that&#39;s fine.
-                    </span><span class="kw">crate</span>::logging::Output::default().initialize_logging();
-                    run.execute();
+                    </span><span class="kw">let </span>output = <span class="kw">crate</span>::logging::Output::default();
+                    output.initialize_logging();
+                    run.execute(output);
                 }
             }
 
@@ -416,16 +407,47 @@
             output,
         } = <span class="self">self</span>;
 
+        output.initialize_logging();
+
         <span class="kw">if </span>version {
             <span class="kw">return </span>print_version(output.is_verbose());
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = cmd {
-            cmd.execute()
-        } <span class="kw">else </span>{
-            Args::command().print_long_help()<span class="question-mark">?</span>;
-            <span class="comment">// Note: clap uses an exit code of 2 when CLI parsing fails
-            </span>std::process::exit(<span class="number">2</span>);
+        <span class="kw">match </span>cmd {
+            <span class="prelude-val">Some</span>(Cmd::Run(options)) =&gt; options.execute(output),
+            <span class="prelude-val">Some</span>(Cmd::SelfUpdate(options)) =&gt; options.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Cache(cache)) =&gt; cache.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Validate(validate)) =&gt; validate.execute(),
+            <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+            </span><span class="prelude-val">Some</span>(Cmd::Compile(compile)) =&gt; compile.execute(),
+            <span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;wasmer-artifact-create&quot;</span>))]
+            </span><span class="prelude-val">Some</span>(Cmd::CreateExe(create_exe)) =&gt; create_exe.execute(),
+            <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+            </span><span class="prelude-val">Some</span>(Cmd::CreateObj(create_obj)) =&gt; create_obj.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Config(config)) =&gt; config.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Inspect(inspect)) =&gt; inspect.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Init(init)) =&gt; init.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Login(login)) =&gt; login.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Publish(publish)) =&gt; publish.execute(),
+            <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+            </span><span class="prelude-val">Some</span>(Cmd::GenCHeader(gen_heder)) =&gt; gen_heder.execute(),
+            <span class="attr">#[cfg(feature = <span class="string">&quot;wast&quot;</span>)]
+            </span><span class="prelude-val">Some</span>(Cmd::Wast(wast)) =&gt; wast.execute(),
+            <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
+            </span><span class="prelude-val">Some</span>(Cmd::Binfmt(binfmt)) =&gt; binfmt.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Whoami(whoami)) =&gt; whoami.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Add(install)) =&gt; install.execute(),
+
+            <span class="comment">// Deploy commands.
+            </span><span class="prelude-val">Some</span>(Cmd::Deploy(c)) =&gt; c.run(),
+            <span class="prelude-val">Some</span>(Cmd::App(apps)) =&gt; apps.run(),
+            <span class="prelude-val">Some</span>(Cmd::Ssh(ssh)) =&gt; ssh.run(),
+            <span class="prelude-val">Some</span>(Cmd::Namespace(namespace)) =&gt; namespace.run(),
+            <span class="prelude-val">None </span>=&gt; {
+                Args::command().print_long_help()<span class="question-mark">?</span>;
+                <span class="comment">// Note: clap uses an exit code of 2 when CLI parsing fails
+                </span>std::process::exit(<span class="number">2</span>);
+            }
         }
     }
 }
@@ -569,44 +591,6 @@
     <span class="doccomment">/// Manage Wasmer namespaces.
     </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;namespaces&quot;</span>)]
     </span>Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
-}
-
-<span class="kw">impl </span>Cmd {
-    <span class="kw">fn </span>execute(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">use </span>wasmer_deploy_cli::cmd::CliCommand;
-
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Run(options) =&gt; options.execute(),
-            <span class="self">Self</span>::SelfUpdate(options) =&gt; options.execute(),
-            <span class="self">Self</span>::Cache(cache) =&gt; cache.execute(),
-            <span class="self">Self</span>::Validate(validate) =&gt; validate.execute(),
-            <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
-            </span><span class="self">Self</span>::Compile(compile) =&gt; compile.execute(),
-            <span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;wasmer-artifact-create&quot;</span>))]
-            </span><span class="self">Self</span>::CreateExe(create_exe) =&gt; create_exe.execute(),
-            <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
-            </span><span class="self">Self</span>::CreateObj(create_obj) =&gt; create_obj.execute(),
-            <span class="self">Self</span>::Config(config) =&gt; config.execute(),
-            <span class="self">Self</span>::Inspect(inspect) =&gt; inspect.execute(),
-            <span class="self">Self</span>::Init(init) =&gt; init.execute(),
-            <span class="self">Self</span>::Login(login) =&gt; login.execute(),
-            <span class="self">Self</span>::Publish(publish) =&gt; publish.execute(),
-            <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
-            </span><span class="self">Self</span>::GenCHeader(gen_heder) =&gt; gen_heder.execute(),
-            <span class="attr">#[cfg(feature = <span class="string">&quot;wast&quot;</span>)]
-            </span><span class="self">Self</span>::Wast(wast) =&gt; wast.execute(),
-            <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
-            </span><span class="self">Self</span>::Binfmt(binfmt) =&gt; binfmt.execute(),
-            <span class="self">Self</span>::Whoami(whoami) =&gt; whoami.execute(),
-            <span class="self">Self</span>::Add(install) =&gt; install.execute(),
-
-            <span class="comment">// Deploy commands.
-            </span><span class="self">Self</span>::Deploy(c) =&gt; c.run(),
-            <span class="self">Self</span>::App(apps) =&gt; apps.run(),
-            <span class="self">Self</span>::Ssh(ssh) =&gt; ssh.run(),
-            <span class="self">Self</span>::Namespace(namespace) =&gt; namespace.run(),
-        }
-    }
 }
 
 <span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {

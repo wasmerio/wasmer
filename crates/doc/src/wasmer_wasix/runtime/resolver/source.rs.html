@@ -42,9 +42,59 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::fmt::Debug;
-
-<span class="kw">use </span>anyhow::Error;
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::fmt::{Debug, Display};
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSpecifier, PackageSummary};
 
@@ -56,22 +106,23 @@
     ///
     /// # Assumptions
     ///
-    /// It is not an error if there are no package versions that may satisfy
-    /// the dependency, even if the [`Source`] doesn&#39;t know of a package
-    /// with that name.
+    /// If this method returns a successful result, it is guaranteed that there
+    /// will be at least one [`PackageSummary`], otherwise implementations
+    /// should return [`QueryError::NotFound`] or [`QueryError::NoMatches`].
     ///
     /// [dep]: crate::runtime::resolver::Dependency
-    /// [reg]: crate::runtime::resolver::Registry
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, Error&gt;;
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt;;
 
     <span class="doccomment">/// Run [`Source::query()`] and get the [`PackageSummary`] for the latest
     /// version.
-    </span><span class="kw">async fn </span>latest(<span class="kw-2">&amp;</span><span class="self">self</span>, pkg: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSummary, Error&gt; {
+    </span><span class="kw">async fn </span>latest(<span class="kw-2">&amp;</span><span class="self">self</span>, pkg: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSummary, QueryError&gt; {
         <span class="kw">let </span>candidates = <span class="self">self</span>.query(pkg).<span class="kw">await</span><span class="question-mark">?</span>;
         candidates
             .into_iter()
             .max_by(|left, right| left.pkg.version.cmp(<span class="kw-2">&amp;</span>right.pkg.version))
-            .ok_or_else(|| Error::msg(<span class="string">&quot;Couldn&#39;t find a package version satisfying that constraint&quot;</span>))
+            .ok_or(QueryError::NoMatches {
+                archived_versions: Vec::new(),
+            })
     }
 }
 
@@ -81,9 +132,62 @@
     </span>D: std::ops::Deref&lt;Target = S&gt; + Debug + Send + Sync,
     S: Source + <span class="question-mark">?</span>Sized + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-    <span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, Error&gt; {
+    <span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).query(package).<span class="kw">await
     </span>}
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub enum </span>QueryError {
+    Unsupported,
+    NotFound,
+    NoMatches {
+        archived_versions: Vec&lt;semver::Version&gt;,
+    },
+    Other(anyhow::Error),
+}
+
+<span class="kw">impl </span>From&lt;anyhow::Error&gt; <span class="kw">for </span>QueryError {
+    <span class="kw">fn </span>from(value: anyhow::Error) -&gt; <span class="self">Self </span>{
+        QueryError::Other(value)
+    }
+}
+
+<span class="kw">impl </span>Display <span class="kw">for </span>QueryError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            QueryError::Unsupported =&gt; {
+                f.write_str(<span class="string">&quot;This type of package specifier isn&#39;t supported&quot;</span>)
+            }
+            QueryError::NotFound =&gt; f.write_str(<span class="string">&quot;Not found&quot;</span>),
+            QueryError::NoMatches { archived_versions } =&gt; <span class="kw">match </span>archived_versions.as_slice() {
+                [] =&gt; f.write_str(
+                    <span class="string">&quot;The package was found, but no published versions matched the constraint&quot;</span>,
+                ),
+                [version] =&gt; <span class="macro">write!</span>(
+                    f,
+                    <span class="string">&quot;The only version satisfying the constraint, {version}, is archived&quot;
+                </span>),
+                [first, rest @ ..] =&gt; {
+                    <span class="kw">let </span>num_others = rest.len();
+                    <span class="macro">write!</span>(
+                        f,
+                        <span class="string">&quot;Unable to satisfy the request. Version {first}, and {num_others} are all archived&quot;
+                    </span>)
+                }
+            },
+            QueryError::Other(e) =&gt; Display::fmt(e, f),
+        }
+    }
+}
+
+<span class="kw">impl </span>std::error::Error <span class="kw">for </span>QueryError {
+    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            QueryError::Other(e) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;**</span>e),
+            QueryError::Unsupported | QueryError::NotFound | QueryError::NoMatches { .. } =&gt; <span class="prelude-val">None</span>,
+        }
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>

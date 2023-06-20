@@ -49,13 +49,71 @@
 <a href="#48" id="48">48</a>
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span>anyhow::Error;
-
-<span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSpecifier, PackageSummary, Source};
+<span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
 
 <span class="doccomment">/// A [`Source`] that works by querying multiple [`Source`]s in succession.
+///
+/// # Error Handling
+///
+/// A [`Source`] implementation can return certain non-fatal errors and,
+/// depending on the [`MultiSourceStrategy`], the [`MultiSource`] can choose to
+/// deal with it in different ways. Sometimes
+///
 ///
 /// The first [`Source`] to return one or more [`Summaries`][PackageSummary]
 /// will be treated as the canonical source for that [`Dependency`][dep] and no
@@ -65,38 +123,86 @@
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>MultiSource {
     sources: Vec&lt;Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;&gt;,
+    strategy: MultiSourceStrategy,
 }
 
 <span class="kw">impl </span>MultiSource {
     <span class="kw">pub const fn </span>new() -&gt; <span class="self">Self </span>{
         MultiSource {
             sources: Vec::new(),
+            strategy: MultiSourceStrategy::default(),
         }
     }
 
     <span class="kw">pub fn </span>add_source(<span class="kw-2">&amp;mut </span><span class="self">self</span>, source: <span class="kw">impl </span>Source + Send + Sync + <span class="lifetime">&#39;static</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.add_shared_source(Arc::new(source));
-        <span class="self">self
-    </span>}
+        <span class="self">self</span>.add_shared_source(Arc::new(source))
+    }
 
     <span class="kw">pub fn </span>add_shared_source(<span class="kw-2">&amp;mut </span><span class="self">self</span>, source: Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.sources.push(source);
         <span class="self">self
     </span>}
+
+    <span class="doccomment">/// Override the strategy used when a [`Source`] returns a non-fatal error.
+    </span><span class="kw">pub fn </span>with_strategy(<span class="self">self</span>, strategy: MultiSourceStrategy) -&gt; <span class="self">Self </span>{
+        MultiSource { strategy, ..<span class="self">self </span>}
+    }
 }
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>MultiSource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, Error&gt; {
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">for </span>source <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.sources {
-            <span class="kw">let </span>result = source.query(package).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="kw">if </span>!result.is_empty() {
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(result);
+            <span class="kw">match </span>source.query(package).<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>(summaries) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(summaries),
+                <span class="prelude-val">Err</span>(QueryError::Unsupported) <span class="kw">if </span><span class="self">self</span>.strategy.continue_if_unsupported =&gt; <span class="kw">continue</span>,
+                <span class="prelude-val">Err</span>(QueryError::NotFound) <span class="kw">if </span><span class="self">self</span>.strategy.continue_if_not_found =&gt; <span class="kw">continue</span>,
+                <span class="prelude-val">Err</span>(QueryError::NoMatches { .. }) <span class="kw">if </span><span class="self">self</span>.strategy.continue_if_no_matches =&gt; {
+                    <span class="kw">continue
+                </span>}
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
             }
         }
 
-        <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Unable to find any packages that satisfy the query&quot;</span>)
+        <span class="prelude-val">Err</span>(QueryError::NotFound)
+    }
+}
+
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+</span><span class="kw">pub struct </span>MultiSourceStrategy {
+    <span class="doccomment">/// If encountered, treat [`QueryError::Unsupported`] as a non-fatal error
+    /// and query the next [`Source`] in turn.
+    ///
+    /// This flag is **enabled** by default.
+    </span><span class="kw">pub </span>continue_if_unsupported: bool,
+    <span class="doccomment">/// If encountered, treat [`QueryError::NotFound`] as a non-fatal error and
+    /// query the next [`Source`] in turn.
+    ///
+    /// This flag is **enabled** by default and can be used to let earlier
+    /// [`Source`]s &quot;override&quot; later ones.
+    </span><span class="kw">pub </span>continue_if_not_found: bool,
+    <span class="doccomment">/// If encountered, treat [`QueryError::NoMatches`] as a non-fatal error and
+    /// query the next [`Source`] in turn.
+    ///
+    /// This flag is **disabled** by default.
+    </span><span class="kw">pub </span>continue_if_no_matches: bool,
+}
+
+<span class="kw">impl </span>MultiSourceStrategy {
+    <span class="kw">pub const fn </span>default() -&gt; <span class="self">Self </span>{
+        MultiSourceStrategy {
+            continue_if_unsupported: <span class="bool-val">true</span>,
+            continue_if_not_found: <span class="bool-val">true</span>,
+            continue_if_no_matches: <span class="bool-val">true</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>MultiSourceStrategy {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        MultiSourceStrategy::default()
     }
 }
 </code></pre></div>

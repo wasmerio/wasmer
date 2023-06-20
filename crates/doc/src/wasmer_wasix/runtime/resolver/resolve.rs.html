@@ -1159,6 +1159,29 @@
 <a href="#1158" id="1158">1158</a>
 <a href="#1159" id="1159">1159</a>
 <a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashSet, VecDeque},
     path::PathBuf,
@@ -1172,8 +1195,8 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{
     outputs::{Edge, Node},
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Resolution,
-    ResolvedPackage, Source,
+    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSpecifier, PackageSummary,
+    QueryError, Resolution, ResolvedPackage, Source,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::ResolvedFileSystemMapping;
@@ -1194,8 +1217,12 @@
 
 <span class="attr">#[derive(Debug, thiserror::Error)]
 </span><span class="kw">pub enum </span>ResolveError {
-    <span class="attr">#[error(transparent)]
-    </span>Registry(anyhow::Error),
+    <span class="attr">#[error(<span class="string">&quot;{}&quot;</span>, registry_error_message(.package))]
+    </span>Registry {
+        package: PackageSpecifier,
+        <span class="attr">#[source]
+        </span>error: QueryError,
+    },
     <span class="attr">#[error(<span class="string">&quot;Dependency cycle detected: {}&quot;</span>, print_cycle(_0))]
     </span>Cycle(Vec&lt;PackageId&gt;),
     <span class="attr">#[error(
@@ -1206,6 +1233,21 @@
         package_name: String,
         versions: Vec&lt;Version&gt;,
     },
+}
+
+<span class="kw">fn </span>registry_error_message(specifier: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; String {
+    <span class="kw">match </span>specifier {
+        PackageSpecifier::Registry { full_name, version } <span class="kw">if </span>version.comparators.is_empty() =&gt; {
+            <span class="macro">format!</span>(<span class="string">&quot;Unable to find \&quot;{full_name}\&quot; in the registry&quot;</span>)
+        }
+        PackageSpecifier::Registry { full_name, version } =&gt; {
+            <span class="macro">format!</span>(<span class="string">&quot;Unable to find \&quot;{full_name}@{version}\&quot; in the registry&quot;</span>)
+        }
+        PackageSpecifier::Url(url) =&gt; <span class="macro">format!</span>(<span class="string">&quot;Unable to resolve \&quot;{url}\&quot;&quot;</span>),
+        PackageSpecifier::Path(path) =&gt; {
+            <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot; from disk&quot;</span>, path.display())
+        }
+    }
 }
 
 <span class="kw">impl </span>ResolveError {
@@ -1278,10 +1320,14 @@
             // doing this more rigorously, we would be narrowing the version
             // down using existing requirements and trying to reuse the same
             // dependency when possible.
-            </span><span class="kw">let </span>dep_summary = source
-                .latest(<span class="kw-2">&amp;</span>dep.pkg)
-                .<span class="kw">await
-                </span>.map_err(ResolveError::Registry)<span class="question-mark">?</span>;
+            </span><span class="kw">let </span>dep_summary =
+                source
+                    .latest(<span class="kw-2">&amp;</span>dep.pkg)
+                    .<span class="kw">await
+                    </span>.map_err(|error| ResolveError::Registry {
+                        package: dep.pkg.clone(),
+                        error,
+                    })<span class="question-mark">?</span>;
             <span class="kw">let </span>dep_id = dep_summary.package_id();
 
             <span class="kw">let </span>PackageSummary { pkg, dist } = dep_summary;

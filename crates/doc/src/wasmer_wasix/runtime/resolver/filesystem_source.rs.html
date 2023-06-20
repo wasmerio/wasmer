@@ -44,11 +44,13 @@
 <a href="#43" id="43">43</a>
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
-</pre><pre class="rust"><code><span class="kw">use </span>anyhow::{Context, Error};
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>webc::compat::Container;
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{
-    DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
+    DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source, WebcHash,
 };
 
 <span class="doccomment">/// A [`Source`] that knows how to query files on the filesystem.
@@ -58,7 +60,7 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>FileSystemSource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, Error&gt; {
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">let </span>path = <span class="kw">match </span>package {
             PackageSpecifier::Path(path) =&gt; path.canonicalize().with_context(|| {
                 <span class="macro">format!</span>(
@@ -66,7 +68,7 @@
                     path.display()
                 )
             })<span class="question-mark">?</span>,
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::Unsupported),
         };
 
         <span class="comment">// FIXME: These two operations will block
@@ -78,8 +80,10 @@
         <span class="kw">let </span>url = <span class="kw">crate</span>::runtime::resolver::utils::url_from_file_path(<span class="kw-2">&amp;</span>path)
             .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Unable to turn \&quot;{}\&quot; into a URL&quot;</span>, path.display()))<span class="question-mark">?</span>;
 
+        <span class="kw">let </span>pkg = PackageInfo::from_manifest(container.manifest())
+            .context(<span class="string">&quot;Unable to determine the package&#39;s metadata&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>summary = PackageSummary {
-            pkg: PackageInfo::from_manifest(container.manifest())<span class="question-mark">?</span>,
+            pkg,
             dist: DistributionInfo {
                 webc: url,
                 webc_sha256,

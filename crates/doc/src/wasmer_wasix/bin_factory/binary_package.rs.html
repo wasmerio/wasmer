@@ -237,8 +237,19 @@
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>derivative::<span class="kw-2">*</span>;
 <span class="kw">use </span>once_cell::sync::OnceCell;
 <span class="kw">use </span>semver::Version;
@@ -248,7 +259,7 @@
 <span class="kw">use crate</span>::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier},
+        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
     },
     Runtime,
 };
@@ -339,11 +350,20 @@
         runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>source = runtime.source();
-        <span class="kw">let </span>root_summary = source.latest(specifier).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>root_summary =
+            source
+                .latest(specifier)
+                .<span class="kw">await
+                </span>.map_err(|error| ResolveError::Registry {
+                    package: specifier.clone(),
+                    error,
+                })<span class="question-mark">?</span>;
         <span class="kw">let </span>root = runtime.package_loader().load(<span class="kw-2">&amp;</span>root_summary).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>id = root_summary.package_id();
 
-        <span class="kw">let </span>resolution = <span class="kw">crate</span>::runtime::resolver::resolve(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>root_summary.pkg, <span class="kw-2">&amp;</span>source).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>resolution = <span class="kw">crate</span>::runtime::resolver::resolve(<span class="kw-2">&amp;</span>id, <span class="kw-2">&amp;</span>root_summary.pkg, <span class="kw-2">&amp;</span>source)
+            .<span class="kw">await
+            </span>.context(<span class="string">&quot;Dependency resolution failed&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = runtime
             .package_loader()
             .load_package_tree(<span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;</span>resolution)
