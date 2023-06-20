@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use derivative::*;
 use once_cell::sync::OnceCell;
 use semver::Version;
@@ -9,7 +10,7 @@ use webc::{compat::SharedBytes, Container};
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier},
+        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
     },
     Runtime,
 };
@@ -100,11 +101,20 @@ impl BinaryPackage {
         runtime: &dyn Runtime,
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();
-        let root_summary = source.latest(specifier).await?;
+        let root_summary =
+            source
+                .latest(specifier)
+                .await
+                .map_err(|error| ResolveError::Registry {
+                    package: specifier.clone(),
+                    error,
+                })?;
         let root = runtime.package_loader().load(&root_summary).await?;
         let id = root_summary.package_id();
 
-        let resolution = crate::runtime::resolver::resolve(&id, &root_summary.pkg, &source).await?;
+        let resolution = crate::runtime::resolver::resolve(&id, &root_summary.pkg, &source)
+            .await
+            .context("Dependency resolution failed")?;
         let pkg = runtime
             .package_loader()
             .load_package_tree(&root, &resolution)

@@ -16,13 +16,13 @@ pub use self::{
         Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
         WebcHash,
     },
-    multi_source::MultiSource,
+    multi_source::{MultiSource, MultiSourceStrategy},
     outputs::{
         DependencyGraph, Edge, ItemLocation, Node, PackageId, Resolution,
         ResolvedFileSystemMapping, ResolvedPackage,
     },
-    resolve::resolve,
-    source::Source,
+    resolve::{resolve, ResolveError},
+    source::{QueryError, Source},
     wapm_source::WapmSource,
     web_source::WebSource,
 };

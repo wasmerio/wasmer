@@ -93,4 +93,16 @@ impl Output {
             clap::ColorChoice::Never => false,
         }
     }
+
+    /// Get the draw target to be used with the `indicatif` crate.
+    ///
+    /// Progress indicators won't draw anything if the user passed the `--quiet`
+    /// flag.
+    pub fn draw_target(&self) -> indicatif::ProgressDrawTarget {
+        if self.quiet {
+            return indicatif::ProgressDrawTarget::hidden();
+        }
+
+        indicatif::ProgressDrawTarget::stderr()
+    }
 }

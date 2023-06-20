@@ -15,6 +15,7 @@ use crate::commands::{
 use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
 use clap::{CommandFactory, Parser};
+use wasmer_deploy_cli::cmd::CliCommand;
 
 /// The main function for the Wasmer CLI tool.
 pub fn wasmer_main() {
@@ -27,14 +28,11 @@ pub fn wasmer_main() {
 
 fn wasmer_main_inner() -> Result<(), anyhow::Error> {
     if is_binfmt_interpreter() {
-        Run::from_binfmt_args().execute();
+        Run::from_binfmt_args().execute(crate::logging::Output::default());
     }
 
     match Args::try_parse() {
-        Ok(args) => {
-            args.output.initialize_logging();
-            args.execute()
-        }
+        Ok(args) => args.execute(),
         Err(e) => {
             let might_be_wasmer_run = matches!(
                 e.kind(),
@@ -47,8 +45,9 @@ fn wasmer_main_inner() -> Result<(), anyhow::Error> {
                     // shorthand. Note that this has discoverability issues
                     // because it's not shown as part of the main argument
                     // parser's help, but that's fine.
-                    crate::logging::Output::default().initialize_logging();
-                    run.execute();
+                    let output = crate::logging::Output::default();
+                    output.initialize_logging();
+                    run.execute(output);
                 }
             }
 
@@ -87,16 +86,47 @@ impl Args {
             output,
         } = self;
 
+        output.initialize_logging();
+
         if version {
             return print_version(output.is_verbose());
         }
 
-        if let Some(cmd) = cmd {
-            cmd.execute()
-        } else {
-            Args::command().print_long_help()?;
-            // Note: clap uses an exit code of 2 when CLI parsing fails
-            std::process::exit(2);
+        match cmd {
+            Some(Cmd::Run(options)) => options.execute(output),
+            Some(Cmd::SelfUpdate(options)) => options.execute(),
+            Some(Cmd::Cache(cache)) => cache.execute(),
+            Some(Cmd::Validate(validate)) => validate.execute(),
+            #[cfg(feature = "compiler")]
+            Some(Cmd::Compile(compile)) => compile.execute(),
+            #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
+            Some(Cmd::CreateExe(create_exe)) => create_exe.execute(),
+            #[cfg(feature = "static-artifact-create")]
+            Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
+            Some(Cmd::Config(config)) => config.execute(),
+            Some(Cmd::Inspect(inspect)) => inspect.execute(),
+            Some(Cmd::Init(init)) => init.execute(),
+            Some(Cmd::Login(login)) => login.execute(),
+            Some(Cmd::Publish(publish)) => publish.execute(),
+            #[cfg(feature = "static-artifact-create")]
+            Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
+            #[cfg(feature = "wast")]
+            Some(Cmd::Wast(wast)) => wast.execute(),
+            #[cfg(target_os = "linux")]
+            Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
+            Some(Cmd::Whoami(whoami)) => whoami.execute(),
+            Some(Cmd::Add(install)) => install.execute(),
+
+            // Deploy commands.
+            Some(Cmd::Deploy(c)) => c.run(),
+            Some(Cmd::App(apps)) => apps.run(),
+            Some(Cmd::Ssh(ssh)) => ssh.run(),
+            Some(Cmd::Namespace(namespace)) => namespace.run(),
+            None => {
+                Args::command().print_long_help()?;
+                // Note: clap uses an exit code of 2 when CLI parsing fails
+                std::process::exit(2);
+            }
         }
     }
 }
@@ -240,44 +270,6 @@ enum Cmd {
     /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]
     Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
-}
-
-impl Cmd {
-    fn execute(self) -> Result<(), anyhow::Error> {
-        use wasmer_deploy_cli::cmd::CliCommand;
-
-        match self {
-            Self::Run(options) => options.execute(),
-            Self::SelfUpdate(options) => options.execute(),
-            Self::Cache(cache) => cache.execute(),
-            Self::Validate(validate) => validate.execute(),
-            #[cfg(feature = "compiler")]
-            Self::Compile(compile) => compile.execute(),
-            #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-            Self::CreateExe(create_exe) => create_exe.execute(),
-            #[cfg(feature = "static-artifact-create")]
-            Self::CreateObj(create_obj) => create_obj.execute(),
-            Self::Config(config) => config.execute(),
-            Self::Inspect(inspect) => inspect.execute(),
-            Self::Init(init) => init.execute(),
-            Self::Login(login) => login.execute(),
-            Self::Publish(publish) => publish.execute(),
-            #[cfg(feature = "static-artifact-create")]
-            Self::GenCHeader(gen_heder) => gen_heder.execute(),
-            #[cfg(feature = "wast")]
-            Self::Wast(wast) => wast.execute(),
-            #[cfg(target_os = "linux")]
-            Self::Binfmt(binfmt) => binfmt.execute(),
-            Self::Whoami(whoami) => whoami.execute(),
-            Self::Add(install) => install.execute(),
-
-            // Deploy commands.
-            Self::Deploy(c) => c.run(),
-            Self::App(apps) => apps.run(),
-            Self::Ssh(ssh) => ssh.run(),
-            Self::Namespace(namespace) => namespace.run(),
-        }
-    }
 }
 
 fn is_binfmt_interpreter() -> bool {
