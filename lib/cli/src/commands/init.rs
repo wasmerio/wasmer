@@ -5,7 +5,8 @@ use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
-use wasmer_registry::WasmerConfig;
+
+use crate::WasmerDir;
 
 static NOTE: &str = "# See more keys and definitions at https://docs.wasmer.io/registry/manifest";
 
@@ -14,6 +15,9 @@ const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 /// CLI args for the `wasmer init` command
 #[derive(Debug, Parser)]
 pub struct Init {
+    #[clap(flatten)]
+    wasmer_dir: WasmerDir,
+
     /// Initialize wasmer.toml for a library package
     #[clap(long, group = "crate-type")]
     pub lib: bool,
@@ -136,6 +140,7 @@ impl Init {
             self.template.as_ref(),
             self.include.as_slice(),
             self.quiet,
+            self.wasmer_dir.dir(),
         )?;
 
         if let Some(parent) = target_file.parent() {
@@ -347,6 +352,7 @@ fn construct_manifest(
     template: Option<&Template>,
     include_fs: &[String],
     quiet: bool,
+    wasmer_dir: &Path,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     if let Some(ct) = cargo_toml.as_ref() {
         let msg = format!(
@@ -365,9 +371,8 @@ fn construct_manifest(
             .map(|p| &p.name)
             .unwrap_or(fallback_package_name)
     });
-    let wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
     let namespace = namespace.or_else(|| {
-        wasmer_registry::whoami(&wasmer_dir, None, None)
+        wasmer_registry::whoami(wasmer_dir, None, None)
             .ok()
             .map(|o| o.1)
     });

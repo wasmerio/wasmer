@@ -35,7 +35,10 @@ use wasmer_wasix::{
     WasiVersion,
 };
 
-use crate::utils::{parse_envvar, parse_mapdir};
+use crate::{
+    utils::{parse_envvar, parse_mapdir},
+    WasmerDir,
+};
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -110,10 +113,6 @@ pub struct Wasi {
     /// Require WASI modules to only import 1 version of WASI.
     #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
-
-    /// The registry to use.
-    #[clap(long, env = "WASMER_REGISTRY", value_parser = parse_registry)]
-    pub registry: Option<Url>,
 }
 
 pub struct RunProperties {
@@ -249,7 +248,7 @@ impl Wasi {
     pub fn prepare_runtime(
         &self,
         engine: Engine,
-        wasmer_dir: &Path,
+        wasmer_dir: &WasmerDir,
         handle: Handle,
     ) -> Result<impl Runtime + Send + Sync> {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
@@ -271,12 +270,12 @@ impl Wasi {
         let client = Arc::new(client);
 
         let package_loader = self
-            .prepare_package_loader(wasmer_dir, client.clone())
+            .prepare_package_loader(wasmer_dir.dir(), client.clone())
             .context("Unable to prepare the package loader")?;
 
         let registry = self.prepare_source(wasmer_dir, client)?;
 
-        let cache_dir = FileSystemCache::default_cache_dir(wasmer_dir);
+        let cache_dir = FileSystemCache::default_cache_dir(wasmer_dir.dir());
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(cache_dir));
 
@@ -328,7 +327,7 @@ impl Wasi {
 
     fn prepare_source(
         &self,
-        wasmer_dir: &Path,
+        wasmer_dir: &WasmerDir,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl Source + Send + Sync> {
         let mut source = MultiSource::new();
@@ -344,12 +343,12 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(wasmer_dir)?;
-        let cache_dir = WapmSource::default_cache_dir(wasmer_dir);
+        let cache_dir = WapmSource::default_cache_dir(wasmer_dir.dir());
         let wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
         source.add_source(wapm_source);
 
-        let cache_dir = WebSource::default_cache_dir(wasmer_dir);
+        let cache_dir = WebSource::default_cache_dir(wasmer_dir.dir());
         source.add_source(WebSource::new(cache_dir, client));
 
         source.add_source(FileSystemSource::default());
@@ -357,13 +356,12 @@ impl Wasi {
         Ok(source)
     }
 
-    fn graphql_endpoint(&self, wasmer_dir: &Path) -> Result<Url> {
-        if let Some(endpoint) = &self.registry {
-            return Ok(endpoint.clone());
+    fn graphql_endpoint(&self, wasmer_dir: &WasmerDir) -> Result<Url> {
+        if let Ok(endpoint) = wasmer_dir.registry_endpoint() {
+            return Ok(endpoint);
         }
 
-        let config =
-            wasmer_registry::WasmerConfig::from_file(wasmer_dir).map_err(anyhow::Error::msg)?;
+        let config = wasmer_dir.config()?;
         let graphql_endpoint = config.registry.get_graphql_url();
         let graphql_endpoint = graphql_endpoint
             .parse()
