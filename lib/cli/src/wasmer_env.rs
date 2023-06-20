@@ -5,10 +5,12 @@ use once_cell::sync::Lazy;
 use url::Url;
 use wasmer_registry::WasmerConfig;
 
-/// Command-line flags for determining `$WASMER_DIR` and interactions with the
-/// registry.
+/// Command-line flags for determining the local "Wasmer Environment".
+///
+/// This is where you access `$WASMER_DIR`, the `$WASMER_DIR/wasmer.toml` config
+/// file, and specify the current registry.
 #[derive(Debug, Clone, PartialEq, clap::Parser)]
-pub struct WasmerDir {
+pub struct WasmerEnv {
     /// Set Wasmer's home directory
     #[clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str())]
     wasmer_dir: PathBuf,
@@ -22,13 +24,13 @@ pub struct WasmerDir {
     token: Option<String>,
 }
 
-impl WasmerDir {
+impl WasmerEnv {
     pub(crate) fn new(
         wasmer_dir: PathBuf,
         registry: Option<Registry>,
         token: Option<String>,
     ) -> Self {
-        WasmerDir {
+        WasmerEnv {
             wasmer_dir,
             registry,
             token,
@@ -72,7 +74,7 @@ impl WasmerDir {
     }
 }
 
-impl Default for WasmerDir {
+impl Default for WasmerEnv {
     fn default() -> Self {
         Self {
             wasmer_dir: WASMER_DIR.clone(),

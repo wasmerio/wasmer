@@ -3,13 +3,13 @@ use std::path::Path;
 use clap::Parser;
 use wasmer_wasix::runtime::resolver::WapmSource;
 
-use crate::WasmerDir;
+use crate::WasmerEnv;
 
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]
 pub struct Publish {
     #[clap(flatten)]
-    wasmer_dir: WasmerDir,
+    env: WasmerEnv,
     /// Run the publish logic without sending anything to the registry server
     #[clap(long, name = "dry-run")]
     pub dry_run: bool,
@@ -36,22 +36,18 @@ impl Publish {
     /// Executes `wasmer publish`
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let publish = wasmer_registry::package::builder::Publish {
-            registry: self
-                .wasmer_dir
-                .registry_endpoint()
-                .map(|u| u.to_string())
-                .ok(),
+            registry: self.env.registry_endpoint().map(|u| u.to_string()).ok(),
             dry_run: self.dry_run,
             quiet: self.quiet,
             package_name: self.package_name.clone(),
             version: self.version.clone(),
-            token: self.wasmer_dir.token(),
+            token: self.env.token(),
             no_validate: self.no_validate,
             package_path: self.package_path.clone(),
         };
         publish.execute().map_err(on_error)?;
 
-        if let Err(e) = invalidate_graphql_query_cache(self.wasmer_dir.dir()) {
+        if let Err(e) = invalidate_graphql_query_cache(self.env.dir()) {
             tracing::warn!(
                 error = &*e,
                 "Unable to invalidate the cache used for package version queries",

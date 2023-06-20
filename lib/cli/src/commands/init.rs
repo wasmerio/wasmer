@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::path::PathBuf;
 
-use crate::WasmerDir;
+use crate::WasmerEnv;
 
 static NOTE: &str = "# See more keys and definitions at https://docs.wasmer.io/registry/manifest";
 
@@ -16,7 +16,7 @@ const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 #[derive(Debug, Parser)]
 pub struct Init {
     #[clap(flatten)]
-    wasmer_dir: WasmerDir,
+    env: WasmerEnv,
 
     /// Initialize wasmer.toml for a library package
     #[clap(long, group = "crate-type")]
@@ -140,7 +140,7 @@ impl Init {
             self.template.as_ref(),
             self.include.as_slice(),
             self.quiet,
-            self.wasmer_dir.dir(),
+            self.env.dir(),
         )?;
 
         if let Some(parent) = target_file.parent() {

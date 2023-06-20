@@ -4,7 +4,7 @@ use clap::Parser;
 #[cfg(not(test))]
 use dialoguer::Input;
 
-use crate::{Registry, WasmerDir};
+use crate::{Registry, WasmerEnv};
 
 /// Subcommand for listing packages
 #[derive(Debug, Clone, Parser)]
@@ -22,12 +22,12 @@ pub struct Login {
 }
 
 impl Login {
-    fn get_token_or_ask_user(&self, wasmer_dir: &WasmerDir) -> Result<String, anyhow::Error> {
+    fn get_token_or_ask_user(&self, env: &WasmerEnv) -> Result<String, anyhow::Error> {
         if let Some(token) = &self.token {
             return Ok(token.clone());
         }
 
-        let registry_host = wasmer_dir.registry_endpoint()?;
+        let registry_host = env.registry_endpoint()?;
         let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
             .extract(registry_host.as_str())
             .map_err(|e| {
@@ -56,8 +56,8 @@ impl Login {
         }
     }
 
-    fn wasmer_dir(&self) -> WasmerDir {
-        WasmerDir::new(
+    fn wasmer_env(&self) -> WasmerEnv {
+        WasmerEnv::new(
             self.wasmer_dir.clone(),
             self.registry.clone(),
             self.token.clone(),
@@ -66,15 +66,11 @@ impl Login {
 
     /// execute [List]
     pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let wasmer_dir = self.wasmer_dir();
-        let token = self.get_token_or_ask_user(&wasmer_dir)?;
+        let env = self.wasmer_env();
+        let token = self.get_token_or_ask_user(&env)?;
 
-        let registry = wasmer_dir.registry_endpoint()?;
-        match wasmer_registry::login::login_and_save_token(
-            wasmer_dir.dir(),
-            registry.as_str(),
-            &token,
-        )? {
+        let registry = env.registry_endpoint()?;
+        match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
             Some(s) => println!("Login for Wasmer user {:?} saved", s),
             None => println!(
                 "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
@@ -99,10 +95,12 @@ mod tests {
             wasmer_dir: temp.path().to_path_buf(),
             token: None,
         };
-        let wasmer_dir = login.wasmer_dir();
+        let env = login.wasmer_env();
+
+        let token = login.get_token_or_ask_user(&env).unwrap();
 
         assert_eq!(
-            login.get_token_or_ask_user(&wasmer_dir).unwrap(),
+            token,
             "Please paste the login token from https://wasmer.wtf/settings/access-tokens"
         );
     }
@@ -115,8 +113,10 @@ mod tests {
             wasmer_dir: temp.path().to_path_buf(),
             token: Some("abc".to_string()),
         };
-        let wasmer_dir = login.wasmer_dir();
+        let env = login.wasmer_env();
 
-        assert_eq!(login.get_token_or_ask_user(&wasmer_dir).unwrap(), "abc");
+        let token = login.get_token_or_ask_user(&env).unwrap();
+
+        assert_eq!(token, "abc");
     }
 }

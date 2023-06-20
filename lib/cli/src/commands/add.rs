@@ -4,13 +4,13 @@ use anyhow::{Context, Error};
 use clap::Parser;
 use wasmer_registry::{Bindings, ProgrammingLanguage};
 
-use crate::WasmerDir;
+use crate::WasmerEnv;
 
 /// Add a Wasmer package's bindings to your application.
 #[derive(Debug, Parser)]
 pub struct Add {
     #[clap(flatten)]
-    wasmer_dir: WasmerDir,
+    env: WasmerEnv,
     /// Add the JavaScript bindings using "npm install".
     #[clap(long, groups = &["bindings", "js"])]
     npm: bool,
@@ -33,7 +33,7 @@ impl Add {
         anyhow::ensure!(!self.packages.is_empty(), "No packages specified");
 
         let registry = self
-            .wasmer_dir
+            .env
             .registry_endpoint()
             .context("Unable to determine which registry to use")?;
 

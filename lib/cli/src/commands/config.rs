@@ -1,4 +1,4 @@
-use crate::{WasmerDir, VERSION};
+use crate::{WasmerEnv, VERSION};
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::str::ParseBoolError;
@@ -8,7 +8,7 @@ use wasmer_registry::WasmerConfig;
 /// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
 pub struct Config {
     #[clap(flatten)]
-    wasmer_dir: WasmerDir,
+    env: WasmerEnv,
 
     #[clap(flatten)]
     flags: Flags,
@@ -169,12 +169,12 @@ impl Config {
 
     fn inner_execute(&self) -> Result<()> {
         if let Some(s) = self.set.as_ref() {
-            return s.execute(&self.wasmer_dir);
+            return s.execute(&self.env);
         }
 
         let flags = &self.flags;
 
-        let prefix = self.wasmer_dir.dir();
+        let prefix = self.env.dir();
 
         let prefixdir = prefix.display().to_string();
         let bindir = prefix.join("bin").display().to_string();
@@ -217,7 +217,7 @@ impl Config {
         }
 
         if flags.config_path {
-            let path = WasmerConfig::get_file_location(self.wasmer_dir.dir());
+            let path = WasmerConfig::get_file_location(self.env.dir());
             println!("{}", path.display());
         }
 
@@ -226,9 +226,9 @@ impl Config {
 }
 
 impl GetOrSet {
-    fn execute(&self, wasmer_dir: &WasmerDir) -> Result<()> {
-        let config_file = WasmerConfig::get_file_location(wasmer_dir.dir());
-        let mut config = wasmer_dir.config()?;
+    fn execute(&self, env: &WasmerEnv) -> Result<()> {
+        let config_file = WasmerConfig::get_file_location(env.dir());
+        let mut config = env.config()?;
 
         match self {
             GetOrSet::Get(g) => match g {

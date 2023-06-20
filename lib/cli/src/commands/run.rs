@@ -50,7 +50,7 @@ use wasmer_wasix::{
 use webc::{metadata::Manifest, Container};
 
 use crate::{
-    commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions, WasmerDir,
+    commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions, WasmerEnv,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -59,7 +59,7 @@ const TICK: Duration = Duration::from_millis(250);
 #[derive(Debug, Parser)]
 pub struct Run {
     #[clap(flatten)]
-    wasmer_dir: WasmerDir,
+    env: WasmerEnv,
     #[clap(flatten)]
     store: StoreOptions,
     #[clap(flatten)]
@@ -106,9 +106,9 @@ impl Run {
         }
 
         let (store, _) = self.store.get_store()?;
-        let runtime =
-            self.wasi
-                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
+        let runtime = self
+            .wasi
+            .prepare_runtime(store.engine().clone(), &self.env, handle)?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
@@ -352,7 +352,7 @@ impl Run {
         };
         let store = StoreOptions::default();
         Ok(Run {
-            wasmer_dir: WasmerDir::default(),
+            env: WasmerEnv::default(),
             store,
             wasi: Wasi::for_binfmt_interpreter()?,
             wcgi: WcgiOptions::default(),

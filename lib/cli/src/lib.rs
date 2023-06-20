@@ -27,9 +27,9 @@ pub mod package_source;
 pub mod store;
 pub mod suggestions;
 pub mod utils;
-mod wasmer_dir;
+mod wasmer_env;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub use crate::wasmer_dir::{Registry, WasmerDir, WASMER_DIR};
+pub use crate::wasmer_env::{Registry, WasmerEnv, WASMER_DIR};
