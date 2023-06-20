@@ -47,7 +47,7 @@ pub(crate) use std::{
     thread::LocalKey,
     time::Duration,
 };
-use std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, time::Instant};
+use std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, task::Waker, time::Instant};
 
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
@@ -316,6 +316,9 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
+            for (id, woken) in self.ctx.data().state.wakers.pop_wakes_and_subscribe(cx) {
+                WasiEnv::process_one_wake_internal(self.ctx, id, woken);
+            }
             if let Some(exit_code) = self.ctx.data().should_exit() {
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
             }
@@ -342,15 +345,15 @@ where
 pub type AsyncifyFuture = dyn Future<Output = Bytes> + Send + Sync + 'static;
 
 // This poller will process any signals when the main working function is idle
-struct AsyncifyPoller<'a, T, Fut>
+struct AsyncifyPoller<'a, 'b, 'c, T, Fut>
 where
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
     process_signals: bool,
-    thread: WasiThread,
+    ctx: &'b mut FunctionEnvMut<'c, WasiEnv>,
     work: &'a mut Pin<Box<Fut>>,
 }
-impl<'a, T, Fut> Future for AsyncifyPoller<'a, T, Fut>
+impl<'a, 'b, 'c, T, Fut> Future for AsyncifyPoller<'a, 'b, 'c, T, Fut>
 where
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
@@ -360,21 +363,26 @@ where
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
         }
-        if let Some(forced_exit) = self.thread.try_join() {
+        let wakes = self.ctx.data().state.wakers.pop_wakes_and_subscribe(cx);
+        for (id, woken) in wakes {
+            WasiEnv::process_one_wake_internal(self.ctx, id, woken);
+        }
+        let env = self.ctx.data();
+        if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
                 tracing::debug!("exit runtime error - {}", err);
                 Errno::Child.into()
             }))));
         }
-        if self.process_signals && self.thread.has_signals_or_subscribe(cx.waker()) {
-            let signals = self.thread.signals().lock().unwrap();
+        if self.process_signals && env.thread.has_signals_or_subscribe(cx.waker()) {
+            let signals = env.thread.signals().lock().unwrap();
             for sig in signals.0.iter() {
                 if *sig == Signal::Sigint
                     || *sig == Signal::Sigquit
                     || *sig == Signal::Sigkill
                     || *sig == Signal::Sigabrt
                 {
-                    let exit_code = self.thread.set_or_get_exit_code_for_signal(*sig);
+                    let exit_code = env.thread.set_or_get_exit_code_for_signal(*sig);
                     return Poll::Ready(Err(WasiError::Exit(exit_code)));
                 }
             }
@@ -390,6 +398,9 @@ pub enum AsyncifyAction<'a, R> {
     /// Indicates that asyncify should unwind by immediately exiting
     /// the current function
     Unwind,
+    /// The asynchronous operation is pending and
+    /// will be woken when its ready to be repeated by a poll syscall
+    Pending,
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -401,11 +412,12 @@ pub enum AsyncifyAction<'a, R> {
 /// or it will return an WasiError which will exit the WASM call using asyncify
 /// and instead process it on a shared task
 ///
-pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+pub(crate) fn __asyncify_with_deep_sleep<'a, 'b, M: MemorySize, T, Fut>(
+    mut ctx: FunctionEnvMut<'a, WasiEnv>,
     deep_sleep_time: Duration,
-    trigger: Fut,
-) -> Result<AsyncifyAction<'_, T>, WasiError>
+    waker: Option<&'b Waker>,
+    work: Fut,
+) -> Result<AsyncifyAction<'a, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
     Fut: Future<Output = T> + Send + Sync + 'static,
@@ -418,17 +430,23 @@ where
         .unwrap_or(true);
 
     // Box up the trigger
-    let mut trigger = Box::pin(trigger);
+    let mut trigger = Box::pin(work);
 
     // Define the work
+    let has_waker = waker.is_some();
     let tasks = ctx.data().tasks().clone();
     let work = async move {
         let env = ctx.data();
 
         // Create the deep sleeper
+        let tasks = if env.enable_deep_sleep && has_waker {
+            Some(env.tasks().clone())
+        } else {
+            None
+        };
         let deep_sleep_wait = async {
-            if env.enable_deep_sleep {
-                env.tasks().sleep_now(deep_sleep_time).await
+            if let Some(tasks) = tasks {
+                tasks.sleep_now(deep_sleep_time).await
             } else {
                 InfiniteSleep::default().await
             }
@@ -438,7 +456,7 @@ where
             // Inner wait with finializer
             res = AsyncifyPoller {
                 process_signals,
-                thread: ctx.data().thread.clone(),
+                ctx: &mut ctx,
                 work: &mut trigger,
             } => {
                 let result = res?;
@@ -458,8 +476,20 @@ where
         })
     };
 
-    // Block on the work
-    tasks.block_on(work)
+    // If a waker was supplied then use this instead
+    // of passing the actual command to the runtime
+    if let Some(waker) = waker {
+        let mut pinned = Box::pin(work);
+        let mut cx = Context::from_waker(waker);
+        match pinned.as_mut().poll(&mut cx) {
+            Poll::Ready(res) => res,
+            Poll::Pending => Ok(AsyncifyAction::Pending),
+        }
+    } else {
+        // Otherwise we block on the work and process it
+        // using the runtime from the task manager
+        tasks.block_on(work)
+    }
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -469,6 +499,7 @@ where
 pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
+    waker: Option<&Waker>,
     work: Fut,
 ) -> Result<Result<T, Errno>, WasiError>
 where
@@ -495,17 +526,30 @@ where
             if let Some(exit_code) = self.env.should_exit() {
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
             }
-            if let Some(signals) = self.env.thread.pop_signals_or_subscribe(cx.waker()) {
+            if self.env.thread.has_signals_or_subscribe(cx.waker()) {
                 return Poll::Ready(Ok(Err(Errno::Intr)));
             }
             Poll::Pending
         }
     }
 
-    // Block on the work
-    let mut pinned_work = Box::pin(work);
-    let poller = Poller { env, pinned_work };
-    block_on_with_timeout(env.tasks(), timeout, poller)
+    // If a waker was supplied then use this instead
+    // of passing the actual command to the runtime
+    if let Some(waker) = waker {
+        let mut pinned = Box::pin(work);
+        let mut cx = Context::from_waker(waker);
+        match pinned.as_mut().poll(&mut cx) {
+            Poll::Ready(res) => Ok(res),
+            Poll::Pending => Ok(Err(Errno::Pending)),
+        }
+    } else {
+        // Otherwise we block on the work and process it
+        // using the runtime from the task manager
+        // Block on the work
+        let mut pinned_work = Box::pin(work);
+        let poller = Poller { env, pinned_work };
+        block_on_with_timeout(env.tasks(), timeout, poller)
+    }
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -526,6 +570,7 @@ pub(crate) fn __sock_asyncify<T, F, Fut>(
     env: &WasiEnv,
     sock: WasiFd,
     rights: Rights,
+    waker: Option<&Waker>,
     actor: F,
 ) -> Result<T, Errno>
 where
@@ -537,7 +582,7 @@ where
         return Err(Errno::Access);
     }
 
-    let work = {
+    let mut work = {
         let inode = fd_entry.inode.clone();
         let tasks = env.tasks().clone();
         let mut guard = inode.read();
@@ -556,8 +601,20 @@ where
         }
     };
 
-    // Block on the work and process it
-    env.tasks().block_on(work)
+    // If a waker was supplied then use this instead
+    // of passing the actual command to the runtime
+    if let Some(waker) = waker {
+        let mut pinned = Box::pin(work);
+        let mut cx = Context::from_waker(waker);
+        match pinned.as_mut().poll(&mut cx) {
+            Poll::Ready(res) => res,
+            Poll::Pending => Err(Errno::Pending),
+        }
+    } else {
+        // Otherwise we block on the work and process it
+        // using the runtime from the task manager
+        env.tasks().block_on(work)
+    }
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -566,6 +623,7 @@ pub(crate) fn __sock_asyncify_mut<T, F, Fut>(
     ctx: &'_ mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
+    waker: Option<&Waker>,
     actor: F,
 ) -> Result<T, Errno>
 where
@@ -589,10 +647,22 @@ where
             drop(guard);
 
             // Start the work using the socket
-            let work = actor(socket, fd_entry);
+            let mut work = actor(socket, fd_entry);
 
-            // Block on the work and process it
-            tasks.block_on(work)
+            // If a waker was supplied then use this instead
+            // of passing the actual command to the runtime
+            if let Some(waker) = waker {
+                let mut pinned = Box::pin(work);
+                let mut cx = Context::from_waker(waker);
+                match pinned.as_mut().poll(&mut cx) {
+                    Poll::Ready(res) => res,
+                    Poll::Pending => Err(Errno::Pending),
+                }
+            } else {
+                // Otherwise we block on the work and process it
+                // using the runtime from the task manager
+                tasks.block_on(work)
+            }
         }
         _ => Err(Errno::Notsock),
     }

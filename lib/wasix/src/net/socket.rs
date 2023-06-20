@@ -322,15 +322,9 @@ impl InodeSocket {
     pub async fn accept(
         &self,
         tasks: &dyn VirtualTaskManager,
-        fd_flags: Fdflags,
+        nonblocking: bool,
+        timeout: Option<Duration>,
     ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
-        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        let timeout = self
-            .opt_time(TimeType::AcceptTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(30));
-
         struct SocketAccepter<'a> {
             sock: &'a InodeSocket,
             nonblocking: bool,
@@ -360,10 +354,41 @@ impl InodeSocket {
             }
         }
 
-        tokio::select! {
-            res = SocketAccepter { sock: self, nonblocking } => res,
-            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        let acceptor = SocketAccepter {
+            sock: self,
+            nonblocking,
+        };
+        if let Some(timeout) = timeout {
+            tokio::select! {
+                res = acceptor => res,
+                _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+            }
+        } else {
+            acceptor.await
         }
+    }
+
+    pub async fn accept_ready(&self) -> Result<usize, Errno> {
+        struct SocketAcceptReady<'a> {
+            sock: &'a InodeSocket,
+        }
+        impl<'a> Future for SocketAcceptReady<'a> {
+            type Output = Result<usize, Errno>;
+            fn poll(
+                self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                let mut inner = self.sock.inner.protected.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::TcpListener { socket, .. } => socket
+                        .poll_accept_ready(cx)
+                        .map_err(net_error_into_wasi_err),
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
+                }
+            }
+        }
+        SocketAcceptReady { sock: self }.await
     }
 
     pub fn close(&self) -> Result<(), Errno> {
@@ -898,15 +923,9 @@ impl InodeSocket {
         &self,
         tasks: &dyn VirtualTaskManager,
         buf: &[u8],
-        fd_flags: Fdflags,
+        timeout: Option<Duration>,
+        nonblocking: bool,
     ) -> Result<usize, Errno> {
-        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        let timeout = self
-            .opt_time(TimeType::WriteTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(30));
-
         #[derive(Debug)]
         struct SocketSender<'a, 'b> {
             inner: &'a InodeSocketInner,
@@ -963,10 +982,48 @@ impl InodeSocket {
             }
         }
 
-        tokio::select! {
-            res = SocketSender { inner: &self.inner, data: buf, nonblocking } => res,
-            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        let poller = SocketSender {
+            inner: &self.inner,
+            data: buf,
+            nonblocking,
+        };
+        if let Some(timeout) = timeout {
+            tokio::select! {
+                res = poller => res,
+                _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+            }
+        } else {
+            poller.await
         }
+    }
+
+    pub async fn send_ready(&self) -> Result<usize, Errno> {
+        struct SocketSendReady<'a> {
+            sock: &'a InodeSocket,
+        }
+        impl<'a> Future for SocketSendReady<'a> {
+            type Output = Result<usize, Errno>;
+            fn poll(
+                self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                let mut inner = self.sock.inner.protected.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::Raw(socket) => {
+                        socket.poll_write_ready(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::TcpStream { socket, .. } => {
+                        socket.poll_write_ready(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::UdpSocket { socket, .. } => {
+                        socket.poll_write_ready(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
+                }
+            }
+        }
+        SocketSendReady { sock: self }.await
     }
 
     pub async fn send_to<M: MemorySize>(
@@ -1034,15 +1091,9 @@ impl InodeSocket {
         &self,
         tasks: &dyn VirtualTaskManager,
         buf: &mut [MaybeUninit<u8>],
-        fd_flags: Fdflags,
+        timeout: Option<Duration>,
+        nonblocking: bool,
     ) -> Result<usize, Errno> {
-        let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        let timeout = self
-            .opt_time(TimeType::ReadTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(30));
-
         #[derive(Debug)]
         struct SocketReceiver<'a, 'b> {
             inner: &'a InodeSocketInner,
@@ -1114,10 +1165,48 @@ impl InodeSocket {
             }
         }
 
-        tokio::select! {
-            res = SocketReceiver { inner: &self.inner, data: buf, nonblocking } => res,
-            _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+        let poller = SocketReceiver {
+            inner: &self.inner,
+            data: buf,
+            nonblocking,
+        };
+        if let Some(timeout) = timeout {
+            tokio::select! {
+                res = poller => res,
+                _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+            }
+        } else {
+            poller.await
         }
+    }
+
+    pub async fn read_ready(&self) -> Result<usize, Errno> {
+        struct SocketReadReady<'a> {
+            sock: &'a InodeSocket,
+        }
+        impl<'a> Future for SocketReadReady<'a> {
+            type Output = Result<usize, Errno>;
+            fn poll(
+                self: Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                let mut inner = self.sock.inner.protected.write().unwrap();
+                match &mut inner.kind {
+                    InodeSocketKind::Raw(socket) => {
+                        socket.poll_read_ready(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::TcpStream { socket, .. } => {
+                        socket.poll_read_ready(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::UdpSocket { socket, .. } => {
+                        socket.poll_read_ready(cx).map_err(net_error_into_wasi_err)
+                    }
+                    InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
+                    _ => Poll::Ready(Err(Errno::Notsup)),
+                }
+            }
+        }
+        SocketReadReady { sock: self }.await
     }
 
     pub async fn recv_from(

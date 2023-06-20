@@ -18,6 +18,8 @@ pub type Filesize = u64;
 pub type Timestamp = u64;
 #[doc = " A file descriptor handle."]
 pub type Fd = u32;
+#[doc = " Reference to a waker (used for asynchronous IO)."]
+pub type WakerId = u64;
 #[doc = " A reference to the offset of a directory entry."]
 pub type Dircookie = u64;
 #[doc = " The type for the `dirent::d-namlen` field of `dirent` struct."]
@@ -257,6 +259,8 @@ pub enum Errno {
     Memviolation,
     #[doc = " An unknown error has occured"]
     Unknown,
+    #[doc = " Invocation is pending until the waker is woken."]
+    Pending,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {
@@ -340,6 +344,7 @@ impl Errno {
             Errno::Notcapable => "notcapable",
             Errno::Shutdown => "shutdown",
             Errno::Memviolation => "memviolation",
+            Errno::Pending => "pending",
             Errno::Unknown => "unknown",
         }
     }
@@ -424,6 +429,7 @@ impl Errno {
             Errno::Notcapable => "Extension: Capabilities insufficient.",
             Errno::Shutdown => "Cannot send after socket shutdown.",
             Errno::Memviolation => "Memory access violation.",
+            Errno::Pending => "Pending asynchronous wake.",
             Errno::Unknown => "An unknown error has occured",
         }
     }

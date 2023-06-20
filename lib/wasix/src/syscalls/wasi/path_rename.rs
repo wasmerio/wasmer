@@ -122,7 +122,7 @@ pub fn path_rename<M: MemorySize>(
                 let result = if let Some(h) = handle {
                     drop(guard);
                     let state = state;
-                    __asyncify_light(env, None, async move {
+                    __asyncify_light(env, None, None, async move {
                         state
                             .fs_rename(source_path, &host_adjusted_target_path)
                             .await
@@ -133,7 +133,7 @@ pub fn path_rename<M: MemorySize>(
                     let out = {
                         let state = state;
                         let host_adjusted_target_path = host_adjusted_target_path.clone();
-                        __asyncify_light(env, None, async move {
+                        __asyncify_light(env, None, None, async move {
                             state
                                 .fs_rename(path_clone, &host_adjusted_target_path)
                                 .await
@@ -163,7 +163,7 @@ pub fn path_rename<M: MemorySize>(
                 let res = {
                     let state = state;
                     let host_adjusted_target_path = host_adjusted_target_path.clone();
-                    __asyncify_light(env, None, async move {
+                    __asyncify_light(env, None, None, async move {
                         state
                             .fs_rename(cloned_path, &host_adjusted_target_path)
                             .await

@@ -1,4 +1,4 @@
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
 use crate::syscalls::*;
@@ -18,6 +18,29 @@ use crate::syscalls::*;
 /// Number of bytes stored in ri_data and message flags.
 #[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret, err)]
 pub fn sock_recv_from<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
+    ri_data_len: M::Offset,
+    ri_flags: RiFlags,
+    ro_data_len: WasmPtr<M::Offset, M>,
+    ro_flags: WasmPtr<RoFlags, M>,
+    ro_addr: WasmPtr<__wasi_addr_port_t, M>,
+) -> Result<Errno, WasiError> {
+    sock_recv_from_internal(
+        ctx,
+        sock,
+        ri_data,
+        ri_data_len,
+        ri_flags,
+        ro_data_len,
+        ro_flags,
+        ro_addr,
+        None,
+    )
+}
+
+pub(super) fn sock_recv_from_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
@@ -26,8 +49,9 @@ pub fn sock_recv_from<M: MemorySize>(
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
+    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
@@ -51,6 +75,7 @@ pub fn sock_recv_from<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_RECV,
+                waker,
                 |socket, fd| async move {
                     socket
                         .recv_from(env.tasks().deref(), writer, fd.flags)
@@ -70,6 +95,7 @@ pub fn sock_recv_from<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_RECV_FROM,
+                waker,
                 |socket, fd| async move {
                     let mut buf = Vec::with_capacity(max_size);
                     unsafe {

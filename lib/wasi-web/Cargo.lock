@@ -2085,7 +2085,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2180,7 +2180,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2364,7 +2364,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.0.0-beta.2"
+version = "4.0.0-beta.3"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -2391,7 +2391,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.0.0-beta.2"
+version = "4.0.0-beta.3"
 dependencies = [
  "backtrace",
  "cfg-if",
@@ -2411,7 +2411,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.0.0-beta.2"
+version = "4.0.0-beta.3"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2421,7 +2421,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.0.0-beta.2"
+version = "4.0.0-beta.3"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -2436,7 +2436,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "4.0.0-beta.2"
+version = "4.0.0-beta.3"
 dependencies = [
  "backtrace",
  "cc",
@@ -2461,7 +2461,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2515,7 +2515,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -2536,7 +2536,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-web"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",

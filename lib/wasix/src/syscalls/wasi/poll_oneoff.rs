@@ -62,7 +62,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     ctx.data_mut().poll_seed += 1;
     let mut env = ctx.data();
@@ -178,7 +178,7 @@ pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
 where
     After: FnOnce(&FunctionEnvMut<'a, WasiEnv>, Vec<Event>) -> Errno,
 {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
@@ -259,6 +259,7 @@ where
                         time_to_sleep = Duration::MAX;
                     } else if clock_info.timeout == 1 {
                         time_to_sleep = Duration::ZERO;
+                        clock_subs.push((clock_info, s.userdata));
                     } else {
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
@@ -426,8 +427,12 @@ where
     let res = __asyncify_with_deep_sleep::<M, Result<Vec<EventResult>, Errno>, _>(
         ctx,
         Duration::from_millis(50),
+        None,
         Box::pin(trigger),
     )?;
+    if let &AsyncifyAction::Pending = &res {
+        return Ok(Errno::Pending);
+    }
     if let AsyncifyAction::Finish(mut ctx, events) = res {
         let events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
         process_events(&ctx, events);

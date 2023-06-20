@@ -1,5 +1,7 @@
+use std::task::Waker;
+
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_accept()`
 /// Accept a new incoming connection.
@@ -17,15 +19,24 @@ use crate::syscalls::*;
 pub fn sock_accept<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    mut fd_flags: Fdflags,
+    fd_flags: Fdflags,
     ro_fd: WasmPtr<WasiFd, M>,
+    ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags));
+    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(
+        env,
+        sock,
+        fd_flags,
+        None,
+        nonblocking
+    ));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
 
@@ -49,16 +60,24 @@ pub fn sock_accept<M: MemorySize>(
 pub fn sock_accept_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    mut fd_flags: Fdflags,
+    fd_flags: Fdflags,
     ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
 
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags));
+    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(
+        env,
+        sock,
+        fd_flags,
+        None,
+        nonblocking
+    ));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
@@ -75,6 +94,8 @@ pub fn sock_accept_internal<M: MemorySize>(
     env: &WasiEnv,
     sock: WasiFd,
     mut fd_flags: Fdflags,
+    waker: Option<&Waker>,
+    mut nonblocking: bool,
 ) -> Result<(WasiFd, SocketAddr), Errno> {
     let state = env.state();
     let inodes = &state.inodes;
@@ -84,12 +105,27 @@ pub fn sock_accept_internal<M: MemorySize>(
         env,
         sock,
         Rights::SOCK_ACCEPT,
+        waker,
         move |socket, fd| async move {
             if fd.flags.contains(Fdflags::NONBLOCK) {
                 fd_flags.set(Fdflags::NONBLOCK, true);
+                if waker.is_none() {
+                    nonblocking = true;
+                }
             }
+            let timeout = if waker.is_none() {
+                Some(
+                    socket
+                        .opt_time(TimeType::AcceptTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30)),
+                )
+            } else {
+                None
+            };
             socket
-                .accept(tasks.deref(), fd_flags)
+                .accept(tasks.deref(), nonblocking, timeout)
                 .await
                 .map(|a| (a.0, a.1, fd_flags))
         },

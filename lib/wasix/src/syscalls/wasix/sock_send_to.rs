@@ -1,3 +1,5 @@
+use std::task::Waker;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -17,6 +19,27 @@ use crate::syscalls::*;
 /// Number of bytes transmitted.
 #[instrument(level = "trace", skip_all, fields(%sock, ?addr, nsent = field::Empty), ret, err)]
 pub fn sock_send_to<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
+    si_data_len: M::Offset,
+    si_flags: SiFlags,
+    addr: WasmPtr<__wasi_addr_port_t, M>,
+    ret_data_len: WasmPtr<M::Offset, M>,
+) -> Result<Errno, WasiError> {
+    sock_send_to_internal(
+        ctx,
+        sock,
+        si_data,
+        si_data_len,
+        si_flags,
+        addr,
+        ret_data_len,
+        None,
+    )
+}
+
+pub(super) fn sock_send_to_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
@@ -24,6 +47,7 @@ pub fn sock_send_to<M: MemorySize>(
     _si_flags: SiFlags,
     addr: WasmPtr<__wasi_addr_port_t, M>,
     ret_data_len: WasmPtr<M::Offset, M>,
+    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
@@ -41,6 +65,7 @@ pub fn sock_send_to<M: MemorySize>(
             env,
             sock,
             Rights::SOCK_SEND_TO,
+            waker,
             |socket, fd| async move {
                 let iovs_arr = si_data
                     .slice(&memory, si_data_len)
