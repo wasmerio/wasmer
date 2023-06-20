@@ -33,7 +33,10 @@ use wasmer_registry::Package;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
-    runtime::{package_loader::PackageLoader, resolver::PackageSpecifier},
+    runtime::{
+        package_loader::PackageLoader,
+        resolver::{PackageSpecifier, QueryError},
+    },
     WasiError,
 };
 use wasmer_wasix::{
@@ -117,10 +120,7 @@ impl Run {
         // something that displays progress
         let monitoring_runtime = MonitoringRuntime::new(runtime, pb.clone());
 
-        let target = self
-            .input
-            .resolve_target(&monitoring_runtime, &pb)
-            .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
+        let target = self.input.resolve_target(&monitoring_runtime, &pb)?;
 
         pb.finish_and_clear();
 
@@ -841,7 +841,7 @@ impl wasmer_wasix::runtime::resolver::Source for MonitoringSource {
     async fn query(
         &self,
         package: &PackageSpecifier,
-    ) -> Result<Vec<wasmer_wasix::runtime::resolver::PackageSummary>, Error> {
+    ) -> Result<Vec<wasmer_wasix::runtime::resolver::PackageSummary>, QueryError> {
         self.progress.set_message(format!("Looking up {package}"));
         self.inner.query(package).await
     }

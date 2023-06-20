@@ -101,7 +101,15 @@ impl FromStr for PackageSpecifier {
 impl Display for PackageSpecifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PackageSpecifier::Registry { full_name, version } => write!(f, "{full_name}@{version}"),
+            PackageSpecifier::Registry { full_name, version } => {
+                write!(f, "{full_name}")?;
+
+                if !version.comparators.is_empty() {
+                    write!(f, "@{version}")?;
+                }
+
+                Ok(())
+            }
             PackageSpecifier::Url(url) => Display::fmt(url, f),
             PackageSpecifier::Path(path) => write!(f, "{}", path.display()),
         }

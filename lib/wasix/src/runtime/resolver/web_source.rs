@@ -16,7 +16,8 @@ use webc::compat::Container;
 use crate::{
     http::{HttpClient, HttpRequest},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
+        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
+        WebcHash,
     },
 };
 
@@ -234,10 +235,10 @@ impl WebSource {
 #[async_trait::async_trait]
 impl Source for WebSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         let url = match package {
             PackageSpecifier::Url(url) => url,
-            _ => return Ok(Vec::new()),
+            _ => return Err(QueryError::Unsupported),
         };
 
         let local_path = self
@@ -246,12 +247,16 @@ impl Source for WebSource {
             .context("Unable to get the locally cached file")?;
 
         // FIXME: this will block
-        let webc_sha256 = WebcHash::for_file(&local_path)?;
+        let webc_sha256 = WebcHash::for_file(&local_path)
+            .with_context(|| format!("Unable to hash \"{}\"", local_path.display()))?;
 
         // Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
-        let container = Container::from_disk(&local_path)?;
-        let pkg = PackageInfo::from_manifest(container.manifest())?;
+        let container = Container::from_disk(&local_path)
+            .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
+        let pkg = PackageInfo::from_manifest(container.manifest())
+            .context("Unable to determine the package's metadata")?;
+
         let dist = DistributionInfo {
             webc: url.clone(),
             webc_sha256,
