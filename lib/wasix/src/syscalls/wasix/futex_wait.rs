@@ -159,6 +159,7 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
     // We use asyncify on the poller and potentially go into deep sleep
+    tracing::trace!("wait on {futex_idx}");
     let res = __asyncify_with_deep_sleep::<M, _, _>(
         ctx,
         Duration::from_millis(50),

@@ -16,7 +16,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use clap::Parser;
-use clap_verbosity_flag::WarnLevel;
+use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
@@ -33,7 +33,10 @@ use wasmer_registry::Package;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
-    runtime::resolver::PackageSpecifier,
+    runtime::{
+        package_loader::PackageLoader,
+        resolver::{PackageSpecifier, QueryError},
+    },
     WasiError,
 };
 use wasmer_wasix::{
@@ -46,7 +49,9 @@ use wasmer_wasix::{
 };
 use webc::{metadata::Manifest, Container};
 
-use crate::{commands::run::wasi::Wasi, error::PrettyError, store::StoreOptions};
+use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions};
+
+const TICK: Duration = Duration::from_millis(250);
 
 static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
     wasmer_registry::WasmerConfig::get_wasmer_dir()
@@ -58,8 +63,6 @@ static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
 pub struct Run {
-    #[clap(flatten)]
-    verbosity: clap_verbosity_flag::Verbosity<WarnLevel>,
     /// The Wasmer home directory.
     #[clap(long = "wasmer-dir", env = "WASMER_DIR", default_value = WASMER_HOME.as_os_str())]
     wasmer_dir: PathBuf,
@@ -86,13 +89,18 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn execute(&self) -> ! {
-        let result = self.execute_inner();
+    pub fn execute(self, output: Output) -> ! {
+        let result = self.execute_inner(output);
         exit_with_wasi_exit_code(result);
     }
 
-    fn execute_inner(&self) -> Result<(), Error> {
-        crate::logging::set_up_logging(self.verbosity.log_level_filter());
+    fn execute_inner(self, output: Output) -> Result<(), Error> {
+        let pb = ProgressBar::new_spinner();
+        pb.set_draw_target(output.draw_target());
+        pb.enable_steady_tick(TICK);
+
+        pb.set_message("Initializing the WebAssembly VM");
+
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
@@ -108,12 +116,16 @@ impl Run {
             self.wasi
                 .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
 
-        let target = self
-            .input
-            .resolve_target(&runtime)
-            .with_context(|| format!("Unable to resolve \"{}\"", self.input))?;
+        // This is a slow operation, so let's temporarily wrap the runtime with
+        // something that displays progress
+        let monitoring_runtime = MonitoringRuntime::new(runtime, pb.clone());
 
-        let runtime: Arc<dyn Runtime + Send + Sync> = Arc::new(runtime);
+        let target = self.input.resolve_target(&monitoring_runtime, &pb)?;
+
+        pb.finish_and_clear();
+
+        let runtime: Arc<dyn Runtime + Send + Sync> = Arc::new(monitoring_runtime.runtime);
+
         let result = {
             match target {
                 ExecutableTarget::WebAssembly { module, path } => {
@@ -128,20 +140,6 @@ impl Run {
         }
 
         result
-    }
-
-    fn execute_target(
-        &self,
-        executable_target: ExecutableTarget,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-        store: Store,
-    ) -> Result<(), Error> {
-        match executable_target {
-            ExecutableTarget::WebAssembly { module, path } => {
-                self.execute_wasm(&path, &module, store, runtime)
-            }
-            ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
-        }
     }
 
     #[tracing::instrument(skip_all)]
@@ -360,7 +358,6 @@ impl Run {
         };
         let store = StoreOptions::default();
         Ok(Run {
-            verbosity: clap_verbosity_flag::Verbosity::new(0, 0),
             wasmer_dir: WASMER_HOME.clone(),
             store,
             wasi: Wasi::for_binfmt_interpreter()?,
@@ -469,11 +466,16 @@ impl PackageSource {
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
-    fn resolve_target(&self, rt: &dyn Runtime) -> Result<ExecutableTarget, Error> {
+    fn resolve_target(
+        &self,
+        rt: &dyn Runtime,
+        pb: &ProgressBar,
+    ) -> Result<ExecutableTarget, Error> {
         match self {
-            PackageSource::File(path) => ExecutableTarget::from_file(path, rt),
-            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt),
+            PackageSource::File(path) => ExecutableTarget::from_file(path, rt, pb),
+            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt, pb),
             PackageSource::Package(pkg) => {
+                pb.set_message("Loading from the registry");
                 let pkg = rt
                     .task_manager()
                     .block_on(BinaryPackage::from_registry(pkg, rt))?;
@@ -549,10 +551,13 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    fn from_dir(dir: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
+    fn from_dir(dir: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
+        pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
+
         let webc = construct_webc_in_memory(dir)?;
         let container = Container::from_bytes(webc)?;
 
+        pb.set_message("Resolving dependencies");
         let pkg = runtime
             .task_manager()
             .block_on(BinaryPackage::from_webc(&container, runtime))?;
@@ -562,11 +567,14 @@ impl ExecutableTarget {
 
     /// Try to load a file into something that can be used to run it.
     #[tracing::instrument(skip_all)]
-    fn from_file(path: &Path, runtime: &dyn Runtime) -> Result<Self, Error> {
+    fn from_file(path: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
+        pb.set_message(format!("Loading from \"{}\"", path.display()));
+
         match TargetOnDisk::from_file(path)? {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
                 let engine = runtime.engine().context("No engine available")?;
+                pb.set_message("Compiling to WebAssembly");
                 let module = Module::new(&engine, wasm)?;
                 Ok(ExecutableTarget::WebAssembly {
                     module,
@@ -575,6 +583,7 @@ impl ExecutableTarget {
             }
             TargetOnDisk::Artifact => {
                 let engine = runtime.engine().context("No engine available")?;
+                pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
 
                 Ok(ExecutableTarget::WebAssembly {
@@ -584,6 +593,7 @@ impl ExecutableTarget {
             }
             TargetOnDisk::LocalWebc => {
                 let container = Container::from_disk(path)?;
+                pb.set_message("Resolving dependencies");
                 let pkg = runtime
                     .task_manager()
                     .block_on(BinaryPackage::from_webc(&container, runtime))?;
@@ -756,4 +766,112 @@ fn get_exit_code(
     }
 
     None
+}
+
+#[derive(Debug)]
+struct MonitoringRuntime<R> {
+    runtime: R,
+    progress: ProgressBar,
+}
+
+impl<R> MonitoringRuntime<R> {
+    fn new(runtime: R, progress: ProgressBar) -> Self {
+        MonitoringRuntime { runtime, progress }
+    }
+}
+
+impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for MonitoringRuntime<R> {
+    fn networking(&self) -> &virtual_net::DynVirtualNetworking {
+        self.runtime.networking()
+    }
+
+    fn task_manager(&self) -> &Arc<dyn wasmer_wasix::VirtualTaskManager> {
+        self.runtime.task_manager()
+    }
+
+    fn package_loader(
+        &self,
+    ) -> Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync> {
+        let inner = self.runtime.package_loader();
+        Arc::new(MonitoringPackageLoader {
+            inner,
+            progress: self.progress.clone(),
+        })
+    }
+
+    fn module_cache(
+        &self,
+    ) -> Arc<dyn wasmer_wasix::runtime::module_cache::ModuleCache + Send + Sync> {
+        self.runtime.module_cache()
+    }
+
+    fn source(&self) -> Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync> {
+        let inner = self.runtime.source();
+        Arc::new(MonitoringSource {
+            inner,
+            progress: self.progress.clone(),
+        })
+    }
+
+    fn engine(&self) -> Option<wasmer::Engine> {
+        self.runtime.engine()
+    }
+
+    fn new_store(&self) -> wasmer::Store {
+        self.runtime.new_store()
+    }
+
+    fn http_client(&self) -> Option<&wasmer_wasix::http::DynHttpClient> {
+        self.runtime.http_client()
+    }
+
+    fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
+        self.runtime.tty()
+    }
+}
+
+#[derive(Debug)]
+struct MonitoringSource {
+    inner: Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync>,
+    progress: ProgressBar,
+}
+
+#[async_trait::async_trait]
+impl wasmer_wasix::runtime::resolver::Source for MonitoringSource {
+    async fn query(
+        &self,
+        package: &PackageSpecifier,
+    ) -> Result<Vec<wasmer_wasix::runtime::resolver::PackageSummary>, QueryError> {
+        self.progress.set_message(format!("Looking up {package}"));
+        self.inner.query(package).await
+    }
+}
+
+#[derive(Debug)]
+struct MonitoringPackageLoader {
+    inner: Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync>,
+    progress: ProgressBar,
+}
+
+#[async_trait::async_trait]
+impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageLoader {
+    async fn load(
+        &self,
+        summary: &wasmer_wasix::runtime::resolver::PackageSummary,
+    ) -> Result<Container, Error> {
+        let pkg_id = summary.package_id();
+        self.progress.set_message(format!("Downloading {pkg_id}"));
+
+        let result = self.inner.load(summary).await;
+
+        result
+    }
+
+    async fn load_package_tree(
+        &self,
+        root: &Container,
+        resolution: &wasmer_wasix::runtime::resolver::Resolution,
+    ) -> Result<BinaryPackage, Error> {
+        self.inner.load_package_tree(root, resolution).await
+    }
 }

@@ -11,8 +11,8 @@ use semver::Version;
 
 use crate::runtime::resolver::{
     outputs::{Edge, Node},
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSummary, Resolution,
-    ResolvedPackage, Source,
+    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSpecifier, PackageSummary,
+    QueryError, Resolution, ResolvedPackage, Source,
 };
 
 use super::ResolvedFileSystemMapping;
@@ -33,8 +33,12 @@ pub async fn resolve(
 
 #[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
-    #[error(transparent)]
-    Registry(anyhow::Error),
+    #[error("{}", registry_error_message(.package))]
+    Registry {
+        package: PackageSpecifier,
+        #[source]
+        error: QueryError,
+    },
     #[error("Dependency cycle detected: {}", print_cycle(_0))]
     Cycle(Vec<PackageId>),
     #[error(
@@ -45,6 +49,21 @@ pub enum ResolveError {
         package_name: String,
         versions: Vec<Version>,
     },
+}
+
+fn registry_error_message(specifier: &PackageSpecifier) -> String {
+    match specifier {
+        PackageSpecifier::Registry { full_name, version } if version.comparators.is_empty() => {
+            format!("Unable to find \"{full_name}\" in the registry")
+        }
+        PackageSpecifier::Registry { full_name, version } => {
+            format!("Unable to find \"{full_name}@{version}\" in the registry")
+        }
+        PackageSpecifier::Url(url) => format!("Unable to resolve \"{url}\""),
+        PackageSpecifier::Path(path) => {
+            format!("Unable to load \"{}\" from disk", path.display())
+        }
+    }
 }
 
 impl ResolveError {
@@ -117,10 +136,14 @@ async fn discover_dependencies(
             // doing this more rigorously, we would be narrowing the version
             // down using existing requirements and trying to reuse the same
             // dependency when possible.
-            let dep_summary = source
-                .latest(&dep.pkg)
-                .await
-                .map_err(ResolveError::Registry)?;
+            let dep_summary =
+                source
+                    .latest(&dep.pkg)
+                    .await
+                    .map_err(|error| ResolveError::Registry {
+                        package: dep.pkg.clone(),
+                        error,
+                    })?;
             let dep_id = dep_summary.package_id();
 
             let PackageSummary { pkg, dist } = dep_summary;

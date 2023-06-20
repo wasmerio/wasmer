@@ -23,7 +23,7 @@ mod types;
 mod waker;
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, VecDeque},
     path::Path,
     sync::{Arc, Mutex},
     task::{Context, Poll, Waker},
@@ -121,7 +121,6 @@ pub(crate) struct WasiFutexState {
 #[derive(Debug)]
 struct WasiWakersInner {
     rx: mpsc::UnboundedReceiver<(WakerId, bool)>,
-    buffer: Vec<(WakerId, bool)>,
 }
 
 /// Wakers used for WASI applications that support it
@@ -135,10 +134,7 @@ impl Default for WasiWakers {
         let (tx, rx) = mpsc::unbounded_channel();
         Self {
             tx,
-            inner: Arc::new(Mutex::new(WasiWakersInner {
-                rx,
-                buffer: Vec::new(),
-            })),
+            inner: Arc::new(Mutex::new(WasiWakersInner { rx })),
         }
     }
 }
@@ -148,37 +144,12 @@ impl WasiWakers {
     }
 
     /// Returns all the woken wakers that are waiting to be processed
-    pub fn pop_wakes(&self) -> Vec<(WakerId, bool)> {
+    pub fn pop_wakes_and_subscribe(&self, cx: &mut Context<'_>) -> VecDeque<(WakerId, bool)> {
         let mut inner = self.inner.lock().unwrap();
 
-        let mut ret = {
-            let mut ret = Vec::new();
-            if inner.buffer.len() > 0 {
-                std::mem::swap(&mut ret, &mut inner.buffer);
-            }
-            ret
-        };
-
-        while let Ok((id, woken)) = inner.rx.try_recv() {
-            ret.push((id, woken));
-        }
-        ret
-    }
-
-    /// Returns all the woken wakers that are waiting to be processed
-    pub fn pop_wakes_and_subscribe(&self, cx: &mut Context<'_>) -> Vec<(WakerId, bool)> {
-        let mut inner = self.inner.lock().unwrap();
-
-        let mut ret = {
-            let mut ret = Vec::new();
-            if inner.buffer.len() > 0 {
-                std::mem::swap(&mut ret, &mut inner.buffer);
-            }
-            ret
-        };
-
+        let mut ret = VecDeque::new();
         while let Poll::Ready(Some((id, woken))) = inner.rx.poll_recv(cx) {
-            ret.push((id, woken));
+            ret.push_back((id, woken));
         }
         ret
     }

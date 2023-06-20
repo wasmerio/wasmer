@@ -1,8 +1,8 @@
-use anyhow::{Context, Error};
+use anyhow::Context;
 use webc::compat::Container;
 
 use crate::runtime::resolver::{
-    DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
+    DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source, WebcHash,
 };
 
 /// A [`Source`] that knows how to query files on the filesystem.
@@ -12,7 +12,7 @@ pub struct FileSystemSource {}
 #[async_trait::async_trait]
 impl Source for FileSystemSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         let path = match package {
             PackageSpecifier::Path(path) => path.canonicalize().with_context(|| {
                 format!(
@@ -20,7 +20,7 @@ impl Source for FileSystemSource {
                     path.display()
                 )
             })?,
-            _ => return Ok(Vec::new()),
+            _ => return Err(QueryError::Unsupported),
         };
 
         // FIXME: These two operations will block
@@ -32,8 +32,10 @@ impl Source for FileSystemSource {
         let url = crate::runtime::resolver::utils::url_from_file_path(&path)
             .ok_or_else(|| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
 
+        let pkg = PackageInfo::from_manifest(container.manifest())
+            .context("Unable to determine the package's metadata")?;
         let summary = PackageSummary {
-            pkg: PackageInfo::from_manifest(container.manifest())?,
+            pkg,
             dist: DistributionInfo {
                 webc: url,
                 webc_sha256,

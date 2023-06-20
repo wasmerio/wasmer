@@ -3121,8 +3121,11 @@ checksum = "09963355b9f467184c04017ced4a2ba2d75cbcb4e7462690d388233253d4b1a9"
 dependencies = [
  "anstyle",
  "difflib",
+ "float-cmp",
  "itertools",
+ "normalize-line-endings",
  "predicates-core",
+ "regex",
 ]
 
 [[package]]
@@ -5632,6 +5635,7 @@ name = "wasmer-cli"
 version = "4.0.0-beta.3"
 dependencies = [
  "anyhow",
+ "assert_cmd 2.0.11",
  "async-trait",
  "atty",
  "bytes",
@@ -5640,7 +5644,6 @@ dependencies = [
  "cfg-if 1.0.0",
  "chrono",
  "clap 4.3.4",
- "clap-verbosity-flag",
  "colored 2.0.0",
  "dialoguer",
  "dirs",
@@ -5648,12 +5651,14 @@ dependencies = [
  "flate2",
  "hex",
  "indexmap",
+ "indicatif",
  "isatty",
  "libc",
  "log",
  "object 0.30.4",
  "once_cell",
  "pathdiff",
+ "predicates 3.0.3",
  "prettytable-rs",
  "regex",
  "reqwest",
