@@ -13,7 +13,8 @@ use webc::metadata::Manifest;
 use crate::{
     http::{HttpClient, HttpRequest, USER_AGENT},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, Source, WebcHash,
+        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
+        WebcHash,
     },
 };
 
@@ -147,10 +148,10 @@ impl WapmSource {
 #[async_trait::async_trait]
 impl Source for WapmSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         let (full_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
-            _ => return Ok(Vec::new()),
+            _ => return Err(QueryError::Unsupported),
         };
 
         let response: WapmWebQuery = self.lookup_package(full_name).await?;
@@ -159,13 +160,24 @@ impl Source for WapmSource {
 
         let versions = match response.data.get_package {
             Some(WapmWebQueryGetPackage { versions }) => versions,
-            None => return Ok(Vec::new()),
+            None => return Err(QueryError::NotFound),
         };
         let mut archived_versions = Vec::new();
 
         for pkg_version in versions {
-            tracing::trace!(?pkg_version, "checking package version");
-            let version = Version::parse(&pkg_version.version)?;
+            tracing::trace!(?pkg_version, "Checking a package version");
+
+            let version = match Version::parse(&pkg_version.version) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::debug!(
+                        pkg.version = pkg_version.version.as_str(),
+                        error = &e as &dyn std::error::Error,
+                        "Skipping a version because it doesn't have a valid version numer",
+                    );
+                    continue;
+                }
+            };
 
             if pkg_version.is_archived {
                 tracing::debug!(
@@ -191,25 +203,10 @@ impl Source for WapmSource {
         }
 
         if summaries.is_empty() {
-            match archived_versions.as_slice() {
-                [] => {
-                    // looks like this package couldn't be satisfied at all.
-                }
-                [version] => {
-                    anyhow::bail!(
-                        "The only version satisfying the constraint, {version}, is archived"
-                    );
-                }
-                [first, rest @ ..] => {
-                    let num_others = rest.len();
-                    anyhow::bail!(
-                        "Unable to satisfy the request, {first}, and {num_others} are all archived"
-                    );
-                }
-            }
+            Err(QueryError::NoMatches { archived_versions })
+        } else {
+            Ok(summaries)
         }
-
-        Ok(summaries)
     }
 }
 
