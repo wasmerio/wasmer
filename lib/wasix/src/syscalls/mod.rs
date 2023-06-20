@@ -407,7 +407,7 @@ pub enum AsyncifyAction<'a, R> {
 pub(crate) fn __asyncify_with_deep_sleep<'a, 'b, M: MemorySize, T, Fut>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     deep_sleep_time: Duration,
-    waker: Option<&'b Waker>,
+    wasm_waker: Option<&'b Waker>,
     work: Fut,
 ) -> Result<AsyncifyAction<'a, T>, WasiError>
 where
@@ -425,19 +425,19 @@ where
     let mut trigger = Box::pin(work);
 
     // Define the work
-    let has_waker = waker.is_some();
+    let has_wasm_waker = wasm_waker.is_some();
     let tasks = ctx.data().tasks().clone();
     let work = async move {
         let env = ctx.data();
 
         // Create the deep sleeper
-        let tasks = if env.enable_deep_sleep && has_waker {
+        let tasks_for_deep_sleep = if env.enable_deep_sleep && has_wasm_waker == false {
             Some(env.tasks().clone())
         } else {
             None
         };
         let deep_sleep_wait = async {
-            if let Some(tasks) = tasks {
+            if let Some(tasks) = tasks_for_deep_sleep {
                 tasks.sleep_now(deep_sleep_time).await
             } else {
                 InfiniteSleep::default().await
@@ -470,7 +470,7 @@ where
 
     // If a waker was supplied then use this instead
     // of passing the actual command to the runtime
-    if let Some(waker) = waker {
+    if let Some(waker) = wasm_waker {
         let mut pinned = Box::pin(work);
         let mut cx = Context::from_waker(waker);
         match pinned.as_mut().poll(&mut cx) {
@@ -491,7 +491,7 @@ where
 pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
-    waker: Option<&Waker>,
+    wasm_waker: Option<&Waker>,
     work: Fut,
 ) -> Result<Result<T, Errno>, WasiError>
 where
@@ -527,7 +527,7 @@ where
 
     // If a waker was supplied then use this instead
     // of passing the actual command to the runtime
-    if let Some(waker) = waker {
+    if let Some(waker) = wasm_waker {
         let mut pinned = Box::pin(work);
         let mut cx = Context::from_waker(waker);
         match pinned.as_mut().poll(&mut cx) {
