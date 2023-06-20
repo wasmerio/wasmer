@@ -742,9 +742,11 @@ impl WasiEnv {
             let waker7 = waker_pop();
 
             // Call the callback (which will potentially modify the stack)
-            let call_ret = handler.call(
-                ctx, waker0, waker1, waker2, waker3, waker4, waker5, waker6, waker7,
-            );
+            let call_ret = tokio::task::block_in_place(|| {
+                handler.call(
+                    ctx, waker0, waker1, waker2, waker3, waker4, waker5, waker6, waker7,
+                )
+            });
 
             // Restore the stack to its previous loation
             let (env, mut store) = ctx.data_and_store_mut();

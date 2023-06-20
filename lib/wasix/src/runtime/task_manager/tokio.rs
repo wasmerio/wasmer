@@ -144,7 +144,7 @@ impl VirtualTaskManager for TokioTaskManager {
             });
         } else {
             // Run the callback on a dedicated thread
-            self.0.spawn_blocking(move || {
+            std::thread::spawn(move || {
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
@@ -161,7 +161,7 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.0.spawn_blocking(move || {
+        std::thread::spawn(move || {
             task();
         });
         Ok(())
