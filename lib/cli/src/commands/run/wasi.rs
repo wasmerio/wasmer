@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc},
+    time::Duration,
 };
 
 use anyhow::{Context, Result};
@@ -35,6 +36,8 @@ use wasmer_wasix::{
 };
 
 use crate::utils::{parse_envvar, parse_mapdir};
+
+const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
@@ -341,7 +344,10 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(wasmer_dir)?;
-        source.add_source(WapmSource::new(graphql_endpoint, Arc::clone(&client)));
+        let cache_dir = WapmSource::default_cache_dir(wasmer_dir);
+        let wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
+            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+        source.add_source(wapm_source);
 
         let cache_dir = WebSource::default_cache_dir(wasmer_dir);
         source.add_source(WebSource::new(cache_dir, client));

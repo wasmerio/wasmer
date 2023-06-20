@@ -87,6 +87,7 @@ impl BuiltinPackageLoader {
         Ok(None)
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(%dist.webc, %dist.webc_sha256))]
     async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
         if dist.webc.scheme() == "file" {
             match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
@@ -114,7 +115,18 @@ impl BuiltinPackageLoader {
             options: Default::default(),
         };
 
+        tracing::debug!(%request.url, %request.method, "Downloading a webc file");
+        tracing::trace!(?request.headers);
+
         let response = self.client.request(request).await?;
+
+        tracing::trace!(
+            %response.status,
+            %response.redirected,
+            ?response.headers,
+            response.len=response.body.as_ref().map(|body| body.len()),
+            "Received a response",
+        );
 
         if !response.is_ok() {
             let url = &dist.webc;
@@ -129,6 +141,7 @@ impl BuiltinPackageLoader {
         Ok(body.into())
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     async fn save_and_load_as_mmapped(
         &self,
         webc: &[u8],
