@@ -301,7 +301,7 @@ impl Artifact {
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
-        Ok(Self {
+        let mut artifact = Self {
             id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
@@ -312,7 +312,11 @@ impl Artifact {
                 frame_info_registration: Some(Mutex::new(None)),
                 finished_function_lengths,
             }),
-        })
+        };
+
+        artifact.register_frame_info();
+
+        Ok(artifact)
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -379,7 +383,7 @@ impl Artifact {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
-    pub fn register_frame_info(&self) {
+    pub fn register_frame_info(&mut self) {
         if let Some(frame_info_registration) = self
             .allocated
             .as_ref()
@@ -530,8 +534,6 @@ impl Artifact {
             .create_globals(context, &module)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
-
-        self.register_frame_info();
 
         let handle = VMInstance::new(
             allocator,
