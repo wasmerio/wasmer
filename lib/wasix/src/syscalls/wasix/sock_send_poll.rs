@@ -32,7 +32,9 @@ pub fn sock_send_poll<M: MemorySize>(
     si_waker: WakerId,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), si_waker);
+
     sock_send_internal(
         ctx,
         sock,

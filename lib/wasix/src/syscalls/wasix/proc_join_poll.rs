@@ -36,6 +36,8 @@ pub fn proc_join_poll<M: MemorySize + 'static>(
     waker: WakerId,
     status_ptr: WasmPtr<JoinStatus, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), waker);
+
     proc_join_internal(ctx, pid_ptr, flags, status_ptr, Some(&waker))
 }

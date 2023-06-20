@@ -1,5 +1,8 @@
 use std::{
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     task::{RawWaker, RawWakerVTable, Waker},
 };
 use tokio::sync::mpsc;
@@ -8,23 +11,30 @@ use wasmer_wasix_types::wasi::WakerId;
 
 use super::WasiState;
 
-#[derive(Clone)]
 pub(crate) struct WasiWaker {
     id: WakerId,
+    woken: AtomicBool,
     tx: mpsc::UnboundedSender<(WakerId, bool)>,
 }
 impl WasiWaker {
     pub(crate) fn new(id: WakerId, tx: &mpsc::UnboundedSender<(WakerId, bool)>) -> Self {
-        Self { id, tx: tx.clone() }
+        Self {
+            id,
+            woken: AtomicBool::new(false),
+            tx: tx.clone(),
+        }
     }
 
     fn wake_now(&self) {
+        self.woken.store(true, Ordering::SeqCst);
         self.tx.send((self.id, true)).ok();
     }
 }
 impl Drop for WasiWaker {
     fn drop(&mut self) {
-        self.tx.send((self.id, false)).ok();
+        if !self.woken.load(Ordering::SeqCst) {
+            self.tx.send((self.id, false)).ok();
+        }
     }
 }
 

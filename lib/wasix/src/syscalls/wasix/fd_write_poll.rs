@@ -19,6 +19,8 @@ use crate::{state::conv_waker_id, syscalls::*};
 ///     List of vectors to read data from
 /// - `u32 iovs_len`
 ///     Length of data in `iovs`
+/// - `waker`
+///     ID of the waker that will be invoked when the file descriptor becomes writable again
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
@@ -33,6 +35,9 @@ pub fn fd_write_poll<M: MemorySize>(
     waker: WakerId,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
+    let waker = conv_waker_id(ctx.data().state(), waker);
+
     let offset = {
         let mut env = ctx.data();
         let state = env.state.clone();
@@ -42,7 +47,6 @@ pub fn fd_write_poll<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    let waker = conv_waker_id(ctx.data().state(), waker);
     fd_write_internal::<M>(
         ctx,
         fd,
@@ -84,7 +88,9 @@ pub fn fd_pwrite_poll<M: MemorySize>(
     waker: WakerId,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), waker);
+
     fd_write_internal::<M>(
         ctx,
         fd,

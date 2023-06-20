@@ -259,6 +259,7 @@ where
                         time_to_sleep = Duration::MAX;
                     } else if clock_info.timeout == 1 {
                         time_to_sleep = Duration::ZERO;
+                        clock_subs.push((clock_info, s.userdata));
                     } else {
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));

@@ -521,13 +521,16 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sock_accept" => Function::new_typed_with_env(&mut store, env, sock_accept_v2::<Memory32>),
         "sock_accept_v2" => Function::new_typed_with_env(&mut store, env, sock_accept_v2::<Memory32>),
         "sock_accept_poll" => Function::new_typed_with_env(&mut store, env, sock_accept_poll::<Memory32>),
+        "sock_accept_ready_poll" => Function::new_typed_with_env(&mut store, env, sock_accept_ready_poll::<Memory32>),
         "sock_connect" => Function::new_typed_with_env(&mut store, env, sock_connect::<Memory32>),
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory32>),
         "sock_recv_poll" => Function::new_typed_with_env(&mut store, env, sock_recv_poll::<Memory32>),
+        "sock_recv_ready_poll" => Function::new_typed_with_env(&mut store, env, sock_recv_ready_poll::<Memory32>),
         "sock_recv_from" => Function::new_typed_with_env(&mut store, env, sock_recv_from::<Memory32>),
         "sock_recv_from_poll" => Function::new_typed_with_env(&mut store, env, sock_recv_from_poll::<Memory32>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory32>),
         "sock_send_poll" => Function::new_typed_with_env(&mut store, env, sock_send_poll::<Memory32>),
+        "sock_send_ready_poll" => Function::new_typed_with_env(&mut store, env, sock_send_ready_poll::<Memory32>),
         "sock_send_to" => Function::new_typed_with_env(&mut store, env, sock_send_to::<Memory32>),
         "sock_send_to_poll" => Function::new_typed_with_env(&mut store, env, sock_send_to_poll::<Memory32>),
         "sock_send_file" => Function::new_typed_with_env(&mut store, env, sock_send_file::<Memory32>),
@@ -653,14 +656,17 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "sock_listen" => Function::new_typed_with_env(&mut store, env, sock_listen::<Memory64>),
         "sock_accept" => Function::new_typed_with_env(&mut store, env, sock_accept_v2::<Memory64>),
         "sock_accept_poll" => Function::new_typed_with_env(&mut store, env, sock_accept_poll::<Memory64>),
+        "sock_accept_ready_poll" => Function::new_typed_with_env(&mut store, env, sock_accept_ready_poll::<Memory64>),
         "sock_accept_v2" => Function::new_typed_with_env(&mut store, env, sock_accept_v2::<Memory64>),
         "sock_connect" => Function::new_typed_with_env(&mut store, env, sock_connect::<Memory64>),
         "sock_recv" => Function::new_typed_with_env(&mut store, env, sock_recv::<Memory64>),
         "sock_recv_poll" => Function::new_typed_with_env(&mut store, env, sock_recv_poll::<Memory64>),
+        "sock_recv_ready_poll" => Function::new_typed_with_env(&mut store, env, sock_recv_ready_poll::<Memory64>),
         "sock_recv_from" => Function::new_typed_with_env(&mut store, env, sock_recv_from::<Memory64>),
         "sock_recv_from_poll" => Function::new_typed_with_env(&mut store, env, sock_recv_from_poll::<Memory64>),
         "sock_send" => Function::new_typed_with_env(&mut store, env, sock_send::<Memory64>),
         "sock_send_poll" => Function::new_typed_with_env(&mut store, env, sock_send_poll::<Memory64>),
+        "sock_send_ready_poll" => Function::new_typed_with_env(&mut store, env, sock_send_ready_poll::<Memory64>),
         "sock_send_to" => Function::new_typed_with_env(&mut store, env, sock_send_to::<Memory64>),
         "sock_send_to_poll" => Function::new_typed_with_env(&mut store, env, sock_send_to_poll::<Memory64>),
         "sock_send_file" => Function::new_typed_with_env(&mut store, env, sock_send_file::<Memory64>),
@@ -709,6 +715,9 @@ fn import_object_for_all_wasi_versions(
 
     for import in module.imports() {
         tracing::trace!("import {}.{}", import.module(), import.name());
+    }
+    for export in module.exports() {
+        tracing::trace!("export {}", export.name());
     }
 
     // TODO: clean this up!

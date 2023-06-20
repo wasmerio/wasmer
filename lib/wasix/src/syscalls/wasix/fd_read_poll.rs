@@ -35,6 +35,9 @@ pub fn fd_read_poll<M: MemorySize>(
     waker: WakerId,
     nread: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
+    let waker = conv_waker_id(ctx.data().state(), waker);
+
     let offset = {
         let mut env = ctx.data();
         let state = env.state.clone();
@@ -44,7 +47,6 @@ pub fn fd_read_poll<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    let waker = conv_waker_id(ctx.data().state(), waker);
     let res = fd_read_internal::<M>(
         &mut ctx,
         fd,
@@ -89,7 +91,9 @@ pub fn fd_pread_poll<M: MemorySize>(
     waker: WakerId,
     nread: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), waker);
+
     let res = fd_read_internal::<M>(
         &mut ctx,
         fd,

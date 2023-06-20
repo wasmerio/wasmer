@@ -3,7 +3,7 @@ use std::{mem::MaybeUninit, task::Waker};
 use wasmer_wasix_types::wasi::WakerId;
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_recv()`
 /// Receive a message from a socket.
@@ -112,6 +112,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };
 
+    let peek = (ri_flags & __WASI_SOCK_RECV_INPUT_PEEK) != 0;
     let data = wasi_try_ok_ok!(__sock_asyncify(
         env,
         sock,
@@ -131,8 +132,26 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
+                let nonblocking = waker.is_none() && fd.flags.contains(Fdflags::NONBLOCK);
+                let timeout = if waker.is_none() {
+                    Some(
+                        socket
+                            .opt_time(TimeType::AcceptTimeout)
+                            .ok()
+                            .flatten()
+                            .unwrap_or(Duration::from_secs(30)),
+                    )
+                } else {
+                    None
+                };
+
                 let local_read = match socket
-                    .recv(env.tasks().deref(), buf.as_mut_uninit(), fd.flags)
+                    .recv(
+                        env.tasks().deref(),
+                        buf.as_mut_uninit(),
+                        timeout,
+                        nonblocking,
+                    )
                     .await
                 {
                     Ok(s) => s,

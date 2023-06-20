@@ -3,7 +3,7 @@ use std::{collections::VecDeque, task::Waker};
 use virtual_fs::{AsyncReadExt, ReadBuf};
 
 use super::*;
-use crate::{fs::NotificationInner, syscalls::*};
+use crate::{fs::NotificationInner, net::socket::TimeType, syscalls::*};
 
 /// ### `fd_read()`
 /// Read data from file descriptor
@@ -157,7 +157,10 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                             },
                             waker,
                             async move {
-                                let mut handle = handle.write().unwrap();
+                                let mut handle = match handle.write() {
+                                    Ok(a) => a,
+                                    Err(_) => return Err(Errno::Fault),
+                                };
                                 if !is_stdio {
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset as u64))
@@ -216,6 +219,19 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     drop(guard);
 
+                    let nonblocking = waker.is_none() && fd_flags.contains(Fdflags::NONBLOCK);
+                    let timeout = if waker.is_none() {
+                        Some(
+                            socket
+                                .opt_time(TimeType::ReadTimeout)
+                                .ok()
+                                .flatten()
+                                .unwrap_or(Duration::from_secs(30)),
+                        )
+                    } else {
+                        None
+                    };
+
                     let tasks = env.tasks().clone();
                     let res = __asyncify_light(
                         env,
@@ -239,7 +255,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                     .map_err(mem_error_to_wasi)?;
 
                                 let local_read = socket
-                                    .recv(tasks.deref(), buf.as_mut_uninit(), fd_flags)
+                                    .recv(tasks.deref(), buf.as_mut_uninit(), timeout, nonblocking)
                                     .await?;
                                 total_read += local_read;
                                 if total_read != buf.len() {

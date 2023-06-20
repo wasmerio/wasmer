@@ -1,7 +1,7 @@
 use virtual_fs::AsyncReadExt;
 
 use super::*;
-use crate::{syscalls::*, WasiInodes};
+use crate::{net::socket::TimeType, syscalls::*, WasiInodes};
 
 /// ### `sock_send_file()`
 /// Sends the entire contents of a file down a socket
@@ -105,21 +105,33 @@ pub fn sock_send_file<M: MemorySize>(
                                     let tasks = tasks.clone();
                                     drop(guard);
 
+                                    let read_timeout = socket
+                                        .opt_time(TimeType::WriteTimeout)
+                                        .ok()
+                                        .flatten()
+                                        .unwrap_or(Duration::from_secs(30));
+
                                     let data = wasi_try_ok!(__asyncify(&mut ctx, None, async {
                                         let mut buf = Vec::with_capacity(sub_count as usize);
                                         unsafe {
                                             buf.set_len(sub_count as usize);
                                         }
-                                        socket.recv(tasks.deref(), &mut buf, fd_flags).await.map(
-                                            |amt| {
+                                        socket
+                                            .recv(
+                                                tasks.deref(),
+                                                &mut buf,
+                                                Some(read_timeout.clone()),
+                                                false,
+                                            )
+                                            .await
+                                            .map(|amt| {
                                                 unsafe {
                                                     buf.set_len(amt);
                                                 }
                                                 let buf: Vec<u8> =
                                                     unsafe { std::mem::transmute(buf) };
                                                 buf
-                                            },
-                                        )
+                                            })
                                     })?);
                                     env = ctx.data();
                                     data
@@ -181,7 +193,16 @@ pub fn sock_send_file<M: MemorySize>(
                 sock,
                 Rights::SOCK_SEND,
                 None,
-                |socket, fd| async move { socket.send(tasks.deref(), &data, fd.flags).await },
+                |socket, fd| async move {
+                    let write_timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
+                    socket
+                        .send(tasks.deref(), &data, Some(write_timeout.clone()), true)
+                        .await
+                },
             ));
             env = ctx.data();
 

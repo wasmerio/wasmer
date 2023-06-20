@@ -847,9 +847,11 @@ impl WasiEnvBuilder {
             run_with_deep_sleep(store, None, env, tx);
         }))?;
 
-        let result = rx.recv().expect(
-            "main thread terminated without a result, this normally means a panic occurred",
-        );
+        let result = rx.recv().unwrap_or_else(|_| {
+            Err(WasiRuntimeError::Runtime(RuntimeError::new(
+                "main thread terminated without a result, this normally means a panic occurred",
+            )))
+        });
         let (result, exit_code) = wasi_exit_code(result);
 
         tracing::trace!(

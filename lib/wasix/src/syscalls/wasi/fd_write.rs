@@ -1,7 +1,7 @@
 use std::task::Waker;
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -178,6 +178,19 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     let socket = socket.clone();
                     drop(guard);
 
+                    let nonblocking = waker.is_none() && fd_flags.contains(Fdflags::NONBLOCK);
+                    let timeout = if waker.is_none() {
+                        Some(
+                            socket
+                                .opt_time(TimeType::WriteTimeout)
+                                .ok()
+                                .flatten()
+                                .unwrap_or(Duration::from_secs(30)),
+                        )
+                    } else {
+                        None
+                    };
+
                     let tasks = env.tasks().clone();
                     let written = wasi_try_ok!(__asyncify_light(env, None, waker, async move {
                         let mut sent = 0usize;
@@ -187,8 +200,9 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                 .map_err(mem_error_to_wasi)?
                                 .access()
                                 .map_err(mem_error_to_wasi)?;
-                            let local_sent =
-                                socket.send(tasks.deref(), buf.as_ref(), fd_flags).await?;
+                            let local_sent = socket
+                                .send(tasks.deref(), buf.as_ref(), timeout, nonblocking)
+                                .await?;
                             sent += local_sent;
                             if local_sent != buf.len() {
                                 break;

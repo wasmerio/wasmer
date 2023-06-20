@@ -31,7 +31,9 @@ use crate::{
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     runtime::{resolver::PackageSpecifier, SpawnMemoryType},
-    syscalls::{__asyncify_light, platform_clock_time_get},
+    syscalls::{
+        __asyncify_light, get_memory_stack_offset, platform_clock_time_get, set_memory_stack_offset,
+    },
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
@@ -84,12 +86,12 @@ pub struct WasiInstanceHandles {
     /// Represents the callback for waking an asynchronous task (name = "_waker_wake")
     /// [this takes a pointer to waker that will be woken]
     #[derivative(Debug = "ignore")]
-    pub(crate) waker_wake: Option<TypedFunction<i32, ()>>,
+    pub(crate) waker_wake: Option<TypedFunction<u64, ()>>,
 
     /// Represents the callback for dropping a waker (name = "_waker_drop")
     /// [this takes a pointer to waker that will be dropped]
     #[derivative(Debug = "ignore")]
-    pub(crate) waker_drop: Option<TypedFunction<i32, ()>>,
+    pub(crate) waker_drop: Option<TypedFunction<u64, ()>>,
 
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
@@ -730,8 +732,20 @@ impl WasiEnv {
             false => inner.waker_drop.clone(),
         };
         if let Some(handler) = handler {
-            if let Err(err) = handler.call(ctx, id.try_into().map_err(|_| Errno::Overflow).unwrap())
-            {
+            // Record the stack pointer
+            let offset = unsafe {
+                get_memory_stack_offset(ctx).map_err(|_| WasiError::Exit(Errno::Inval.into()))?
+            };
+
+            // Call the callback (which will potentially modify the stack)
+            let call_ret = handler.call(ctx, id.try_into().map_err(|_| Errno::Overflow).unwrap());
+
+            // Restore the stack to its previous loation
+            let (env, mut store) = ctx.data_and_store_mut();
+            set_memory_stack_offset(env, &mut store, offset).ok();
+
+            // Process the result of the call
+            if let Err(err) = call_ret {
                 match err.downcast::<WasiError>() {
                     Ok(wasi_err) => {
                         warn!(
@@ -750,7 +764,11 @@ impl WasiEnv {
                         return Err(WasiError::Exit(Errno::Intr.into()));
                     }
                 }
+            } else {
+                trace!("wasi[{}]::waker handler triggered {}", ctx.data().pid(), id);
             }
+        } else {
+            warn!("wasi[{}]::waker handler orphaned {}", ctx.data().pid(), id);
         }
         Ok(())
     }

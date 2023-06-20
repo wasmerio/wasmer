@@ -257,12 +257,10 @@ pub enum Errno {
     Shutdown,
     #[doc = " Memory access violation."]
     Memviolation,
-
-    /// ID's unique to WASIX
-    #[doc = " Invocation is pending until the waker is woken."]
-    Pending = 100,
     #[doc = " An unknown error has occured"]
     Unknown,
+    #[doc = " Invocation is pending until the waker is woken."]
+    Pending,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {

@@ -34,7 +34,9 @@ pub fn sock_recv_from_poll<M: MemorySize>(
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), ri_waker);
+
     sock_recv_from_internal(
         ctx,
         sock,

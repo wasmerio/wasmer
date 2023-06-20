@@ -1,7 +1,7 @@
 use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_send()`
 /// Send a message on a socket.
@@ -61,6 +61,19 @@ pub(super) fn sock_send_internal<M: MemorySize>(
                     .map_err(mem_error_to_wasi)?;
                 let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
 
+                let nonblocking = waker.is_none() && fd.flags.contains(Fdflags::NONBLOCK);
+                let timeout = if waker.is_none() {
+                    Some(
+                        socket
+                            .opt_time(TimeType::WriteTimeout)
+                            .ok()
+                            .flatten()
+                            .unwrap_or(Duration::from_secs(30)),
+                    )
+                } else {
+                    None
+                };
+
                 let mut sent = 0usize;
                 for iovs in iovs_arr.iter() {
                     let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -69,7 +82,12 @@ pub(super) fn sock_send_internal<M: MemorySize>(
                         .access()
                         .map_err(mem_error_to_wasi)?;
                     let local_sent = match socket
-                        .send(env.tasks().deref(), buf.as_ref(), fd.flags)
+                        .send(
+                            env.tasks().deref(),
+                            buf.as_ref(),
+                            timeout.clone(),
+                            nonblocking,
+                        )
                         .await
                     {
                         Ok(s) => s,

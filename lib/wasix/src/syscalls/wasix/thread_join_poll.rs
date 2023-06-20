@@ -20,8 +20,10 @@ use crate::{state::conv_waker_id, syscalls::*};
 pub fn thread_join_poll<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,
-    waker: WakerId,
+    waker_id: WakerId,
 ) -> Result<Errno, WasiError> {
-    let waker = conv_waker_id(ctx.data().state(), waker);
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
+    let waker = conv_waker_id(ctx.data().state(), waker_id);
+
     thread_join_internal::<M>(ctx, join_tid, Some(&waker))
 }

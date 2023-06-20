@@ -28,6 +28,7 @@ pub fn sock_accept_poll<M: MemorySize>(
     ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), ri_waker);
 
     wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
@@ -35,7 +36,13 @@ pub fn sock_accept_poll<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags, Some(&waker)));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(
+        env,
+        sock,
+        fd_flags,
+        Some(&waker),
+        false
+    ));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(

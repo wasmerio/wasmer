@@ -19,15 +19,17 @@ use crate::{state::conv_waker_id, syscalls::*};
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
 /// * `waker` - ID of the waker that will be invoked when this futex is woken
-//#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait_poll<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
-    waker: WakerId,
     timeout: WasmPtr<OptionTimestamp, M>,
+    waker: WakerId,
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
+    // the waker construction needs to be the first line - otherwise errors will leak wakers
     let waker = conv_waker_id(ctx.data().state(), waker);
+
     futex_wait_internal(ctx, futex_ptr, expected, timeout, ret_woken, Some(&waker))
 }
