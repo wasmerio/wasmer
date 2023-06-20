@@ -841,13 +841,14 @@ impl WasiEnvBuilder {
         // The return value is passed synchronously and will block until the result
         // is returned this is because the main thread can go into a deep sleep and
         // exit the dedicated thread
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
         tasks.task_dedicated(Box::new(move || {
             run_with_deep_sleep(store, None, env, tx);
         }))?;
 
-        let result = rx.recv().unwrap_or_else(|_| {
+        let result = tasks.block_on(rx.recv());
+        let result = result.unwrap_or_else(|| {
             Err(WasiRuntimeError::Runtime(RuntimeError::new(
                 "main thread terminated without a result, this normally means a panic occurred",
             )))
@@ -895,7 +896,7 @@ fn run_with_deep_sleep(
     mut store: Store,
     rewind_state: Option<(RewindState, Bytes)>,
     env: WasiFunctionEnv,
-    sender: std::sync::mpsc::Sender<Result<(), WasiRuntimeError>>,
+    sender: tokio::sync::mpsc::UnboundedSender<Result<(), WasiRuntimeError>>,
 ) {
     if let Some((rewind_state, rewind_result)) = rewind_state {
         tracing::trace!("Rewinding");
@@ -955,7 +956,7 @@ fn handle_result(
     mut store: Store,
     env: WasiFunctionEnv,
     result: Result<Box<[wasmer::Value]>, RuntimeError>,
-    sender: std::sync::mpsc::Sender<Result<(), WasiRuntimeError>>,
+    sender: tokio::sync::mpsc::UnboundedSender<Result<(), WasiRuntimeError>>,
 ) {
     let result = match result.map_err(|e| e.downcast::<WasiError>()) {
         Err(Ok(WasiError::DeepSleep(work))) => {
@@ -984,7 +985,7 @@ fn handle_result(
 
     let (result, exit_code) = wasi_exit_code(result);
     env.cleanup(&mut store, Some(exit_code));
-    let _ = sender.send(result);
+    sender.send(result).ok();
 }
 
 /// Builder for preopened directories.

@@ -477,6 +477,13 @@ where
             Poll::Ready(res) => res,
             Poll::Pending => Ok(AsyncifyAction::Pending),
         }
+
+    // We might actually already be inside a runtime context
+    // which means that we don't want to actually do the work
+    // here but instead in a background thread
+    } else if tokio::runtime::Handle::try_current().is_ok() {
+        warn!("Runtime attempted to block inside a runtime, this should never happen");
+        return Err(WasiError::Exit(Errno::Noexec.into()));
     } else {
         // Otherwise we block on the work and process it
         // using the runtime from the task manager
@@ -534,6 +541,9 @@ where
             Poll::Ready(res) => Ok(res),
             Poll::Pending => Ok(Err(Errno::Pending)),
         }
+    } else if tokio::runtime::Handle::try_current().is_ok() {
+        warn!("Runtime attempted to block inside a runtime, this should never happen");
+        return Err(WasiError::Exit(Errno::Noexec.into()));
     } else {
         // Otherwise we block on the work and process it
         // using the runtime from the task manager
@@ -596,6 +606,7 @@ where
     // If a waker was supplied then use this instead
     // of passing the actual command to the runtime
     if let Some(waker) = waker {
+        let _guard = env.tasks().runtime_enter();
         let mut pinned = Box::pin(work);
         let mut cx = Context::from_waker(waker);
         match pinned.as_mut().poll(&mut cx) {
@@ -644,6 +655,7 @@ where
             // If a waker was supplied then use this instead
             // of passing the actual command to the runtime
             if let Some(waker) = waker {
+                let _guard = env.tasks().runtime_enter();
                 let mut pinned = Box::pin(work);
                 let mut cx = Context::from_waker(waker);
                 match pinned.as_mut().poll(&mut cx) {
