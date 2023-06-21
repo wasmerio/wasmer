@@ -6162,6 +6162,7 @@ dependencies = [
  "pin-project",
  "pretty_assertions",
  "rand",
+ "rayon",
  "reqwest",
  "semver 1.0.17",
  "serde",

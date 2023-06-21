@@ -90,10 +90,7 @@ pub use crate::{
         WasiTtyState,
     },
     rewind::*,
-    runtime::{
-        task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, Runtime,
-    },
+    runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,

@@ -38,12 +38,18 @@ pub(crate) fn compile_module(wasm: &[u8], runtime: &dyn Runtime) -> Result<Modul
     // sort of ModuleResolver component that is attached to the runtime and
     // encapsulates finding a WebAssembly binary, compiling it, and caching.
 
+    use crate::runtime::task_manager::VirtualTaskManagerExt;
+
     let engine = runtime.engine().context("No engine provided")?;
     let task_manager = runtime.task_manager().clone();
     let module_cache = runtime.module_cache();
 
     let hash = ModuleHash::sha256(wasm);
-    let result = task_manager.block_on(module_cache.load(hash, &engine));
+    let result = {
+        let engine = engine.clone();
+        let module_cache = module_cache.clone();
+        task_manager.spawn_and_block_on(async move { module_cache.load(hash, &engine).await })
+    };
 
     match result {
         Ok(module) => return Ok(module),
@@ -59,7 +65,14 @@ pub(crate) fn compile_module(wasm: &[u8], runtime: &dyn Runtime) -> Result<Modul
 
     let module = Module::new(&engine, wasm)?;
 
-    if let Err(e) = task_manager.block_on(module_cache.save(hash, &engine, &module)) {
+    let ret = {
+        let engine = engine.clone();
+        let module = module.clone();
+        let module_cache = module_cache.clone();
+        task_manager
+            .spawn_and_block_on(async move { module_cache.save(hash, &engine, &module).await })
+    };
+    if let Err(e) = ret {
         tracing::warn!(
             %hash,
             error=&e as &dyn std::error::Error,

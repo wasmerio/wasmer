@@ -21,6 +21,7 @@ use crate::{
         wcgi::handler::{Handler, SharedState},
         MappedDirectory,
     },
+    runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder,
 };
 
@@ -126,7 +127,7 @@ impl crate::runners::Runner for WcgiRunner {
 
         runtime
             .task_manager()
-            .block_on(async {
+            .spawn_and_block_on(async move {
                 let (shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::<()>());
 

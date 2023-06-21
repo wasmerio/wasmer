@@ -13,20 +13,21 @@ use std::ptr;
 use std::sync::Mutex;
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 use std::time::Duration;
+use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 
 #[derive(Debug)]
 pub struct LocalNetworking {
-    // Make struct internals private.
-    // Can be removed once some fields are added (like permissions).
-    _private: (),
+    handle: Handle,
 }
 
 impl LocalNetworking {
     pub fn new() -> Self {
-        Self { _private: () }
+        Self {
+            handle: Handle::current(),
+        }
     }
 }
 
@@ -46,10 +47,12 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
+        let _guard = self.handle.enter();
         let listener = tokio::net::TcpListener::bind(addr)
             .await
             .map(|sock| {
                 Box::new(LocalTcpListener {
+                    handle: Handle::current(),
                     stream: sock,
                     backlog: Mutex::new(Vec::new()),
                 })
@@ -64,10 +67,12 @@ impl VirtualNetworking for LocalNetworking {
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        let _guard = self.handle.enter();
         let socket = tokio::net::UdpSocket::bind(addr)
             .await
             .map_err(io_err_into_net_error)?;
         Ok(Box::new(LocalUdpSocket {
+            handle: Handle::current(),
             socket,
             addr,
             nonblocking: false,
@@ -79,6 +84,7 @@ impl VirtualNetworking for LocalNetworking {
         _addr: SocketAddr,
         peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
+        let _guard = self.handle.enter();
         let stream = tokio::net::TcpStream::connect(peer)
             .await
             .map_err(io_err_into_net_error)?;
@@ -92,6 +98,7 @@ impl VirtualNetworking for LocalNetworking {
         port: Option<u16>,
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>> {
+        let _guard = self.handle.enter();
         let host_to_lookup = if host.contains(':') {
             host.to_string()
         } else {
@@ -106,6 +113,7 @@ impl VirtualNetworking for LocalNetworking {
 
 #[derive(Debug)]
 pub struct LocalTcpListener {
+    handle: Handle,
     stream: tokio::net::TcpListener,
     backlog: Mutex<Vec<(Box<LocalTcpStream>, SocketAddr)>>,
 }
@@ -113,6 +121,7 @@ pub struct LocalTcpListener {
 #[async_trait::async_trait]
 impl VirtualTcpListener for LocalTcpListener {
     fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
+        let _guard = self.handle.enter();
         {
             let mut backlog = self.backlog.lock().unwrap();
             if let Some((sock, addr)) = backlog.pop() {
@@ -140,6 +149,7 @@ impl VirtualTcpListener for LocalTcpListener {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
+        let _guard = self.handle.enter();
         {
             let mut backlog = self.backlog.lock().unwrap();
             if let Some((sock, addr)) = backlog.pop() {
@@ -160,6 +170,7 @@ impl VirtualTcpListener for LocalTcpListener {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
+        let _guard = self.handle.enter();
         {
             let backlog = self.backlog.lock().unwrap();
             if backlog.len() > 10 {
@@ -177,16 +188,19 @@ impl VirtualTcpListener for LocalTcpListener {
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
+        let _guard = self.handle.enter();
         self.stream.local_addr().map_err(io_err_into_net_error)
     }
 
     fn set_ttl(&mut self, ttl: u8) -> Result<()> {
+        let _guard = self.handle.enter();
         self.stream
             .set_ttl(ttl as u32)
             .map_err(io_err_into_net_error)
     }
 
     fn ttl(&self) -> Result<u8> {
+        let _guard = self.handle.enter();
         self.stream
             .ttl()
             .map(|ttl| ttl as u8)
@@ -196,6 +210,7 @@ impl VirtualTcpListener for LocalTcpListener {
 
 #[derive(Debug)]
 pub struct LocalTcpStream {
+    handle: Handle,
     stream: tokio::net::TcpStream,
     addr: SocketAddr,
     shutdown: Option<Shutdown>,
@@ -210,6 +225,7 @@ impl LocalTcpStream {
         let (tx_write_ready, rx_write_ready) = mpsc::channel(1);
         let (tx_write_poll_ready, rx_write_poll_ready) = mpsc::channel(1);
         Self {
+            handle: Handle::current(),
             stream,
             addr,
             shutdown: None,
@@ -240,12 +256,14 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn set_nodelay(&mut self, nodelay: bool) -> Result<()> {
+        let _guard = self.handle.enter();
         self.stream
             .set_nodelay(nodelay)
             .map_err(io_err_into_net_error)
     }
 
     fn nodelay(&self) -> Result<bool> {
+        let _guard = self.handle.enter();
         self.stream.nodelay().map_err(io_err_into_net_error)
     }
 
@@ -265,6 +283,7 @@ impl VirtualTcpSocket for LocalTcpStream {
 
 impl VirtualConnectedSocket for LocalTcpStream {
     fn set_linger(&mut self, linger: Option<Duration>) -> Result<()> {
+        let _guard = self.handle.enter();
         self.stream
             .set_linger(linger)
             .map_err(io_err_into_net_error)?;
@@ -272,15 +291,18 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     fn linger(&self) -> Result<Option<Duration>> {
+        let _guard = self.handle.enter();
         self.stream.linger().map_err(io_err_into_net_error)
     }
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
+        let _guard = self.handle.enter();
         self.stream.try_write(data).map_err(io_err_into_net_error)
     }
 
     fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>> {
         use tokio::io::AsyncWrite;
+        let _guard = self.handle.enter();
         Pin::new(&mut self.stream)
             .poll_write(cx, data)
             .map_err(io_err_into_net_error)
@@ -290,6 +312,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
         while self.rx_write_ready.try_recv().is_ok() {}
         self.tx_write_poll_ready.try_send(()).ok();
         use tokio::io::AsyncWrite;
+        let _guard = self.handle.enter();
         Pin::new(&mut self.stream)
             .poll_flush(cx)
             .map_err(io_err_into_net_error)
@@ -306,6 +329,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
     ) -> Poll<Result<usize>> {
         use tokio::io::AsyncRead;
         let mut read_buf = tokio::io::ReadBuf::uninit(buf);
+        let _guard = self.handle.enter();
         let res = Pin::new(&mut self.stream)
             .poll_read(cx, &mut read_buf)
             .map_err(io_err_into_net_error);
@@ -329,14 +353,17 @@ impl VirtualConnectedSocket for LocalTcpStream {
 #[async_trait::async_trait]
 impl VirtualSocket for LocalTcpStream {
     fn set_ttl(&mut self, ttl: u32) -> Result<()> {
+        let _guard = self.handle.enter();
         self.stream.set_ttl(ttl).map_err(io_err_into_net_error)
     }
 
     fn ttl(&self) -> Result<u32> {
+        let _guard = self.handle.enter();
         self.stream.ttl().map_err(io_err_into_net_error)
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
+        let _guard = self.handle.enter();
         self.stream.local_addr().map_err(io_err_into_net_error)
     }
 
@@ -348,6 +375,7 @@ impl VirtualSocket for LocalTcpStream {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
+        let _guard = self.handle.enter();
         self.stream
             .poll_read_ready(cx)
             .map_ok(|_| 1)
@@ -366,6 +394,7 @@ impl VirtualSocket for LocalTcpStream {
                 break;
             }
         }
+        let _guard = self.handle.enter();
         match self
             .stream
             .poll_write_ready(cx)
@@ -414,6 +443,7 @@ impl<'a> Future for LocalTcpStreamWriteReady<'a> {
 
 #[derive(Debug)]
 pub struct LocalUdpSocket {
+    handle: Handle,
     socket: tokio::net::UdpSocket,
     #[allow(dead_code)]
     addr: SocketAddr,
@@ -423,6 +453,7 @@ pub struct LocalUdpSocket {
 #[async_trait::async_trait]
 impl VirtualUdpSocket for LocalUdpSocket {
     fn set_broadcast(&mut self, broadcast: bool) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .set_broadcast(broadcast)
             .map_err(io_err_into_net_error)
@@ -433,66 +464,77 @@ impl VirtualUdpSocket for LocalUdpSocket {
     }
 
     fn set_multicast_loop_v4(&mut self, val: bool) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .set_multicast_loop_v4(val)
             .map_err(io_err_into_net_error)
     }
 
     fn multicast_loop_v4(&self) -> Result<bool> {
+        let _guard = self.handle.enter();
         self.socket
             .multicast_loop_v4()
             .map_err(io_err_into_net_error)
     }
 
     fn set_multicast_loop_v6(&mut self, val: bool) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .set_multicast_loop_v6(val)
             .map_err(io_err_into_net_error)
     }
 
     fn multicast_loop_v6(&self) -> Result<bool> {
+        let _guard = self.handle.enter();
         self.socket
             .multicast_loop_v6()
             .map_err(io_err_into_net_error)
     }
 
     fn set_multicast_ttl_v4(&mut self, ttl: u32) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .set_multicast_ttl_v4(ttl)
             .map_err(io_err_into_net_error)
     }
 
     fn multicast_ttl_v4(&self) -> Result<u32> {
+        let _guard = self.handle.enter();
         self.socket
             .multicast_ttl_v4()
             .map_err(io_err_into_net_error)
     }
 
     fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .join_multicast_v4(multiaddr, iface)
             .map_err(io_err_into_net_error)
     }
 
     fn leave_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .leave_multicast_v4(multiaddr, iface)
             .map_err(io_err_into_net_error)
     }
 
     fn join_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .join_multicast_v6(&multiaddr, iface)
             .map_err(io_err_into_net_error)
     }
 
     fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket
             .leave_multicast_v6(&multiaddr, iface)
             .map_err(io_err_into_net_error)
     }
 
     fn addr_peer(&self) -> Result<Option<SocketAddr>> {
+        let _guard = self.handle.enter();
         self.socket
             .peer_addr()
             .map(Some)
@@ -507,12 +549,14 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         data: &[u8],
         addr: SocketAddr,
     ) -> Poll<Result<usize>> {
+        let _guard = self.handle.enter();
         self.socket
             .poll_send_to(cx, data, addr)
             .map_err(io_err_into_net_error)
     }
 
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+        let _guard = self.handle.enter();
         self.socket
             .try_send_to(data, addr)
             .map_err(io_err_into_net_error)
@@ -523,6 +567,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         cx: &mut Context<'_>,
         buf: &mut [MaybeUninit<u8>],
     ) -> Poll<Result<(usize, SocketAddr)>> {
+        let _guard = self.handle.enter();
         let mut read_buf = tokio::io::ReadBuf::uninit(buf);
         let res = self
             .socket
@@ -540,6 +585,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
     }
 
     fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+        let _guard = self.handle.enter();
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         self.socket
             .try_recv_from(buf)
@@ -549,14 +595,17 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
 
 impl VirtualSocket for LocalUdpSocket {
     fn set_ttl(&mut self, ttl: u32) -> Result<()> {
+        let _guard = self.handle.enter();
         self.socket.set_ttl(ttl).map_err(io_err_into_net_error)
     }
 
     fn ttl(&self) -> Result<u32> {
+        let _guard = self.handle.enter();
         self.socket.ttl().map_err(io_err_into_net_error)
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
+        let _guard = self.handle.enter();
         self.socket.local_addr().map_err(io_err_into_net_error)
     }
 
@@ -568,6 +617,7 @@ impl VirtualSocket for LocalUdpSocket {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
+        let _guard = self.handle.enter();
         self.socket
             .poll_recv_ready(cx)
             .map_ok(|()| 8192usize)
@@ -578,6 +628,7 @@ impl VirtualSocket for LocalUdpSocket {
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<usize>> {
+        let _guard = self.handle.enter();
         self.socket
             .poll_send_ready(cx)
             .map_ok(|()| 8192usize)

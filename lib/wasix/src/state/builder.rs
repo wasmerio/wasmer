@@ -20,6 +20,7 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
+    runtime::task_manager::InlineWaker,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -847,7 +848,7 @@ impl WasiEnvBuilder {
             run_with_deep_sleep(store, None, env, tx);
         }))?;
 
-        let result = tasks.block_on(rx.recv());
+        let result = InlineWaker::block_on(rx.recv());
         let result = result.unwrap_or_else(|| {
             Err(WasiRuntimeError::Runtime(RuntimeError::new(
                 "main thread terminated without a result, this normally means a panic occurred",

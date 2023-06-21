@@ -16,10 +16,22 @@ use std::task::{Context, Poll};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+use tokio::runtime::Handle;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FileSystem;
+pub struct FileSystem(Handle);
+
+impl Default for FileSystem {
+    fn default() -> Self {
+        Self(Handle::current())
+    }
+}
+impl FileSystem {
+    pub fn new(handle: Handle) -> Self {
+        FileSystem(handle)
+    }
+}
 
 impl FileSystem {
     pub fn canonicalize(&self, path: &Path) -> Result<PathBuf> {
@@ -212,8 +224,14 @@ impl crate::FileOpener for FileSystem {
             .open(path)
             .map_err(Into::into)
             .map(|file| {
-                Box::new(File::new(file, path.to_owned(), read, write, append))
-                    as Box<dyn VirtualFile + Send + Sync + 'static>
+                Box::new(File::new(
+                    self.0.clone(),
+                    file,
+                    path.to_owned(),
+                    read,
+                    write,
+                    append,
+                )) as Box<dyn VirtualFile + Send + Sync + 'static>
             })
     }
 }
@@ -222,6 +240,7 @@ impl crate::FileOpener for FileSystem {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize))]
 pub struct File {
+    handle: Handle,
     #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
     inner_std: fs::File,
     inner: tfs::File,
@@ -324,7 +343,14 @@ impl File {
     const APPEND: u16 = 4;
 
     /// creates a new host file from a `std::fs::File` and a path
-    pub fn new(file: fs::File, host_path: PathBuf, read: bool, write: bool, append: bool) -> Self {
+    pub fn new(
+        handle: Handle,
+        file: fs::File,
+        host_path: PathBuf,
+        read: bool,
+        write: bool,
+        append: bool,
+    ) -> Self {
         let mut _flags = 0;
 
         if read {
@@ -341,6 +367,7 @@ impl File {
 
         let async_file = tfs::File::from_std(file.try_clone().unwrap());
         Self {
+            handle,
             inner_std: file,
             inner: async_file,
             host_path,
@@ -428,6 +455,7 @@ impl AsyncRead for File {
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_read(cx, buf)
     }
@@ -439,16 +467,19 @@ impl AsyncWrite for File {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
@@ -458,6 +489,7 @@ impl AsyncWrite for File {
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -469,11 +501,13 @@ impl AsyncWrite for File {
 
 impl AsyncSeek for File {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.start_seek(position)
     }
 
     fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_complete(cx)
     }
@@ -607,11 +641,13 @@ impl AsyncSeek for Stdout {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr {
+    handle: Handle,
     inner: tokio::io::Stderr,
 }
 impl Default for Stderr {
     fn default() -> Self {
         Self {
+            handle: Handle::current(),
             inner: tokio::io::stderr(),
         }
     }
@@ -636,16 +672,19 @@ impl AsyncWrite for Stderr {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
@@ -655,6 +694,7 @@ impl AsyncWrite for Stderr {
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -722,11 +762,13 @@ impl VirtualFile for Stderr {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin {
     read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
+    handle: Handle,
     inner: tokio::io::Stdin,
 }
 impl Default for Stdin {
     fn default() -> Self {
         Self {
+            handle: Handle::current(),
             read_buffer: Arc::new(std::sync::Mutex::new(None)),
             inner: tokio::io::stdin(),
         }
@@ -753,6 +795,7 @@ impl AsyncRead for Stdin {
             }
         }
 
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
         inner.poll_read(cx, buf)
     }
@@ -844,6 +887,7 @@ impl VirtualFile for Stdin {
             }
         }
 
+        let _guard = self.handle.enter();
         let inner = Pin::new(&mut self.inner);
 
         let mut buf = [0u8; 8192];

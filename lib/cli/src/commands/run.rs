@@ -36,6 +36,7 @@ use wasmer_wasix::{
     runtime::{
         package_loader::PackageLoader,
         resolver::{PackageSpecifier, QueryError},
+        task_manager::VirtualTaskManagerExt,
     },
     WasiError,
 };
@@ -111,20 +112,21 @@ impl Run {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
+        let _guard = handle.enter();
         let (store, _) = self.store.get_store()?;
         let runtime =
             self.wasi
-                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
+                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle.clone())?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
-        let monitoring_runtime = MonitoringRuntime::new(runtime, pb.clone());
+        let monitoring_runtime = Arc::new(MonitoringRuntime::new(runtime, pb.clone()));
+        let runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime.runtime.clone();
+        let monitoring_runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime;
 
         let target = self.input.resolve_target(&monitoring_runtime, &pb)?;
 
         pb.finish_and_clear();
-
-        let runtime: Arc<dyn Runtime + Send + Sync> = Arc::new(monitoring_runtime.runtime);
 
         let result = {
             match target {
@@ -173,7 +175,7 @@ impl Run {
             .get_command(id)
             .with_context(|| format!("Unable to get metadata for the \"{id}\" command"))?;
 
-        let uses = self.load_injected_packages(&*runtime)?;
+        let uses = self.load_injected_packages(&runtime)?;
 
         if WcgiRunner::can_run_command(cmd.metadata())? {
             self.run_wcgi(id, pkg, uses, runtime)
@@ -190,16 +192,25 @@ impl Run {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    fn load_injected_packages(&self, runtime: &dyn Runtime) -> Result<Vec<BinaryPackage>, Error> {
+    fn load_injected_packages(
+        &self,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Vec<BinaryPackage>, Error> {
         let mut dependencies = Vec::new();
 
         for name in &self.wasi.uses {
             let specifier = PackageSpecifier::parse(name)
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
-            let pkg = runtime
-                .task_manager()
-                .block_on(BinaryPackage::from_registry(&specifier, runtime))
-                .with_context(|| format!("Unable to load \"{name}\""))?;
+            let pkg = {
+                let specifier = specifier.clone();
+                let inner_runtime = runtime.clone();
+                runtime
+                    .task_manager()
+                    .spawn_and_block_on(async move {
+                        BinaryPackage::from_registry(&specifier, inner_runtime.as_ref()).await
+                    })
+                    .with_context(|| format!("Unable to load \"{name}\""))?
+            };
             dependencies.push(pkg);
         }
 
@@ -468,7 +479,7 @@ impl PackageSource {
     /// internet.
     fn resolve_target(
         &self,
-        rt: &dyn Runtime,
+        rt: &Arc<dyn Runtime + Send + Sync>,
         pb: &ProgressBar,
     ) -> Result<ExecutableTarget, Error> {
         match self {
@@ -476,9 +487,11 @@ impl PackageSource {
             PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt, pb),
             PackageSource::Package(pkg) => {
                 pb.set_message("Loading from the registry");
-                let pkg = rt
-                    .task_manager()
-                    .block_on(BinaryPackage::from_registry(pkg, rt))?;
+                let inner_pck = pkg.clone();
+                let inner_rt = rt.clone();
+                let pkg = rt.task_manager().spawn_and_block_on(async move {
+                    BinaryPackage::from_registry(&inner_pck, inner_rt.as_ref()).await
+                })?;
                 Ok(ExecutableTarget::Package(pkg))
             }
         }
@@ -551,23 +564,32 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
-    fn from_dir(dir: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
+    fn from_dir(
+        dir: &Path,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+        pb: &ProgressBar,
+    ) -> Result<Self, Error> {
         pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
 
         let webc = construct_webc_in_memory(dir)?;
         let container = Container::from_bytes(webc)?;
 
         pb.set_message("Resolving dependencies");
-        let pkg = runtime
-            .task_manager()
-            .block_on(BinaryPackage::from_webc(&container, runtime))?;
+        let inner_runtime = runtime.clone();
+        let pkg = runtime.task_manager().spawn_and_block_on(async move {
+            BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
+        })?;
 
         Ok(ExecutableTarget::Package(pkg))
     }
 
     /// Try to load a file into something that can be used to run it.
     #[tracing::instrument(skip_all)]
-    fn from_file(path: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
+    fn from_file(
+        path: &Path,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+        pb: &ProgressBar,
+    ) -> Result<Self, Error> {
         pb.set_message(format!("Loading from \"{}\"", path.display()));
 
         match TargetOnDisk::from_file(path)? {
@@ -594,9 +616,11 @@ impl ExecutableTarget {
             TargetOnDisk::LocalWebc => {
                 let container = Container::from_disk(path)?;
                 pb.set_message("Resolving dependencies");
-                let pkg = runtime
-                    .task_manager()
-                    .block_on(BinaryPackage::from_webc(&container, runtime))?;
+
+                let inner_runtime = runtime.clone();
+                let pkg = runtime.task_manager().spawn_and_block_on(async move {
+                    BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
+                })?;
                 Ok(ExecutableTarget::Package(pkg))
             }
         }
@@ -770,13 +794,16 @@ fn get_exit_code(
 
 #[derive(Debug)]
 struct MonitoringRuntime<R> {
-    runtime: R,
+    runtime: Arc<R>,
     progress: ProgressBar,
 }
 
 impl<R> MonitoringRuntime<R> {
     fn new(runtime: R, progress: ProgressBar) -> Self {
-        MonitoringRuntime { runtime, progress }
+        MonitoringRuntime {
+            runtime: Arc::new(runtime),
+            progress,
+        }
     }
 }
 

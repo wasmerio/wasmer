@@ -29,8 +29,11 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::PackageSpecifier,
-    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv,
+    runtime::{
+        resolver::PackageSpecifier,
+        task_manager::{InlineWaker, VirtualTaskManagerExt},
+    },
+    Runtime, SpawnError, WasiEnv,
 };
 
 #[derive(Derivative)]
@@ -214,9 +217,8 @@ impl Console {
 
         // TODO: this should not happen here...
         // Display the welcome message
-        let tasks = env.tasks().clone();
         if !self.whitelabel && !self.no_welcome {
-            tasks.block_on(self.draw_welcome());
+            InlineWaker::block_on(self.draw_welcome());
         }
 
         let webc_ident: PackageSpecifier = match webc.parse() {
@@ -228,13 +230,13 @@ impl Console {
         };
 
         let resolved_package =
-            tasks.block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
+            InlineWaker::block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
 
         let binary = match resolved_package {
             Ok(pkg) => pkg,
             Err(e) => {
                 let mut stderr = self.stderr.clone();
-                tasks.block_on(async {
+                InlineWaker::block_on(async {
                     let mut buffer = Vec::new();
                     writeln!(buffer, "Error: {e}").ok();
                     let mut source = e.source();
@@ -260,7 +262,7 @@ impl Console {
         // and not add so much custom logic in here.
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
-            tasks.block_on(async {
+            InlineWaker::block_on(async {
                 virtual_fs::AsyncWriteExt::write_all(
                     &mut stderr,
                     format!("{}\r\n", err).as_bytes(),
@@ -274,7 +276,7 @@ impl Console {
 
         // Build the config
         // Run the binary
-        let process = tasks.block_on(spawn_exec(binary, prog, store, env, &self.runtime))?;
+        let process = InlineWaker::block_on(spawn_exec(binary, prog, store, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))

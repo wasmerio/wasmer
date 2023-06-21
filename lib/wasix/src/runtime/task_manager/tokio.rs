@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use futures::Future;
+use futures::{future::BoxFuture, Future};
 use tokio::runtime::Handle;
 
 use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
@@ -13,7 +13,10 @@ use super::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
-pub struct TokioTaskManager(Handle);
+pub struct TokioTaskManager {
+    handle: Handle,
+    pool: Arc<rayon::ThreadPool>,
+}
 
 /// This holds the currently set shared runtime which should be accessed via
 /// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()
@@ -21,11 +24,14 @@ static GLOBAL_RUNTIME: Mutex<Option<(Arc<tokio::runtime::Runtime>, Handle)>> = M
 
 impl TokioTaskManager {
     pub fn new(rt: Handle) -> Self {
-        Self(rt)
+        Self {
+            handle: rt,
+            pool: Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()),
+        }
     }
 
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
-        self.0.clone()
+        self.handle.clone()
     }
 
     /// Allows the caller to set the shared runtime that will be used by other
@@ -48,7 +54,7 @@ impl TokioTaskManager {
     /// independent ones in a process.
     pub fn shared() -> Self {
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            Self(handle)
+            Self::new(handle)
         } else {
             let mut guard = GLOBAL_RUNTIME.lock().unwrap();
             let rt = guard.get_or_insert_with(|| {
@@ -56,7 +62,7 @@ impl TokioTaskManager {
                 let handle = rt.handle().clone();
                 (Arc::new(rt), handle)
             });
-            Self(rt.1.clone())
+            Self::new(rt.1.clone())
         }
     }
 }
@@ -78,39 +84,30 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
-        Box::pin(async move {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        self.handle.spawn(async move {
             if time == Duration::ZERO {
                 tokio::task::yield_now().await;
             } else {
                 tokio::time::sleep(time).await;
             }
+            tx.send(()).ok();
+        });
+        Box::pin(async move {
+            rx.recv().await;
         })
     }
 
     /// See [`VirtualTaskManager::task_shared`].
     fn task_shared(
         &self,
-        task: Box<
-            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
-        >,
+        task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.0.spawn(async move {
+        self.handle.spawn(async move {
             let fut = task();
             fut.await
         });
         Ok(())
-    }
-
-    /// See [`VirtualTaskManager::runtime`].
-    fn runtime(&self) -> &Handle {
-        &self.0
-    }
-
-    #[allow(dyn_drop)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
-        Box::new(TokioRuntimeGuard {
-            inner: self.0.enter(),
-        })
     }
 
     /// See [`VirtualTaskManager::task_wasm`].
@@ -129,8 +126,8 @@ impl VirtualTaskManager for TokioTaskManager {
         // the poller to completion
         if let Some(trigger) = task.trigger {
             let trigger = trigger();
-            let handle = self.0.clone();
-            self.0.spawn(async move {
+            let handle = self.handle.clone();
+            self.handle.spawn(async move {
                 let result = trigger.await;
                 // Build the task that will go on the callback
                 handle.spawn_blocking(move || {
@@ -161,7 +158,7 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        std::thread::spawn(move || {
+        self.pool.spawn(move || {
             task();
         });
         Ok(())
