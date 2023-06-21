@@ -105,7 +105,7 @@ impl<'a> WasiTest<'a> {
             out
         };
 
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
         rt.set_engine(Some(store.engine().clone()));
 
         let module = Module::new(store, wasm_bytes)?;

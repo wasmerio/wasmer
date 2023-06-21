@@ -710,7 +710,7 @@ impl WasiEnvBuilder {
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
-                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::shared())))
+                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default())))
             }
 
             #[cfg(not(feature = "sys-thread"))]
