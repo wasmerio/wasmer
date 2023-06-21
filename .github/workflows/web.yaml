@@ -18,14 +18,14 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        rust: [nightly]
+        rust: [nightly-2023-05-25]
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
     - name: Install Rust
-      uses: actions/checkout@v3
+      uses: dtolnay/rust-toolchain@master
       with:
         toolchain: ${{ matrix.rust }}
 
@@ -37,6 +37,8 @@ jobs:
       shell: bash
       run: |
         cd lib/wasi-web
+        rustup override set nightly-2023-05-25
+        rustup component add rustfmt
         cargo fmt --check
 
     - name: Check
