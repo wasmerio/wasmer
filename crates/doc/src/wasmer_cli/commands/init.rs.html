@@ -527,14 +527,22 @@
 <a href="#526" id="526">526</a>
 <a href="#527" id="527">527</a>
 <a href="#528" id="528">528</a>
-</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
+
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>cargo_metadata::{CargoOpt, MetadataCommand};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>indexmap::IndexMap;
-<span class="kw">use </span>std::collections::HashMap;
-<span class="kw">use </span>std::path::Path;
-<span class="kw">use </span>std::path::PathBuf;
-<span class="kw">use </span>wasmer_registry::WasmerConfig;
+<span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 
 <span class="kw">static </span>NOTE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;# See more keys and definitions at https://docs.wasmer.io/registry/manifest&quot;</span>;
 
@@ -543,6 +551,9 @@
 <span class="doccomment">/// CLI args for the `wasmer init` command
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Init {
+    <span class="attr">#[clap(flatten)]
+    </span>env: WasmerEnv,
+
     <span class="doccomment">/// Initialize wasmer.toml for a library package
     </span><span class="attr">#[clap(long, group = <span class="string">&quot;crate-type&quot;</span>)]
     </span><span class="kw">pub </span>lib: bool,
@@ -665,6 +676,7 @@
             <span class="self">self</span>.template.as_ref(),
             <span class="self">self</span>.include.as_slice(),
             <span class="self">self</span>.quiet,
+            <span class="self">self</span>.env.dir(),
         )<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = target_file.parent() {
@@ -876,6 +888,7 @@
     template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;,
     include_fs: <span class="kw-2">&amp;</span>[String],
     quiet: bool,
+    wasmer_dir: <span class="kw-2">&amp;</span>Path,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, anyhow::Error&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(ct) = cargo_toml.as_ref() {
         <span class="kw">let </span>msg = <span class="macro">format!</span>(
@@ -894,9 +907,8 @@
             .map(|p| <span class="kw-2">&amp;</span>p.name)
             .unwrap_or(fallback_package_name)
     });
-    <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
     <span class="kw">let </span>namespace = namespace.or_else(|| {
-        wasmer_registry::whoami(<span class="kw-2">&amp;</span>wasmer_dir, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
+        wasmer_registry::whoami(wasmer_dir, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
             .ok()
             .map(|o| o.<span class="number">1</span>)
     });

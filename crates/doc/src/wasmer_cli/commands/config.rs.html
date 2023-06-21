@@ -301,41 +301,18 @@
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
 <a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::VERSION;
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::env;
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::str::ParseBoolError;
-<span class="kw">use </span>wasmer_registry::WasmerConfig;
+<span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, WasmerConfig};
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
 </span><span class="kw">pub struct </span>Config {
+    <span class="attr">#[clap(flatten)]
+    </span>env: WasmerEnv,
+
     <span class="attr">#[clap(flatten)]
     </span>flags: Flags,
     <span class="doccomment">/// Subcommand for `wasmer config get | set`
@@ -495,29 +472,12 @@
 
     <span class="kw">fn </span>inner_execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = <span class="self">self</span>.set.as_ref() {
-            <span class="kw">return </span>s.execute();
+            <span class="kw">return </span>s.execute(<span class="kw-2">&amp;</span><span class="self">self</span>.env);
         }
 
         <span class="kw">let </span>flags = <span class="kw-2">&amp;</span><span class="self">self</span>.flags;
 
-        <span class="kw">let </span>key = <span class="string">&quot;WASMER_DIR&quot;</span>;
-        <span class="kw">let </span>wasmer_dir = env::var(key)
-            .ok()
-            .or_else(|| <span class="macro">option_env!</span>(<span class="string">&quot;WASMER_INSTALL_PREFIX&quot;</span>).map(str::to_string))
-            .or_else(|| {
-                <span class="comment">// Allowing deprecated function home_dir since it works fine,
-                // and will never be removed from std.
-                </span><span class="attr">#[allow(deprecated)]
-                </span><span class="kw">let </span>dir = std::env::home_dir()<span class="question-mark">?</span>.join(<span class="string">&quot;.wasmer&quot;</span>).to_str()<span class="question-mark">?</span>.to_string();
-
-                <span class="prelude-val">Some</span>(dir)
-            })
-            .context(<span class="macro">format!</span>(
-                <span class="string">&quot;failed to retrieve the {} environment variables&quot;</span>,
-                key
-            ))<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>prefix = PathBuf::from(wasmer_dir);
+        <span class="kw">let </span>prefix = <span class="self">self</span>.env.dir();
 
         <span class="kw">let </span>prefixdir = prefix.display().to_string();
         <span class="kw">let </span>bindir = prefix.join(<span class="string">&quot;bin&quot;</span>).display().to_string();
@@ -560,9 +520,7 @@
         }
 
         <span class="kw">if </span>flags.config_path {
-            <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir()
-                .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>path = WasmerConfig::get_file_location(<span class="kw-2">&amp;</span>wasmer_dir);
+            <span class="kw">let </span>path = WasmerConfig::get_file_location(<span class="self">self</span>.env.dir());
             <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, path.display());
         }
 
@@ -571,16 +529,10 @@
 }
 
 <span class="kw">impl </span>GetOrSet {
-    <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir()
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find wasmer dir: {e}&quot;</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>config_file = WasmerConfig::get_file_location(<span class="kw-2">&amp;</span>wasmer_dir);
-        <span class="kw">let </span><span class="kw-2">mut </span>config = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir).map_err(|e| {
-            <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;could not find config file {e} at {}&quot;</span>,
-                config_file.display()
-            )
-        })<span class="question-mark">?</span>;
+    <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>config_file = WasmerConfig::get_file_location(env.dir());
+        <span class="kw">let </span><span class="kw-2">mut </span>config = env.config()<span class="question-mark">?</span>;
+
         <span class="kw">match </span><span class="self">self </span>{
             GetOrSet::Get(g) =&gt; <span class="kw">match </span>g {
                 RetrievableConfigField::RegistryUrl =&gt; {

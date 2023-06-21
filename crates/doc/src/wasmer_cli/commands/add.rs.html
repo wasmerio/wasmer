@@ -191,32 +191,17 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::process::{Command, Stdio};
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
+<span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, Bindings, ProgrammingLanguage};
 
 <span class="doccomment">/// Add a Wasmer package&#39;s bindings to your application.
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Add {
-    <span class="doccomment">/// The registry to fetch bindings from.
-    </span><span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]
-    </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="attr">#[clap(flatten)]
+    </span>env: WasmerEnv,
     <span class="doccomment">/// Add the JavaScript bindings using &quot;npm install&quot;.
     </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
     npm: bool,
@@ -239,10 +224,11 @@
         <span class="macro">anyhow::ensure!</span>(!<span class="self">self</span>.packages.is_empty(), <span class="string">&quot;No packages specified&quot;</span>);
 
         <span class="kw">let </span>registry = <span class="self">self
-            </span>.registry()
+            </span>.env
+            .registry_endpoint()
             .context(<span class="string">&quot;Unable to determine which registry to use&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>bindings = <span class="self">self</span>.lookup_bindings(<span class="kw-2">&amp;</span>registry)<span class="question-mark">?</span>;
+        <span class="kw">let </span>bindings = <span class="self">self</span>.lookup_bindings(registry.as_str())<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>cmd = <span class="self">self</span>.target()<span class="question-mark">?</span>.command(<span class="kw-2">&amp;</span>bindings)<span class="question-mark">?</span>;
         cmd.stdin(Stdio::null())
@@ -276,20 +262,6 @@
         }
 
         <span class="prelude-val">Ok</span>(bindings_to_add)
-    }
-
-    <span class="kw">fn </span>registry(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;String, Error&gt; {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.registry {
-            <span class="prelude-val">Some</span>(r) =&gt; <span class="prelude-val">Ok</span>(r.clone()),
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">let </span>wasmer_dir =
-                    WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw">let </span>cfg = WasmerConfig::from_file(<span class="kw-2">&amp;</span>wasmer_dir)
-                    .map_err(Error::msg)
-                    .context(<span class="string">&quot;Unable to load Wasmer config file&quot;</span>)<span class="question-mark">?</span>;
-                <span class="prelude-val">Ok</span>(cfg.registry.get_current_registry())
-            }
-        }
     }
 
     <span class="kw">fn </span>target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Target, Error&gt; {

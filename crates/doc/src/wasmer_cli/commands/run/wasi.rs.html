@@ -374,10 +374,6 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -392,6 +388,7 @@
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
+<span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 <span class="kw">use </span>wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
@@ -490,10 +487,6 @@
     <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.
     </span><span class="attr">#[clap(long = <span class="string">&quot;deny-multiple-wasi-versions&quot;</span>)]
     </span><span class="kw">pub </span>deny_multiple_wasi_versions: bool,
-
-    <span class="doccomment">/// The registry to use.
-    </span><span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>, value_parser = parse_registry)]
-    </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;Url&gt;,
 }
 
 <span class="kw">pub struct </span>RunProperties {
@@ -629,7 +622,7 @@
     <span class="kw">pub fn </span>prepare_runtime(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         engine: Engine,
-        wasmer_dir: <span class="kw-2">&amp;</span>Path,
+        env: <span class="kw-2">&amp;</span>WasmerEnv,
         handle: Handle,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
@@ -651,12 +644,12 @@
         <span class="kw">let </span>client = Arc::new(client);
 
         <span class="kw">let </span>package_loader = <span class="self">self
-            </span>.prepare_package_loader(wasmer_dir, client.clone())
+            </span>.prepare_package_loader(env.dir(), client.clone())
             .context(<span class="string">&quot;Unable to prepare the package loader&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(wasmer_dir, client)<span class="question-mark">?</span>;
+        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>cache_dir = FileSystemCache::default_cache_dir(wasmer_dir);
+        <span class="kw">let </span>cache_dir = FileSystemCache::default_cache_dir(env.dir());
         <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(cache_dir));
 
@@ -708,7 +701,7 @@
 
     <span class="kw">fn </span>prepare_source(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        wasmer_dir: <span class="kw-2">&amp;</span>Path,
+        env: <span class="kw-2">&amp;</span>WasmerEnv,
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Source + Send + Sync&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::new();
@@ -723,13 +716,13 @@
         }
         source.add_source(preloaded);
 
-        <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(wasmer_dir)<span class="question-mark">?</span>;
-        <span class="kw">let </span>cache_dir = WapmSource::default_cache_dir(wasmer_dir);
+        <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
+        <span class="kw">let </span>cache_dir = WapmSource::default_cache_dir(env.dir());
         <span class="kw">let </span>wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
         source.add_source(wapm_source);
 
-        <span class="kw">let </span>cache_dir = WebSource::default_cache_dir(wasmer_dir);
+        <span class="kw">let </span>cache_dir = WebSource::default_cache_dir(env.dir());
         source.add_source(WebSource::new(cache_dir, client));
 
         source.add_source(FileSystemSource::default());
@@ -737,13 +730,12 @@
         <span class="prelude-val">Ok</span>(source)
     }
 
-    <span class="kw">fn </span>graphql_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(endpoint) = <span class="kw-2">&amp;</span><span class="self">self</span>.registry {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(endpoint.clone());
+    <span class="kw">fn </span>graphql_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(endpoint) = env.registry_endpoint() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(endpoint);
         }
 
-        <span class="kw">let </span>config =
-            wasmer_registry::WasmerConfig::from_file(wasmer_dir).map_err(anyhow::Error::msg)<span class="question-mark">?</span>;
+        <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
         <span class="kw">let </span>graphql_endpoint = config.registry.get_graphql_url();
         <span class="kw">let </span>graphql_endpoint = graphql_endpoint
             .parse()

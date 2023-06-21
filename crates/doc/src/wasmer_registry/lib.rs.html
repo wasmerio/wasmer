@@ -502,6 +502,7 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
 </pre><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
@@ -522,8 +523,9 @@
 <span class="kw">pub mod </span>publish;
 <span class="kw">pub mod </span>types;
 <span class="kw">pub mod </span>utils;
+<span class="kw">pub mod </span>wasmer_env;
 
-<span class="kw">pub use </span>client::RegistryClient;
+<span class="kw">pub use </span><span class="kw">crate</span>::client::RegistryClient;
 
 <span class="kw">use </span>std::{
     fmt,

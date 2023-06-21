@@ -75,24 +75,17 @@
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-</pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+</pre><pre class="rust"><code><span class="kw">use </span>std::path::Path;
+
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_registry::WasmerConfig;
+<span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 <span class="kw">use </span>wasmer_wasix::runtime::resolver::WapmSource;
 
 <span class="doccomment">/// Publish a package to the package registry.
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Publish {
-    <span class="doccomment">/// Registry to publish to
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="attr">#[clap(flatten)]
+    </span>env: WasmerEnv,
     <span class="doccomment">/// Run the publish logic without sending anything to the registry server
     </span><span class="attr">#[clap(long, name = <span class="string">&quot;dry-run&quot;</span>)]
     </span><span class="kw">pub </span>dry_run: bool,
@@ -105,9 +98,6 @@
     <span class="doccomment">/// Override the package version of the uploaded package in the wasmer.toml
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
-    <span class="doccomment">/// Override the token (by default, it will use the current logged in user)
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Skip validation of the uploaded package
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>no_validate: bool,
@@ -122,18 +112,18 @@
     <span class="doccomment">/// Executes `wasmer publish`
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>publish = wasmer_registry::package::builder::Publish {
-            registry: <span class="self">self</span>.registry.clone(),
+            registry: <span class="self">self</span>.env.registry_endpoint().map(|u| u.to_string()).ok(),
             dry_run: <span class="self">self</span>.dry_run,
             quiet: <span class="self">self</span>.quiet,
             package_name: <span class="self">self</span>.package_name.clone(),
             version: <span class="self">self</span>.version.clone(),
-            token: <span class="self">self</span>.token.clone(),
+            token: <span class="self">self</span>.env.token(),
             no_validate: <span class="self">self</span>.no_validate,
             package_path: <span class="self">self</span>.package_path.clone(),
         };
         publish.execute().map_err(on_error)<span class="question-mark">?</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = invalidate_graphql_query_cache() {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = invalidate_graphql_query_cache(<span class="self">self</span>.env.dir()) {
             <span class="macro">tracing::warn!</span>(
                 error = <span class="kw-2">&amp;*</span>e,
                 <span class="string">&quot;Unable to invalidate the cache used for package version queries&quot;</span>,
@@ -156,11 +146,7 @@
 // are cleaner ways to achieve this, but for now we&#39;re just going to
 // clear out the whole GraphQL query cache.
 // See https://github.com/wasmerio/wasmer/pull/3983 for more
-</span><span class="kw">fn </span>invalidate_graphql_query_cache() -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-    <span class="kw">let </span>wasmer_dir = WasmerConfig::get_wasmer_dir()
-        .map_err(anyhow::Error::msg)
-        .context(<span class="string">&quot;Unable to determine the wasmer dir&quot;</span>)<span class="question-mark">?</span>;
-
+</span><span class="kw">fn </span>invalidate_graphql_query_cache(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     WapmSource::invalidate_local_cache(wasmer_dir)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())

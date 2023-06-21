@@ -868,14 +868,6 @@
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -907,7 +899,7 @@
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::ArtifactBuild;
-<span class="kw">use </span>wasmer_registry::Package;
+<span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, Package};
 <span class="kw">use </span>wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
@@ -931,19 +923,11 @@
 
 <span class="kw">const </span>TICK: Duration = Duration::from_millis(<span class="number">250</span>);
 
-<span class="kw">static </span>WASMER_HOME: Lazy&lt;PathBuf&gt; = Lazy::new(|| {
-    wasmer_registry::WasmerConfig::get_wasmer_dir()
-        .ok()
-        .or_else(|| dirs::home_dir().map(|home| home.join(<span class="string">&quot;.wasmer&quot;</span>)))
-        .unwrap_or_else(|| PathBuf::from(<span class="string">&quot;.wasmer&quot;</span>))
-});
-
 <span class="doccomment">/// The unstable `wasmer run` subcommand.
 </span><span class="attr">#[derive(Debug, Parser)]
 </span><span class="kw">pub struct </span>Run {
-    <span class="doccomment">/// The Wasmer home directory.
-    </span><span class="attr">#[clap(long = <span class="string">&quot;wasmer-dir&quot;</span>, env = <span class="string">&quot;WASMER_DIR&quot;</span>, default_value = WASMER_HOME.as_os_str())]
-    </span>wasmer_dir: PathBuf,
+    <span class="attr">#[clap(flatten)]
+    </span>env: WasmerEnv,
     <span class="attr">#[clap(flatten)]
     </span>store: StoreOptions,
     <span class="attr">#[clap(flatten)]
@@ -990,9 +974,9 @@
         }
 
         <span class="kw">let </span>(store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        <span class="kw">let </span>runtime =
-            <span class="self">self</span>.wasi
-                .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.wasmer_dir, handle)<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = <span class="self">self
+            </span>.wasi
+            .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.env, handle)<span class="question-mark">?</span>;
 
         <span class="comment">// This is a slow operation, so let&#39;s temporarily wrap the runtime with
         // something that displays progress
@@ -1236,7 +1220,7 @@
         };
         <span class="kw">let </span>store = StoreOptions::default();
         <span class="prelude-val">Ok</span>(Run {
-            wasmer_dir: WASMER_HOME.clone(),
+            env: WasmerEnv::default(),
             store,
             wasi: Wasi::for_binfmt_interpreter()<span class="question-mark">?</span>,
             wcgi: WcgiOptions::default(),
