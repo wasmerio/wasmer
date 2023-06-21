@@ -99,9 +99,9 @@ jobs:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
@@ -224,7 +224,7 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2023-05-25"
           target: ${{ matrix.target }}
@@ -279,9 +279,9 @@ jobs:
         with:
           target: x86_64-pc-windows-gnu
       - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: "nightly-2023-05-25"
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
         shell: bash
