@@ -19,7 +19,7 @@ pub struct WasmerEnv {
     #[cfg_attr(feature = "clap", clap(long, env = "WASMER_REGISTRY"))]
     registry: Option<Registry>,
     /// The directory cached artefacts are saved to.
-    #[clap(long, env = "WASMER_CACHE_DIR")]
+    #[cfg_attr(feature = "clap", clap(long, env = "WASMER_CACHE_DIR"))]
     cache_dir: Option<PathBuf>,
     /// The API token to use when communicating with the registry (inferred from
     /// the environment by default)
