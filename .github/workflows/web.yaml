@@ -38,6 +38,7 @@ jobs:
       run: |
         cd lib/wasi-web
         rustup override set nightly-2023-05-25
+        rustup component add rustfmt
         cargo fmt --check
 
     - name: Check
