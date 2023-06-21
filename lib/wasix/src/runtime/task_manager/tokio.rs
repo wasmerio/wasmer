@@ -1,8 +1,4 @@
-use std::{
-    pin::Pin,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::{future::BoxFuture, Future};
 use tokio::runtime::Handle;
@@ -18,10 +14,6 @@ pub struct TokioTaskManager {
     pool: Arc<rayon::ThreadPool>,
 }
 
-/// This holds the currently set shared runtime which should be accessed via
-/// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()
-static GLOBAL_RUNTIME: Mutex<Option<(Arc<tokio::runtime::Runtime>, Handle)>> = Mutex::new(None);
-
 impl TokioTaskManager {
     pub fn new(rt: Handle) -> Self {
         Self {
@@ -33,43 +25,11 @@ impl TokioTaskManager {
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.handle.clone()
     }
-
-    /// Allows the caller to set the shared runtime that will be used by other
-    /// async processes within Wasmer
-    ///
-    /// The shared runtime must be set before it is used and can only be set once
-    /// otherwise this call will fail with an error.
-    pub fn set_shared(rt: Arc<tokio::runtime::Runtime>) -> Result<(), anyhow::Error> {
-        let mut guard = GLOBAL_RUNTIME.lock().unwrap();
-        if guard.is_some() {
-            return Err(anyhow::format_err!("The shared runtime has already been set or lazy initialized - it can not be overridden"));
-        }
-        guard.replace((rt.clone(), rt.handle().clone()));
-        Ok(())
-    }
-
-    /// Shared tokio [`VirtualTaskManager`] that is used by default.
-    ///
-    /// This exists because a tokio runtime is heavy, and there should not be many
-    /// independent ones in a process.
-    pub fn shared() -> Self {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            Self::new(handle)
-        } else {
-            let mut guard = GLOBAL_RUNTIME.lock().unwrap();
-            let rt = guard.get_or_insert_with(|| {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                let handle = rt.handle().clone();
-                (Arc::new(rt), handle)
-            });
-            Self::new(rt.1.clone())
-        }
-    }
 }
 
 impl Default for TokioTaskManager {
     fn default() -> Self {
-        Self::shared()
+        Self::new(Handle::current())
     }
 }
 
