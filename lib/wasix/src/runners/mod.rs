@@ -13,6 +13,9 @@ pub use self::runner::Runner;
 /// instance (the "guest").
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MappedDirectory {
+    /// The absolute path for a directory on the host filesystem.
     pub host: std::path::PathBuf,
+    /// The absolute path specifying where the host directory should be mounted
+    /// inside the guest.
     pub guest: String,
 }

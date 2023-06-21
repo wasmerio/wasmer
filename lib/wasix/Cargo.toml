@@ -66,6 +66,7 @@ tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "c
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
 petgraph = "0.6.3"
+rayon = { version = "1.7.0", optional = true }
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
@@ -118,7 +119,7 @@ webc_runner_rt_emscripten = ["wasmer-emscripten"]
 sys = ["webc/mmap", "time"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest"]
 sys-poll = []
-sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rayon"]
 
 # Deprecated. Kept it for compatibility
 compiler = []

@@ -16,6 +16,10 @@
 #[macro_use]
 extern crate anyhow;
 
+#[macro_use]
+#[cfg(test)]
+extern crate pretty_assertions;
+
 pub mod commands;
 pub mod common;
 #[macro_use]

@@ -7,6 +7,7 @@ use crate::{
     bindings::wasix_http_client_v1 as sys,
     capabilities::Capabilities,
     http::{DynHttpClient, HttpClientCapabilityV1},
+    runtime::task_manager::InlineWaker,
     Runtime, WasiEnv,
 };
 
@@ -134,12 +135,7 @@ impl sys::WasixHttpClientV1 for WasixHttpClientImpl {
             },
         };
         let f = self_.client.request(req);
-
-        let res = self
-            .runtime
-            .task_manager()
-            .block_on(f)
-            .map_err(|e| e.to_string())?;
+        let res = InlineWaker::block_on(f).map_err(|e| e.to_string())?;
 
         let res_headers = res
             .headers

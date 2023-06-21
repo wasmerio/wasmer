@@ -136,7 +136,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
                 let timeout = if waker.is_none() {
                     Some(
                         socket
-                            .opt_time(TimeType::AcceptTimeout)
+                            .opt_time(TimeType::ReadTimeout)
                             .ok()
                             .flatten()
                             .unwrap_or(Duration::from_secs(30)),

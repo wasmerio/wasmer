@@ -20,7 +20,10 @@ pub mod wasi;
 pub mod wasix;
 
 use bytes::{Buf, BufMut};
-use futures::Future;
+use futures::{
+    future::{BoxFuture, LocalBoxFuture},
+    Future,
+};
 use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
@@ -100,7 +103,7 @@ pub(crate) use crate::{
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::{task_manager::VirtualTaskManagerExt, SpawnMemoryType},
+    runtime::SpawnMemoryType,
     state::{
         self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
         WasiFutex, WasiState,
@@ -115,6 +118,7 @@ use crate::{
         MAX_SYMLINKS,
     },
     os::task::thread::RewindResult,
+    runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
 };
@@ -218,16 +222,19 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
 // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
 #[allow(clippy::await_holding_lock)]
-pub async unsafe fn stderr_write(
+pub unsafe fn stderr_write<'a>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
     buf: &[u8],
-) -> Result<(), Errno> {
+) -> LocalBoxFuture<'a, Result<(), Errno>> {
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
 
-    let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err)?;
-
-    stderr.write_all(buf).await.map_err(map_io_err)
+    let buf = buf.to_vec();
+    let fd_map = state.fs.fd_map.clone();
+    Box::pin(async move {
+        let mut stderr = WasiInodes::stderr_mut(&fd_map).map_err(fs_error_into_wasi_err)?;
+        stderr.write_all(&buf).await.map_err(map_io_err)
+    })
 }
 
 fn block_on_with_timeout<T, Fut>(
@@ -267,7 +274,6 @@ where
     if nonblocking {
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
-        let _guard = tasks.runtime_enter();
         let mut pinned_work = Box::pin(work);
         if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
             return res;
@@ -276,7 +282,7 @@ where
     }
 
     // Slow path, block on the work and process process
-    tasks.block_on(work)
+    InlineWaker::block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -358,7 +364,9 @@ where
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
         }
+
         WasiEnv::process_wakes_internal(self.ctx, cx);
+
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
@@ -477,17 +485,10 @@ where
             Poll::Ready(res) => res,
             Poll::Pending => Ok(AsyncifyAction::Pending),
         }
-
-    // We might actually already be inside a runtime context
-    // which means that we don't want to actually do the work
-    // here but instead in a background thread
-    } else if tokio::runtime::Handle::try_current().is_ok() {
-        warn!("Runtime attempted to block inside a runtime, this should never happen");
-        return Err(WasiError::Exit(Errno::Noexec.into()));
     } else {
         // Otherwise we block on the work and process it
-        // using the runtime from the task manager
-        tasks.block_on(work)
+        // using an asynchronou context
+        InlineWaker::block_on(work)
     }
 }
 
@@ -541,16 +542,10 @@ where
             Poll::Ready(res) => Ok(res),
             Poll::Pending => Ok(Err(Errno::Pending)),
         }
-    } else if tokio::runtime::Handle::try_current().is_ok() {
-        warn!("Runtime attempted to block inside a runtime, this should never happen");
-        return Err(WasiError::Exit(Errno::Noexec.into()));
     } else {
         // Otherwise we block on the work and process it
-        // using the runtime from the task manager
-        // Block on the work
-        let mut pinned_work = Box::pin(work);
-        let poller = Poller { env, pinned_work };
-        block_on_with_timeout(env.tasks(), timeout, poller)
+        // using an asynchronou context
+        Ok(InlineWaker::block_on(work))
     }
 }
 
@@ -606,7 +601,6 @@ where
     // If a waker was supplied then use this instead
     // of passing the actual command to the runtime
     if let Some(waker) = waker {
-        let _guard = env.tasks().runtime_enter();
         let mut pinned = Box::pin(work);
         let mut cx = Context::from_waker(waker);
         match pinned.as_mut().poll(&mut cx) {
@@ -615,8 +609,8 @@ where
         }
     } else {
         // Otherwise we block on the work and process it
-        // using the runtime from the task manager
-        env.tasks().block_on(work)
+        // using an asynchronou context
+        InlineWaker::block_on(work)
     }
 }
 
@@ -655,7 +649,6 @@ where
             // If a waker was supplied then use this instead
             // of passing the actual command to the runtime
             if let Some(waker) = waker {
-                let _guard = env.tasks().runtime_enter();
                 let mut pinned = Box::pin(work);
                 let mut cx = Context::from_waker(waker);
                 match pinned.as_mut().poll(&mut cx) {
@@ -664,8 +657,8 @@ where
                 }
             } else {
                 // Otherwise we block on the work and process it
-                // using the runtime from the task manager
-                tasks.block_on(work)
+                // using an asynchronou context
+                InlineWaker::block_on(work)
             }
         }
         _ => Err(Errno::Notsock),
@@ -783,12 +776,7 @@ where
                 let work = actor(socket);
 
                 // Block on the work and process it
-                let (tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(async move {
-                    let ret = work.await;
-                    tx.send(ret);
-                }));
-                let new_socket = rx.recv().unwrap()?;
+                let new_socket = InlineWaker::block_on(work)?;
 
                 if let Some(mut new_socket) = new_socket {
                     let mut guard = inode.write();
