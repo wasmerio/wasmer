@@ -18,6 +18,9 @@ pub struct WasmerEnv {
     /// default)
     #[cfg_attr(feature = "clap", clap(long, env = "WASMER_REGISTRY"))]
     registry: Option<Registry>,
+    /// The directory cached artefacts are saved to.
+    #[clap(long, env = "WASMER_CACHE_DIR")]
+    cache_dir: Option<PathBuf>,
     /// The API token to use when communicating with the registry (inferred from
     /// the environment by default)
     #[cfg_attr(feature = "clap", clap(long, env = "WASMER_TOKEN"))]
@@ -25,11 +28,17 @@ pub struct WasmerEnv {
 }
 
 impl WasmerEnv {
-    pub fn new(wasmer_dir: PathBuf, registry: Option<Registry>, token: Option<String>) -> Self {
+    pub fn new(
+        wasmer_dir: PathBuf,
+        registry: Option<Registry>,
+        token: Option<String>,
+        cache_dir: Option<PathBuf>,
+    ) -> Self {
         WasmerEnv {
             wasmer_dir,
             registry,
             token,
+            cache_dir,
         }
     }
 
@@ -62,6 +71,14 @@ impl WasmerEnv {
         &self.wasmer_dir
     }
 
+    /// The directory all cached artifacts should be saved to.
+    pub fn cache_dir(&self) -> PathBuf {
+        match &self.cache_dir {
+            Some(cache_dir) => cache_dir.clone(),
+            None => self.dir().join("cache"),
+        }
+    }
+
     /// The API token for the active registry.
     pub fn token(&self) -> Option<String> {
         let config = self.config().ok()?;
@@ -76,6 +93,7 @@ impl Default for WasmerEnv {
             wasmer_dir: WASMER_DIR.clone(),
             registry: None,
             token: None,
+            cache_dir: None,
         }
     }
 }

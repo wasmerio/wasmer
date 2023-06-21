@@ -1,8 +1,5 @@
-use std::path::Path;
-
 use clap::Parser;
 use wasmer_registry::wasmer_env::WasmerEnv;
-use wasmer_wasix::runtime::resolver::WapmSource;
 
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]
@@ -46,7 +43,7 @@ impl Publish {
         };
         publish.execute().map_err(on_error)?;
 
-        if let Err(e) = invalidate_graphql_query_cache(self.env.dir()) {
+        if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(
                 error = &*e,
                 "Unable to invalidate the cache used for package version queries",
@@ -69,8 +66,9 @@ fn on_error(e: anyhow::Error) -> anyhow::Error {
 // are cleaner ways to achieve this, but for now we're just going to
 // clear out the whole GraphQL query cache.
 // See https://github.com/wasmerio/wasmer/pull/3983 for more
-fn invalidate_graphql_query_cache(wasmer_dir: &Path) -> Result<(), anyhow::Error> {
-    WapmSource::invalidate_local_cache(wasmer_dir)?;
+fn invalidate_graphql_query_cache(env: &WasmerEnv) -> Result<(), anyhow::Error> {
+    let cache_dir = env.cache_dir().join("queries");
+    std::fs::remove_dir_all(cache_dir)?;
 
     Ok(())
 }
