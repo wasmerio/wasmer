@@ -37,6 +37,7 @@ jobs:
       shell: bash
       run: |
         cd lib/wasi-web
+        rustup override set nightly-2023-05-25
         cargo fmt --check
 
     - name: Check
