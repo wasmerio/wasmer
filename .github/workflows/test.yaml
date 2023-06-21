@@ -367,9 +367,9 @@ jobs:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
       - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.metadata.target }}
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
