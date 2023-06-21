@@ -692,28 +692,8 @@
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
-<a href="#694" id="694">694</a>
-<a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
-<a href="#700" id="700">700</a>
-<a href="#701" id="701">701</a>
-<a href="#702" id="702">702</a>
-<a href="#703" id="703">703</a>
-<a href="#704" id="704">704</a>
-<a href="#705" id="705">705</a>
-<a href="#706" id="706">706</a>
-<a href="#707" id="707">707</a>
-<a href="#708" id="708">708</a>
-<a href="#709" id="709">709</a>
-<a href="#710" id="710">710</a>
-<a href="#711" id="711">711</a>
-<a href="#712" id="712">712</a>
-<a href="#713" id="713">713</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -753,32 +733,12 @@
         }
     }
 
-    <span class="doccomment">/// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    </span><span class="kw">pub fn </span>default_cache_dir(wasmer_dir: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; PathBuf {
-        wasmer_dir.as_ref().join(<span class="string">&quot;queries&quot;</span>)
-    }
-
     <span class="doccomment">/// Cache query results locally.
     </span><span class="kw">pub fn </span>with_local_cache(<span class="self">self</span>, cache_dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;, timeout: Duration) -&gt; <span class="self">Self </span>{
         WapmSource {
             cache: <span class="prelude-val">Some</span>(FileSystemCache::new(cache_dir, timeout)),
             ..<span class="self">self
         </span>}
-    }
-
-    <span class="doccomment">/// Clean the local cache.
-    ///
-    /// This is a workaround used primarily when publishing and will probably
-    /// be removed in the future.
-    </span><span class="kw">pub fn </span>invalidate_local_cache(wasmer_dir: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span>cache_dir = WapmSource::default_cache_dir(wasmer_dir);
-
-        std::fs::remove_dir_all(<span class="kw-2">&amp;</span>cache_dir).with_context(|| {
-            <span class="macro">format!</span>(<span class="string">&quot;Unable to delete the \&quot;{}\&quot; directory&quot;</span>, cache_dir.display())
-        })<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">async fn </span>lookup_package(<span class="kw-2">&amp;</span><span class="self">self</span>, package_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;WapmWebQuery, Error&gt; {

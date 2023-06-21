@@ -122,6 +122,24 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use </span><span class="kw">crate</span>::WasmerConfig;
@@ -142,6 +160,9 @@
     /// default)
     </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;clap&quot;</span>, clap(long, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>))]
     </span>registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+    <span class="doccomment">/// The directory cached artefacts are saved to.
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;clap&quot;</span>, clap(long, env = <span class="string">&quot;WASMER_CACHE_DIR&quot;</span>))]
+    </span>cache_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
     <span class="doccomment">/// The API token to use when communicating with the registry (inferred from
     /// the environment by default)
     </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;clap&quot;</span>, clap(long, env = <span class="string">&quot;WASMER_TOKEN&quot;</span>))]
@@ -149,11 +170,17 @@
 }
 
 <span class="kw">impl </span>WasmerEnv {
-    <span class="kw">pub fn </span>new(wasmer_dir: PathBuf, registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;, token: <span class="prelude-ty">Option</span>&lt;String&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(
+        wasmer_dir: PathBuf,
+        registry: <span class="prelude-ty">Option</span>&lt;Registry&gt;,
+        token: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        cache_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    ) -&gt; <span class="self">Self </span>{
         WasmerEnv {
             wasmer_dir,
             registry,
             token,
+            cache_dir,
         }
     }
 
@@ -186,6 +213,14 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.wasmer_dir
     }
 
+    <span class="doccomment">/// The directory all cached artifacts should be saved to.
+    </span><span class="kw">pub fn </span>cache_dir(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PathBuf {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.cache_dir {
+            <span class="prelude-val">Some</span>(cache_dir) =&gt; cache_dir.clone(),
+            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.dir().join(<span class="string">&quot;cache&quot;</span>),
+        }
+    }
+
     <span class="doccomment">/// The API token for the active registry.
     </span><span class="kw">pub fn </span>token(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
         <span class="kw">let </span>config = <span class="self">self</span>.config().ok()<span class="question-mark">?</span>;
@@ -200,6 +235,7 @@
             wasmer_dir: WASMER_DIR.clone(),
             registry: <span class="prelude-val">None</span>,
             token: <span class="prelude-val">None</span>,
+            cache_dir: <span class="prelude-val">None</span>,
         }
     }
 }

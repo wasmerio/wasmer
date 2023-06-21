@@ -410,17 +410,11 @@
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
     io::{ErrorKind, Write <span class="kw">as _</span>},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 
@@ -470,18 +464,12 @@
         }
     }
 
-    <span class="doccomment">/// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    </span><span class="kw">pub fn </span>default_cache_dir(wasmer_dir: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; PathBuf {
-        wasmer_dir.as_ref().join(<span class="string">&quot;checkouts&quot;</span>)
-    }
-
     <span class="doccomment">/// Create a new [`BuiltinPackageLoader`] based on `$WASMER_DIR` and the
     /// global Wasmer config.
     </span><span class="kw">pub fn </span>from_env() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">let </span>wasmer_dir = discover_wasmer_dir().context(<span class="string">&quot;Unable to determine $WASMER_DIR&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>client = <span class="kw">crate</span>::http::default_http_client().context(<span class="string">&quot;No HTTP client available&quot;</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>cache_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
+        <span class="kw">let </span>cache_dir = wasmer_dir.join(<span class="string">&quot;cache&quot;</span>).join(<span class="string">&quot;&quot;</span>);
 
         <span class="prelude-val">Ok</span>(BuiltinPackageLoader::new_with_client(
             cache_dir,

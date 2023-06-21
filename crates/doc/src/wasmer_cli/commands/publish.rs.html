@@ -73,13 +73,8 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::path::Path;
-
-<span class="kw">use </span>clap::Parser;
+</pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
-<span class="kw">use </span>wasmer_wasix::runtime::resolver::WapmSource;
 
 <span class="doccomment">/// Publish a package to the package registry.
 </span><span class="attr">#[derive(Debug, Parser)]
@@ -123,7 +118,7 @@
         };
         publish.execute().map_err(on_error)<span class="question-mark">?</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = invalidate_graphql_query_cache(<span class="self">self</span>.env.dir()) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = invalidate_graphql_query_cache(<span class="kw-2">&amp;</span><span class="self">self</span>.env) {
             <span class="macro">tracing::warn!</span>(
                 error = <span class="kw-2">&amp;*</span>e,
                 <span class="string">&quot;Unable to invalidate the cache used for package version queries&quot;</span>,
@@ -146,8 +141,9 @@
 // are cleaner ways to achieve this, but for now we&#39;re just going to
 // clear out the whole GraphQL query cache.
 // See https://github.com/wasmerio/wasmer/pull/3983 for more
-</span><span class="kw">fn </span>invalidate_graphql_query_cache(wasmer_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-    WapmSource::invalidate_local_cache(wasmer_dir)<span class="question-mark">?</span>;
+</span><span class="kw">fn </span>invalidate_graphql_query_cache(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;queries&quot;</span>);
+    std::fs::remove_dir_all(cache_dir)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }

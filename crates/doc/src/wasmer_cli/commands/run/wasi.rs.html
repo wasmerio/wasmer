@@ -644,12 +644,12 @@
         <span class="kw">let </span>client = Arc::new(client);
 
         <span class="kw">let </span>package_loader = <span class="self">self
-            </span>.prepare_package_loader(env.dir(), client.clone())
+            </span>.prepare_package_loader(env, client.clone())
             .context(<span class="string">&quot;Unable to prepare the package loader&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>cache_dir = FileSystemCache::default_cache_dir(env.dir());
+        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;compiled&quot;</span>);
         <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(cache_dir));
 
@@ -691,10 +691,10 @@
 
     <span class="kw">fn </span>prepare_package_loader(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        wasmer_dir: <span class="kw-2">&amp;</span>Path,
+        env: <span class="kw-2">&amp;</span>WasmerEnv,
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageLoader + Send + Sync&gt; {
-        <span class="kw">let </span>checkout_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
+        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">&quot;checkouts&quot;</span>);
         <span class="kw">let </span>loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
         <span class="prelude-val">Ok</span>(loader)
     }
@@ -717,12 +717,12 @@
         source.add_source(preloaded);
 
         <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
-        <span class="kw">let </span>cache_dir = WapmSource::default_cache_dir(env.dir());
+        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;queries&quot;</span>);
         <span class="kw">let </span>wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
         source.add_source(wapm_source);
 
-        <span class="kw">let </span>cache_dir = WebSource::default_cache_dir(env.dir());
+        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;downloads&quot;</span>);
         source.add_source(WebSource::new(cache_dir, client));
 
         source.add_source(FileSystemSource::default());

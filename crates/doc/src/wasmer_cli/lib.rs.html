@@ -31,6 +31,10 @@
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The Wasmer binary lib
 
 </span><span class="attr">#![deny(
@@ -48,6 +52,10 @@
 
 #[macro_use]
 </span><span class="kw">extern crate </span>anyhow;
+
+<span class="attr">#[macro_use]
+#[cfg(test)]
+</span><span class="kw">extern crate </span>pretty_assertions;
 
 <span class="kw">pub mod </span>commands;
 <span class="kw">pub mod </span>common;

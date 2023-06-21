@@ -551,12 +551,6 @@
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a>
-<a href="#557" id="557">557</a>
-<a href="#558" id="558">558</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Write <span class="kw">as _</span>,
     io::Write,
@@ -619,12 +613,6 @@
             retry_period,
             ..<span class="self">self
         </span>}
-    }
-
-    <span class="doccomment">/// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    </span><span class="kw">pub fn </span>default_cache_dir(wasmer_dir: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; PathBuf {
-        wasmer_dir.as_ref().join(<span class="string">&quot;downloads&quot;</span>)
     }
 
     <span class="doccomment">/// Download a package and cache it locally.
