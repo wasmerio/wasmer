@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Write as _,
     io::{ErrorKind, Write as _},
-    path::{PathBuf},
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 
