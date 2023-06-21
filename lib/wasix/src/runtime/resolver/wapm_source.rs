@@ -1,5 +1,5 @@
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -39,32 +39,12 @@ impl WapmSource {
         }
     }
 
-    /// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
-        wasmer_dir.as_ref().join("queries")
-    }
-
     /// Cache query results locally.
     pub fn with_local_cache(self, cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
         WapmSource {
             cache: Some(FileSystemCache::new(cache_dir, timeout)),
             ..self
         }
-    }
-
-    /// Clean the local cache.
-    ///
-    /// This is a workaround used primarily when publishing and will probably
-    /// be removed in the future.
-    pub fn invalidate_local_cache(wasmer_dir: impl AsRef<Path>) -> Result<(), Error> {
-        let cache_dir = WapmSource::default_cache_dir(wasmer_dir);
-
-        std::fs::remove_dir_all(&cache_dir).with_context(|| {
-            format!("Unable to delete the \"{}\" directory", cache_dir.display())
-        })?;
-
-        Ok(())
     }
 
     async fn lookup_package(&self, package_name: &str) -> Result<WapmWebQuery, Error> {

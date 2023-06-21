@@ -62,12 +62,6 @@ impl WebSource {
         }
     }
 
-    /// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
-        wasmer_dir.as_ref().join("downloads")
-    }
-
     /// Download a package and cache it locally.
     #[tracing::instrument(level = "debug", skip_all, fields(%url))]
     async fn get_locally_cached_file(&self, url: &Url) -> Result<PathBuf, Error> {

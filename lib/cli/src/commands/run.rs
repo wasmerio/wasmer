@@ -29,11 +29,12 @@ use wasmer::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
-use wasmer_registry::Package;
+use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
     runtime::{
+        module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
@@ -54,19 +55,11 @@ use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, stor
 
 const TICK: Duration = Duration::from_millis(250);
 
-static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
-    wasmer_registry::WasmerConfig::get_wasmer_dir()
-        .ok()
-        .or_else(|| dirs::home_dir().map(|home| home.join(".wasmer")))
-        .unwrap_or_else(|| PathBuf::from(".wasmer"))
-});
-
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
 pub struct Run {
-    /// The Wasmer home directory.
-    #[clap(long = "wasmer-dir", env = "WASMER_DIR", default_value = WASMER_HOME.as_os_str())]
-    wasmer_dir: PathBuf,
+    #[clap(flatten)]
+    env: WasmerEnv,
     #[clap(flatten)]
     store: StoreOptions,
     #[clap(flatten)]
@@ -116,7 +109,7 @@ impl Run {
         let (store, _) = self.store.get_store()?;
         let runtime =
             self.wasi
-                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle.clone())?;
+                .prepare_runtime(store.engine().clone(), &self.env, handle.clone())?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
@@ -369,7 +362,7 @@ impl Run {
         };
         let store = StoreOptions::default();
         Ok(Run {
-            wasmer_dir: WASMER_HOME.clone(),
+            env: WasmerEnv::default(),
             store,
             wasi: Wasi::for_binfmt_interpreter()?,
             wcgi: WcgiOptions::default(),
@@ -597,7 +590,35 @@ impl ExecutableTarget {
                 let wasm = std::fs::read(path)?;
                 let engine = runtime.engine().context("No engine available")?;
                 pb.set_message("Compiling to WebAssembly");
-                let module = Module::new(&engine, wasm)?;
+
+                let tasks = runtime.task_manager();
+                let module_cache = runtime.module_cache();
+                let module_hash = ModuleHash::sha256(&wasm);
+
+                let ret = {
+                    let module_cache = module_cache.clone();
+                    let engine = engine.clone();
+                    tasks.spawn_and_block_on(async move {
+                        module_cache.load(module_hash, &engine).await
+                    })
+                };
+                let module = match ret {
+                    Ok(m) => m,
+                    Err(e) => {
+                        if !matches!(e, CacheError::NotFound) {
+                            tracing::warn!(
+                                module.path=%path.display(),
+                                module.hash=%module_hash,
+                                error=&e as &dyn std::error::Error,
+                                "Unable to deserialize the pre-compiled module from the module cache",
+                            );
+                        }
+
+                        Module::new(&engine, &wasm)
+                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?
+                    }
+                };
+
                 Ok(ExecutableTarget::WebAssembly {
                     module,
                     path: path.to_path_buf(),

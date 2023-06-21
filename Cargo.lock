@@ -560,9 +560,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.3.4"
+version = "4.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80672091db20273a15cf9fdd4e47ed43b5091ec9841bf4c6145c9dfbbcae09ed"
+checksum = "2686c4115cb0810d9a984776e197823d08ec94f176549a89a9efded477c456dc"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -575,15 +575,15 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1eef05769009513df2eb1c3b4613e7fad873a14c600ff025b08f250f59fee7de"
 dependencies = [
- "clap 4.3.4",
+ "clap 4.3.5",
  "log",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.3.4"
+version = "4.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1458a1df40e1e2afebb7ab60ce55c1fa8f431146205aa5f4887e0b111c27636"
+checksum = "2e53afce1efce6ed1f633cf0e57612fe51db54a1ee4fd8f8503d078fe02d69ae"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2810,9 +2810,9 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 
 [[package]]
 name = "openssl"
-version = "0.10.54"
+version = "0.10.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69b3f656a17a6cbc115b5c7a40c616947d213ba182135b014d6051b73ab6f019"
+checksum = "345df152bc43501c5eb9e4654ff05f794effb78d4efe3d53abc158baddc0703d"
 dependencies = [
  "bitflags",
  "cfg-if 1.0.0",
@@ -2842,9 +2842,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.88"
+version = "0.9.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2ce0f250f34a308dcfdbb351f511359857d4ed2134ba715a4eadd46e1ffd617"
+checksum = "374533b0e45f3a7ced10fcaeccca020e66656bc03dac384f852e4e5a7a8104a6"
 dependencies = [
  "cc",
  "libc",
@@ -5643,7 +5643,7 @@ dependencies = [
  "cargo_metadata",
  "cfg-if 1.0.0",
  "chrono",
- "clap 4.3.4",
+ "clap 4.3.5",
  "colored 2.0.0",
  "dialoguer",
  "dirs",
@@ -5659,6 +5659,7 @@ dependencies = [
  "once_cell",
  "pathdiff",
  "predicates 3.0.3",
+ "pretty_assertions",
  "prettytable-rs",
  "regex",
  "reqwest",
@@ -5735,7 +5736,7 @@ dependencies = [
  "atty",
  "bytesize",
  "cfg-if 1.0.0",
- "clap 4.3.4",
+ "clap 4.3.5",
  "colored 2.0.0",
  "distance",
  "fern",
@@ -5810,12 +5811,12 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19c0d1ea63311f4e84b7df88a176fcaeced318d09b102c359f23eb81f8f3eb63"
+checksum = "401220ca92419731ffb670b6d6f8442fc32b110f6e9bb5658c4cfa658c48ab32"
 dependencies = [
  "anyhow",
- "clap 4.3.4",
+ "clap 4.3.5",
  "clap-verbosity-flag",
  "comfy-table",
  "dialoguer",
@@ -6025,6 +6026,7 @@ name = "wasmer-registry"
 version = "5.1.0"
 dependencies = [
  "anyhow",
+ "clap 4.3.5",
  "console",
  "dirs",
  "filetime",
