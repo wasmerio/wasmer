@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        rust: [nightly]
+        rust: [nightly-2023-05-25]
     runs-on: ${{ matrix.os }}
     steps:
     - name: Checkout code
