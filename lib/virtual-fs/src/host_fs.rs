@@ -455,7 +455,7 @@ impl AsyncRead for File {
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_read(cx, buf)
     }
@@ -467,19 +467,19 @@ impl AsyncWrite for File {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
@@ -489,7 +489,7 @@ impl AsyncWrite for File {
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -501,13 +501,13 @@ impl AsyncWrite for File {
 
 impl AsyncSeek for File {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.start_seek(position)
     }
 
     fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_complete(cx)
     }
@@ -672,19 +672,19 @@ impl AsyncWrite for Stderr {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
@@ -694,7 +694,7 @@ impl AsyncWrite for Stderr {
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -795,7 +795,7 @@ impl AsyncRead for Stdin {
             }
         }
 
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_read(cx, buf)
     }
@@ -887,7 +887,7 @@ impl VirtualFile for Stdin {
             }
         }
 
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
 
         let mut buf = [0u8; 8192];
