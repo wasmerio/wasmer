@@ -47,7 +47,7 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let listener = tokio::net::TcpListener::bind(addr)
             .await
             .map(|sock| {
@@ -67,7 +67,7 @@ impl VirtualNetworking for LocalNetworking {
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let socket = tokio::net::UdpSocket::bind(addr)
             .await
             .map_err(io_err_into_net_error)?;
@@ -84,7 +84,7 @@ impl VirtualNetworking for LocalNetworking {
         _addr: SocketAddr,
         peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let stream = tokio::net::TcpStream::connect(peer)
             .await
             .map_err(io_err_into_net_error)?;
@@ -98,7 +98,7 @@ impl VirtualNetworking for LocalNetworking {
         port: Option<u16>,
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let host_to_lookup = if host.contains(':') {
             host.to_string()
         } else {
@@ -121,7 +121,7 @@ pub struct LocalTcpListener {
 #[async_trait::async_trait]
 impl VirtualTcpListener for LocalTcpListener {
     fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
-        let _guard = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         {
             let mut backlog = self.backlog.lock().unwrap();
             if let Some((sock, addr)) = backlog.pop() {

@@ -19,7 +19,7 @@ impl Default for ReqwestHttpClient {
 
 impl ReqwestHttpClient {
     async fn request(&self, request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
-        let _self = self.handle.enter();
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| format!("Invalid http method {}", request.method))?;
 
