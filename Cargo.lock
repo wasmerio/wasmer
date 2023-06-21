@@ -5659,6 +5659,7 @@ dependencies = [
  "once_cell",
  "pathdiff",
  "predicates 3.0.3",
+ "pretty_assertions",
  "prettytable-rs",
  "regex",
  "reqwest",

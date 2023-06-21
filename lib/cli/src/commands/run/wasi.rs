@@ -268,12 +268,12 @@ impl Wasi {
         let client = Arc::new(client);
 
         let package_loader = self
-            .prepare_package_loader(env.dir(), client.clone())
+            .prepare_package_loader(env, client.clone())
             .context("Unable to prepare the package loader")?;
 
         let registry = self.prepare_source(env, client)?;
 
-        let cache_dir = FileSystemCache::default_cache_dir(env.dir());
+        let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
             .with_fallback(FileSystemCache::new(cache_dir));
 
@@ -315,10 +315,10 @@ impl Wasi {
 
     fn prepare_package_loader(
         &self,
-        wasmer_dir: &Path,
+        env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
-        let checkout_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
+        let checkout_dir = env.cache_dir().join("checkouts");
         let loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
         Ok(loader)
     }
@@ -341,12 +341,12 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
-        let cache_dir = WapmSource::default_cache_dir(env.dir());
+        let cache_dir = env.cache_dir().join("queries");
         let wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
         source.add_source(wapm_source);
 
-        let cache_dir = WebSource::default_cache_dir(env.dir());
+        let cache_dir = env.cache_dir().join("downloads");
         source.add_source(WebSource::new(cache_dir, client));
 
         source.add_source(FileSystemSource::default());
