@@ -218,7 +218,7 @@ impl Console {
             .with_capabilities(self.capabilities.clone())
             .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
             // TODO: better error conversion
-            .map_err(|err| SpawnError::Other(err.to_string()))?;
+            .map_err(|err| SpawnError::Other(Box::new(crate::AnyhowStdError(err))))?;
 
         // TODO: no unwrap!
         let env = builder
