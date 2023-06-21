@@ -18,8 +18,9 @@ pub mod package;
 pub mod publish;
 pub mod types;
 pub mod utils;
+pub mod wasmer_env;
 
-pub use client::RegistryClient;
+pub use crate::client::RegistryClient;
 
 use std::{
     fmt,

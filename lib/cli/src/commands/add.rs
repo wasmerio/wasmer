@@ -2,14 +2,13 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Error};
 use clap::Parser;
-use wasmer_registry::{Bindings, ProgrammingLanguage, WasmerConfig};
+use wasmer_registry::{wasmer_env::WasmerEnv, Bindings, ProgrammingLanguage};
 
 /// Add a Wasmer package's bindings to your application.
 #[derive(Debug, Parser)]
 pub struct Add {
-    /// The registry to fetch bindings from.
-    #[clap(long, env = "WASMER_REGISTRY")]
-    registry: Option<String>,
+    #[clap(flatten)]
+    env: WasmerEnv,
     /// Add the JavaScript bindings using "npm install".
     #[clap(long, groups = &["bindings", "js"])]
     npm: bool,
@@ -32,10 +31,11 @@ impl Add {
         anyhow::ensure!(!self.packages.is_empty(), "No packages specified");
 
         let registry = self
-            .registry()
+            .env
+            .registry_endpoint()
             .context("Unable to determine which registry to use")?;
 
-        let bindings = self.lookup_bindings(&registry)?;
+        let bindings = self.lookup_bindings(registry.as_str())?;
 
         let mut cmd = self.target()?.command(&bindings)?;
         cmd.stdin(Stdio::null())
@@ -69,20 +69,6 @@ impl Add {
         }
 
         Ok(bindings_to_add)
-    }
-
-    fn registry(&self) -> Result<String, Error> {
-        match &self.registry {
-            Some(r) => Ok(r.clone()),
-            None => {
-                let wasmer_dir =
-                    WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))?;
-                let cfg = WasmerConfig::from_file(&wasmer_dir)
-                    .map_err(Error::msg)
-                    .context("Unable to load Wasmer config file")?;
-                Ok(cfg.registry.get_current_registry())
-            }
-        }
     }
 
     fn target(&self) -> Result<Target, Error> {

@@ -39,7 +39,7 @@ wasmer-wasix-experimental-io-devices = { version = "0.8.0", path = "../wasi-expe
 wasmer-wast = { version = "=4.0.0-beta.3", path = "../../tests/lib/wast", optional = true }
 wasmer-cache = { version = "=4.0.0-beta.3", path = "../cache", features = ["blake3-pure"] }
 wasmer-types = { version = "=4.0.0-beta.3", path = "../types", features = ["enable-serde"] }
-wasmer-registry = { version = "5.1.0", path = "../registry", features = ["build-package"]  }
+wasmer-registry = { version = "5.1.0", path = "../registry", features = ["build-package", "clap"]  }
 wasmer-object = { version = "=4.0.0-beta.3", path = "../object", optional = true }
 virtual-fs  = { version = "0.6.0", path = "../virtual-fs", default-features = false, features = ["host-fs"] }
 virtual-net  = { version = "0.3.0", path = "../virtual-net" }
