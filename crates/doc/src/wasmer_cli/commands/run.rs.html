@@ -868,6 +868,28 @@
 <a href="#867" id="867">867</a>
 <a href="#868" id="868">868</a>
 <a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -904,6 +926,7 @@
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
     runtime::{
+        module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
         resolver::{PackageSpecifier, QueryError},
     },
@@ -1437,7 +1460,28 @@
                 <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
                 <span class="kw">let </span>engine = runtime.engine().context(<span class="string">&quot;No engine available&quot;</span>)<span class="question-mark">?</span>;
                 pb.set_message(<span class="string">&quot;Compiling to WebAssembly&quot;</span>);
-                <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, wasm)<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>tasks = runtime.task_manager();
+                <span class="kw">let </span>module_cache = runtime.module_cache();
+                <span class="kw">let </span>module_hash = ModuleHash::sha256(<span class="kw-2">&amp;</span>wasm);
+
+                <span class="kw">let </span>module = <span class="kw">match </span>tasks.block_on(module_cache.load(module_hash, <span class="kw-2">&amp;</span>engine)) {
+                    <span class="prelude-val">Ok</span>(m) =&gt; m,
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="kw">if </span>!<span class="macro">matches!</span>(e, CacheError::NotFound) {
+                            <span class="macro">tracing::warn!</span>(
+                                module.path=%path.display(),
+                                module.hash=%module_hash,
+                                error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                                <span class="string">&quot;Unable to deserialize the pre-compiled module from the module cache&quot;</span>,
+                            );
+                        }
+
+                        Module::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>wasm)
+                            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to compile \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?
+                    </span>}
+                };
+
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
                     path: path.to_path_buf(),
