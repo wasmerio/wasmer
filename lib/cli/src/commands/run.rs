@@ -29,7 +29,7 @@ use wasmer::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
-use wasmer_registry::Package;
+use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
@@ -53,19 +53,11 @@ use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, stor
 
 const TICK: Duration = Duration::from_millis(250);
 
-static WASMER_HOME: Lazy<PathBuf> = Lazy::new(|| {
-    wasmer_registry::WasmerConfig::get_wasmer_dir()
-        .ok()
-        .or_else(|| dirs::home_dir().map(|home| home.join(".wasmer")))
-        .unwrap_or_else(|| PathBuf::from(".wasmer"))
-});
-
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
 pub struct Run {
-    /// The Wasmer home directory.
-    #[clap(long = "wasmer-dir", env = "WASMER_DIR", default_value = WASMER_HOME.as_os_str())]
-    wasmer_dir: PathBuf,
+    #[clap(flatten)]
+    env: WasmerEnv,
     #[clap(flatten)]
     store: StoreOptions,
     #[clap(flatten)]
@@ -112,9 +104,9 @@ impl Run {
         }
 
         let (store, _) = self.store.get_store()?;
-        let runtime =
-            self.wasi
-                .prepare_runtime(store.engine().clone(), &self.wasmer_dir, handle)?;
+        let runtime = self
+            .wasi
+            .prepare_runtime(store.engine().clone(), &self.env, handle)?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
@@ -358,7 +350,7 @@ impl Run {
         };
         let store = StoreOptions::default();
         Ok(Run {
-            wasmer_dir: WASMER_HOME.clone(),
+            env: WasmerEnv::default(),
             store,
             wasi: Wasi::for_binfmt_interpreter()?,
             wcgi: WcgiOptions::default(),
