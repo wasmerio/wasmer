@@ -126,11 +126,11 @@ impl VirtualTaskManager for TokioTaskManager {
         // the poller to completion
         if let Some(trigger) = task.trigger {
             let trigger = trigger();
-            let handle = self.handle.clone();
+            let pool = self.pool.clone();
             self.handle.spawn(async move {
                 let result = trigger.await;
                 // Build the task that will go on the callback
-                handle.spawn_blocking(move || {
+                pool.spawn(move || {
                     // Invoke the callback
                     run(TaskWasmRunProperties {
                         ctx,
@@ -141,7 +141,7 @@ impl VirtualTaskManager for TokioTaskManager {
             });
         } else {
             // Run the callback on a dedicated thread
-            std::thread::spawn(move || {
+            self.pool.spawn(move || {
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
