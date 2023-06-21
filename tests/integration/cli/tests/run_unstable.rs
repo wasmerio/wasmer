@@ -14,8 +14,8 @@ use predicates::str::contains;
 use rand::Rng;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
-use wasmer_integration_tests_cli::get_wasmer_path;
 
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 
 static RUST_LOG: Lazy<String> = Lazy::new(|| {
@@ -30,14 +30,8 @@ static RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 fn wasmer_run_unstable() -> std::process::Command {
-    let mut cmd = std::process::Command::new("cargo");
-    cmd.arg("run")
-        .arg("--quiet")
-        .arg("--package=wasmer-cli")
-        .arg("--features=singlepass,cranelift")
-        .arg("--color=never")
-        .arg("--")
-        .arg("run-unstable");
+    let mut cmd = std::process::Command::new(WASMER_EXE);
+    cmd.arg("run-unstable");
     cmd.env("RUST_LOG", &*RUST_LOG);
     cmd
 }
@@ -331,7 +325,7 @@ mod wasm_on_disk {
         let dest = temp.path().join("qjs.wasmu");
         let qjs = fixtures::qjs();
         // Make sure it is compiled
-        Command::new(get_wasmer_path())
+        Command::new(WASMER_EXE)
             .arg("compile")
             .arg("-o")
             .arg(&dest)

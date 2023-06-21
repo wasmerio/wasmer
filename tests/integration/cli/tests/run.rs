@@ -3,7 +3,9 @@
 use assert_cmd::Command;
 use predicates::str::contains;
 use std::path::{Path, PathBuf};
-use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{ASSET_PATH, C_ASSET_PATH};
+
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 
 fn wasi_test_python_path() -> PathBuf {
     Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
@@ -30,7 +32,7 @@ fn test_no_start_wat_path() -> PathBuf {
 #[ignore]
 #[test]
 fn test_run_customlambda() {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("config")
         .arg("--bindir")
         .assert()
@@ -46,7 +48,7 @@ fn test_run_customlambda() {
     println!("checkouts path: {}", checkouts_path.display());
     let _ = std::fs::remove_dir_all(&checkouts_path);
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("https://wapm.io/ciuser/customlambda")
         // TODO: this argument should not be necessary later
@@ -58,7 +60,7 @@ fn test_run_customlambda() {
     assert.stdout("139583862445\n");
 
     // Run again to verify the caching
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("https://wapm.io/ciuser/customlambda")
         // TODO: this argument should not be necessary later
@@ -144,7 +146,7 @@ fn test_cross_compile_python_windows() {
                 Ok(_) => Some(assert_tarball_is_present_local(t).unwrap()),
                 Err(_) => None,
             };
-            let mut cmd = Command::new(get_wasmer_path());
+            let mut cmd = Command::new(WASMER_EXE);
 
             cmd.arg("create-exe");
             cmd.arg(wasi_test_python_path());
@@ -196,7 +198,7 @@ fn run_whoami_works() {
         return;
     }
 
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("login")
         .arg("--registry")
         .arg("wapm.dev")
@@ -204,7 +206,7 @@ fn run_whoami_works() {
         .assert()
         .success();
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("whoami")
         .arg("--registry")
         .arg("wapm.dev")
@@ -217,7 +219,7 @@ fn run_whoami_works() {
 
 #[test]
 fn run_wasi_works() {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg(wasi_test_wasm_path())
         .arg("--")
@@ -249,7 +251,7 @@ fn test_wasmer_create_exe_pirita_works() {
 
     println!("compiling to target {native_target}");
 
-    let mut cmd = Command::new(get_wasmer_path());
+    let mut cmd = Command::new(WASMER_EXE);
     cmd.arg("create-exe");
     cmd.arg(&python_wasmer_path);
     cmd.arg("--tarball");
@@ -292,7 +294,7 @@ fn test_wasmer_run_pirita_works() {
     let python_wasmer_path = temp_dir.path().join("python.wasmer");
     std::fs::copy(wasi_test_python_path(), &python_wasmer_path).unwrap();
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg(python_wasmer_path)
         .arg("--")
@@ -308,7 +310,7 @@ fn test_wasmer_run_pirita_works() {
 #[test]
 #[ignore]
 fn test_wasmer_run_pirita_url_works() {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("https://wapm.dev/syrusakbary/python")
         .arg("--")
@@ -337,7 +339,7 @@ fn test_wasmer_run_works_with_dir() {
     assert!(temp_dir.path().join("qjs.wasm").exists());
 
     // test with "wasmer qjs.wasm"
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg(temp_dir.path())
         .arg("--")
         .arg("--quit")
@@ -345,7 +347,7 @@ fn test_wasmer_run_works_with_dir() {
         .success();
 
     // test again with "wasmer run qjs.wasm"
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("run")
         .arg(temp_dir.path())
         .arg("--")
@@ -359,7 +361,7 @@ fn test_wasmer_run_works_with_dir() {
 #[cfg_attr(target_env = "musl", ignore)]
 #[test]
 fn test_wasmer_run_works() {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
@@ -369,7 +371,7 @@ fn test_wasmer_run_works() {
     assert.stdout("hello\n");
 
     // same test again, but this time with "wasmer run ..."
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
@@ -380,7 +382,7 @@ fn test_wasmer_run_works() {
     assert.stdout("hello\n");
 
     // set wapm.io as the current registry
-    let _ = Command::new(get_wasmer_path())
+    let _ = Command::new(WASMER_EXE)
         .arg("login")
         .arg("--registry")
         .arg("wapm.io")
@@ -390,7 +392,7 @@ fn test_wasmer_run_works() {
         .success();
 
     // same test again, but this time without specifying the registry
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
@@ -401,7 +403,7 @@ fn test_wasmer_run_works() {
     assert.stdout("hello\n");
 
     // same test again, but this time with only the command "python" (should be looked up locally)
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("_/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
@@ -414,7 +416,7 @@ fn test_wasmer_run_works() {
 
 #[test]
 fn run_no_imports_wasm_works() {
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("run")
         .arg(test_no_imports_wat_path())
         .assert()
@@ -423,7 +425,7 @@ fn run_no_imports_wasm_works() {
 
 #[test]
 fn run_wasi_works_non_existent() -> anyhow::Result<()> {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg("does-not/exist")
         .assert()
@@ -443,7 +445,7 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 #[test]
 fn run_test_caching_works_for_packages() {
     // set wapm.io as the current registry
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("login")
         .arg("--registry")
         .arg("wapm.io")
@@ -452,7 +454,7 @@ fn run_test_caching_works_for_packages() {
         .assert()
         .success();
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
@@ -463,7 +465,7 @@ fn run_test_caching_works_for_packages() {
 
     let time = std::time::Instant::now();
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
@@ -479,7 +481,7 @@ fn run_test_caching_works_for_packages() {
 #[test]
 fn run_test_caching_works_for_packages_with_versions() {
     // set wapm.io as the current registry
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("login")
         .arg("--registry")
         .arg("wapm.io")
@@ -488,7 +490,7 @@ fn run_test_caching_works_for_packages_with_versions() {
         .assert()
         .success();
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", ASSET_PATH))
         .arg("/app/test.py")
@@ -497,7 +499,7 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     assert.stdout("hello\n");
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", ASSET_PATH))
         .arg("/app/test.py")
@@ -521,7 +523,7 @@ fn run_test_caching_works_for_packages_with_versions() {
 #[ignore]
 #[test]
 fn run_test_caching_works_for_urls() {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
@@ -532,7 +534,7 @@ fn run_test_caching_works_for_urls() {
 
     let time = std::time::Instant::now();
 
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("https://wapm.io/python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("test.py")
@@ -566,13 +568,13 @@ fn run_invoke_works_with_nomain_wasi() {
     let module_file = std::env::temp_dir().join(format!("{random}.wat"));
     std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
 
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("run")
         .arg(&module_file)
         .assert()
         .success();
 
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("run")
         .arg("--invoke")
         .arg("_start")
@@ -585,7 +587,7 @@ fn run_invoke_works_with_nomain_wasi() {
 
 #[test]
 fn run_no_start_wasm_report_error() {
-    let assert = Command::new(get_wasmer_path())
+    let assert = Command::new(WASMER_EXE)
         .arg("run")
         .arg(test_no_start_wat_path())
         .assert()
@@ -616,7 +618,7 @@ fn test_wasmer_run_complex_url() {
         );
     }
 
-    Command::new(get_wasmer_path())
+    Command::new(WASMER_EXE)
         .arg("run")
         .arg(wasm_test_path)
         .arg("--")

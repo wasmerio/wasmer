@@ -5953,6 +5953,7 @@ dependencies = [
  "target-lexicon 0.12.7",
  "tempfile",
  "tokio",
+ "wasmer-cli",
 ]
 
 [[package]]

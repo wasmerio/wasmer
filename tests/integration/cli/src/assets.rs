@@ -1,5 +1,4 @@
-use std::env;
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 pub const C_ASSET_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -49,75 +48,6 @@ pub fn get_libwasmer_path() -> PathBuf {
     }
     if !ret.exists() {
         panic!("Could not find libwasmer path! {:?}", ret);
-    }
-    ret
-}
-
-/// Get the path to the `wasmer` executable to be used in this test.
-pub fn get_wasmer_path() -> PathBuf {
-    let mut ret = PathBuf::from(
-        env::var("WASMER_TEST_WASMER_PATH")
-            .unwrap_or_else(|_| format!("{}wasmer", WASMER_TARGET_PATH)),
-    );
-    if !ret.exists() {
-        ret = PathBuf::from(format!("{}wasmer", WASMER_TARGET_PATH_2));
-    }
-    if !ret.exists() {
-        ret = match get_repo_root_path() {
-            Some(s) => {
-                #[cfg(target_os = "windows")]
-                {
-                    s.join("target").join("release").join("wasmer.exe")
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    s.join("target").join("release").join("wasmer")
-                }
-            }
-            None => {
-                panic!("Could not find wasmer executable path! {:?}", ret);
-            }
-        };
-    }
-
-    if !ret.exists() {
-        ret = match get_repo_root_path() {
-            Some(s) => {
-                #[cfg(target_os = "windows")]
-                {
-                    s.join("target")
-                        .join(target_lexicon::HOST.to_string())
-                        .join("release")
-                        .join("wasmer.exe")
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    s.join("target")
-                        .join(target_lexicon::HOST.to_string())
-                        .join("release")
-                        .join("wasmer")
-                }
-            }
-            None => {
-                panic!("Could not find wasmer executable path! {:?}", ret);
-            }
-        };
-    }
-
-    if !ret.exists() {
-        if let Some(root) = get_repo_root_path() {
-            use std::process::Stdio;
-            let _ = std::process::Command::new("ls")
-                .arg(root.join("target"))
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::inherit())
-                .stdin(Stdio::null())
-                .output();
-        }
-        panic!(
-            "cannot find wasmer / wasmer.exe for integration test at '{}'!",
-            ret.display()
-        );
     }
     ret
 }

@@ -32,6 +32,7 @@ tar = "0.4.38"
 flate2 = "1.0.24"
 dirs = "4.0.0"
 derivative = { version = "^2" }
+wasmer-cli = { path = "../../../lib/cli", features = ["cranelift", "compiler"] }
 
 [features]
 default = ["webc_runner"]

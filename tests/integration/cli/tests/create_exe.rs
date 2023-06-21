@@ -8,6 +8,8 @@ use std::process::Command;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
+
 fn create_exe_wabt_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
 }
@@ -48,7 +50,7 @@ impl Default for WasmerCreateExe {
         let native_executable_path = PathBuf::from("wasm.exe");
         Self {
             current_dir: std::env::current_dir().unwrap(),
-            wasmer_path: get_wasmer_path(),
+            wasmer_path: WASMER_EXE.into(),
             wasm_path: PathBuf::from(create_exe_test_wasm_path()),
             native_executable_path,
             compiler: Compiler::Cranelift,
@@ -123,7 +125,7 @@ impl Default for WasmerCreateObj {
         let output_object_path = PathBuf::from("wasm.obj");
         Self {
             current_dir: std::env::current_dir().unwrap(),
-            wasmer_path: get_wasmer_path(),
+            wasmer_path: WASMER_EXE.into(),
             wasm_path: PathBuf::from(create_exe_test_wasm_path()),
             output_object_path,
             compiler: Compiler::Cranelift,
@@ -167,7 +169,7 @@ fn test_create_exe_with_pirita_works_1() {
     let tempdir = TempDir::new().unwrap();
     let path = tempdir.path();
     let wasm_out = path.join("out.obj");
-    let cmd = Command::new(get_wasmer_path())
+    let cmd = Command::new(WASMER_EXE)
         .arg("create-obj")
         .arg(create_exe_wabt_path())
         .arg("-o")
@@ -185,7 +187,7 @@ fn test_create_exe_with_pirita_works_1() {
 
     assert!(!cmd.status.success());
 
-    let cmd = Command::new(get_wasmer_path())
+    let cmd = Command::new(WASMER_EXE)
         .arg("create-obj")
         .arg(create_exe_wabt_path())
         .arg("--atom")
@@ -220,7 +222,7 @@ fn test_create_exe_with_precompiled_works_1() {
     let tempdir = TempDir::new().unwrap();
     let path = tempdir.path();
     let wasm_out = path.join("out.obj");
-    let _ = Command::new(get_wasmer_path())
+    let _ = Command::new(WASMER_EXE)
         .arg("create-obj")
         .arg(create_exe_test_wasm_path())
         .arg("--prefix")
@@ -242,7 +244,7 @@ fn test_create_exe_with_precompiled_works_1() {
             || names.contains(&"wasmer_function_sha123123_1".to_string())
     );
 
-    let _ = Command::new(get_wasmer_path())
+    let _ = Command::new(WASMER_EXE)
         .arg("create-obj")
         .arg(create_exe_test_wasm_path())
         .arg("-o")

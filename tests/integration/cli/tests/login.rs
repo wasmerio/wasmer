@@ -1,7 +1,8 @@
 use anyhow::bail;
 
 use std::process::Command;
-use wasmer_integration_tests_cli::get_wasmer_path;
+
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 
 #[test]
 fn login_works() -> anyhow::Result<()> {
@@ -15,7 +16,7 @@ fn login_works() -> anyhow::Result<()> {
     if wapm_dev_token.is_empty() {
         return Ok(());
     }
-    let output = Command::new(get_wasmer_path())
+    let output = Command::new(WASMER_EXE)
         .arg("login")
         .arg("--registry")
         .arg("wapm.dev")

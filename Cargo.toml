@@ -291,3 +291,14 @@ required-features = ["backend"]
 name = "features"
 path = "examples/features.rs"
 required-features = ["cranelift"]
+
+# Enable optimizations for a few crates, even for debug builds.
+#
+# This greatly speeds up debug builds because these crates are extremely slow
+# without optimizations.
+[profile.dev.package.cranelift-codegen]
+opt-level = 2
+[profile.dev.package.regalloc2]
+opt-level = 2
+[profile.dev.package.wasmparser]
+opt-level = 2

@@ -1,7 +1,8 @@
 use anyhow::bail;
 
 use std::process::{Command, Stdio};
-use wasmer_integration_tests_cli::get_wasmer_path;
+
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 
 macro_rules! check_output {
     ($output:expr) => {
@@ -33,7 +34,7 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
         if token.is_empty() {
             return Ok(());
         }
-        let output = Command::new(get_wasmer_path())
+        let output = Command::new(WASMER_EXE)
             .arg("login")
             .arg("--registry")
             .arg("wapm.dev")
@@ -47,7 +48,7 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
 
     println!("wasmer login ok!");
 
-    let output = Command::new(get_wasmer_path())
+    let output = Command::new(WASMER_EXE)
         .arg("init")
         .current_dir(&path)
         .output()?;
@@ -91,7 +92,7 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
         if token.is_empty() {
             return Ok(());
         }
-        let mut cmd = Command::new(get_wasmer_path());
+        let mut cmd = Command::new(WASMER_EXE);
         cmd.arg("login");
         cmd.arg("--registry");
         cmd.arg("wapm.dev");
@@ -105,7 +106,7 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
 
     println!("wasmer login ok!");
 
-    let output = Command::new(get_wasmer_path())
+    let output = Command::new(WASMER_EXE)
         .arg("init")
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())

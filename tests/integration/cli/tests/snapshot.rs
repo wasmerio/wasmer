@@ -10,9 +10,9 @@ use anyhow::Error;
 use derivative::Derivative;
 use futures::TryFutureExt;
 use insta::assert_json_snapshot;
-
 use tempfile::NamedTempFile;
-use wasmer_integration_tests_cli::get_wasmer_path;
+
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 
 #[derive(Derivative, serde::Serialize, serde::Deserialize, Clone)]
 #[derivative(Debug, PartialEq)]
@@ -257,7 +257,7 @@ pub fn wasm_dir() -> PathBuf {
 fn wasmer_path() -> PathBuf {
     let path = std::env::var("WASMER_PATH")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| get_wasmer_path());
+        .unwrap_or_else(|_| PathBuf::from(WASMER_EXE));
     if !path.is_file() {
         panic!("Could not find wasmer binary: '{}'", path.display());
     }

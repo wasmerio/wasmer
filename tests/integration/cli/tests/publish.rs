@@ -1,5 +1,7 @@
 use std::process::Stdio;
-use wasmer_integration_tests_cli::{get_wasmer_path, C_ASSET_PATH};
+use wasmer_integration_tests_cli::C_ASSET_PATH;
+
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 
 fn create_exe_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
@@ -31,7 +33,7 @@ fn wasmer_publish() -> anyhow::Result<()> {
             .replace("RANDOMVERSION3", &random3),
     )?;
 
-    let mut cmd = std::process::Command::new(get_wasmer_path());
+    let mut cmd = std::process::Command::new(WASMER_EXE);
     cmd.arg("publish");
     cmd.arg("--quiet");
     cmd.arg("--registry");
@@ -105,7 +107,7 @@ fn wasmer_init_publish() -> anyhow::Result<()> {
         .unwrap();
 
     // generate the wasmer.toml
-    let mut cmd = std::process::Command::new(get_wasmer_path());
+    let mut cmd = std::process::Command::new(WASMER_EXE);
     cmd.arg("init");
     cmd.arg("--namespace");
     cmd.arg(username);
@@ -125,7 +127,7 @@ fn wasmer_init_publish() -> anyhow::Result<()> {
     println!("{s}");
 
     // publish
-    let mut cmd = std::process::Command::new(get_wasmer_path());
+    let mut cmd = std::process::Command::new(WASMER_EXE);
     cmd.arg("publish");
     cmd.arg("--quiet");
     cmd.arg("--registry");

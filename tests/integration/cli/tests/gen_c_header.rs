@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 use std::process::Command;
-use wasmer_integration_tests_cli::get_wasmer_path;
 use wasmer_integration_tests_cli::C_ASSET_PATH;
+
+const WASMER_EXE: &str = env!("CARGO_BIN_EXE_wasmer-cli-shim");
 
 fn create_exe_wabt_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
@@ -19,7 +20,7 @@ fn gen_c_header_works() -> anyhow::Result<()> {
     let wasm_path = operating_dir.join(create_exe_test_wasm_path());
     let out_path = temp_dir.path().join("header.h");
 
-    let _ = Command::new(get_wasmer_path())
+    let _ = Command::new(WASMER_EXE)
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")
@@ -30,7 +31,7 @@ fn gen_c_header_works() -> anyhow::Result<()> {
     let file = std::fs::read_to_string(&out_path).expect("no header.h file");
     assert!(file.contains("wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0"), "no wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0 in file");
 
-    let _ = Command::new(get_wasmer_path())
+    let _ = Command::new(WASMER_EXE)
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")
@@ -57,7 +58,7 @@ fn gen_c_header_works_pirita() -> anyhow::Result<()> {
     let wasm_path = operating_dir.join(create_exe_wabt_path());
     let out_path = temp_dir.path().join("header.h");
 
-    let _ = Command::new(get_wasmer_path())
+    let _ = Command::new(WASMER_EXE)
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")
@@ -70,7 +71,7 @@ fn gen_c_header_works_pirita() -> anyhow::Result<()> {
     let file = std::fs::read_to_string(&out_path).expect("no header.h file");
     assert!(file.contains("wasmer_function_0f41d38dcfb5abc1fadb5e9acbc5c645e53fe4d0dd86270b72a09bfeee04d055_0"), "no wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0 in file");
 
-    let cmd = Command::new(get_wasmer_path())
+    let cmd = Command::new(WASMER_EXE)
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")
