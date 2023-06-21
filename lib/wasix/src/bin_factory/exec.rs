@@ -26,7 +26,12 @@ pub async fn spawn_exec(
     let wasm = match binary.entrypoint_bytes() {
         Some(wasm) => wasm,
         None => {
-            error!("package has no entrypoint command [{}]", name,);
+            tracing::error!(
+              command=name,
+              pkg.name=%binary.package_name,
+              pkg.version=%binary.version,
+              "Unable to spawn a command because its package has no entrypoint",
+            );
             env.cleanup(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }
@@ -35,7 +40,11 @@ pub async fn spawn_exec(
     let module = match runtime.load_module(wasm).await {
         Ok(module) => module,
         Err(err) => {
-            error!("failed to compile module '{name}': {err}",);
+            tracing::error!(
+                command = name,
+                error = &*err,
+                "Failed to compile the module",
+            );
             return Err(SpawnError::CompileError);
         }
     };
