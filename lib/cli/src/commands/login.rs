@@ -4,13 +4,13 @@ use clap::Parser;
 #[cfg(not(test))]
 use dialoguer::Input;
 
-use crate::{Registry, WasmerEnv};
+use wasmer_registry::wasmer_env::{Registry, WasmerEnv, WASMER_DIR};
 
 /// Subcommand for listing packages
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
     /// Set Wasmer's home directory
-    #[clap(long, env = "WASMER_DIR", default_value = crate::WASMER_DIR.as_os_str())]
+    #[clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str())]
     pub wasmer_dir: PathBuf,
     /// The registry to fetch packages from (inferred from the environment by
     /// default)

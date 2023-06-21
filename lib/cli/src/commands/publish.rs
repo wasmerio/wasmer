@@ -1,9 +1,8 @@
 use std::path::Path;
 
 use clap::Parser;
+use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::WapmSource;
-
-use crate::WasmerEnv;
 
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]

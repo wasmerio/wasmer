@@ -12,6 +12,7 @@ use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
@@ -35,10 +36,7 @@ use wasmer_wasix::{
     WasiVersion,
 };
 
-use crate::{
-    utils::{parse_envvar, parse_mapdir},
-    WasmerEnv,
-};
+use crate::utils::{parse_envvar, parse_mapdir};
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 

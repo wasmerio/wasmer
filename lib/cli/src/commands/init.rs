@@ -1,12 +1,13 @@
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
+
 use anyhow::Context;
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
 use indexmap::IndexMap;
-use std::collections::HashMap;
-use std::path::Path;
-use std::path::PathBuf;
-
-use crate::WasmerEnv;
+use wasmer_registry::wasmer_env::WasmerEnv;
 
 static NOTE: &str = "# See more keys and definitions at https://docs.wasmer.io/registry/manifest";
 

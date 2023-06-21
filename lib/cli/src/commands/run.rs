@@ -29,7 +29,7 @@ use wasmer::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
-use wasmer_registry::Package;
+use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedDirectory, Runner},
@@ -49,9 +49,7 @@ use wasmer_wasix::{
 };
 use webc::{metadata::Manifest, Container};
 
-use crate::{
-    commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions, WasmerEnv,
-};
+use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions};
 
 const TICK: Duration = Duration::from_millis(250);
 

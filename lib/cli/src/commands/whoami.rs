@@ -1,6 +1,5 @@
 use clap::Parser;
-
-use crate::WasmerEnv;
+use wasmer_registry::wasmer_env::WasmerEnv;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer whoami` subcommand

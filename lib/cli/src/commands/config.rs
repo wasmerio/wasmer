@@ -1,8 +1,8 @@
-use crate::{WasmerEnv, VERSION};
+use crate::VERSION;
 use anyhow::{Context, Result};
 use clap::Parser;
 use std::str::ParseBoolError;
-use wasmer_registry::WasmerConfig;
+use wasmer_registry::{wasmer_env::WasmerEnv, WasmerConfig};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`

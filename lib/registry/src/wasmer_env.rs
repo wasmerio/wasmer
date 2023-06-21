@@ -1,35 +1,31 @@
 use std::path::{Path, PathBuf};
 
+use crate::WasmerConfig;
 use anyhow::{Context, Error};
-use once_cell::sync::Lazy;
 use url::Url;
-use wasmer_registry::WasmerConfig;
 
 /// Command-line flags for determining the local "Wasmer Environment".
 ///
 /// This is where you access `$WASMER_DIR`, the `$WASMER_DIR/wasmer.toml` config
 /// file, and specify the current registry.
-#[derive(Debug, Clone, PartialEq, clap::Parser)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub struct WasmerEnv {
     /// Set Wasmer's home directory
-    #[clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str())]
+    #[cfg_attr(feature = "clap", clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str()))]
     wasmer_dir: PathBuf,
     /// The registry to fetch packages from (inferred from the environment by
     /// default)
-    #[clap(long, env = "WASMER_REGISTRY")]
+    #[cfg_attr(feature = "clap", clap(long, env = "WASMER_REGISTRY"))]
     registry: Option<Registry>,
     /// The API token to use when communicating with the registry (inferred from
     /// the environment by default)
-    #[clap(long, env = "WASMER_TOKEN")]
+    #[cfg_attr(feature = "clap", clap(long, env = "WASMER_TOKEN"))]
     token: Option<String>,
 }
 
 impl WasmerEnv {
-    pub(crate) fn new(
-        wasmer_dir: PathBuf,
-        registry: Option<Registry>,
-        token: Option<String>,
-    ) -> Self {
+    pub fn new(wasmer_dir: PathBuf, registry: Option<Registry>, token: Option<String>) -> Self {
         WasmerEnv {
             wasmer_dir,
             registry,
@@ -84,18 +80,19 @@ impl Default for WasmerEnv {
     }
 }
 
-/// The default value for `$WASMER_DIR`.
-pub static WASMER_DIR: Lazy<PathBuf> =
-    Lazy::new(|| match wasmer_registry::WasmerConfig::get_wasmer_dir() {
+lazy_static::lazy_static! {
+    /// The default value for `$WASMER_DIR`.
+    pub static ref WASMER_DIR: PathBuf = match crate::WasmerConfig::get_wasmer_dir() {
         Ok(path) => path,
         Err(e) => {
-            if let Some(install_prefix) = std::env::var_os("WASMER_INSTALL_PREFIX") {
-                PathBuf::from(install_prefix)
-            } else {
-                panic!("Unable to determine the wasmer dir: {e}");
+            if let Some(install_prefix) = option_env!("WASMER_INSTALL_PREFIX") {
+                return PathBuf::from(install_prefix);
             }
+
+            panic!("Unable to determine the wasmer dir: {e}");
         }
-    });
+    };
+}
 
 /// A registry as specified by the user.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -109,7 +106,7 @@ impl Registry {
 
     /// Get the GraphQL endpoint for this [`Registry`].
     pub fn graphql_endpoint(&self) -> Result<Url, Error> {
-        let url = wasmer_registry::format_graphql(self.as_str()).parse()?;
+        let url = crate::format_graphql(self.as_str()).parse()?;
         Ok(url)
     }
 }
