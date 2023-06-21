@@ -173,7 +173,6 @@ impl Console {
             }
         };
 
-        let tasks = self.runtime.task_manager().clone();
         let resolved_package = {
             let runtime = self.runtime.clone();
             InlineWaker::block_on(BinaryPackage::from_registry(&webc_ident, runtime.as_ref()))
