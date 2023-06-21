@@ -566,34 +566,11 @@ impl ExecutableTarget {
         match TargetOnDisk::from_file(path)? {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
-                let engine = runtime.engine().context("No engine available")?;
+
                 pb.set_message("Compiling to WebAssembly");
-
-                let tasks = runtime.task_manager();
-                let module_cache = runtime.module_cache();
-                let module_hash = ModuleHash::sha256(&wasm);
-
-                let module = match tasks.block_on(module_cache.load(module_hash, &engine)) {
-                    Ok(m) => m,
-                    Err(e) => {
-                        if !matches!(e, CacheError::NotFound) {
-                            tracing::warn!(
-                                module.path=%path.display(),
-                                module.hash=%module_hash,
-                                error=&e as &dyn std::error::Error,
-                                "Unable to deserialize the pre-compiled module from the module cache",
-                            );
-                        }
-
-                        let module = tracing::debug_span!("compiling_wasm")
-                            .in_scope(|| Module::new(&engine, &wasm))
-                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
-
-                        tasks.block_on(module_cache.save(module_hash, &engine, &module))?;
-
-                        module
-                    }
-                };
+                let module = runtime
+                    .load_module_sync(&wasm)
+                    .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
