@@ -206,9 +206,6 @@ impl Console {
                 Box::new(self.stdout.clone()),
                 Box::new(self.stdin.clone()),
             )))
-            .with_stdin(Box::new(self.stdin.clone()))
-            .with_stdout(Box::new(self.stdout.clone()))
-            .with_stderr(Box::new(self.stderr.clone()))
             .build();
 
         if let Some(limiter) = &self.memfs_memory_limiter {
@@ -219,12 +216,16 @@ impl Console {
             .with_envs(self.env.clone().into_iter())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
-            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), None)
+            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.to_string()))?;
 
         // TODO: no unwrap!
-        let env = builder.build()?;
+        let env = builder
+            .stdin(Box::new(self.stdin.clone()))
+            .stdout(Box::new(self.stdout.clone()))
+            .stderr(Box::new(self.stderr.clone()))
+            .build()?;
 
         // TODO: this should not happen here...
         // Display the welcome message
@@ -277,5 +278,67 @@ impl Console {
         virtual_fs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
             .await
             .ok();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
+
+    use super::*;
+
+    use std::{io::Read, sync::Arc};
+
+    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
+
+    /// Test that [`Console`] correctly runs a command with arguments and
+    /// specified env vars, and that the TTY correctly handles stdout output.
+    #[test]
+    fn test_console_dash_tty_with_args_and_env() {
+        let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+
+        let tm = TokioTaskManager::new(tokio_rt.handle().clone());
+        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        rt.set_engine(Some(wasmer::Engine::default()));
+
+        let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
+            .into_iter()
+            .collect();
+
+        // Pass some arguments.
+        let cmd = "sharrattj/dash -s stdin";
+
+        let (mut stdin_tx, stdin_rx) = Pipe::channel();
+        let (stdout_tx, mut stdout_rx) = Pipe::channel();
+
+        let (mut handle, _proc) = Console::new(cmd, Arc::new(rt))
+            .with_env(env)
+            .with_stdin(Box::new(stdin_rx))
+            .with_stdout(Box::new(stdout_tx))
+            .run()
+            .unwrap();
+
+        let code = tokio_rt
+            .block_on(async move {
+                virtual_fs::AsyncWriteExt::write_all(
+                    &mut stdin_tx,
+                    b"echo hello $MYENV1 > /dev/tty; exit\n",
+                )
+                .await?;
+
+                stdin_tx.close();
+                std::mem::drop(stdin_tx);
+
+                let res = handle.wait_finished().await?;
+                Ok::<_, anyhow::Error>(res)
+            })
+            .unwrap();
+
+        assert_eq!(code.raw(), 0);
+
+        let mut out = String::new();
+        stdout_rx.read_to_string(&mut out).unwrap();
+
+        assert_eq!(out, "hello VAL1\n");
     }
 }
