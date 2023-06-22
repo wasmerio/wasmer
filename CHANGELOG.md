@@ -9,6 +9,31 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.0.0 - 22/06/2023
+
+## Added
+
+  - [#4013](https://github.com/wasmerio/wasmer/pull/4013) Added a `WasmerEnv` abstraction to the CLI
+
+## Changed
+
+  - [#4021](https://github.com/wasmerio/wasmer/pull/4021) Put all cached artifacts under the `~/.wasmer/cache/` directory
+  - [#4018](https://github.com/wasmerio/wasmer/pull/4018) Canonicalize the host path passed to `--mapdir`
+  - [#4019](https://github.com/wasmerio/wasmer/pull/4019) Make sure `ExecutableTarget::from_file()` for `*.wasm` files checks the module cache
+  - [#4022](https://github.com/wasmerio/wasmer/pull/4022) [CI] Defined wich nightly to use to avoid not ready error
+  - [#4001](https://github.com/wasmerio/wasmer/pull/4001) deps: Bump edge CLI
+  - [#4012](https://github.com/wasmerio/wasmer/pull/4012) update links in Wasmer's README
+  - [#3985](https://github.com/wasmerio/wasmer/pull/3985) Display human-friendly progress when starting `wasmer run`
+  - [#4004](https://github.com/wasmerio/wasmer/pull/4004) Ignoring archived package versions when querying the registry
+  - [#3980](https://github.com/wasmerio/wasmer/pull/3980) Re-work logging and command-line argument parsing
+  - [#3983](https://github.com/wasmerio/wasmer/pull/3983) Introduce WAPM query caching to reduce `wasmer run`'s startup delay
+  - [#4002](https://github.com/wasmerio/wasmer/pull/4002) [RISCV64][CI] Use simpler way to install riscv64 packages
+
+## Fixed
+
+
+
+
 ## 4.0.0-beta.3 - 15/06/2023
 
 More fixes and improvement to the virtual filesystem, and behind the scene work to unify wasmer tools for this new beta.
