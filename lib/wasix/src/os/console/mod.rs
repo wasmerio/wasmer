@@ -218,16 +218,14 @@ impl Console {
             .with_capabilities(self.capabilities.clone())
             .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
             // TODO: better error conversion
-            .map_err(|err| SpawnError::Other(Box::new(crate::AnyhowStdError(err))))?;
+            .map_err(|err| SpawnError::Other(err.into()))?;
 
-        // TODO: no unwrap!
         let env = builder
             .stdin(Box::new(self.stdin.clone()))
             .stdout(Box::new(self.stdout.clone()))
             .stderr(Box::new(self.stderr.clone()))
             .build()?;
 
-        // TODO: this should not happen here...
         // Display the welcome message
         if !self.whitelabel && !self.no_welcome {
             tasks.block_on(self.draw_welcome());
@@ -235,10 +233,6 @@ impl Console {
 
         let wasi_process = env.process.clone();
 
-        // TODO: fetching dependencies should be moved to the builder!
-        // TODO: the Console only makes sense in the context of SSH and the terminal.
-        // We should make this just take a WasiBuilder and the console related configs
-        // and not add so much custom logic in here.
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             tasks.block_on(async {
@@ -281,7 +275,7 @@ impl Console {
     }
 }
 
-#[cfg(test, not(target_family = "wasm"))]
+#[cfg(all(test, not(target_family = "wasm")))]
 mod tests {
     use virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
 

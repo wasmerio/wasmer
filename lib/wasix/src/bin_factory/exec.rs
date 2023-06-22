@@ -45,6 +45,7 @@ pub async fn spawn_exec(
                 error = &*err,
                 "Failed to compile the module",
             );
+            env.cleanup(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }
     };
