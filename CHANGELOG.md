@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.0.0 - 22/06/2023
 
+Some more behind-the-scene unification and bug fixe since the last beta, mostly on the CLI, but make sure to check all the other changes of the previous beta and alpha release if you came from last stable version.
+
 ## Added
 
   - [#4013](https://github.com/wasmerio/wasmer/pull/4013) Added a `WasmerEnv` abstraction to the CLI
