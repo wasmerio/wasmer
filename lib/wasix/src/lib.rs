@@ -171,7 +171,7 @@ pub enum SpawnError {
     UnknownError,
     #[error("runtime error")]
     Runtime(#[from] WasiRuntimeError),
-    #[error("{0}")]
+    #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
@@ -219,33 +219,6 @@ impl WasiRuntimeError {
         } else {
             None
         }
-    }
-}
-
-/// Wrapper for [`anyhow::Error`] that implements [`std::error::Error`].
-pub struct AnyhowStdError(pub anyhow::Error);
-
-impl std::fmt::Debug for AnyhowStdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl std::fmt::Display for AnyhowStdError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl std::error::Error for AnyhowStdError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&*self.0)
-    }
-}
-
-impl From<anyhow::Error> for AnyhowStdError {
-    fn from(error: anyhow::Error) -> Self {
-        Self(error)
     }
 }
 
