@@ -281,7 +281,7 @@ impl Console {
     }
 }
 
-#[cfg(test)]
+#[cfg(test, not(target_family = "wasm"))]
 mod tests {
     use virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
 
