@@ -585,8 +585,12 @@ impl ExecutableTarget {
                             );
                         }
 
-                        Module::new(&engine, &wasm)
-                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?
+                        let module = Module::new(&engine, &wasm)
+                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
+
+                        tasks.block_on(module_cache.save(module_hash, &engine, &module))?;
+
+                        module
                     }
                 };
 
