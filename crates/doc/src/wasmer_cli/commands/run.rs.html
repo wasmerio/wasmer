@@ -890,6 +890,11 @@
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -1477,9 +1482,14 @@
                             );
                         }
 
-                        Module::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>wasm)
-                            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to compile \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?
-                    </span>}
+                        <span class="kw">let </span>module = <span class="macro">tracing::debug_span!</span>(<span class="string">&quot;compiling_wasm&quot;</span>)
+                            .in_scope(|| Module::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>wasm))
+                            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to compile \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+
+                        tasks.block_on(module_cache.save(module_hash, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module))<span class="question-mark">?</span>;
+
+                        module
+                    }
                 };
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {

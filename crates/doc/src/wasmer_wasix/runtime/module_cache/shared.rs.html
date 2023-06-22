@@ -70,6 +70,13 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
 </pre><pre class="rust"><code><span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>wasmer::{Engine, Module};
 
@@ -89,15 +96,22 @@
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>ModuleCache <span class="kw">for </span>SharedCache {
-    <span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%key))]
+    </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
         <span class="kw">let </span>key = (key, engine.deterministic_id().to_string());
-        <span class="self">self</span>.modules
-            .get(<span class="kw-2">&amp;</span>key)
-            .map(|m| m.value().clone())
-            .ok_or(CacheError::NotFound)
+
+        <span class="kw">match </span><span class="self">self</span>.modules.get(<span class="kw-2">&amp;</span>key) {
+            <span class="prelude-val">Some</span>(m) =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
+                <span class="prelude-val">Ok</span>(m.value().clone())
+            }
+
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(CacheError::NotFound),
+        }
     }
 
-    <span class="kw">async fn </span>save(
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%key))]
+    </span><span class="kw">async fn </span>save(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: ModuleHash,
         engine: <span class="kw-2">&amp;</span>Engine,
