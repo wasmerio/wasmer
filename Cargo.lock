@@ -560,9 +560,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.3.4"
+version = "4.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80672091db20273a15cf9fdd4e47ed43b5091ec9841bf4c6145c9dfbbcae09ed"
+checksum = "2686c4115cb0810d9a984776e197823d08ec94f176549a89a9efded477c456dc"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -575,15 +575,15 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1eef05769009513df2eb1c3b4613e7fad873a14c600ff025b08f250f59fee7de"
 dependencies = [
- "clap 4.3.4",
+ "clap 4.3.5",
  "log",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.3.4"
+version = "4.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1458a1df40e1e2afebb7ab60ce55c1fa8f431146205aa5f4887e0b111c27636"
+checksum = "2e53afce1efce6ed1f633cf0e57612fe51db54a1ee4fd8f8503d078fe02d69ae"
 dependencies = [
  "anstream",
  "anstyle",
@@ -5643,7 +5643,7 @@ dependencies = [
  "cargo_metadata",
  "cfg-if 1.0.0",
  "chrono",
- "clap 4.3.4",
+ "clap 4.3.5",
  "colored 2.0.0",
  "dialoguer",
  "dirs",
@@ -5659,6 +5659,7 @@ dependencies = [
  "once_cell",
  "pathdiff",
  "predicates 3.0.3",
+ "pretty_assertions",
  "prettytable-rs",
  "regex",
  "reqwest",
@@ -5735,7 +5736,7 @@ dependencies = [
  "atty",
  "bytesize",
  "cfg-if 1.0.0",
- "clap 4.3.4",
+ "clap 4.3.5",
  "colored 2.0.0",
  "distance",
  "fern",
@@ -5815,7 +5816,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "401220ca92419731ffb670b6d6f8442fc32b110f6e9bb5658c4cfa658c48ab32"
 dependencies = [
  "anyhow",
- "clap 4.3.4",
+ "clap 4.3.5",
  "clap-verbosity-flag",
  "comfy-table",
  "dialoguer",
@@ -6025,6 +6026,7 @@ name = "wasmer-registry"
 version = "5.1.0"
 dependencies = [
  "anyhow",
+ "clap 4.3.5",
  "console",
  "dirs",
  "filetime",

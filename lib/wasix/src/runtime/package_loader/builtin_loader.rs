@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Write as _,
     io::{ErrorKind, Write as _},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 
@@ -52,18 +52,12 @@ impl BuiltinPackageLoader {
         }
     }
 
-    /// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
-        wasmer_dir.as_ref().join("checkouts")
-    }
-
     /// Create a new [`BuiltinPackageLoader`] based on `$WASMER_DIR` and the
     /// global Wasmer config.
     pub fn from_env() -> Result<Self, Error> {
         let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
         let client = crate::http::default_http_client().context("No HTTP client available")?;
-        let cache_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
+        let cache_dir = wasmer_dir.join("cache").join("");
 
         Ok(BuiltinPackageLoader::new_with_client(
             cache_dir,

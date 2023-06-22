@@ -1,7 +1,3 @@
-//! Integration tests for `wasmer run2`.
-//!
-//! Note that you will need to manually compile the `wasmer` CLI in release mode
-//! before running any of these tests.
 use std::{
     io::{ErrorKind, Read},
     process::Stdio,
@@ -34,10 +30,10 @@ fn wasmer_run_unstable() -> std::process::Command {
     cmd.arg("run")
         .arg("--quiet")
         .arg("--package=wasmer-cli")
-        .arg("--features=singlepass,cranelift")
+        .arg("--features=singlepass,cranelift,compiler")
         .arg("--color=never")
         .arg("--")
-        .arg("run-unstable");
+        .arg("run");
     cmd.env("RUST_LOG", &*RUST_LOG);
     cmd
 }
@@ -56,6 +52,23 @@ mod webc_on_disk {
             .arg("--")
             .arg("--eval")
             .arg("console.log('Hello, World!')")
+            .assert();
+
+        assert.success().stdout(contains("Hello, World!"));
+    }
+
+    /// See <https://github.com/wasmerio/wasmer/issues/4010> for more.
+    #[test]
+    fn wasi_runner_mount_using_relative_directory_on_the_host() {
+        let temp = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+        std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
+
+        let assert = wasmer_run_unstable()
+            .arg(fixtures::python())
+            .arg("--mapdir=/app:.")
+            .arg("--")
+            .arg("/app/main.py")
+            .current_dir(temp.path())
             .assert();
 
         assert.success().stdout(contains("Hello, World!"));

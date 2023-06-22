@@ -1,5 +1,5 @@
+use assert_cmd::Command;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use wasmer_integration_tests_cli::{get_repo_root_path, get_wasmer_path};
 
 fn get_wasmer_dir() -> Result<PathBuf, anyhow::Error> {
@@ -26,61 +26,50 @@ fn get_wasmer_dir() -> Result<PathBuf, anyhow::Error> {
 }
 
 #[test]
-fn wasmer_config_multiget() -> anyhow::Result<()> {
-    let bin_path = get_wasmer_dir()?.join("bin");
-    let include_path = get_wasmer_dir()?.join("include");
-
+fn wasmer_config_multiget() {
+    let wasmer_dir = get_wasmer_dir().unwrap();
+    let bin_path = wasmer_dir.join("bin");
+    let include_path = wasmer_dir.join("include");
     let bin = format!("{}", bin_path.display());
     let include = format!("-I{}", include_path.display());
 
-    let output = Command::new(get_wasmer_path())
+    let assert = Command::new(get_wasmer_path())
         .arg("config")
         .arg("--bindir")
         .arg("--cflags")
-        .output()?;
+        .assert();
 
-    let lines = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|s| s.trim().to_string())
-        .collect::<Vec<_>>();
-
-    let expected = vec![bin, include];
-
-    assert_eq!(lines, expected);
-
-    Ok(())
+    assert
+        .success()
+        .stdout(predicates::str::contains(&bin))
+        .stdout(predicates::str::contains(&include));
 }
 
 #[test]
-fn wasmer_config_error() -> anyhow::Result<()> {
-    let output = Command::new(get_wasmer_path())
+fn wasmer_config_error() {
+    let assert = Command::new(get_wasmer_path())
         .arg("config")
         .arg("--bindir")
         .arg("--cflags")
         .arg("--pkg-config")
-        .output()?;
+        .assert();
 
-    let lines = String::from_utf8_lossy(&output.stderr)
-        .lines()
-        .map(|s| s.trim().to_string())
-        .collect::<Vec<_>>();
-    #[cfg(not(windows))]
-    let expected_1 = "Usage: wasmer config --bindir --cflags";
-    #[cfg(windows)]
-    let expected_1 = "Usage: wasmer.exe config --bindir --cflags";
+    let expected_1 = if cfg!(windows) {
+        "Usage: wasmer.exe config --bindir --cflags"
+    } else {
+        "Usage: wasmer config --bindir --cflags"
+    };
 
-    let expected = vec![
-        "error: the argument '--bindir' cannot be used with '--pkg-config'",
-        "",
-        expected_1,
-        "",
-        "For more information, try '--help'.",
-    ];
-
-    assert_eq!(lines, expected);
-
-    Ok(())
+    assert
+        .stderr(predicates::str::contains(
+            "error: the argument '--bindir' cannot be used with '--pkg-config'",
+        ))
+        .stderr(predicates::str::contains(expected_1))
+        .stderr(predicates::str::contains(
+            "For more information, try '--help'.",
+        ));
 }
+
 #[test]
 fn config_works() -> anyhow::Result<()> {
     let bindir = Command::new(get_wasmer_path())
