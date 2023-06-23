@@ -15,15 +15,14 @@ pub fn thread_join<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,
 ) -> Result<Errno, WasiError> {
-    thread_join_internal::<M>(ctx, join_tid, None)
+    thread_join_internal::<M>(ctx, join_tid)
 }
 
 pub(super) fn thread_join_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,
-    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
     if let Some(_child_exit_code) = unsafe { handle_rewind::<M, i32>(&mut ctx) } {
         return Ok(Errno::Success);
     }
@@ -32,11 +31,8 @@ pub(super) fn thread_join_internal<M: MemorySize + 'static>(
     let tid: WasiThreadId = join_tid.into();
     let other_thread = env.process.get_thread(&tid);
     if let Some(other_thread) = other_thread {
-        let res = __asyncify_with_deep_sleep::<M, _, _>(
-            ctx,
-            Duration::from_millis(50),
-            waker,
-            async move {
+        let res =
+            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
                 other_thread
                     .join()
                     .await
@@ -46,11 +42,7 @@ pub(super) fn thread_join_internal<M: MemorySize + 'static>(
                     })
                     .unwrap_or_else(|a| a)
                     .raw()
-            },
-        )?;
-        if let &AsyncifyAction::Pending = &res {
-            return Ok(Errno::Pending);
-        }
+            })?;
         Ok(Errno::Success)
     } else {
         Ok(Errno::Success)

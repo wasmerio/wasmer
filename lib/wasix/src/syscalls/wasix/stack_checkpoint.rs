@@ -20,7 +20,7 @@ pub fn stack_checkpoint<M: MemorySize>(
     }
     trace!("capturing",);
 
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     // Set the return value that we will give back to
     // indicate we are a normal function call that has not yet

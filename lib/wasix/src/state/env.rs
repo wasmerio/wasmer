@@ -1,9 +1,8 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
-    task::Context,
     time::Duration,
 };
 
@@ -18,7 +17,7 @@ use wasmer::{
 };
 use wasmer_wasix_types::{
     types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid, WakerId},
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
 use crate::{
@@ -32,9 +31,7 @@ use crate::{
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
-    syscalls::{
-        __asyncify_light, get_memory_stack_offset, platform_clock_time_get, set_memory_stack_offset,
-    },
+    syscalls::{__asyncify_light, platform_clock_time_get},
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
@@ -83,11 +80,6 @@ pub struct WasiInstanceHandles {
     /// process - if it has not been set then the runtime behaves differently
     /// when a CTRL-C is pressed.
     pub(crate) signal_set: bool,
-
-    /// Represents the callback for waking an asynchronous task (name = "_wake")
-    /// [this takes a pointer to waker that will be woken]
-    #[derivative(Debug = "ignore")]
-    pub(crate) wake: Option<TypedFunction<(i64, i64, i64, i64, i64, i64, i64, i64), ()>>,
 
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
@@ -178,7 +170,6 @@ impl WasiInstanceHandles {
                 .exports
                 .get_typed_function(store, "asyncify_get_state")
                 .ok(),
-            wake: instance.exports.get_typed_function(store, "_wake").ok(),
             instance,
         }
     }
@@ -251,7 +242,6 @@ impl WasiEnvInit {
                 secret: rand::thread_rng().gen::<[u8; 32]>(),
                 inodes,
                 fs,
-                wakers: Default::default(),
                 futexs: Default::default(),
                 clock_offset: std::sync::Mutex::new(
                     self.state.clock_offset.lock().unwrap().clone(),
@@ -557,7 +547,7 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub(crate) fn process_signals_and_wakes_and_exit(
+    pub(crate) fn process_signals_and_exit(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
@@ -590,11 +580,11 @@ impl WasiEnv {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Self::process_signals_and_wakes(ctx)
+        Self::process_signals(ctx)
     }
 
     /// Porcesses any signals that are batched up
-    pub(crate) fn process_signals_and_wakes(
+    pub(crate) fn process_signals(
         ctx: &mut FunctionEnvMut<'_, Self>,
     ) -> Result<Result<bool, Errno>, WasiError> {
         // If a signal handler has never been set then we need to handle signals
@@ -688,87 +678,6 @@ impl WasiEnv {
         } else {
             Ok(false)
         }
-    }
-
-    pub(crate) fn process_wakes_internal(
-        ctx: &mut FunctionEnvMut<'_, Self>,
-        cx: &mut Context<'_>,
-    ) -> Result<(), WasiError> {
-        let env = ctx.data();
-        let state = env.state();
-
-        let mut wakes = state.wakers.pop_wakes_and_subscribe(cx);
-        while wakes.is_empty() == false {
-            Self::process_wakes_internal_callback(ctx, &mut wakes)?;
-        }
-        Ok(())
-    }
-
-    fn process_wakes_internal_callback(
-        ctx: &mut FunctionEnvMut<'_, Self>,
-        wakes: &mut VecDeque<(WakerId, bool)>,
-    ) -> Result<(), WasiError> {
-        let env = ctx.data();
-        let inner = env
-            .try_inner()
-            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
-
-        let handler = inner.wake.clone();
-        if let Some(handler) = handler {
-            // Record the stack pointer
-            let offset = unsafe {
-                get_memory_stack_offset(ctx).map_err(|_| WasiError::Exit(Errno::Inval.into()))?
-            };
-
-            // Construct the parameters
-            let mut waker_pop = || match wakes.pop_front() {
-                Some((waker_id, true)) => {
-                    trace!("waker triggered {waker_id}");
-                    waker_id as i64
-                }
-                Some((waker_id, false)) => {
-                    trace!("waker dropped {waker_id}");
-                    0i64 - (waker_id as i64)
-                }
-                None => 0,
-            };
-            let waker0 = waker_pop();
-            let waker1 = waker_pop();
-            let waker2 = waker_pop();
-            let waker3 = waker_pop();
-            let waker4 = waker_pop();
-            let waker5 = waker_pop();
-            let waker6 = waker_pop();
-            let waker7 = waker_pop();
-
-            // Call the callback (which will potentially modify the stack)
-            let call_ret = handler.call(
-                ctx, waker0, waker1, waker2, waker3, waker4, waker5, waker6, waker7,
-            );
-
-            // Restore the stack to its previous loation
-            let (env, mut store) = ctx.data_and_store_mut();
-            set_memory_stack_offset(env, &mut store, offset).ok();
-
-            // Process the result of the call
-            if let Err(err) = call_ret {
-                match err.downcast::<WasiError>() {
-                    Ok(wasi_err) => {
-                        warn!("waker error - {wasi_err}");
-                        return Err(wasi_err);
-                    }
-                    Err(runtime_err) => {
-                        warn!("waker error - {runtime_err}");
-                        return Err(WasiError::Exit(Errno::Intr.into()));
-                    }
-                }
-            }
-        } else {
-            while let Some((waker_id, _)) = wakes.pop_front() {
-                warn!("waker orphaned {waker_id}");
-            }
-        }
-        Ok(())
     }
 
     /// Returns an exit code if the thread or process has been forced to exit
@@ -1090,7 +999,7 @@ impl WasiEnv {
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
     pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
-        __asyncify_light(self, None, None, async {
+        __asyncify_light(self, None, async {
             self.cleanup(exit_code).await;
             Ok(())
         })

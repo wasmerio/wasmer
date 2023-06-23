@@ -217,7 +217,8 @@ pub fn path_open<M: MemorySize>(
             Kind::Dir { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } => {}
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => {}
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,

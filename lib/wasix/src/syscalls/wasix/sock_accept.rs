@@ -23,7 +23,7 @@ pub fn sock_accept<M: MemorySize>(
     ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
@@ -64,7 +64,7 @@ pub fn sock_accept_v2<M: MemorySize>(
     ro_fd: WasmPtr<WasiFd, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };

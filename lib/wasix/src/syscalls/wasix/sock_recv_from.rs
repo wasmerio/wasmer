@@ -51,7 +51,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
     waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

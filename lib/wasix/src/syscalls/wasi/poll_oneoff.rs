@@ -62,7 +62,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     ctx.data_mut().poll_seed += 1;
     let mut env = ctx.data();
@@ -158,6 +158,40 @@ impl Future for PollBatch {
     }
 }
 
+pub(crate) fn poll_fd_guard(
+    state: &WasiState,
+    peb: PollEventSet,
+    fd: WasiFd,
+    s: Subscription,
+) -> Result<InodeValFilePollGuard, Errno> {
+    Ok(match fd {
+        __WASI_STDERR_FILENO => WasiInodes::stderr(&state.fs.fd_map)
+            .map(|g| g.into_poll_guard(fd, peb, s))
+            .map_err(fs_error_into_wasi_err)?,
+        __WASI_STDOUT_FILENO => WasiInodes::stdout(&state.fs.fd_map)
+            .map(|g| g.into_poll_guard(fd, peb, s))
+            .map_err(fs_error_into_wasi_err)?,
+        _ => {
+            let fd_entry = state.fs.get_fd(fd)?;
+            if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                return Err(Errno::Access);
+            }
+            let inode = fd_entry.inode;
+
+            {
+                let guard = inode.read();
+                if let Some(guard) =
+                    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
+                {
+                    guard
+                } else {
+                    return Err(Errno::Badf);
+                }
+            }
+        }
+    })
+}
+
 /// ### `poll_oneoff()`
 /// Concurrently poll for a set of events
 /// Inputs:
@@ -178,7 +212,7 @@ pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
 where
     After: FnOnce(&FunctionEnvMut<'a, WasiEnv>, Vec<Event>) -> Errno,
 {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
@@ -287,36 +321,7 @@ where
             #[allow(clippy::significant_drop_in_scrutinee)]
             for (fd, peb, s) in subs {
                 if let Some(fd) = fd {
-                    let wasi_file_ref = match fd {
-                        __WASI_STDERR_FILENO => {
-                            wasi_try_ok!(WasiInodes::stderr(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        __WASI_STDOUT_FILENO => {
-                            wasi_try_ok!(WasiInodes::stdout(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        _ => {
-                            let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-                            if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                                return Ok(Errno::Access);
-                            }
-                            let inode = fd_entry.inode;
-
-                            {
-                                let guard = inode.read();
-                                if let Some(guard) =
-                                    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
-                                {
-                                    guard
-                                } else {
-                                    return Ok(Errno::Badf);
-                                }
-                            }
-                        }
-                    };
+                    let wasi_file_ref = wasi_try_ok!(poll_fd_guard(state.as_ref(), peb, fd, s));
                     fd_guards.push(wasi_file_ref);
                 }
             }
@@ -427,12 +432,8 @@ where
     let res = __asyncify_with_deep_sleep::<M, Result<Vec<EventResult>, Errno>, _>(
         ctx,
         Duration::from_millis(50),
-        None,
         Box::pin(trigger),
     )?;
-    if let &AsyncifyAction::Pending = &res {
-        return Ok(Errno::Pending);
-    }
     if let AsyncifyAction::Finish(mut ctx, events) = res {
         let events = events.map(|events| events.into_iter().map(EventResult::into_event).collect());
         process_events(&ctx, events);

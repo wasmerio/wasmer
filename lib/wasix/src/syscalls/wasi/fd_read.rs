@@ -38,7 +38,7 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true, None)?;
+    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
 
     fd_read_internal_handler(ctx, res, nread)
 }
@@ -70,16 +70,7 @@ pub fn fd_pread<M: MemorySize>(
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
-    let res = fd_read_internal::<M>(
-        &mut ctx,
-        fd,
-        iovs,
-        iovs_len,
-        offset as usize,
-        nread,
-        false,
-        None,
-    )?;
+    let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;
 
     fd_read_internal_handler::<M>(ctx, res, nread)
 }
@@ -120,9 +111,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     offset: usize,
     nread: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
-    waker: Option<&Waker>,
 ) -> Result<Result<usize, Errno>, WasiError> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_wakes_and_exit(ctx)?);
+    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
@@ -155,7 +145,6 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                             } else {
                                 None
                             },
-                            waker,
                             async move {
                                 let mut handle = match handle.write() {
                                     Ok(a) => a,
@@ -219,18 +208,12 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     drop(guard);
 
-                    let nonblocking = waker.is_none() && fd_flags.contains(Fdflags::NONBLOCK);
-                    let timeout = if waker.is_none() {
-                        Some(
-                            socket
-                                .opt_time(TimeType::ReadTimeout)
-                                .ok()
-                                .flatten()
-                                .unwrap_or(Duration::from_secs(30)),
-                        )
-                    } else {
-                        None
-                    };
+                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
 
                     let tasks = env.tasks().clone();
                     let res = __asyncify_light(
@@ -240,7 +223,6 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        waker,
                         async {
                             let mut total_read = 0usize;
 
@@ -255,7 +237,12 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                     .map_err(mem_error_to_wasi)?;
 
                                 let local_read = socket
-                                    .recv(tasks.deref(), buf.as_mut_uninit(), timeout, nonblocking)
+                                    .recv(
+                                        tasks.deref(),
+                                        buf.as_mut_uninit(),
+                                        Some(timeout),
+                                        nonblocking,
+                                    )
                                     .await?;
                                 total_read += local_read;
                                 if total_read != buf.len() {
@@ -289,7 +276,6 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        waker,
                         async move {
                             let mut total_read = 0usize;
 
@@ -352,13 +338,11 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     // Yield until the notifications are triggered
                     let tasks_inner = env.tasks().clone();
-                    let val = wasi_try_ok_ok!(__asyncify_light(env, None, waker, async {
-                        poller.await
-                    })?
-                    .map_err(|err| match err {
-                        Errno::Timedout => Errno::Again,
-                        a => a,
-                    }));
+                    let val = wasi_try_ok_ok!(__asyncify_light(env, None, async { poller.await })?
+                        .map_err(|err| match err {
+                            Errno::Timedout => Errno::Again,
+                            a => a,
+                        }));
 
                     let mut memory = unsafe { env.memory_view(ctx) };
                     let reader = val.to_ne_bytes();
@@ -366,7 +350,9 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     let ret = wasi_try_ok_ok!(read_bytes(&reader[..], &memory, iovs_arr));
                     (ret, false)
                 }
-                Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_read"),
+                Kind::Symlink { .. } | Kind::Epoll { .. } => {
+                    return Ok(Err(Errno::Notsup));
+                }
                 Kind::Buffer { buffer } => {
                     let memory = unsafe { env.memory_view(ctx) };
                     let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));

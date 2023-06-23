@@ -8,5 +8,5 @@ pub fn sched_yield<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<Errno, WasiError> {
     //trace!("wasi[{}:{}]::sched_yield", ctx.data().pid(), ctx.data().tid());
-    thread_sleep_internal::<M>(ctx, 0, None)
+    thread_sleep_internal::<M>(ctx, 0)
 }

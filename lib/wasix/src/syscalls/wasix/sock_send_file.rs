@@ -24,7 +24,7 @@ pub fn sock_send_file<M: MemorySize>(
     mut count: Filesize,
     ret_sent: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let net = env.net();
@@ -150,6 +150,9 @@ pub fn sock_send_file<M: MemorySize>(
                                         })?);
                                     env = ctx.data();
                                     data
+                                }
+                                Kind::Epoll { .. } => {
+                                    return Ok(Errno::Inval);
                                 }
                                 Kind::Dir { .. } | Kind::Root { .. } => {
                                     return Ok(Errno::Isdir);

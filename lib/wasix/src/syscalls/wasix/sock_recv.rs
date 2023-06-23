@@ -1,7 +1,5 @@
 use std::{mem::MaybeUninit, task::Waker};
 
-use wasmer_wasix_types::wasi::WakerId;
-
 use super::*;
 use crate::{net::socket::TimeType, syscalls::*};
 
@@ -107,7 +105,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     ro_flags: WasmPtr<RoFlags, M>,
     waker: Option<&Waker>,
 ) -> Result<Result<usize, Errno>, WasiError> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_wakes_and_exit(ctx)?);
+    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };

@@ -22,7 +22,7 @@ pub fn proc_signal<M: MemorySize>(
         process.signal_process(sig);
     }
 
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     Ok(Errno::Success)
 }

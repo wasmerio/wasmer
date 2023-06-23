@@ -322,7 +322,6 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            WasiEnv::process_wakes_internal(self.ctx, cx);
             if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
                 if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
                     return Poll::Ready(Err(err));
@@ -365,8 +364,6 @@ where
             return Poll::Ready(Ok(res));
         }
 
-        WasiEnv::process_wakes_internal(self.ctx, cx);
-
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
@@ -398,9 +395,6 @@ pub enum AsyncifyAction<'a, R> {
     /// Indicates that asyncify should unwind by immediately exiting
     /// the current function
     Unwind,
-    /// The asynchronous operation is pending and
-    /// will be woken when its ready to be repeated by a poll syscall
-    Pending,
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -415,7 +409,6 @@ pub enum AsyncifyAction<'a, R> {
 pub(crate) fn __asyncify_with_deep_sleep<'a, 'b, M: MemorySize, T, Fut>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     deep_sleep_time: Duration,
-    wasm_waker: Option<&'b Waker>,
     work: Fut,
 ) -> Result<AsyncifyAction<'a, T>, WasiError>
 where
@@ -433,13 +426,12 @@ where
     let mut trigger = Box::pin(work);
 
     // Define the work
-    let has_wasm_waker = wasm_waker.is_some();
     let tasks = ctx.data().tasks().clone();
     let work = async move {
         let env = ctx.data();
 
         // Create the deep sleeper
-        let tasks_for_deep_sleep = if env.enable_deep_sleep && has_wasm_waker == false {
+        let tasks_for_deep_sleep = if env.enable_deep_sleep {
             Some(env.tasks().clone())
         } else {
             None
@@ -476,20 +468,9 @@ where
         })
     };
 
-    // If a waker was supplied then use this instead
-    // of passing the actual command to the runtime
-    if let Some(waker) = wasm_waker {
-        let mut pinned = Box::pin(work);
-        let mut cx = Context::from_waker(waker);
-        match pinned.as_mut().poll(&mut cx) {
-            Poll::Ready(res) => res,
-            Poll::Pending => Ok(AsyncifyAction::Pending),
-        }
-    } else {
-        // Otherwise we block on the work and process it
-        // using an asynchronou context
-        InlineWaker::block_on(work)
-    }
+    // Block until the work is finished or until we
+    // unload the thread using asyncify
+    InlineWaker::block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -499,7 +480,6 @@ where
 pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
-    wasm_waker: Option<&Waker>,
     work: Fut,
 ) -> Result<Result<T, Errno>, WasiError>
 where
@@ -533,20 +513,9 @@ where
         }
     }
 
-    // If a waker was supplied then use this instead
-    // of passing the actual command to the runtime
-    if let Some(waker) = wasm_waker {
-        let mut pinned = Box::pin(work);
-        let mut cx = Context::from_waker(waker);
-        match pinned.as_mut().poll(&mut cx) {
-            Poll::Ready(res) => Ok(res),
-            Poll::Pending => Ok(Err(Errno::Pending)),
-        }
-    } else {
-        // Otherwise we block on the work and process it
-        // using an asynchronou context
-        Ok(InlineWaker::block_on(work))
-    }
+    // Block until the work is finished or until we
+    // unload the thread using asyncify
+    Ok(InlineWaker::block_on(work))
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -598,20 +567,9 @@ where
         }
     };
 
-    // If a waker was supplied then use this instead
-    // of passing the actual command to the runtime
-    if let Some(waker) = waker {
-        let mut pinned = Box::pin(work);
-        let mut cx = Context::from_waker(waker);
-        match pinned.as_mut().poll(&mut cx) {
-            Poll::Ready(res) => res,
-            Poll::Pending => Err(Errno::Pending),
-        }
-    } else {
-        // Otherwise we block on the work and process it
-        // using an asynchronou context
-        InlineWaker::block_on(work)
-    }
+    // Block until the work is finished or until we
+    // unload the thread using asyncify
+    InlineWaker::block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with

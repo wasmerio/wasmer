@@ -20,21 +20,19 @@ mod env;
 mod func_env;
 mod handles;
 mod types;
-mod waker;
 
 use std::{
-    collections::{BTreeMap, HashMap, VecDeque},
+    collections::{BTreeMap, HashMap},
     path::Path,
-    sync::{Arc, Mutex},
-    task::{Context, Poll, Waker},
+    sync::Mutex,
+    task::Waker,
     time::Duration,
 };
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid, WakerId};
+use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
 
 pub use self::{
     builder::*,
@@ -49,7 +47,6 @@ use crate::{
     utils::WasiParkingLot,
 };
 pub(crate) use handles::*;
-pub(crate) use waker::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
@@ -118,43 +115,6 @@ pub(crate) struct WasiFutexState {
     pub futexes: HashMap<u64, WasiFutex>,
 }
 
-#[derive(Debug)]
-struct WasiWakersInner {
-    rx: mpsc::UnboundedReceiver<(WakerId, bool)>,
-}
-
-/// Wakers used for WASI applications that support it
-#[derive(Debug)]
-pub(crate) struct WasiWakers {
-    tx: mpsc::UnboundedSender<(WakerId, bool)>,
-    inner: Arc<Mutex<WasiWakersInner>>,
-}
-impl Default for WasiWakers {
-    fn default() -> Self {
-        let (tx, rx) = mpsc::unbounded_channel();
-        Self {
-            tx,
-            inner: Arc::new(Mutex::new(WasiWakersInner { rx })),
-        }
-    }
-}
-impl WasiWakers {
-    pub fn create_waker(&self, id: WakerId) -> WasiWaker {
-        WasiWaker::new(id, &self.tx)
-    }
-
-    /// Returns all the woken wakers that are waiting to be processed
-    pub fn pop_wakes_and_subscribe(&self, cx: &mut Context<'_>) -> VecDeque<(WakerId, bool)> {
-        let mut inner = self.inner.lock().unwrap();
-
-        let mut ret = VecDeque::new();
-        while let Poll::Ready(Some((id, woken))) = inner.rx.poll_recv(cx) {
-            ret.push_back((id, woken));
-        }
-        ret
-    }
-}
-
 /// Top level data type containing all* the state with which WASI can
 /// interact.
 ///
@@ -172,8 +132,6 @@ pub(crate) struct WasiState {
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
-
-    pub wakers: WasiWakers,
 
     // TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
@@ -290,7 +248,6 @@ impl WasiState {
     pub fn fork(&self) -> Self {
         WasiState {
             fs: self.fs.fork(),
-            wakers: Default::default(),
             secret: self.secret,
             inodes: self.inodes.clone(),
             futexs: Default::default(),

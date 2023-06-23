@@ -5,10 +5,14 @@ use std::{
     sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-#[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
+use std::sync::Mutex as StdMutex;
+use tokio::sync::{
+    mpsc::{UnboundedReceiver, UnboundedSender},
+    Mutex as AsyncMutex,
+};
 use virtual_fs::{Pipe, VirtualFile};
-use wasmer_wasix_types::wasi::{Fd as WasiFd, Fdflags, Filestat, Rights};
+use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
 
@@ -69,6 +73,20 @@ impl InodeVal {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpollFd {
+    /// The events we are polling on
+    pub events: EpollType,
+    /// Pointer to the user data
+    pub ptr: u64,
+    /// File descriptor we are polling on
+    pub fd: WasiFd,
+    /// Associated user data
+    pub data1: u32,
+    /// Associated user data
+    pub data2: u64,
+}
+
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
 #[derive(Debug)]
@@ -96,6 +114,15 @@ pub enum Kind {
     Pipe {
         /// Reference to the pipe
         pipe: Pipe,
+    },
+    Epoll {
+        // List of events we are polling on
+        subscriptions: Arc<StdMutex<HashMap<(WasiFd, EpollType), EpollFd>>>,
+        // Notification pipeline for sending events
+        tx: Arc<UnboundedSender<(WasiFd, EpollType)>>,
+        // Notification pipeline for events that need to be
+        // checked on the next wait
+        rx: Arc<AsyncMutex<UnboundedReceiver<(WasiFd, EpollType)>>>,
     },
     Dir {
         /// Parent directory

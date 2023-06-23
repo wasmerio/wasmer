@@ -81,9 +81,10 @@ pub fn path_rename<M: MemorySize>(
                 out_path
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return Ok(Errno::Inval)
-            }
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Ok(Errno::Inval),
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 debug!("fatal internal logic error: parent of inode is not a directory");
                 return Ok(Errno::Inval);
@@ -98,7 +99,10 @@ pub fn path_rename<M: MemorySize>(
                 wasi_try_ok!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => {
                 return Ok(Errno::Inval);
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
@@ -122,7 +126,7 @@ pub fn path_rename<M: MemorySize>(
                 let result = if let Some(h) = handle {
                     drop(guard);
                     let state = state;
-                    __asyncify_light(env, None, None, async move {
+                    __asyncify_light(env, None, async move {
                         state
                             .fs_rename(source_path, &host_adjusted_target_path)
                             .await
@@ -133,7 +137,7 @@ pub fn path_rename<M: MemorySize>(
                     let out = {
                         let state = state;
                         let host_adjusted_target_path = host_adjusted_target_path.clone();
-                        __asyncify_light(env, None, None, async move {
+                        __asyncify_light(env, None, async move {
                             state
                                 .fs_rename(path_clone, &host_adjusted_target_path)
                                 .await
@@ -163,7 +167,7 @@ pub fn path_rename<M: MemorySize>(
                 let res = {
                     let state = state;
                     let host_adjusted_target_path = host_adjusted_target_path.clone();
-                    __asyncify_light(env, None, None, async move {
+                    __asyncify_light(env, None, async move {
                         state
                             .fs_rename(cloned_path, &host_adjusted_target_path)
                             .await
@@ -184,6 +188,7 @@ pub fn path_rename<M: MemorySize>(
             Kind::Symlink { .. } => {}
             Kind::Socket { .. } => {}
             Kind::Pipe { .. } => {}
+            Kind::Epoll { .. } => {}
             Kind::EventNotifications { .. } => {}
             Kind::Root { .. } => unreachable!("The root can not be moved"),
         }

@@ -40,7 +40,7 @@ pub fn callback_signal<M: MemorySize>(
         inner.signal_set = true;
     }
 
-    let _ = unsafe { WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)? };
+    let _ = unsafe { WasiEnv::process_signals_and_exit(&mut ctx)? };
 
     Ok(())
 }

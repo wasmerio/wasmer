@@ -34,7 +34,7 @@ pub fn fd_write<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset, nwritten, true, None)
+    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset, nwritten, true)
 }
 
 /// ### `fd_pwrite()`
@@ -60,16 +60,7 @@ pub fn fd_pwrite<M: MemorySize>(
     offset: Filesize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    fd_write_internal::<M>(
-        ctx,
-        fd,
-        iovs,
-        iovs_len,
-        offset as usize,
-        nwritten,
-        false,
-        None,
-    )
+    fd_write_internal::<M>(ctx, fd, iovs, iovs_len, offset as usize, nwritten, false)
 }
 
 /// ### `fd_pwrite()`
@@ -94,9 +85,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     offset: usize,
     nwritten: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
-    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let mut env = ctx.data();
     let state = env.state.clone();
@@ -131,7 +121,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             } else {
                                 None
                             },
-                            waker,
                             async {
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
@@ -178,21 +167,15 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     let socket = socket.clone();
                     drop(guard);
 
-                    let nonblocking = waker.is_none() && fd_flags.contains(Fdflags::NONBLOCK);
-                    let timeout = if waker.is_none() {
-                        Some(
-                            socket
-                                .opt_time(TimeType::WriteTimeout)
-                                .ok()
-                                .flatten()
-                                .unwrap_or(Duration::from_secs(30)),
-                        )
-                    } else {
-                        None
-                    };
+                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::WriteTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
 
                     let tasks = env.tasks().clone();
-                    let written = wasi_try_ok!(__asyncify_light(env, None, waker, async move {
+                    let written = wasi_try_ok!(__asyncify_light(env, None, async move {
                         let mut sent = 0usize;
                         for iovs in iovs_arr.iter() {
                             let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -201,7 +184,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                 .access()
                                 .map_err(mem_error_to_wasi)?;
                             let local_sent = socket
-                                .send(tasks.deref(), buf.as_ref(), timeout, nonblocking)
+                                .send(tasks.deref(), buf.as_ref(), Some(timeout), nonblocking)
                                 .await?;
                             sent += local_sent;
                             if local_sent != buf.len() {
@@ -256,7 +239,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     }
                     (written, false)
                 }
-                Kind::Symlink { .. } => return Ok(Errno::Inval),
+                Kind::Symlink { .. } | Kind::Epoll { .. } => return Ok(Errno::Inval),
                 Kind::Buffer { buffer } => {
                     let mut written = 0usize;
                     for iovs in iovs_arr.iter() {

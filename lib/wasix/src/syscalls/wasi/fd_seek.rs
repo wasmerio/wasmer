@@ -21,7 +21,7 @@ pub fn fd_seek<M: MemorySize>(
     whence: Whence,
     newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
     let state = env.state.clone();
@@ -87,7 +87,8 @@ pub fn fd_seek<M: MemorySize>(
                 | Kind::Root { .. }
                 | Kind::Socket { .. }
                 | Kind::Pipe { .. }
-                | Kind::EventNotifications { .. } => {
+                | Kind::EventNotifications { .. }
+                | Kind::Epoll { .. } => {
                     // TODO: check this
                     return Ok(Errno::Inval);
                 }

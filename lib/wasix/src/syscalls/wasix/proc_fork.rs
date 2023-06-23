@@ -25,7 +25,7 @@ pub fn proc_fork<M: MemorySize>(
     mut copy_memory: Bool,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_wakes_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     // If we were just restored then we need to return the value instead
     if let Some(result) = unsafe { handle_rewind::<M, ForkResult>(&mut ctx) } {

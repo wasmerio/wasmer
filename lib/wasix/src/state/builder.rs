@@ -697,7 +697,6 @@ impl WasiEnvBuilder {
 
         let state = WasiState {
             fs: wasi_fs,
-            wakers: Default::default(),
             secret: rand::thread_rng().gen::<[u8; 32]>(),
             inodes,
             args: self.args.clone(),

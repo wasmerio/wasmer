@@ -74,7 +74,7 @@ pub fn path_unlink_file<M: MemorySize>(
                         let state = state;
                         let fut = h.unlink();
                         drop(h);
-                        wasi_try_ok!(__asyncify_light(env, None, None, async move {
+                        wasi_try_ok!(__asyncify_light(env, None, async move {
                             fut.await.map_err(fs_error_into_wasi_err)
                         })?)
                     } else {

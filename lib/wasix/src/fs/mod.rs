@@ -28,7 +28,7 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{Fd, InodeVal, Kind};
+pub use self::fd::{EpollFd, Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFileReadGuard,
     InodeValFileWriteGuard, WasiStateFileGuard,
@@ -1231,7 +1231,8 @@ impl WasiFs {
                     Kind::File { .. }
                     | Kind::Socket { .. }
                     | Kind::Pipe { .. }
-                    | Kind::EventNotifications { .. } => {
+                    | Kind::EventNotifications { .. }
+                    | Kind::Epoll { .. } => {
                         return Err(Errno::Notdir);
                     }
                     Kind::Symlink {
