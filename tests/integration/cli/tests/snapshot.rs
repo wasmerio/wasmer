@@ -744,7 +744,7 @@ cd /public
     ignore
 )]
 #[test]
-fn test_snapshot_web_server_async() {
+fn test_snapshot_web_server_epoll() {
     let name = function!();
     let port = 7778;
 
@@ -765,10 +765,45 @@ fn test_snapshot_web_server_async() {
         .arg("--port")
         .arg(&format!("{}", port));
 
-    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/web-server.wasm"), Box::new(with));
+    let snapshot = builder.run_wasm_with(
+        include_bytes!("./wasm/web-server-epoll.wasm"),
+        Box::new(with),
+    );
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
+#[test]
+fn test_snapshot_web_server_poll() {
+    let name = function!();
+    let port = 7779;
+
+    let with = move |mut child: Child| {
+        let ret = test_run_http_request(port, "null", Some(0));
+        child.kill().ok();
+        ret
+    };
+
+    let builder = TestBuilder::new()
+        .with_name(name)
+        .with_async_threads()
+        .enable_network(true)
+        .arg("--root")
+        .arg("/dev")
+        .arg("--log-level")
+        .arg("warn")
+        .arg("--port")
+        .arg(&format!("{}", port));
+
+    let snapshot = builder.run_wasm_with(
+        include_bytes!("./wasm/web-server-poll.wasm"),
+        Box::new(with),
+    );
+    assert_json_snapshot!(snapshot);
+}
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
