@@ -5,6 +5,8 @@ root = "/public"
 log-level = "info"
 cache-control-headers = false
 compression = true
+threads-multiplier = 16
+max-blocking-threads = 32
 
 [advanced]
 
