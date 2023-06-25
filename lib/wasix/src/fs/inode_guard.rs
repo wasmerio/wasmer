@@ -12,7 +12,7 @@ use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
 use virtual_io::{FilteredHandler, InterestType};
-use virtual_net::{InterestGuard, NetworkError};
+use virtual_net::NetworkError;
 use wasmer_wasix_types::{
     types::Eventtype,
     wasi::{self, EpollType},
@@ -124,7 +124,6 @@ pub struct InodeValFilePollGuardJoin {
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
-    token: Option<InterestGuard>,
 }
 
 impl InodeValFilePollGuardJoin {
@@ -134,7 +133,6 @@ impl InodeValFilePollGuardJoin {
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
-            token: None,
         }
     }
     pub(crate) fn fd(&self) -> u32 {
@@ -188,7 +186,6 @@ impl Future for InodeValFilePollGuardJoin {
             }
         }
         if has_read {
-            let has_token = self.token.is_some();
             let poll_result = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
                     let mut guard = file.write().unwrap();
@@ -196,7 +193,6 @@ impl Future for InodeValFilePollGuardJoin {
                     file.poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
-                InodeValFilePollGuardMode::Socket { .. } if has_token => Poll::Ready(Ok(1)),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
                     let res = guard
@@ -299,7 +295,6 @@ impl Future for InodeValFilePollGuardJoin {
             };
         }
         if has_write {
-            let has_token = self.token.is_some();
             let poll_result = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
                     let mut guard = file.write().unwrap();
@@ -307,7 +302,6 @@ impl Future for InodeValFilePollGuardJoin {
                     file.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
-                InodeValFilePollGuardMode::Socket { .. } if has_token => Poll::Ready(Ok(1)),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
                     let res = guard

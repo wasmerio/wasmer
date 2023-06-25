@@ -10,7 +10,7 @@ use http::{HeaderMap, StatusCode};
 use js_sys::Promise;
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
-    runtime::{Builder, Handle, Runtime},
+    runtime::{Builder, Runtime},
     sync::mpsc,
 };
 #[allow(unused_imports, dead_code)]
@@ -71,10 +71,7 @@ impl WebRuntime {
         let webgl_tx = GlContext::init(webgl2);
 
         let runtime: Arc<Runtime> = Arc::new(Builder::new_current_thread().build().unwrap());
-        let runtime = Arc::new(WebTaskManager {
-            pool: pool.clone(),
-            runtime,
-        });
+        let runtime = Arc::new(WebTaskManager { pool: pool.clone() });
 
         let http_client = Arc::new(WebHttpClient { pool: pool.clone() });
         let source = WapmSource::new(
@@ -88,13 +85,12 @@ impl WebRuntime {
         // even if the filesystem cache fails (i.e. because we're compiled to
         // wasm32-unknown-unknown and running in a browser), the in-memory layer
         // should still work.
-        let package_loader = BuiltinPackageLoader::new_with_client(
-            BuiltinPackageLoader::default_cache_dir(&wasmer_dir),
-            http_client.clone(),
-        );
-        let module_cache = ThreadLocalCache::default().with_fallback(FileSystemCache::new(
-            FileSystemCache::default_cache_dir(&wasmer_dir),
-        ));
+        let checkout_dir = wasmer_dir.join("checkouts");
+        let cache_dir = wasmer_dir.join("compiled");
+        let package_loader =
+            BuiltinPackageLoader::new_with_client(checkout_dir, http_client.clone());
+        let module_cache =
+            ThreadLocalCache::default().with_fallback(FileSystemCache::new(cache_dir));
         WebRuntime {
             pool,
             tasks: runtime,
@@ -118,7 +114,6 @@ impl VirtualNetworking for WebVirtualNetworking {}
 #[derive(Debug, Clone)]
 pub(crate) struct WebTaskManager {
     pool: WebThreadPool,
-    runtime: Arc<Runtime>,
 }
 
 struct WebRuntimeGuard<'g> {
@@ -177,19 +172,6 @@ impl VirtualTaskManager for WebTaskManager {
             })
         }));
         Ok(())
-    }
-
-    /// Returns a runtime that can be used for asynchronous tasks
-    fn runtime(&self) -> &Handle {
-        self.runtime.handle()
-    }
-
-    /// Enters a runtime context
-    #[allow(dyn_drop)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
-        Box::new(WebRuntimeGuard {
-            inner: self.runtime.enter(),
-        })
     }
 
     /// Starts an asynchronous task will will run on a dedicated thread
@@ -314,8 +296,8 @@ impl VirtualFile for TermStdout {
         Ok(())
     }
 
-    fn unlink(&mut self) -> wasmer_wasix::virtual_fs::Result<()> {
-        Ok(())
+    fn unlink(&mut self) -> BoxFuture<'static, wasmer_wasix::virtual_fs::Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
 
     fn poll_read_ready(
@@ -427,8 +409,8 @@ impl VirtualFile for TermLog {
         Ok(())
     }
 
-    fn unlink(&mut self) -> wasmer_wasix::virtual_fs::Result<()> {
-        Ok(())
+    fn unlink(&mut self) -> BoxFuture<'static, wasmer_wasix::virtual_fs::Result<()>> {
+        Box::pin(async move { Ok(()) })
     }
 
     fn poll_read_ready(

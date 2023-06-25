@@ -56,10 +56,6 @@ pub(super) fn sock_recv_internal_handler<M: MemorySize>(
             );
             bytes_read
         }
-        Err(Errno::Pending) => {
-            ret = Errno::Pending;
-            0
-        }
         Err(err) => {
             let socket_err = err.name();
             trace!(

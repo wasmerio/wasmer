@@ -340,7 +340,6 @@ impl Errno {
             Errno::Notcapable => "notcapable",
             Errno::Shutdown => "shutdown",
             Errno::Memviolation => "memviolation",
-            Errno::Pending => "pending",
             Errno::Unknown => "unknown",
         }
     }
@@ -425,7 +424,6 @@ impl Errno {
             Errno::Notcapable => "Extension: Capabilities insufficient.",
             Errno::Shutdown => "Cannot send after socket shutdown.",
             Errno::Memviolation => "Memory access violation.",
-            Errno::Pending => "Pending asynchronous wake.",
             Errno::Unknown => "An unknown error has occured",
         }
     }

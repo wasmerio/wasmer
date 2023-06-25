@@ -20,9 +20,7 @@ impl InterestGuard {
     ) -> io::Result<InterestGuard> {
         let raw = Box::into_raw(Box::new(HandlerWrapper(handler))) as *const HandlerWrapper;
         let new_token = Token(raw as usize);
-        selector
-            .registry
-            .register(source, new_token.clone(), interest)?;
+        selector.registry.register(source, new_token, interest)?;
         Ok(Self { token: new_token })
     }
     pub fn unregister(
