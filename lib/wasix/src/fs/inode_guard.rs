@@ -146,11 +146,9 @@ impl InodeValFilePollGuardJoin {
 }
 impl Drop for InodeValFilePollGuardJoin {
     fn drop(&mut self) {
-        if let Some(token) = self.token.take() {
-            if let InodeValFilePollGuardMode::Socket { ref inner } = &mut self.mode {
-                let mut guard = inner.protected.write().unwrap();
-                guard.remove_handler(token);
-            }
+        if let InodeValFilePollGuardMode::Socket { ref inner } = &mut self.mode {
+            let mut guard = inner.protected.write().unwrap();
+            guard.remove_handler();
         }
     }
 }
@@ -224,13 +222,8 @@ impl Future for InodeValFilePollGuardJoin {
                                 Poll::Pending
                             }
                         }
-                        Ok(token) if has_token => {
-                            guard.remove_handler(token);
-                            Poll::Ready(Ok(1))
-                        }
-                        Ok(token) => {
+                        Ok(()) => {
                             drop(guard);
-                            self.token.replace(token);
                             Poll::Pending
                         }
                     }
@@ -340,13 +333,8 @@ impl Future for InodeValFilePollGuardJoin {
                                 Poll::Pending
                             }
                         }
-                        Ok(token) if has_token => {
-                            guard.remove_handler(token);
-                            Poll::Ready(Ok(1))
-                        }
-                        Ok(token) => {
+                        Ok(()) => {
                             drop(guard);
-                            self.token.replace(token);
                             Poll::Pending
                         }
                     }

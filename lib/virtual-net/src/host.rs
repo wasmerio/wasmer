@@ -58,6 +58,7 @@ impl VirtualNetworking for LocalNetworking {
                 Box::new(LocalTcpListener {
                     stream: mio::net::TcpListener::from_std(sock),
                     selector: self.selector.clone(),
+                    handler_guard: None,
                 })
             })
             .map_err(io_err_into_net_error)?;
@@ -76,6 +77,7 @@ impl VirtualNetworking for LocalNetworking {
             selector: self.selector.clone(),
             socket,
             addr,
+            handler_guard: None,
         }))
     }
 
@@ -117,36 +119,45 @@ impl VirtualNetworking for LocalNetworking {
 pub struct LocalTcpListener {
     stream: mio::net::TcpListener,
     selector: Arc<Selector>,
+    handler_guard: Option<InterestGuard>,
 }
 
 impl VirtualTcpListener for LocalTcpListener {
-    fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
+    fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         match self.stream.accept().map_err(io_err_into_net_error) {
             Ok((stream, addr)) => {
                 socket2::SockRef::from(&self.stream)
                     .set_nonblocking(true)
                     .ok();
-                Some(Ok((
+                Ok((
                     Box::new(LocalTcpStream::new(self.selector.clone(), stream, addr)),
                     addr,
-                )))
+                ))
             }
-            Err(NetworkError::WouldBlock) => None,
-            Err(err) => Some(Err(err)),
+            Err(NetworkError::WouldBlock) => Err(NetworkError::WouldBlock),
+            Err(err) => Err(err),
         }
     }
 
     fn set_handler<'a>(
         &'a mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<InterestGuard> {
-        InterestGuard::new(
+    ) -> Result<()> {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
+
+        let guard = InterestGuard::new(
             &self.selector,
             handler,
             &mut self.stream,
             mio::Interest::READABLE,
         )
-        .map_err(io_err_into_net_error)
+        .map_err(io_err_into_net_error)?;
+
+        self.handler_guard.replace(guard);
+
+        Ok(())
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
@@ -168,8 +179,10 @@ impl VirtualTcpListener for LocalTcpListener {
 }
 
 impl VirtualIoSource for LocalTcpListener {
-    fn remove_handler(&mut self, token: InterestGuard) {
-        InterestGuard::unregister(token, &self.selector, &mut self.stream);
+    fn remove_handler(&mut self) {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
     }
 }
 
@@ -179,6 +192,7 @@ pub struct LocalTcpStream {
     addr: SocketAddr,
     shutdown: Option<Shutdown>,
     selector: Arc<Selector>,
+    handler_guard: Option<InterestGuard>,
 }
 
 impl LocalTcpStream {
@@ -188,6 +202,7 @@ impl LocalTcpStream {
             addr,
             shutdown: None,
             selector,
+            handler_guard: None,
         }
     }
 }
@@ -247,33 +262,21 @@ impl VirtualConnectedSocket for LocalTcpStream {
             .map_err(io_err_into_net_error)
     }
 
-    fn try_send(&mut self, data: &[u8]) -> Option<Result<usize>> {
-        match self.stream.write(data).map_err(io_err_into_net_error) {
-            Ok(amt) => Some(Ok(amt)),
-            Err(NetworkError::WouldBlock) => None,
-            Err(err) => Some(Err(err)),
-        }
+    fn try_send(&mut self, data: &[u8]) -> Result<usize> {
+        self.stream.write(data).map_err(io_err_into_net_error)
     }
 
-    fn try_flush(&mut self) -> Option<Result<()>> {
-        match self.stream.flush().map_err(io_err_into_net_error) {
-            Ok(()) => Some(Ok(())),
-            Err(NetworkError::WouldBlock) => None,
-            Err(err) => Some(Err(err)),
-        }
+    fn try_flush(&mut self) -> Result<()> {
+        self.stream.flush().map_err(io_err_into_net_error)
     }
 
     fn close(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Option<Result<usize>> {
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        match self.stream.read(buf).map_err(io_err_into_net_error) {
-            Ok(amt) => Some(Ok(amt)),
-            Err(NetworkError::WouldBlock) => None,
-            Err(err) => Some(Err(err)),
-        }
+        self.stream.read(buf).map_err(io_err_into_net_error)
     }
 }
 
@@ -297,8 +300,12 @@ impl VirtualSocket for LocalTcpStream {
     fn set_handler<'a>(
         &'a mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<InterestGuard> {
-        InterestGuard::new(
+    ) -> Result<()> {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
+
+        let guard = InterestGuard::new(
             &self.selector,
             handler,
             &mut self.stream,
@@ -306,13 +313,19 @@ impl VirtualSocket for LocalTcpStream {
                 .add(mio::Interest::WRITABLE)
                 .add(mio::Interest::PRIORITY),
         )
-        .map_err(io_err_into_net_error)
+        .map_err(io_err_into_net_error)?;
+
+        self.handler_guard.replace(guard);
+
+        Ok(())
     }
 }
 
 impl VirtualIoSource for LocalTcpStream {
-    fn remove_handler(&mut self, token: InterestGuard) {
-        InterestGuard::unregister(token, &self.selector, &mut self.stream);
+    fn remove_handler(&mut self) {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
     }
 }
 
@@ -322,6 +335,7 @@ pub struct LocalUdpSocket {
     #[allow(dead_code)]
     addr: SocketAddr,
     selector: Arc<Selector>,
+    handler_guard: Option<InterestGuard>,
 }
 
 impl VirtualUdpSocket for LocalUdpSocket {
@@ -404,28 +418,15 @@ impl VirtualUdpSocket for LocalUdpSocket {
 }
 
 impl VirtualConnectionlessSocket for LocalUdpSocket {
-    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Option<Result<usize>> {
-        match self
-            .socket
+    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+        self.socket
             .send_to(data, addr)
             .map_err(io_err_into_net_error)
-        {
-            Ok(amt) => Some(Ok(amt)),
-            Err(NetworkError::WouldBlock) => None,
-            Err(err) => Some(Err(err)),
-        }
     }
 
-    fn try_recv_from(
-        &mut self,
-        buf: &mut [MaybeUninit<u8>],
-    ) -> Option<Result<(usize, SocketAddr)>> {
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        match self.socket.recv_from(buf).map_err(io_err_into_net_error) {
-            Ok(amt) => Some(Ok(amt)),
-            Err(NetworkError::WouldBlock) => None,
-            Err(err) => Some(Err(err)),
-        }
+        self.socket.recv_from(buf).map_err(io_err_into_net_error)
     }
 }
 
@@ -446,11 +447,12 @@ impl VirtualSocket for LocalUdpSocket {
         Ok(SocketStatus::Opened)
     }
 
-    fn set_handler(
-        &mut self,
-        handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<InterestGuard> {
-        InterestGuard::new(
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.socket);
+        }
+
+        let guard = InterestGuard::new(
             &self.selector,
             handler,
             &mut self.socket,
@@ -458,13 +460,19 @@ impl VirtualSocket for LocalUdpSocket {
                 .add(mio::Interest::WRITABLE)
                 .add(mio::Interest::PRIORITY),
         )
-        .map_err(io_err_into_net_error)
+        .map_err(io_err_into_net_error)?;
+
+        self.handler_guard.replace(guard);
+
+        Ok(())
     }
 }
 
 impl VirtualIoSource for LocalUdpSocket {
-    fn remove_handler(&mut self, token: InterestGuard) {
-        InterestGuard::unregister(token, &self.selector, &mut self.socket);
+    fn remove_handler(&mut self) {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.socket);
+        }
     }
 }
 

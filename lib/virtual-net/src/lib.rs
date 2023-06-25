@@ -12,7 +12,7 @@ use thiserror::Error;
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
 pub use virtual_io::InterestGuard;
-use virtual_io::InterestHandler;
+pub use virtual_io::InterestHandler;
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
@@ -35,7 +35,7 @@ pub struct IpRoute {
 /// Represents an IO source
 pub trait VirtualIoSource: fmt::Debug + Send + Sync + 'static {
     /// Removes a previously registered waker using a token
-    fn remove_handler(&mut self, token: InterestGuard);
+    fn remove_handler(&mut self);
 }
 
 /// An implementation of virtual networking
@@ -180,14 +180,11 @@ pub type DynVirtualNetworking = Arc<dyn VirtualNetworking>;
 
 pub trait VirtualTcpListener: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     /// Tries to accept a new connection
-    fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>>;
+    fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
 
     /// Registers a waker for when a new connection has arrived. This uses
     /// a stack machine which means more than one waker can be registered
-    fn set_handler(
-        &mut self,
-        handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<InterestGuard>;
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()>;
 
     /// Returns the local address of this TCP listener
     fn addr_local(&self) -> Result<SocketAddr>;
@@ -215,10 +212,8 @@ pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     /// Registers a waker for when this connection is ready to receive
     /// more data. Uses a stack machine which means more than one waker
     /// can be registered
-    fn set_handler<'a>(
-        &'a mut self,
-        handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<InterestGuard>;
+    fn set_handler<'a>(&'a mut self, handler: Box<dyn InterestHandler + Send + Sync>)
+        -> Result<()>;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -250,16 +245,16 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     fn linger(&self) -> Result<Option<Duration>>;
 
     /// Tries to send out a datagram or stream of bytes on this socket
-    fn try_send(&mut self, data: &[u8]) -> Option<Result<usize>>;
+    fn try_send(&mut self, data: &[u8]) -> Result<usize>;
 
     // Tries to flush any data in the local buffers
-    fn try_flush(&mut self) -> Option<Result<()>>;
+    fn try_flush(&mut self) -> Result<()>;
 
     /// Closes the socket
     fn close(&mut self) -> Result<()>;
 
     /// Tries to read a packet from the socket
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Option<Result<usize>>;
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
 /// Connectionless sockets are able to send and receive datagrams and stream
@@ -267,11 +262,10 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
 pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
     /// to a specific address
-    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Option<Result<usize>>;
+    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
 
     /// Recv a packet from the socket
-    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>])
-        -> Option<Result<(usize, SocketAddr)>>;
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
 }
 
 /// ICMP sockets are low level devices bound to a specific address
@@ -283,14 +277,14 @@ pub trait VirtualIcmpSocket:
 
 pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
-    fn try_send(&mut self, data: &[u8]) -> Option<Result<usize>>;
+    fn try_send(&mut self, data: &[u8]) -> Result<usize>;
 
     /// Attempts to flush the object, ensuring that any buffered data reach
     /// their destination.
-    fn try_flush(&mut self) -> Option<Result<()>>;
+    fn try_flush(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Option<Result<usize>>;
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not

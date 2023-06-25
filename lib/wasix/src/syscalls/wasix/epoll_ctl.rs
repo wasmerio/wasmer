@@ -204,10 +204,7 @@ pub(super) fn register_epoll_waker(
             let handler = inner.set_handler(handler).map_err(net_error_into_io_err)?;
             drop(inner);
 
-            ret.push(EpollJoinGuard::Handler {
-                handler: Some(handler),
-                fd_guard,
-            })
+            ret.push(EpollJoinGuard::Handler { fd_guard })
         }
         _ => {
             // Otherwise we fall back on the regular polling guard

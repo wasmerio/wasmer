@@ -9,7 +9,6 @@ use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::{watch, Mutex as AsyncMutex};
 use virtual_fs::{Pipe, VirtualFile};
-use virtual_io::InterestGuard;
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
@@ -100,25 +99,18 @@ pub struct EpollInterest {
 #[derive(Debug)]
 pub enum EpollJoinGuard {
     Join(InodeValFilePollGuardJoin),
-    Handler {
-        fd_guard: InodeValFilePollGuard,
-        handler: Option<InterestGuard>,
-    },
+    Handler { fd_guard: InodeValFilePollGuard },
 }
 impl Drop for EpollJoinGuard {
     fn drop(&mut self) {
         match self {
-            Self::Handler { handler, fd_guard } => {
-                if let Some(handler) = handler.take() {
-                    match &mut fd_guard.mode {
-                        InodeValFilePollGuardMode::Socket { inner } => {
-                            let mut inner = inner.protected.write().unwrap();
-                            inner.remove_handler(handler);
-                        }
-                        _ => {}
-                    }
+            Self::Handler { fd_guard } => match &mut fd_guard.mode {
+                InodeValFilePollGuardMode::Socket { inner } => {
+                    let mut inner = inner.protected.write().unwrap();
+                    inner.remove_handler();
                 }
-            }
+                _ => {}
+            },
             _ => {}
         }
     }

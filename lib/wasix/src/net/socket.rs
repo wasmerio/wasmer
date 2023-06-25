@@ -12,8 +12,8 @@ use std::{
 use serde_derive::{Deserialize, Serialize};
 use virtual_io::{FilteredHandler, InterestHandler, InterestType};
 use virtual_net::{
-    InterestGuard, NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
-    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
@@ -327,13 +327,13 @@ impl InodeSocket {
         struct SocketAccepter<'a> {
             sock: &'a InodeSocket,
             nonblocking: bool,
-            token: Option<InterestGuard>,
+            handler_registered: bool,
         }
         impl<'a> Drop for SocketAccepter<'a> {
             fn drop(&mut self) {
-                if let Some(token) = self.token.take() {
+                if self.handler_registered {
                     let mut inner = self.sock.inner.protected.write().unwrap();
-                    inner.remove_handler(token);
+                    inner.remove_handler();
                 }
             }
         }
@@ -347,24 +347,24 @@ impl InodeSocket {
                     let mut inner = self.sock.inner.protected.write().unwrap();
                     return match &mut inner.kind {
                         InodeSocketKind::TcpListener { socket, .. } => match socket.try_accept() {
-                            Some(Ok((child, addr))) => Poll::Ready(Ok((child, addr))),
-                            Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
-                            None if self.nonblocking => Poll::Ready(Err(Errno::Again)),
-                            None if self.token.is_none() => {
-                                let token = socket.set_handler(
+                            Ok((child, addr)) => Poll::Ready(Ok((child, addr))),
+                            Err(NetworkError::WouldBlock) if self.nonblocking => {
+                                Poll::Ready(Err(Errno::Again))
+                            }
+                            Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                                let res = socket.set_handler(
                                     FilteredHandler::new(cx.waker().into())
                                         .add_interest(InterestType::Readable),
                                 );
+                                if let Err(err) = res {
+                                    return Poll::Ready(Err(net_error_into_wasi_err(err)));
+                                }
                                 drop(inner);
-                                self.token.replace(match token {
-                                    Ok(t) => t,
-                                    Err(err) => {
-                                        return Poll::Ready(Err(net_error_into_wasi_err(err)))
-                                    }
-                                });
+                                self.handler_registered = true;
                                 continue;
                             }
-                            None => Poll::Pending,
+                            Err(NetworkError::WouldBlock) => Poll::Pending,
+                            Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
                         },
                         InodeSocketKind::PreSocket { .. } => Poll::Ready(Err(Errno::Notconn)),
                         _ => Poll::Ready(Err(Errno::Notsup)),
@@ -376,7 +376,7 @@ impl InodeSocket {
         let acceptor = SocketAccepter {
             sock: self,
             nonblocking,
-            token: None,
+            handler_registered: false,
         };
         if let Some(timeout) = timeout {
             tokio::select! {
@@ -893,13 +893,13 @@ impl InodeSocket {
             inner: &'a InodeSocketInner,
             data: &'b [u8],
             nonblocking: bool,
-            token: Option<InterestGuard>,
+            handler_registered: bool,
         }
         impl<'a, 'b> Drop for SocketSender<'a, 'b> {
             fn drop(&mut self) {
-                if let Some(token) = self.token.take() {
+                if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
-                    inner.remove_handler(token);
+                    inner.remove_handler();
                 }
             }
         }
@@ -918,7 +918,7 @@ impl InodeSocket {
                             if let Some(peer) = peer {
                                 socket.try_send_to(self.data, *peer)
                             } else {
-                                Some(Err(NetworkError::NotConnected))
+                                Err(NetworkError::NotConnected)
                             }
                         }
                         InodeSocketKind::PreSocket { .. } => {
@@ -927,22 +927,24 @@ impl InodeSocket {
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
                     return match res {
-                        Some(Ok(amt)) => Poll::Ready(Ok(amt)),
-                        Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
-                        None if self.nonblocking => Poll::Ready(Err(Errno::Again)),
-                        None if self.token.is_none() => {
-                            let token = inner.set_handler(
+                        Ok(amt) => Poll::Ready(Ok(amt)),
+                        Err(NetworkError::WouldBlock) if self.nonblocking => {
+                            Poll::Ready(Err(Errno::Again))
+                        }
+                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                            let res = inner.set_handler(
                                 FilteredHandler::new(cx.waker().into())
                                     .add_interest(InterestType::Writable),
                             );
+                            if let Err(err) = res {
+                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
+                            }
                             drop(inner);
-                            self.token.replace(match token {
-                                Ok(t) => t,
-                                Err(err) => return Poll::Ready(Err(net_error_into_wasi_err(err))),
-                            });
+                            self.handler_registered = true;
                             continue;
                         }
-                        None => Poll::Pending,
+                        Err(NetworkError::WouldBlock) => Poll::Pending,
+                        Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
                     };
                 }
             }
@@ -952,7 +954,7 @@ impl InodeSocket {
             inner: &self.inner,
             data: buf,
             nonblocking,
-            token: None,
+            handler_registered: false,
         };
         if let Some(timeout) = timeout {
             tokio::select! {
@@ -977,13 +979,13 @@ impl InodeSocket {
             data: &'b [u8],
             addr: SocketAddr,
             nonblocking: bool,
-            token: Option<InterestGuard>,
+            handler_registered: bool,
         }
         impl<'a, 'b> Drop for SocketSender<'a, 'b> {
             fn drop(&mut self) {
-                if let Some(token) = self.token.take() {
+                if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
-                    inner.remove_handler(token);
+                    inner.remove_handler();
                 }
             }
         }
@@ -1006,22 +1008,24 @@ impl InodeSocket {
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
                     return match res {
-                        Some(Ok(amt)) => Poll::Ready(Ok(amt)),
-                        Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
-                        None if self.nonblocking => Poll::Ready(Err(Errno::Again)),
-                        None if self.token.is_none() => {
-                            let token = inner.set_handler(
+                        Ok(amt) => Poll::Ready(Ok(amt)),
+                        Err(NetworkError::WouldBlock) if self.nonblocking => {
+                            Poll::Ready(Err(Errno::Again))
+                        }
+                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                            let res = inner.set_handler(
                                 FilteredHandler::new(cx.waker().into())
                                     .add_interest(InterestType::Writable),
                             );
+                            if let Err(err) = res {
+                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
+                            }
+                            self.handler_registered = true;
                             drop(inner);
-                            self.token.replace(match token {
-                                Ok(t) => t,
-                                Err(err) => return Poll::Ready(Err(net_error_into_wasi_err(err))),
-                            });
                             continue;
                         }
-                        None => Poll::Pending,
+                        Err(NetworkError::WouldBlock) => Poll::Pending,
+                        Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
                     };
                 }
             }
@@ -1032,7 +1036,7 @@ impl InodeSocket {
             data: buf,
             addr,
             nonblocking,
-            token: None,
+            handler_registered: false,
         };
         if let Some(timeout) = timeout {
             tokio::select! {
@@ -1055,13 +1059,13 @@ impl InodeSocket {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
-            token: Option<InterestGuard>,
+            handler_registered: bool,
         }
         impl<'a, 'b> Drop for SocketReceiver<'a, 'b> {
             fn drop(&mut self) {
-                if let Some(token) = self.token.take() {
+                if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
-                    inner.remove_handler(token);
+                    inner.remove_handler();
                 }
             }
         }
@@ -1079,13 +1083,12 @@ impl InodeSocket {
                         InodeSocketKind::UdpSocket { socket, peer } => {
                             if let Some(peer) = peer {
                                 match socket.try_recv_from(self.data) {
-                                    Some(Ok((amt, addr))) if addr == *peer => Some(Ok(amt)),
-                                    Some(Ok(_)) => None,
-                                    Some(Err(err)) => Some(Err(err)),
-                                    None => None,
+                                    Ok((amt, addr)) if addr == *peer => Ok(amt),
+                                    Ok(_) => Err(NetworkError::WouldBlock),
+                                    Err(err) => Err(err),
                                 }
                             } else {
-                                Some(Err(NetworkError::NotConnected))
+                                Err(NetworkError::NotConnected)
                             }
                         }
                         InodeSocketKind::PreSocket { .. } => {
@@ -1094,22 +1097,25 @@ impl InodeSocket {
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
                     return match res {
-                        Some(Ok(amt)) => Poll::Ready(Ok(amt)),
-                        Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
-                        None if self.nonblocking => Poll::Ready(Err(Errno::Again)),
-                        None if self.token.is_none() => {
-                            let token = inner.set_handler(
+                        Ok(amt) => Poll::Ready(Ok(amt)),
+                        Err(NetworkError::WouldBlock) if self.nonblocking => {
+                            Poll::Ready(Err(Errno::Again))
+                        }
+                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                            let res = inner.set_handler(
                                 FilteredHandler::new(cx.waker().into())
                                     .add_interest(InterestType::Readable),
                             );
+                            if let Err(err) = res {
+                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
+                            }
+                            self.handler_registered = true;
                             drop(inner);
-                            self.token.replace(match token {
-                                Ok(t) => t,
-                                Err(err) => return Poll::Ready(Err(net_error_into_wasi_err(err))),
-                            });
                             continue;
                         }
-                        None => Poll::Pending,
+
+                        Err(NetworkError::WouldBlock) => Poll::Pending,
+                        Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
                     };
                 }
             }
@@ -1119,7 +1125,7 @@ impl InodeSocket {
             inner: &self.inner,
             data: buf,
             nonblocking,
-            token: None,
+            handler_registered: false,
         };
         if let Some(timeout) = timeout {
             tokio::select! {
@@ -1142,13 +1148,13 @@ impl InodeSocket {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
-            token: Option<InterestGuard>,
+            handler_registered: bool,
         }
         impl<'a, 'b> Drop for SocketReceiver<'a, 'b> {
             fn drop(&mut self) {
-                if let Some(token) = self.token.take() {
+                if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
-                    inner.remove_handler(token);
+                    inner.remove_handler();
                 }
             }
         }
@@ -1171,21 +1177,23 @@ impl InodeSocket {
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
                     return match res {
-                        Some(Ok((amt, addr))) => Poll::Ready(Ok((amt, addr))),
-                        Some(Err(err)) => Poll::Ready(Err(net_error_into_wasi_err(err))),
-                        None if self.nonblocking => Poll::Ready(Err(Errno::Again)),
-                        None if self.token.is_none() => {
-                            let token = inner.set_handler(
+                        Ok((amt, addr)) => Poll::Ready(Ok((amt, addr))),
+                        Err(NetworkError::WouldBlock) if self.nonblocking => {
+                            Poll::Ready(Err(Errno::Again))
+                        }
+                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                            let res = inner.set_handler(
                                 FilteredHandler::new(cx.waker().into())
                                     .add_interest(InterestType::Readable),
                             );
-                            self.token.replace(match token {
-                                Ok(t) => t,
-                                Err(err) => return Poll::Ready(Err(net_error_into_wasi_err(err))),
-                            });
+                            if let Err(err) = res {
+                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
+                            }
+                            self.handler_registered = true;
                             continue;
                         }
-                        None => Poll::Pending,
+                        Err(NetworkError::WouldBlock) => Poll::Pending,
+                        Err(err) => Poll::Ready(Err(net_error_into_wasi_err(err))),
                     };
                 }
             }
@@ -1195,7 +1203,7 @@ impl InodeSocket {
             inner: &self.inner,
             data: buf,
             nonblocking,
-            token: None,
+            handler_registered: false,
         };
         if let Some(timeout) = timeout {
             tokio::select! {
@@ -1235,13 +1243,13 @@ impl InodeSocket {
 }
 
 impl InodeSocketProtected {
-    pub fn remove_handler(&mut self, token: InterestGuard) {
+    pub fn remove_handler(&mut self) {
         match &mut self.kind {
-            InodeSocketKind::TcpListener { socket, .. } => socket.remove_handler(token),
-            InodeSocketKind::TcpStream { socket, .. } => socket.remove_handler(token),
-            InodeSocketKind::UdpSocket { socket, .. } => socket.remove_handler(token),
-            InodeSocketKind::Raw(socket) => socket.remove_handler(token),
-            InodeSocketKind::Icmp(socket) => socket.remove_handler(token),
+            InodeSocketKind::TcpListener { socket, .. } => socket.remove_handler(),
+            InodeSocketKind::TcpStream { socket, .. } => socket.remove_handler(),
+            InodeSocketKind::UdpSocket { socket, .. } => socket.remove_handler(),
+            InodeSocketKind::Raw(socket) => socket.remove_handler(),
+            InodeSocketKind::Icmp(socket) => socket.remove_handler(),
             InodeSocketKind::PreSocket { .. } => {}
         }
     }
@@ -1249,7 +1257,7 @@ impl InodeSocketProtected {
     pub fn set_handler(
         &mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> virtual_net::Result<InterestGuard> {
+    ) -> virtual_net::Result<()> {
         match &mut self.kind {
             InodeSocketKind::TcpListener { socket, .. } => socket.set_handler(handler),
             InodeSocketKind::TcpStream { socket, .. } => socket.set_handler(handler),
