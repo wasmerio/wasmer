@@ -517,12 +517,14 @@ impl AsyncSeek for File {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdout {
+    handle: Handle,
     inner: tokio::io::Stdout,
 }
 
 impl Default for Stdout {
     fn default() -> Self {
         Self {
+            handle: Handle::current(),
             inner: tokio::io::stdout(),
         }
     }
@@ -596,16 +598,19 @@ impl AsyncWrite for Stdout {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_write(cx, buf)
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_flush(cx)
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_shutdown(cx)
     }
@@ -615,6 +620,7 @@ impl AsyncWrite for Stdout {
         cx: &mut Context<'_>,
         bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
+        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let inner = Pin::new(&mut self.inner);
         inner.poll_write_vectored(cx, bufs)
     }
