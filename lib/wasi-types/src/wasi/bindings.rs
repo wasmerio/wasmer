@@ -257,8 +257,6 @@ pub enum Errno {
     Memviolation,
     #[doc = " An unknown error has occured"]
     Unknown,
-    #[doc = " Invocation is pending until the waker is woken."]
-    Pending,
 }
 impl Errno {
     pub fn name(&self) -> &'static str {
