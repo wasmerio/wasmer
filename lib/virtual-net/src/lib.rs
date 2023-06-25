@@ -11,8 +11,9 @@ use thiserror::Error;
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
-pub use virtual_io::InterestGuard;
-pub use virtual_io::InterestHandler;
+pub use virtual_io::{
+    handler_into_waker, InterestGuard, InterestHandler, InterestHandlerWaker, InterestType,
+};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 

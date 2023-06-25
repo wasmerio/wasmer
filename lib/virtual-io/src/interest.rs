@@ -1,7 +1,10 @@
 use std::{
     collections::HashSet,
-    task::{Context, Waker},
+    sync::{Arc, Mutex},
+    task::{Context, RawWaker, RawWakerVTable, Waker},
 };
+
+use derivative::Derivative;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum InterestType {
@@ -36,6 +39,60 @@ impl From<&Context<'_>> for Box<dyn InterestHandler + Send + Sync> {
         cx.waker().into()
     }
 }
+
+pub fn handler_into_waker(
+    handler: Box<dyn InterestHandler + Send + Sync>,
+    interest: InterestType,
+) -> Arc<InterestHandlerWaker> {
+    Arc::new(InterestHandlerWaker {
+        handler: Arc::new(Mutex::new(handler)),
+        interest,
+    })
+}
+
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct InterestHandlerWaker {
+    #[derivative(Debug = "ignore")]
+    handler: Arc<Mutex<Box<dyn InterestHandler + Send + Sync>>>,
+    interest: InterestType,
+}
+impl InterestHandlerWaker {
+    pub fn wake_now(&self) {
+        let mut handler = self.handler.lock().unwrap();
+        handler.interest(self.interest);
+    }
+    pub fn set_interest(self: &Arc<Self>, interest: InterestType) -> Arc<Self> {
+        let mut next = self.as_ref().clone();
+        next.interest = interest;
+        Arc::new(next)
+    }
+    pub fn as_waker(self: &Arc<Self>) -> Waker {
+        let s: *const Self = Arc::into_raw(Arc::clone(self));
+        let raw_waker = RawWaker::new(s as *const (), &VTABLE);
+        unsafe { Waker::from_raw(raw_waker) }
+    }
+}
+
+fn handler_waker_wake(s: &InterestHandlerWaker) {
+    let waker_arc = unsafe { Arc::from_raw(s) };
+    waker_arc.wake_now();
+}
+
+fn handler_waker_clone(s: &InterestHandlerWaker) -> RawWaker {
+    let arc = unsafe { Arc::from_raw(s) };
+    std::mem::forget(arc.clone());
+    RawWaker::new(Arc::into_raw(arc) as *const (), &VTABLE)
+}
+
+const VTABLE: RawWakerVTable = unsafe {
+    RawWakerVTable::new(
+        |s| handler_waker_clone(&*(s as *const InterestHandlerWaker)), // clone
+        |s| handler_waker_wake(&*(s as *const InterestHandlerWaker)),  // wake
+        |s| (*(s as *const InterestHandlerWaker)).wake_now(), // wake by ref (don't decrease refcount)
+        |s| drop(Arc::from_raw(s as *const InterestHandlerWaker)), // decrease refcount
+    )
+};
 
 pub struct FilteredHandler {
     handler: Box<dyn InterestHandler + Send + Sync>,
