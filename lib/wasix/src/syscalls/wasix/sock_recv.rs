@@ -16,7 +16,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-//#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty), ret, err)]
 pub fn sock_recv<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -37,7 +37,6 @@ pub fn sock_recv<M: MemorySize>(
         ri_flags,
         ro_data_len,
         ro_flags,
-        None,
     )?;
 
     sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
@@ -103,7 +102,6 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     ri_flags: RiFlags,
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
-    waker: Option<&Waker>,
 ) -> Result<Result<usize, Errno>, WasiError> {
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
@@ -115,7 +113,6 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
         env,
         sock,
         Rights::SOCK_RECV,
-        waker,
         |socket, fd| async move {
             let iovs_arr = ri_data
                 .slice(&memory, ri_data_len)
@@ -130,24 +127,18 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
-                let nonblocking = waker.is_none() && fd.flags.contains(Fdflags::NONBLOCK);
-                let timeout = if waker.is_none() {
-                    Some(
-                        socket
-                            .opt_time(TimeType::ReadTimeout)
-                            .ok()
-                            .flatten()
-                            .unwrap_or(Duration::from_secs(30)),
-                    )
-                } else {
-                    None
-                };
+                let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                let timeout = socket
+                    .opt_time(TimeType::ReadTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(30));
 
                 let local_read = match socket
                     .recv(
                         env.tasks().deref(),
                         buf.as_mut_uninit(),
-                        timeout,
+                        Some(timeout),
                         nonblocking,
                     )
                     .await

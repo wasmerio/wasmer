@@ -5096,15 +5096,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "virtual-io"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derivative",
+ "mio",
+ "socket2",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "virtual-net"
 version = "0.3.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "derivative",
  "libc",
+ "mio",
+ "socket2",
  "thiserror",
  "tokio",
  "tracing",
+ "virtual-io",
 ]
 
 [[package]]
@@ -6188,6 +6205,7 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
+ "virtual-io",
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",

@@ -49,6 +49,7 @@ members = [
     "lib/registry",
     "lib/sys-utils",
     "lib/types",
+    "lib/virtual-io",
     "lib/virtual-fs",
     "lib/virtual-net",
     "lib/vm",

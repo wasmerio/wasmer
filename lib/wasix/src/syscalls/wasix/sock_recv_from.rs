@@ -1,7 +1,7 @@
 use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_recv_from()`
 /// Receive a message and its peer address from a socket.
@@ -36,7 +36,6 @@ pub fn sock_recv_from<M: MemorySize>(
         ro_data_len,
         ro_flags,
         ro_addr,
-        None,
     )
 }
 
@@ -49,7 +48,6 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
-    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
@@ -75,10 +73,15 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_RECV,
-                waker,
                 |socket, fd| async move {
+                    let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
                     socket
-                        .recv_from(env.tasks().deref(), writer, fd.flags)
+                        .recv_from(env.tasks().deref(), writer, Some(timeout), nonblocking)
                         .await
                 },
             ));
@@ -95,14 +98,20 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                 env,
                 sock,
                 Rights::SOCK_RECV_FROM,
-                waker,
                 |socket, fd| async move {
+                    let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
+
                     let mut buf = Vec::with_capacity(max_size);
                     unsafe {
                         buf.set_len(max_size);
                     }
                     socket
-                        .recv_from(env.tasks().deref(), &mut buf, fd.flags)
+                        .recv_from(env.tasks().deref(), &mut buf, Some(timeout), nonblocking)
                         .await
                         .map(|(amt, addr)| {
                             unsafe {

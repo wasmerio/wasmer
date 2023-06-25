@@ -536,7 +536,6 @@ pub(crate) fn __sock_asyncify<T, F, Fut>(
     env: &WasiEnv,
     sock: WasiFd,
     rights: Rights,
-    waker: Option<&Waker>,
     actor: F,
 ) -> Result<T, Errno>
 where
@@ -551,8 +550,8 @@ where
     let mut work = {
         let inode = fd_entry.inode.clone();
         let tasks = env.tasks().clone();
-        let mut guard = inode.read();
-        match guard.deref() {
+        let mut guard = inode.write();
+        match guard.deref_mut() {
             Kind::Socket { socket } => {
                 // Clone the socket and release the lock
                 let socket = socket.clone();
@@ -578,7 +577,6 @@ pub(crate) fn __sock_asyncify_mut<T, F, Fut>(
     ctx: &'_ mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
-    waker: Option<&Waker>,
     actor: F,
 ) -> Result<T, Errno>
 where
@@ -604,20 +602,9 @@ where
             // Start the work using the socket
             let mut work = actor(socket, fd_entry);
 
-            // If a waker was supplied then use this instead
-            // of passing the actual command to the runtime
-            if let Some(waker) = waker {
-                let mut pinned = Box::pin(work);
-                let mut cx = Context::from_waker(waker);
-                match pinned.as_mut().poll(&mut cx) {
-                    Poll::Ready(res) => res,
-                    Poll::Pending => Err(Errno::Pending),
-                }
-            } else {
-                // Otherwise we block on the work and process it
-                // using an asynchronou context
-                InlineWaker::block_on(work)
-            }
+            // Otherwise we block on the work and process it
+            // using an asynchronou context
+            InlineWaker::block_on(work)
         }
         _ => Err(Errno::Notsock),
     }
@@ -646,8 +633,8 @@ where
     let inode = fd_entry.inode.clone();
 
     let tasks = env.tasks().clone();
-    let mut guard = inode.read();
-    match guard.deref() {
+    let mut guard = inode.write();
+    match guard.deref_mut() {
         Kind::Socket { socket } => {
             // Clone the socket and release the lock
             let socket = socket.clone();
@@ -734,12 +721,13 @@ where
                 let work = actor(socket);
 
                 // Block on the work and process it
-                let new_socket = InlineWaker::block_on(work)?;
+                let res = InlineWaker::block_on(work);
+                let new_socket = res?;
 
                 if let Some(mut new_socket) = new_socket {
                     let mut guard = inode.write();
                     match guard.deref_mut() {
-                        Kind::Socket { socket } => {
+                        Kind::Socket { socket, .. } => {
                             std::mem::swap(socket, &mut new_socket);
                         }
                         _ => {

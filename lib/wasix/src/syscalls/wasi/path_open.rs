@@ -155,6 +155,7 @@ pub fn path_open<M: MemorySize>(
                 ref mut handle,
                 path,
                 fd,
+                ..
             } => {
                 if let Some(special_fd) = fd {
                     // short circuit if we're dealing with a special file

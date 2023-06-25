@@ -39,7 +39,6 @@ pub fn fd_read<M: MemorySize>(
     };
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
-
     fd_read_internal_handler(ctx, res, nread)
 }
 
@@ -71,7 +70,6 @@ pub fn fd_pread<M: MemorySize>(
     let tid = ctx.data().tid();
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;
-
     fd_read_internal_handler::<M>(ctx, res, nread)
 }
 
@@ -136,9 +134,10 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         let handle = handle.clone();
+
                         drop(guard);
 
-                        let read = wasi_try_ok_ok!(__asyncify_light(
+                        let res = __asyncify_light(
                             env,
                             if fd_flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
@@ -192,9 +191,9 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                     }
                                 }
                                 Ok(total_read)
-                            }
-                        )?
-                        .map_err(|err| match err {
+                            },
+                        );
+                        let read = wasi_try_ok_ok!(res?.map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
@@ -223,7 +222,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                         } else {
                             None
                         },
-                        async {
+                        async move {
                             let mut total_read = 0usize;
 
                             let iovs_arr =
@@ -251,8 +250,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                             }
                             Ok(total_read)
                         },
-                    )?
-                    .map_err(|err| match err {
+                    );
+                    let res = res?.map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
                         a => a,
                     });
@@ -269,7 +268,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     drop(guard);
 
-                    let bytes_read = wasi_try_ok_ok!(__asyncify_light(
+                    let res = __asyncify_light(
                         env,
                         if fd_flags.contains(Fdflags::NONBLOCK) {
                             Some(Duration::ZERO)
@@ -297,9 +296,10 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                 }
                             }
                             Ok(total_read)
-                        }
-                    )?
-                    .map_err(|err| match err {
+                        },
+                    );
+
+                    let bytes_read = wasi_try_ok_ok!(res?.map_err(|err| match err {
                         Errno::Timedout => Errno::Again,
                         a => a,
                     }));
@@ -310,7 +310,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     // TODO: verify
                     return Ok(Err(Errno::Isdir));
                 }
-                Kind::EventNotifications(inner) => {
+                Kind::EventNotifications { inner } => {
                     // Create a poller
                     struct NotifyPoller {
                         inner: Arc<NotificationInner>,
@@ -338,11 +338,15 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     // Yield until the notifications are triggered
                     let tasks_inner = env.tasks().clone();
-                    let val = wasi_try_ok_ok!(__asyncify_light(env, None, async { poller.await })?
-                        .map_err(|err| match err {
-                            Errno::Timedout => Errno::Again,
-                            a => a,
-                        }));
+
+                    let res =
+                        __asyncify_light(env, None, async { poller.await })?.map_err(
+                            |err| match err {
+                                Errno::Timedout => Errno::Again,
+                                a => a,
+                            },
+                        );
+                    let val = wasi_try_ok_ok!(res);
 
                     let mut memory = unsafe { env.memory_view(ctx) };
                     let reader = val.to_ne_bytes();

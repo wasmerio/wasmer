@@ -136,9 +136,10 @@ impl Future for PollBatch {
             match guard.poll(cx) {
                 Poll::Pending => {}
                 Poll::Ready(e) => {
-                    for evt in e {
+                    for (evt, readiness) in e {
                         tracing::trace!(
                             fd,
+                            readiness = ?readiness,
                             userdata = evt.userdata,
                             ty = evt.type_ as u8,
                             peb,
@@ -159,7 +160,7 @@ impl Future for PollBatch {
 }
 
 pub(crate) fn poll_fd_guard(
-    state: &WasiState,
+    state: &Arc<WasiState>,
     peb: PollEventSet,
     fd: WasiFd,
     s: Subscription,
@@ -321,7 +322,7 @@ where
             #[allow(clippy::significant_drop_in_scrutinee)]
             for (fd, peb, s) in subs {
                 if let Some(fd) = fd {
-                    let wasi_file_ref = wasi_try_ok!(poll_fd_guard(state.as_ref(), peb, fd, s));
+                    let wasi_file_ref = wasi_try_ok!(poll_fd_guard(&state, peb, fd, s));
                     fd_guards.push(wasi_file_ref);
                 }
             }

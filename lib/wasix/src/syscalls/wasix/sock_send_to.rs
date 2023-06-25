@@ -1,7 +1,7 @@
 use std::task::Waker;
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_send_to()`
 /// Send a message on a socket to a specific address.
@@ -35,7 +35,6 @@ pub fn sock_send_to<M: MemorySize>(
         si_flags,
         addr,
         ret_data_len,
-        None,
     )
 }
 
@@ -47,7 +46,6 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
     _si_flags: SiFlags,
     addr: WasmPtr<__wasi_addr_port_t, M>,
     ret_data_len: WasmPtr<M::Offset, M>,
-    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
@@ -65,12 +63,18 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
             env,
             sock,
             Rights::SOCK_SEND_TO,
-            waker,
             |socket, fd| async move {
                 let iovs_arr = si_data
                     .slice(&memory, si_data_len)
                     .map_err(mem_error_to_wasi)?;
                 let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+                let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                let timeout = socket
+                    .opt_time(TimeType::WriteTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(30));
 
                 let mut sent = 0usize;
                 for iovs in iovs_arr.iter() {
@@ -80,7 +84,13 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
                         .access()
                         .map_err(mem_error_to_wasi)?;
                     let local_sent = match socket
-                        .send_to::<M>(env.tasks().deref(), buf.as_ref(), addr, fd.flags)
+                        .send_to::<M>(
+                            env.tasks().deref(),
+                            buf.as_ref(),
+                            addr,
+                            Some(timeout),
+                            nonblocking,
+                        )
                         .await
                     {
                         Ok(s) => s,

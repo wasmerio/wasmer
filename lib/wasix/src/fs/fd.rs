@@ -1,22 +1,23 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::PathBuf,
     sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
-use tokio::sync::{
-    mpsc::{UnboundedReceiver, UnboundedSender},
-    Mutex as AsyncMutex,
-};
+use tokio::sync::{watch, Mutex as AsyncMutex};
 use virtual_fs::{Pipe, VirtualFile};
+use virtual_io::InterestGuard;
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
 
-use super::{InodeGuard, InodeWeakGuard, NotificationInner};
+use super::{
+    InodeGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
+    InodeWeakGuard, NotificationInner,
+};
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -87,6 +88,42 @@ pub struct EpollFd {
     pub data2: u64,
 }
 
+/// Represents all the EpollInterests that have occurred
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct EpollInterest {
+    /// Using a hash set prevents the same interest from
+    /// being triggered more than once
+    pub interest: HashSet<(WasiFd, EpollType)>,
+}
+
+/// Guard the cleans up the selector registrations
+#[derive(Debug)]
+pub enum EpollJoinGuard {
+    Join(InodeValFilePollGuardJoin),
+    Handler {
+        fd_guard: InodeValFilePollGuard,
+        handler: Option<InterestGuard>,
+    },
+}
+impl Drop for EpollJoinGuard {
+    fn drop(&mut self) {
+        match self {
+            Self::Handler { handler, fd_guard } => {
+                if let Some(handler) = handler.take() {
+                    match &mut fd_guard.mode {
+                        InodeValFilePollGuardMode::Socket { inner } => {
+                            let mut inner = inner.protected.write().unwrap();
+                            inner.remove_handler(handler);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
 #[derive(Debug)]
@@ -117,12 +154,12 @@ pub enum Kind {
     },
     Epoll {
         // List of events we are polling on
-        subscriptions: Arc<StdMutex<HashMap<(WasiFd, EpollType), EpollFd>>>,
+        subscriptions: Arc<StdMutex<HashMap<WasiFd, (EpollFd, Vec<EpollJoinGuard>)>>>,
         // Notification pipeline for sending events
-        tx: Arc<UnboundedSender<(WasiFd, EpollType)>>,
+        tx: Arc<watch::Sender<EpollInterest>>,
         // Notification pipeline for events that need to be
         // checked on the next wait
-        rx: Arc<AsyncMutex<UnboundedReceiver<(WasiFd, EpollType)>>>,
+        rx: Arc<AsyncMutex<watch::Receiver<EpollInterest>>>,
     },
     Dir {
         /// Parent directory
@@ -157,5 +194,7 @@ pub enum Kind {
     Buffer {
         buffer: Vec<u8>,
     },
-    EventNotifications(Arc<NotificationInner>),
+    EventNotifications {
+        inner: Arc<NotificationInner>,
+    },
 }

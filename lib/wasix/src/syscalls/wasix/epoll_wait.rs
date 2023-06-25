@@ -5,7 +5,7 @@ use wasmer_wasix_types::wasi::{
 
 use super::*;
 use crate::{
-    fs::{EpollFd, InodeValFilePollGuard, InodeValFilePollGuardJoin},
+    fs::{EpollFd, InodeValFilePollGuard, InodeValFilePollGuardJoin, POLL_GUARD_MAX_RET},
     state::PollEventSet,
     syscalls::*,
     WasiInodes,
@@ -50,60 +50,53 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
             let mut ret: Vec<(EpollFd, EpollType)> = Vec::new();
 
             // Loop until some events of interest are returned
-            while ret.is_empty() {
+            loop {
                 // We wait for our turn then read the next event from the
                 let mut rx = rx.lock().await;
-                match rx.recv().await {
-                    Some((fd, readiness)) => {
-                        // Build a list of FDs we are going to check up to a fixed
-                        // limit as otherwise we will overload the return buffer
-                        let mut fds = vec![(fd, readiness)];
-                        while let Ok((fd, readiness)) = rx.try_recv() {
-                            fds.push((fd, readiness));
-                            if fds.len() >= maxevents as usize {
-                                break;
-                            }
-                        }
 
-                        // Convert all the FD's using loops
-                        let fds: Vec<_> = {
-                            let guard = subscriptions.lock().unwrap();
-                            fds.into_iter()
-                                .filter_map(|(fd, readiness)| {
-                                    guard
-                                        .get(&(fd, readiness))
-                                        .map(|fd| (fd.clone(), readiness))
-                                })
-                                .collect()
+                // We first extract all the interest that has been registered
+                // and cycle through it
+                let mut removed = Vec::new();
+                let interest: Vec<_> = rx
+                    .borrow_and_update()
+                    .interest
+                    .clone()
+                    .into_iter()
+                    .collect();
+                {
+                    let guard = subscriptions.lock().unwrap();
+                    for (fd, readiness) in interest {
+                        removed.push((fd, readiness));
+
+                        // Get the data for this fd
+                        let data = match guard.get(&fd) {
+                            Some(a) => a,
+                            None => continue,
                         };
-
-                        // Now we need to check all the file descriptors for
-                        // specific events (as while the wakers have triggered
-                        // that does not mean another thread has not already
-                        // picked it up, i.e. race condition)
-                        for (fd, readiness) in fds {
-                            match register_epoll_waker(&state, &fd, tx.clone()) {
-                                // The event has been triggered so we should immediately
-                                // return it back to the called
-                                Ok(true) => {
-                                    ret.push((fd, readiness));
-                                }
-                                // The event has not been triggered but another waker has
-                                // been registered, this normally means someone else
-                                // picked it up before us
-                                Ok(false) => {}
-                                // An error occurred, ignore the event
-                                Err(err) => {
-                                    tracing::debug!("epoll trigger error - {}", err);
-                                }
-                            }
+                        ret.push((data.0.clone(), readiness));
+                        if ret.len() + POLL_GUARD_MAX_RET >= (maxevents as usize) {
+                            break;
                         }
                     }
-                    None => return Err(Errno::Badf),
                 }
-            }
 
-            Ok(ret)
+                // Remove anythign that was signaled
+                if removed.len() > 0 {
+                    tx.send_modify(|i| {
+                        for (fd, readiness) in removed {
+                            i.interest.remove(&(fd, readiness));
+                        }
+                    });
+                }
+
+                // If we have results then return them
+                if ret.len() > 0 {
+                    return Ok(ret);
+                }
+
+                // Otherwise we wait to be triggered again
+                rx.changed().await.ok();
+            }
         }
     };
 
@@ -137,7 +130,7 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
                         wasi_try!(maxevents.try_into().map_err(|_| Errno::Overflow))
                     ));
                     for (event, readiness) in evts {
-                        tracing::trace!(fd = event.fd, "triggered");
+                        tracing::trace!(fd = event.fd, readiness = ?readiness, "triggered");
                         wasi_try_mem!(event_array.index(nevents as u64).write(EpollEvent {
                             events: readiness,
                             data: EpollData {

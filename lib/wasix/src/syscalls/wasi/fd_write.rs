@@ -114,7 +114,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                         let handle = handle.clone();
                         drop(guard);
 
-                        let written = wasi_try_ok!(__asyncify_light(
+                        let res = __asyncify_light(
                             env,
                             if fd_entry.flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
@@ -151,9 +151,9 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                     handle.flush().await.map_err(map_io_err)?;
                                 }
                                 Ok(written)
-                            }
-                        )?
-                        .map_err(|err| match err {
+                            },
+                        );
+                        let written = wasi_try_ok!(res?.map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
@@ -175,7 +175,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                         .unwrap_or(Duration::from_secs(30));
 
                     let tasks = env.tasks().clone();
-                    let written = wasi_try_ok!(__asyncify_light(env, None, async move {
+
+                    let res = __asyncify_light(env, None, async move {
                         let mut sent = 0usize;
                         for iovs in iovs_arr.iter() {
                             let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -192,7 +193,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             }
                         }
                         Ok(sent)
-                    })?);
+                    });
+                    let written = wasi_try_ok!(res?);
                     (written, false)
                 }
                 Kind::Pipe { pipe } => {
@@ -216,7 +218,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     // TODO: verify
                     return Ok(Errno::Isdir);
                 }
-                Kind::EventNotifications(inner) => {
+                Kind::EventNotifications { inner } => {
                     let mut written = 0usize;
                     for iovs in iovs_arr.iter() {
                         let buf_len: usize =

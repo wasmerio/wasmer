@@ -23,7 +23,7 @@ pub fn epoll_create<M: MemorySize + 'static>(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, rx) = tokio::sync::watch::channel(Default::default());
 
     let inode = state.fs.create_inode_with_default_stat(
         inodes,

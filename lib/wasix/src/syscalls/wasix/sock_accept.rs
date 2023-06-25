@@ -30,13 +30,7 @@ pub fn sock_accept<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(
-        env,
-        sock,
-        fd_flags,
-        None,
-        nonblocking
-    ));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags, nonblocking));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
 
@@ -71,13 +65,7 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(
-        env,
-        sock,
-        fd_flags,
-        None,
-        nonblocking
-    ));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags, nonblocking));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
@@ -94,7 +82,6 @@ pub fn sock_accept_internal<M: MemorySize>(
     env: &WasiEnv,
     sock: WasiFd,
     mut fd_flags: Fdflags,
-    waker: Option<&Waker>,
     mut nonblocking: bool,
 ) -> Result<(WasiFd, SocketAddr), Errno> {
     let state = env.state();
@@ -105,27 +92,18 @@ pub fn sock_accept_internal<M: MemorySize>(
         env,
         sock,
         Rights::SOCK_ACCEPT,
-        waker,
         move |socket, fd| async move {
             if fd.flags.contains(Fdflags::NONBLOCK) {
                 fd_flags.set(Fdflags::NONBLOCK, true);
-                if waker.is_none() {
-                    nonblocking = true;
-                }
+                nonblocking = true;
             }
-            let timeout = if waker.is_none() {
-                Some(
-                    socket
-                        .opt_time(TimeType::AcceptTimeout)
-                        .ok()
-                        .flatten()
-                        .unwrap_or(Duration::from_secs(30)),
-                )
-            } else {
-                None
-            };
+            let timeout = socket
+                .opt_time(TimeType::AcceptTimeout)
+                .ok()
+                .flatten()
+                .unwrap_or(Duration::from_secs(30));
             socket
-                .accept(tasks.deref(), nonblocking, timeout)
+                .accept(tasks.deref(), nonblocking, Some(timeout))
                 .await
                 .map(|a| (a.0, a.1, fd_flags))
         },

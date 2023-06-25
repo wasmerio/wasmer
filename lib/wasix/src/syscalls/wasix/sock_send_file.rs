@@ -100,7 +100,7 @@ pub fn sock_send_file<M: MemorySize>(
                                         return Ok(Errno::Inval);
                                     }
                                 }
-                                Kind::Socket { socket } => {
+                                Kind::Socket { socket, .. } => {
                                     let socket = socket.clone();
                                     let tasks = tasks.clone();
                                     drop(guard);
@@ -136,7 +136,7 @@ pub fn sock_send_file<M: MemorySize>(
                                     env = ctx.data();
                                     data
                                 }
-                                Kind::Pipe { ref mut pipe } => {
+                                Kind::Pipe { ref mut pipe, .. } => {
                                     let data =
                                         wasi_try_ok!(__asyncify(&mut ctx, None, async move {
                                             // TODO: optimize with MaybeUninit
@@ -195,7 +195,6 @@ pub fn sock_send_file<M: MemorySize>(
                 &mut ctx,
                 sock,
                 Rights::SOCK_SEND,
-                None,
                 |socket, fd| async move {
                     let write_timeout = socket
                         .opt_time(TimeType::ReadTimeout)

@@ -25,15 +25,7 @@ pub fn sock_send<M: MemorySize>(
     si_flags: SiFlags,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    sock_send_internal(
-        ctx,
-        sock,
-        si_data,
-        si_data_len,
-        si_flags,
-        ret_data_len,
-        None,
-    )
+    sock_send_internal(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
 }
 
 pub(super) fn sock_send_internal<M: MemorySize>(
@@ -43,65 +35,52 @@ pub(super) fn sock_send_internal<M: MemorySize>(
     si_data_len: M::Offset,
     si_flags: SiFlags,
     ret_data_len: WasmPtr<M::Offset, M>,
-    waker: Option<&Waker>,
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let runtime = env.runtime.clone();
 
     let res = {
-        __sock_asyncify(
-            env,
-            sock,
-            Rights::SOCK_SEND,
-            waker,
-            |socket, fd| async move {
-                let iovs_arr = si_data
-                    .slice(&memory, si_data_len)
+        __sock_asyncify(env, sock, Rights::SOCK_SEND, |socket, fd| async move {
+            let iovs_arr = si_data
+                .slice(&memory, si_data_len)
+                .map_err(mem_error_to_wasi)?;
+            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+            let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+            let timeout = socket
+                .opt_time(TimeType::WriteTimeout)
+                .ok()
+                .flatten()
+                .unwrap_or(Duration::from_secs(30));
+
+            let mut sent = 0usize;
+            for iovs in iovs_arr.iter() {
+                let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                    .slice(&memory, iovs.buf_len)
+                    .map_err(mem_error_to_wasi)?
+                    .access()
                     .map_err(mem_error_to_wasi)?;
-                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-
-                let nonblocking = waker.is_none() && fd.flags.contains(Fdflags::NONBLOCK);
-                let timeout = if waker.is_none() {
-                    Some(
-                        socket
-                            .opt_time(TimeType::WriteTimeout)
-                            .ok()
-                            .flatten()
-                            .unwrap_or(Duration::from_secs(30)),
+                let local_sent = match socket
+                    .send(
+                        env.tasks().deref(),
+                        buf.as_ref(),
+                        Some(timeout.clone()),
+                        nonblocking,
                     )
-                } else {
-                    None
+                    .await
+                {
+                    Ok(s) => s,
+                    Err(_) if sent > 0 => break,
+                    Err(err) => return Err(err),
                 };
-
-                let mut sent = 0usize;
-                for iovs in iovs_arr.iter() {
-                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                        .slice(&memory, iovs.buf_len)
-                        .map_err(mem_error_to_wasi)?
-                        .access()
-                        .map_err(mem_error_to_wasi)?;
-                    let local_sent = match socket
-                        .send(
-                            env.tasks().deref(),
-                            buf.as_ref(),
-                            timeout.clone(),
-                            nonblocking,
-                        )
-                        .await
-                    {
-                        Ok(s) => s,
-                        Err(_) if sent > 0 => break,
-                        Err(err) => return Err(err),
-                    };
-                    sent += local_sent;
-                    if local_sent != buf.len() {
-                        break;
-                    }
+                sent += local_sent;
+                if local_sent != buf.len() {
+                    break;
                 }
-                Ok(sent)
-            },
-        )
+            }
+            Ok(sent)
+        })
     };
 
     let mut ret = Errno::Success;
