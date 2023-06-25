@@ -28,11 +28,18 @@ impl ThreadLocalCache {
 
 #[async_trait::async_trait]
 impl ModuleCache for ThreadLocalCache {
+    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        self.lookup(key, engine.deterministic_id())
-            .ok_or(CacheError::NotFound)
+        match self.lookup(key, engine.deterministic_id()) {
+            Some(m) => {
+                tracing::debug!("Cache hit!");
+                Ok(m)
+            }
+            None => Err(CacheError::NotFound),
+        }
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn save(
         &self,
         key: ModuleHash,

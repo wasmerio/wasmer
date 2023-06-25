@@ -614,8 +614,16 @@ impl ExecutableTarget {
                             );
                         }
 
-                        Module::new(&engine, &wasm)
-                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?
+                        let module = tracing::debug_span!("compiling_wasm")
+                            .in_scope(|| Module::new(&engine, &wasm))
+                            .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
+
+                        tasks.spawn_and_block_on({
+                            let module = module.clone();
+                            async move { module_cache.save(module_hash, &engine, &module).await }
+                        })?;
+
+                        module
                     }
                 };
 

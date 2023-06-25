@@ -34,6 +34,7 @@ impl FileSystemCache {
 
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
+    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
@@ -46,7 +47,10 @@ impl ModuleCache for FileSystemCache {
 
         let res = unsafe { Module::deserialize(&engine, uncompressed) };
         match res {
-            Ok(m) => Ok(m),
+            Ok(m) => {
+                tracing::debug!("Cache hit!");
+                Ok(m)
+            }
             Err(e) => {
                 tracing::debug!(
                     %key,
@@ -69,6 +73,7 @@ impl ModuleCache for FileSystemCache {
         }
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn save(
         &self,
         key: ModuleHash,
