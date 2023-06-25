@@ -63,8 +63,9 @@ static WEBC_COREUTILS_11: &[u8] =
 static WEBC_DASH: &[u8] =
     include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
 static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &[u8] =
-    include_bytes!("./webc/static-web-server-1.0.96-e2b80276-c194-473d-bbd0-27c8a2c96a59.webc");
+static WEBC_WEB_SERVER: &[u8] = include_bytes!(
+    "./webc/static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc"
+);
 static WEBC_WASMER_SH: &[u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
