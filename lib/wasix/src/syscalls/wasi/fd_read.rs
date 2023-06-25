@@ -268,6 +268,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
 
                     drop(guard);
 
+                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+
                     let res = __asyncify_light(
                         env,
                         if fd_flags.contains(Fdflags::NONBLOCK) {
@@ -288,8 +290,18 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                     .access()
                                     .map_err(mem_error_to_wasi)?;
 
-                                let local_read =
-                                    virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut()).await?;
+                                let local_read = match nonblocking {
+                                    true => match pipe.try_read(buf.as_mut()) {
+                                        Some(amt) => amt,
+                                        None => {
+                                            return Err(Errno::Again);
+                                        }
+                                    },
+                                    false => {
+                                        virtual_fs::AsyncReadExt::read(&mut pipe, buf.as_mut())
+                                            .await?
+                                    }
+                                };
                                 total_read += local_read;
                                 if local_read != buf.len() {
                                     break;
