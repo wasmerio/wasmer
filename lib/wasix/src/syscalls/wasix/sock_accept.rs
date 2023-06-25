@@ -21,7 +21,6 @@ pub fn sock_accept<M: MemorySize>(
     sock: WasiFd,
     fd_flags: Fdflags,
     ro_fd: WasmPtr<WasiFd, M>,
-    ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
