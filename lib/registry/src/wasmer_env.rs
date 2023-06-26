@@ -81,6 +81,12 @@ impl WasmerEnv {
 
     /// The API token for the active registry.
     pub fn token(&self) -> Option<String> {
+        if let Some(token) = &self.token {
+            return Some(token.clone());
+        }
+
+        // Fall back to the config file
+
         let config = self.config().ok()?;
         let login = config.registry.current_login()?;
         Some(login.token.clone())
