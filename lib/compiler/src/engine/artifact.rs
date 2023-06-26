@@ -18,7 +18,6 @@ use enumset::EnumSet;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -38,12 +37,12 @@ use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 pub struct AllocatedArtifact {
+    /// Some(_) only if this is not a deserialized static artifact
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    /// Some(_) only if this is not a deserialized static artifact
-    frame_info_registration: Option<Mutex<Option<GlobalFrameInfoRegistration>>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
@@ -309,7 +308,7 @@ impl Artifact {
                 finished_function_call_trampolines,
                 finished_dynamic_function_trampolines,
                 signatures,
-                frame_info_registration: Some(Mutex::new(None)),
+                frame_info_registration: None,
                 finished_function_lengths,
             }),
         };
@@ -384,45 +383,48 @@ impl Artifact {
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
     pub fn register_frame_info(&mut self) {
-        if let Some(frame_info_registration) = self
+        if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
             .frame_info_registration
-            .as_ref()
+            .is_some()
         {
-            let mut info = frame_info_registration.lock().unwrap();
-
-            if info.is_some() {
-                return;
-            }
-
-            let finished_function_extents = self
-                .allocated
-                .as_ref()
-                .expect("It must be allocated")
-                .finished_functions
-                .values()
-                .copied()
-                .zip(
-                    self.allocated
-                        .as_ref()
-                        .expect("It must be allocated")
-                        .finished_function_lengths
-                        .values()
-                        .copied(),
-                )
-                .map(|(ptr, length)| FunctionExtent { ptr, length })
-                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                .into_boxed_slice();
-
-            let frame_infos = self.artifact.get_frame_info_ref();
-            *info = register_frame_info(
-                self.artifact.create_module_info(),
-                &finished_function_extents,
-                frame_infos.clone(),
-            );
+            return; // already done
         }
+
+        let finished_function_extents = self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_functions
+            .values()
+            .copied()
+            .zip(
+                self.allocated
+                    .as_ref()
+                    .expect("It must be allocated")
+                    .finished_function_lengths
+                    .values()
+                    .copied(),
+            )
+            .map(|(ptr, length)| FunctionExtent { ptr, length })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
+
+        let frame_infos = self.artifact.get_frame_info_ref();
+
+        *frame_info_registration = register_frame_info(
+            self.artifact.create_module_info(),
+            &finished_function_extents,
+            frame_infos.clone(),
+        );
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
