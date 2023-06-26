@@ -572,7 +572,7 @@ impl wasmer_wasix::http::HttpClient for WebHttpClient {
     }
 }
 
-#[wasm_bindgen(module = "/js/time.js")]
+#[wasm_bindgen(module = "/js/time.mjs")]
 extern "C" {
     #[wasm_bindgen(js_name = "sleep")]
     pub fn bindgen_sleep(ms: i32) -> Promise;
