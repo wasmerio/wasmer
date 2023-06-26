@@ -37,7 +37,8 @@ use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 pub struct AllocatedArtifact {
-    /// Some(_) only if this is not a deserialized static artifact
+    frame_info_registered: bool,
+    // frame_info_registered is not staying there but transfered to InnerEnginge / CodeMemory
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
@@ -304,16 +305,20 @@ impl Artifact {
             id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
                 finished_functions,
                 finished_function_call_trampolines,
                 finished_dynamic_function_trampolines,
                 signatures,
-                frame_info_registration: None,
                 finished_function_lengths,
             }),
         };
 
-        artifact.register_frame_info();
+        artifact.internal_register_frame_info();
+        if let Some(frame_info) = artifact.transfert_frame_info_registration() {
+            engine_inner.register_frame_info(frame_info);
+        }
 
         Ok(artifact)
     }
@@ -381,14 +386,18 @@ impl ArtifactCreate for Artifact {
 impl Artifact {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
-    /// This is required to ensure that any traps can be properly symbolicated.
+    /// This is not required anymore as it's done automaticaly when creating by 'Artifact::from_parts'
+    #[deprecated(since = "4.1.0", note = "done automaticaly by Artifact::from_parts")]
     pub fn register_frame_info(&mut self) {
+        self.internal_register_frame_info()
+    }
+
+    fn internal_register_frame_info(&mut self) {
         if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
-            .frame_info_registration
-            .is_some()
+            .frame_info_registered
         {
             return; // already done
         }
@@ -425,6 +434,23 @@ impl Artifact {
             &finished_function_extents,
             frame_infos.clone(),
         );
+
+        self.allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registered = true;
+    }
+
+    /// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
+    /// deprecated register_frame_info has been used.
+    pub fn transfert_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
+
+        frame_info_registration.take()
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
@@ -895,6 +921,8 @@ impl Artifact {
             id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
                 finished_functions: finished_functions.into_boxed_slice(),
                 finished_function_call_trampolines: finished_function_call_trampolines
                     .into_boxed_slice(),
@@ -902,7 +930,6 @@ impl Artifact {
                     .into_boxed_slice(),
                 signatures: signatures.into_boxed_slice(),
                 finished_function_lengths,
-                frame_info_registration: None,
             }),
         })
     }
