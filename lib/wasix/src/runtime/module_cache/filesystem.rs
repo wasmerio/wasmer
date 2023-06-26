@@ -1,6 +1,5 @@
 use std::{
-    fs::File,
-    io::{BufReader, BufWriter, Read, Seek, Write},
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
 };
 
@@ -47,10 +46,9 @@ impl ModuleCache for FileSystemCache {
         // background.
         // https://github.com/wasmerio/wasmer/issues/3851
 
-        let uncompressed = read_compressed(&path)?;
+        let bytes = read_file(&path)?;
 
-        let res = unsafe { Module::deserialize(&engine, uncompressed) };
-        match res {
+        match deserialize(&bytes, engine) {
             Ok(m) => {
                 tracing::debug!("Cache hit!");
                 Ok(m)
@@ -72,7 +70,7 @@ impl ModuleCache for FileSystemCache {
                     );
                 }
 
-                Err(CacheError::Deserialize(e))
+                Err(e)
             }
         }
     }
@@ -118,21 +116,18 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-/// Read a file that may or may not be compressed.
-fn read_compressed(path: &Path) -> Result<Vec<u8>, CacheError> {
-    let mut f = match File::open(path) {
-        Ok(f) => BufReader::new(f),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Err(CacheError::NotFound);
-        }
-        Err(error) => {
-            return Err(CacheError::FileRead {
-                path: path.to_path_buf(),
-                error,
-            });
-        }
-    };
+fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
+        Err(error) => Err(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
+    }
+}
 
+fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for
     // "wasmer run", so all new compiled modules should be saved directly to
@@ -148,37 +143,20 @@ fn read_compressed(path: &Path) -> Result<Vec<u8>, CacheError> {
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    let mut leading_bytes = [0_u8; 128];
-    f.read_exact(&mut leading_bytes)
-        .and_then(|_| f.rewind())
-        .map_err(|error| CacheError::FileRead {
-            path: path.to_path_buf(),
-            error,
-        })?;
+    match unsafe { Module::deserialize(engine, bytes) } {
+        // The happy case
+        Ok(m) => Ok(m),
+        Err(wasmer::DeserializeError::Incompatible(_)) => {
+            let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
+                .decode(bytes)
+                .map_err(CacheError::other)?;
 
-    if wasmer::Artifact::is_deserializable(&leading_bytes) {
-        // the compiled artifact was saved as-is. Return it.
-        let mut artifact = Vec::new();
-        f.read_to_end(&mut artifact)
-            .map_err(|error| CacheError::FileRead {
-                path: path.to_path_buf(),
-                error,
-            })?;
+            let m = unsafe { Module::deserialize(engine, bytes)? };
 
-        return Ok(artifact);
+            Ok(m)
+        }
+        Err(e) => Err(CacheError::Deserialize(e)),
     }
-
-    // Fall back to LZW decoding
-
-    let mut uncompressed = Vec::new();
-    let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
-    decoder
-        .into_stream(&mut uncompressed)
-        .decode_all(f)
-        .status
-        .map_err(CacheError::other)?;
-
-    Ok(uncompressed)
 }
 
 #[cfg(test)]
