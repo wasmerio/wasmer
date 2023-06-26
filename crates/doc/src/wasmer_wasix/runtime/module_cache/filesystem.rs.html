@@ -230,7 +230,42 @@
 <a href="#229" id="229">229</a>
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{
+    io::{BufWriter, Write},
+    path::{Path, PathBuf},
+};
 
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>wasmer::{Engine, Module};
@@ -275,10 +310,9 @@
         // background.
         // https://github.com/wasmerio/wasmer/issues/3851
 
-        </span><span class="kw">let </span>uncompressed = read_compressed(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>bytes = read_file(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>res = <span class="kw">unsafe </span>{ Module::deserialize(<span class="kw-2">&amp;</span>engine, uncompressed) };
-        <span class="kw">match </span>res {
+        <span class="kw">match </span>deserialize(<span class="kw-2">&amp;</span>bytes, engine) {
             <span class="prelude-val">Ok</span>(m) =&gt; {
                 <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
                 <span class="prelude-val">Ok</span>(m)
@@ -300,7 +334,7 @@
                     );
                 }
 
-                <span class="prelude-val">Err</span>(CacheError::Deserialize(e))
+                <span class="prelude-val">Err</span>(e)
             }
         }
     }
@@ -333,58 +367,64 @@
 
         <span class="comment">// Note: We save to a temporary file and persist() it at the end so
         // concurrent readers won&#39;t see a partially written module.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>f = NamedTempFile::new_in(parent).map_err(CacheError::other)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span><span class="kw-2">mut </span>temp = NamedTempFile::new_in(parent).map_err(CacheError::other)<span class="question-mark">?</span>;
         <span class="kw">let </span>serialized = module.serialize()<span class="question-mark">?</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = save_compressed(<span class="kw-2">&amp;mut </span>f, <span class="kw-2">&amp;</span>serialized) {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error: e });
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = BufWriter::new(<span class="kw-2">&amp;mut </span>temp).write_all(<span class="kw-2">&amp;</span>serialized) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
         }
 
-        f.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
+        temp.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="kw">fn </span>save_compressed(writer: <span class="kw">impl </span>std::io::Write, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
-    encoder
-        .into_stream(writer)
-        .encode_all(std::io::Cursor::new(data))
-        .status<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(())
+<span class="kw">fn </span>read_file(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CacheError&gt; {
+    <span class="kw">match </span>std::fs::read(path) {
+        <span class="prelude-val">Ok</span>(bytes) =&gt; <span class="prelude-val">Ok</span>(bytes),
+        <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound =&gt; <span class="prelude-val">Err</span>(CacheError::NotFound),
+        <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Err</span>(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
+    }
 }
 
-<span class="kw">fn </span>read_compressed(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CacheError&gt; {
-    <span class="kw">let </span>compressed = <span class="kw">match </span>std::fs::read(path) {
-        <span class="prelude-val">Ok</span>(bytes) =&gt; bytes,
-        <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound =&gt; {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::NotFound);
-        }
-        <span class="prelude-val">Err</span>(error) =&gt; {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileRead {
-                path: path.to_path_buf(),
-                error,
-            });
-        }
-    };
+<span class="kw">fn </span>deserialize(bytes: <span class="kw-2">&amp;</span>[u8], engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
+    <span class="comment">// We used to compress our compiled modules using LZW encoding in the past.
+    // This was removed because it has a negative impact on startup times for
+    // &quot;wasmer run&quot;, so all new compiled modules should be saved directly to
+    // disk.
+    //
+    // For perspective, compiling php.wasm with cranelift took about 4.75
+    // seconds on a M1 Mac.
+    //
+    // Without LZW compression:
+    // - ModuleCache::save(): 408ms, 142MB binary
+    // - ModuleCache::load(): 155ms
+    // With LZW compression:
+    // - ModuleCache::save(): 2.4s, 72MB binary
+    // - ModuleCache::load(): 822ms
 
-    <span class="kw">let </span><span class="kw-2">mut </span>uncompressed = Vec::new();
-    <span class="kw">let </span><span class="kw-2">mut </span>decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
-    decoder
-        .into_vec(<span class="kw-2">&amp;mut </span>uncompressed)
-        .decode_all(<span class="kw-2">&amp;</span>compressed)
-        .status
-        .map_err(CacheError::other)<span class="question-mark">?</span>;
+    </span><span class="kw">match unsafe </span>{ Module::deserialize(engine, bytes) } {
+        <span class="comment">// The happy case
+        </span><span class="prelude-val">Ok</span>(m) =&gt; <span class="prelude-val">Ok</span>(m),
+        <span class="prelude-val">Err</span>(wasmer::DeserializeError::Incompatible(<span class="kw">_</span>)) =&gt; {
+            <span class="kw">let </span>bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, <span class="number">8</span>)
+                .decode(bytes)
+                .map_err(CacheError::other)<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(uncompressed)
+            <span class="kw">let </span>m = <span class="kw">unsafe </span>{ Module::deserialize(engine, bytes)<span class="question-mark">? </span>};
+
+            <span class="prelude-val">Ok</span>(m)
+        }
+        <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(CacheError::Deserialize(e)),
+    }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::fs::File;
-
     <span class="kw">use </span>tempfile::TempDir;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -450,7 +490,31 @@
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         <span class="kw">let </span>serialized = module.serialize().unwrap();
-        save_compressed(File::create(<span class="kw-2">&amp;</span>expected_path).unwrap(), <span class="kw-2">&amp;</span>serialized).unwrap();
+        std::fs::write(<span class="kw-2">&amp;</span>expected_path, <span class="kw-2">&amp;</span>serialized).unwrap();
+
+        <span class="kw">let </span>module = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap();
+
+        <span class="kw">let </span>exports: Vec&lt;<span class="kw">_</span>&gt; = module
+            .exports()
+            .map(|export| export.name().to_string())
+            .collect();
+        <span class="macro">assert_eq!</span>(exports, [<span class="string">&quot;add&quot;</span>]);
+    }
+
+    <span class="doccomment">/// For backwards compatibility, make sure we can still work with LZW
+    /// compressed modules.
+    </span><span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>can_still_load_lzw_compressed_binaries() {
+        <span class="kw">let </span>temp = TempDir::new().unwrap();
+        <span class="kw">let </span>engine = Engine::default();
+        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
+        <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
+        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
+        <span class="kw">let </span>serialized = module.serialize().unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, <span class="number">8</span>);
+        std::fs::write(<span class="kw-2">&amp;</span>expected_path, encoder.encode(<span class="kw-2">&amp;</span>serialized).unwrap()).unwrap();
 
         <span class="kw">let </span>module = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap();
 
