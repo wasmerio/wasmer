@@ -1,24 +1,28 @@
 //! Tests of the `wasmer create-exe` command.
 
+use std::{
+    fs,
+    io::prelude::*,
+    path::{Path, PathBuf},
+    process::Command,
+};
+
 use anyhow::{bail, Context};
-use std::fs;
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::process::Command;
+use assert_cmd::prelude::OutputAssertExt;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
-fn create_exe_wabt_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
+fn create_exe_wabt_path() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("wabt-1.0.37.wasmer")
 }
 
 #[allow(dead_code)]
-fn create_exe_python_wasmer() -> String {
-    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
+fn create_exe_python_wasmer() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
 }
 
-fn create_exe_test_wasm_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
+fn create_exe_test_wasm_path() -> PathBuf {
+    Path::new(C_ASSET_PATH).join("qjs.wasm")
 }
 const JS_TEST_SRC_CODE: &[u8] =
     b"function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));\n";
@@ -683,4 +687,59 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 #[test]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
+}
+
+/// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
+/// Tracked in https://github.com/wasmerio/wasmer/issues/3271
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_wasmer_create_exe_pirita_works() {
+    // let temp_dir = Path::new("debug");
+    // std::fs::create_dir_all(&temp_dir);
+
+    use wasmer_integration_tests_cli::get_repo_root_path;
+    let temp_dir = tempfile::TempDir::new().unwrap();
+    let temp_dir = temp_dir.path().to_path_buf();
+    let python_wasmer_path = temp_dir.join("python.wasmer");
+    std::fs::copy(create_exe_python_wasmer(), &python_wasmer_path).unwrap();
+    let python_exe_output_path = temp_dir.join("python");
+
+    let native_target = target_lexicon::HOST;
+    let tmp_targz_path = get_repo_root_path().unwrap().join("link.tar.gz");
+
+    println!("compiling to target {native_target}");
+
+    let mut cmd = Command::new(get_wasmer_path());
+    cmd.arg("create-exe");
+    cmd.arg(&python_wasmer_path);
+    cmd.arg("--tarball");
+    cmd.arg(&tmp_targz_path);
+    cmd.arg("--target");
+    cmd.arg(format!("{native_target}"));
+    cmd.arg("-o");
+    cmd.arg(&python_exe_output_path);
+    // change temp_dir to a local path and run this test again
+    // to output the compilation files into a debug folder
+    //
+    // cmd.arg("--debug-dir");
+    // cmd.arg(&temp_dir);
+
+    cmd.assert().success();
+
+    println!("compilation ok!");
+
+    if !python_exe_output_path.exists() {
+        panic!(
+            "python_exe_output_path {} does not exist",
+            python_exe_output_path.display()
+        );
+    }
+
+    println!("invoking command...");
+
+    let mut command = Command::new(&python_exe_output_path);
+    command.arg("-c");
+    command.arg("print(\"hello\")");
+
+    command.assert().success().stdout("hello\n");
 }
