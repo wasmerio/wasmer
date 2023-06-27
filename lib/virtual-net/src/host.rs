@@ -139,10 +139,7 @@ impl VirtualTcpListener for LocalTcpListener {
         }
     }
 
-    fn set_handler<'a>(
-        &'a mut self,
-        handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<()> {
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
         if let Some(guard) = self.handler_guard.take() {
             InterestGuard::unregister(guard, &self.selector, &mut self.stream);
         }
@@ -297,10 +294,7 @@ impl VirtualSocket for LocalTcpStream {
         Ok(SocketStatus::Opened)
     }
 
-    fn set_handler<'a>(
-        &'a mut self,
-        handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Result<()> {
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
         if let Some(guard) = self.handler_guard.take() {
             InterestGuard::unregister(guard, &self.selector, &mut self.stream);
         }

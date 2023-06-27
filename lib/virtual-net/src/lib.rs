@@ -213,8 +213,7 @@ pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     /// Registers a waker for when this connection is ready to receive
     /// more data. Uses a stack machine which means more than one waker
     /// can be registered
-    fn set_handler<'a>(&'a mut self, handler: Box<dyn InterestHandler + Send + Sync>)
-        -> Result<()>;
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()>;
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
