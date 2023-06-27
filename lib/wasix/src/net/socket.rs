@@ -353,7 +353,7 @@ impl InodeSocket {
                             Err(NetworkError::WouldBlock) if self.nonblocking => {
                                 Poll::Ready(Err(Errno::Again))
                             }
-                            Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                            Err(NetworkError::WouldBlock) if !self.handler_registered => {
                                 let res = socket.set_handler(cx.waker().into());
                                 if let Err(err) = res {
                                     return Poll::Ready(Err(net_error_into_wasi_err(err)));
@@ -930,7 +930,7 @@ impl InodeSocket {
                         Err(NetworkError::WouldBlock) if self.nonblocking => {
                             Poll::Ready(Err(Errno::Again))
                         }
-                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                        Err(NetworkError::WouldBlock) if !self.handler_registered => {
                             let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));
@@ -1008,7 +1008,7 @@ impl InodeSocket {
                         Err(NetworkError::WouldBlock) if self.nonblocking => {
                             Poll::Ready(Err(Errno::Again))
                         }
-                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                        Err(NetworkError::WouldBlock) if !self.handler_registered => {
                             let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));

@@ -80,8 +80,8 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
                     }
                 }
 
-                // Remove anythign that was signaled
-                if removed.len() > 0 {
+                // Remove anything that was signaled
+                if !removed.is_empty() {
                     tx.send_modify(|i| {
                         for (fd, readiness) in removed {
                             i.interest.remove(&(fd, readiness));
@@ -90,7 +90,7 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
                 }
 
                 // If we have results then return them
-                if ret.len() > 0 {
+                if !ret.is_empty() {
                     return Ok(ret);
                 }
 
@@ -113,8 +113,7 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
     // We replace the process events callback with another callback
     // which will interpret the error codes
     let process_events = {
-        let events_out = events.clone();
-        let ret_nevents = ret_nevents.clone();
+        let events_out = events;
         move |ctx: &FunctionEnvMut<'a, WasiEnv>,
               events: Result<Vec<(EpollFd, EpollType)>, Errno>| {
             let env = ctx.data();

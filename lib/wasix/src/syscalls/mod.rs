@@ -406,11 +406,11 @@ pub enum AsyncifyAction<'a, R> {
 /// or it will return an WasiError which will exit the WASM call using asyncify
 /// and instead process it on a shared task
 ///
-pub(crate) fn __asyncify_with_deep_sleep<'a, 'b, M: MemorySize, T, Fut>(
-    mut ctx: FunctionEnvMut<'a, WasiEnv>,
+pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     deep_sleep_time: Duration,
     work: Fut,
-) -> Result<AsyncifyAction<'a, T>, WasiError>
+) -> Result<AsyncifyAction<'_, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
     Fut: Future<Output = T> + Send + Sync + 'static,

@@ -103,18 +103,16 @@ pub enum EpollJoinGuard {
 }
 impl Drop for EpollJoinGuard {
     fn drop(&mut self) {
-        match self {
-            Self::Handler { fd_guard } => match &mut fd_guard.mode {
-                InodeValFilePollGuardMode::Socket { inner } => {
-                    let mut inner = inner.protected.write().unwrap();
-                    inner.remove_handler();
-                }
-                _ => {}
-            },
-            _ => {}
+        if let Self::Handler { fd_guard } = self {
+            if let InodeValFilePollGuardMode::Socket { inner } = &mut fd_guard.mode {
+                let mut inner = inner.protected.write().unwrap();
+                inner.remove_handler();
+            }
         }
     }
 }
+
+pub type EpollSubscriptions = HashMap<WasiFd, (EpollFd, Vec<EpollJoinGuard>)>;
 
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
@@ -146,7 +144,7 @@ pub enum Kind {
     },
     Epoll {
         // List of events we are polling on
-        subscriptions: Arc<StdMutex<HashMap<WasiFd, (EpollFd, Vec<EpollJoinGuard>)>>>,
+        subscriptions: Arc<StdMutex<EpollSubscriptions>>,
         // Notification pipeline for sending events
         tx: Arc<watch::Sender<EpollInterest>>,
         // Notification pipeline for events that need to be

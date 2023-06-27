@@ -44,9 +44,8 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
 
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(epfd));
 
-    let inode = fd_entry.inode.clone();
     let tasks = env.tasks().clone();
-    let mut inode_guard = inode.read();
+    let mut inode_guard = fd_entry.inode.read();
     match inode_guard.deref() {
         Kind::Epoll {
             subscriptions, tx, ..
@@ -82,7 +81,7 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
                     let fd_guards = wasi_try_ok!(register_epoll_waker(&env.state, &epoll_fd, tx));
 
                     let mut guard = subscriptions.lock().unwrap();
-                    guard.insert(event.data.fd, (epoll_fd.clone(), fd_guards));
+                    guard.insert(event.data.fd, (epoll_fd, fd_guards));
                 }
             }
             Ok(Errno::Success)
@@ -198,10 +197,10 @@ pub(super) fn register_epoll_waker(
     match &fd_guard.mode {
         // Sockets now use epoll
         InodeValFilePollGuardMode::Socket { inner, .. } => {
-            let handler = EpollHandler::new(event.fd, tx.clone());
+            let handler = EpollHandler::new(event.fd, tx);
 
             let mut inner = inner.protected.write().unwrap();
-            let handler = inner.set_handler(handler).map_err(net_error_into_io_err)?;
+            inner.set_handler(handler).map_err(net_error_into_io_err)?;
             drop(inner);
 
             ret.push(EpollJoinGuard::Handler { fd_guard })
@@ -210,13 +209,13 @@ pub(super) fn register_epoll_waker(
             // Otherwise we fall back on the regular polling guard
 
             // First we create the waker
-            let waker = EpollJoinWaker::new(event.fd, event.events, tx.clone());
+            let waker = EpollJoinWaker::new(event.fd, event.events, tx);
             let waker = waker.as_waker();
             let mut cx = Context::from_waker(&waker);
 
             // Now we use the waker to trigger events
             let mut fd_guard = InodeValFilePollGuardJoin::new(fd_guard);
-            if let Poll::Ready(_) = Pin::new(&mut fd_guard).poll(&mut cx) {
+            if Pin::new(&mut fd_guard).poll(&mut cx).is_ready() {
                 waker.wake();
             }
             ret.push(EpollJoinGuard::Join(fd_guard));

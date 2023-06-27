@@ -65,7 +65,7 @@ pub(super) fn sock_send_internal<M: MemorySize>(
                     .send(
                         env.tasks().deref(),
                         buf.as_ref(),
-                        Some(timeout.clone()),
+                        Some(timeout),
                         nonblocking,
                     )
                     .await

@@ -120,7 +120,7 @@ pub fn sock_send_file<M: MemorySize>(
                                             .recv(
                                                 tasks.deref(),
                                                 &mut buf,
-                                                Some(read_timeout.clone()),
+                                                Some(read_timeout),
                                                 false,
                                             )
                                             .await
@@ -202,7 +202,7 @@ pub fn sock_send_file<M: MemorySize>(
                         .flatten()
                         .unwrap_or(Duration::from_secs(30));
                     socket
-                        .send(tasks.deref(), &data, Some(write_timeout.clone()), true)
+                        .send(tasks.deref(), &data, Some(write_timeout), true)
                         .await
                 },
             ));
