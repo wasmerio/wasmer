@@ -30,6 +30,7 @@ pub struct wasi_config_t {
     inherit_stderr: bool,
     inherit_stdin: bool,
     builder: WasiEnvBuilder,
+    runtime: tokio::runtime::Runtime,
 }
 
 #[no_mangle]
@@ -41,11 +42,18 @@ pub unsafe extern "C" fn wasi_config_new(
     let name_c_str = CStr::from_ptr(program_name);
     let prog_name = c_try!(name_c_str.to_str());
 
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = runtime.enter();
+
     Some(Box::new(wasi_config_t {
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
+        runtime,
     }))
 }
 

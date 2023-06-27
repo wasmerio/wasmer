@@ -5604,6 +5604,7 @@ dependencies = [
  "libc",
  "paste",
  "thiserror",
+ "tokio",
  "typetag",
  "virtual-fs",
  "wasmer",
