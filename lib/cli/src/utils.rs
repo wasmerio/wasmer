@@ -13,7 +13,7 @@ pub fn wasmer_should_print_color() -> bool {
 }
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
-    let pb = PathBuf::from(&real_dir);
+    let pb = PathBuf::from(&real_dir).canonicalize()?;
     if let Ok(pb_metadata) = pb.metadata() {
         if !pb_metadata.is_dir() {
             bail!("\"{}\" exists, but it is not a directory", &real_dir);
