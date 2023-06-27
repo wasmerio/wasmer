@@ -901,8 +901,6 @@
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
-<a href="#904" id="904">904</a>
-<a href="#905" id="905">905</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1063,13 +1061,12 @@
                 <span class="prelude-val">Ok</span>(v) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(v);
                 }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Could not deserialize as static object: {}&quot;</span>, err);
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                        <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
+                    ));
                 }
             }
-            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
-            ));
         }
 
         <span class="kw">let </span>bytes = <span class="self">Self</span>::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())<span class="question-mark">?</span>;
@@ -1103,13 +1100,12 @@
                 <span class="prelude-val">Ok</span>(v) =&gt; {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(v);
                 }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Could not deserialize as static object: {}&quot;</span>, err);
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
+                        <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
+                    ));
                 }
             }
-            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(
-                <span class="string">&quot;The provided bytes are not wasmer-universal&quot;</span>.to_string(),
-            ));
         }
 
         <span class="kw">let </span>bytes = <span class="self">Self</span>::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())<span class="question-mark">?</span>;
