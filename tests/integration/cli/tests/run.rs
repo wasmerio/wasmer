@@ -5,22 +5,22 @@ use std::path::{Path, PathBuf};
 use assert_cmd::Command;
 use predicates::str::contains;
 use tempfile::TempDir;
-use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
+use wasmer_integration_tests_cli::{asset_path, c_asset_path, get_wasmer_path};
 
 fn wasi_test_python_path() -> PathBuf {
-    Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
+    c_asset_path().join("python-0.1.0.wasmer")
 }
 
 fn wasi_test_wasm_path() -> PathBuf {
-    Path::new(C_ASSET_PATH).join("qjs.wasm")
+    c_asset_path().join("qjs.wasm")
 }
 
 fn test_no_imports_wat_path() -> PathBuf {
-    Path::new(ASSET_PATH).join("fib.wat")
+    asset_path().join("fib.wat")
 }
 
 fn test_no_start_wat_path() -> PathBuf {
-    Path::new(ASSET_PATH).join("no_start.wat")
+    asset_path().join("no_start.wat")
 }
 
 /// Ignored on Windows because running vendored packages does not work
@@ -267,7 +267,7 @@ fn test_wasmer_run_works_with_dir() {
 
     std::fs::copy(wasi_test_wasm_path(), &qjs_path).unwrap();
     std::fs::copy(
-        Path::new(C_ASSET_PATH).join("qjs-wasmer.toml"),
+        c_asset_path().join("qjs-wasmer.toml"),
         temp_dir.path().join("wasmer.toml"),
     )
     .unwrap();
@@ -301,7 +301,7 @@ fn test_wasmer_run_works_with_dir() {
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("https://wapm.io/python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
         .success();
@@ -312,7 +312,7 @@ fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("https://wapm.io/python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
         .success();
@@ -323,7 +323,7 @@ fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
         .assert()
@@ -335,7 +335,7 @@ fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("_/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
         .assert()
@@ -385,7 +385,7 @@ fn run_test_caching_works_for_packages() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
         .env("WASMER_DIR", wasmer_dir.path())
@@ -399,7 +399,7 @@ fn run_test_caching_works_for_packages() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
         .env("WASMER_DIR", wasmer_dir.path())
@@ -413,7 +413,7 @@ fn run_test_caching_works_for_packages() {
 fn run_test_caching_works_for_packages_with_versions() {
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
-        .arg(format!("--mapdir=/app:{}", ASSET_PATH))
+        .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("/app/test.py")
         .assert()
@@ -423,7 +423,7 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
-        .arg(format!("--mapdir=/app:{}", ASSET_PATH))
+        .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("/app/test.py")
         .env(
@@ -448,7 +448,7 @@ fn run_test_caching_works_for_packages_with_versions() {
 fn run_test_caching_works_for_urls() {
     let assert = Command::new(get_wasmer_path())
         .arg("https://wapm.io/python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
         .success();
@@ -459,7 +459,7 @@ fn run_test_caching_works_for_urls() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("https://wapm.io/python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
         .success();

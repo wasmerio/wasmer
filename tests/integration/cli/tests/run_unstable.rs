@@ -470,11 +470,11 @@ mod remote_webc {
 mod fixtures {
     use std::path::{Path, PathBuf};
 
-    use wasmer_integration_tests_cli::{ASSET_PATH, C_ASSET_PATH};
+    use wasmer_integration_tests_cli::{asset_path, c_asset_path};
 
     /// A WEBC file containing the Python interpreter, compiled to WASI.
     pub fn python() -> PathBuf {
-        Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
+        c_asset_path().join("python-0.1.0.wasmer")
     }
 
     pub fn coreutils() -> PathBuf {
@@ -494,17 +494,17 @@ mod fixtures {
     /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
     /// WebAssembly-related commands.
     pub fn wabt() -> PathBuf {
-        Path::new(C_ASSET_PATH).join("wabt-1.0.37.wasmer")
+        c_asset_path().join("wabt-1.0.37.wasmer")
     }
 
     /// A WEBC file containing the WCGI static server.
     pub fn static_server() -> PathBuf {
-        Path::new(C_ASSET_PATH).join("staticserver.webc")
+        c_asset_path().join("staticserver.webc")
     }
 
     /// The QuickJS interpreter, compiled to a WASI module.
     pub fn qjs() -> PathBuf {
-        Path::new(C_ASSET_PATH).join("qjs.wasm")
+        c_asset_path().join("qjs.wasm")
     }
 
     pub fn hello() -> PathBuf {
@@ -516,16 +516,16 @@ mod fixtures {
 
     /// The `wasmer.toml` file for QuickJS.
     pub fn qjs_wasmer_toml() -> PathBuf {
-        Path::new(C_ASSET_PATH).join("qjs-wasmer.toml")
+        c_asset_path().join("qjs-wasmer.toml")
     }
 
     /// An executable which calculates fib(40) and exits with no output.
     pub fn fib() -> PathBuf {
-        Path::new(ASSET_PATH).join("fib.wat")
+        asset_path().join("fib.wat")
     }
 
     pub fn wat_no_start() -> PathBuf {
-        Path::new(ASSET_PATH).join("no_start.wat")
+        asset_path().join("no_start.wat")
     }
 }
 

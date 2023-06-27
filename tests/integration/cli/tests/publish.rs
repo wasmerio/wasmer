@@ -1,8 +1,8 @@
-use std::process::Stdio;
-use wasmer_integration_tests_cli::{get_wasmer_path, C_ASSET_PATH};
+use std::{path::PathBuf, process::Stdio};
+use wasmer_integration_tests_cli::{c_asset_path, get_wasmer_path};
 
-fn create_exe_test_wasm_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
+fn create_exe_test_wasm_path() -> PathBuf {
+    c_asset_path().join("qjs.wasm")
 }
 
 #[test]

@@ -1,11 +1,6 @@
 //! Tests of the `wasmer create-exe` command.
 
-use std::{
-    fs,
-    io::prelude::*,
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{fs, io::prelude::*, path::PathBuf, process::Command};
 
 use anyhow::{bail, Context};
 use assert_cmd::prelude::OutputAssertExt;
@@ -13,16 +8,16 @@ use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
 fn create_exe_wabt_path() -> PathBuf {
-    Path::new(C_ASSET_PATH).join("wabt-1.0.37.wasmer")
+    c_asset_path().join("wabt-1.0.37.wasmer")
 }
 
 #[allow(dead_code)]
 fn create_exe_python_wasmer() -> PathBuf {
-    Path::new(C_ASSET_PATH).join("python-0.1.0.wasmer")
+    c_asset_path().join("python-0.1.0.wasmer")
 }
 
 fn create_exe_test_wasm_path() -> PathBuf {
-    Path::new(C_ASSET_PATH).join("qjs.wasm")
+    c_asset_path().join("qjs.wasm")
 }
 const JS_TEST_SRC_CODE: &[u8] =
     b"function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));\n";
