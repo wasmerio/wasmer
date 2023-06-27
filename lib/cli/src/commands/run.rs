@@ -20,7 +20,6 @@ use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
-use tokio::runtime::Handle;
 use url::Url;
 use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 use wasmer::{
