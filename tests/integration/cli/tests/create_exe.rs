@@ -689,7 +689,7 @@ fn test_wasmer_create_exe_pirita_works() {
     let temp_dir = TempDir::new().unwrap();
     let temp_dir = temp_dir.path().to_path_buf();
     let python_wasmer_path = temp_dir.join("python.wasmer");
-    std::fs::copy(create_exe_python_wasmer(), &python_wasmer_path).unwrap();
+    std::fs::copy(fixtures::python(), &python_wasmer_path).unwrap();
     let python_exe_output_path = temp_dir.join("python");
 
     let native_target = target_lexicon::HOST;
@@ -788,7 +788,7 @@ fn test_cross_compile_python_windows() {
             let mut cmd = Command::new(get_wasmer_path());
 
             cmd.arg("create-exe");
-            cmd.arg(create_exe_python_wasmer());
+            cmd.arg(fixtures::python());
             cmd.arg("--target");
             cmd.arg(t);
             cmd.arg("-o");
