@@ -70,7 +70,7 @@ fn test_run_customlambda() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.io/ciuser/customlambda")
+        .arg("https://wasmer.io/ciuser/customlambda")
         // TODO: this argument should not be necessary later
         // see https://github.com/wasmerio/wasmer/issues/3514
         .arg("customlambda.py")
@@ -82,7 +82,7 @@ fn test_run_customlambda() {
     // Run again to verify the caching
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.io/ciuser/customlambda")
+        .arg("https://wasmer.io/ciuser/customlambda")
         // TODO: this argument should not be necessary later
         // see https://github.com/wasmerio/wasmer/issues/3514
         .arg("customlambda.py")
@@ -108,14 +108,15 @@ fn run_whoami_works() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("whoami")
-        .arg("--registry=wapm.dev")
+        .arg("--registry=wasmer.wtf")
         .arg("--token")
         .arg(&ciuser_token)
         .assert()
         .success();
 
-    assert
-        .stdout("logged into registry \"https://registry.wapm.dev/graphql\" as user \"ciuser\"\n");
+    assert.stdout(
+        "logged into registry \"https://registry.wasmer.wtf/graphql\" as user \"ciuser\"\n",
+    );
 }
 
 #[test]
@@ -158,7 +159,7 @@ fn test_wasmer_run_pirita_works() {
 fn test_wasmer_run_pirita_url_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.dev/syrusakbary/python")
+        .arg("https://wasmer.wtf/syrusakbary/python")
         .arg("--")
         .arg("-c")
         .arg("print(\"hello\")")
@@ -208,7 +209,7 @@ fn test_wasmer_run_works_with_dir() {
 #[test]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
-        .arg("https://wapm.io/python/python")
+        .arg("https://wasmer.io/python/python")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -219,7 +220,7 @@ fn test_wasmer_run_works() {
     // same test again, but this time with "wasmer run ..."
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.io/python/python")
+        .arg("https://wasmer.io/python/python")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -357,7 +358,7 @@ fn run_test_caching_works_for_urls() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.io/python/python")
+        .arg("https://wasmer.io/python/python")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("/app/test.py")
         .env("RUST_LOG", &*CACHE_RUST_LOG)
@@ -372,7 +373,7 @@ fn run_test_caching_works_for_urls() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.io/python/python")
+        .arg("https://wasmer.io/python/python")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("/app/test.py")
         .env("RUST_LOG", &*CACHE_RUST_LOG)
@@ -850,7 +851,7 @@ fn run_quickjs_via_package_name() {
         .arg("run")
         .arg("saghul/quickjs")
         .arg("--entrypoint=quickjs")
-        .arg("--registry=wapm.io")
+        .arg("--registry=wasmer.io")
         .arg("--")
         .arg("--eval")
         .arg("console.log('Hello, World!')")
@@ -868,7 +869,7 @@ fn run_quickjs_via_package_name() {
 fn run_quickjs_via_url() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wapm.io/saghul/quickjs")
+        .arg("https://wasmer.io/saghul/quickjs")
         .arg("--entrypoint=quickjs")
         .arg("--")
         .arg("--eval")
@@ -894,7 +895,7 @@ fn run_bash_using_coreutils() {
         .arg("sharrattj/bash")
         .arg("--entrypoint=bash")
         .arg("--use=sharrattj/coreutils")
-        .arg("--registry=wapm.io")
+        .arg("--registry=wasmer.io")
         .arg("--")
         .arg("-c")
         .arg("ls /bin")
