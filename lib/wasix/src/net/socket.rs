@@ -10,7 +10,10 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtual_io::{FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType};
+use virtual_io::{
+    FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType,
+    StatefulHandlerState,
+};
 use virtual_net::{
     NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
     VirtualTcpSocket, VirtualUdpSocket,
@@ -155,6 +158,7 @@ pub(crate) struct InodeSocketProtected {
     pub kind: InodeSocketKind,
     pub notifications: InodeSocketNotifications,
     pub aggregate_handler: Option<FilteredHandlerSubscriptions>,
+    pub handler_state: StatefulHandlerState,
 }
 
 #[derive(Debug, Default)]
@@ -178,12 +182,17 @@ pub struct InodeSocket {
 
 impl InodeSocket {
     pub fn new(kind: InodeSocketKind) -> Self {
+        let handler_state: StatefulHandlerState = Default::default();
+        if let InodeSocketKind::TcpStream { .. } = &kind {
+            handler_state.set(InterestType::Writable);
+        }
         Self {
             inner: Arc::new(InodeSocketInner {
                 protected: RwLock::new(InodeSocketProtected {
                     kind,
                     notifications: Default::default(),
                     aggregate_handler: None,
+                    handler_state,
                 }),
             }),
         }
@@ -1094,7 +1103,7 @@ impl InodeSocket {
                         Err(NetworkError::WouldBlock) if self.nonblocking => {
                             Poll::Ready(Err(Errno::Again))
                         }
-                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                        Err(NetworkError::WouldBlock) if !self.handler_registered => {
                             let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));
@@ -1171,7 +1180,7 @@ impl InodeSocket {
                         Err(NetworkError::WouldBlock) if self.nonblocking => {
                             Poll::Ready(Err(Errno::Again))
                         }
-                        Err(NetworkError::WouldBlock) if self.handler_registered == false => {
+                        Err(NetworkError::WouldBlock) if !self.handler_registered => {
                             let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));

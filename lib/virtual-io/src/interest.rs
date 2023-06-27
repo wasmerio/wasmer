@@ -1,9 +1,6 @@
 use std::{
-    collections::HashMap,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
+    collections::{HashMap, HashSet},
+    sync::{Arc, Mutex},
     task::{Context, RawWaker, RawWakerVTable, Waker},
 };
 
@@ -146,45 +143,39 @@ impl InterestHandler for FilteredHandler {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct StatefulHandlerValue {
-    value: Arc<AtomicBool>,
+#[derive(Debug, Default, Clone)]
+pub struct StatefulHandlerState {
+    interest: Arc<Mutex<HashSet<InterestType>>>,
 }
 
-impl StatefulHandlerValue {
-    pub fn new() -> Self {
-        Self {
-            value: Arc::new(AtomicBool::new(false)),
-        }
+impl StatefulHandlerState {
+    pub fn take(&self, interest: InterestType) -> bool {
+        let mut guard = self.interest.lock().unwrap();
+        guard.remove(&interest)
     }
-    pub fn value(&self) -> bool {
-        self.value.load(Ordering::SeqCst)
-    }
-    pub fn set(&self) {
-        self.value.store(true, Ordering::SeqCst);
+    pub fn set(&self, interest: InterestType) {
+        let mut guard = self.interest.lock().unwrap();
+        guard.insert(interest);
     }
 }
 
 pub struct StatefulHandler {
     handler: Box<dyn InterestHandler + Send + Sync>,
-    triggered: StatefulHandlerValue,
+    state: StatefulHandlerState,
 }
 
 impl StatefulHandler {
-    pub fn new(handler: Box<dyn InterestHandler + Send + Sync>) -> Box<Self> {
-        Box::new(Self {
-            handler,
-            triggered: StatefulHandlerValue::new(),
-        })
-    }
-    pub fn triggered(&self) -> &StatefulHandlerValue {
-        &self.triggered
+    pub fn new(
+        handler: Box<dyn InterestHandler + Send + Sync>,
+        state: StatefulHandlerState,
+    ) -> Box<Self> {
+        Box::new(Self { handler, state })
     }
 }
 
 impl InterestHandler for StatefulHandler {
     fn interest(&mut self, interest: InterestType) {
-        self.triggered.set();
+        self.state.set(interest);
         self.handler.interest(interest)
     }
 }

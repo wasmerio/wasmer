@@ -11,7 +11,7 @@ use std::{
 use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
-use virtual_io::{InterestType, StatefulHandler, StatefulHandlerValue};
+use virtual_io::{InterestType, StatefulHandler};
 use virtual_net::NetworkError;
 use wasmer_wasix_types::{
     types::Eventtype,
@@ -124,8 +124,6 @@ pub struct InodeValFilePollGuardJoin {
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
-    handler_read: Option<StatefulHandlerValue>,
-    handler_write: Option<StatefulHandlerValue>,
 }
 
 impl InodeValFilePollGuardJoin {
@@ -135,8 +133,6 @@ impl InodeValFilePollGuardJoin {
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
-            handler_read: None,
-            handler_write: None,
         }
     }
     pub(crate) fn fd(&self) -> u32 {
@@ -144,14 +140,6 @@ impl InodeValFilePollGuardJoin {
     }
     pub(crate) fn peb(&self) -> PollEventSet {
         self.peb
-    }
-}
-impl Drop for InodeValFilePollGuardJoin {
-    fn drop(&mut self) {
-        if let InodeValFilePollGuardMode::Socket { ref inner } = &mut self.mode {
-            let mut guard = inner.protected.write().unwrap();
-            guard.remove_handler();
-        }
     }
 }
 
@@ -198,19 +186,13 @@ impl Future for InodeValFilePollGuardJoin {
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
-                    let inner = {
-                        let i = inner.clone();
-                        drop(inner);
-                        i
-                    };
-
-                    if self.handler_read.as_ref().iter().any(|t| t.value()) {
-                        Poll::Ready(Ok(1))
+                    let mut guard = inner.protected.write().unwrap();
+                    if guard.handler_state.take(InterestType::Readable) {
+                        Poll::Ready(Ok(8192))
                     } else {
-                        let handler = StatefulHandler::new(cx.waker().into());
-                        self.handler_read.replace(handler.triggered().clone());
+                        let handler =
+                            StatefulHandler::new(cx.waker().into(), guard.handler_state.clone());
 
-                        let mut guard = inner.protected.write().unwrap();
                         let res = guard
                             .add_handler(handler, InterestType::Readable)
                             .map_err(net_error_into_io_err);
@@ -317,21 +299,15 @@ impl Future for InodeValFilePollGuardJoin {
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
-                    let inner = {
-                        let i = inner.clone();
-                        drop(inner);
-                        i
-                    };
-
-                    if self.handler_write.as_ref().iter().any(|t| t.value()) {
-                        Poll::Ready(Ok(1))
+                    let mut guard = inner.protected.write().unwrap();
+                    if guard.handler_state.take(InterestType::Writable) {
+                        Poll::Ready(Ok(8192))
                     } else {
-                        let handler = StatefulHandler::new(cx.waker().into());
-                        self.handler_write.replace(handler.triggered().clone());
+                        let handler =
+                            StatefulHandler::new(cx.waker().into(), guard.handler_state.clone());
 
-                        let mut guard = inner.protected.write().unwrap();
                         let res = guard
-                            .add_handler(cx.waker().into(), InterestType::Writable)
+                            .add_handler(handler, InterestType::Writable)
                             .map_err(net_error_into_io_err);
                         match res {
                             Err(err) if is_err_closed(&err) => {
