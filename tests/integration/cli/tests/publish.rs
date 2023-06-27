@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Stdio};
+use std::process::Stdio;
 use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]

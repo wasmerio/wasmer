@@ -2,7 +2,7 @@
 
 use std::{
     io::{ErrorKind, Read},
-    path::{Path, PathBuf},
+    path::Path,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
@@ -30,6 +30,17 @@ static RUST_LOG: Lazy<String> = Lazy::new(|| {
         ]
         .join(",")
     }
+});
+
+/// A version of `$RUST_LOG` used for checking cache messages.
+static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
+    [
+        "wasmer_wasix::runtime::resolver::wapm_source=debug",
+        "wasmer_wasix::runtime::resolver::web_source=debug",
+        "wasmer_wasix::runtime::package_loader::builtin_loader=debug",
+        "wasmer_wasix::runtime::module_cache::filesystem=debug",
+    ]
+    .join(",")
 });
 
 /// Ignored on Windows because running vendored packages does not work
@@ -267,104 +278,117 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
     Ok(())
 }
 
-// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
-#[ignore]
 #[test]
 fn run_test_caching_works_for_packages() {
     // we're testing the cache, so we don't want to reuse the current user's
     // $WASMER_DIR
     let wasmer_dir = TempDir::new().unwrap();
-    let rust_log = [
-        "wasmer_wasix::runtime::resolver::wapm_source=debug",
-        "wasmer_wasix::runtime::package_loader::builtin_loader=debug",
-    ]
-    .join(",");
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
-        .arg(format!("--mapdir=.:{}", asset_path().display()))
+        .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
-        .arg("test.py")
-        .env("WASMER_DIR", wasmer_dir.path())
-        .env("RUST_LOG", &rust_log)
+        .arg("/app/test.py")
+        .env("WASMER_CACHE_DIR", wasmer_dir.path())
+        .env("RUST_LOG", &*CACHE_RUST_LOG)
         .assert();
 
     assert
         .success()
-        .stderr("Downloading a webc")
-        .stderr("Querying the GraphQL API");
+        .stderr(contains("wapm_source: Querying the GraphQL API"))
+        .stderr(contains("builtin_loader: Downloading a webc file"))
+        .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
-        .arg(format!("--mapdir=.:{}", asset_path().display()))
+        .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
-        .arg("test.py")
-        .env("WASMER_DIR", wasmer_dir.path())
-        .env("RUST_LOG", &rust_log)
-        .assert();
+        .arg("/app/test.py")
+        .env("WASMER_CACHE_DIR", wasmer_dir.path())
+        .env("RUST_LOG", &*CACHE_RUST_LOG)
+        .assert()
+        .success();
 
-    assert.success().stderr("asdf");
+    assert
+        .stderr(contains("wapm_source: Cache hit!"))
+        .stderr(contains("builtin_loader: Cache hit!"))
+        .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
 
 #[test]
 fn run_test_caching_works_for_packages_with_versions() {
+    let wasmer_dir = TempDir::new().unwrap();
+
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("/app/test.py")
+        .env("RUST_LOG", &*CACHE_RUST_LOG)
+        .env("WASMER_CACHE_DIR", wasmer_dir.path())
         .assert()
         .success();
 
-    assert.stdout("hello\n");
+    assert
+        .success()
+        .stderr(contains("wapm_source: Querying the GraphQL API"))
+        .stderr(contains("builtin_loader: Downloading a webc file"))
+        .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("/app/test.py")
-        .env(
-            "RUST_LOG",
-            "wasmer_wasix::runtime::package_loader::builtin_loader=debug",
-        )
+        .env("RUST_LOG", &*CACHE_RUST_LOG)
+        .env("WASMER_CACHE_DIR", wasmer_dir.path())
         .assert();
 
     assert
         .success()
-        // it should have ran like normal
-        .stdout("hello\n")
-        // we hit the cache while fetching the package
-        .stderr(contains(
-            "builtin_loader: Cache hit! pkg.name=\"python\" pkg.version=0.1.0",
-        ));
+        .stderr(contains("wapm_source: Cache hit!"))
+        .stderr(contains("builtin_loader: Cache hit!"))
+        .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
 
-// FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
-#[ignore]
 #[test]
 fn run_test_caching_works_for_urls() {
+    let wasmer_dir = TempDir::new().unwrap();
+
     let assert = Command::new(get_wasmer_path())
+        .arg("run")
         .arg("https://wapm.io/python/python")
-        .arg(format!("--mapdir=.:{}", asset_path().display()))
-        .arg("test.py")
+        .arg(format!("--mapdir=/app:{}", asset_path().display()))
+        .arg("/app/test.py")
+        .env("RUST_LOG", &*CACHE_RUST_LOG)
+        .env("WASMER_CACHE_DIR", wasmer_dir.path())
         .assert()
         .success();
 
-    assert.stdout("hello\n");
-
-    let time = std::time::Instant::now();
+    assert
+        .success()
+        .stderr(contains("builtin_loader: Downloading a webc file"))
+        .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
+        .arg("run")
         .arg("https://wapm.io/python/python")
-        .arg(format!("--mapdir=.:{}", asset_path().display()))
-        .arg("test.py")
+        .arg(format!("--mapdir=/app:{}", asset_path().display()))
+        .arg("/app/test.py")
+        .env("RUST_LOG", &*CACHE_RUST_LOG)
+        .env("WASMER_CACHE_DIR", wasmer_dir.path())
         .assert()
         .success();
 
-    assert.stdout("hello\n");
-
-    // package should be cached
-    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+    assert
+        // Got a cache hit downloading the *.webc file's metadata
+        .stderr(contains("web_source: Cache hit"))
+        // Cache hit downloading the *.webc file
+        .stderr(contains(
+            r#"builtin_loader: Cache hit! pkg.name="python" pkg.version=0.1.0"#,
+        ))
+        // Cache hit compiling the module
+        .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
 
 // This test verifies that "wasmer run --invoke _start module.wat"
