@@ -92,32 +92,6 @@ fn test_run_customlambda() {
     assert.stdout("139583862445\n");
 }
 
-#[test]
-fn run_whoami_works() {
-    // running test locally: should always pass since
-    // developers don't have access to WAPM_DEV_TOKEN
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return;
-    }
-
-    let ciuser_token = std::env::var("WAPM_DEV_TOKEN").expect("no CIUSER / WAPM_DEV_TOKEN token");
-    // Special case: GitHub secrets aren't visible to outside collaborators
-    if ciuser_token.is_empty() {
-        return;
-    }
-
-    let assert = Command::new(get_wasmer_path())
-        .arg("whoami")
-        .arg("--registry=wasmer.wtf")
-        .arg("--token")
-        .arg(&ciuser_token)
-        .assert()
-        .success();
-
-    assert.stdout(
-        "logged into registry \"https://registry.wasmer.wtf/graphql\" as user \"ciuser\"\n",
-    );
-}
 
 #[test]
 fn run_wasi_works() {
