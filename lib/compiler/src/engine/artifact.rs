@@ -43,7 +43,7 @@ pub struct AllocatedArtifact {
     // after the ownership is transfered.
     frame_info_registered: bool,
     // frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
-    // using 'Artifact::transfert_frame_info_registration' method
+    // using 'Artifact::transfer_frame_info_registration' method
     // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -322,7 +322,7 @@ impl Artifact {
         };
 
         artifact.internal_register_frame_info();
-        if let Some(frame_info) = artifact.internal_transfert_frame_info_registration() {
+        if let Some(frame_info) = artifact.internal_transfer_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
 
@@ -395,7 +395,7 @@ impl Artifact {
     /// This is not required anymore as it's done automaticaly when creating by 'Artifact::from_parts'
     #[deprecated(
         since = "4.0.0",
-        note = "done automaticaly by Artifact::from_parts, use 'transfert_frame_info_registration' if you use this method"
+        note = "done automaticaly by Artifact::from_parts, use 'transfer_frame_info_registration' if you use this method"
     )]
     pub fn register_frame_info(&mut self) {
         self.internal_register_frame_info()
@@ -453,13 +453,11 @@ impl Artifact {
     /// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
     /// register_frame_info has been used.
     #[deprecated(since = "4.0.0", note = "done automaticaly by Artifact::from_parts.")]
-    pub fn transfert_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
-        self.internal_transfert_frame_info_registration()
+    pub fn transfer_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
+        self.internal_transfer_frame_info_registration()
     }
 
-    fn internal_transfert_frame_info_registration(
-        &mut self,
-    ) -> Option<GlobalFrameInfoRegistration> {
+    fn internal_transfer_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
         let frame_info_registration = &mut self
             .allocated
             .as_mut()
