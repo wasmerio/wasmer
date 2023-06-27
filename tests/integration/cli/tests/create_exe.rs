@@ -1,6 +1,11 @@
 //! Tests of the `wasmer create-exe` command.
 
-use std::{fs, io::prelude::*, path::PathBuf, process::Command};
+use std::{
+    fs,
+    io::prelude::*,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use anyhow::{bail, Context};
 use assert_cmd::prelude::OutputAssertExt;
@@ -693,7 +698,7 @@ fn test_wasmer_create_exe_pirita_works() {
     // std::fs::create_dir_all(&temp_dir);
 
     use wasmer_integration_tests_cli::get_repo_root_path;
-    let temp_dir = tempfile::TempDir::new().unwrap();
+    let temp_dir = TempDir::new().unwrap();
     let temp_dir = temp_dir.path().to_path_buf();
     let python_wasmer_path = temp_dir.join("python.wasmer");
     std::fs::copy(create_exe_python_wasmer(), &python_wasmer_path).unwrap();
@@ -737,4 +742,116 @@ fn test_wasmer_create_exe_pirita_works() {
     command.arg("print(\"hello\")");
 
     command.assert().success().stdout("hello\n");
+}
+
+// FIXME: Fix and re-enable this test
+// See https://github.com/wasmerio/wasmer/issues/3615
+#[test]
+#[ignore]
+fn test_cross_compile_python_windows() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let targets: &[&str] = if cfg!(windows) {
+        &[
+            "aarch64-darwin",
+            "x86_64-darwin",
+            "x86_64-linux-gnu",
+            "aarch64-linux-gnu",
+        ]
+    } else {
+        &[
+            "aarch64-darwin",
+            "x86_64-darwin",
+            "x86_64-linux-gnu",
+            "aarch64-linux-gnu",
+            "x86_64-windows-gnu",
+        ]
+    };
+
+    let compilers: &[&str] = if cfg!(target_env = "musl") {
+        // MUSL has no support for LLVM in C-API
+        &["cranelift", "singlepass"]
+    } else {
+        &["cranelift", "singlepass", "llvm"]
+    };
+
+    // llvm-objdump  --disassemble-all --demangle ./objects/wasmer_vm-50cb118b098c15db.wasmer_vm.60425a0a-cgu.12.rcgu.o
+    // llvm-objdump --macho --exports-trie ~/.wasmer/cache/wasmer-darwin-arm64/lib/libwasmer.dylib
+    let excluded_combinations = &[
+        ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        // https://github.com/ziglang/zig/issues/13729
+        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
+        ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
+    ];
+
+    for t in targets {
+        for c in compilers {
+            if excluded_combinations.contains(&(t, c)) {
+                continue;
+            }
+            println!("{t} target {c}");
+            let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
+
+            let tarball = match std::env::var("GITHUB_TOKEN") {
+                Ok(_) => Some(assert_tarball_is_present_local(t).unwrap()),
+                Err(_) => None,
+            };
+            let mut cmd = Command::new(get_wasmer_path());
+
+            cmd.arg("create-exe");
+            cmd.arg(create_exe_python_wasmer());
+            cmd.arg("--target");
+            cmd.arg(t);
+            cmd.arg("-o");
+            cmd.arg(python_wasmer_path.clone());
+            cmd.arg(format!("--{c}"));
+            if std::env::var("GITHUB_TOKEN").is_ok() {
+                cmd.arg("--debug-dir");
+                cmd.arg(format!("{t}-{c}"));
+            }
+
+            if t.contains("x86_64") && *c == "singlepass" {
+                cmd.arg("-m");
+                cmd.arg("avx");
+            }
+
+            if let Some(t) = tarball {
+                cmd.arg("--tarball");
+                cmd.arg(t);
+            }
+
+            let assert = cmd.assert().success();
+
+            if !python_wasmer_path.exists() {
+                let p = std::fs::read_dir(temp_dir.path())
+                    .unwrap()
+                    .filter_map(|e| Some(e.ok()?.path()))
+                    .collect::<Vec<_>>();
+                let output = assert.get_output();
+                panic!("target {t} was not compiled correctly tempdir: {p:#?}, {output:?}",);
+            }
+        }
+    }
+}
+
+fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
+    let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
+    let directory = match target {
+        "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
+        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
+        "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
+        "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
+        "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",
+        _ => return Err(anyhow::anyhow!("unknown target {target}")),
+    };
+    let libwasmer_cache_path = Path::new(&wasmer_dir).join("cache").join(directory);
+    if !libwasmer_cache_path.exists() {
+        return Err(anyhow::anyhow!(
+            "targz {} does not exist",
+            libwasmer_cache_path.display()
+        ));
+    }
+    println!("using targz {}", libwasmer_cache_path.display());
+    Ok(libwasmer_cache_path)
 }
