@@ -51,6 +51,7 @@ impl WapmSource {
         if let Some(cache) = &self.cache {
             match cache.lookup_cached_query(package_name) {
                 Ok(Some(cached)) => {
+                    tracing::debug!("Cache hit!");
                     return Ok(cached);
                 }
                 Ok(None) => {}

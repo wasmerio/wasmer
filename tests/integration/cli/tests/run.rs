@@ -1,8 +1,10 @@
 //! Basic tests for the `run` subcommand
 
+use std::path::{Path, PathBuf};
+
 use assert_cmd::Command;
 use predicates::str::contains;
-use std::path::{Path, PathBuf};
+use tempfile::TempDir;
 use wasmer_integration_tests_cli::{get_wasmer_path, ASSET_PATH, C_ASSET_PATH};
 
 fn wasi_test_python_path() -> PathBuf {
@@ -265,7 +267,7 @@ fn test_wasmer_run_works_with_dir() {
 
     std::fs::copy(wasi_test_wasm_path(), &qjs_path).unwrap();
     std::fs::copy(
-        format!("{}/{}", C_ASSET_PATH, "qjs-wasmer.toml"),
+        Path::new(C_ASSET_PATH).join("qjs-wasmer.toml"),
         temp_dir.path().join("wasmer.toml"),
     )
     .unwrap();
@@ -372,30 +374,39 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 #[ignore]
 #[test]
 fn run_test_caching_works_for_packages() {
-    let assert = Command::new(get_wasmer_path())
-        .arg("python/python")
-        .arg(format!("--mapdir=.:{}", ASSET_PATH))
-        .arg("--registry=wasmer.io")
-        .arg("test.py")
-        .assert()
-        .success();
-
-    assert.stdout("hello\n");
-
-    let time = std::time::Instant::now();
+    // we're testing the cache, so we don't want to reuse the current user's
+    // $WASMER_DIR
+    let wasmer_dir = TempDir::new().unwrap();
+    let rust_log = [
+        "wasmer_wasix::runtime::resolver::wapm_source=debug",
+        "wasmer_wasix::runtime::package_loader::builtin_loader=debug",
+    ]
+    .join(",");
 
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
         .arg("--registry=wasmer.io")
         .arg("test.py")
-        .assert()
-        .success();
+        .env("WASMER_DIR", wasmer_dir.path())
+        .env("RUST_LOG", &rust_log)
+        .assert();
 
-    assert.stdout("hello\n");
+    assert
+        .success()
+        .stderr("Downloading a webc")
+        .stderr("Querying the GraphQL API");
 
-    // package should be cached
-    assert!(std::time::Instant::now() - time < std::time::Duration::from_secs(1));
+    let assert = Command::new(get_wasmer_path())
+        .arg("python/python")
+        .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
+        .arg("test.py")
+        .env("WASMER_DIR", wasmer_dir.path())
+        .env("RUST_LOG", &rust_log)
+        .assert();
+
+    assert.success().stderr("asdf");
 }
 
 #[test]
