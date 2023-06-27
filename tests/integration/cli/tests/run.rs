@@ -92,7 +92,6 @@ fn test_run_customlambda() {
     assert.stdout("139583862445\n");
 }
 
-
 #[test]
 fn run_wasi_works() {
     let assert = Command::new(get_wasmer_path())
