@@ -11,7 +11,7 @@ use std::{
 use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
-use virtual_io::{FilteredHandler, InterestType};
+use virtual_io::{InterestType, StatefulHandler, StatefulHandlerValue};
 use virtual_net::NetworkError;
 use wasmer_wasix_types::{
     types::Eventtype,
@@ -124,6 +124,8 @@ pub struct InodeValFilePollGuardJoin {
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
+    handler_read: Option<StatefulHandlerValue>,
+    handler_write: Option<StatefulHandlerValue>,
 }
 
 impl InodeValFilePollGuardJoin {
@@ -133,6 +135,8 @@ impl InodeValFilePollGuardJoin {
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
+            handler_read: None,
+            handler_write: None,
         }
     }
     pub(crate) fn fd(&self) -> u32 {
@@ -194,33 +198,43 @@ impl Future for InodeValFilePollGuardJoin {
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
-                    let mut guard = inner.protected.write().unwrap();
-                    let res = guard
-                        .set_handler(
-                            FilteredHandler::new(cx.waker().into())
-                                .add_interest(InterestType::Readable),
-                        )
-                        .map_err(net_error_into_io_err);
-                    match res {
-                        Err(err) if is_err_closed(&err) => {
-                            tracing::trace!("socket read ready error (fd={}) - {}", fd, err);
-                            if !replace(&mut guard.notifications.closed, true) {
-                                Poll::Ready(Ok(0))
-                            } else {
+                    let inner = {
+                        let i = inner.clone();
+                        drop(inner);
+                        i
+                    };
+
+                    if self.handler_read.as_ref().iter().any(|t| t.value()) {
+                        Poll::Ready(Ok(1))
+                    } else {
+                        let handler = StatefulHandler::new(cx.waker().into());
+                        self.handler_read.replace(handler.triggered().clone());
+
+                        let mut guard = inner.protected.write().unwrap();
+                        let res = guard
+                            .add_handler(handler, InterestType::Readable)
+                            .map_err(net_error_into_io_err);
+                        match res {
+                            Err(err) if is_err_closed(&err) => {
+                                tracing::trace!("socket read ready error (fd={}) - {}", fd, err);
+                                if !replace(&mut guard.notifications.closed, true) {
+                                    Poll::Ready(Ok(0))
+                                } else {
+                                    Poll::Pending
+                                }
+                            }
+                            Err(err) => {
+                                tracing::debug!("poll socket error - {}", err);
+                                if !replace(&mut guard.notifications.failed, true) {
+                                    Poll::Ready(Ok(0))
+                                } else {
+                                    Poll::Pending
+                                }
+                            }
+                            Ok(()) => {
+                                drop(guard);
                                 Poll::Pending
                             }
-                        }
-                        Err(err) => {
-                            tracing::debug!("poll socket error - {}", err);
-                            if !replace(&mut guard.notifications.failed, true) {
-                                Poll::Ready(Ok(0))
-                            } else {
-                                Poll::Pending
-                            }
-                        }
-                        Ok(()) => {
-                            drop(guard);
-                            Poll::Pending
                         }
                     }
                 }
@@ -303,33 +317,47 @@ impl Future for InodeValFilePollGuardJoin {
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
-                    let mut guard = inner.protected.write().unwrap();
-                    let res = guard
-                        .set_handler(
-                            FilteredHandler::new(cx.waker().into())
-                                .add_interest(InterestType::Writable),
-                        )
-                        .map_err(net_error_into_io_err);
-                    match res {
-                        Err(err) if is_err_closed(&err) => {
-                            tracing::trace!("socket write ready error (fd={}) - err={}", fd, err);
-                            if !replace(&mut guard.notifications.closed, true) {
-                                Poll::Ready(Ok(0))
-                            } else {
+                    let inner = {
+                        let i = inner.clone();
+                        drop(inner);
+                        i
+                    };
+
+                    if self.handler_write.as_ref().iter().any(|t| t.value()) {
+                        Poll::Ready(Ok(1))
+                    } else {
+                        let handler = StatefulHandler::new(cx.waker().into());
+                        self.handler_write.replace(handler.triggered().clone());
+
+                        let mut guard = inner.protected.write().unwrap();
+                        let res = guard
+                            .add_handler(cx.waker().into(), InterestType::Writable)
+                            .map_err(net_error_into_io_err);
+                        match res {
+                            Err(err) if is_err_closed(&err) => {
+                                tracing::trace!(
+                                    "socket write ready error (fd={}) - err={}",
+                                    fd,
+                                    err
+                                );
+                                if !replace(&mut guard.notifications.closed, true) {
+                                    Poll::Ready(Ok(0))
+                                } else {
+                                    Poll::Pending
+                                }
+                            }
+                            Err(err) => {
+                                tracing::debug!("poll socket error - {}", err);
+                                if !replace(&mut guard.notifications.failed, true) {
+                                    Poll::Ready(Ok(0))
+                                } else {
+                                    Poll::Pending
+                                }
+                            }
+                            Ok(()) => {
+                                drop(guard);
                                 Poll::Pending
                             }
-                        }
-                        Err(err) => {
-                            tracing::debug!("poll socket error - {}", err);
-                            if !replace(&mut guard.notifications.failed, true) {
-                                Poll::Ready(Ok(0))
-                            } else {
-                                Poll::Pending
-                            }
-                        }
-                        Ok(()) => {
-                            drop(guard);
-                            Poll::Pending
                         }
                     }
                 }

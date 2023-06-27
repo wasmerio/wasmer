@@ -1,6 +1,9 @@
 use std::{
-    collections::HashSet,
-    sync::{Arc, Mutex},
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     task::{Context, RawWaker, RawWakerVTable, Waker},
 };
 
@@ -24,7 +27,7 @@ impl From<&Waker> for Box<dyn InterestHandler + Send + Sync> {
             waker: Waker,
         }
         impl InterestHandler for WakerHandler {
-            fn interest(&mut self, _: InterestType) {
+            fn interest(&mut self, _interest: InterestType) {
                 self.waker.wake_by_ref();
             }
         }
@@ -94,28 +97,94 @@ const VTABLE: RawWakerVTable = unsafe {
     )
 };
 
+#[derive(Derivative, Default, Clone)]
+#[derivative(Debug)]
+pub struct FilteredHandlerSubscriptions {
+    #[derivative(Debug = "ignore")]
+    mapping: Arc<Mutex<HashMap<InterestType, Box<dyn InterestHandler + Send + Sync>>>>,
+}
+impl FilteredHandlerSubscriptions {
+    pub fn add_interest(
+        &self,
+        interest: InterestType,
+        handler: Box<dyn InterestHandler + Send + Sync>,
+    ) {
+        let mut guard = self.mapping.lock().unwrap();
+        guard.insert(interest, handler);
+    }
+}
+
 pub struct FilteredHandler {
-    handler: Box<dyn InterestHandler + Send + Sync>,
-    types: HashSet<InterestType>,
+    subs: FilteredHandlerSubscriptions,
 }
 
 impl FilteredHandler {
-    pub fn new(handler: Box<dyn InterestHandler + Send + Sync>) -> Box<Self> {
+    pub fn new() -> Box<Self> {
         Box::new(Self {
-            handler,
-            types: HashSet::default(),
+            subs: Default::default(),
         })
     }
-    pub fn add_interest(mut self: Box<Self>, interest: InterestType) -> Box<Self> {
-        self.types.insert(interest);
+    pub fn add_interest(
+        self: Box<Self>,
+        interest: InterestType,
+        handler: Box<dyn InterestHandler + Send + Sync>,
+    ) -> Box<Self> {
+        self.subs.add_interest(interest, handler);
         self
+    }
+    pub fn subscriptions(&self) -> &FilteredHandlerSubscriptions {
+        &self.subs
     }
 }
 
 impl InterestHandler for FilteredHandler {
     fn interest(&mut self, interest: InterestType) {
-        if self.types.contains(&interest) {
-            self.handler.interest(interest);
+        let mut guard = self.subs.mapping.lock().unwrap();
+        if let Some(handler) = guard.get_mut(&interest) {
+            handler.interest(interest);
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct StatefulHandlerValue {
+    value: Arc<AtomicBool>,
+}
+
+impl StatefulHandlerValue {
+    pub fn new() -> Self {
+        Self {
+            value: Arc::new(AtomicBool::new(false)),
+        }
+    }
+    pub fn value(&self) -> bool {
+        self.value.load(Ordering::SeqCst)
+    }
+    pub fn set(&self) {
+        self.value.store(true, Ordering::SeqCst);
+    }
+}
+
+pub struct StatefulHandler {
+    handler: Box<dyn InterestHandler + Send + Sync>,
+    triggered: StatefulHandlerValue,
+}
+
+impl StatefulHandler {
+    pub fn new(handler: Box<dyn InterestHandler + Send + Sync>) -> Box<Self> {
+        Box::new(Self {
+            handler,
+            triggered: StatefulHandlerValue::new(),
+        })
+    }
+    pub fn triggered(&self) -> &StatefulHandlerValue {
+        &self.triggered
+    }
+}
+
+impl InterestHandler for StatefulHandler {
+    fn interest(&mut self, interest: InterestType) {
+        self.triggered.set();
+        self.handler.interest(interest)
     }
 }

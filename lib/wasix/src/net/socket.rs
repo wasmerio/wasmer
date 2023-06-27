@@ -10,7 +10,7 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtual_io::{FilteredHandler, InterestHandler, InterestType};
+use virtual_io::{FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType};
 use virtual_net::{
     NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
     VirtualTcpSocket, VirtualUdpSocket,
@@ -154,6 +154,7 @@ pub enum TimeType {
 pub(crate) struct InodeSocketProtected {
     pub kind: InodeSocketKind,
     pub notifications: InodeSocketNotifications,
+    pub aggregate_handler: Option<FilteredHandlerSubscriptions>,
 }
 
 #[derive(Debug, Default)]
@@ -182,6 +183,7 @@ impl InodeSocket {
                 protected: RwLock::new(InodeSocketProtected {
                     kind,
                     notifications: Default::default(),
+                    aggregate_handler: None,
                 }),
             }),
         }
@@ -352,10 +354,7 @@ impl InodeSocket {
                                 Poll::Ready(Err(Errno::Again))
                             }
                             Err(NetworkError::WouldBlock) if self.handler_registered == false => {
-                                let res = socket.set_handler(
-                                    FilteredHandler::new(cx.waker().into())
-                                        .add_interest(InterestType::Readable),
-                                );
+                                let res = socket.set_handler(cx.waker().into());
                                 if let Err(err) = res {
                                     return Poll::Ready(Err(net_error_into_wasi_err(err)));
                                 }
@@ -932,10 +931,7 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if self.handler_registered == false => {
-                            let res = inner.set_handler(
-                                FilteredHandler::new(cx.waker().into())
-                                    .add_interest(InterestType::Writable),
-                            );
+                            let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));
                             }
@@ -1013,10 +1009,7 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if self.handler_registered == false => {
-                            let res = inner.set_handler(
-                                FilteredHandler::new(cx.waker().into())
-                                    .add_interest(InterestType::Writable),
-                            );
+                            let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));
                             }
@@ -1102,10 +1095,7 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if self.handler_registered == false => {
-                            let res = inner.set_handler(
-                                FilteredHandler::new(cx.waker().into())
-                                    .add_interest(InterestType::Readable),
-                            );
+                            let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));
                             }
@@ -1182,10 +1172,7 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if self.handler_registered == false => {
-                            let res = inner.set_handler(
-                                FilteredHandler::new(cx.waker().into())
-                                    .add_interest(InterestType::Readable),
-                            );
+                            let res = inner.set_handler(cx.waker().into());
                             if let Err(err) = res {
                                 return Poll::Ready(Err(net_error_into_wasi_err(err)));
                             }
@@ -1266,6 +1253,23 @@ impl InodeSocketProtected {
             InodeSocketKind::Icmp(socket) => socket.set_handler(handler),
             InodeSocketKind::PreSocket { .. } => Err(virtual_net::NetworkError::NotConnected),
         }
+    }
+
+    pub fn add_handler(
+        &mut self,
+        handler: Box<dyn InterestHandler + Send + Sync>,
+        interest: InterestType,
+    ) -> virtual_net::Result<()> {
+        if self.aggregate_handler.is_none() {
+            let upper = FilteredHandler::new();
+            let subs = upper.subscriptions().clone();
+
+            self.set_handler(upper)?;
+            self.aggregate_handler.replace(subs);
+        }
+        let upper = self.aggregate_handler.as_mut().unwrap();
+        upper.add_interest(interest, handler);
+        Ok(())
     }
 }
 
