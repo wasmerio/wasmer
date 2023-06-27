@@ -88,8 +88,10 @@ impl WasmerEnv {
         // Fall back to the config file
 
         let config = self.config().ok()?;
-        let login = config.registry.current_login()?;
-        Some(login.token.clone())
+        let registry_endpoint = self.registry_endpoint().ok()?;
+        config
+            .registry
+            .get_login_token_for_registry(registry_endpoint.as_str())
     }
 }
 
