@@ -13,7 +13,7 @@ use predicates::str::contains;
 use rand::Rng;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
-use wasmer_integration_tests_cli::{asset_path, c_asset_path, get_wasmer_path};
+use wasmer_integration_tests_cli::{asset_path, fixtures, get_wasmer_path};
 
 const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -31,22 +31,6 @@ static RUST_LOG: Lazy<String> = Lazy::new(|| {
         .join(",")
     }
 });
-
-fn wasi_test_python_path() -> PathBuf {
-    c_asset_path().join("python-0.1.0.wasmer")
-}
-
-fn wasi_test_wasm_path() -> PathBuf {
-    c_asset_path().join("qjs.wasm")
-}
-
-fn test_no_imports_wat_path() -> PathBuf {
-    asset_path().join("fib.wat")
-}
-
-fn test_no_start_wat_path() -> PathBuf {
-    asset_path().join("no_start.wat")
-}
 
 /// Ignored on Windows because running vendored packages does not work
 /// since Windows does not allow `::` characters in filenames (every other OS does)
@@ -127,7 +111,7 @@ fn run_whoami_works() {
 fn run_wasi_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg(wasi_test_wasm_path())
+        .arg(fixtures::qjs())
         .arg("--")
         .arg("-e")
         .arg("print(3 * (4 + 5))")
@@ -143,7 +127,7 @@ fn run_wasi_works() {
 fn test_wasmer_run_pirita_works() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let python_wasmer_path = temp_dir.path().join("python.wasmer");
-    std::fs::copy(wasi_test_python_path(), &python_wasmer_path).unwrap();
+    std::fs::copy(fixtures::python(), &python_wasmer_path).unwrap();
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -178,9 +162,9 @@ fn test_wasmer_run_works_with_dir() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let qjs_path = temp_dir.path().join("qjs.wasm");
 
-    std::fs::copy(wasi_test_wasm_path(), &qjs_path).unwrap();
+    std::fs::copy(fixtures::qjs(), &qjs_path).unwrap();
     std::fs::copy(
-        c_asset_path().join("qjs-wasmer.toml"),
+        fixtures::qjs_wasmer_toml(),
         temp_dir.path().join("wasmer.toml"),
     )
     .unwrap();
@@ -261,7 +245,7 @@ fn test_wasmer_run_works() {
 fn run_no_imports_wasm_works() {
     Command::new(get_wasmer_path())
         .arg("run")
-        .arg(test_no_imports_wat_path())
+        .arg(fixtures::fib())
         .assert()
         .success();
 }
@@ -425,7 +409,7 @@ fn run_invoke_works_with_nomain_wasi() {
 fn run_no_start_wasm_report_error() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg(test_no_start_wat_path())
+        .arg(fixtures::wat_no_start())
         .assert()
         .failure();
 
@@ -435,7 +419,7 @@ fn run_no_start_wasm_report_error() {
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() {
-    let wasm_test_path = wasi_test_wasm_path();
+    let wasm_test_path = fixtures::qjs();
     let wasm_test_path = wasm_test_path.canonicalize().unwrap_or(wasm_test_path);
     let mut wasm_test_path = format!("{}", wasm_test_path.display());
     if wasm_test_path.starts_with(r#"\\?\"#) {
@@ -901,68 +885,6 @@ fn run_bash_using_coreutils() {
     ]
     .join("\n");
     assert.success().stdout(contains(some_expected_binaries));
-}
-
-mod fixtures {
-    use std::path::{Path, PathBuf};
-
-    use wasmer_integration_tests_cli::{asset_path, c_asset_path};
-
-    /// A WEBC file containing the Python interpreter, compiled to WASI.
-    pub fn python() -> PathBuf {
-        c_asset_path().join("python-0.1.0.wasmer")
-    }
-
-    pub fn coreutils() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("webc")
-            .join("coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc")
-    }
-
-    pub fn bash() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("webc")
-            .join("bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc")
-    }
-
-    /// A WEBC file containing `wat2wasm`, `wasm-validate`, and other helpful
-    /// WebAssembly-related commands.
-    pub fn wabt() -> PathBuf {
-        c_asset_path().join("wabt-1.0.37.wasmer")
-    }
-
-    /// A WEBC file containing the WCGI static server.
-    pub fn static_server() -> PathBuf {
-        c_asset_path().join("staticserver.webc")
-    }
-
-    /// The QuickJS interpreter, compiled to a WASI module.
-    pub fn qjs() -> PathBuf {
-        c_asset_path().join("qjs.wasm")
-    }
-
-    pub fn hello() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("webc")
-            .join("hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc")
-    }
-
-    /// The `wasmer.toml` file for QuickJS.
-    pub fn qjs_wasmer_toml() -> PathBuf {
-        c_asset_path().join("qjs-wasmer.toml")
-    }
-
-    /// An executable which calculates fib(40) and exits with no output.
-    pub fn fib() -> PathBuf {
-        asset_path().join("fib.wat")
-    }
-
-    pub fn wat_no_start() -> PathBuf {
-        asset_path().join("no_start.wat")
-    }
 }
 
 /// A helper that wraps [`Child`] to make sure it gets terminated

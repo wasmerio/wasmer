@@ -12,18 +12,6 @@ use assert_cmd::prelude::OutputAssertExt;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
-fn create_exe_wabt_path() -> PathBuf {
-    c_asset_path().join("wabt-1.0.37.wasmer")
-}
-
-#[allow(dead_code)]
-fn create_exe_python_wasmer() -> PathBuf {
-    c_asset_path().join("python-0.1.0.wasmer")
-}
-
-fn create_exe_test_wasm_path() -> PathBuf {
-    c_asset_path().join("qjs.wasm")
-}
 const JS_TEST_SRC_CODE: &[u8] =
     b"function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));\n";
 
@@ -53,7 +41,7 @@ impl Default for WasmerCreateExe {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(create_exe_test_wasm_path()),
+            wasm_path: PathBuf::from(fixtures::qjs()),
             native_executable_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -128,7 +116,7 @@ impl Default for WasmerCreateObj {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(create_exe_test_wasm_path()),
+            wasm_path: PathBuf::from(fixtures::qjs()),
             output_object_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -173,7 +161,7 @@ fn test_create_exe_with_pirita_works_1() {
     let wasm_out = path.join("out.obj");
     let cmd = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_wabt_path())
+        .arg(fixtures::wabt())
         .arg("-o")
         .arg(&wasm_out)
         .output()
@@ -191,7 +179,7 @@ fn test_create_exe_with_pirita_works_1() {
 
     let cmd = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_wabt_path())
+        .arg(fixtures::wabt())
         .arg("--atom")
         .arg("wasm2wat")
         .arg("-o")
@@ -226,7 +214,7 @@ fn test_create_exe_with_precompiled_works_1() {
     let wasm_out = path.join("out.obj");
     let _ = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_test_wasm_path())
+        .arg(fixtures::qjs())
         .arg("--prefix")
         .arg("sha123123")
         .arg("-o")
@@ -248,7 +236,7 @@ fn test_create_exe_with_precompiled_works_1() {
 
     let _ = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_test_wasm_path())
+        .arg(fixtures::qjs())
         .arg("-o")
         .arg(&wasm_out)
         .output()
@@ -280,7 +268,7 @@ fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("wasm.out");
     #[cfg(windows)]
@@ -321,7 +309,7 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("multicommand.out");
     #[cfg(windows)]
@@ -387,7 +375,7 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
 
     let atoms = &[
         "wabt",
@@ -454,7 +442,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("multicommand.out");
     #[cfg(windows)]
@@ -511,7 +499,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("wasm.out");
     #[cfg(windows)]
@@ -572,7 +560,7 @@ fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.as_path().join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.as_path().join(fixtures::qjs());
 
     let object_path = operating_dir.as_path().join("wasm");
     let _output: Vec<u8> = WasmerCreateObj {
@@ -604,7 +592,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
 
     #[cfg(not(windows))]
     let object_path = operating_dir.join("wasm.o");

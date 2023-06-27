@@ -1,9 +1,5 @@
 use std::{path::PathBuf, process::Stdio};
-use wasmer_integration_tests_cli::{c_asset_path, get_wasmer_path};
-
-fn create_exe_test_wasm_path() -> PathBuf {
-    c_asset_path().join("qjs.wasm")
-}
+use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
 fn wasmer_publish() -> anyhow::Result<()> {
@@ -21,7 +17,7 @@ fn wasmer_publish() -> anyhow::Result<()> {
     let random2 = format!("{}", rand::random::<u32>());
     let random3 = format!("{}", rand::random::<u32>());
 
-    std::fs::copy(create_exe_test_wasm_path(), path.join("largewasmfile.wasm")).unwrap();
+    std::fs::copy(fixtures::qjs(), path.join("largewasmfile.wasm")).unwrap();
     std::fs::write(
         path.join("wasmer.toml"),
         include_str!("./fixtures/init6.toml")
