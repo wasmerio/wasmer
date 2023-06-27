@@ -196,18 +196,11 @@ fn run_whoami_works() {
         return;
     }
 
-    Command::new(get_wasmer_path())
-        .arg("login")
-        .arg("--registry")
-        .arg("wapm.dev")
-        .arg(ciuser_token)
-        .assert()
-        .success();
-
     let assert = Command::new(get_wasmer_path())
         .arg("whoami")
-        .arg("--registry")
-        .arg("wapm.dev")
+        .arg("--registry=wapm.dev")
+        .arg("--token")
+        .arg(&ciuser_token)
         .assert()
         .success();
 
@@ -379,21 +372,12 @@ fn test_wasmer_run_works() {
 
     assert.stdout("hello\n");
 
-    // set wapm.io as the current registry
-    let _ = Command::new(get_wasmer_path())
-        .arg("login")
-        .arg("--registry")
-        .arg("wapm.io")
-        // will fail, but set wapm.io as the current registry regardless
-        .arg("öladkfjasöldfkjasdölfkj")
-        .assert()
-        .success();
-
-    // same test again, but this time without specifying the registry
+    // same test again, but this time without specifying the registry in the URL
     let assert = Command::new(get_wasmer_path())
         .arg("run")
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
         .arg("test.py")
         .assert()
         .success();
@@ -405,6 +389,7 @@ fn test_wasmer_run_works() {
         .arg("run")
         .arg("_/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
         .arg("test.py")
         .assert()
         .success();
@@ -442,19 +427,10 @@ fn run_wasi_works_non_existent() -> anyhow::Result<()> {
 #[ignore]
 #[test]
 fn run_test_caching_works_for_packages() {
-    // set wapm.io as the current registry
-    Command::new(get_wasmer_path())
-        .arg("login")
-        .arg("--registry")
-        .arg("wapm.io")
-        // will fail, but set wapm.io as the current registry regardless
-        .arg("öladkfjasöldfkjasdölfkj")
-        .assert()
-        .success();
-
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
         .arg("test.py")
         .assert()
         .success();
@@ -466,6 +442,7 @@ fn run_test_caching_works_for_packages() {
     let assert = Command::new(get_wasmer_path())
         .arg("python/python")
         .arg(format!("--mapdir=.:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
         .arg("test.py")
         .assert()
         .success();
@@ -478,19 +455,10 @@ fn run_test_caching_works_for_packages() {
 
 #[test]
 fn run_test_caching_works_for_packages_with_versions() {
-    // set wapm.io as the current registry
-    Command::new(get_wasmer_path())
-        .arg("login")
-        .arg("--registry")
-        .arg("wapm.io")
-        // will fail, but set wapm.io as the current registry regardless
-        .arg("öladkfjasöldfkjasdölfkj")
-        .assert()
-        .success();
-
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
         .arg("/app/test.py")
         .assert()
         .success();
@@ -500,6 +468,7 @@ fn run_test_caching_works_for_packages_with_versions() {
     let assert = Command::new(get_wasmer_path())
         .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", ASSET_PATH))
+        .arg("--registry=wasmer.io")
         .arg("/app/test.py")
         .env(
             "RUST_LOG",
