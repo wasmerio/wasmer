@@ -110,7 +110,7 @@
 }
 
 <span class="kw">fn </span>retrieve_alias_pathbuf(alias: <span class="kw-2">&amp;</span>str, real_dir: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;MappedDirectory&gt; {
-    <span class="kw">let </span>pb = PathBuf::from(<span class="kw-2">&amp;</span>real_dir);
+    <span class="kw">let </span>pb = PathBuf::from(<span class="kw-2">&amp;</span>real_dir).canonicalize()<span class="question-mark">?</span>;
     <span class="kw">if let </span><span class="prelude-val">Ok</span>(pb_metadata) = pb.metadata() {
         <span class="kw">if </span>!pb_metadata.is_dir() {
             <span class="macro">bail!</span>(<span class="string">&quot;\&quot;{}\&quot; exists, but it is not a directory&quot;</span>, <span class="kw-2">&amp;</span>real_dir);
