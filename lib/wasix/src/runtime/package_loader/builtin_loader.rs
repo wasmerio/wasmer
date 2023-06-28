@@ -151,28 +151,26 @@ impl BuiltinPackageLoader {
         webc: &[u8],
         dist: &DistributionInfo,
     ) -> Result<Container, Error> {
-        // First, save it to disk
-        if let Some(cache) = self.cache.as_ref() {
-            cache.save(webc, dist).await?;
+        let cache = self
+            .cache
+            .as_ref()
+            .context("Caching to the filesystem isn't supported")?;
 
-            // Now try to load it again. The resulting container should use
-            // a memory-mapped file rather than an in-memory buffer.
-            match cache.lookup(&dist.webc_sha256).await? {
-                Some(container) => Ok(container),
-                None => {
-                    // Something really weird has occurred and we can't see the
-                    // saved file. Just error out and let the fallback code do its
-                    // thing.
-                    Err(Error::msg("Unable to load the downloaded memory from disk"))
-                }
+        // First, save it to disk
+        cache.save(webc, dist).await?;
+
+        // Now try to load it again. The resulting container should use
+        // a memory-mapped file rather than an in-memory buffer.
+        match cache.lookup(&dist.webc_sha256).await? {
+            Some(container) => {
+                self.in_memory.save(&container, dist.webc_sha256);
+                Ok(container)
             }
-        } else {
-            match Container::from_bytes(webc.to_vec()) {
-                Ok(container) => {
-                    self.in_memory.save(&container, dist.webc_sha256);
-                    Ok(container)
-                }
-                Err(e) => Err(Error::new(e).context("Unable to load container")),
+            None => {
+                // Something really weird has occurred and we can't see the
+                // saved file. Just error out and let the fallback code do its
+                // thing.
+                Err(Error::msg("Unable to load the downloaded memory from disk"))
             }
         }
     }
