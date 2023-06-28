@@ -124,7 +124,6 @@
 //! - [Cargo Features](#cargo-features)
 //! - [Using Wasmer in a JavaScript environment](#using-wasmer-in-a-javascript-environment)
 //!
-//!
 //! # WebAssembly Primitives
 //!
 //! In order to make use of the power of the `wasmer` API, it's important
