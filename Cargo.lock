@@ -6323,6 +6323,7 @@ dependencies = [
  "tempfile",
  "test-generator",
  "test-log",
+ "tokio",
  "tracing",
  "tracing-subscriber 0.3.17",
  "wasi-test-generator",
