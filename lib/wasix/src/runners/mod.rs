@@ -69,7 +69,6 @@ pub(crate) fn compile_module(wasm: &[u8], runtime: &dyn Runtime) -> Result<Modul
     let module = Module::new(&engine, wasm)?;
 
     let ret = {
-        let engine = engine.clone();
         let module = module.clone();
         let module_cache = module_cache.clone();
         task_manager
