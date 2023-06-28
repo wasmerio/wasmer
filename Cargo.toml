@@ -99,7 +99,7 @@ criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
-tempfile = "3.4.0"
+tempfile = "3.6.0"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }

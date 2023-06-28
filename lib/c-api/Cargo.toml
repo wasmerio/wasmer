@@ -106,4 +106,4 @@ jit = ["compiler"]
 #emscripten = ["wasmer-emscripten"]
 
 [build-dependencies]
-cbindgen = "0.24"
+cbindgen = { version = "0.24", default-features = false }
