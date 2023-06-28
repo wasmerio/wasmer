@@ -759,10 +759,6 @@
 <a href="#758" id="758">758</a>
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -1441,10 +1437,6 @@
         <span class="string">&quot;wasix_32v1&quot; </span>=&gt; exports_wasix_32v1,
         <span class="string">&quot;wasix_64v1&quot; </span>=&gt; exports_wasix_64v1,
     };
-
-    <span class="kw">for </span>import <span class="kw">in </span>module.imports() {
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;import {}.{}&quot;</span>, import.module(), import.name());
-    }
 
     <span class="comment">// TODO: clean this up!
     </span><span class="macro">cfg_if::cfg_if! </span>{

@@ -1978,6 +1978,25 @@
 <a href="#1977" id="1977">1977</a>
 <a href="#1978" id="1978">1978</a>
 <a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -1987,14 +2006,16 @@
     collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
+    pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
+    task::{Context, Poll},
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::state::{Stderr, Stdin, Stdout};
-<span class="kw">use </span>futures::{future::BoxFuture, TryStreamExt};
+<span class="kw">use </span>futures::{future::BoxFuture, Future, TryStreamExt};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::io::AsyncWriteExt;
@@ -3506,36 +3527,53 @@
     </span><span class="kw">pub async fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
         <span class="kw">match </span>fd {
             __WASI_STDIN_FILENO =&gt; (),
-            __WASI_STDOUT_FILENO =&gt; WasiInodes::stdout_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.fd_map)
-                .map_err(fs_error_into_wasi_err)<span class="question-mark">?
-                </span>.flush()
-                .<span class="kw">await
-                </span>.map_err(map_io_err)<span class="question-mark">?</span>,
-            __WASI_STDERR_FILENO =&gt; WasiInodes::stderr_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.fd_map)
-                .map_err(fs_error_into_wasi_err)<span class="question-mark">?
-                </span>.flush()
-                .<span class="kw">await
-                </span>.map_err(map_io_err)<span class="question-mark">?</span>,
+            __WASI_STDOUT_FILENO =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>file =
+                    WasiInodes::stdout_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.fd_map).map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>;
+                file.flush().<span class="kw">await</span>.map_err(map_io_err)<span class="question-mark">?
+            </span>}
+            __WASI_STDERR_FILENO =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>file =
+                    WasiInodes::stderr_mut(<span class="kw-2">&amp;</span><span class="self">self</span>.fd_map).map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>;
+                file.flush().<span class="kw">await</span>.map_err(map_io_err)<span class="question-mark">?
+            </span>}
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
                 <span class="kw">if </span>fd.rights.contains(Rights::FD_DATASYNC) {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
                 }
 
-                <span class="kw">let </span>guard = fd.inode.read();
-                <span class="kw">match </span>guard.deref() {
-                    Kind::File {
-                        handle: <span class="prelude-val">Some</span>(file), ..
-                    } =&gt; {
-                        <span class="kw">let </span><span class="kw-2">mut </span>file = file.write().unwrap();
-                        file.flush().<span class="kw">await</span>.map_err(|<span class="kw">_</span>| Errno::Io)<span class="question-mark">?
-                    </span>}
-                    <span class="comment">// TODO: verify this behavior
-                    </span>Kind::Dir { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Isdir),
-                    Kind::Buffer { .. } =&gt; (),
-                    <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Io),
-                }
-            }
+                <span class="kw">let </span>work = {
+                    <span class="kw">let </span>guard = fd.inode.read();
+                    <span class="kw">match </span>guard.deref() {
+                        Kind::File {
+                            handle: <span class="prelude-val">Some</span>(file), ..
+                        } =&gt; {
+                            <span class="kw">struct </span>FlushPoller {
+                                file: Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;&gt;,
+                            }
+                            <span class="kw">impl </span>Future <span class="kw">for </span>FlushPoller {
+                                <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;;
+                                <span class="kw">fn </span>poll(
+                                    <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+                                    cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+                                ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                                    <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="self">self</span>.file.write().unwrap();
+                                    Pin::new(file.as_mut())
+                                        .poll_flush(cx)
+                                        .map_err(|<span class="kw">_</span>| Errno::Io)
+                                }
+                            }
+                            FlushPoller { file: file.clone() }
+                        }
+                        <span class="comment">// TODO: verify this behavior
+                        </span>Kind::Dir { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Isdir),
+                        Kind::Buffer { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Io),
+                    }
+                };
+                work.<span class="kw">await</span><span class="question-mark">?
+            </span>}
         }
         <span class="prelude-val">Ok</span>(())
     }

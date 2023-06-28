@@ -1155,6 +1155,7 @@
 <a href="#1154" id="1154">1154</a>
 <a href="#1155" id="1155">1155</a>
 <a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1900,6 +1901,7 @@
             thread: <span class="prelude-val">None</span>,
             call_initialize: <span class="bool-val">true</span>,
             can_deep_sleep: <span class="bool-val">false</span>,
+            extra_tracing: <span class="bool-val">true</span>,
         };
 
         <span class="prelude-val">Ok</span>(init)

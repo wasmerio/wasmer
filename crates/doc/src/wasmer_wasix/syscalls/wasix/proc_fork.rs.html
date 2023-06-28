@@ -305,6 +305,13 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     capture_snapshot,
@@ -337,9 +344,13 @@
     <span class="comment">// If we were just restored then we need to return the value instead
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(result) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, ForkResult&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="kw">if </span>result.pid == <span class="number">0 </span>{
-            <span class="macro">trace!</span>(<span class="string">&quot;handle_rewind - i am child&quot;</span>);
+            <span class="macro">trace!</span>(<span class="string">&quot;handle_rewind - i am child (ret={})&quot;</span>, result.ret);
         } <span class="kw">else </span>{
-            <span class="macro">trace!</span>(<span class="string">&quot;handle_rewind - i am parent (child={})&quot;</span>, result.pid);
+            <span class="macro">trace!</span>(
+                <span class="string">&quot;handle_rewind - i am parent (child={}, ret={})&quot;</span>,
+                result.pid,
+                result.ret
+            );
         }
         <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
         <span class="macro">wasi_try_mem_ok!</span>(pid_ptr.write(<span class="kw-2">&amp;</span>memory, result.pid));
@@ -434,12 +445,15 @@
     <span class="comment">// Perform the unwind action
     </span><span class="kw">let </span>snapshot = capture_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
     unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>memory_stack, rewind_stack| {
+        <span class="kw">let </span>tasks = ctx.data().tasks().clone();
         <span class="kw">let </span>span = <span class="macro">debug_span!</span>(
             <span class="string">&quot;unwind&quot;</span>,
             memory_stack_len = memory_stack.len(),
             rewind_stack_len = rewind_stack.len()
         );
         <span class="kw">let </span>_span_guard = span.enter();
+        <span class="kw">let </span>memory_stack = memory_stack.freeze();
+        <span class="kw">let </span>rewind_stack = rewind_stack.freeze();
 
         <span class="comment">// Grab all the globals and serialize them
         </span><span class="kw">let </span>store_data = snapshot.serialize().unwrap();
@@ -474,8 +488,8 @@
                     <span class="kw">let </span>(data, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
                     <span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
                         ctx,
-                        child_memory_stack.freeze(),
-                        child_rewind_stack.freeze(),
+                        child_memory_stack,
+                        child_rewind_stack,
                         store_data.clone(),
                         ForkResult {
                             pid: <span class="number">0</span>,
@@ -510,14 +524,14 @@
                     );
                     err
                 })
-                .ok()
+                .ok();
         };
 
         <span class="comment">// Rewind the stack and carry on
         </span><span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(
             ctx,
-            memory_stack.freeze(),
-            rewind_stack.freeze(),
+            memory_stack,
+            rewind_stack,
             store_data,
             ForkResult {
                 pid: child_pid.raw() <span class="kw">as </span>Pid,

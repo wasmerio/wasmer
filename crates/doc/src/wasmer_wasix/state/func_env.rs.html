@@ -426,7 +426,7 @@
     /// code
     </span><span class="kw">pub fn </span>cleanup(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, exit_code: <span class="prelude-ty">Option</span>&lt;ExitCode&gt;) {
         <span class="macro">trace!</span>(
-            <span class="string">&quot;wasi[{}:{}]::cleanup - destroying local thread variables&quot;</span>,
+            <span class="string">&quot;wasi[{}:{}]::cleanup&quot;</span>,
             <span class="self">self</span>.data(store).pid(),
             <span class="self">self</span>.data(store).tid()
         );

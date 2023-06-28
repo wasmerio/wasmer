@@ -410,6 +410,19 @@
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -442,7 +455,7 @@
 </span><span class="kw">pub struct </span>BuiltinPackageLoader {
     client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
     in_memory: InMemoryCache,
-    fs: FileSystemCache,
+    cache: <span class="prelude-ty">Option</span>&lt;FileSystemCache&gt;,
 }
 
 <span class="kw">impl </span>BuiltinPackageLoader {
@@ -456,9 +469,17 @@
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
     ) -&gt; <span class="self">Self </span>{
         BuiltinPackageLoader {
-            fs: FileSystemCache {
+            cache: <span class="prelude-val">Some</span>(FileSystemCache {
                 cache_dir: cache_dir.into(),
-            },
+            }),
+            in_memory: InMemoryCache::default(),
+            client,
+        }
+    }
+
+    <span class="kw">pub fn </span>new_only_client(client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+        BuiltinPackageLoader {
+            cache: <span class="prelude-val">None</span>,
             in_memory: InMemoryCache::default(),
             client,
         }
@@ -483,11 +504,13 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = <span class="self">self</span>.fs.lookup(hash).<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="comment">// Note: We want to propagate it to the in-memory cache, too
-            </span><span class="macro">tracing::debug!</span>(<span class="string">&quot;Copying from the filesystem cache to the in-memory cache&quot;</span>);
-            <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>cached, <span class="kw-2">*</span>hash);
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="self">self</span>.cache.as_ref() {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = cache.lookup(hash).<span class="kw">await</span><span class="question-mark">? </span>{
+                <span class="comment">// Note: We want to propagate it to the in-memory cache, too
+                </span><span class="macro">tracing::debug!</span>(<span class="string">&quot;Copying from the filesystem cache to the in-memory cache&quot;</span>);
+                <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>cached, <span class="kw-2">*</span>hash);
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
+            }
         }
 
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -546,33 +569,6 @@
 
         <span class="prelude-val">Ok</span>(body.into())
     }
-
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
-    </span><span class="kw">async fn </span>save_and_load_as_mmapped(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        webc: <span class="kw-2">&amp;</span>[u8],
-        dist: <span class="kw-2">&amp;</span>DistributionInfo,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
-        <span class="comment">// First, save it to disk
-        </span><span class="self">self</span>.fs.save(webc, dist).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="comment">// Now try to load it again. The resulting container should use
-        // a memory-mapped file rather than an in-memory buffer.
-        </span><span class="kw">match </span><span class="self">self</span>.fs.lookup(<span class="kw-2">&amp;</span>dist.webc_sha256).<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="prelude-val">Some</span>(container) =&gt; {
-                <span class="comment">// we also want to make sure it&#39;s in the in-memory cache
-                </span><span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, dist.webc_sha256);
-
-                <span class="prelude-val">Ok</span>(container)
-            }
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="comment">// Something really weird has occurred and we can&#39;t see the
-                // saved file. Just error out and let the fallback code do its
-                // thing.
-                </span><span class="prelude-val">Err</span>(Error::msg(<span class="string">&quot;Unable to load the downloaded memory from disk&quot;</span>))
-            }
-        }
-    }
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -600,30 +596,34 @@
         <span class="comment">// We want to cache the container we downloaded, but we want to do it
         // in a smart way to keep memory usage down.
 
-        </span><span class="kw">match </span><span class="self">self</span>.save_and_load_as_mmapped(<span class="kw-2">&amp;</span>bytes, <span class="kw-2">&amp;</span>summary.dist).<span class="kw">await </span>{
-            <span class="prelude-val">Ok</span>(container) =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cached to disk&quot;</span>);
-                <span class="comment">// The happy path - we&#39;ve saved to both caches and loaded the
-                // container from disk (hopefully using mmap) so we&#39;re done.
-                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(container);
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::warn!</span>(
-                    error=<span class="kw-2">&amp;*</span>e,
-                    pkg.name=%summary.pkg.name,
-                    pkg.version=%summary.pkg.version,
-                    pkg.hash=%summary.dist.webc_sha256,
-                    pkg.url=%summary.dist.webc,
-                    <span class="string">&quot;Unable to save the downloaded package to disk&quot;</span>,
-                );
-                <span class="comment">// The sad path - looks like we&#39;ll need to keep the whole thing
-                // in memory.
-                </span><span class="kw">let </span>container = Container::from_bytes(bytes)<span class="question-mark">?</span>;
-                <span class="comment">// We still want to cache it, of course
-                </span><span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
-                <span class="prelude-val">Ok</span>(container)
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
+            <span class="kw">match </span>cache.save_and_load_as_mmapped(<span class="kw-2">&amp;</span>bytes, <span class="kw-2">&amp;</span>summary.dist).<span class="kw">await </span>{
+                <span class="prelude-val">Ok</span>(container) =&gt; {
+                    <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cached to disk&quot;</span>);
+                    <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
+                    <span class="comment">// The happy path - we&#39;ve saved to both caches and loaded the
+                    // container from disk (hopefully using mmap) so we&#39;re done.
+                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(container);
+                }
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::warn!</span>(
+                        error=<span class="kw-2">&amp;*</span>e,
+                        pkg.name=%summary.pkg.name,
+                        pkg.version=%summary.pkg.version,
+                        pkg.hash=%summary.dist.webc_sha256,
+                        pkg.url=%summary.dist.webc,
+                        <span class="string">&quot;Unable to save the downloaded package to disk&quot;</span>,
+                    );
+                }
             }
         }
+
+        <span class="comment">// The sad path - looks like we don&#39;t have a filesystem cache so we&#39;ll
+        // need to keep the whole thing in memory.
+        </span><span class="kw">let </span>container = Container::from_bytes(bytes)<span class="question-mark">?</span>;
+        <span class="comment">// We still want to cache it in memory, of course
+        </span><span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
+        <span class="prelude-val">Ok</span>(container)
     }
 
     <span class="kw">async fn </span>load_package_tree(
@@ -703,6 +703,28 @@
         );
 
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="kw">async fn </span>save_and_load_as_mmapped(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        webc: <span class="kw-2">&amp;</span>[u8],
+        dist: <span class="kw-2">&amp;</span>DistributionInfo,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
+        <span class="comment">// First, save it to disk
+        </span><span class="self">self</span>.save(webc, dist).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="comment">// Now try to load it again. The resulting container should use
+        // a memory-mapped file rather than an in-memory buffer.
+        </span><span class="kw">match </span><span class="self">self</span>.lookup(<span class="kw-2">&amp;</span>dist.webc_sha256).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="prelude-val">Some</span>(container) =&gt; <span class="prelude-val">Ok</span>(container),
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="comment">// Something really weird has occurred and we can&#39;t see the
+                // saved file. Just error out and let the fallback code do its
+                // thing.
+                </span><span class="prelude-val">Err</span>(Error::msg(<span class="string">&quot;Unable to load the downloaded memory from disk&quot;</span>))
+            }
+        }
     }
 
     <span class="kw">fn </span>path(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>WebcHash) -&gt; PathBuf {
@@ -813,7 +835,11 @@
         </span><span class="kw">let </span>manifest = container.manifest();
         <span class="macro">assert_eq!</span>(manifest.entrypoint.as_deref(), <span class="prelude-val">Some</span>(<span class="string">&quot;python&quot;</span>));
         <span class="comment">// it should have been automatically saved to disk
-        </span><span class="kw">let </span>path = loader.fs.path(<span class="kw-2">&amp;</span>summary.dist.webc_sha256);
+        </span><span class="kw">let </span>path = loader
+            .cache
+            .as_ref()
+            .unwrap()
+            .path(<span class="kw-2">&amp;</span>summary.dist.webc_sha256);
         <span class="macro">assert!</span>(path.exists());
         <span class="macro">assert_eq!</span>(std::fs::read(<span class="kw-2">&amp;</span>path).unwrap(), PYTHON);
         <span class="comment">// and cached in memory for next time

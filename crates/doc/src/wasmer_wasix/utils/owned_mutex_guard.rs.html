@@ -246,6 +246,10 @@
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
 </pre><pre class="rust"><code><span class="doccomment">/// Extends the standard library RwLock to include an owned version of the read
 /// and write locking functions.
 ///
@@ -345,6 +349,8 @@
     </span>ownership: Arc&lt;RwLock&lt;T&gt;&gt;,
 }
 
+<span class="kw">unsafe impl</span>&lt;T&gt; Send <span class="kw">for </span>OwnedRwLockReadGuard&lt;T&gt; <span class="kw">where </span>T: Send {}
+
 <span class="kw">impl</span>&lt;T&gt; Drop <span class="kw">for </span>OwnedRwLockReadGuard&lt;T&gt;
 <span class="kw">where
     </span>T: Sized,
@@ -420,6 +426,8 @@
     </span><span class="attr">#[allow(unused)]
     </span>ownership: Arc&lt;RwLock&lt;T&gt;&gt;,
 }
+
+<span class="kw">unsafe impl</span>&lt;T&gt; Send <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt; <span class="kw">where </span>T: Send {}
 
 <span class="kw">impl</span>&lt;T&gt; Drop <span class="kw">for </span>OwnedRwLockWriteGuard&lt;T&gt;
 <span class="kw">where
