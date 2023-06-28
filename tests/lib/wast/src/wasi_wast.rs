@@ -96,6 +96,13 @@ impl<'a> WasiTest<'a> {
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<bool> {
         use anyhow::Context;
+
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);
         let wasm_bytes = {
