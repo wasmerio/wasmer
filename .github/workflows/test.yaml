@@ -73,7 +73,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-${{ hashFiles('Cargo.lock') }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-${{ github.ref_name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64
             r22-${{ github.repository }}-${{ runner.os }}
@@ -449,7 +449,7 @@ jobs:
             ~/.cargo/*
             ./target/*
             $CARGO_ROOT_DIR/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.metadata.build }}-${{ matrix.build-what.key }}-${{ hashFiles('Cargo.lock') }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.metadata.build }}-${{ matrix.build-what.key }}-${{ github.ref_name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys:
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.metadata.build }}-${{ matrix.build-what.key }}
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer
@@ -628,7 +628,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-${{ matrix.metadata.build }}-${{ matrix.stage.make }}-${{ hashFiles('Cargo.lock') }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-${{ matrix.metadata.build }}-${{ matrix.stage.make }}-${{ github.ref_name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-${{ matrix.metadata.build }}-${{ matrix.stage.make }}
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage
@@ -707,7 +707,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}-${{ hashFiles('Cargo.lock') }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}-${{ github.ref_name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}
             r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli
