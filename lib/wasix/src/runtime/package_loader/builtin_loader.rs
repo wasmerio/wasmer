@@ -144,36 +144,6 @@ impl BuiltinPackageLoader {
 
         Ok(body.into())
     }
-
-    #[tracing::instrument(level = "debug", skip_all)]
-    async fn save_and_load_as_mmapped(
-        &self,
-        webc: &[u8],
-        dist: &DistributionInfo,
-    ) -> Result<Container, Error> {
-        let cache = self
-            .cache
-            .as_ref()
-            .context("Caching to the filesystem isn't supported")?;
-
-        // First, save it to disk
-        cache.save(webc, dist).await?;
-
-        // Now try to load it again. The resulting container should use
-        // a memory-mapped file rather than an in-memory buffer.
-        match cache.lookup(&dist.webc_sha256).await? {
-            Some(container) => {
-                self.in_memory.save(&container, dist.webc_sha256);
-                Ok(container)
-            }
-            None => {
-                // Something really weird has occurred and we can't see the
-                // saved file. Just error out and let the fallback code do its
-                // thing.
-                Err(Error::msg("Unable to load the downloaded memory from disk"))
-            }
-        }
-    }
 }
 
 #[async_trait::async_trait]
@@ -201,30 +171,34 @@ impl PackageLoader for BuiltinPackageLoader {
         // We want to cache the container we downloaded, but we want to do it
         // in a smart way to keep memory usage down.
 
-        match self.save_and_load_as_mmapped(&bytes, &summary.dist).await {
-            Ok(container) => {
-                tracing::debug!("Cached to disk");
-                // The happy path - we've saved to both caches and loaded the
-                // container from disk (hopefully using mmap) so we're done.
-                return Ok(container);
-            }
-            Err(e) => {
-                tracing::warn!(
-                    error=&*e,
-                    pkg.name=%summary.pkg.name,
-                    pkg.version=%summary.pkg.version,
-                    pkg.hash=%summary.dist.webc_sha256,
-                    pkg.url=%summary.dist.webc,
-                    "Unable to save the downloaded package to disk",
-                );
-                // The sad path - looks like we'll need to keep the whole thing
-                // in memory.
-                let container = Container::from_bytes(bytes)?;
-                // We still want to cache it, of course
-                self.in_memory.save(&container, summary.dist.webc_sha256);
-                Ok(container)
+        if let Some(cache) = &self.cache {
+            match cache.save_and_load_as_mmapped(&bytes, &summary.dist).await {
+                Ok(container) => {
+                    tracing::debug!("Cached to disk");
+                    self.in_memory.save(&container, summary.dist.webc_sha256);
+                    // The happy path - we've saved to both caches and loaded the
+                    // container from disk (hopefully using mmap) so we're done.
+                    return Ok(container);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        error=&*e,
+                        pkg.name=%summary.pkg.name,
+                        pkg.version=%summary.pkg.version,
+                        pkg.hash=%summary.dist.webc_sha256,
+                        pkg.url=%summary.dist.webc,
+                        "Unable to save the downloaded package to disk",
+                    );
+                }
             }
         }
+
+        // The sad path - looks like we don't have a filesystem cache so we'll
+        // need to keep the whole thing in memory.
+        let container = Container::from_bytes(bytes)?;
+        // We still want to cache it in memory, of course
+        self.in_memory.save(&container, summary.dist.webc_sha256);
+        Ok(container)
     }
 
     async fn load_package_tree(
@@ -304,6 +278,28 @@ impl FileSystemCache {
         );
 
         Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all)]
+    async fn save_and_load_as_mmapped(
+        &self,
+        webc: &[u8],
+        dist: &DistributionInfo,
+    ) -> Result<Container, Error> {
+        // First, save it to disk
+        self.save(webc, dist).await?;
+
+        // Now try to load it again. The resulting container should use
+        // a memory-mapped file rather than an in-memory buffer.
+        match self.lookup(&dist.webc_sha256).await? {
+            Some(container) => Ok(container),
+            None => {
+                // Something really weird has occurred and we can't see the
+                // saved file. Just error out and let the fallback code do its
+                // thing.
+                Err(Error::msg("Unable to load the downloaded memory from disk"))
+            }
+        }
     }
 
     fn path(&self, hash: &WebcHash) -> PathBuf {
