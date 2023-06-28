@@ -30,9 +30,13 @@ pub fn proc_fork<M: MemorySize>(
     // If we were just restored then we need to return the value instead
     if let Some(result) = unsafe { handle_rewind::<M, ForkResult>(&mut ctx) } {
         if result.pid == 0 {
-            trace!("handle_rewind - i am child");
+            trace!("handle_rewind - i am child (ret={})", result.ret);
         } else {
-            trace!("handle_rewind - i am parent (child={})", result.pid);
+            trace!(
+                "handle_rewind - i am parent (child={}, ret={})",
+                result.pid,
+                result.ret
+            );
         }
         let memory = unsafe { ctx.data().memory_view(&ctx) };
         wasi_try_mem_ok!(pid_ptr.write(&memory, result.pid));
@@ -127,12 +131,15 @@ pub fn proc_fork<M: MemorySize>(
     // Perform the unwind action
     let snapshot = capture_snapshot(&mut ctx.as_store_mut());
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
+        let tasks = ctx.data().tasks().clone();
         let span = debug_span!(
             "unwind",
             memory_stack_len = memory_stack.len(),
             rewind_stack_len = rewind_stack.len()
         );
         let _span_guard = span.enter();
+        let memory_stack = memory_stack.freeze();
+        let rewind_stack = rewind_stack.freeze();
 
         // Grab all the globals and serialize them
         let store_data = snapshot.serialize().unwrap();
@@ -167,8 +174,8 @@ pub fn proc_fork<M: MemorySize>(
                     let (data, mut store) = ctx.data_and_store_mut();
                     match rewind::<M, _>(
                         ctx,
-                        child_memory_stack.freeze(),
-                        child_rewind_stack.freeze(),
+                        child_memory_stack,
+                        child_rewind_stack,
                         store_data.clone(),
                         ForkResult {
                             pid: 0,
@@ -203,14 +210,14 @@ pub fn proc_fork<M: MemorySize>(
                     );
                     err
                 })
-                .ok()
+                .ok();
         };
 
         // Rewind the stack and carry on
         match rewind::<M, _>(
             ctx,
-            memory_stack.freeze(),
-            rewind_stack.freeze(),
+            memory_stack,
+            rewind_stack,
             store_data,
             ForkResult {
                 pid: child_pid.raw() as Pid,

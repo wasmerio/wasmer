@@ -97,6 +97,8 @@ pub(crate) struct OwnedRwLockReadGuard<T: 'static> {
     ownership: Arc<RwLock<T>>,
 }
 
+unsafe impl<T> Send for OwnedRwLockReadGuard<T> where T: Send {}
+
 impl<T> Drop for OwnedRwLockReadGuard<T>
 where
     T: Sized,
@@ -172,6 +174,8 @@ pub(crate) struct OwnedRwLockWriteGuard<T: 'static> {
     #[allow(unused)]
     ownership: Arc<RwLock<T>>,
 }
+
+unsafe impl<T> Send for OwnedRwLockWriteGuard<T> where T: Send {}
 
 impl<T> Drop for OwnedRwLockWriteGuard<T>
 where
