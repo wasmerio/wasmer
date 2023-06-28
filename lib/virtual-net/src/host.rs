@@ -303,9 +303,7 @@ impl VirtualSocket for LocalTcpStream {
             &self.selector,
             handler,
             &mut self.stream,
-            mio::Interest::READABLE
-                .add(mio::Interest::WRITABLE)
-                .add(mio::Interest::PRIORITY),
+            mio::Interest::READABLE.add(mio::Interest::WRITABLE),
         )
         .map_err(io_err_into_net_error)?;
 
@@ -450,9 +448,7 @@ impl VirtualSocket for LocalUdpSocket {
             &self.selector,
             handler,
             &mut self.socket,
-            mio::Interest::READABLE
-                .add(mio::Interest::WRITABLE)
-                .add(mio::Interest::PRIORITY),
+            mio::Interest::READABLE.add(mio::Interest::WRITABLE),
         )
         .map_err(io_err_into_net_error)?;
 
