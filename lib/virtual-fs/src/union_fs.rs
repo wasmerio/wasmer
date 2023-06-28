@@ -1079,9 +1079,9 @@ mod tests {
     }
     */
 
-    #[test]
+    #[tokio::test]
     #[ignore = "Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678"]
-    fn mount_to_overlapping_directories() {
+    async fn mount_to_overlapping_directories() {
         let top_level = mem_fs::FileSystem::default();
         ops::touch(&top_level, "/file.txt").unwrap();
         let nested = mem_fs::FileSystem::default();

@@ -43,7 +43,14 @@ use crate::{
 ///     host_fs::FileSystem as HostFS,
 ///     OverlayFileSystem,
 /// };
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS]);
+///
+/// let runtime = tokio::runtime::Builder::new_current_thread()
+///     .enable_all()
+///     .build()
+///     .unwrap();
+///     let _guard = runtime.enter();
+///
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::default()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -1143,8 +1150,8 @@ mod tests {
         assert_ne!(content, "This is shadowed");
     }
 
-    #[test]
-    fn create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
+    #[tokio::test]
+    async fn create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
         ops::create_dir_all(&secondary, "/path/to/").unwrap();
@@ -1316,8 +1323,8 @@ mod tests {
         assert_eq!(original_entries, candidate_entries);
     }
 
-    #[test]
-    fn absolute_and_relative_paths_are_passed_through() {
+    #[tokio::test]
+    async fn absolute_and_relative_paths_are_passed_through() {
         let python = Arc::new(load_webc(PYTHON));
 
         // The underlying filesystem doesn't care about absolute/relative paths

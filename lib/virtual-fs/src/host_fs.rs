@@ -941,8 +941,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_create_dir() {
+    #[tokio::test]
+    async fn test_create_dir() {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
 
@@ -1000,8 +1000,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_remove_dir() {
+    #[tokio::test]
+    async fn test_remove_dir() {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::default();
 
@@ -1356,8 +1356,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_canonicalize() {
+    #[tokio::test]
+    async fn test_canonicalize() {
         let temp = TempDir::new().unwrap();
         std::fs::create_dir_all(temp.path().join("foo/bar/baz/qux")).unwrap();
         std::fs::write(temp.path().join("foo/bar/baz/qux/hello.txt"), b"").unwrap();
