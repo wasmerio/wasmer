@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fmt::Write as _,
     io::{ErrorKind, Write as _},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, RwLock},
 };
 
@@ -60,18 +60,12 @@ impl BuiltinPackageLoader {
         }
     }
 
-    /// Get the directory that is typically used when caching downloaded
-    /// packages inside `$WASMER_DIR`.
-    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
-        wasmer_dir.as_ref().join("checkouts")
-    }
-
     /// Create a new [`BuiltinPackageLoader`] based on `$WASMER_DIR` and the
     /// global Wasmer config.
     pub fn from_env() -> Result<Self, Error> {
         let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
         let client = crate::http::default_http_client().context("No HTTP client available")?;
-        let cache_dir = BuiltinPackageLoader::default_cache_dir(wasmer_dir);
+        let cache_dir = wasmer_dir.join("cache").join("");
 
         Ok(BuiltinPackageLoader::new_with_client(
             cache_dir,
@@ -97,6 +91,7 @@ impl BuiltinPackageLoader {
         Ok(None)
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(%dist.webc, %dist.webc_sha256))]
     async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
         if dist.webc.scheme() == "file" {
             match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
@@ -124,7 +119,18 @@ impl BuiltinPackageLoader {
             options: Default::default(),
         };
 
+        tracing::debug!(%request.url, %request.method, "Downloading a webc file");
+        tracing::trace!(?request.headers);
+
         let response = self.client.request(request).await?;
+
+        tracing::trace!(
+            %response.status,
+            %response.redirected,
+            ?response.headers,
+            response.len=response.body.as_ref().map(|body| body.len()),
+            "Received a response",
+        );
 
         if !response.is_ok() {
             let url = &dist.webc;
@@ -139,6 +145,7 @@ impl BuiltinPackageLoader {
         Ok(body.into())
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     async fn save_and_load_as_mmapped(
         &self,
         webc: &[u8],

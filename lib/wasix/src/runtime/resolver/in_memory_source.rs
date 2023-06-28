@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use semver::Version;
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary, Source};
+use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -88,7 +88,7 @@ impl InMemorySource {
 #[async_trait::async_trait]
 impl Source for InMemorySource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, Error> {
+    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         match package {
             PackageSpecifier::Registry { full_name, version } => {
                 match self.packages.get(full_name) {
@@ -106,12 +106,18 @@ impl Source for InMemorySource {
                                 .collect::<Vec<_>>(),
                         );
 
+                        if matches.is_empty() {
+                            return Err(QueryError::NoMatches {
+                                archived_versions: Vec::new(),
+                            });
+                        }
+
                         Ok(matches)
                     }
-                    None => Ok(Vec::new()),
+                    None => Err(QueryError::NotFound),
                 }
             }
-            PackageSpecifier::Url(_) | PackageSpecifier::Path(_) => Ok(Vec::new()),
+            PackageSpecifier::Url(_) | PackageSpecifier::Path(_) => Err(QueryError::Unsupported),
         }
     }
 }

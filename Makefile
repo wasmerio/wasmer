@@ -312,7 +312,7 @@ ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
 endif
 
-HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
 
 TARGET_DIR ?= target/release
 

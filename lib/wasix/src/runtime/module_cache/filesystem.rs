@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io::{BufWriter, Write},
+    path::{Path, PathBuf},
+};
 
 use tempfile::NamedTempFile;
 use wasmer::{Engine, Module};
@@ -19,12 +22,6 @@ impl FileSystemCache {
         }
     }
 
-    /// Get the directory that is typically used when caching compiled
-    /// packages inside `$WASMER_DIR`.
-    pub fn default_cache_dir(wasmer_dir: impl AsRef<Path>) -> PathBuf {
-        wasmer_dir.as_ref().join("compiled")
-    }
-
     pub fn cache_dir(&self) -> &Path {
         &self.cache_dir
     }
@@ -40,6 +37,7 @@ impl FileSystemCache {
 
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
+    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
@@ -48,11 +46,13 @@ impl ModuleCache for FileSystemCache {
         // background.
         // https://github.com/wasmerio/wasmer/issues/3851
 
-        let uncompressed = read_compressed(&path)?;
+        let bytes = read_file(&path)?;
 
-        let res = unsafe { Module::deserialize(&engine, uncompressed) };
-        match res {
-            Ok(m) => Ok(m),
+        match deserialize(&bytes, engine) {
+            Ok(m) => {
+                tracing::debug!("Cache hit!");
+                Ok(m)
+            }
             Err(e) => {
                 tracing::debug!(
                     %key,
@@ -70,11 +70,12 @@ impl ModuleCache for FileSystemCache {
                     );
                 }
 
-                Err(CacheError::Deserialize(e))
+                Err(e)
             }
         }
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn save(
         &self,
         key: ModuleHash,
@@ -102,58 +103,64 @@ impl ModuleCache for FileSystemCache {
 
         // Note: We save to a temporary file and persist() it at the end so
         // concurrent readers won't see a partially written module.
-        let mut f = NamedTempFile::new_in(parent).map_err(CacheError::other)?;
+        let mut temp = NamedTempFile::new_in(parent).map_err(CacheError::other)?;
         let serialized = module.serialize()?;
 
-        if let Err(e) = save_compressed(&mut f, &serialized) {
-            return Err(CacheError::FileWrite { path, error: e });
+        if let Err(error) = BufWriter::new(&mut temp).write_all(&serialized) {
+            return Err(CacheError::FileWrite { path, error });
         }
 
-        f.persist(&path).map_err(CacheError::other)?;
+        temp.persist(&path).map_err(CacheError::other)?;
 
         Ok(())
     }
 }
 
-fn save_compressed(writer: impl std::io::Write, data: &[u8]) -> Result<(), std::io::Error> {
-    let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
-    encoder
-        .into_stream(writer)
-        .encode_all(std::io::Cursor::new(data))
-        .status?;
-
-    Ok(())
+fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
+        Err(error) => Err(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
+    }
 }
 
-fn read_compressed(path: &Path) -> Result<Vec<u8>, CacheError> {
-    let compressed = match std::fs::read(path) {
-        Ok(bytes) => bytes,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            return Err(CacheError::NotFound);
-        }
-        Err(error) => {
-            return Err(CacheError::FileRead {
-                path: path.to_path_buf(),
-                error,
-            });
-        }
-    };
+fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
+    // We used to compress our compiled modules using LZW encoding in the past.
+    // This was removed because it has a negative impact on startup times for
+    // "wasmer run", so all new compiled modules should be saved directly to
+    // disk.
+    //
+    // For perspective, compiling php.wasm with cranelift took about 4.75
+    // seconds on a M1 Mac.
+    //
+    // Without LZW compression:
+    // - ModuleCache::save(): 408ms, 142MB binary
+    // - ModuleCache::load(): 155ms
+    // With LZW compression:
+    // - ModuleCache::save(): 2.4s, 72MB binary
+    // - ModuleCache::load(): 822ms
 
-    let mut uncompressed = Vec::new();
-    let mut decoder = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8);
-    decoder
-        .into_vec(&mut uncompressed)
-        .decode_all(&compressed)
-        .status
-        .map_err(CacheError::other)?;
+    match unsafe { Module::deserialize(engine, bytes) } {
+        // The happy case
+        Ok(m) => Ok(m),
+        Err(wasmer::DeserializeError::Incompatible(_)) => {
+            let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
+                .decode(bytes)
+                .map_err(CacheError::other)?;
 
-    Ok(uncompressed)
+            let m = unsafe { Module::deserialize(engine, bytes)? };
+
+            Ok(m)
+        }
+        Err(e) => Err(CacheError::Deserialize(e)),
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-
     use tempfile::TempDir;
 
     use super::*;
@@ -219,7 +226,31 @@ mod tests {
         let expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
-        save_compressed(File::create(&expected_path).unwrap(), &serialized).unwrap();
+        std::fs::write(&expected_path, &serialized).unwrap();
+
+        let module = cache.load(key, &engine).await.unwrap();
+
+        let exports: Vec<_> = module
+            .exports()
+            .map(|export| export.name().to_string())
+            .collect();
+        assert_eq!(exports, ["add"]);
+    }
+
+    /// For backwards compatibility, make sure we can still work with LZW
+    /// compressed modules.
+    #[tokio::test]
+    async fn can_still_load_lzw_compressed_binaries() {
+        let temp = TempDir::new().unwrap();
+        let engine = Engine::default();
+        let module = Module::new(&engine, ADD_WAT).unwrap();
+        let key = ModuleHash::from_bytes([0; 32]);
+        let cache = FileSystemCache::new(temp.path());
+        let expected_path = cache.path(key, engine.deterministic_id());
+        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
+        let serialized = module.serialize().unwrap();
+        let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
+        std::fs::write(&expected_path, encoder.encode(&serialized).unwrap()).unwrap();
 
         let module = cache.load(key, &engine).await.unwrap();
 

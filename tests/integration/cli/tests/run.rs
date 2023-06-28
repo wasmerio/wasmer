@@ -425,15 +425,15 @@ fn run_no_imports_wasm_works() {
 fn run_wasi_works_non_existent() -> anyhow::Result<()> {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("does/not/exist")
+        .arg("does-not/exist")
         .assert()
         .failure();
 
     assert
-        .stderr(contains("error: Unable to resolve \"does/not/exist@*\""))
         .stderr(contains(
-            "╰─▶ 1: Unable to find any packages that satisfy the query",
-        ));
+            "Unable to find \"does-not/exist\" in the registry",
+        ))
+        .stderr(contains("1: Not found"));
 
     Ok(())
 }
