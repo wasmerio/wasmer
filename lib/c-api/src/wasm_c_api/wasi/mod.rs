@@ -56,7 +56,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stderr: true,
         inherit_stdin: true,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
-        runtime: runtime,
+        runtime,
     }))
 }
 
