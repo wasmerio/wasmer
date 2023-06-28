@@ -150,3 +150,26 @@ pub fn get_repo_root_path() -> Option<PathBuf> {
     }
     result
 }
+
+pub fn get_wasmer_dir() -> Result<PathBuf, anyhow::Error> {
+    if let Ok(s) = std::env::var("WASMER_DIR") {
+        Ok(Path::new(&s).to_path_buf())
+    } else if let Some(root_dir) = get_repo_root_path().and_then(|root| {
+        if root.join("package").exists() {
+            Some(root.join("package"))
+        } else {
+            None
+        }
+    }) {
+        Ok(root_dir)
+    } else {
+        let home_dir = dirs::home_dir()
+            .ok_or(anyhow::anyhow!("no home dir"))?
+            .join(".wasmer");
+        if home_dir.exists() {
+            Ok(home_dir)
+        } else {
+            Err(anyhow::anyhow!("no .wasmer home dir"))
+        }
+    }
+}
