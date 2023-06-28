@@ -333,7 +333,7 @@ unsafe impl ValueType for EpollType {
 
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " Epoll available event types."]
-    #[derive(Serialize, Deserialize)]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct EpollType : u32 {
         #[doc = " The associated file is available for read(2) operations."]
         const EPOLLIN = 1 << 0;
