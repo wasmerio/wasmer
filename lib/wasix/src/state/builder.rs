@@ -1128,6 +1128,13 @@ mod test {
 
     #[test]
     fn env_var_errors() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+
         // `=` in the key is invalid.
         assert!(
             WasiEnv::builder("test_prog")
