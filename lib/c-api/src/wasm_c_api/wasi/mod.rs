@@ -15,12 +15,15 @@ use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
+use std::sync::Arc;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_version, runtime::task_manager::InlineWaker,
-    virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe, WasiEnv, WasiEnvBuilder,
-    WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version,
+    runtime::task_manager::{tokio::TokioTaskManager, InlineWaker},
+    virtual_fs::AsyncReadExt,
+    virtual_fs::VirtualFile,
+    Pipe, PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -30,7 +33,7 @@ pub struct wasi_config_t {
     inherit_stderr: bool,
     inherit_stdin: bool,
     builder: WasiEnvBuilder,
-    _runtime: tokio::runtime::Runtime,
+    runtime: tokio::runtime::Runtime,
 }
 
 #[no_mangle]
@@ -53,7 +56,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stderr: true,
         inherit_stdin: true,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
-        _runtime: runtime,
+        runtime: runtime,
     }))
 }
 
@@ -223,13 +226,6 @@ unsafe fn wasi_env_with_filesystem_inner(
     imports: Option<&mut wasm_extern_vec_t>,
     package: *const c_char,
 ) -> Option<Box<wasi_env_t>> {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-    let handle = runtime.handle().clone();
-    let _guard = handle.enter();
-
     let store = &mut store?.inner;
     let fs = fs.as_ref()?;
     let package_str = CStr::from_ptr(package);
@@ -251,7 +247,6 @@ unsafe fn wasi_env_with_filesystem_inner(
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
         store: store.clone(),
-        _handle: handle.clone(),
     }))
 }
 
@@ -266,6 +261,12 @@ fn prepare_webc_env(
 ) -> Option<(WasiFunctionEnv, Imports)> {
     use virtual_fs::static_fs::StaticFileSystem;
     use webc::v1::{FsEntryType, WebC};
+
+    let store_mut = store.as_store_mut();
+    let handle = config.runtime.handle().clone();
+    let _guard = handle.enter();
+    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+    rt.set_engine(Some(store_mut.engine().clone()));
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
     let volumes = WebC::parse_volumes_from_fileblock(slice).ok()?;
@@ -302,7 +303,7 @@ fn prepare_webc_env(
             .add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))
             .ok()?;
     }
-    let env = builder.finalize(store).ok()?;
+    let env = builder.runtime(Arc::new(rt)).finalize(store).ok()?;
 
     let import_object = env.import_object(store, module).ok()?;
     Some((env, import_object))
@@ -313,7 +314,6 @@ pub struct wasi_env_t {
     /// cbindgen:ignore
     pub(super) inner: WasiFunctionEnv,
     pub(super) store: StoreRef,
-    pub(super) _handle: tokio::runtime::Handle,
 }
 
 /// Create a new WASI environment.
@@ -327,12 +327,10 @@ pub unsafe extern "C" fn wasi_env_new(
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
 
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-    let handle = runtime.handle().clone();
+    let handle = config.runtime.handle().clone();
     let _guard = handle.enter();
+    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+    rt.set_engine(Some(store_mut.engine().clone()));
 
     if !config.inherit_stdout {
         config.builder.set_stdout(Box::new(Pipe::channel().0));
@@ -344,12 +342,14 @@ pub unsafe extern "C" fn wasi_env_new(
 
     // TODO: impl capturer for stdin
 
-    let env = c_try!(config.builder.finalize(&mut store_mut));
+    let env = c_try!(config
+        .builder
+        .runtime(Arc::new(rt))
+        .finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
         inner: env,
         store: store.clone(),
-        _handle: handle.clone(),
     }))
 }
 

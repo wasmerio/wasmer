@@ -97,11 +97,19 @@ impl<'a> WasiTest<'a> {
     ) -> anyhow::Result<bool> {
         use anyhow::Context;
 
+        #[cfg(not(target_arch = "wasm32"))]
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()?;
+        #[cfg(not(target_arch = "wasm32"))]
         let handle = runtime.handle().clone();
+        #[cfg(not(target_arch = "wasm32"))]
         let _guard = handle.enter();
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        #[cfg(target_arch = "wasm32")]
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
+        rt.set_engine(Some(store.engine().clone()));
 
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);
@@ -111,9 +119,6 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
-        rt.set_engine(Some(store.engine().clone()));
 
         let module = Module::new(store, wasm_bytes)?;
         let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
