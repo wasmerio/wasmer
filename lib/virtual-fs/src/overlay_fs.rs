@@ -1205,7 +1205,8 @@ mod tests {
         // (initialized with a set of unix-like folders), but certain folders
         // are first to the host.
         let primary = RootFileSystemBuilder::new().build();
-        let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::host_fs::FileSystem);
+        let host_fs: Arc<dyn FileSystem + Send + Sync> =
+            Arc::new(crate::host_fs::FileSystem::default());
         let first_dirs = [(&first, "/first"), (&second, "/second")];
         for (host, guest) in first_dirs {
             primary

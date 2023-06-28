@@ -30,7 +30,7 @@ pub struct wasi_config_t {
     inherit_stderr: bool,
     inherit_stdin: bool,
     builder: WasiEnvBuilder,
-    runtime: tokio::runtime::Runtime,
+    _runtime: tokio::runtime::Runtime,
 }
 
 #[no_mangle]
@@ -53,7 +53,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stderr: true,
         inherit_stdin: true,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
-        runtime,
+        _runtime: runtime,
     }))
 }
 
