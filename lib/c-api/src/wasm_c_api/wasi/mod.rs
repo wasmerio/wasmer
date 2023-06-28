@@ -223,6 +223,13 @@ unsafe fn wasi_env_with_filesystem_inner(
     imports: Option<&mut wasm_extern_vec_t>,
     package: *const c_char,
 ) -> Option<Box<wasi_env_t>> {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let handle = runtime.handle().clone();
+    let _guard = handle.enter();
+
     let store = &mut store?.inner;
     let fs = fs.as_ref()?;
     let package_str = CStr::from_ptr(package);
@@ -244,6 +251,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
         store: store.clone(),
+        _handle: handle.clone(),
     }))
 }
 
@@ -305,6 +313,7 @@ pub struct wasi_env_t {
     /// cbindgen:ignore
     pub(super) inner: WasiFunctionEnv,
     pub(super) store: StoreRef,
+    pub(super) _handle: tokio::runtime::Handle,
 }
 
 /// Create a new WASI environment.
@@ -317,6 +326,14 @@ pub unsafe extern "C" fn wasi_env_new(
 ) -> Option<Box<wasi_env_t>> {
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
+
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let handle = runtime.handle().clone();
+    let _guard = handle.enter();
+
     if !config.inherit_stdout {
         config.builder.set_stdout(Box::new(Pipe::channel().0));
     }
@@ -332,6 +349,7 @@ pub unsafe extern "C" fn wasi_env_new(
     Some(Box::new(wasi_env_t {
         inner: env,
         store: store.clone(),
+        _handle: handle.clone(),
     }))
 }
 
