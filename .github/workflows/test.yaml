@@ -73,7 +73,10 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-lint-linux-x64
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-lint-linux-x64
+            r22-${{ github.repository }}-${{ runner.os }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -446,7 +449,10 @@ jobs:
             ~/.cargo/*
             ./target/*
             $CARGO_ROOT_DIR/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-build-wasmer-${{ matrix.build-what.key }}-${{ matrix.metadata.build }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.metadata.build }}-${{ matrix.build-what.key }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys:
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer-${{ matrix.metadata.build }}-${{ matrix.build-what.key }}
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-build-wasmer
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -622,7 +628,10 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-${{ matrix.metadata.build }}-${{ matrix.stage.make }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage-${{ matrix.metadata.build }}-${{ matrix.stage.make }}
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-stage
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -698,7 +707,10 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: r22-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-integration-cli-${{ matrix.build }}
+          key: r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli-${{ matrix.build }}
+            r22-${{ github.repository }}-${{ runner.os }}-wasmer-make-test-integration-cli
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
