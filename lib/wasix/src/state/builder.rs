@@ -795,6 +795,7 @@ impl WasiEnvBuilder {
     #[allow(clippy::result_large_err)]
     pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
         // If no handle or runtime exists then create one
+        #[cfg(feature = "sys-thread")]
         let _guard = if tokio::runtime::Handle::try_current().is_err() {
             let runtime = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -804,6 +805,7 @@ impl WasiEnvBuilder {
         } else {
             None
         };
+        #[cfg(feature = "sys-thread")]
         let _guard = _guard.as_ref().map(|r| r.enter());
 
         if self.capabilites.threading.enable_asynchronous_threading {
@@ -843,6 +845,7 @@ impl WasiEnvBuilder {
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
         // If no handle or runtime exists then create one
+        #[cfg(feature = "sys-thread")]
         let _guard = if tokio::runtime::Handle::try_current().is_err() {
             let runtime = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -852,6 +855,7 @@ impl WasiEnvBuilder {
         } else {
             None
         };
+        #[cfg(feature = "sys-thread")]
         let _guard = _guard.as_ref().map(|r| r.enter());
 
         let (_, env) = self.instantiate(module, &mut store)?;
