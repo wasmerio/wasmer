@@ -158,13 +158,12 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(err) => {
-                    eprintln!("Could not deserialize as static object: {}", err);
+                Err(_) => {
+                    return Err(DeserializeError::Incompatible(
+                        "The provided bytes are not wasmer-universal".to_string(),
+                    ));
                 }
             }
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-universal".to_string(),
-            ));
         }
 
         let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
@@ -198,13 +197,12 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(err) => {
-                    eprintln!("Could not deserialize as static object: {}", err);
+                Err(_) => {
+                    return Err(DeserializeError::Incompatible(
+                        "The provided bytes are not wasmer-universal".to_string(),
+                    ));
                 }
             }
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-universal".to_string(),
-            ));
         }
 
         let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
