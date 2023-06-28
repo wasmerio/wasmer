@@ -29,6 +29,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
