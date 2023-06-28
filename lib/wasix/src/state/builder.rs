@@ -1128,11 +1128,14 @@ mod test {
 
     #[test]
     fn env_var_errors() {
+        #[cfg(not(target_arch = "wasm32"))]
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
             .unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
         let handle = runtime.handle().clone();
+        #[cfg(not(target_arch = "wasm32"))]
         let _guard = handle.enter();
 
         // `=` in the key is invalid.
