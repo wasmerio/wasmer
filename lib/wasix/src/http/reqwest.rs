@@ -19,14 +19,16 @@ impl Default for ReqwestHttpClient {
 
 impl ReqwestHttpClient {
     async fn request(&self, request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
-        let _guard = Handle::try_current().map_err(|_| self.handle.enter());
         let method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| format!("Invalid http method {}", request.method))?;
 
         // TODO: use persistent client?
-        let client = reqwest::ClientBuilder::default()
-            .build()
-            .context("Could not create reqwest client")?;
+        let client = {
+            let _guard = Handle::try_current().map_err(|_| self.handle.enter());
+            reqwest::ClientBuilder::default()
+                .build()
+                .context("Could not create reqwest client")?
+        };
 
         let mut builder = client.request(method, request.url.as_str());
         for (header, val) in &request.headers {
