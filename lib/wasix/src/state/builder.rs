@@ -743,6 +743,7 @@ impl WasiEnvBuilder {
             thread: None,
             call_initialize: true,
             can_deep_sleep: false,
+            extra_tracing: true,
         };
 
         Ok(init)
