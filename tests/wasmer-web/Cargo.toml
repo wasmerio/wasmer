@@ -1,0 +1,19 @@
+[package]
+name = "wasmer-web-tests"
+version = "0.0.0"
+description = "Integration tests for wasmer-web"
+publish = false
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+
+[dependencies]
+anyhow = "1.0.71"
+fantoccini = "0.19.3"
+futures = "0.3.28"
+macro_rules_attribute = "0.2.0"
+serde_json = "1.0.99"
+tempfile = "3.6.0"
+tokio = { version = "1.29.0", features = ["process", "macros", "rt", "fs", "rt-multi-thread"] }
