@@ -222,11 +222,21 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Memory management for executable code.
 </span><span class="kw">use </span><span class="kw">super</span>::unwind::UnwindRegistry;
+<span class="kw">use </span><span class="kw">crate</span>::GlobalFrameInfoRegistration;
 <span class="kw">use </span>wasmer_types::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 <span class="kw">use </span>wasmer_vm::{Mmap, VMFunctionBody};
 
@@ -243,6 +253,8 @@
 
 <span class="doccomment">/// Memory manager for executable code.
 </span><span class="kw">pub struct </span>CodeMemory {
+    <span class="comment">// frame info is placed first, to ensure it&#39;s dropped before the mmap
+    </span>frame_info_registration: <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt;,
     unwind_registry: UnwindRegistry,
     mmap: Mmap,
     start_of_nonexecutable_pages: usize,
@@ -255,6 +267,7 @@
             unwind_registry: UnwindRegistry::new(),
             mmap: Mmap::new(),
             start_of_nonexecutable_pages: <span class="number">0</span>,
+            frame_info_registration: <span class="prelude-val">None</span>,
         }
     }
 
@@ -430,6 +443,11 @@
         <span class="kw">let </span>byte_ptr: <span class="kw-2">*mut </span>[u8] = slice;
         <span class="kw">let </span>body_ptr = byte_ptr <span class="kw">as </span><span class="kw-2">*mut </span>[VMFunctionBody];
         <span class="kw">unsafe </span>{ <span class="kw-2">&amp;mut *</span>body_ptr }
+    }
+
+    <span class="doccomment">/// Register the frame info, so it&#39;s free when the mememory gets freed
+    </span><span class="kw">pub fn </span>register_frame_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>, frame_info: GlobalFrameInfoRegistration) {
+        <span class="self">self</span>.frame_info_registration = <span class="prelude-val">Some</span>(frame_info);
     }
 }
 

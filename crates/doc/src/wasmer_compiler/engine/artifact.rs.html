@@ -901,6 +901,51 @@
 <a href="#901" id="901">901</a>
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -921,7 +966,6 @@
 </span><span class="kw">use </span>std::mem;
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>std::sync::Mutex;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">use </span>wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;static-artifact-load&quot;</span>))]
@@ -941,12 +985,19 @@
 <span class="kw">use </span>wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 <span class="kw">pub struct </span>AllocatedArtifact {
+    <span class="comment">// This shows if the frame info has been regestered already or not.
+    // Because the &#39;GlobalFrameInfoRegistration&#39; ownership can be transfered to EngineInner
+    // this bool is needed to track the status, as &#39;frame_info_registration&#39; will be None
+    // after the ownership is transfered.
+    </span>frame_info_registered: bool,
+    <span class="comment">// frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
+    // using &#39;Artifact::take_frame_info_registration&#39; method
+    // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
+    </span>frame_info_registration: <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt;,
     finished_functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
     finished_function_call_trampolines: BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
     finished_dynamic_function_trampolines: BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt;,
     signatures: BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
-    <span class="doccomment">/// Some(_) only if this is not a deserialized static artifact
-    </span>frame_info_registration: <span class="prelude-ty">Option</span>&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt;&gt;&gt;,
     finished_function_lengths: BoxedSlice&lt;LocalFunctionIndex, usize&gt;,
 }
 
@@ -1202,18 +1253,26 @@
             finished_dynamic_function_trampolines.into_boxed_slice();
         <span class="kw">let </span>signatures = signatures.into_boxed_slice();
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>artifact = <span class="self">Self </span>{
             id: Default::default(),
             artifact,
             allocated: <span class="prelude-val">Some</span>(AllocatedArtifact {
+                frame_info_registered: <span class="bool-val">false</span>,
+                frame_info_registration: <span class="prelude-val">None</span>,
                 finished_functions,
                 finished_function_call_trampolines,
                 finished_dynamic_function_trampolines,
                 signatures,
-                frame_info_registration: <span class="prelude-val">Some</span>(Mutex::new(<span class="prelude-val">None</span>)),
                 finished_function_lengths,
             }),
-        })
+        };
+
+        artifact.internal_register_frame_info();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(frame_info) = artifact.internal_take_frame_info_registration() {
+            engine_inner.register_frame_info(frame_info);
+        }
+
+        <span class="prelude-val">Ok</span>(artifact)
     }
 
     <span class="doccomment">/// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -1279,47 +1338,79 @@
 <span class="kw">impl </span>Artifact {
     <span class="doccomment">/// Register thie `Artifact` stack frame information into the global scope.
     ///
-    /// This is required to ensure that any traps can be properly symbolicated.
-    </span><span class="kw">pub fn </span>register_frame_info(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(frame_info_registration) = <span class="self">self
+    /// This is not required anymore as it&#39;s done automaticaly when creating by &#39;Artifact::from_parts&#39;
+    </span><span class="attr">#[deprecated(
+        since = <span class="string">&quot;4.0.0&quot;</span>,
+        note = <span class="string">&quot;done automaticaly by Artifact::from_parts, use &#39;take_frame_info_registration&#39; if you use this method&quot;
+    </span>)]
+    </span><span class="kw">pub fn </span>register_frame_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.internal_register_frame_info()
+    }
+
+    <span class="kw">fn </span>internal_register_frame_info(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if </span><span class="self">self
             </span>.allocated
             .as_ref()
             .expect(<span class="string">&quot;It must be allocated&quot;</span>)
-            .frame_info_registration
-            .as_ref()
+            .frame_info_registered
         {
-            <span class="kw">let </span><span class="kw-2">mut </span>info = frame_info_registration.lock().unwrap();
+            <span class="kw">return</span>; <span class="comment">// already done
+        </span>}
 
-            <span class="kw">if </span>info.is_some() {
-                <span class="kw">return</span>;
-            }
+        <span class="kw">let </span>finished_function_extents = <span class="self">self
+            </span>.allocated
+            .as_ref()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .finished_functions
+            .values()
+            .copied()
+            .zip(
+                <span class="self">self</span>.allocated
+                    .as_ref()
+                    .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+                    .finished_function_lengths
+                    .values()
+                    .copied(),
+            )
+            .map(|(ptr, length)| FunctionExtent { ptr, length })
+            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;()
+            .into_boxed_slice();
 
-            <span class="kw">let </span>finished_function_extents = <span class="self">self
-                </span>.allocated
-                .as_ref()
-                .expect(<span class="string">&quot;It must be allocated&quot;</span>)
-                .finished_functions
-                .values()
-                .copied()
-                .zip(
-                    <span class="self">self</span>.allocated
-                        .as_ref()
-                        .expect(<span class="string">&quot;It must be allocated&quot;</span>)
-                        .finished_function_lengths
-                        .values()
-                        .copied(),
-                )
-                .map(|(ptr, length)| FunctionExtent { ptr, length })
-                .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, <span class="kw">_</span>&gt;&gt;()
-                .into_boxed_slice();
+        <span class="kw">let </span>frame_info_registration = <span class="kw-2">&amp;mut </span><span class="self">self
+            </span>.allocated
+            .as_mut()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .frame_info_registration;
 
-            <span class="kw">let </span>frame_infos = <span class="self">self</span>.artifact.get_frame_info_ref();
-            <span class="kw-2">*</span>info = register_frame_info(
-                <span class="self">self</span>.artifact.create_module_info(),
-                <span class="kw-2">&amp;</span>finished_function_extents,
-                frame_infos.clone(),
-            );
-        }
+        <span class="kw">let </span>frame_infos = <span class="self">self</span>.artifact.get_frame_info_ref();
+
+        <span class="kw-2">*</span>frame_info_registration = register_frame_info(
+            <span class="self">self</span>.artifact.create_module_info(),
+            <span class="kw-2">&amp;</span>finished_function_extents,
+            frame_infos.clone(),
+        );
+
+        <span class="self">self</span>.allocated
+            .as_mut()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .frame_info_registered = <span class="bool-val">true</span>;
+    }
+
+    <span class="doccomment">/// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
+    /// register_frame_info has been used.
+    </span><span class="attr">#[deprecated(since = <span class="string">&quot;4.0.0&quot;</span>, note = <span class="string">&quot;done automaticaly by Artifact::from_parts.&quot;</span>)]
+    </span><span class="kw">pub fn </span>take_frame_info_registration(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt; {
+        <span class="self">self</span>.internal_take_frame_info_registration()
+    }
+
+    <span class="kw">fn </span>internal_take_frame_info_registration(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt; {
+        <span class="kw">let </span>frame_info_registration = <span class="kw-2">&amp;mut </span><span class="self">self
+            </span>.allocated
+            .as_mut()
+            .expect(<span class="string">&quot;It must be allocated&quot;</span>)
+            .frame_info_registration;
+
+        frame_info_registration.take()
     }
 
     <span class="doccomment">/// Returns the functions allocated in memory or this `Artifact`
@@ -1431,8 +1522,6 @@
             .create_globals(context, <span class="kw-2">&amp;</span>module)
             .map_err(InstantiationError::Link)<span class="question-mark">?
             </span>.into_boxed_slice();
-
-        <span class="self">self</span>.register_frame_info();
 
         <span class="kw">let </span>handle = VMInstance::new(
             allocator,
@@ -1792,6 +1881,8 @@
             id: Default::default(),
             artifact,
             allocated: <span class="prelude-val">Some</span>(AllocatedArtifact {
+                frame_info_registered: <span class="bool-val">false</span>,
+                frame_info_registration: <span class="prelude-val">None</span>,
                 finished_functions: finished_functions.into_boxed_slice(),
                 finished_function_call_trampolines: finished_function_call_trampolines
                     .into_boxed_slice(),
@@ -1799,7 +1890,6 @@
                     .into_boxed_slice(),
                 signatures: signatures.into_boxed_slice(),
                 finished_function_lengths,
-                frame_info_registration: <span class="prelude-val">None</span>,
             }),
         })
     }
