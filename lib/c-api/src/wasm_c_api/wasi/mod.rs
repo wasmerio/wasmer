@@ -11,7 +11,6 @@ use super::{
     types::wasm_byte_vec_t,
 };
 use crate::error::update_last_error;
-use lazy_static::__Deref;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -19,8 +18,9 @@ use std::slice;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe,
-    VirtualTaskManager, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version, runtime::task_manager::InlineWaker,
+    virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe, WasiEnv, WasiEnvBuilder,
+    WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -30,6 +30,7 @@ pub struct wasi_config_t {
     inherit_stderr: bool,
     inherit_stdin: bool,
     builder: WasiEnvBuilder,
+    _runtime: tokio::runtime::Runtime,
 }
 
 #[no_mangle]
@@ -41,11 +42,18 @@ pub unsafe extern "C" fn wasi_config_new(
     let name_c_str = CStr::from_ptr(program_name);
     let prog_name = c_try!(name_c_str.to_str());
 
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = runtime.enter();
+
     Some(Box::new(wasi_config_t {
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
+        _runtime: runtime,
     }))
 }
 
@@ -355,14 +363,14 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
     let store = env.store.store();
 
-    let (stdout, tasks) = {
+    let stdout = {
         let data = env.inner.data(&store);
-        (data.stdout(), data.tasks().clone())
+        data.stdout()
     };
 
     if let Ok(mut stdout) = stdout {
         if let Some(stdout) = stdout.as_mut() {
-            read_inner(tasks.deref(), stdout, inner_buffer)
+            read_inner(stdout, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stdout`");
             -1
@@ -381,13 +389,13 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
     let store = env.store.store();
-    let (stderr, tasks) = {
+    let stderr = {
         let data = env.inner.data(&store);
-        (data.stderr(), data.tasks().clone())
+        data.stderr()
     };
     if let Ok(mut stderr) = stderr {
         if let Some(stderr) = stderr.as_mut() {
-            read_inner(tasks.deref(), stderr, inner_buffer)
+            read_inner(stderr, inner_buffer)
         } else {
             update_last_error("could not find a file handle for `stderr`");
             -1
@@ -399,11 +407,10 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 }
 
 fn read_inner(
-    tasks: &dyn VirtualTaskManager,
     wasi_file: &mut Box<dyn VirtualFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
-    tasks.block_on(async {
+    InlineWaker::block_on(async {
         match wasi_file.read(inner_buffer).await {
             Ok(a) => a as isize,
             Err(err) => {

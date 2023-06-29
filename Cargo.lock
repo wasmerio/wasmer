@@ -5102,15 +5102,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "virtual-io"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derivative",
+ "mio",
+ "socket2",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "virtual-net"
 version = "0.3.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "derivative",
  "libc",
+ "mio",
+ "socket2",
  "thiserror",
  "tokio",
  "tracing",
+ "virtual-io",
 ]
 
 [[package]]
@@ -5587,6 +5604,7 @@ dependencies = [
  "libc",
  "paste",
  "thiserror",
+ "tokio",
  "typetag",
  "virtual-fs",
  "wasmer",
@@ -6170,6 +6188,7 @@ dependencies = [
  "pin-project",
  "pretty_assertions",
  "rand",
+ "rayon",
  "reqwest",
  "semver 1.0.17",
  "serde",
@@ -6193,6 +6212,7 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
+ "virtual-io",
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
@@ -6303,6 +6323,7 @@ dependencies = [
  "tempfile",
  "test-generator",
  "test-log",
+ "tokio",
  "tracing",
  "tracing-subscriber 0.3.17",
  "wasi-test-generator",

@@ -30,7 +30,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{resolver::PackageSpecifier, SpawnMemoryType},
+    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
     syscalls::{__asyncify_light, platform_clock_time_get},
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -520,7 +520,7 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime(&self) -> &(dyn Runtime) {
+    pub fn runtime(&self) -> &(dyn Runtime + Send + Sync) {
         self.runtime.deref()
     }
 
@@ -558,20 +558,21 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         if !inner.signal_set {
             let signals = env.thread.pop_signals();
-            let signal_cnt = signals.len();
-            for sig in signals {
-                if sig == Signal::Sigint
-                    || sig == Signal::Sigquit
-                    || sig == Signal::Sigkill
-                    || sig == Signal::Sigabrt
-                {
-                    let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
-                    return Err(WasiError::Exit(exit_code));
-                } else {
-                    trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+            if !signals.is_empty() {
+                for sig in signals {
+                    if sig == Signal::Sigint
+                        || sig == Signal::Sigquit
+                        || sig == Signal::Sigkill
+                        || sig == Signal::Sigabrt
+                    {
+                        let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
+                        return Err(WasiError::Exit(exit_code));
+                    } else {
+                        trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+                    }
                 }
+                return Ok(Ok(true));
             }
-            return Ok(Ok(signal_cnt > 0));
         }
 
         // Check for forced exit
@@ -598,12 +599,14 @@ impl WasiEnv {
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if inner.signal.as_ref().is_some() {
+        let ret = if inner.signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
-            Ok(Ok(Self::process_signals_internal(ctx, signals)?))
+            Self::process_signals_internal(ctx, signals)?
         } else {
-            Ok(Ok(false))
-        }
+            false
+        };
+
+        Ok(Ok(ret))
     }
 
     pub(crate) fn process_signals_internal(
@@ -853,7 +856,7 @@ impl WasiEnv {
 
         // We first need to copy any files in the package over to the
         // main file system
-        if let Err(e) = self.tasks().block_on(root_fs.merge(&pkg.webc_fs)) {
+        if let Err(e) = InlineWaker::block_on(root_fs.merge(&pkg.webc_fs)) {
             warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
@@ -905,15 +908,13 @@ impl WasiEnv {
                     WasiFsRoot::Backing(fs) => {
                         // Looks like we need to make the copy
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        self.tasks()
-                            .block_on(f.write_all(command.atom()))
-                            .map_err(|e| {
-                                WasiStateCreationError::WasiIncludePackageError(format!(
-                                    "Unable to save \"{}\" to \"{}\": {e}",
-                                    command.name(),
-                                    path.display()
-                                ))
-                            })?;
+                        InlineWaker::block_on(f.write_all(command.atom())).map_err(|e| {
+                            WasiStateCreationError::WasiIncludePackageError(format!(
+                                "Unable to save \"{}\" to \"{}\": {e}",
+                                command.name(),
+                                path.display()
+                            ))
+                        })?;
                     }
                 }
 
@@ -946,9 +947,7 @@ impl WasiEnv {
             let specifier = package_name
                 .parse::<PackageSpecifier>()
                 .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
-            let pkg = rt
-                .task_manager()
-                .block_on(BinaryPackage::from_registry(&specifier, rt))
+            let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt))
                 .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
             self.use_package(&pkg)?;
         }

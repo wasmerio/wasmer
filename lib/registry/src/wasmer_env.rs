@@ -81,9 +81,17 @@ impl WasmerEnv {
 
     /// The API token for the active registry.
     pub fn token(&self) -> Option<String> {
+        if let Some(token) = &self.token {
+            return Some(token.clone());
+        }
+
+        // Fall back to the config file
+
         let config = self.config().ok()?;
-        let login = config.registry.current_login()?;
-        Some(login.token.clone())
+        let registry_endpoint = self.registry_endpoint().ok()?;
+        config
+            .registry
+            .get_login_token_for_registry(registry_endpoint.as_str())
     }
 }
 
@@ -138,5 +146,128 @@ impl From<String> for Registry {
 impl From<&str> for Registry {
     fn from(value: &str) -> Self {
         Registry(value.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::*;
+
+    const WASMER_TOML: &str = r#"
+    telemetry_enabled = false
+    update_notifications_enabled = false
+
+    [registry]
+    active_registry = "https://registry.wasmer.io/graphql"
+
+    [[registry.tokens]]
+    registry = "https://registry.wasmer.wtf/graphql"
+    token = "dev-token"
+
+    [[registry.tokens]]
+    registry = "https://registry.wasmer.io/graphql"
+    token = "prod-token"
+    "#;
+
+    #[test]
+    fn load_defaults_from_config() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("wasmer.toml"), WASMER_TOML).unwrap();
+
+        let env = WasmerEnv {
+            wasmer_dir: temp.path().to_path_buf(),
+            registry: None,
+            cache_dir: None,
+            token: None,
+        };
+
+        assert_eq!(
+            env.registry_endpoint().unwrap().as_str(),
+            "https://registry.wasmer.io/graphql"
+        );
+        assert_eq!(env.token().unwrap(), "prod-token");
+        assert_eq!(env.cache_dir(), temp.path().join("cache"));
+    }
+
+    #[test]
+    fn override_token() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("wasmer.toml"), WASMER_TOML).unwrap();
+
+        let env = WasmerEnv {
+            wasmer_dir: temp.path().to_path_buf(),
+            registry: None,
+            cache_dir: None,
+            token: Some("asdf".to_string()),
+        };
+
+        assert_eq!(
+            env.registry_endpoint().unwrap().as_str(),
+            "https://registry.wasmer.io/graphql"
+        );
+        assert_eq!(env.token().unwrap(), "asdf");
+        assert_eq!(env.cache_dir(), temp.path().join("cache"));
+    }
+
+    #[test]
+    fn override_registry() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("wasmer.toml"), WASMER_TOML).unwrap();
+        let env = WasmerEnv {
+            wasmer_dir: temp.path().to_path_buf(),
+            registry: Some(Registry::from("wasmer.wtf")),
+            cache_dir: None,
+            token: None,
+        };
+
+        assert_eq!(
+            env.registry_endpoint().unwrap().as_str(),
+            "https://registry.wasmer.wtf/graphql"
+        );
+        assert_eq!(env.token().unwrap(), "dev-token");
+        assert_eq!(env.cache_dir(), temp.path().join("cache"));
+    }
+
+    #[test]
+    fn override_registry_and_token() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("wasmer.toml"), WASMER_TOML).unwrap();
+
+        let env = WasmerEnv {
+            wasmer_dir: temp.path().to_path_buf(),
+            registry: Some(Registry::from("wasmer.wtf")),
+            cache_dir: None,
+            token: Some("asdf".to_string()),
+        };
+
+        assert_eq!(
+            env.registry_endpoint().unwrap().as_str(),
+            "https://registry.wasmer.wtf/graphql"
+        );
+        assert_eq!(env.token().unwrap(), "asdf");
+        assert_eq!(env.cache_dir(), temp.path().join("cache"));
+    }
+
+    #[test]
+    fn override_cache_dir() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("wasmer.toml"), WASMER_TOML).unwrap();
+        let expected_cache_dir = temp.path().join("some-other-cache");
+
+        let env = WasmerEnv {
+            wasmer_dir: temp.path().to_path_buf(),
+            registry: None,
+            cache_dir: Some(expected_cache_dir.clone()),
+            token: None,
+        };
+
+        assert_eq!(
+            env.registry_endpoint().unwrap().as_str(),
+            "https://registry.wasmer.io/graphql"
+        );
+        assert_eq!(env.token().unwrap(), "prod-token");
+        assert_eq!(env.cache_dir(), expected_cache_dir);
     }
 }

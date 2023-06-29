@@ -1,11 +1,21 @@
 use anyhow::Context;
 use futures::future::BoxFuture;
 use std::convert::TryFrom;
+use tokio::runtime::Handle;
 
 use super::{HttpRequest, HttpResponse};
 
-#[derive(Default, Clone, Debug)]
-pub struct ReqwestHttpClient {}
+#[derive(Clone, Debug)]
+pub struct ReqwestHttpClient {
+    handle: Handle,
+}
+impl Default for ReqwestHttpClient {
+    fn default() -> Self {
+        Self {
+            handle: Handle::current(),
+        }
+    }
+}
 
 impl ReqwestHttpClient {
     async fn request(&self, request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
@@ -13,9 +23,12 @@ impl ReqwestHttpClient {
             .with_context(|| format!("Invalid http method {}", request.method))?;
 
         // TODO: use persistent client?
-        let client = reqwest::ClientBuilder::default()
-            .build()
-            .context("Could not create reqwest client")?;
+        let client = {
+            let _guard = Handle::try_current().map_err(|_| self.handle.enter());
+            reqwest::ClientBuilder::default()
+                .build()
+                .context("Could not create reqwest client")?
+        };
 
         let mut builder = client.request(method, request.url.as_str());
         for (header, val) in &request.headers {

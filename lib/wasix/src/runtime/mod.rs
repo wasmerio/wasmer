@@ -3,8 +3,11 @@ pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
 
-use self::module_cache::{CacheError, ModuleHash};
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
+use self::{
+    module_cache::{CacheError, ModuleHash},
+    task_manager::InlineWaker,
+};
 
 use std::{
     fmt,
@@ -97,7 +100,7 @@ where
     ///
     /// Non-async version of [`Self::load_module`].
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
-        self.task_manager().block_on(self.load_module(wasm))
+        InlineWaker::block_on(self.load_module(wasm))
     }
 }
 
