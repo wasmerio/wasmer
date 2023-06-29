@@ -680,13 +680,6 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    for import in module.imports() {
-        tracing::trace!("import {}.{}", import.module(), import.name());
-    }
-    for export in module.exports() {
-        tracing::trace!("export {}", export.name());
-    }
-
     // TODO: clean this up!
     cfg_if::cfg_if! {
         if #[cfg(feature = "sys")] {

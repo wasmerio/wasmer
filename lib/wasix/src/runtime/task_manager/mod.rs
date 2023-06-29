@@ -26,6 +26,9 @@ pub enum SpawnMemoryType<'a> {
     // TODO: is there a way to get rid of the memory reference
     ShareMemory(Memory, StoreRef<'a>),
     // TODO: is there a way to get rid of the memory reference
+    // Note: The message sender is triggered once the memory
+    // has been copied, this makes sure its not modified until
+    // its been properly copied
     CopyMemory(Memory, StoreRef<'a>),
 }
 
@@ -47,6 +50,9 @@ pub struct TaskWasmRunProperties {
 
 /// Callback that will be invoked
 pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
+
+/// Callback that will be invoked
+pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
 
 /// Represents a WASM task that will be executed on a dedicated thread
 pub struct TaskWasm<'a, 'b> {

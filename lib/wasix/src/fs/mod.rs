@@ -7,14 +7,16 @@ use std::{
     collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
+    pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
     },
+    task::{Context, Poll},
 };
 
 use crate::state::{Stderr, Stdin, Stdout};
-use futures::{future::BoxFuture, TryStreamExt};
+use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
@@ -1528,35 +1530,52 @@ impl WasiFs {
     pub async fn flush(&self, fd: WasiFd) -> Result<(), Errno> {
         match fd {
             __WASI_STDIN_FILENO => (),
-            __WASI_STDOUT_FILENO => WasiInodes::stdout_mut(&self.fd_map)
-                .map_err(fs_error_into_wasi_err)?
-                .flush()
-                .await
-                .map_err(map_io_err)?,
-            __WASI_STDERR_FILENO => WasiInodes::stderr_mut(&self.fd_map)
-                .map_err(fs_error_into_wasi_err)?
-                .flush()
-                .await
-                .map_err(map_io_err)?,
+            __WASI_STDOUT_FILENO => {
+                let mut file =
+                    WasiInodes::stdout_mut(&self.fd_map).map_err(fs_error_into_wasi_err)?;
+                file.flush().await.map_err(map_io_err)?
+            }
+            __WASI_STDERR_FILENO => {
+                let mut file =
+                    WasiInodes::stderr_mut(&self.fd_map).map_err(fs_error_into_wasi_err)?;
+                file.flush().await.map_err(map_io_err)?
+            }
             _ => {
                 let fd = self.get_fd(fd)?;
                 if fd.rights.contains(Rights::FD_DATASYNC) {
                     return Err(Errno::Access);
                 }
 
-                let guard = fd.inode.read();
-                match guard.deref() {
-                    Kind::File {
-                        handle: Some(file), ..
-                    } => {
-                        let mut file = file.write().unwrap();
-                        file.flush().await.map_err(|_| Errno::Io)?
+                let work = {
+                    let guard = fd.inode.read();
+                    match guard.deref() {
+                        Kind::File {
+                            handle: Some(file), ..
+                        } => {
+                            struct FlushPoller {
+                                file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+                            }
+                            impl Future for FlushPoller {
+                                type Output = Result<(), Errno>;
+                                fn poll(
+                                    self: Pin<&mut Self>,
+                                    cx: &mut Context<'_>,
+                                ) -> Poll<Self::Output> {
+                                    let mut file = self.file.write().unwrap();
+                                    Pin::new(file.as_mut())
+                                        .poll_flush(cx)
+                                        .map_err(|_| Errno::Io)
+                                }
+                            }
+                            FlushPoller { file: file.clone() }
+                        }
+                        // TODO: verify this behavior
+                        Kind::Dir { .. } => return Err(Errno::Isdir),
+                        Kind::Buffer { .. } => return Ok(()),
+                        _ => return Err(Errno::Io),
                     }
-                    // TODO: verify this behavior
-                    Kind::Dir { .. } => return Err(Errno::Isdir),
-                    Kind::Buffer { .. } => (),
-                    _ => return Err(Errno::Io),
-                }
+                };
+                work.await?
             }
         }
         Ok(())

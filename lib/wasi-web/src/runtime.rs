@@ -21,7 +21,7 @@ use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
     runtime::{
-        module_cache::{FileSystemCache, ModuleCache, ThreadLocalCache},
+        module_cache::ModuleCache,
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{Source, WapmSource},
         task_manager::TaskWasm,
@@ -37,6 +37,7 @@ use super::webgl::WebGl;
 #[cfg(feature = "webgl")]
 use super::webgl::WebGlCommand;
 use super::{common::*, pool::WebThreadPool};
+use crate::module_cache::WebWorkerModuleCache;
 
 #[derive(Debug)]
 pub(crate) enum TerminalCommandRx {
@@ -85,12 +86,8 @@ impl WebRuntime {
         // even if the filesystem cache fails (i.e. because we're compiled to
         // wasm32-unknown-unknown and running in a browser), the in-memory layer
         // should still work.
-        let checkout_dir = wasmer_dir.join("checkouts");
-        let cache_dir = wasmer_dir.join("compiled");
-        let package_loader =
-            BuiltinPackageLoader::new_with_client(checkout_dir, http_client.clone());
-        let module_cache =
-            ThreadLocalCache::default().with_fallback(FileSystemCache::new(cache_dir));
+        let package_loader = BuiltinPackageLoader::new_only_client(http_client.clone());
+        let module_cache = WebWorkerModuleCache::default();
         WebRuntime {
             pool,
             tasks: runtime,
@@ -297,7 +294,7 @@ impl VirtualFile for TermStdout {
     }
 
     fn unlink(&mut self) -> BoxFuture<'static, wasmer_wasix::virtual_fs::Result<()>> {
-        Box::pin(async move { Ok(()) })
+        Box::pin(async { Ok(()) })
     }
 
     fn poll_read_ready(
@@ -410,7 +407,7 @@ impl VirtualFile for TermLog {
     }
 
     fn unlink(&mut self) -> BoxFuture<'static, wasmer_wasix::virtual_fs::Result<()>> {
-        Box::pin(async move { Ok(()) })
+        Box::pin(async { Ok(()) })
     }
 
     fn poll_read_ready(
