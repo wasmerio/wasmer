@@ -32,8 +32,8 @@ use wasmer_wasix::{
     capture_snapshot,
     runtime::{
         task_manager::{
-            TaskExecModule, TaskWasm, TaskWasmRun, TaskWasmRunProperties, WasmResumeTask,
-            WasmResumeTrigger,
+            InlineWaker, TaskExecModule, TaskWasm, TaskWasmRun, TaskWasmRunProperties,
+            WasmResumeTask, WasmResumeTrigger,
         },
         SpawnMemoryType,
     },
@@ -726,7 +726,7 @@ pub fn wasm_entry_point(
             if let Some(trigger) = trigger {
                 let trigger_run = trigger.run;
                 let tasks = env.tasks();
-                result = Some(tasks.block_on(trigger_run()));
+                result = Some(InlineWaker::block_on(trigger_run()));
             }
 
             // Invoke the callback which will run the web assembly module
