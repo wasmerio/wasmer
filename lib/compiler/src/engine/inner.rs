@@ -7,6 +7,8 @@ use crate::Artifact;
 use crate::BaseTunables;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::CodeMemory;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::GlobalFrameInfoRegistration;
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
@@ -441,6 +443,15 @@ impl EngineInner {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Register the frame info for the code memory
+    pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
+        self.code_memory
+            .last_mut()
+            .unwrap()
+            .register_frame_info(frame_info);
     }
 }
 

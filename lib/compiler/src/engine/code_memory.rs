@@ -3,6 +3,7 @@
 
 //! Memory management for executable code.
 use super::unwind::UnwindRegistry;
+use crate::GlobalFrameInfoRegistration;
 use wasmer_types::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 use wasmer_vm::{Mmap, VMFunctionBody};
 
@@ -19,6 +20,8 @@ const DATA_SECTION_ALIGNMENT: usize = 64;
 
 /// Memory manager for executable code.
 pub struct CodeMemory {
+    // frame info is placed first, to ensure it's dropped before the mmap
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
     unwind_registry: UnwindRegistry,
     mmap: Mmap,
     start_of_nonexecutable_pages: usize,
@@ -31,6 +34,7 @@ impl CodeMemory {
             unwind_registry: UnwindRegistry::new(),
             mmap: Mmap::new(),
             start_of_nonexecutable_pages: 0,
+            frame_info_registration: None,
         }
     }
 
@@ -206,6 +210,11 @@ impl CodeMemory {
         let byte_ptr: *mut [u8] = slice;
         let body_ptr = byte_ptr as *mut [VMFunctionBody];
         unsafe { &mut *body_ptr }
+    }
+
+    /// Register the frame info, so it's free when the mememory gets freed
+    pub fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
+        self.frame_info_registration = Some(frame_info);
     }
 }
 
