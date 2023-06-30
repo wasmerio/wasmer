@@ -33,7 +33,7 @@ pub struct wasi_config_t {
     inherit_stderr: bool,
     inherit_stdin: bool,
     builder: WasiEnvBuilder,
-    runtime: tokio::runtime::Runtime,
+    runtime: Option<tokio::runtime::Runtime>,
 }
 
 #[no_mangle]
@@ -56,7 +56,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stderr: true,
         inherit_stdin: true,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
-        runtime,
+        runtime: Some(runtime),
     }))
 }
 
@@ -233,7 +233,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     let module = &module.as_ref()?.inner;
     let imports = imports?;
 
-    let (wasi_env, import_object) = prepare_webc_env(
+    let (wasi_env, import_object, runtime) = prepare_webc_env(
         config,
         &mut store.store_mut(),
         module,
@@ -247,23 +247,33 @@ unsafe fn wasi_env_with_filesystem_inner(
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
         store: store.clone(),
+        _runtime: runtime,
     }))
 }
 
 #[cfg(feature = "webc_runner")]
 fn prepare_webc_env(
-    config: Box<wasi_config_t>,
+    mut config: Box<wasi_config_t>,
     store: &mut impl AsStoreMut,
     module: &Module,
     bytes: &'static u8,
     len: usize,
     package_name: &str,
-) -> Option<(WasiFunctionEnv, Imports)> {
+) -> Option<(WasiFunctionEnv, Imports, tokio::runtime::Runtime)> {
     use virtual_fs::static_fs::StaticFileSystem;
     use webc::v1::{FsEntryType, WebC};
 
     let store_mut = store.as_store_mut();
-    let handle = config.runtime.handle().clone();
+    let runtime = config.runtime.take();
+
+    let runtime = runtime.unwrap_or_else(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    });
+
+    let handle = runtime.handle().clone();
     let _guard = handle.enter();
     let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
     rt.set_engine(Some(store_mut.engine().clone()));
@@ -286,7 +296,7 @@ fn prepare_webc_env(
         .collect::<Vec<_>>();
 
     let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
-    let mut builder = config.builder;
+    let mut builder = config.builder.runtime(Arc::new(rt));
 
     if !config.inherit_stdout {
         builder.set_stdout(Box::new(Pipe::channel().0));
@@ -303,10 +313,10 @@ fn prepare_webc_env(
             .add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))
             .ok()?;
     }
-    let env = builder.runtime(Arc::new(rt)).finalize(store).ok()?;
+    let env = builder.finalize(store).ok()?;
 
     let import_object = env.import_object(store, module).ok()?;
-    Some((env, import_object))
+    Some((env, import_object, runtime))
 }
 
 #[allow(non_camel_case_types)]
@@ -314,6 +324,7 @@ pub struct wasi_env_t {
     /// cbindgen:ignore
     pub(super) inner: WasiFunctionEnv,
     pub(super) store: StoreRef,
+    pub(super) _runtime: tokio::runtime::Runtime,
 }
 
 /// Create a new WASI environment.
@@ -327,7 +338,16 @@ pub unsafe extern "C" fn wasi_env_new(
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
 
-    let handle = config.runtime.handle().clone();
+    let runtime = config.runtime.take();
+
+    let runtime = runtime.unwrap_or_else(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    });
+
+    let handle = runtime.handle().clone();
     let _guard = handle.enter();
     let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
     rt.set_engine(Some(store_mut.engine().clone()));
@@ -350,6 +370,7 @@ pub unsafe extern "C" fn wasi_env_new(
     Some(Box::new(wasi_env_t {
         inner: env,
         store: store.clone(),
+        _runtime: runtime,
     }))
 }
 
