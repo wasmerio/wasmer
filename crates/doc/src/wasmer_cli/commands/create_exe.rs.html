@@ -2284,6 +2284,24 @@
 <a href="#2283" id="2283">2283</a>
 <a href="#2284" id="2284">2284</a>
 <a href="#2285" id="2285">2285</a>
+<a href="#2286" id="2286">2286</a>
+<a href="#2287" id="2287">2287</a>
+<a href="#2288" id="2288">2288</a>
+<a href="#2289" id="2289">2289</a>
+<a href="#2290" id="2290">2290</a>
+<a href="#2291" id="2291">2291</a>
+<a href="#2292" id="2292">2292</a>
+<a href="#2293" id="2293">2293</a>
+<a href="#2294" id="2294">2294</a>
+<a href="#2295" id="2295">2295</a>
+<a href="#2296" id="2296">2296</a>
+<a href="#2297" id="2297">2297</a>
+<a href="#2298" id="2298">2298</a>
+<a href="#2299" id="2299">2299</a>
+<a href="#2300" id="2300">2300</a>
+<a href="#2301" id="2301">2301</a>
+<a href="#2302" id="2302">2302</a>
+<a href="#2303" id="2303">2303</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
@@ -3489,6 +3507,7 @@
             library_path,
             linker,
             optimization_flag,
+            <span class="kw-2">&amp;</span>include_dirs,
             <span class="kw-2">&amp;</span>object_paths,
             <span class="kw-2">&amp;</span>cross_compilation.target,
             additional_libraries,
@@ -3645,6 +3664,7 @@
     libwasmer_path: <span class="kw-2">&amp;</span>Path,
     linker_cmd: <span class="kw-2">&amp;</span>str,
     optimization_flag: <span class="kw-2">&amp;</span>str,
+    include_dirs: <span class="kw-2">&amp;</span>[PathBuf],
     object_paths: <span class="kw-2">&amp;</span>[PathBuf],
     target: <span class="kw-2">&amp;</span>Triple,
     additional_libraries: <span class="kw-2">&amp;</span>[String],
@@ -3666,6 +3686,21 @@
         command = command.arg(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, target));
     }
 
+    <span class="kw">for </span>include_dir <span class="kw">in </span>include_dirs {
+        command = command.arg(<span class="string">&quot;-I&quot;</span>);
+        command = command.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, include_dir.display())));
+    }
+    <span class="kw">let </span><span class="kw-2">mut </span>include_path = libwasmer_path.clone();
+    include_path.pop();
+    include_path.pop();
+    include_path.push(<span class="string">&quot;include&quot;</span>);
+    <span class="kw">if </span>!include_path.exists() {
+        <span class="comment">// Can happen when we got the wrong library_path
+        </span><span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?&quot;</span>, include_path.display(), libwasmer_path.display()));
+    }
+    command = command.arg(<span class="string">&quot;-I&quot;</span>);
+    command = command.arg(normalize_path(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, include_path.display())));
+
     <span class="comment">// Add libraries required per platform.
     // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
     </span><span class="kw">let </span><span class="kw-2">mut </span>additional_libraries = additional_libraries.to_vec();
@@ -3684,7 +3719,8 @@
 
     <span class="kw">if </span>!output.status.success() {
         <span class="macro">bail!</span>(
-            <span class="string">&quot;linking failed with: stdout: {}\n\nstderr: {}&quot;</span>,
+            <span class="string">&quot;linking failed with command line:{:#?} stdout: {}\n\nstderr: {}&quot;</span>,
+            command,
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stdout),
             String::from_utf8_lossy(<span class="kw-2">&amp;</span>output.stderr),
         );
