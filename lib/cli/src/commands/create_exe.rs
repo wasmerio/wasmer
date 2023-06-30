@@ -1203,6 +1203,7 @@ fn link_exe_from_dir(
             library_path,
             linker,
             optimization_flag,
+            &include_dirs,
             &object_paths,
             &cross_compilation.target,
             additional_libraries,
@@ -1359,6 +1360,7 @@ fn link_objects_system_linker(
     libwasmer_path: &Path,
     linker_cmd: &str,
     optimization_flag: &str,
+    include_dirs: &[PathBuf],
     object_paths: &[PathBuf],
     target: &Triple,
     additional_libraries: &[String],
@@ -1380,6 +1382,21 @@ fn link_objects_system_linker(
         command = command.arg(format!("{}", target));
     }
 
+    for include_dir in include_dirs {
+        command = command.arg("-I");
+        command = command.arg(normalize_path(&format!("{}", include_dir.display())));
+    }
+    let mut include_path = libwasmer_path.clone();
+    include_path.pop();
+    include_path.pop();
+    include_path.push("include");
+    if !include_path.exists() {
+        // Can happen when we got the wrong library_path
+        return Err(anyhow::anyhow!("Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?", include_path.display(), libwasmer_path.display()));
+    }
+    command = command.arg("-I");
+    command = command.arg(normalize_path(&format!("{}", include_path.display())));
+
     // Add libraries required per platform.
     // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
     let mut additional_libraries = additional_libraries.to_vec();
@@ -1398,7 +1415,8 @@ fn link_objects_system_linker(
 
     if !output.status.success() {
         bail!(
-            "linking failed with: stdout: {}\n\nstderr: {}",
+            "linking failed with command line:{:#?} stdout: {}\n\nstderr: {}",
+            command,
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
