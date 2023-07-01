@@ -1,3 +1,10 @@
+#[cfg(any(feature = "ws-net", feature = "host-net"))]
+pub mod client;
+#[cfg(feature = "host-net")]
+pub mod host;
+#[cfg(feature = "host-net")]
+pub mod tun;
+
 use std::fmt;
 use std::mem::MaybeUninit;
 use std::net::IpAddr;
@@ -480,6 +487,3 @@ pub enum NetworkError {
     #[error("unknown error found")]
     UnknownError,
 }
-
-#[cfg(feature = "host-net")]
-pub mod host;

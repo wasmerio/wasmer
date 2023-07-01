@@ -44,7 +44,6 @@ pub mod capabilities;
 pub mod fs;
 pub mod http;
 mod rewind;
-#[cfg(feature = "webc_runner")]
 pub mod runners;
 pub mod runtime;
 mod state;
@@ -117,7 +116,7 @@ pub enum WasiError {
 }
 
 #[deny(unused, dead_code)]
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Error, Debug)]
 pub enum SpawnError {
     /// Failed during serialization
     #[error("serialization failed")]
@@ -167,6 +166,20 @@ pub enum SpawnError {
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
+    #[error("runtime error")]
+    Runtime(#[from] WasiRuntimeError),
+    #[error(transparent)]
+    Other(#[from] Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl SpawnError {
+    /// Returns `true` if the spawn error is [`NotFound`].
+    ///
+    /// [`NotFound`]: SpawnError::NotFound
+    #[must_use]
+    pub fn is_not_found(&self) -> bool {
+        matches!(self, Self::NotFound)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]

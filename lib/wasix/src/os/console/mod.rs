@@ -29,11 +29,8 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::{
-        resolver::PackageSpecifier,
-        task_manager::{InlineWaker, VirtualTaskManagerExt},
-    },
-    Runtime, SpawnError, WasiEnv,
+    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker},
+    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
 #[derive(Derivative)]
@@ -49,7 +46,7 @@ pub struct Console {
     no_welcome: bool,
     prompt: String,
     env: HashMap<String, String>,
-    runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+    runtime: Arc<dyn Runtime + Send + Sync>,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -59,16 +56,9 @@ pub struct Console {
 
 impl Console {
     pub fn new(webc_boot_package: &str, runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
-        let prog = webc_boot_package
-            .split_once(' ')
-            .map(|a| a.1)
-            .unwrap_or(webc_boot_package);
-
-        let mut uses = LinkedHashSet::new();
-        uses.insert(prog.to_string());
         Self {
             boot_cmd: webc_boot_package.to_string(),
-            uses,
+            uses: LinkedHashSet::new(),
             is_mobile: false,
             is_ssh: false,
             user_agent: None,
@@ -155,12 +145,12 @@ impl Console {
 
     pub fn run(&mut self) -> Result<(TaskJoinHandle, WasiProcess), SpawnError> {
         // Extract the program name from the arguments
-        let empty_args: Vec<&[u8]> = Vec::new();
+        let empty_args: Vec<&str> = Vec::new();
         let (webc, prog, args) = match self.boot_cmd.split_once(' ') {
             Some((webc, args)) => (
                 webc,
                 webc.split_once('/').map(|a| a.1).unwrap_or(webc),
-                args.split(' ').map(|a| a.as_bytes()).collect::<Vec<_>>(),
+                args.split(' ').collect::<Vec<_>>(),
             ),
             None => (
                 self.boot_cmd.as_str(),
@@ -171,55 +161,6 @@ impl Console {
                 empty_args,
             ),
         };
-        let envs = self.env.clone();
-
-        // Build a new store that will be passed to the threadimpo
-        let store = self.runtime.new_store();
-
-        let root_fs = RootFileSystemBuilder::new()
-            .with_tty(Box::new(CombineFile::new(
-                Box::new(self.stdout.clone()),
-                Box::new(self.stdin.clone()),
-            )))
-            .build();
-
-        let env_init = WasiEnv::builder(prog)
-            .stdin(Box::new(self.stdin.clone()))
-            .args(args.iter())
-            .envs(envs.iter())
-            .sandbox_fs(root_fs)
-            .preopen_dir(Path::new("/"))
-            .unwrap()
-            .map_dir(".", "/")
-            .unwrap()
-            .stdout(Box::new(self.stdout.clone()))
-            .stderr(Box::new(self.stderr.clone()))
-            .runtime(self.runtime.clone())
-            .capabilities(self.capabilities.clone())
-            .build_init()
-            // TODO: propagate better error
-            .map_err(|_e| SpawnError::InternalError)?;
-
-        // TODO: no unwrap!
-        let env = WasiEnv::from_init(env_init).unwrap();
-
-        if let Some(limiter) = &self.memfs_memory_limiter {
-            match &env.state.fs.root_fs {
-                crate::fs::WasiFsRoot::Sandbox(tmpfs) => {
-                    tmpfs.set_memory_limiter(limiter.clone());
-                }
-                crate::fs::WasiFsRoot::Backing(_) => {
-                    tracing::error!("tried to set a tmpfs memory limiter on a backing fs");
-                    return Err(SpawnError::BadRequest);
-                }
-            }
-        }
-
-        // TODO: this should not happen here...
-        // Display the welcome message
-        if !self.whitelabel && !self.no_welcome {
-            InlineWaker::block_on(self.draw_welcome());
-        }
 
         let webc_ident: PackageSpecifier = match webc.parse() {
             Ok(ident) => ident,
@@ -229,10 +170,12 @@ impl Console {
             }
         };
 
-        let resolved_package =
-            InlineWaker::block_on(BinaryPackage::from_registry(&webc_ident, env.runtime()));
+        let resolved_package = InlineWaker::block_on(BinaryPackage::from_registry(
+            &webc_ident,
+            self.runtime.as_ref(),
+        ));
 
-        let binary = match resolved_package {
+        let pkg = match resolved_package {
             Ok(pkg) => pkg,
             Err(e) => {
                 let mut stderr = self.stderr.clone();
@@ -254,12 +197,40 @@ impl Console {
             }
         };
 
+        let wasi_opts = webc::metadata::annotations::Wasi::new(prog);
+
+        let root_fs = RootFileSystemBuilder::new()
+            .with_tty(Box::new(CombineFile::new(
+                Box::new(self.stdout.clone()),
+                Box::new(self.stdin.clone()),
+            )))
+            .build();
+
+        if let Some(limiter) = &self.memfs_memory_limiter {
+            root_fs.set_memory_limiter(limiter.clone());
+        }
+
+        let builder = crate::runners::wasi::WasiRunner::new()
+            .with_envs(self.env.clone().into_iter())
+            .with_args(args)
+            .with_capabilities(self.capabilities.clone())
+            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
+            // TODO: better error conversion
+            .map_err(|err| SpawnError::Other(err.into()))?;
+
+        let env = builder
+            .stdin(Box::new(self.stdin.clone()))
+            .stdout(Box::new(self.stdout.clone()))
+            .stderr(Box::new(self.stderr.clone()))
+            .build()?;
+
+        // Display the welcome message
+        if !self.whitelabel && !self.no_welcome {
+            InlineWaker::block_on(self.draw_welcome());
+        }
+
         let wasi_process = env.process.clone();
 
-        // TODO: fetching dependencies should be moved to the builder!
-        // TODO: the Console only makes sense in the context of SSH and the terminal.
-        // We should make this just take a WasiBuilder and the console related configs
-        // and not add so much custom logic in here.
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
             InlineWaker::block_on(async {
@@ -276,7 +247,8 @@ impl Console {
 
         // Build the config
         // Run the binary
-        let process = InlineWaker::block_on(spawn_exec(binary, prog, store, env, &self.runtime))?;
+        let store = self.runtime.new_store();
+        let process = InlineWaker::block_on(spawn_exec(pkg, prog, store, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))
@@ -298,5 +270,67 @@ impl Console {
         virtual_fs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
             .await
             .ok();
+    }
+}
+
+#[cfg(all(test, not(target_family = "wasm")))]
+mod tests {
+    use virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
+
+    use super::*;
+
+    use std::{io::Read, sync::Arc};
+
+    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
+
+    /// Test that [`Console`] correctly runs a command with arguments and
+    /// specified env vars, and that the TTY correctly handles stdout output.
+    #[test]
+    fn test_console_dash_tty_with_args_and_env() {
+        let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+
+        let tm = TokioTaskManager::new(tokio_rt.handle().clone());
+        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        rt.set_engine(Some(wasmer::Engine::default()));
+
+        let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
+            .into_iter()
+            .collect();
+
+        // Pass some arguments.
+        let cmd = "sharrattj/dash -s stdin";
+
+        let (mut stdin_tx, stdin_rx) = Pipe::channel();
+        let (stdout_tx, mut stdout_rx) = Pipe::channel();
+
+        let (mut handle, _proc) = Console::new(cmd, Arc::new(rt))
+            .with_env(env)
+            .with_stdin(Box::new(stdin_rx))
+            .with_stdout(Box::new(stdout_tx))
+            .run()
+            .unwrap();
+
+        let code = tokio_rt
+            .block_on(async move {
+                virtual_fs::AsyncWriteExt::write_all(
+                    &mut stdin_tx,
+                    b"echo hello $MYENV1 > /dev/tty; exit\n",
+                )
+                .await?;
+
+                stdin_tx.close();
+                std::mem::drop(stdin_tx);
+
+                let res = handle.wait_finished().await?;
+                Ok::<_, anyhow::Error>(res)
+            })
+            .unwrap();
+
+        assert_eq!(code.raw(), 0);
+
+        let mut out = String::new();
+        stdout_rx.read_to_string(&mut out).unwrap();
+
+        assert_eq!(out, "hello VAL1\n");
     }
 }

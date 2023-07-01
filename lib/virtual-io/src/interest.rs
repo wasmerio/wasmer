@@ -94,20 +94,31 @@ const VTABLE: RawWakerVTable = unsafe {
     )
 };
 
+#[derive(Derivative, Default)]
+#[derivative(Debug)]
+struct FilteredHandlerSubscriptionsInner {
+    #[derivative(Debug = "ignore")]
+    mappings: HashMap<InterestType, Box<dyn InterestHandler + Send + Sync>>,
+    triggered: HashSet<InterestType>,
+}
+
 #[derive(Derivative, Default, Clone)]
 #[derivative(Debug)]
 pub struct FilteredHandlerSubscriptions {
     #[derivative(Debug = "ignore")]
-    mapping: Arc<Mutex<HashMap<InterestType, Box<dyn InterestHandler + Send + Sync>>>>,
+    inner: Arc<Mutex<FilteredHandlerSubscriptionsInner>>,
 }
 impl FilteredHandlerSubscriptions {
     pub fn add_interest(
         &self,
         interest: InterestType,
-        handler: Box<dyn InterestHandler + Send + Sync>,
+        mut handler: Box<dyn InterestHandler + Send + Sync>,
     ) {
-        let mut guard = self.mapping.lock().unwrap();
-        guard.insert(interest, handler);
+        let mut inner = self.inner.lock().unwrap();
+        if inner.triggered.take(&interest).is_some() {
+            handler.interest(interest)
+        }
+        inner.mappings.insert(interest, handler);
     }
 }
 
@@ -136,9 +147,11 @@ impl FilteredHandler {
 
 impl InterestHandler for FilteredHandler {
     fn interest(&mut self, interest: InterestType) {
-        let mut guard = self.subs.mapping.lock().unwrap();
-        if let Some(handler) = guard.get_mut(&interest) {
+        let mut inner = self.subs.inner.lock().unwrap();
+        if let Some(handler) = inner.mappings.get_mut(&interest) {
             handler.interest(interest);
+        } else {
+            inner.triggered.insert(interest);
         }
     }
 }

@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Error};
+use virtual_fs::TmpFileSystem;
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
@@ -133,17 +134,27 @@ impl WasiRunner {
         &mut self.wasi.capabilities
     }
 
-    fn prepare_webc_env(
+    pub fn with_capabilities(mut self, capabilities: Capabilities) -> Self {
+        self.set_capabilities(capabilities);
+        self
+    }
+
+    pub fn set_capabilities(&mut self, capabilities: Capabilities) {
+        self.wasi.capabilities = capabilities;
+    }
+
+    pub(crate) fn prepare_webc_env(
         &self,
         program_name: &str,
         wasi: &Wasi,
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
+        root_fs: Option<TmpFileSystem>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
         let container_fs = Arc::clone(&pkg.webc_fs);
         self.wasi
-            .prepare_webc_env(&mut builder, container_fs, wasi)?;
+            .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
 
         builder.add_webc(pkg.clone());
         builder.set_runtime(runtime);
@@ -174,10 +185,10 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
+        let module = runtime.load_module_sync(cmd.atom())?;
         let store = runtime.new_store();
 
-        self.prepare_webc_env(command_name, &wasi, pkg, runtime)
+        self.prepare_webc_env(command_name, &wasi, pkg, runtime, None)
             .context("Unable to prepare the WASI environment")?
             .run_with_store_async(module, store)?;
 

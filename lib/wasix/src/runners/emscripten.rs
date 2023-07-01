@@ -61,7 +61,7 @@ impl crate::runners::Runner for EmscriptenRunner {
         let Emscripten { main_args, .. } =
             cmd.metadata().annotation("emscripten")?.unwrap_or_default();
 
-        let mut module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
+        let mut module = runtime.load_module_sync(cmd.atom())?;
         module.set_name(command_name);
 
         let mut store = runtime.new_store();

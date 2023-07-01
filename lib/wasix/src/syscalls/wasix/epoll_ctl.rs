@@ -76,12 +76,23 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
                         "registering waker"
                     );
 
+                    {
+                        // We have to register the subscription before we register the waker
+                        // as otherwise there is a race condition
+                        let mut guard = subscriptions.lock().unwrap();
+                        guard.insert(event.data.fd, (epoll_fd.clone(), Vec::new()));
+                    }
+
                     // Now we register the epoll waker
                     let tx = tx.clone();
-                    let fd_guards = wasi_try_ok!(register_epoll_waker(&env.state, &epoll_fd, tx));
+                    let mut fd_guards =
+                        wasi_try_ok!(register_epoll_waker(&env.state, &epoll_fd, tx));
 
+                    // After the guards are created we need to attach them to the subscription
                     let mut guard = subscriptions.lock().unwrap();
-                    guard.insert(event.data.fd, (epoll_fd, fd_guards));
+                    if let Some(subs) = guard.get_mut(&event.data.fd) {
+                        subs.1.append(&mut fd_guards);
+                    }
                 }
             }
             Ok(Errno::Success)
