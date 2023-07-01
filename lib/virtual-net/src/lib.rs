@@ -2,22 +2,24 @@
 pub mod client;
 #[cfg(feature = "host-net")]
 pub mod host;
+pub mod meta;
 #[cfg(feature = "host-net")]
 pub mod tun;
 
 use std::fmt;
 use std::mem::MaybeUninit;
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
-use std::net::Ipv6Addr;
-use std::net::Shutdown;
-use std::net::SocketAddr;
+pub use std::net::IpAddr;
+pub use std::net::Ipv4Addr;
+pub use std::net::Ipv6Addr;
+pub use std::net::Shutdown;
+pub use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
+pub use std::time::Duration;
 use thiserror::Error;
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
+use serde::{Deserialize, Serialize};
 pub use virtual_io::{handler_into_waker, InterestHandler};
 #[cfg(feature = "host-net")]
 pub use virtual_io::{InterestGuard, InterestHandlerWaker, InterestType};
@@ -25,14 +27,14 @@ pub use virtual_io::{InterestGuard, InterestHandlerWaker, InterestType};
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
 /// Represents an IP address and its netmask
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct IpCidr {
     pub ip: IpAddr,
     pub prefix: u8,
 }
 
 /// Represents a routing entry in the routing table of the interface
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IpRoute {
     pub cidr: IpCidr,
     pub via_router: IpAddr,
@@ -223,7 +225,7 @@ pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()>;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SocketStatus {
     Opening,
     Opened,
@@ -231,7 +233,7 @@ pub enum SocketStatus {
     Failed,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StreamSecurity {
     Unencrypted,
     AnyEncyption,
@@ -411,7 +413,7 @@ pub struct UnsupportedVirtualNetworking {}
 #[async_trait::async_trait]
 impl VirtualNetworking for UnsupportedVirtualNetworking {}
 
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NetworkError {
     /// The handle given was not usable
     #[error("invalid fd")]
