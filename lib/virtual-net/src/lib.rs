@@ -11,7 +11,7 @@ use std::mem::MaybeUninit;
 pub use std::net::IpAddr;
 pub use std::net::Ipv4Addr;
 pub use std::net::Ipv6Addr;
-pub use std::net::Shutdown;
+use std::net::Shutdown;
 pub use std::net::SocketAddr;
 use std::sync::Arc;
 pub use std::time::Duration;
