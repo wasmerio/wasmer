@@ -40,6 +40,7 @@ pub fn fd_prestat_dir_name<M: MemorySize>(
         | Kind::File { .. }
         | Kind::Socket { .. }
         | Kind::Pipe { .. }
-        | Kind::EventNotifications { .. } => Errno::Notdir,
+        | Kind::EventNotifications { .. }
+        | Kind::Epoll { .. } => Errno::Notdir,
     }
 }

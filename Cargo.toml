@@ -27,6 +27,7 @@ wasmer-cache = { version = "=4.0.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "=4.0.0", path = "lib/types" }
 wasmer-middlewares = { version = "=4.0.0", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
+tokio = { version = "1", features = [ "rt", "rt-multi-thread", "macros" ], optional = true }
 
 [workspace]
 members = [
@@ -49,6 +50,7 @@ members = [
     "lib/registry",
     "lib/sys-utils",
     "lib/types",
+    "lib/virtual-io",
     "lib/virtual-fs",
     "lib/virtual-net",
     "lib/vm",
@@ -97,7 +99,7 @@ criterion = "0.3"
 lazy_static = "1.4"
 serial_test = "0.5"
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
-tempfile = "3.4.0"
+tempfile = "3.6.0"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
@@ -235,12 +237,12 @@ required-features = ["backend", "wasi"]
 [[example]]
 name = "wasi-manual-setup"
 path = "examples/wasi_manual_setup.rs"
-required-features = ["backend", "wasi"]
+required-features = ["tokio", "backend", "wasi"]
 
 [[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
-required-features = ["backend", "wasi"]
+required-features = ["tokio", "backend", "wasi"]
 
 [[example]]
 name = "table"

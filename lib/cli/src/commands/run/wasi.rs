@@ -28,7 +28,7 @@ use wasmer_wasix::{
             FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
             WebSource,
         },
-        task_manager::tokio::TokioTaskManager,
+        task_manager::{tokio::TokioTaskManager, VirtualTaskManagerExt},
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
@@ -169,10 +169,14 @@ impl Wasi {
         for name in &self.uses {
             let specifier = PackageSpecifier::parse(name)
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
-            let pkg = rt
-                .task_manager()
-                .block_on(BinaryPackage::from_registry(&specifier, &*rt))
-                .with_context(|| format!("Unable to load \"{name}\""))?;
+            let pkg = {
+                let inner_rt = rt.clone();
+                rt.task_manager()
+                    .spawn_and_block_on(async move {
+                        BinaryPackage::from_registry(&specifier, &*inner_rt).await
+                    })
+                    .with_context(|| format!("Unable to load \"{name}\""))?
+            };
             uses.push(pkg);
         }
 

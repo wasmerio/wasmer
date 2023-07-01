@@ -413,8 +413,8 @@ mod test_virtual_file {
         };
     }
 
-    #[test]
-    fn test_last_accessed() {
+    #[tokio::test]
+    async fn test_last_accessed() {
         let fs = FileSystem::default();
 
         let file = fs
@@ -442,8 +442,8 @@ mod test_virtual_file {
         );
     }
 
-    #[test]
-    fn test_last_modified() {
+    #[tokio::test]
+    async fn test_last_modified() {
         let fs = FileSystem::default();
 
         let file = fs
@@ -456,8 +456,8 @@ mod test_virtual_file {
         assert!(file.last_modified() > 0, "last modified time is not zero");
     }
 
-    #[test]
-    fn test_created_time() {
+    #[tokio::test]
+    async fn test_created_time() {
         let fs = FileSystem::default();
 
         let file = fs
@@ -483,8 +483,8 @@ mod test_virtual_file {
         );
     }
 
-    #[test]
-    fn test_size() {
+    #[tokio::test]
+    async fn test_size() {
         let fs = FileSystem::default();
 
         let file = fs

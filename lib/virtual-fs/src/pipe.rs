@@ -27,8 +27,6 @@ pub struct Pipe {
 pub struct PipeTx {
     /// Sends bytes down the pipe
     tx: Arc<Mutex<mpsc::UnboundedSender<Vec<u8>>>>,
-    /// Whether the pipe should block or not block to wait for stdin reads
-    block: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -36,8 +34,43 @@ pub struct PipeRx {
     /// Receives bytes from the pipe
     /// Also, buffers the last read message from the pipe while its being consumed
     rx: Arc<Mutex<PipeReceiver>>,
-    /// Whether the pipe should block or not block to wait for stdin reads
-    block: bool,
+}
+
+impl PipeRx {
+    fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
+        let max_size = buf.len();
+
+        let mut rx = self.rx.lock().unwrap();
+        loop {
+            {
+                if let Some(read_buffer) = rx.buffer.as_mut() {
+                    let buf_len = read_buffer.len();
+                    if buf_len > 0 {
+                        let mut read = buf_len.min(max_size);
+                        let mut inner_buf = &read_buffer[..read];
+                        read = match Read::read(&mut inner_buf, buf) {
+                            Ok(a) => a,
+                            Err(_) => return None,
+                        };
+                        read_buffer.advance(read);
+                        return Some(read);
+                    }
+                }
+            }
+            let data = {
+                match rx.chan.try_recv() {
+                    Ok(a) => a,
+                    Err(TryRecvError::Empty) => {
+                        return None;
+                    }
+                    Err(TryRecvError::Disconnected) => {
+                        return Some(0);
+                    }
+                }
+            };
+            rx.buffer.replace(Bytes::from(data));
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -53,14 +86,12 @@ impl Pipe {
         Pipe {
             send: PipeTx {
                 tx: Arc::new(Mutex::new(tx)),
-                block: true,
             },
             recv: PipeRx {
                 rx: Arc::new(Mutex::new(PipeReceiver {
                     chan: rx,
                     buffer: None,
                 })),
-                block: true,
             },
         }
     }
@@ -81,6 +112,10 @@ impl Pipe {
     pub fn combine(tx: PipeTx, rx: PipeRx) -> Self {
         Self { send: tx, recv: rx }
     }
+
+    pub fn try_read(&mut self, buf: &mut [u8]) -> Option<usize> {
+        self.recv.try_read(buf)
+    }
 }
 
 impl From<Pipe> for PipeTx {
@@ -96,18 +131,6 @@ impl From<Pipe> for PipeRx {
 }
 
 impl Pipe {
-    /// Same as `set_blocking`, but as a builder method
-    pub fn with_blocking(mut self, block: bool) -> Self {
-        self.set_blocking(block);
-        self
-    }
-
-    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
-    pub fn set_blocking(&mut self, block: bool) {
-        self.send.block = block;
-        self.recv.block = block;
-    }
-
     pub fn close(&self) {
         self.send.close();
     }
@@ -167,22 +190,11 @@ impl Read for PipeRx {
                 }
             }
             let data = {
-                match self.block {
-                    true => match rx.chan.blocking_recv() {
-                        Some(a) => a,
-                        None => {
-                            return Ok(0);
-                        }
-                    },
-                    false => match rx.chan.try_recv() {
-                        Ok(a) => a,
-                        Err(TryRecvError::Empty) => {
-                            return Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock));
-                        }
-                        Err(TryRecvError::Disconnected) => {
-                            return Ok(0);
-                        }
-                    },
+                match rx.chan.blocking_recv() {
+                    Some(a) => a,
+                    None => {
+                        return Ok(0);
+                    }
                 }
             };
             rx.buffer.replace(Bytes::from(data));
@@ -347,14 +359,7 @@ impl AsyncRead for PipeRx {
             let data = match rx.chan.poll_recv(cx) {
                 Poll::Ready(Some(a)) => a,
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
-                Poll::Pending => {
-                    return match self.block {
-                        true => Poll::Pending,
-                        false => {
-                            Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
-                        }
-                    }
-                }
+                Poll::Pending => return Poll::Pending,
             };
 
             rx.buffer.replace(Bytes::from(data));
@@ -421,14 +426,7 @@ impl VirtualFile for Pipe {
             let data = match pinned_rx.poll_recv(cx) {
                 Poll::Ready(Some(a)) => a,
                 Poll::Ready(None) => return Poll::Ready(Ok(0)),
-                Poll::Pending => {
-                    return match self.recv.block {
-                        true => Poll::Pending,
-                        false => {
-                            Poll::Ready(Err(Into::<io::Error>::into(io::ErrorKind::WouldBlock)))
-                        }
-                    }
-                }
+                Poll::Pending => return Poll::Pending,
             };
 
             rx.buffer.replace(Bytes::from(data));
@@ -503,17 +501,6 @@ impl DuplexPipe {
             front: end1,
             back: end2,
         }
-    }
-
-    pub fn with_blocking(mut self, block: bool) -> Self {
-        self.set_blocking(block);
-        self
-    }
-
-    /// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
-    pub fn set_blocking(&mut self, block: bool) {
-        self.front.set_blocking(block);
-        self.back.set_blocking(block);
     }
 }
 

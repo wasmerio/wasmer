@@ -1,5 +1,7 @@
+use std::task::Waker;
+
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_send_to()`
 /// Send a message on a socket to a specific address.
@@ -17,6 +19,26 @@ use crate::syscalls::*;
 /// Number of bytes transmitted.
 #[instrument(level = "trace", skip_all, fields(%sock, ?addr, nsent = field::Empty), ret, err)]
 pub fn sock_send_to<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
+    si_data_len: M::Offset,
+    si_flags: SiFlags,
+    addr: WasmPtr<__wasi_addr_port_t, M>,
+    ret_data_len: WasmPtr<M::Offset, M>,
+) -> Result<Errno, WasiError> {
+    sock_send_to_internal(
+        ctx,
+        sock,
+        si_data,
+        si_data_len,
+        si_flags,
+        addr,
+        ret_data_len,
+    )
+}
+
+pub(super) fn sock_send_to_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
@@ -47,6 +69,13 @@ pub fn sock_send_to<M: MemorySize>(
                     .map_err(mem_error_to_wasi)?;
                 let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
 
+                let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                let timeout = socket
+                    .opt_time(TimeType::WriteTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(30));
+
                 let mut sent = 0usize;
                 for iovs in iovs_arr.iter() {
                     let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -55,7 +84,13 @@ pub fn sock_send_to<M: MemorySize>(
                         .access()
                         .map_err(mem_error_to_wasi)?;
                     let local_sent = match socket
-                        .send_to::<M>(env.tasks().deref(), buf.as_ref(), addr, fd.flags)
+                        .send_to::<M>(
+                            env.tasks().deref(),
+                            buf.as_ref(),
+                            addr,
+                            Some(timeout),
+                            nonblocking,
+                        )
                         .await
                     {
                         Ok(s) => s,

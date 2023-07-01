@@ -18,7 +18,6 @@ use enumset::EnumSet;
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -38,12 +37,19 @@ use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 pub struct AllocatedArtifact {
+    // This shows if the frame info has been regestered already or not.
+    // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
+    // this bool is needed to track the status, as 'frame_info_registration' will be None
+    // after the ownership is transfered.
+    frame_info_registered: bool,
+    // frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
+    // using 'Artifact::take_frame_info_registration' method
+    // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    /// Some(_) only if this is not a deserialized static artifact
-    frame_info_registration: Option<Mutex<Option<GlobalFrameInfoRegistration>>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
@@ -158,13 +164,12 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(err) => {
-                    eprintln!("Could not deserialize as static object: {}", err);
+                Err(_) => {
+                    return Err(DeserializeError::Incompatible(
+                        "The provided bytes are not wasmer-universal".to_string(),
+                    ));
                 }
             }
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-universal".to_string(),
-            ));
         }
 
         let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
@@ -198,13 +203,12 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(err) => {
-                    eprintln!("Could not deserialize as static object: {}", err);
+                Err(_) => {
+                    return Err(DeserializeError::Incompatible(
+                        "The provided bytes are not wasmer-universal".to_string(),
+                    ));
                 }
             }
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-universal".to_string(),
-            ));
         }
 
         let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
@@ -301,18 +305,26 @@ impl Artifact {
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
-        Ok(Self {
+        let mut artifact = Self {
             id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
                 finished_functions,
                 finished_function_call_trampolines,
                 finished_dynamic_function_trampolines,
                 signatures,
-                frame_info_registration: Some(Mutex::new(None)),
                 finished_function_lengths,
             }),
-        })
+        };
+
+        artifact.internal_register_frame_info();
+        if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
+            engine_inner.register_frame_info(frame_info);
+        }
+
+        Ok(artifact)
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -378,47 +390,79 @@ impl ArtifactCreate for Artifact {
 impl Artifact {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
-    /// This is required to ensure that any traps can be properly symbolicated.
-    pub fn register_frame_info(&self) {
-        if let Some(frame_info_registration) = self
+    /// This is not required anymore as it's done automaticaly when creating by 'Artifact::from_parts'
+    #[deprecated(
+        since = "4.0.0",
+        note = "done automaticaly by Artifact::from_parts, use 'take_frame_info_registration' if you use this method"
+    )]
+    pub fn register_frame_info(&mut self) {
+        self.internal_register_frame_info()
+    }
+
+    fn internal_register_frame_info(&mut self) {
+        if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
-            .frame_info_registration
-            .as_ref()
+            .frame_info_registered
         {
-            let mut info = frame_info_registration.lock().unwrap();
-
-            if info.is_some() {
-                return;
-            }
-
-            let finished_function_extents = self
-                .allocated
-                .as_ref()
-                .expect("It must be allocated")
-                .finished_functions
-                .values()
-                .copied()
-                .zip(
-                    self.allocated
-                        .as_ref()
-                        .expect("It must be allocated")
-                        .finished_function_lengths
-                        .values()
-                        .copied(),
-                )
-                .map(|(ptr, length)| FunctionExtent { ptr, length })
-                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                .into_boxed_slice();
-
-            let frame_infos = self.artifact.get_frame_info_ref();
-            *info = register_frame_info(
-                self.artifact.create_module_info(),
-                &finished_function_extents,
-                frame_infos.clone(),
-            );
+            return; // already done
         }
+
+        let finished_function_extents = self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_functions
+            .values()
+            .copied()
+            .zip(
+                self.allocated
+                    .as_ref()
+                    .expect("It must be allocated")
+                    .finished_function_lengths
+                    .values()
+                    .copied(),
+            )
+            .map(|(ptr, length)| FunctionExtent { ptr, length })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
+
+        let frame_infos = self.artifact.get_frame_info_ref();
+
+        *frame_info_registration = register_frame_info(
+            self.artifact.create_module_info(),
+            &finished_function_extents,
+            frame_infos.clone(),
+        );
+
+        self.allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registered = true;
+    }
+
+    /// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
+    /// register_frame_info has been used.
+    #[deprecated(since = "4.0.0", note = "done automaticaly by Artifact::from_parts.")]
+    pub fn take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
+        self.internal_take_frame_info_registration()
+    }
+
+    fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
+
+        frame_info_registration.take()
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
@@ -530,8 +574,6 @@ impl Artifact {
             .create_globals(context, &module)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
-
-        self.register_frame_info();
 
         let handle = VMInstance::new(
             allocator,
@@ -891,6 +933,8 @@ impl Artifact {
             id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
                 finished_functions: finished_functions.into_boxed_slice(),
                 finished_function_call_trampolines: finished_function_call_trampolines
                     .into_boxed_slice(),
@@ -898,7 +942,6 @@ impl Artifact {
                     .into_boxed_slice(),
                 signatures: signatures.into_boxed_slice(),
                 finished_function_lengths,
-                frame_info_registration: None,
             }),
         })
     }

@@ -40,7 +40,7 @@ pub fn fd_filestat_set_size(
             Kind::Socket { .. } => return Errno::Badf,
             Kind::Pipe { .. } => return Errno::Badf,
             Kind::Symlink { .. } => return Errno::Badf,
-            Kind::EventNotifications { .. } => return Errno::Badf,
+            Kind::EventNotifications { .. } | Kind::Epoll { .. } => return Errno::Badf,
             Kind::Dir { .. } | Kind::Root { .. } => return Errno::Isdir,
         }
     }

@@ -125,7 +125,7 @@ impl UrlOrVersion {
 // Cross-compilation options with `zig`
 #[derive(Debug, Clone, Default, Parser)]
 pub(crate) struct CrossCompile {
-    /// Use the system linker instead of zig instead of zig for linking
+    /// Use the system linker instead of zig for linking
     #[clap(long)]
     use_system_linker: bool,
 

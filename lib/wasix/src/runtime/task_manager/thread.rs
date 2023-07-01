@@ -15,6 +15,7 @@ pub struct ThreadTaskManager {
     /// used for non-javascript environments
     #[cfg(feature = "sys-thread")]
     runtime: std::sync::Arc<Runtime>,
+    pool: Arc<rayon::ThreadPool>,
 }
 
 impl Default for ThreadTaskManager {
@@ -22,7 +23,10 @@ impl Default for ThreadTaskManager {
     fn default() -> Self {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
-        Self { runtime }
+        Self {
+            runtime,
+            pool: Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()),
+        }
     }
 
     #[cfg(not(feature = "sys-thread"))]
@@ -30,6 +34,7 @@ impl Default for ThreadTaskManager {
         let (tx, _) = tokio::sync::broadcast::channel(100);
         Self {
             periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx))),
+            pool: Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()),
         }
     }
 }
@@ -111,12 +116,17 @@ impl VirtualTaskManager for ThreadTaskManager {
         _id: WasiCallingId,
         ms: u128,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> {
-        Box::pin(async move {
-            if ms == 0 {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        self.runtime.spawn(async move {
+            if time == Duration::ZERO {
                 tokio::task::yield_now().await;
             } else {
-                tokio::time::sleep(std::time::Duration::from_millis(ms as u64)).await;
+                tokio::time::sleep(time).await;
             }
+            tx.send(()).ok();
+        });
+        Box::pin(async move {
+            rx.recv().await;
         })
     }
 
@@ -158,16 +168,18 @@ impl VirtualTaskManager for ThreadTaskManager {
         spawn_type: SpawnType,
     ) -> Result<(), WasiThreadError> {
         let vm_memory: Option<Memory> = match spawn_type {
-            SpawnType::CreateWithType(mem) => {
-                Some(Memory::new(&mut store, mem.ty).map_err(|err| {
-                    tracing::error!("failed to create memory - {}", err);
-                }).unwrap())
-            },
+            SpawnType::CreateWithType(mem) => Some(
+                Memory::new(&mut store, mem.ty)
+                    .map_err(|err| {
+                        tracing::error!("failed to create memory - {}", err);
+                    })
+                    .unwrap(),
+            ),
             SpawnType::NewThread(mem) => Some(mem),
             SpawnType::Create => None,
         };
 
-        std::thread::spawn(move || {
+        self.pool.spawn(move || {
             // Invoke the callback
             task(store, module, memory);
         });
@@ -179,7 +191,7 @@ impl VirtualTaskManager for ThreadTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        std::thread::spawn(move || {
+        self.pool.spawn(move || {
             task();
         });
         Ok(())

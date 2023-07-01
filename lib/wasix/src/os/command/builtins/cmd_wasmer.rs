@@ -2,6 +2,7 @@ use std::{any::Any, sync::Arc};
 
 use crate::{
     os::task::{OwnedTaskStatus, TaskJoinHandle},
+    runtime::task_manager::InlineWaker,
     SpawnError,
 };
 use wasmer::{FunctionEnvMut, Store};
@@ -10,7 +11,7 @@ use wasmer_wasix_types::wasi::Errno;
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage},
     syscalls::stderr_write,
-    Runtime, VirtualTaskManagerExt, WasiEnv,
+    Runtime, WasiEnv,
 };
 
 const HELP: &str = r#"USAGE:
@@ -82,6 +83,7 @@ impl CmdWasmer {
                     )
                 }
                 .await;
+
                 let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
                 Ok(handle)
             }
@@ -131,9 +133,9 @@ impl VirtualCommand for CmdWasmer {
                     self.run(parent_ctx, name, store, env, what, args).await
                 }
                 Some("--help") | None => {
-                    parent_ctx.data().tasks().block_on(async move {
-                        let _ = unsafe { stderr_write(parent_ctx, HELP.as_bytes()) }.await;
-                    });
+                    unsafe { stderr_write(parent_ctx, HELP.as_bytes()) }
+                        .await
+                        .ok();
                     let handle =
                         OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
                     Ok(handle)
@@ -146,6 +148,6 @@ impl VirtualCommand for CmdWasmer {
             }
         };
 
-        parent_ctx.data().tasks().block_on(fut)
+        InlineWaker::block_on(fut)
     }
 }

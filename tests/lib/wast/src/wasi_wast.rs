@@ -14,11 +14,11 @@ use virtual_fs::{
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
-use wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
+use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
-    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, Runtime,
-    VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
+    WasiEnv, WasiEnvBuilder, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -96,6 +96,21 @@ impl<'a> WasiTest<'a> {
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<bool> {
         use anyhow::Context;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let handle = runtime.handle().clone();
+        #[cfg(not(target_arch = "wasm32"))]
+        let _guard = handle.enter();
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        #[cfg(target_arch = "wasm32")]
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
+        rt.set_engine(Some(store.engine().clone()));
+
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);
         let wasm_bytes = {
@@ -105,13 +120,9 @@ impl<'a> WasiTest<'a> {
             out
         };
 
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
-        rt.set_engine(Some(store.engine().clone()));
-
-        let tasks = rt.task_manager().runtime().clone();
         let module = Module::new(store, wasm_bytes)?;
         let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
-            { tasks.block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
+            { InlineWaker::block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
         let (instance, _wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
 
@@ -121,7 +132,7 @@ impl<'a> WasiTest<'a> {
             // let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
             let data = stdin.stream.to_string();
-            tasks.block_on(async move {
+            InlineWaker::block_on(async move {
                 stdin_tx.write_all(data.as_bytes()).await?;
                 stdin_tx.shutdown().await?;
 

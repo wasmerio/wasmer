@@ -480,7 +480,6 @@ version = "0.24.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b922faaf31122819ec80c4047cc684c6979a087366c069611e33649bf98e18d"
 dependencies = [
- "clap 3.2.25",
  "heck 0.4.1",
  "indexmap",
  "log",
@@ -545,23 +544,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a0610544180c38b88101fecf2dd634b174a62eef6946f84dfc6a7127512b381c"
 dependencies = [
  "bitflags 1.3.2",
- "textwrap 0.11.0",
+ "textwrap",
  "unicode-width",
-]
-
-[[package]]
-name = "clap"
-version = "3.2.25"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ea181bf566f71cb9a5d17a59e1871af638180a18fb0035c92ae62b705207123"
-dependencies = [
- "atty",
- "bitflags 1.3.2",
- "clap_lex 0.2.4",
- "indexmap",
- "strsim",
- "termcolor",
- "textwrap 0.16.0",
 ]
 
 [[package]]
@@ -594,7 +578,7 @@ dependencies = [
  "anstream",
  "anstyle",
  "bitflags 1.3.2",
- "clap_lex 0.5.0",
+ "clap_lex",
  "strsim",
 ]
 
@@ -608,15 +592,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.18",
-]
-
-[[package]]
-name = "clap_lex"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2850f2f5a82cbf437dd5af4d49848fbdfc27c157c3d010345776f952765261c5"
-dependencies = [
- "os_str_bytes",
 ]
 
 [[package]]
@@ -2871,12 +2846,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "os_str_bytes"
-version = "6.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d5d9eb14b174ee9aa2ef96dc2b94637a2d4b6e7cb873c7e171f0c20c6cf3eac"
-
-[[package]]
 name = "output_vt100"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4470,12 +4439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "textwrap"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "222a222a5bfe1bba4a77b45ec488a741b3cb8872e5e499451fd7d0129c9c7c3d"
-
-[[package]]
 name = "thiserror"
 version = "1.0.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5102,15 +5065,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "virtual-io"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derivative",
+ "mio",
+ "socket2",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "virtual-net"
 version = "0.3.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "derivative",
  "libc",
+ "mio",
+ "socket2",
  "thiserror",
  "tokio",
  "tracing",
+ "virtual-io",
 ]
 
 [[package]]
@@ -5587,6 +5567,7 @@ dependencies = [
  "libc",
  "paste",
  "thiserror",
+ "tokio",
  "typetag",
  "virtual-fs",
  "wasmer",
@@ -6170,6 +6151,7 @@ dependencies = [
  "pin-project",
  "pretty_assertions",
  "rand",
+ "rayon",
  "reqwest",
  "semver 1.0.17",
  "serde",
@@ -6193,6 +6175,7 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
+ "virtual-io",
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
@@ -6303,6 +6286,7 @@ dependencies = [
  "tempfile",
  "test-generator",
  "test-log",
+ "tokio",
  "tracing",
  "tracing-subscriber 0.3.17",
  "wasi-test-generator",

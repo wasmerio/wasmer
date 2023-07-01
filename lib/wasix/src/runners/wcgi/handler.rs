@@ -1,13 +1,10 @@
 use std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 use anyhow::Error;
-use futures::{Future, FutureExt, StreamExt, TryFutureExt};
+use futures::{Future, FutureExt, StreamExt};
 use http::{Request, Response};
 use hyper::{service::Service, Body};
-use tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt},
-    runtime::Handle,
-};
+use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::Instrument;
 use wasmer::Module;
 use wcgi_host::CgiDialect;
@@ -71,42 +68,47 @@ impl Handler {
         let task_manager = self.runtime.task_manager();
         let store = self.runtime.new_store();
 
-        let done = task_manager
-            .runtime()
-            .spawn_blocking(move || builder.run_with_store_async(module, store))
-            .map_err(Error::from)
-            .and_then(|r| async { r.map_err(Error::from) });
-
-        let handle = task_manager.runtime().clone();
-        let callbacks = Arc::clone(&self.callbacks);
-
-        handle.spawn(
-            async move {
-                consume_stderr(stderr_receiver, callbacks).await;
-            }
-            .in_current_span(),
-        );
-
-        task_manager.runtime().spawn(
-            async move {
-                if let Err(e) =
-                    drive_request_to_completion(&handle, done, body, req_body_sender).await
-                {
-                    tracing::error!(
-                        error = &*e as &dyn std::error::Error,
-                        "Unable to drive the request to completion"
-                    );
-                }
-            }
-            .in_current_span(),
-        );
+        let (run_tx, mut run_rx) = tokio::sync::mpsc::unbounded_channel();
+        task_manager.task_dedicated(Box::new(move || {
+            run_tx
+                .send(builder.run_with_store_async(module, store))
+                .ok();
+        }))?;
+        let done = async move { run_rx.recv().await.unwrap().map_err(Error::from) };
 
         let mut res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
+
+        let callbacks = Arc::clone(&self.callbacks);
+        let work_consume_stderr = async move {
+            consume_stderr(stderr_receiver, callbacks).await;
+        }
+        .in_current_span();
+        task_manager
+            .task_shared(Box::new(move || {
+                Box::pin(async move { work_consume_stderr.await })
+            }))
+            .ok();
+
+        let work_drive_io = async move {
+            if let Err(e) = drive_request_to_completion(done, body, req_body_sender).await {
+                tracing::error!(
+                    error = &*e as &dyn std::error::Error,
+                    "Unable to drive the request to completion"
+                );
+            }
+        }
+        .in_current_span();
+        task_manager
+            .task_shared(Box::new(move || {
+                Box::pin(async move { work_drive_io.await })
+            }))
+            .ok();
 
         let parts = self
             .dialect
             .extract_response_header(&mut res_body_receiver)
             .await?;
+
         let chunks = futures::stream::try_unfold(res_body_receiver, |mut r| async move {
             match r.fill_buf().await {
                 Ok(chunk) if chunk.is_empty() => Ok(None),
@@ -121,7 +123,6 @@ impl Handler {
         let body = hyper::Body::wrap_stream(chunks);
 
         let response = hyper::Response::from_parts(parts, body);
-
         Ok(response)
     }
 }
@@ -137,38 +138,32 @@ impl Deref for Handler {
 /// Drive the request to completion by streaming the request body to the
 /// instance and waiting for it to exit.
 async fn drive_request_to_completion(
-    handle: &Handle,
     done: impl Future<Output = Result<(), Error>>,
     mut request_body: hyper::Body,
     mut instance_stdin: impl AsyncWrite + Send + Unpin + 'static,
 ) -> Result<(), Error> {
-    let request_body_send = handle
-        .spawn(
-            async move {
-                // Copy the request into our instance, chunk-by-chunk. If the instance
-                // dies before we finish writing the body, the instance's side of the
-                // pipe will be automatically closed and we'll error out.
-                let mut request_size = 0;
-                while let Some(res) = request_body.next().await {
-                    // FIXME(theduke): figure out how to propagate a body error to the
-                    // CGI instance.
-                    let chunk = res?;
-                    request_size += chunk.len();
-                    instance_stdin.write_all(chunk.as_ref()).await?;
-                }
+    let request_body_send = async move {
+        // Copy the request into our instance, chunk-by-chunk. If the instance
+        // dies before we finish writing the body, the instance's side of the
+        // pipe will be automatically closed and we'll error out.
+        let mut request_size = 0;
+        while let Some(res) = request_body.next().await {
+            // FIXME(theduke): figure out how to propagate a body error to the
+            // CGI instance.
+            let chunk = res?;
+            request_size += chunk.len();
+            instance_stdin.write_all(chunk.as_ref()).await?;
+        }
 
-                instance_stdin.shutdown().await?;
-                tracing::debug!(
-                    request_size,
-                    "Finished forwarding the request to the WCGI server"
-                );
+        instance_stdin.shutdown().await?;
+        tracing::debug!(
+            request_size,
+            "Finished forwarding the request to the WCGI server"
+        );
 
-                Ok::<(), Error>(())
-            }
-            .in_current_span(),
-        )
-        .map_err(Error::from)
-        .and_then(|r| async { r });
+        Ok::<(), Error>(())
+    }
+    .in_current_span();
 
     futures::try_join!(done, request_body_send)?;
 

@@ -81,9 +81,10 @@ pub fn path_rename<M: MemorySize>(
                 out_path
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return Ok(Errno::Inval)
-            }
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Ok(Errno::Inval),
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 debug!("fatal internal logic error: parent of inode is not a directory");
                 return Ok(Errno::Inval);
@@ -98,7 +99,10 @@ pub fn path_rename<M: MemorySize>(
                 wasi_try_ok!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => {
                 return Ok(Errno::Inval);
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
@@ -184,6 +188,7 @@ pub fn path_rename<M: MemorySize>(
             Kind::Symlink { .. } => {}
             Kind::Socket { .. } => {}
             Kind::Pipe { .. } => {}
+            Kind::Epoll { .. } => {}
             Kind::EventNotifications { .. } => {}
             Kind::Root { .. } => unreachable!("The root can not be moved"),
         }

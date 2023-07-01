@@ -43,7 +43,7 @@ pub fn fd_allocate(
                 buffer.resize(new_size as usize, 0);
             }
             Kind::Symlink { .. } => return Errno::Badf,
-            Kind::EventNotifications { .. } => return Errno::Badf,
+            Kind::EventNotifications { .. } | Kind::Epoll { .. } => return Errno::Badf,
             Kind::Dir { .. } | Kind::Root { .. } => return Errno::Isdir,
         }
     }

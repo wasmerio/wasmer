@@ -203,7 +203,7 @@ pub fn proc_exec<M: MemorySize>(
             &mut new_store,
             &mut builder,
         ) {
-            Ok(a) => Ok(Ok(a)),
+            Ok(a) => Ok(a),
             Err(err) => {
                 if !err.is_not_found() {
                     error!("builtin failed - {}", err);
@@ -213,18 +213,12 @@ pub fn proc_exec<M: MemorySize>(
                 let env = builder.take().unwrap();
 
                 // Spawn a new process with this current execution environment
-                //let pid = wasi_env.process.pid();
-                let (tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(async move {
-                    let ret = bin_factory.spawn(name, new_store, env).await;
-                    tx.send(ret);
-                }));
-                rx.recv()
+                InlineWaker::block_on(bin_factory.spawn(name, new_store, env))
             }
         };
 
         match process {
-            Ok(Ok(mut process)) => {
+            Ok(mut process) => {
                 // If we support deep sleeping then we switch to deep sleep mode
                 let env = ctx.data();
                 let thread = env.thread.clone();
@@ -252,16 +246,9 @@ pub fn proc_exec<M: MemorySize>(
                     AsyncifyAction::Unwind => Ok(()),
                 }
             }
-            Ok(Err(err)) => {
-                warn!(
-                    "failed to execve as the process could not be spawned (fork)[0] - {}",
-                    err
-                );
-                Err(WasiError::Exit(Errno::Noexec.into()))
-            }
             Err(err) => {
                 warn!(
-                    "failed to execve as the process could not be spawned (fork)[1] - {}",
+                    "failed to execve as the process could not be spawned (fork)[0] - {}",
                     err
                 );
                 Err(WasiError::Exit(Errno::Noexec.into()))
