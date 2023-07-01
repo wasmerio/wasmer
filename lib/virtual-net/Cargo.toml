@@ -20,6 +20,15 @@ mio = { version = "0.8", optional = true }
 socket2 = { version = "0.4", optional = true }
 derivative = { version = "^2" }
 virtual-io  = { path = "../virtual-io", version = "0.1.0", default-features = false }
+tun-tap = { version = "0.1.3", optional = true }
+tokio-tungstenite = { version = "0.19.0", optional = true }
+base64 = "^0.13"
+aes = { version = "^0.7", optional = true }
+ctr = { version = "^0.8", optional = true }
+sha3 = { version = "0.10.6", optional = true }
+rand_chacha = { version = "^0.3", optional = true }
+blake3 = { version = "1.3.3", optional = true }
 
 [features]
 host-net = [ "tokio", "libc", "virtual-io/sys", "tokio/net", "socket2", "mio" ]
+ws-net = [ "tokio-tungstenite", "aes", "ctr", "sha3", "rand_chacha", "blake3" ]
