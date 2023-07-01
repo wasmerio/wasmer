@@ -71,7 +71,10 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
                         // Get the data for this fd
                         let data = match guard.get(&fd) {
                             Some(a) => a,
-                            None => continue,
+                            None => {
+                                tracing::debug!(fd, readiness=?readiness, "orphaned interest");
+                                continue;
+                            }
                         };
                         ret.push((data.0.clone(), readiness));
                         if ret.len() + POLL_GUARD_MAX_RET >= (maxevents as usize) {
