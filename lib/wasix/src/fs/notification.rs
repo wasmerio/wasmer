@@ -106,4 +106,9 @@ impl NotificationInner {
             res => Some(res),
         }
     }
+
+    pub fn reset(&self) {
+        let mut state = self.state.lock().unwrap();
+        state.last_poll = u64::MAX;
+    }
 }
