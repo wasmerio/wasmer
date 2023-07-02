@@ -11,6 +11,8 @@ use crate::{
     WasiInodes,
 };
 
+const TIMEOUT_FOREVER: u64 = u64::MAX;
+
 /// ### `epoll_wait()`
 /// Wait for an I/O event on an epoll file descriptor
 #[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
@@ -24,8 +26,11 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
-    let tasks = ctx.data().tasks().clone();
-    let timeout = tasks.sleep_now(Duration::from_nanos(timeout));
+    if timeout == TIMEOUT_FOREVER {
+        tracing::trace!(maxevents, epfd, "waiting forever on wakers");
+    } else {
+        tracing::trace!(maxevents, epfd, timeout, "waiting on wakers");
+    }
 
     let (rx, tx, subscriptions) = {
         let fd_entry = wasi_try_ok!(ctx.data().state.fs.get_fd(epfd));
@@ -101,14 +106,23 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
     };
 
     // Build the trigger using the timeout
-    let trigger = async move {
-        tokio::select! {
-            res = work => res,
-            _ = timeout => Err(Errno::Timedout)
+    let trigger = {
+        let timeout = if timeout == TIMEOUT_FOREVER {
+            None
+        } else {
+            Some(ctx.data().tasks().sleep_now(Duration::from_nanos(timeout)))
+        };
+        async move {
+            if let Some(timeout) = timeout {
+                tokio::select! {
+                    res = work => res,
+                    _ = timeout => Err(Errno::Timedout)
+                }
+            } else {
+                work.await
+            }
         }
     };
-
-    tracing::trace!(maxevents, epfd, "waiting on wakers");
 
     // We replace the process events callback with another callback
     // which will interpret the error codes
