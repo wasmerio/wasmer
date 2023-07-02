@@ -69,19 +69,28 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
                     .into_iter()
                     .collect();
                 {
-                    let guard = subscriptions.lock().unwrap();
+                    let mut guard = subscriptions.lock().unwrap();
                     for (fd, readiness) in interest {
                         removed.push((fd, readiness));
 
                         // Get the data for this fd
-                        let data = match guard.get(&fd) {
+                        let (fd, joins) = match guard.get_mut(&fd) {
                             Some(a) => a,
                             None => {
                                 tracing::debug!(fd, readiness=?readiness, "orphaned interest");
                                 continue;
                             }
                         };
-                        ret.push((data.0.clone(), readiness));
+
+                        // We have to renew any joins that have now been spent
+                        for join in joins {
+                            if join.is_spent() {
+                                join.renew();
+                            }
+                        }
+
+                        // Record the event
+                        ret.push((fd.clone(), readiness));
                         if ret.len() + POLL_GUARD_MAX_RET >= (maxevents as usize) {
                             break;
                         }
@@ -90,6 +99,7 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
 
                 // Remove anything that was signaled
                 if !removed.is_empty() {
+                    // Now update the notification system
                     tx.send_modify(|i| {
                         for (fd, readiness) in removed {
                             i.interest.remove(&(fd, readiness));

@@ -27,7 +27,7 @@ use crate::{
     utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),
     EventNotifications(Arc<NotificationInner>),
@@ -124,6 +124,7 @@ pub struct InodeValFilePollGuardJoin {
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
+    spent: bool,
 }
 
 impl InodeValFilePollGuardJoin {
@@ -133,6 +134,7 @@ impl InodeValFilePollGuardJoin {
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
+            spent: false,
         }
     }
     pub(crate) fn fd(&self) -> u32 {
@@ -140,6 +142,20 @@ impl InodeValFilePollGuardJoin {
     }
     pub(crate) fn peb(&self) -> PollEventSet {
         self.peb
+    }
+    pub fn is_spent(&self) -> bool {
+        self.spent
+    }
+    pub fn reset(&mut self) {
+        match &self.mode {
+            InodeValFilePollGuardMode::File(_) => {}
+            InodeValFilePollGuardMode::EventNotifications(inner) => {
+                inner.reset();
+            }
+            InodeValFilePollGuardMode::Socket { .. } => {}
+            InodeValFilePollGuardMode::Pipe { .. } => {}
+        }
+        self.spent = false;
     }
 }
 
@@ -408,6 +424,7 @@ impl Future for InodeValFilePollGuardJoin {
             };
         }
         if !ret.is_empty() {
+            self.spent = true;
             return Poll::Ready(ret);
         }
         Poll::Pending
