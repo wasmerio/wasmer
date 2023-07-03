@@ -288,6 +288,7 @@ mod tests {
     #[test]
     fn test_console_dash_tty_with_args_and_env() {
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = tokio_rt.handle().enter();
 
         let tm = TokioTaskManager::new(tokio_rt.handle().clone());
         let mut rt = PluggableRuntime::new(Arc::new(tm));
