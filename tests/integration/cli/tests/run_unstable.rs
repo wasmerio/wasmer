@@ -268,7 +268,6 @@ mod webc_on_disk {
         windows,
         ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
     )]
-    #[ignore = "disabling temporarily"]
     fn merged_filesystem_contains_all_files() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::bash())
