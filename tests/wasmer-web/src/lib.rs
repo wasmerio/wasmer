@@ -21,6 +21,15 @@ const RECORDING_INTERVAL: Duration = Duration::from_millis(250);
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Define a browser test.
+///
+/// ```rust
+///
+/// #[macro_rules_attribute::apply(browser_test)]
+/// async fn it_works(client: Client) {
+///     let url = client.current_url().await.unwrap();
+///     assert_eq!(url.as_str(), "http://localhost:9000/");
+/// }
+/// ```
 #[macro_export]
 macro_rules! browser_test {
     ($(#[$meta:meta])* async fn $name:ident($client_var:ident : $client_ty:ty) $body:block) => {
@@ -32,6 +41,14 @@ macro_rules! browser_test {
     };
 }
 
+/// The real meat & potatoes of our test suite.
+///
+/// This spins up a Tokio runtime, starts a headless Chrome browser, runs the
+/// provided code (presumably a test), then tears everything down.
+///
+/// To help debug failing tests, the [`Session`] will also record screenshots to
+/// disk so users can see what the browser saw. The path to this folder will be
+/// printed after the test fails.
 #[doc(hidden)]
 pub fn run_browser_test<F, Fut>(thunk: F)
 where
@@ -62,12 +79,19 @@ where
     });
 }
 
+/// All state associated with a browser test.
 #[derive(Debug)]
 struct Session {
+    /// The chromedriver process.
     driver: Child,
+    /// A fantoccini client.
     client: Client,
+    /// The file all chromedriver logs are written to.
     logs: NamedTempFile,
+    /// The directory screenshots are saved to for debugging.
     recording_dir: TempDir,
+    /// Tell the background job to stop automatically recording debug
+    /// screenshots.
     stop_recording: Sender<()>,
 }
 
@@ -163,7 +187,7 @@ fn record_browser(client: Client) -> Result<(TempDir, Sender<()>), Error> {
     let recording_dir = TempDir::new()?;
     let (stop_recording, tx) = futures::channel::oneshot::channel::<()>();
 
-    let path = recording_dir.path().to_path_buf();
+    let recording_dir_path = recording_dir.path().to_path_buf();
     tokio::spawn(async move {
         let screenshots = async {
             let mut timer = tokio::time::interval(RECORDING_INTERVAL);
@@ -174,18 +198,21 @@ fn record_browser(client: Client) -> Result<(TempDir, Sender<()>), Error> {
                 let bytes = client.screenshot().await?;
                 let run_time = tick.duration_since(started.into());
                 let filename = format!("{}.{}.png", run_time.as_secs(), run_time.subsec_millis());
-                tokio::fs::write(path.join(filename), bytes).await?;
+                tokio::fs::write(recording_dir_path.join(filename), bytes).await?;
             }
         };
 
         tokio::select! {
             _ = tx => {
-                // Stop recording
+                // Return. Stopping the recording.
             },
             result = screenshots => {
                 let result: Result<(), Error> = result;
                 if let Err(e) = result {
-                    eprintln!("An error occurred while capturing screenshots: {e:?}");
+                    eprintln!(
+                        "An error occurred while capturing screenshots to \"{}\": {e:?}",
+                        recording_dir_path.display(),
+                    );
                 }
             },
         }
@@ -232,7 +259,7 @@ pub fn assert_screenshot(client: &Client) -> impl Future<Output = Result<(), Err
     let caller = Location::caller();
 
     async move {
-        let screenshot = client
+        let _screenshot = client
             .screenshot()
             .await
             .context("Unable to capture the screenshot")?;
@@ -244,9 +271,9 @@ pub fn assert_screenshot(client: &Client) -> impl Future<Output = Result<(), Err
             .parent()
             .context("Unable to determine the file's folder")?;
 
-        let snapshot_dir = parent.join("snapshots");
+        let _snapshot_dir = parent.join("snapshots");
 
-        Ok(())
+        todo!("Diff the screenshot, insta-style");
     }
 }
 
@@ -270,6 +297,9 @@ pub trait ClientExt {
 
     #[track_caller]
     async fn assert_screenshot(&self) -> Result<(), Error>;
+
+    /// Run a command and wait for it to finish (i.e. the next prompt is shown).
+    async fn execute_command(&self, cmd: &str, prompt: &str) -> String;
 }
 
 #[async_trait::async_trait]
@@ -277,6 +307,11 @@ impl ClientExt for Client {
     async fn read_terminal(&self) -> Result<String, Error> {
         let js = r#"
             const xterm = window.xterm;
+
+            if (!xterm) {
+                return "";
+            }
+
             xterm.selectAll();
             const selection = xterm.getSelection();
             xterm.clearSelection();
@@ -339,5 +374,36 @@ impl ClientExt for Client {
     #[track_caller]
     async fn assert_screenshot(&self) -> Result<(), Error> {
         assert_screenshot(self).await
+    }
+
+    async fn execute_command(&self, cmd: &str, prompt: &str) -> String {
+        let previous_output = self.read_terminal().await.unwrap();
+
+        let stdin = self
+            .find(fantoccini::Locator::Css("textarea.xterm-helper-textarea"))
+            .await
+            .unwrap();
+
+        stdin.send_keys(cmd).await.unwrap();
+        stdin.send_keys("\n").await.unwrap();
+
+        let new_output = |s: &str| {
+            // First, trim away anything before/including the previous output
+            let (_, new_content) = s.split_once(&previous_output).unwrap();
+            // Now, we want to get the content after the command
+            let (_before, after) = new_content.split_once(cmd).unwrap();
+            after.trim_start_matches('\n').to_string()
+        };
+
+        let terminal_contents = self
+            .wait_for_xterm(predicates::function::function(|s: &str| {
+                new_output(s).contains(prompt)
+            }))
+            .await;
+
+        let output_including_trailing_prompt = new_output(&terminal_contents);
+        let (output, _) = output_including_trailing_prompt.split_once(prompt).unwrap();
+
+        output.trim_end().to_string()
     }
 }
