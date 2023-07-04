@@ -26,7 +26,7 @@ async fn run_the_ls_command(client: Client) {
 
     let output = client.execute_command("ls", PROMPT).await;
 
-    assert_eq!(output, "bin\ndev\netc\ntmp\nusr");
+    assert_eq!(output, "bin\ndev\netc\ntmp\nusr\n");
 }
 
 #[macro_rules_attribute::apply(browser_test)]
@@ -36,5 +36,5 @@ async fn pipe_between_commands(client: Client) {
 
     let output = client.execute_command("ls | wc", PROMPT).await;
 
-    assert_eq!(output, "      5       5      20");
+    assert_eq!(output, "      5       5      20\n");
 }

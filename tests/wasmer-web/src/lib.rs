@@ -23,7 +23,7 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Define a browser test.
 ///
 /// ```rust
-///
+/// # use wasmer_web_tests::browser_test;
 /// #[macro_rules_attribute::apply(browser_test)]
 /// async fn it_works(client: Client) {
 ///     let url = client.current_url().await.unwrap();
@@ -299,6 +299,14 @@ pub trait ClientExt {
     async fn assert_screenshot(&self) -> Result<(), Error>;
 
     /// Run a command and wait for it to finish (i.e. the next prompt is shown).
+    ///
+    /// ## Caveats
+    ///
+    /// Everything is built on top of [`ClientExt::read_terminal()`] and string
+    /// manipulation, so a lot of caveats apply.
+    ///
+    /// - Make sure your comand doesn't generate so much output that the
+    ///   original prompt disappears off the screen
     async fn execute_command(&self, cmd: &str, prompt: &str) -> String;
 }
 
@@ -387,23 +395,71 @@ impl ClientExt for Client {
         stdin.send_keys(cmd).await.unwrap();
         stdin.send_keys("\n").await.unwrap();
 
-        let new_output = |s: &str| {
-            // First, trim away anything before/including the previous output
-            let (_, new_content) = s.split_once(&previous_output).unwrap();
-            // Now, we want to get the content after the command
-            let (_before, after) = new_content.split_once(cmd).unwrap();
-            after.trim_start_matches('\n').to_string()
-        };
-
         let terminal_contents = self
             .wait_for_xterm(predicates::function::function(|s: &str| {
-                new_output(s).contains(prompt)
+                // First, trim away anything before/including the previous output
+                let (_, new_content) = s.split_once(&previous_output).unwrap();
+                // Now, we want to get the content after the command
+                let (_before, after) = new_content.split_once(cmd).unwrap();
+                after.trim_start_matches('\n').contains(prompt)
             }))
             .await;
 
-        let output_including_trailing_prompt = new_output(&terminal_contents);
-        let (output, _) = output_including_trailing_prompt.split_once(prompt).unwrap();
+        extract_command_output(&terminal_contents, prompt).to_string()
+    }
+}
 
-        output.trim_end().to_string()
+fn extract_command_output<'a>(terminal: &'a str, prompt: &str) -> &'a str {
+    // Note: we assume the terminal output looks like this:
+    //   prompt $command
+    //   lines of output
+    //   lines of output
+    //   lines of output
+    //   lines of output
+    //   prompt
+    //   optional trailing stuff
+    //
+    // We want those "lines of output"
+    let chunks: Vec<_> = terminal.split(prompt).collect();
+    match chunks.as_slice() {
+        [.., output, _optional_trailing_stuff] => match output.find('\n') {
+            // Get rid of the leading prompt and command
+            Some(first_newline) => &output[first_newline + 1..],
+            _ => output,
+        },
+        _ => todo!(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_output() {
+        let src = r#"
+██╗    ██╗ █████╗ ███████╗███╗   ███╗███████╗██████╗    ███████╗██╗  ██╗
+██║    ██║██╔══██╗██╔════╝████╗ ████║██╔════╝██╔══██╗   ██╔════╝██║  ██║
+██║ █╗ ██║███████║███████╗██╔████╔██║█████╗  ██████╔╝   ███████╗███████║
+██║███╗██║██╔══██║╚════██║██║╚██╔╝██║██╔══╝  ██╔══██╗   ╚════██║██╔══██║
+╚███╔███╔╝██║  ██║███████║██║ ╚═╝ ██║███████╗██║  ██║██╗███████║██║  ██║
+    ╚══╝╚══╝ ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝
+    QUICK START:                         MORE INFO:
+• Wasmer commands:  wasmer            • Usage Information: help
+• Core utils:       coreutils         • About Wasmer: about wasmer
+• Pipe: echo blah | cat
+wcbash-5.1# wc
+
+
+wc: 'standard input': Interrupted system call (os error 27)
+        1       1       4
+bash-5.1# ls | wc
+        5       5      20
+bash-5.1#
+       "#;
+
+        let output = extract_command_output(src, "bash-5.1#");
+
+        assert_eq!(output, "        5       5      20\n");
     }
 }
