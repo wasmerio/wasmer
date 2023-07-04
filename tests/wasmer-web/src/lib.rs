@@ -8,7 +8,8 @@ use std::{
 
 use anyhow::{Context, Error};
 use fantoccini::Client;
-use futures::{channel::oneshot::Sender, Future, TryFutureExt};
+use futures::{channel::oneshot::Sender, Future};
+use predicates::Predicate;
 use tempfile::{NamedTempFile, TempDir};
 use tokio::{
     net::TcpStream,
@@ -17,7 +18,9 @@ use tokio::{
 
 pub const WEBPACK_DEV_SERVER_URL: &str = "http://localhost:9000/";
 const RECORDING_INTERVAL: Duration = Duration::from_millis(250);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
+/// Define a browser test.
 #[macro_export]
 macro_rules! browser_test {
     ($(#[$meta:meta])* async fn $name:ident($client_var:ident : $client_ty:ty) $body:block) => {
@@ -118,6 +121,8 @@ impl Session {
     }
 
     async fn shutdown(mut self, failed: bool) -> Result<(), Error> {
+        let _ = self.stop_recording.send(());
+
         self.client.close_window().await?;
         self.client.close().await?;
 
@@ -144,8 +149,6 @@ impl Session {
         eprintln!("==== Chromedriver Logs ====");
         eprintln!("{logs}");
         eprintln!("==== End Chromedriver Logs ====");
-
-        let _ = self.stop_recording.send(());
 
         if failed {
             let recording_dir = self.recording_dir.into_path();
@@ -243,6 +246,98 @@ pub fn assert_screenshot(client: &Client) -> impl Future<Output = Result<(), Err
 
         let snapshot_dir = parent.join("snapshots");
 
-        todo!();
+        Ok(())
+    }
+}
+
+/// Extra methods added to [`Client`] for use with browser tests.
+#[async_trait::async_trait]
+pub trait ClientExt {
+    /// Read the contents of the `xterm.js` terminal.
+    async fn read_terminal(&self) -> Result<String, Error>;
+
+    /// Wait until the contents of the terminal satisfies a particular
+    /// [`Predicate`].
+    async fn wait_for_xterm(&self, predicate: impl Predicate<str> + Send) -> String;
+
+    /// Wait until the contents of the terminal satisfies a particular
+    /// [`Predicate`].
+    async fn wait_for_xterm_with_timeout(
+        &self,
+        predicate: impl Predicate<str> + Send,
+        timeout: Duration,
+    ) -> String;
+
+    #[track_caller]
+    async fn assert_screenshot(&self) -> Result<(), Error>;
+}
+
+#[async_trait::async_trait]
+impl ClientExt for Client {
+    async fn read_terminal(&self) -> Result<String, Error> {
+        let js = r#"
+            const xterm = window.xterm;
+            xterm.selectAll();
+            const selection = xterm.getSelection();
+            xterm.clearSelection();
+            return selection;
+        "#;
+        match self.execute(js, Vec::new()).await? {
+            serde_json::Value::String(mut s) => {
+                // the terminal adds a bunch of newlines to the end. Let's get
+                // rid of them so the user doesn't see output scroll off the
+                // screen when printing the terminal output.
+                let len = s.trim_end().len();
+                s.truncate(len);
+                Ok(s)
+            }
+            other => {
+                anyhow::bail!("Unable to deserialize {other:?} as a string")
+            }
+        }
+    }
+
+    async fn wait_for_xterm(&self, predicate: impl Predicate<str> + Send) -> String {
+        self.wait_for_xterm_with_timeout(predicate, DEFAULT_TIMEOUT)
+            .await
+    }
+
+    async fn wait_for_xterm_with_timeout(
+        &self,
+        predicate: impl Predicate<str> + Send,
+        timeout: Duration,
+    ) -> String {
+        let cutoff = Instant::now() + timeout;
+        let mut previous_output = String::new();
+
+        loop {
+            tokio::select! {
+                result = self.read_terminal() => {
+                    match result {
+                        Ok(contents) if predicate.eval(&contents) => {
+                            return contents;
+                        }
+                        Ok(contents) => {
+                            previous_output = contents;
+                         }
+                        Err(e) => {
+                            panic!("{e:?}");
+                        }
+                    }
+                }
+                _ = tokio::time::sleep_until(cutoff.into()) => {
+                    eprintln!("=== Terminal Contents ===");
+                    eprintln!("{previous_output}");
+                    eprintln!("=== End Terminal Contents ===");
+
+                    panic!("Timed out");
+                }
+            }
+        }
+    }
+
+    #[track_caller]
+    async fn assert_screenshot(&self) -> Result<(), Error> {
+        assert_screenshot(self).await
     }
 }
