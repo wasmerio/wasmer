@@ -81,6 +81,10 @@ impl FileSystem for TmpFileSystem {
         self.fs.metadata(path)
     }
 
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        self.fs.symlink(original, link)
+    }
+
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         self.fs.symlink_metadata(path)
     }

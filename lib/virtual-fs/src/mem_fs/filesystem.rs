@@ -605,6 +605,10 @@ impl crate::FileSystem for FileSystem {
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
     }
+
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        todo!()
+    }
 }
 
 impl fmt::Debug for FileSystem {

@@ -325,6 +325,9 @@ impl FileSystem for UnionFileSystem {
         }
         Err(ret_error)
     }
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        todo!()
+    }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         debug!("symlink_metadata: path={}", path.display());
         let mut ret_error = FsError::EntryNotFound;

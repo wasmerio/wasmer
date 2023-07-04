@@ -132,6 +132,10 @@ impl crate::FileSystem for FileSystem {
             .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
+
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        todo!()
+    }
 }
 
 impl TryInto<Metadata> for std::fs::Metadata {

@@ -88,11 +88,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
-    /// This method gets metadata without following symlinks in the path.
-    /// Currently identical to `metadata` because symlinks aren't implemented
-    /// yet.
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()>;
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        self.metadata(path)
+        todo!()
     }
     fn remove_file(&self, path: &Path) -> Result<()>;
 
@@ -134,6 +132,14 @@ where
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         (**self).metadata(path)
+    }
+
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        (**self).symlink(original, link)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        todo!()
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {

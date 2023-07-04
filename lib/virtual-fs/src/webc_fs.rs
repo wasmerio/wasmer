@@ -396,6 +396,9 @@ where
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
     }
+    fn symlink(&self, original: &Path, link: &Path) -> Result<(), FsError> {
+        todo!()
+    }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
         if let Some(fs_entry) = self

@@ -348,6 +348,10 @@ where
         self.permission_error_or_not_found(path)
     }
 
+    fn symlink(&self, original: &Path, link: &Path) -> Result<(), FsError> {
+        todo!()
+    }
+
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
