@@ -23,8 +23,8 @@ use crate::{
     http::DynHttpClient,
     os::TtyBridge,
     runtime::{
-        module_cache::ModuleCache,
-        package_loader::{BuiltinPackageLoader, PackageLoader},
+        module_cache::{ModuleCache, ThreadLocalCache},
+        package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
     WasiTtyState,
@@ -45,10 +45,20 @@ where
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager>;
 
     /// A package loader.
-    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync>;
+    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
+        Arc::new(UnsupportedPackageLoader::default())
+    }
 
     /// A cache for compiled modules.
-    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync>;
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        // Return a cache that uses a thread-local variable. This isn't ideal
+        // because it allows silently sharing state, possibly between runtimes.
+        //
+        // That said, it means people will still get *some* level of caching
+        // because each cache returned by this default implementation will go
+        // through the same thread-local variable.
+        Arc::new(ThreadLocalCache::default())
+    }
 
     /// The package registry.
     fn source(&self) -> Arc<dyn Source + Send + Sync>;
@@ -192,8 +202,7 @@ impl PluggableRuntime {
         let http_client =
             crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
-        let loader = BuiltinPackageLoader::from_env()
-            .expect("Loading the builtin resolver should never fail");
+        let loader = UnsupportedPackageLoader::default();
 
         let mut source = MultiSource::new();
         if let Some(client) = &http_client {
