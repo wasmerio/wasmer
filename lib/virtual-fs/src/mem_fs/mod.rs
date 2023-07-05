@@ -68,6 +68,21 @@ struct ArcDirectoryNode {
 }
 
 #[derive(Debug)]
+struct SymlinkNode {
+    inode: Inode,
+    name: OsString,
+    original: SymlinkNodeConnection,
+    link: PathBuf,
+    metadata: Metadata,
+}
+
+#[derive(Debug)]
+enum SymlinkNodeConnection {
+    File(FileNode),
+    Directory(DirectoryNode),
+}
+
+#[derive(Debug)]
 enum Node {
     File(FileNode),
     ReadOnlyFile(ReadOnlyFileNode),
@@ -75,6 +90,7 @@ enum Node {
     CustomFile(CustomFileNode),
     Directory(DirectoryNode),
     ArcDirectory(ArcDirectoryNode),
+    Symlink(SymlinkNode),
 }
 
 impl Node {
