@@ -233,6 +233,15 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -252,8 +261,8 @@
     http::DynHttpClient,
     os::TtyBridge,
     runtime::{
-        module_cache::ModuleCache,
-        package_loader::{BuiltinPackageLoader, PackageLoader},
+        module_cache::{ModuleCache, ThreadLocalCache},
+        package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
     WasiTtyState,
@@ -274,10 +283,20 @@
     </span><span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;;
 
     <span class="doccomment">/// A package loader.
-    </span><span class="kw">fn </span>package_loader(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt;;
+    </span><span class="kw">fn </span>package_loader(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt; {
+        Arc::new(UnsupportedPackageLoader::default())
+    }
 
     <span class="doccomment">/// A cache for compiled modules.
-    </span><span class="kw">fn </span>module_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;;
+    </span><span class="kw">fn </span>module_cache(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt; {
+        <span class="comment">// Return a cache that uses a thread-local variable. This isn&#39;t ideal
+        // because it allows silently sharing state, possibly between runtimes.
+        //
+        // That said, it means people will still get *some* level of caching
+        // because each cache returned by this default implementation will go
+        // through the same thread-local variable.
+        </span>Arc::new(ThreadLocalCache::default())
+    }
 
     <span class="doccomment">/// The package registry.
     </span><span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;;
@@ -364,8 +383,7 @@
         <span class="kw">let </span>http_client =
             <span class="kw">crate</span>::http::default_http_client().map(|client| Arc::new(client) <span class="kw">as </span>DynHttpClient);
 
-        <span class="kw">let </span>loader = BuiltinPackageLoader::from_env()
-            .expect(<span class="string">&quot;Loading the builtin resolver should never fail&quot;</span>);
+        <span class="kw">let </span>loader = UnsupportedPackageLoader::default();
 
         <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::new();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(client) = <span class="kw-2">&amp;</span>http_client {
