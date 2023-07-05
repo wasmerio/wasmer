@@ -57,8 +57,8 @@ jobs:
     - name: Browser Integration Tests
       run: |
         set -xe
-        wasm-pack build --release
         npm install
+        npm run build
         npm run dev &
         NPM_PID=$!
         # Give the webpack dev server time to start
