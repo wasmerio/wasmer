@@ -18,7 +18,7 @@ use crate::{
     os::TtyBridge,
     runtime::{
         module_cache::ModuleCache,
-        package_loader::{BuiltinPackageLoader, PackageLoader},
+        package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
     WasiTtyState,
@@ -129,8 +129,7 @@ impl PluggableRuntime {
         let http_client =
             crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
-        let loader = BuiltinPackageLoader::from_env()
-            .expect("Loading the builtin resolver should never fail");
+        let loader = UnsupportedPackageLoader::default();
 
         let mut source = MultiSource::new();
         if let Some(client) = &http_client {
