@@ -36,6 +36,11 @@ jobs:
       with:
         toolchain: nightly-2023-05-25
 
+    - name: Install wasm-pack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-pack
+
     - name: Setup Chromedriver
       uses: nanasess/setup-chromedriver@v2
 
@@ -49,15 +54,13 @@ jobs:
     - name: Check
       run: cargo check --verbose --locked
 
-    - name: Start Webpack Dev Server
-      uses: JarvusInnovations/background-action@v1
-      with:
-        run: |
-          npm install
-          npm run dev &
-        working-directory: lib/wasmer-web
-        wait-on: http://localhost:9000/
-
     - name: Browser Integration Tests
-      run: cargo test --verbose --locked -- --test-threads=1
-      working-directory: tests/wasi-web
+      run: |
+        cd lib/wasi-web
+        wasm-pack build --release
+        npm install
+        npm run dev &
+        NPM_PID=$!
+
+        cd ../../tests/wasi-web
+        cargo test --verbose --locked -- --test-threads=1
