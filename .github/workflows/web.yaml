@@ -56,11 +56,13 @@ jobs:
 
     - name: Browser Integration Tests
       run: |
-        cd lib/wasi-web
+        set -xe
         wasm-pack build --release
         npm install
         npm run dev &
         NPM_PID=$!
+        # Give the webpack dev server time to start
+        sleep 3
 
         cd ../../tests/wasi-web
         cargo test --verbose --locked -- --test-threads=1
