@@ -33,7 +33,7 @@ impl FileSystem for EmptyFileSystem {
     }
 
     fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
-        todo!()
+        Err(FsError::EntryNotFound)
     }
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
