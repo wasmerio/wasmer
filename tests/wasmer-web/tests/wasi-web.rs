@@ -64,12 +64,12 @@ async fn pure_webc_package(client: Client) {
 
     let output = client
         .execute_command_with_timeout(
-            "wasmer run saghul/quickjs -c 'console.log(\"Hello, World!\")'",
+            "wasmer run wasmer/hello --version",
             PROMPT,
             Duration::from_secs(30),
         )
         .await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    assert_eq!(output.trim(), "Hello, World!");
+    assert_eq!(output.trim(), "static-web-server 2.14.2");
 }
