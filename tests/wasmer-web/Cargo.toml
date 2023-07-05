@@ -5,6 +5,10 @@ description = "Integration tests for wasmer-web"
 publish = false
 edition = "2021"
 
+# Put wasmer-web-tests in its own workspace so we don't try to run it in CI as
+# part of the entire workspace's unit tests
+[workspace]
+
 [dependencies]
 anyhow = "1.0.71"
 async-trait = "0.1.69"
