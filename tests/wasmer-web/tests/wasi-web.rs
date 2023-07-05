@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use fantoccini::Client;
 use predicates::str;
 use wasmer_web_tests::{browser_test, ClientExt};
@@ -21,7 +23,6 @@ async fn bash_is_loaded_and_can_show_its_prompt(client: Client) {
 
 #[macro_rules_attribute::apply(browser_test)]
 async fn run_the_ls_command(client: Client) {
-    // Wait for xterm to be ready
     client.wait_for_xterm(str::contains(PROMPT)).await;
 
     let output = client.execute_command("ls", PROMPT).await;
@@ -31,10 +32,44 @@ async fn run_the_ls_command(client: Client) {
 
 #[macro_rules_attribute::apply(browser_test)]
 async fn pipe_between_commands(client: Client) {
-    // Wait for xterm to be ready
     client.wait_for_xterm(str::contains(PROMPT)).await;
 
     let output = client.execute_command("ls | wc", PROMPT).await;
 
     assert_eq!(output, "      5       5      20\n");
+}
+
+#[macro_rules_attribute::apply(browser_test)]
+async fn run_a_webc_package_that_involves_the_filesystem(client: Client) {
+    // Wait for xterm to be ready
+    client.wait_for_xterm(str::contains(PROMPT)).await;
+
+    let output = client
+        .execute_command_with_timeout(
+            "wasmer python/python -c 'import sys; print(sys.version_info)'",
+            PROMPT,
+            Duration::from_secs(30),
+        )
+        .await;
+
+    assert_eq!(
+        output,
+        "sys.version_info(major=3, minor=6, micro=7, releaselevel='final', serial=0)\n",
+    );
+}
+
+#[macro_rules_attribute::apply(browser_test)]
+async fn pure_webc_package(client: Client) {
+    client.wait_for_xterm(str::contains(PROMPT)).await;
+
+    let output = client
+        .execute_command_with_timeout(
+            "wasmer run saghul/quickjs -c 'console.log(\"Hello, World!\")'",
+            PROMPT,
+            Duration::from_secs(30),
+        )
+        .await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    assert_eq!(output.trim(), "Hello, World!");
 }

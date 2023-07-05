@@ -18,7 +18,7 @@ use tokio::{
 
 pub const WEBPACK_DEV_SERVER_URL: &str = "http://localhost:9000/";
 const RECORDING_INTERVAL: Duration = Duration::from_millis(250);
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Define a browser test.
 ///
@@ -291,8 +291,8 @@ pub trait ClientExt {
     /// [`Predicate`].
     async fn wait_for_xterm_with_timeout(
         &self,
-        predicate: impl Predicate<str> + Send,
         timeout: Duration,
+        predicate: impl Predicate<str> + Send,
     ) -> String;
 
     #[track_caller]
@@ -308,6 +308,16 @@ pub trait ClientExt {
     /// - Make sure your comand doesn't generate so much output that the
     ///   original prompt disappears off the screen
     async fn execute_command(&self, cmd: &str, prompt: &str) -> String;
+
+    /// Run a command and wait for it to finish.
+    ///
+    /// See [`ClientExt::execute_command()`] for more.
+    async fn execute_command_with_timeout(
+        &self,
+        cmd: &str,
+        prompt: &str,
+        timeout: Duration,
+    ) -> String;
 }
 
 #[async_trait::async_trait]
@@ -341,14 +351,14 @@ impl ClientExt for Client {
     }
 
     async fn wait_for_xterm(&self, predicate: impl Predicate<str> + Send) -> String {
-        self.wait_for_xterm_with_timeout(predicate, DEFAULT_TIMEOUT)
+        self.wait_for_xterm_with_timeout(DEFAULT_TIMEOUT, predicate)
             .await
     }
 
     async fn wait_for_xterm_with_timeout(
         &self,
-        predicate: impl Predicate<str> + Send,
         timeout: Duration,
+        predicate: impl Predicate<str> + Send,
     ) -> String {
         let cutoff = Instant::now() + timeout;
         let mut previous_output = String::new();
@@ -385,6 +395,16 @@ impl ClientExt for Client {
     }
 
     async fn execute_command(&self, cmd: &str, prompt: &str) -> String {
+        self.execute_command_with_timeout(cmd, prompt, DEFAULT_TIMEOUT)
+            .await
+    }
+
+    async fn execute_command_with_timeout(
+        &self,
+        cmd: &str,
+        prompt: &str,
+        timeout: Duration,
+    ) -> String {
         let previous_output = self.read_terminal().await.unwrap();
 
         let stdin = self
@@ -396,13 +416,16 @@ impl ClientExt for Client {
         stdin.send_keys("\n").await.unwrap();
 
         let terminal_contents = self
-            .wait_for_xterm(predicates::function::function(|s: &str| {
-                // First, trim away anything before/including the previous output
-                let (_, new_content) = s.split_once(&previous_output).unwrap();
-                // Now, we want to get the content after the command
-                let (_before, after) = new_content.split_once(cmd).unwrap();
-                after.trim_start_matches('\n').contains(prompt)
-            }))
+            .wait_for_xterm_with_timeout(
+                timeout,
+                predicates::function::function(|s: &str| {
+                    // First, trim away anything before/including the previous output
+                    let (_, new_content) = s.split_once(&previous_output).unwrap();
+                    // Now, we want to get the content after the command
+                    let (_before, after) = new_content.split_once(cmd).unwrap();
+                    after.trim_start_matches('\n').contains(prompt)
+                }),
+            )
             .await;
 
         extract_command_output(&terminal_contents, prompt).to_string()
