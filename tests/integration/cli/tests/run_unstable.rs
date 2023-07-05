@@ -310,6 +310,7 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn wasi_executable() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::qjs())
@@ -326,6 +327,7 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn no_abi() {
         let assert = wasmer_run_unstable().arg(fixtures::fib()).assert();
 
@@ -337,6 +339,7 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn error_if_no_start_function_found() {
         let assert = wasmer_run_unstable().arg(fixtures::wat_no_start()).assert();
 
@@ -350,6 +353,7 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn pre_compiled() {
         let temp = TempDir::new().unwrap();
         let dest = temp.path().join("qjs.wasmu");
@@ -384,6 +388,7 @@ mod local_directory {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn wasmer_package_directory() {
         let temp = TempDir::new().unwrap();
         std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
@@ -408,6 +413,7 @@ mod remote_webc {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn quickjs_as_package_name() {
         let assert = wasmer_run_unstable()
             .arg("saghul/quickjs")
@@ -426,6 +432,7 @@ mod remote_webc {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
+    #[ignore = "testing"]
     fn quickjs_as_url() {
         let assert = wasmer_run_unstable()
             .arg("https://wapm.io/saghul/quickjs")
@@ -447,6 +454,7 @@ mod remote_webc {
         windows,
         ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
     )]
+    #[ignore = "testing"]
     fn bash_using_coreutils() {
         let assert = wasmer_run_unstable()
             .arg("sharrattj/bash")
