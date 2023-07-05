@@ -29,5 +29,5 @@ impl PackageLoader for UnsupportedPackageLoader {
 }
 
 #[derive(Debug, Copy, Clone, thiserror::Error)]
-#[error("Not supported")]
+#[error("Loading of packages is not supported in this runtime (no PackageLoader configured)")]
 struct Unsupported;
