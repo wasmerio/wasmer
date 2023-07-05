@@ -134,7 +134,33 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
-        todo!()
+        let exists = original.try_exists()?;
+
+        if !exists {
+            return Err(FsError::EntryNotFound);
+        }
+
+        if link.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
+
+        #[cfg(taget_os = "windows")]
+        if original.is_dir() {
+            std::os::windows::fs::symlink_dir(original, link)?;
+        } else {
+            std::os::windows::fs::symlink_file(original, link)?;
+        }
+
+        #[cfg(not(taget_os = "windows"))]
+        std::os::unix::fs::symlink(original, link)?;
+
+        Ok(())
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        fs::symlink_metadata(path)
+            .and_then(TryInto::try_into)
+            .map_err(Into::into)
     }
 }
 
