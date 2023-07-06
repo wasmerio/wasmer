@@ -9,8 +9,7 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, Login, LoginWithBrowser, Publish, Run, SelfUpdate, Validate,
-    Whoami,
+    Add, Cache, Config, Init, Inspect, Login, Publish, Run, SelfUpdate, Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -108,7 +107,6 @@ impl Args {
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
             Some(Cmd::Login(login)) => login.execute(),
-            Some(Cmd::LoginWithBrowser(login_with_browser)) => login_with_browser.execute(),
             Some(Cmd::Publish(publish)) => publish.execute(),
             #[cfg(feature = "static-artifact-create")]
             Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
@@ -138,9 +136,6 @@ impl Args {
 enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
-
-    #[clap(name = "login-with-browser")]
-    LoginWithBrowser(LoginWithBrowser),
 
     /// Login into a wasmer.io-like registry
     #[clap(name = "publish")]

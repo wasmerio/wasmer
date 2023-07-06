@@ -15,7 +15,6 @@ mod gen_c_header;
 mod init;
 mod inspect;
 mod login;
-mod login_with_browser;
 mod publish;
 mod run;
 mod self_update;
@@ -33,8 +32,8 @@ pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, init::*, inspect::*, login::*, login_with_browser::*, publish::*,
-    run::Run, self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, init::*, inspect::*, login::*, publish::*, run::Run,
+    self_update::*, validate::*, whoami::*,
 };
 #[cfg(feature = "static-artifact-create")]
 pub use {create_obj::*, gen_c_header::*};

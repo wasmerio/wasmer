@@ -1,14 +1,30 @@
-use std::path::PathBuf;
+use std::{net::TcpListener, path::PathBuf, time::Duration};
+
+use anyhow::Ok;
 
 use clap::Parser;
 #[cfg(not(test))]
 use dialoguer::Input;
+use reqwest::Method;
+use tower_http::cors::{Any, CorsLayer};
 
-use wasmer_registry::wasmer_env::{Registry, WasmerEnv, WASMER_DIR};
+use wasmer_registry::{
+    types::NewNonceOutput,
+    types::ValidatedNonceOutput,
+    wasmer_env::{Registry, WasmerEnv, WASMER_DIR},
+    RegistryClient,
+};
 
-/// Subcommand for listing packages
+use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+
+const WASMER_CLI: &str = "wasmer-cli";
+
+/// Subcommand for logging in using a browser
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
+    /// Variable to login without opening a browser
+    #[clap(long, name = "no-browser")]
+    pub no_browser: bool,
     // Note: This is essentially a copy of WasmerEnv except the token is
     // accepted as a main argument instead of via --token.
     /// Set Wasmer's home directory
@@ -41,6 +57,7 @@ impl Login {
                     format!("Invalid registry for login {}: {e}", registry_host),
                 )
             })?;
+
         let login_prompt = match (
             registry_tld.domain.as_deref(),
             registry_tld.suffix.as_deref(),
@@ -61,6 +78,65 @@ impl Login {
         }
     }
 
+    async fn get_token_from_browser(&self, env: &WasmerEnv) -> Result<String, anyhow::Error> {
+        let registry = env.registry_endpoint()?;
+
+        let client = RegistryClient::new(registry.clone(), None, None);
+
+        let (listener, server_url) = Self::setup_listener().await?;
+
+        let cors_middleware = CorsLayer::new()
+            .allow_headers([axum::http::header::CONTENT_TYPE])
+            .allow_methods([Method::POST])
+            .allow_origin(Any)
+            .max_age(Duration::from_secs(60) * 10);
+
+        let (server_shutdown_tx, mut server_shutdown_rx) = tokio::sync::mpsc::channel::<bool>(1);
+        let (token_tx, mut token_rx) = tokio::sync::mpsc::channel::<String>(1);
+
+        let app = Router::new().route(
+            "/",
+            post(save_validated_token).with_state((server_shutdown_tx.clone(), token_tx.clone())),
+        );
+        let app = app.layer(cors_middleware);
+
+        let NewNonceOutput { auth_url, .. } =
+            wasmer_registry::api::get_nonce(&client, WASMER_CLI.to_string(), server_url).await?;
+
+        // currently replace the auth_url with vercel's dev url
+        // https://frontend-git-867-add-auth-flow-for-the-wasmer-cli-frontend-wapm.vercel.app/auth/cli
+
+        let vercel_url="https://frontend-git-867-add-auth-flow-for-the-wasmer-cli-frontend-wapm.vercel.app/auth/cli".to_string();
+        let auth_url = auth_url.split_once("cli").unwrap().1.to_string();
+        let auth_url = vercel_url + &auth_url;
+
+        // if failed to open the browser, then don't error out just print the auth_url with a message
+        println!("Opening browser at {}", &auth_url);
+        opener::open_browser(&auth_url).unwrap_or_else(|_| {
+            println!(
+                "Failed to open the browser.\n
+                Please open the url: {}",
+                &auth_url
+            );
+        });
+
+        // start the server
+        axum::Server::from_tcp(listener)?
+            .serve(app.into_make_service())
+            .with_graceful_shutdown(async {
+                server_shutdown_rx.recv().await;
+                eprintln!("Shutting down server");
+            })
+            .await?;
+
+        // receive the token from the server
+        let token = token_rx
+            .recv()
+            .await
+            .ok_or_else(|| anyhow::anyhow!("Failed to receive token from server"))?;
+
+        Ok(token)
+    }
     fn wasmer_env(&self) -> WasmerEnv {
         WasmerEnv::new(
             self.wasmer_dir.clone(),
@@ -70,12 +146,32 @@ impl Login {
         )
     }
 
+    async fn setup_listener() -> Result<(TcpListener, String), anyhow::Error> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        let addr = listener.local_addr()?;
+        let port = addr.port();
+
+        let server_url = format!("http://localhost:{}", port);
+
+        eprintln!("Server URL: {}", server_url);
+
+        Ok((listener, server_url))
+    }
+
     /// execute [List]
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    #[tokio::main]
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let env = self.wasmer_env();
-        let token = self.get_token_or_ask_user(&env)?;
+        // let token = self.get_token_or_ask_user(&env)?;
 
         let registry = env.registry_endpoint()?;
+
+        let token = if self.no_browser {
+            self.get_token_or_ask_user(&env)?
+        } else {
+            self.get_token_from_browser(&env).await?
+        };
+
         match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
             Some(s) => println!("Login for Wasmer user {:?} saved", s),
             None => println!(
@@ -85,6 +181,30 @@ impl Login {
         }
         Ok(())
     }
+}
+
+//As this function will only run once so return a Result
+async fn save_validated_token(
+    State((shutdown_server_tx, token_tx)): State<(
+        tokio::sync::mpsc::Sender<bool>,
+        tokio::sync::mpsc::Sender<String>,
+    )>,
+    Json(payload): Json<ValidatedNonceOutput>,
+) -> StatusCode {
+    let ValidatedNonceOutput { token } = payload;
+    println!("Token: {}", token);
+
+    shutdown_server_tx
+        .send(true)
+        .await
+        .expect("Failed to send shutdown signal");
+
+    token_tx
+        .send(token.clone())
+        .await
+        .expect("Failed to send token");
+
+    StatusCode::OK
 }
 
 #[cfg(test)]
@@ -98,6 +218,7 @@ mod tests {
     fn interactive_login() {
         let temp = TempDir::new().unwrap();
         let login = Login {
+            no_browser: true,
             registry: Some("wasmer.wtf".into()),
             wasmer_dir: temp.path().to_path_buf(),
             token: None,
@@ -117,6 +238,7 @@ mod tests {
     fn login_with_token() {
         let temp = TempDir::new().unwrap();
         let login = Login {
+            no_browser: true,
             registry: Some("wasmer.wtf".into()),
             wasmer_dir: temp.path().to_path_buf(),
             token: Some("abc".to_string()),
