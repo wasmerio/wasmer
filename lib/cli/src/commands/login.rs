@@ -1,10 +1,9 @@
-use std::{net::TcpListener, path::PathBuf, time::Duration};
+use std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 use anyhow::Ok;
 
 use clap::Parser;
-#[cfg(not(test))]
-use dialoguer::Input;
+use dialoguer::{console::style, Input};
 use reqwest::Method;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -19,11 +18,42 @@ use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 
 const WASMER_CLI: &str = "wasmer-cli";
 
+/// Enum for the login prompt options
+// Login using a browser - shows like `y/n`
+#[derive(Debug, Clone, PartialEq)]
+pub enum LoginBrowserPromptOptions {
+    /// Login with a browser - using `y/Y`
+    LoginUsingBrowser,
+    /// Login without a browser - using `n/N`
+    LoginWithoutBrowser,
+}
+
+impl FromStr for LoginBrowserPromptOptions {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "y" | "Y" => Ok(LoginBrowserPromptOptions::LoginUsingBrowser),
+            "n" | "N" => Ok(LoginBrowserPromptOptions::LoginWithoutBrowser),
+            _ => Err(anyhow::anyhow!("Invalid option")),
+        }
+    }
+}
+
+impl ToString for LoginBrowserPromptOptions {
+    fn to_string(&self) -> String {
+        match self {
+            LoginBrowserPromptOptions::LoginUsingBrowser => "y".to_string(),
+            LoginBrowserPromptOptions::LoginWithoutBrowser => "n".to_string(),
+        }
+    }
+}
+
 /// Subcommand for logging in using a browser
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
     /// Variable to login without opening a browser
-    #[clap(long, name = "no-browser")]
+    #[clap(long, name = "no-browser", default_value = "false")]
     pub no_browser: bool,
     // Note: This is essentially a copy of WasmerEnv except the token is
     // accepted as a main argument instead of via --token.
@@ -114,18 +144,19 @@ impl Login {
         println!("Opening browser at {}", &auth_url);
         opener::open_browser(&auth_url).unwrap_or_else(|_| {
             println!(
-                "Failed to open the browser.\n
+                "⚠️ Failed to open the browser.\n
                 Please open the url: {}",
                 &auth_url
             );
         });
+
+        println!("\n\nWaiting for the token from the browser...\n");
 
         // start the server
         axum::Server::from_tcp(listener)?
             .serve(app.into_make_service())
             .with_graceful_shutdown(async {
                 server_shutdown_rx.recv().await;
-                eprintln!("Shutting down server");
             })
             .await?;
 
@@ -133,7 +164,7 @@ impl Login {
         let token = token_rx
             .recv()
             .await
-            .ok_or_else(|| anyhow::anyhow!("Failed to receive token from server"))?;
+            .ok_or_else(|| anyhow::anyhow!("❌ Failed to receive token from server"))?;
 
         Ok(token)
     }
@@ -166,10 +197,32 @@ impl Login {
 
         let registry = env.registry_endpoint()?;
 
-        let token = if self.no_browser {
-            self.get_token_or_ask_user(&env)?
-        } else {
-            self.get_token_from_browser(&env).await?
+        let token = match self.token.clone() {
+            Some(token) => token,
+            None => {
+                if self.no_browser {
+                    self.get_token_or_ask_user(&env)?
+                } else {
+                    // Ask the user to choose if he wants to login with the browser or not
+                    let login_with_browser = Input::<LoginBrowserPromptOptions>::new()
+                        .with_prompt(&format!(
+                            "{} {} [{}/n]",
+                            style("?").yellow().bold(),
+                            style("Do you want to login with the browser 🌐 ?")
+                                .bright()
+                                .bold(),
+                            style("y").green().bold()
+                        ))
+                        .show_default(false)
+                        .default(LoginBrowserPromptOptions::LoginUsingBrowser)
+                        .interact()?;
+                    if login_with_browser == LoginBrowserPromptOptions::LoginUsingBrowser {
+                        self.get_token_from_browser(&env).await?
+                    } else {
+                        self.get_token_or_ask_user(&env)?
+                    }
+                }
+            }
         };
 
         match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
