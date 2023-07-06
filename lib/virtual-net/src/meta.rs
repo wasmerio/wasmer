@@ -12,7 +12,7 @@ pub use super::SocketStatus;
 pub use super::StreamSecurity;
 
 /// Represents a socket ID
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SocketId(u64);
 
 impl From<u64> for SocketId {
@@ -20,10 +20,6 @@ impl From<u64> for SocketId {
         Self(value)
     }
 }
-
-/// Represents a handler ID
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct HandlerId(u64);
 
 /// Possible values which can be passed to the [`TcpStream::shutdown`] method.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -38,11 +34,6 @@ pub enum Shutdown {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RequestType {
-    /// Registers a waker for when a new connection has arrived. This uses
-    /// a stack machine which means more than one waker can be registered
-    SetHandler(HandlerId),
-    /// Removes a previously registered waker using a token
-    RemoveHandler,
     /// Bridges this local network with a remote network, which is required in
     /// order to make lower level networking calls (such as UDP/TCP)
     Bridge {
@@ -50,6 +41,8 @@ pub enum RequestType {
         access_token: String,
         security: StreamSecurity,
     },
+    /// Flushes all the data by ensuring a full round trip is completed
+    Flush,
     /// Disconnects from the remote network essentially unbridging it
     Unbridge,
     /// Acquires an IP address on the network and configures the routing tables
@@ -116,17 +109,6 @@ pub enum RequestType {
         port: Option<u16>,
         dns_server: Option<IpAddr>,
     },
-    /// Tries to send out a datagram or stream of bytes on this socket
-    TrySend(Vec<u8>),
-    /// Sends out a datagram or stream of bytes on this socket
-    /// to a specific address
-    TrySendTo { data: Vec<u8>, addr: SocketAddr },
-    /// Tries to flush any data in the local buffers
-    TryFlush,
-    /// Tries to read a packet from the socket
-    TryRecv { max_bytes: u64 },
-    /// Recv a packet from the socket
-    TryRecvFrom { max_bytes: u64 },
     /// Closes the socket
     Close,
     /// Tries to accept a new connection
@@ -243,10 +225,6 @@ pub enum ResponseType {
     Duration(Duration),
     /// Represents an amount (e.g. amount of bytes)
     Amount(u64),
-    /// Represents a piece of data
-    Data(Vec<u8>),
-    /// Represents a peice of data and a socket address
-    DataWithAddr { data: Vec<u8>, addr: SocketAddr },
     /// Returns a flag of true or false
     Flag(bool),
     /// List of IP addresses
@@ -290,11 +268,41 @@ pub enum MessageRequest {
         req: RequestType,
         req_id: u64,
     },
+    Send {
+        socket: SocketId,
+        data: Vec<u8>,
+        req_id: u64,
+    },
+    SendTo {
+        socket: SocketId,
+        data: Vec<u8>,
+        addr: SocketAddr,
+        req_id: u64,
+    },
 }
 
 /// Message sent by the server back to a client
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MessageResponse {
-    pub req_id: u64,
-    pub res: ResponseType,
+pub enum MessageResponse {
+    ResponseToRequest {
+        req_id: u64,
+        res: ResponseType,
+    },
+    Recv {
+        socket_id: SocketId,
+        data: Vec<u8>,
+    },
+    RecvWithAddr {
+        socket_id: SocketId,
+        data: Vec<u8>,
+        addr: SocketAddr,
+    },
+    Sent {
+        socket_id: SocketId,
+        req_id: u64,
+        amount: u64,
+    },
+    Closed {
+        socket_id: SocketId,
+    },
 }

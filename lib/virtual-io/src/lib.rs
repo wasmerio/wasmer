@@ -3,7 +3,7 @@ mod guard;
 mod interest;
 #[cfg(feature = "sys")]
 mod selector;
-mod waker;
+pub mod waker;
 
 #[cfg(feature = "sys")]
 pub use guard::*;
