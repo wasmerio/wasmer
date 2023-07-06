@@ -388,7 +388,6 @@ mod local_directory {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasmer_package_directory() {
         let temp = TempDir::new().unwrap();
         std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
