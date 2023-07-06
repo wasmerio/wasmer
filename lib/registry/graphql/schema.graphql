@@ -1,58 +1,138 @@
-"""
-Exposes a URL that specifies the behaviour of this scalar.
-"""
-directive @specifiedBy(
-  """
-  The URL that specifies the behaviour of this scalar.
-  """
-  url: String!
-) on SCALAR
-
-input AcceptNamespaceCollaboratorInviteInput {
-  inviteId: ID!
-  clientMutationId: String
-}
-
-type AcceptNamespaceCollaboratorInvitePayload {
-  namespaceCollaboratorInvite: NamespaceCollaboratorInvite!
-  clientMutationId: String
-}
-
-input AcceptPackageCollaboratorInviteInput {
-  inviteId: ID!
-  clientMutationId: String
-}
-
-type AcceptPackageCollaboratorInvitePayload {
-  packageCollaboratorInvite: PackageCollaboratorInvite!
-  clientMutationId: String
-}
-
-input AcceptPackageTransferRequestInput {
-  packageTransferRequestId: ID!
-  clientMutationId: String
-}
-
-type AcceptPackageTransferRequestPayload {
-  package: Package!
-  packageTransferRequest: PackageTransferRequest!
-  clientMutationId: String
-}
-
-type ActivityEvent implements Node {
+interface Node {
   """
   The ID of the object
   """
   id: ID!
-  body: ActivityEventBody!
-  actorIcon: String!
-  createdAt: DateTime!
 }
 
-type ActivityEventBody {
-  text: String!
-  ranges: [NodeBodyRange!]!
+type PublicKey implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  owner: User!
+  keyId: String!
+  key: String!
+  revokedAt: DateTime
+  uploadedAt: DateTime!
+  verifyingSignature: Signature
+  revoked: Boolean!
 }
+
+type User implements Node & PackageOwner & Owner {
+  firstName: String!
+  lastName: String!
+  email: String!
+  dateJoined: DateTime!
+
+  """
+  Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
+  """
+  username: String!
+  isEmailValidated: Boolean!
+  bio: String
+  location: String
+  websiteUrl: String
+
+  """
+  The ID of the object
+  """
+  id: ID!
+  globalName: String!
+  avatar(size: Int = 80): String!
+  isViewer: Boolean!
+  hasUsablePassword: Boolean
+  fullName: String!
+  githubUrl: String
+  twitterUrl: String
+  publicActivity(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): ActivityEventConnection!
+  billing: Billing
+  waitlist(name: String!): WaitlistMember
+  namespaces(
+    role: GrapheneRole
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): NamespaceConnection!
+  packages(
+    collaborating: Boolean = false
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageConnection!
+  apps(
+    collaborating: Boolean = false
+    sortBy: DeployAppsSortBy
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): DeployAppConnection!
+  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  isStaff: Boolean
+  packageVersions(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageVersionConnection!
+  packageTransfersIncoming(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageTransferRequestConnection!
+  packageInvitesIncoming(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageCollaboratorInviteConnection!
+  namespaceInvitesIncoming(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): NamespaceCollaboratorInviteConnection!
+  apiTokens(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): APITokenConnection!
+  notifications(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): UserNotificationConnection!
+}
+
+"""
+Setup for backwards compatibility with existing frontends.
+"""
+interface PackageOwner {
+  globalName: String!
+}
+
+interface Owner {
+  globalName: String!
+}
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
 
 type ActivityEventConnection {
   """
@@ -64,6 +144,31 @@ type ActivityEventConnection {
   Contains the nodes in this connection.
   """
   edges: [ActivityEventEdge]!
+}
+
+"""
+The Relay compliant `PageInfo` type, containing data necessary to paginate this connection.
+"""
+type PageInfo {
+  """
+  When paginating forwards, are there more items?
+  """
+  hasNextPage: Boolean!
+
+  """
+  When paginating backwards, are there more items?
+  """
+  hasPreviousPage: Boolean!
+
+  """
+  When paginating backwards, the cursor to continue.
+  """
+  startCursor: String
+
+  """
+  When paginating forwards, the cursor to continue.
+  """
+  endCursor: String
 }
 
 """
@@ -81,511 +186,52 @@ type ActivityEventEdge {
   cursor: String!
 }
 
-type AggregateMetrics {
-  cpuTime: String!
-  memoryUsage: String!
-  memoryTime: String!
-  ingress: String!
-  egress: String!
-  mountedVolumes: String!
-  monthlyCost: String!
-}
-
-type APIToken {
-  id: ID!
-  user: User!
-  identifier: String
-  createdAt: DateTime!
-  revokedAt: DateTime
-  lastUsedAt: DateTime
-}
-
-type APITokenConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [APITokenEdge]!
-}
-
-"""
-A Relay edge containing a `APIToken` and its cursor.
-"""
-type APITokenEdge {
-  """
-  The item at the end of the edge
-  """
-  node: APIToken
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-type AppConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [AppEdge]!
-}
-
-"""
-A Relay edge containing a `App` and its cursor.
-"""
-type AppEdge {
-  """
-  The item at the end of the edge
-  """
-  node: DeployApp
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-type AppVersionConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [AppVersionEdge]!
-}
-
-"""
-A Relay edge containing a `AppVersion` and its cursor.
-"""
-type AppVersionEdge {
-  """
-  The item at the end of the edge
-  """
-  node: DeployAppVersion
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-input ArchivePackageInput {
-  packageId: ID!
-  clientMutationId: String
-}
-
-type ArchivePackagePayload {
-  package: Package!
-  clientMutationId: String
-}
-
-"""
-The `BigInt` scalar type represents non-fractional whole numeric values.
-`BigInt` is not constrained to 32-bit like the `Int` type and thus is a less
-compatible type.
-"""
-scalar BigInt
-
-type BindingsGenerator implements Node {
+type ActivityEvent implements Node {
   """
   The ID of the object
   """
   id: ID!
-  packageVersion: PackageVersion!
-  active: Boolean!
-  commandName: String!
-  registryJavascriptlanguagebindings(
-    offset: Int
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageVersionNPMBindingConnection!
-  registryPythonlanguagebindings(
-    offset: Int
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageVersionPythonBindingConnection!
-}
-
-type BindingsGeneratorConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [BindingsGeneratorEdge]!
-}
-
-"""
-A Relay edge containing a `BindingsGenerator` and its cursor.
-"""
-type BindingsGeneratorEdge {
-  """
-  The item at the end of the edge
-  """
-  node: BindingsGenerator
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-input ChangePackageVersionArchivedStatusInput {
-  packageVersionId: ID!
-  isArchived: Boolean
-  clientMutationId: String
-}
-
-type ChangePackageVersionArchivedStatusPayload {
-  packageVersion: PackageVersion!
-  clientMutationId: String
-}
-
-input ChangeUserEmailInput {
-  newEmail: String!
-  clientMutationId: String
-}
-
-type ChangeUserEmailPayload {
-  user: User!
-  clientMutationId: String
-}
-
-input ChangeUserPasswordInput {
-  """
-  The token associated to change the password. If not existing it will use the request user by default
-  """
-  token: String
-  oldPassword: String
-  password: String!
-  clientMutationId: String
-}
-
-type ChangeUserPasswordPayload {
-  token: String
-  clientMutationId: String
-}
-
-input ChangeUserUsernameInput {
-  """
-  The new user username
-  """
-  username: String!
-  clientMutationId: String
-}
-
-type ChangeUserUsernamePayload {
-  user: User
-  token: String
-  clientMutationId: String
-}
-
-input CheckUserExistsInput {
-  """
-  The user
-  """
-  user: String!
-  clientMutationId: String
-}
-
-type CheckUserExistsPayload {
-  exists: Boolean!
-
-  """
-  The user is only returned if the user input was the username
-  """
-  user: User
-  clientMutationId: String
-}
-
-type Collection {
-  slug: String!
-  displayName: String!
-  description: String!
+  body: ActivityEventBody!
+  actorIcon: String!
   createdAt: DateTime!
-  banner: String!
-  packages(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageConnection!
 }
 
-type CollectionConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [CollectionEdge]!
+type ActivityEventBody {
+  text: String!
+  ranges: [NodeBodyRange!]!
 }
 
-"""
-A Relay edge containing a `Collection` and its cursor.
-"""
-type CollectionEdge {
-  """
-  The item at the end of the edge
-  """
-  node: Collection
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
+type NodeBodyRange {
+  entity: Node!
+  offset: Int!
+  length: Int!
 }
 
-type Command {
-  command: String!
-  packageVersion: PackageVersion!
-  module: PackageVersionModule!
+type WaitlistMember implements Node {
+  waitlist: Waitlist!
+  joinedAt: DateTime!
+  approvedAt: DateTime
+
+  """
+  The ID of the object
+  """
+  id: ID!
+  member: Owner!
+  approved: Boolean!
 }
 
-input CreateNamespaceInput {
+type Waitlist implements Node {
   name: String!
-
-  """
-  The namespace display name
-  """
-  displayName: String
-
-  """
-  The namespace description
-  """
-  description: String
-
-  """
-  The namespace avatar
-  """
-  avatar: String
-  clientMutationId: String
-}
-
-type CreateNamespacePayload {
-  namespace: Namespace!
-  user: User!
-  clientMutationId: String
-}
-
-"""
-The `DateTime` scalar type represents a DateTime
-value as specified by
-[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
-"""
-scalar DateTime
-
-input DeleteNamespaceInput {
-  namespaceId: ID!
-  clientMutationId: String
-}
-
-type DeleteNamespacePayload {
-  success: Boolean!
-  clientMutationId: String
-}
-
-type DeployApp implements Node & Owner {
-  """
-  The ID of the object
-  """
-  id: ID!
-  name: String!
-  createdBy: User!
-  createdAt: DateTime!
-  activeVersion: DeployAppVersion!
-  globalName: String!
-  url: String!
-  description: String
-  owner: Owner!
-  versions(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): AppVersionConnection!
-  aggregateMetrics: AggregateMetrics!
-}
-
-type DeployAppVersion implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  app: DeployApp
-  configWebc: String
-  signature: String
-  description: String
-  publishedBy: User!
-  createdAt: DateTime!
-  webcUrl: String!
-  config: String!
-  url: String!
-  version: String!
-  manifest: String!
-}
-
-type DeployConfigInfo implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  name: String!
-  createdBy: User!
   createdAt: DateTime!
   updatedAt: DateTime!
-  versions: [DeployConfigVersion]
-  publishedBy: User
-  namespace: String!
-}
 
-type DeployConfigVersion implements Node {
   """
   The ID of the object
   """
   id: ID!
-  configWebc: String
-  signature: String
-  description: String
-  createdAt: DateTime!
-  versionNumber: BigInt!
-  fileOffset: Int
-  fileSize: Int
-  updatedAt: DateTime!
-  webcUrl: String!
-  config: String!
-  info: DeployConfigInfo
 }
 
-type ErrorType {
-  field: String!
-  messages: [String!]!
-}
-
-input GenerateAPITokenInput {
-  identifier: String
-  clientMutationId: String
-}
-
-type GenerateAPITokenPayload {
-  token: APIToken
-  tokenRaw: String
-  user: User
-  clientMutationId: String
-}
-
-input GenerateBindingsForAllPackagesInput {
-  bindingsGeneratorId: ID
-  bindingsGeneratorCommand: String
-  clientMutationId: String
-}
-
-type GenerateBindingsForAllPackagesPayload {
-  message: String!
-  clientMutationId: String
-}
-
-input GenerateDeployTokenInput {
-  deployConfigVersionId: String!
-  clientMutationId: String
-}
-
-type GenerateDeployTokenPayload {
-  token: String!
-  deployConfigVersion: DeployConfigVersion!
-  clientMutationId: String
-}
-
-"""
-The `GenericScalar` scalar type represents a generic
-GraphQL scalar value that could be:
-String, Boolean, Int, Float, List or Object.
-"""
-scalar GenericScalar
-
-type GetPasswordResetToken {
-  valid: Boolean!
-  user: User
-}
-
-union GlobalObject = User | Namespace
-
-enum GrapheneRole {
-  ADMIN
-  EDITOR
-  VIEWER
-}
-
-input InputSignature {
-  publicKeyKeyId: String!
-  data: String!
-}
-
-type Interface implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  name: String!
-  displayName: String!
-  description: String!
-  homepage: String
-  icon: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  versions(
-    offset: Int
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): InterfaceVersionConnection!
-  lastVersion: InterfaceVersion
-}
-
-type InterfaceVersion implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  interface: Interface!
-  version: String!
-  content: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  publishedBy: User!
-  packageVersions(
-    offset: Int
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageVersionConnection!
-}
-
-type InterfaceVersionConnection {
+type NamespaceConnection {
   """
   Pagination data for this connection.
   """
@@ -594,174 +240,22 @@ type InterfaceVersionConnection {
   """
   Contains the nodes in this connection.
   """
-  edges: [InterfaceVersionEdge]!
+  edges: [NamespaceEdge]!
 }
 
 """
-A Relay edge containing a `InterfaceVersion` and its cursor.
+A Relay edge containing a `Namespace` and its cursor.
 """
-type InterfaceVersionEdge {
+type NamespaceEdge {
   """
   The item at the end of the edge
   """
-  node: InterfaceVersion
+  node: Namespace
 
   """
   A cursor for use in pagination
   """
   cursor: String!
-}
-
-input InviteNamespaceCollaboratorInput {
-  namespaceId: ID!
-  role: GrapheneRole!
-  username: String
-  email: String
-  clientMutationId: String
-}
-
-type InviteNamespaceCollaboratorPayload {
-  invite: NamespaceCollaboratorInvite!
-  namespace: Namespace!
-  clientMutationId: String
-}
-
-input InvitePackageCollaboratorInput {
-  packageName: String!
-  role: GrapheneRole!
-  username: String
-  email: String
-  clientMutationId: String
-}
-
-type InvitePackageCollaboratorPayload {
-  invite: PackageCollaboratorInvite!
-  package: Package!
-  clientMutationId: String
-}
-
-"""
-Allows use of a JSON String for input / output from the GraphQL schema.
-
-Use of this type is *not recommended* as you lose the benefits of having a defined, static
-schema (one of the key benefits of GraphQL).
-"""
-scalar JSONString
-
-interface Likeable {
-  id: ID!
-  likersCount: Int!
-  viewerHasLiked: Boolean!
-}
-
-input LikePackageInput {
-  packageId: ID!
-  clientMutationId: String
-}
-
-type LikePackagePayload {
-  package: Package!
-  clientMutationId: String
-}
-
-type Mutation {
-  publishDeployConfig(
-    input: PublishDeployConfigInput!
-  ): PublishDeployConfigPayload
-    @deprecated(reason: "Please use publishDeployApp instead.")
-  publishDeployApp(input: PublishDeployAppInput!): PublishDeployAppPayload
-  tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
-  generateDeployToken(
-    input: GenerateDeployTokenInput!
-  ): GenerateDeployTokenPayload
-  verifyAccessToken(token: String): Verify
-  refreshAccessToken(refreshToken: String): Refresh
-  revokeAccessToken(refreshToken: String): Revoke
-  registerUser(input: RegisterUserInput!): RegisterUserPayload
-  socialAuth(input: SocialAuthJWTInput!): SocialAuthJWTPayload
-  validateUserEmail(input: ValidateUserEmailInput!): ValidateUserEmailPayload
-  requestPasswordReset(
-    input: RequestPasswordResetInput!
-  ): RequestPasswordResetPayload
-  requestValidationEmail(
-    input: RequestValidationEmailInput!
-  ): RequestValidationEmailPayload
-  changeUserPassword(input: ChangeUserPasswordInput!): ChangeUserPasswordPayload
-  changeUserUsername(input: ChangeUserUsernameInput!): ChangeUserUsernamePayload
-  changeUserEmail(input: ChangeUserEmailInput!): ChangeUserEmailPayload
-  updateUserInfo(input: UpdateUserInfoInput!): UpdateUserInfoPayload
-  validateUserPassword(
-    input: ValidateUserPasswordInput!
-  ): ValidateUserPasswordPayload
-  generateApiToken(input: GenerateAPITokenInput!): GenerateAPITokenPayload
-  revokeApiToken(input: RevokeAPITokenInput!): RevokeAPITokenPayload
-  checkUserExists(input: CheckUserExistsInput!): CheckUserExistsPayload
-  readNotification(input: ReadNotificationInput!): ReadNotificationPayload
-  seePendingNotifications(
-    input: SeePendingNotificationsInput!
-  ): SeePendingNotificationsPayload
-  publishPublicKey(input: PublishPublicKeyInput!): PublishPublicKeyPayload
-  publishPackage(input: PublishPackageInput!): PublishPackagePayload
-  updatePackage(input: UpdatePackageInput!): UpdatePackagePayload
-  likePackage(input: LikePackageInput!): LikePackagePayload
-  unlikePackage(input: UnlikePackageInput!): UnlikePackagePayload
-  watchPackage(input: WatchPackageInput!): WatchPackagePayload
-  unwatchPackage(input: UnwatchPackageInput!): UnwatchPackagePayload
-  archivePackage(input: ArchivePackageInput!): ArchivePackagePayload
-  changePackageVersionArchivedStatus(
-    input: ChangePackageVersionArchivedStatusInput!
-  ): ChangePackageVersionArchivedStatusPayload
-  createNamespace(input: CreateNamespaceInput!): CreateNamespacePayload
-  updateNamespace(input: UpdateNamespaceInput!): UpdateNamespacePayload
-  deleteNamespace(input: DeleteNamespaceInput!): DeleteNamespacePayload
-  inviteNamespaceCollaborator(
-    input: InviteNamespaceCollaboratorInput!
-  ): InviteNamespaceCollaboratorPayload
-  acceptNamespaceCollaboratorInvite(
-    input: AcceptNamespaceCollaboratorInviteInput!
-  ): AcceptNamespaceCollaboratorInvitePayload
-  removeNamespaceCollaboratorInvite(
-    input: RemoveNamespaceCollaboratorInviteInput!
-  ): RemoveNamespaceCollaboratorInvitePayload
-  removeNamespaceCollaborator(
-    input: RemoveNamespaceCollaboratorInput!
-  ): RemoveNamespaceCollaboratorPayload
-  updateNamespaceCollaboratorRole(
-    input: UpdateNamespaceCollaboratorRoleInput!
-  ): UpdateNamespaceCollaboratorRolePayload
-  updateNamespaceCollaboratorInviteRole(
-    input: UpdateNamespaceCollaboratorInviteRoleInput!
-  ): UpdateNamespaceCollaboratorInviteRolePayload
-  invitePackageCollaborator(
-    input: InvitePackageCollaboratorInput!
-  ): InvitePackageCollaboratorPayload
-  acceptPackageCollaboratorInvite(
-    input: AcceptPackageCollaboratorInviteInput!
-  ): AcceptPackageCollaboratorInvitePayload
-  removePackageCollaboratorInvite(
-    input: RemovePackageCollaboratorInviteInput!
-  ): RemovePackageCollaboratorInvitePayload
-  updatePackageCollaboratorRole(
-    input: UpdatePackageCollaboratorRoleInput!
-  ): UpdatePackageCollaboratorRolePayload
-  updatePackageCollaboratorInviteRole(
-    input: UpdatePackageCollaboratorInviteRoleInput!
-  ): UpdatePackageCollaboratorInviteRolePayload
-  removePackageCollaborator(
-    input: RemovePackageCollaboratorInput!
-  ): RemovePackageCollaboratorPayload
-  requestPackageTransfer(
-    input: RequestPackageTransferInput!
-  ): RequestPackageTransferPayload
-  acceptPackageTransferRequest(
-    input: AcceptPackageTransferRequestInput!
-  ): AcceptPackageTransferRequestPayload
-  removePackageTransferRequest(
-    input: RemovePackageTransferRequestInput!
-  ): RemovePackageTransferRequestPayload
-  generateBindingsForAllPackages(
-    input: GenerateBindingsForAllPackagesInput!
-  ): GenerateBindingsForAllPackagesPayload
 }
 
 type Namespace implements Node & PackageOwner & Owner {
@@ -797,7 +291,14 @@ type Namespace implements Node & PackageOwner & Owner {
     first: Int
     last: Int
   ): PackageConnection!
-  apps(before: String, after: String, first: Int, last: Int): AppConnection!
+  apps(
+    sortBy: DeployAppsSortBy
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): DeployAppConnection!
   packageVersions(
     before: String
     after: String
@@ -829,64 +330,7 @@ type Namespace implements Node & PackageOwner & Owner {
     first: Int
     last: Int
   ): PackageTransferRequestConnection!
-}
-
-type NamespaceCollaborator implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  user: User!
-  role: RegistryNamespaceMaintainerRoleChoices!
-  namespace: Namespace!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  invite: NamespaceCollaboratorInvite
-}
-
-type NamespaceCollaboratorConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [NamespaceCollaboratorEdge]!
-}
-
-"""
-A Relay edge containing a `NamespaceCollaborator` and its cursor.
-"""
-type NamespaceCollaboratorEdge {
-  """
-  The item at the end of the edge
-  """
-  node: NamespaceCollaborator
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-type NamespaceCollaboratorInvite implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  requestedBy: User!
-  user: User
-  inviteEmail: String
-  namespace: Namespace!
-  role: RegistryNamespaceMaintainerInviteRoleChoices!
-  accepted: NamespaceCollaborator
-  approvedBy: User
-  declinedBy: User
-  createdAt: DateTime!
-  expiresAt: DateTime!
-  closedAt: DateTime
+  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
 }
 
 type NamespaceCollaboratorInviteConnection {
@@ -916,7 +360,72 @@ type NamespaceCollaboratorInviteEdge {
   cursor: String!
 }
 
-type NamespaceConnection {
+type NamespaceCollaboratorInvite implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  requestedBy: User!
+  user: User
+  inviteEmail: String
+  namespace: Namespace!
+  role: RegistryNamespaceMaintainerInviteRoleChoices!
+  accepted: NamespaceCollaborator
+  approvedBy: User
+  declinedBy: User
+  createdAt: DateTime!
+  expiresAt: DateTime!
+  closedAt: DateTime
+}
+
+enum RegistryNamespaceMaintainerInviteRoleChoices {
+  """
+  Admin
+  """
+  ADMIN
+
+  """
+  Editor
+  """
+  EDITOR
+
+  """
+  Viewer
+  """
+  VIEWER
+}
+
+type NamespaceCollaborator implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  user: User!
+  role: RegistryNamespaceMaintainerRoleChoices!
+  namespace: Namespace!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  invite: NamespaceCollaboratorInvite
+}
+
+enum RegistryNamespaceMaintainerRoleChoices {
+  """
+  Admin
+  """
+  ADMIN
+
+  """
+  Editor
+  """
+  EDITOR
+
+  """
+  Viewer
+  """
+  VIEWER
+}
+
+type UserConnection {
   """
   Pagination data for this connection.
   """
@@ -925,17 +434,22 @@ type NamespaceConnection {
   """
   Contains the nodes in this connection.
   """
-  edges: [NamespaceEdge]!
+  edges: [UserEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
 }
 
 """
-A Relay edge containing a `Namespace` and its cursor.
+A Relay edge containing a `User` and its cursor.
 """
-type NamespaceEdge {
+type UserEdge {
   """
   The item at the end of the edge
   """
-  node: Namespace
+  node: User
 
   """
   A cursor for use in pagination
@@ -943,18 +457,7 @@ type NamespaceEdge {
   cursor: String!
 }
 
-type NativeExecutable implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  module: String! @deprecated(reason: "Use filename instead")
-  filename: String!
-  targetTriple: String!
-  downloadUrl: String!
-}
-
-type NativeExecutableConnection {
+type PackageConnection {
   """
   Pagination data for this connection.
   """
@@ -963,54 +466,22 @@ type NativeExecutableConnection {
   """
   Contains the nodes in this connection.
   """
-  edges: [NativeExecutableEdge]!
+  edges: [PackageEdge]!
 }
 
 """
-A Relay edge containing a `NativeExecutable` and its cursor.
+A Relay edge containing a `Package` and its cursor.
 """
-type NativeExecutableEdge {
+type PackageEdge {
   """
   The item at the end of the edge
   """
-  node: NativeExecutable
+  node: Package
 
   """
   A cursor for use in pagination
   """
   cursor: String!
-}
-
-interface Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-}
-
-type NodeBodyRange {
-  entity: Node!
-  offset: Int!
-  length: Int!
-}
-
-input ObtainJSONWebTokenInput {
-  clientMutationId: String
-  username: String!
-  password: String!
-}
-
-type ObtainJSONWebTokenPayload {
-  payload: GenericScalar!
-  refreshExpiresIn: Int!
-  username: String!
-  clientMutationId: String
-  token: String!
-  refreshToken: String!
-}
-
-interface Owner {
-  globalName: String!
 }
 
 type Package implements Likeable & Node & PackageOwner {
@@ -1082,175 +553,10 @@ type Package implements Likeable & Node & PackageOwner {
   viewerIsWatching: Boolean!
 }
 
-type PackageCollaborator implements Node {
-  """
-  The ID of the object
-  """
+interface Likeable {
   id: ID!
-  user: User!
-  role: RegistryPackageMaintainerRoleChoices!
-  package: Package!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  invite: PackageCollaboratorInvite
-}
-
-type PackageCollaboratorConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [PackageCollaboratorEdge]!
-}
-
-"""
-A Relay edge containing a `PackageCollaborator` and its cursor.
-"""
-type PackageCollaboratorEdge {
-  """
-  The item at the end of the edge
-  """
-  node: PackageCollaborator
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-type PackageCollaboratorInvite implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  requestedBy: User!
-  user: User
-  inviteEmail: String
-  package: Package!
-  role: RegistryPackageMaintainerInviteRoleChoices!
-  accepted: PackageCollaborator
-  approvedBy: User
-  declinedBy: User
-  createdAt: DateTime!
-  expiresAt: DateTime!
-  closedAt: DateTime
-}
-
-type PackageCollaboratorInviteConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [PackageCollaboratorInviteEdge]!
-}
-
-"""
-A Relay edge containing a `PackageCollaboratorInvite` and its cursor.
-"""
-type PackageCollaboratorInviteEdge {
-  """
-  The item at the end of the edge
-  """
-  node: PackageCollaboratorInvite
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-type PackageConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [PackageEdge]!
-}
-
-type PackageDistribution {
-  downloadUrl: String!
-  size: Int!
-  piritaDownloadUrl: String
-  piritaSize: Int!
-}
-
-"""
-A Relay edge containing a `Package` and its cursor.
-"""
-type PackageEdge {
-  """
-  The item at the end of the edge
-  """
-  node: Package
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-"""
-Setup for backwards compatibility with existing frontends.
-"""
-interface PackageOwner {
-  globalName: String!
-}
-
-type PackageTransferRequest implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  requestedBy: User!
-  previousOwnerObjectId: Int!
-  newOwnerObjectId: Int!
-  package: Package!
-  approvedBy: User
-  declinedBy: User
-  createdAt: DateTime!
-  expiresAt: DateTime!
-  closedAt: DateTime
-  previousOwner: PackageOwner!
-  newOwner: PackageOwner!
-}
-
-type PackageTransferRequestConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [PackageTransferRequestEdge]!
-}
-
-"""
-A Relay edge containing a `PackageTransferRequest` and its cursor.
-"""
-type PackageTransferRequestEdge {
-  """
-  The item at the end of the edge
-  """
-  node: PackageTransferRequest
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
+  likersCount: Int!
+  viewerHasLiked: Boolean!
 }
 
 type PackageVersion implements Node {
@@ -1276,13 +582,20 @@ type PackageVersion implements Node {
   signature: Signature
   isArchived: Boolean!
   file: String!
+
+  """
+  """
   fileSize: BigInt!
   piritaFile: String
+
+  """
+  """
   piritaFileSize: BigInt!
   piritaManifest: JSONString
   piritaVolumes: JSONString
   totalDownloads: Int!
   pirita256hash: String
+    @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
   bindingsState: RegistryPackageVersionBindingsStateChoices!
   nativeExecutablesState: RegistryPackageVersionNativeExecutablesStateChoices!
   lastversionPackage(
@@ -1343,7 +656,79 @@ type PackageVersion implements Node {
   hasCommands: Boolean!
 }
 
-type PackageVersionConnection {
+"""
+The `BigInt` scalar type represents non-fractional whole numeric values.
+`BigInt` is not constrained to 32-bit like the `Int` type and thus is a less
+compatible type.
+"""
+scalar BigInt
+
+"""
+Allows use of a JSON String for input / output from the GraphQL schema.
+
+Use of this type is *not recommended* as you lose the benefits of having a defined, static
+schema (one of the key benefits of GraphQL).
+"""
+scalar JSONString
+
+enum RegistryPackageVersionBindingsStateChoices {
+  """
+  Bindings are not detected
+  """
+  NOT_PRESENT
+
+  """
+  Bindings are being built
+  """
+  GENERATING
+
+  """
+  Bindings generation has failed
+  """
+  ERROR
+
+  """
+  Bindings are built and present
+  """
+  GENERATED_AND_PRESENT
+}
+
+enum RegistryPackageVersionNativeExecutablesStateChoices {
+  """
+  Native Executables are not detected
+  """
+  NOT_PRESENT
+
+  """
+  Native Executables are being built
+  """
+  GENERATING
+
+  """
+  Native Executables generation has failed
+  """
+  ERROR
+
+  """
+  Native Executables are built and present
+  """
+  GENERATED_AND_PRESENT
+}
+
+type Command {
+  command: String!
+  packageVersion: PackageVersion!
+  module: PackageVersionModule!
+}
+
+type PackageVersionModule {
+  name: String!
+  source: String!
+  abi: String
+  publicUrl: String!
+}
+
+type NativeExecutableConnection {
   """
   Pagination data for this connection.
   """
@@ -1352,17 +737,22 @@ type PackageVersionConnection {
   """
   Contains the nodes in this connection.
   """
-  edges: [PackageVersionEdge]!
+  edges: [NativeExecutableEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
 }
 
 """
-A Relay edge containing a `PackageVersion` and its cursor.
+A Relay edge containing a `NativeExecutable` and its cursor.
 """
-type PackageVersionEdge {
+type NativeExecutableEdge {
   """
   The item at the end of the edge
   """
-  node: PackageVersion
+  node: NativeExecutable
 
   """
   A cursor for use in pagination
@@ -1370,53 +760,103 @@ type PackageVersionEdge {
   cursor: String!
 }
 
-type PackageVersionFilesystem {
-  wasm: String!
-  host: String!
-}
-
-interface PackageVersionLanguageBinding {
+type NativeExecutable implements Node {
+  """
+  The ID of the object
+  """
   id: ID!
-  language: ProgrammingLanguage!
-
-  """
-  The URL of the generated artifacts on WAPM's CDN.
-  """
-  url: String!
-
-  """
-  When the binding was generated
-  """
-  createdAt: DateTime!
-
-  """
-  Package version used to generate this binding
-  """
-  generator: BindingsGenerator!
-  name: String!
-    @deprecated(
-      reason: "Do not use this field, since bindings for all modules are generated at once now."
-    )
-  kind: String!
-    @deprecated(
-      reason: "Do not use this field, since bindings for all modules are generated at once now."
-    )
-
-  """
-  Name of package source
-  """
-  packageName: String!
-  module: String!
-    @deprecated(
-      reason: "Do not use this field, since bindings for all modules are generated at once now."
-    )
+  module: String! @deprecated(reason: "Use filename instead")
+  filename: String!
+  targetTriple: String!
+  downloadUrl: String!
 }
 
-type PackageVersionModule {
-  name: String!
-  source: String!
-  abi: String
-  publicUrl: String!
+type BindingsGeneratorConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [BindingsGeneratorEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
+}
+
+"""
+A Relay edge containing a `BindingsGenerator` and its cursor.
+"""
+type BindingsGeneratorEdge {
+  """
+  The item at the end of the edge
+  """
+  node: BindingsGenerator
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type BindingsGenerator implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  packageVersion: PackageVersion!
+  active: Boolean!
+  commandName: String!
+  registryJavascriptlanguagebindings(
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageVersionNPMBindingConnection!
+  registryPythonlanguagebindings(
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageVersionPythonBindingConnection!
+}
+
+type PackageVersionNPMBindingConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [PackageVersionNPMBindingEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
+}
+
+"""
+A Relay edge containing a `PackageVersionNPMBinding` and its cursor.
+"""
+type PackageVersionNPMBindingEdge {
+  """
+  The item at the end of the edge
+  """
+  node: PackageVersionNPMBinding
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
 }
 
 type PackageVersionNPMBinding implements PackageVersionLanguageBinding & Node {
@@ -1427,7 +867,7 @@ type PackageVersionNPMBinding implements PackageVersionLanguageBinding & Node {
   language: ProgrammingLanguage!
 
   """
-  The URL of the generated artifacts on WAPM's CDN.
+  The URL of the generated artifacts on Wasmer CDN.
   """
   url: String!
 
@@ -1461,7 +901,49 @@ type PackageVersionNPMBinding implements PackageVersionLanguageBinding & Node {
     @deprecated(reason: "Please use packageName instead")
 }
 
-type PackageVersionNPMBindingConnection {
+interface PackageVersionLanguageBinding {
+  id: ID!
+  language: ProgrammingLanguage!
+
+  """
+  The URL of the generated artifacts on Wasmer CDN.
+  """
+  url: String!
+
+  """
+  When the binding was generated
+  """
+  createdAt: DateTime!
+
+  """
+  Package version used to generate this binding
+  """
+  generator: BindingsGenerator!
+  name: String!
+    @deprecated(
+      reason: "Do not use this field, since bindings for all modules are generated at once now."
+    )
+  kind: String!
+    @deprecated(
+      reason: "Do not use this field, since bindings for all modules are generated at once now."
+    )
+
+  """
+  Name of package source
+  """
+  packageName: String!
+  module: String!
+    @deprecated(
+      reason: "Do not use this field, since bindings for all modules are generated at once now."
+    )
+}
+
+enum ProgrammingLanguage {
+  PYTHON
+  JAVASCRIPT
+}
+
+type PackageVersionPythonBindingConnection {
   """
   Pagination data for this connection.
   """
@@ -1470,17 +952,22 @@ type PackageVersionNPMBindingConnection {
   """
   Contains the nodes in this connection.
   """
-  edges: [PackageVersionNPMBindingEdge]!
+  edges: [PackageVersionPythonBindingEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
 }
 
 """
-A Relay edge containing a `PackageVersionNPMBinding` and its cursor.
+A Relay edge containing a `PackageVersionPythonBinding` and its cursor.
 """
-type PackageVersionNPMBindingEdge {
+type PackageVersionPythonBindingEdge {
   """
   The item at the end of the edge
   """
-  node: PackageVersionNPMBinding
+  node: PackageVersionPythonBinding
 
   """
   A cursor for use in pagination
@@ -1496,7 +983,7 @@ type PackageVersionPythonBinding implements PackageVersionLanguageBinding & Node
   language: ProgrammingLanguage!
 
   """
-  The URL of the generated artifacts on WAPM's CDN.
+  The URL of the generated artifacts on Wasmer CDN.
   """
   url: String!
 
@@ -1529,7 +1016,62 @@ type PackageVersionPythonBinding implements PackageVersionLanguageBinding & Node
   pythonDefaultInstallPackageName(url: String): String!
 }
 
-type PackageVersionPythonBindingConnection {
+type PackageDistribution {
+  downloadUrl: String!
+  size: Int!
+  piritaDownloadUrl: String
+  piritaSize: Int!
+  piritaSha256Hash: String
+}
+
+type PackageVersionFilesystem {
+  wasm: String!
+  host: String!
+}
+
+type InterfaceVersion implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  interface: Interface!
+  version: String!
+  content: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  publishedBy: User!
+  packageVersions(
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageVersionConnection!
+}
+
+type Interface implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  name: String!
+  displayName: String!
+  description: String!
+  homepage: String
+  icon: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  versions(
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): InterfaceVersionConnection!
+  lastVersion: InterfaceVersion
+}
+
+type InterfaceVersionConnection {
   """
   Pagination data for this connection.
   """
@@ -1538,17 +1080,22 @@ type PackageVersionPythonBindingConnection {
   """
   Contains the nodes in this connection.
   """
-  edges: [PackageVersionPythonBindingEdge]!
+  edges: [InterfaceVersionEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
 }
 
 """
-A Relay edge containing a `PackageVersionPythonBinding` and its cursor.
+A Relay edge containing a `InterfaceVersion` and its cursor.
 """
-type PackageVersionPythonBindingEdge {
+type InterfaceVersionEdge {
   """
   The item at the end of the edge
   """
-  node: PackageVersionPythonBinding
+  node: InterfaceVersion
 
   """
   A cursor for use in pagination
@@ -1556,34 +1103,34 @@ type PackageVersionPythonBindingEdge {
   cursor: String!
 }
 
-"""
-The Relay compliant `PageInfo` type, containing data necessary to paginate this connection.
-"""
-type PageInfo {
+type PackageVersionConnection {
   """
-  When paginating forwards, are there more items?
+  Pagination data for this connection.
   """
-  hasNextPage: Boolean!
+  pageInfo: PageInfo!
 
   """
-  When paginating backwards, are there more items?
+  Contains the nodes in this connection.
   """
-  hasPreviousPage: Boolean!
-
-  """
-  When paginating backwards, the cursor to continue.
-  """
-  startCursor: String
-
-  """
-  When paginating forwards, the cursor to continue.
-  """
-  endCursor: String
+  edges: [PackageVersionEdge]!
 }
 
-type PiritaFilesystemDir {
-  name(display: PiritaFilesystemNameDisplay): String!
+"""
+A Relay edge containing a `PackageVersion` and its cursor.
+"""
+type PackageVersionEdge {
+  """
+  The item at the end of the edge
+  """
+  node: PackageVersion
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
 }
+
+union PiritaFilesystemItem = PiritaFilesystemFile | PiritaFilesystemDir
 
 type PiritaFilesystemFile {
   name(display: PiritaFilesystemNameDisplay): String!
@@ -1591,95 +1138,971 @@ type PiritaFilesystemFile {
   offset: Int!
 }
 
-union PiritaFilesystemItem = PiritaFilesystemFile | PiritaFilesystemDir
-
 enum PiritaFilesystemNameDisplay {
   RELATIVE
   ABSOLUTE
 }
 
-enum ProgrammingLanguage {
-  PYTHON
-  JAVASCRIPT
+type PiritaFilesystemDir {
+  name(display: PiritaFilesystemNameDisplay): String!
 }
 
-type PublicKey implements Node {
+type Collection {
+  slug: String!
+  displayName: String!
+  description: String!
+  createdAt: DateTime!
+  banner: String!
+  packages(
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): PackageConnection!
+}
+
+type PackageCollaboratorConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [PackageCollaboratorEdge]!
+}
+
+"""
+A Relay edge containing a `PackageCollaborator` and its cursor.
+"""
+type PackageCollaboratorEdge {
+  """
+  The item at the end of the edge
+  """
+  node: PackageCollaborator
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type PackageCollaborator implements Node {
   """
   The ID of the object
   """
   id: ID!
-  owner: User!
-  keyId: String!
-  key: String!
-  revokedAt: DateTime
-  uploadedAt: DateTime!
-  verifyingSignature: Signature
-  revoked: Boolean!
+  user: User!
+  role: RegistryPackageMaintainerRoleChoices!
+  package: Package!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  invite: PackageCollaboratorInvite
 }
 
-input PublishDeployAppInput {
-  config: JSONString!
-  name: ID
-  owner: ID
+enum RegistryPackageMaintainerRoleChoices {
+  """
+  Admin
+  """
+  ADMIN
+
+  """
+  Editor
+  """
+  EDITOR
+
+  """
+  Viewer
+  """
+  VIEWER
+}
+
+type PackageCollaboratorInvite implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  requestedBy: User!
+  user: User
+  inviteEmail: String
+  package: Package!
+  role: RegistryPackageMaintainerInviteRoleChoices!
+  accepted: PackageCollaborator
+  approvedBy: User
+  declinedBy: User
+  createdAt: DateTime!
+  expiresAt: DateTime!
+  closedAt: DateTime
+}
+
+enum RegistryPackageMaintainerInviteRoleChoices {
+  """
+  Admin
+  """
+  ADMIN
+
+  """
+  Editor
+  """
+  EDITOR
+
+  """
+  Viewer
+  """
+  VIEWER
+}
+
+type PackageCollaboratorInviteConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [PackageCollaboratorInviteEdge]!
+}
+
+"""
+A Relay edge containing a `PackageCollaboratorInvite` and its cursor.
+"""
+type PackageCollaboratorInviteEdge {
+  """
+  The item at the end of the edge
+  """
+  node: PackageCollaboratorInvite
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+enum GrapheneRole {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+type PackageTransferRequest implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  requestedBy: User!
+  previousOwnerObjectId: Int!
+  newOwnerObjectId: Int!
+  package: Package!
+  approvedBy: User
+  declinedBy: User
+  createdAt: DateTime!
+  expiresAt: DateTime!
+  closedAt: DateTime
+  previousOwner: PackageOwner!
+  newOwner: PackageOwner!
+}
+
+type DeployAppConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [DeployAppEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
+}
+
+"""
+A Relay edge containing a `DeployApp` and its cursor.
+"""
+type DeployAppEdge {
+  """
+  The item at the end of the edge
+  """
+  node: DeployApp
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type DeployApp implements Node & Owner {
+  """
+  The ID of the object
+  """
+  id: ID!
+  createdBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  activeVersion: DeployAppVersion!
+  globalName: String!
+  url: String!
+  adminUrl: String!
+  permalink: String!
+  urls: [String]!
   description: String
-  clientMutationId: String
-}
-
-type PublishDeployAppPayload {
-  deployAppVersion: DeployAppVersion!
-  clientMutationId: String
-}
-
-input PublishDeployConfigInput {
-  content: String!
-  name: ID
-  description: String
-  clientMutationId: String
-}
-
-type PublishDeployConfigPayload {
-  deployConfigVersion: DeployConfigVersion!
-  clientMutationId: String
-}
-
-input PublishPackageInput {
   name: String!
+  owner: Owner!
+  versions(
+    sortBy: DeployAppVersionsSortBy
+    createdAfter: DateTime
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): DeployAppVersionConnection!
+  aggregateMetrics: AggregateMetrics!
+  aliases(
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): AppAliasConnection!
+  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+}
+
+type DeployAppVersion implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  app: DeployApp!
+  yamlConfig: String!
+  userYamlConfig: String!
+  signature: String
+  description: String
+  publishedBy: User!
+  createdAt: DateTime!
+  configWebc: String
+    @deprecated(reason: "webc support has been deprecated for apps")
+  config: String! @deprecated(reason: "Please use jsonConfig instead")
+  jsonConfig: String!
+  url: String!
+  permalink: String!
+  urls: [String]!
   version: String!
-  description: String!
+  isActive: Boolean!
   manifest: String!
-  license: String
-  licenseFile: String
-  readme: String
-  repository: String
-  homepage: String
-  file: String
-  signedUrl: String
-  signature: InputSignature
+  logs(
+    """
+    Get logs starting from this timestamp. Takes EPOCH timestamp in seconds.
+    """
+    startingFrom: Float!
+
+    """
+    Fetch logs until this timestamp. Takes EPOCH timestamp in seconds.
+    """
+    until: Float
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): LogConnection!
+  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  sourcePackageVersion: PackageVersion!
+  aggregateMetrics: AggregateMetrics!
+}
+
+type LogConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
 
   """
-  The package icon
+  Contains the nodes in this connection.
   """
+  edges: [LogEdge]!
+}
+
+"""
+A Relay edge containing a `Log` and its cursor.
+"""
+type LogEdge {
+  """
+  The item at the end of the edge
+  """
+  node: Log
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type UsageMetric {
+  variant: MetricType!
+  value: Float!
+  unit: MetricUnit!
+  timestamp: DateTime!
+}
+
+enum MetricType {
+  cpu_time
+  memory_time
+  network_egress
+  network_ingress
+  no_of_requests
+  cost
+}
+
+"""
+Units for metrics
+"""
+enum MetricUnit {
+  """
+  represents the unit of "seconds".
+  """
+  SEC
+
+  """
+  represents the unit of "kilobytes".
+  """
+  KB
+
+  """
+  represents the unit of "kilobytes per second".
+  """
+  KBS
+
+  """
+  represents the unit of "number of requests".
+  """
+  NO_REQUESTS
+
+  """
+  represents the unit of "cost" in USD.
+  """
+  DOLLARS
+}
+
+enum MetricRange {
+  LAST_24_HOURS
+  LAST_30_DAYS
+}
+
+type AggregateMetrics {
+  cpuTime: String!
+  memoryTime: String!
+  ingress: String!
+  egress: String!
+  noRequests: String!
+  monthlyCost: String!
+}
+
+type DeployAppVersionConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [DeployAppVersionEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
+}
+
+"""
+A Relay edge containing a `DeployAppVersion` and its cursor.
+"""
+type DeployAppVersionEdge {
+  """
+  The item at the end of the edge
+  """
+  node: DeployAppVersion
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+enum DeployAppVersionsSortBy {
+  NEWEST
+  OLDEST
+}
+
+type AppAliasConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [AppAliasEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
+}
+
+"""
+A Relay edge containing a `AppAlias` and its cursor.
+"""
+type AppAliasEdge {
+  """
+  The item at the end of the edge
+  """
+  node: AppAlias
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type AppAlias implements Node {
+  name: String!
+  app: DeployConfigInfo!
+  isDefault: Boolean!
+
+  """
+  The ID of the object
+  """
+  id: ID!
+  url: String!
+}
+
+type DeployConfigInfo implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  createdBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  versions: [DeployConfigVersion]
+  publishedBy: User
+  namespace: String!
+  name: String!
+}
+
+type DeployConfigVersion implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  signature: String
+  description: String
+  createdAt: DateTime!
+
+  """
+  """
+  versionNumber: BigInt!
+  updatedAt: DateTime!
+  webcUrl: String!
+    @deprecated(
+      reason: "webc support for apps has been deprecated. Use DeployAppVersion.yamlConfig directly."
+    )
+  fileSize: BigInt!
+    @deprecated(
+      reason: "webc support for apps has been deprecated. Use DeployAppVersion.yamlConfig directly."
+    )
+  fileOffset: BigInt!
+    @deprecated(
+      reason: "webc support for apps has been deprecated. Use DeployAppVersion.yamlConfig directly."
+    )
+  config: String!
+  manifest: String
+    @deprecated(
+      reason: "webc support for apps as been deprecated. use DeployAppVersion.yamlConfig directly."
+    )
+  info: DeployConfigInfo
+}
+
+enum DeployAppsSortBy {
+  NEWEST
+  OLDEST
+  MOST_ACTIVE
+}
+
+type NamespaceCollaboratorConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [NamespaceCollaboratorEdge]!
+}
+
+"""
+A Relay edge containing a `NamespaceCollaborator` and its cursor.
+"""
+type NamespaceCollaboratorEdge {
+  """
+  The item at the end of the edge
+  """
+  node: NamespaceCollaborator
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type PackageTransferRequestConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [PackageTransferRequestEdge]!
+}
+
+"""
+A Relay edge containing a `PackageTransferRequest` and its cursor.
+"""
+type PackageTransferRequestEdge {
+  """
+  The item at the end of the edge
+  """
+  node: PackageTransferRequest
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type APITokenConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [APITokenEdge]!
+}
+
+"""
+A Relay edge containing a `APIToken` and its cursor.
+"""
+type APITokenEdge {
+  """
+  The item at the end of the edge
+  """
+  node: APIToken
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type APIToken {
+  id: ID!
+  user: User!
+  identifier: String
+  createdAt: DateTime!
+  revokedAt: DateTime
+  lastUsedAt: DateTime
+  nonceSet(
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): NonceConnection!
+}
+
+type NonceConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [NonceEdge]!
+
+  """
+  Total number of items in the connection.
+  """
+  totalCount: Int
+}
+
+"""
+A Relay edge containing a `Nonce` and its cursor.
+"""
+type NonceEdge {
+  """
+  The item at the end of the edge
+  """
+  node: Nonce
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type Nonce implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  name: String!
+  callbackUrl: String!
+  createdAt: DateTime!
+  isValidated: Boolean!
+  secret: String!
+  token: String!
+  expired: Boolean!
+  authUrl: String!
+}
+
+type UserNotificationConnection {
+  """
+  Pagination data for this connection.
+  """
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [UserNotificationEdge]!
+  hasPendingNotifications: Boolean!
+}
+
+"""
+A Relay edge containing a `UserNotification` and its cursor.
+"""
+type UserNotificationEdge {
+  """
+  The item at the end of the edge
+  """
+  node: UserNotification
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type UserNotification implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
   icon: String
-  clientMutationId: String
+  body: UserNotificationBody!
+  seenState: UserNotificationSeenState!
+  kind: UserNotificationKind
+  createdAt: DateTime!
 }
 
-type PublishPackagePayload {
-  success: Boolean!
+type UserNotificationBody {
+  text: String!
+  ranges: [NodeBodyRange]!
+}
+
+enum UserNotificationSeenState {
+  UNSEEN
+  SEEN
+  SEEN_AND_READ
+}
+
+union UserNotificationKind =
+    UserNotificationKindPublishedPackageVersion
+  | UserNotificationKindIncomingPackageTransfer
+  | UserNotificationKindIncomingPackageInvite
+  | UserNotificationKindIncomingNamespaceInvite
+
+type UserNotificationKindPublishedPackageVersion {
   packageVersion: PackageVersion!
-  clientMutationId: String
 }
 
-input PublishPublicKeyInput {
-  keyId: String!
-  key: String!
-  verifyingSignatureId: String
-  clientMutationId: String
+type UserNotificationKindIncomingNamespaceInvite {
+  namespaceInvite: NamespaceCollaboratorInvite!
 }
 
-type PublishPublicKeyPayload {
-  success: Boolean!
+type Signature {
+  id: ID!
   publicKey: PublicKey!
-  clientMutationId: String
+  data: String!
+  createdAt: DateTime!
+}
+
+type UserNotificationKindIncomingPackageTransfer {
+  packageTransferRequest: PackageTransferRequest!
+}
+
+type UserNotificationKindIncomingPackageInvite {
+  packageInvite: PackageCollaboratorInvite!
+}
+
+input DeploymentV1 {
+  name: String!
+  workload: WorkloadV1!
+}
+
+input WorkloadV1 {
+  capability: CapabilityMapV1
+  name: String = null
+  runner: WorkloadRunnerV1!
+}
+
+input AppV1Spec {
+  aliases: [String] = []
+  workload: WorkloadV2!
+}
+
+input WorkloadV2 {
+  source: String!
+}
+
+input CapabilityCpuV1 {
+  maximumThreads: Int
+  maximumUsage: Int
+}
+
+input FileSystemPermissionsV1 {
+  delete: Boolean
+  read: Boolean
+  write: Boolean
+}
+
+input FileSystemVolumeMountV1 {
+  path: String!
+  permissions: [FileSystemPermissionsV1]
+}
+
+input FileSystemVolumeSourceLocalV1 {
+  maximumSize: String!
+}
+
+input FileSystemVolumeSourceV1 {
+  local: FileSystemVolumeSourceLocalV1!
+}
+
+input FileSystemVolumeConfigV1 {
+  mounts: [FileSystemVolumeMountV1]!
+  name: String!
+  source: FileSystemVolumeSourceV1!
+}
+
+input CapabilityFileSystemV1 {
+  volumes: [FileSystemVolumeConfigV1]!
+}
+
+input CapabilityPersistentMemoryV1 {
+  volumes: [String]
+}
+
+input CapabilityMemorySwapV1 {
+  maximumSize: String
+  memoryId: String
+}
+
+input CapabilityNetworkV1 {
+  egress: NetworkEgressV1
+}
+
+input NetworkEgressV1 {
+  enabled: Boolean
+}
+
+input CapabilityNetworkDnsV1 {
+  enabled: Boolean
+  servers: [String]
+  allowedHosts: NetworkDnsAllowedHostsV1
+}
+
+input NetworkDnsAllowedHostsV1 {
+  allowAllHosts: Boolean
+  hosts: [String]
+  regexPatterns: [String]
+  wildcardPatterns: [String]
+}
+
+input CapabilityNetworkGatewayV1 {
+  domains: [String]
+  enforceHttps: Boolean
+}
+
+input CapabilityMapV1 {
+  memorySwap: CapabilityCpuV1
+}
+
+input WebcSourceV1 {
+  name: String!
+  namespace: String!
+  repository: String! = "https://registry.wasmer.wtf"
+  tag: String
+  authToken: String
+}
+
+input WorkloadRunnerV1 {
+  webProxy: RunnerWebProxyV1
+  wcgi: RunnerWCGIV1
+}
+
+"""
+Run a webassembly file.
+"""
+input RunnerWCGIV1 {
+  source: WorkloadRunnerWasmSourceV1!
+  dialect: String
+}
+
+input RunnerWebProxyV1 {
+  source: WorkloadRunnerWasmSourceV1!
+}
+
+input WorkloadRunnerWasmSourceV1 {
+  webc: WebcSourceV1!
+}
+
+type StripeCustomer {
+  id: ID!
+}
+
+type Billing {
+  stripeCustomer: StripeCustomer!
+  payments: [PaymentIntent]!
+  paymentMethods: [PaymentMethod]!
+}
+
+type PaymentIntent implements Node {
+  """
+  Three-letter ISO currency code
+  """
+  currency: String!
+
+  """
+  Status of this PaymentIntent, one of requires_payment_method, requires_confirmation, requires_action, processing, requires_capture, canceled, or succeeded. You can read more about PaymentIntent statuses here.
+  """
+  status: DjstripePaymentIntentStatusChoices!
+
+  """
+  The ID of the object
+  """
+  id: ID!
+  amount: String!
+}
+
+enum DjstripePaymentIntentStatusChoices {
+  """
+  Cancellation invalidates the intent for future confirmation and cannot be undone.
+  """
+  CANCELED
+
+  """
+  Required actions have been handled.
+  """
+  PROCESSING
+
+  """
+  Payment Method require additional action, such as 3D secure.
+  """
+  REQUIRES_ACTION
+
+  """
+  Capture the funds on the cards which have been put on holds.
+  """
+  REQUIRES_CAPTURE
+
+  """
+  Intent is ready to be confirmed.
+  """
+  REQUIRES_CONFIRMATION
+
+  """
+  Intent created and requires a Payment Method to be attached.
+  """
+  REQUIRES_PAYMENT_METHOD
+
+  """
+  The funds are in your account.
+  """
+  SUCCEEDED
+}
+
+union PaymentMethod = CardPaymentMethod
+
+type CardPaymentMethod implements Node {
+  """
+  The ID of the object
+  """
+  id: ID!
+  brand: CardBrand!
+  country: String!
+  expMonth: Int!
+  expYear: Int!
+  funding: CardFunding!
+  last4: String!
+  isDefault: Boolean!
+}
+
+"""
+Card brand.
+
+Can be amex, diners, discover, jcb, mastercard, unionpay, visa, or unknown.
+"""
+enum CardBrand {
+  AMEX
+  DINERS
+  DISCOVER
+  JCB
+  MASTERCARD
+  UNIONPAY
+  VISA
+  UNKNOWN
+}
+
+"""
+Card funding type.
+
+Can be credit, debit, prepaid, or unknown.
+"""
+enum CardFunding {
+  CREDIT
+  DEBIT
+  PREPAID
+  UNKNOWN
+}
+
+type Payment {
+  id: ID
+  amount: String
+  paidOn: DateTime
+}
+
+"""
+Log entry for deploy app.
+"""
+type Log {
+  timestamp: Float!
+  message: String!
 }
 
 type Query {
@@ -1716,9 +2139,20 @@ type Query {
     version: String
   ): DeployAppVersion
   getDeployApp(name: String!, owner: String!): DeployApp
+  getAppByGlobalAlias(alias: String!): DeployApp
+  getDeployApps(
+    sortBy: DeployAppsSortBy
+    updatedAfter: DateTime
+    offset: Int
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): DeployAppConnection!
   viewer: User
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
+  getAuthNonce(name: String!): Nonce
   packages(
     before: String
     after: String
@@ -1794,252 +2228,43 @@ type Query {
     """
     id: ID!
   ): Node
+  info: RegistryInfo
 }
 
-input ReadNotificationInput {
-  notificationId: ID!
-  clientMutationId: String
-}
-
-type ReadNotificationPayload {
-  notification: UserNotification
-  clientMutationId: String
-}
-
-type Refresh {
-  payload: GenericScalar!
-  refreshExpiresIn: Int!
-  token: String!
-  refreshToken: String!
-}
-
-input RegisterUserInput {
-  fullName: String!
-  email: String!
-  username: String!
-  password: String!
-  clientMutationId: String
-}
-
-type RegisterUserPayload {
-  token: String
-  clientMutationId: String
-}
-
-enum RegistryNamespaceMaintainerInviteRoleChoices {
-  """
-  Admin
-  """
-  ADMIN
-
-  """
-  Editor
-  """
-  EDITOR
-
-  """
-  Viewer
-  """
-  VIEWER
-}
-
-enum RegistryNamespaceMaintainerRoleChoices {
-  """
-  Admin
-  """
-  ADMIN
-
-  """
-  Editor
-  """
-  EDITOR
-
-  """
-  Viewer
-  """
-  VIEWER
-}
-
-enum RegistryPackageMaintainerInviteRoleChoices {
-  """
-  Admin
-  """
-  ADMIN
-
-  """
-  Editor
-  """
-  EDITOR
-
-  """
-  Viewer
-  """
-  VIEWER
-}
-
-enum RegistryPackageMaintainerRoleChoices {
-  """
-  Admin
-  """
-  ADMIN
-
-  """
-  Editor
-  """
-  EDITOR
-
-  """
-  Viewer
-  """
-  VIEWER
-}
-
-enum RegistryPackageVersionBindingsStateChoices {
-  """
-  Bindings are not detected
-  """
-  NOT_PRESENT
-
-  """
-  Bindings are being built
-  """
-  GENERATING
-
-  """
-  Bindings generation has failed
-  """
-  ERROR
-
-  """
-  Bindings are built and present
-  """
-  GENERATED_AND_PRESENT
-}
-
-enum RegistryPackageVersionNativeExecutablesStateChoices {
-  """
-  Native Executables are not detected
-  """
-  NOT_PRESENT
-
-  """
-  Native Executables are being built
-  """
-  GENERATING
-
-  """
-  Native Executables generation has failed
-  """
-  ERROR
-
-  """
-  Native Executables are built and present
-  """
-  GENERATED_AND_PRESENT
-}
-
-input RemoveNamespaceCollaboratorInput {
-  namespaceCollaboratorId: ID!
-  clientMutationId: String
-}
-
-input RemoveNamespaceCollaboratorInviteInput {
-  inviteId: ID!
-  clientMutationId: String
-}
-
-type RemoveNamespaceCollaboratorInvitePayload {
-  namespace: Namespace!
-  clientMutationId: String
-}
-
-type RemoveNamespaceCollaboratorPayload {
-  namespace: Namespace!
-  clientMutationId: String
-}
-
-input RemovePackageCollaboratorInput {
-  packageCollaboratorId: ID!
-  clientMutationId: String
-}
-
-input RemovePackageCollaboratorInviteInput {
-  inviteId: ID!
-  clientMutationId: String
-}
-
-type RemovePackageCollaboratorInvitePayload {
-  package: Package!
-  clientMutationId: String
-}
-
-type RemovePackageCollaboratorPayload {
-  package: Package!
-  clientMutationId: String
-}
-
-input RemovePackageTransferRequestInput {
-  packageTransferRequestId: ID!
-  clientMutationId: String
-}
-
-type RemovePackageTransferRequestPayload {
-  package: Package!
-  clientMutationId: String
-}
-
-input RequestPackageTransferInput {
-  packageId: ID!
-  newOwnerId: ID!
-  clientMutationId: String
-}
-
-type RequestPackageTransferPayload {
-  package: Package!
-  clientMutationId: String
-}
-
-input RequestPasswordResetInput {
-  email: String!
-  clientMutationId: String
-}
-
-type RequestPasswordResetPayload {
-  email: String!
-  errors: [ErrorType]
-  clientMutationId: String
-}
-
-input RequestValidationEmailInput {
-  """
-  The user id
-  """
-  userId: ID
-  clientMutationId: String
-}
-
-type RequestValidationEmailPayload {
+type GetPasswordResetToken {
+  valid: Boolean!
   user: User
-  success: Boolean!
-  clientMutationId: String
 }
 
-type Revoke {
-  revoked: Int!
-}
-
-input RevokeAPITokenInput {
+type CollectionConnection {
   """
-  The API token ID
+  Pagination data for this connection.
   """
-  tokenId: ID!
-  clientMutationId: String
+  pageInfo: PageInfo!
+
+  """
+  Contains the nodes in this connection.
+  """
+  edges: [CollectionEdge]!
 }
 
-type RevokeAPITokenPayload {
-  token: APIToken
-  success: Boolean
-  clientMutationId: String
+"""
+A Relay edge containing a `Collection` and its cursor.
+"""
+type CollectionEdge {
+  """
+  The item at the end of the edge
+  """
+  node: Collection
+
+  """
+  A cursor for use in pagination
+  """
+  cursor: String!
+}
+
+type SignedUrl {
+  url: String!
 }
 
 type SearchConnection {
@@ -2069,11 +2294,7 @@ type SearchEdge {
   cursor: String!
 }
 
-enum SearchKind {
-  PACKAGE
-  NAMESPACE
-  USER
-}
+union SearchResult = PackageVersion | User | Namespace
 
 enum SearchOrderBy {
   ALPHABETICALLY
@@ -2087,6 +2308,12 @@ enum SearchOrderSort {
   DESC
 }
 
+enum SearchKind {
+  PACKAGE
+  NAMESPACE
+  USER
+}
+
 enum SearchPublishDate {
   LAST_DAY
   LAST_WEEK
@@ -2094,26 +2321,400 @@ enum SearchPublishDate {
   LAST_YEAR
 }
 
-union SearchResult = PackageVersion | User | Namespace
+union GlobalObject = User | Namespace
 
-input SeePendingNotificationsInput {
+type RegistryInfo {
+  """
+  Base URL for this registry
+  """
+  baseUrl: String!
+
+  """
+  Base URL for the default frontend
+  """
+  defaultFrontend: String!
+
+  """
+  URL to the graphql endpoint
+  """
+  graphqlUrl: String!
+
+  """
+  Public metadata about packages
+  """
+  packages: PackageInfo!
+
+  """
+  Public metadata about the graphql schema
+  """
+  schema: SchemaInfo!
+}
+
+type PackageInfo {
+  """
+  Number of package versions published this month
+  """
+  versionsPublishedThisMonth: Int!
+
+  """
+  Number of new packages published this month
+  """
+  newPackagesThisMonth: Int!
+
+  """
+  Number of package downloads this month
+  """
+  packageDownloadsThisMonth: Int!
+}
+
+type SchemaInfo {
+  """
+  Download link for graphql schema
+  """
+  downloadUrl: String!
+
+  """
+  SHA256 hash of the schema data
+  """
+  SHA256Hash: String!
+
+  """
+  Timestamp when the schema was last updated
+  """
+  lastUpdated: DateTime!
+}
+
+type Mutation {
+  publishDeployConfig(
+    input: PublishDeployConfigInput!
+  ): PublishDeployConfigPayload
+    @deprecated(reason: "Please use publishDeployApp instead.")
+  publishDeployApp(input: PublishDeployAppInput!): PublishDeployAppPayload
+
+  """
+  Add current user to the waitlist.
+  """
+  joinWaitlist(input: JoinWaitlistInput!): JoinWaitlistPayload
+
+  """
+  Add stripe payment to the user
+  """
+  addPayment(input: AddPaymentInput!): AddPaymentPayload
+
+  """
+  Mutation to change the active version of a DeployApp to another DeployAppVersion.
+  """
+  markAppVersionAsActive(
+    input: MarkAppVersionAsActiveInput!
+  ): MarkAppVersionAsActivePayload
+
+  """
+  Set a payment method as default for the user.
+  """
+  makePaymentDefault(
+    input: SetDefaultPaymentMethodInput!
+  ): SetDefaultPaymentMethodPayload
+
+  """
+  Try to detach a payment method from customer.
+  Fails if trying to detach a default method,
+  or if it's the only payment method.
+  """
+  detachPaymentMethod(
+    input: DetachPaymentMethodInput!
+  ): DetachPaymentMethodPayload
+  generateDeployConfigToken(
+    input: GenerateDeployConfigTokenInput!
+  ): GenerateDeployConfigTokenPayload
+  tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
+  generateDeployToken(
+    input: GenerateDeployTokenInput!
+  ): GenerateDeployTokenPayload
+  verifyAccessToken(token: String): Verify
+  refreshAccessToken(refreshToken: String): Refresh
+  revokeAccessToken(refreshToken: String): Revoke
+  registerUser(input: RegisterUserInput!): RegisterUserPayload
+  socialAuth(input: SocialAuthJWTInput!): SocialAuthJWTPayload
+  validateUserEmail(input: ValidateUserEmailInput!): ValidateUserEmailPayload
+  requestPasswordReset(
+    input: RequestPasswordResetInput!
+  ): RequestPasswordResetPayload
+  requestValidationEmail(
+    input: RequestValidationEmailInput!
+  ): RequestValidationEmailPayload
+  changeUserPassword(input: ChangeUserPasswordInput!): ChangeUserPasswordPayload
+  changeUserUsername(input: ChangeUserUsernameInput!): ChangeUserUsernamePayload
+  changeUserEmail(input: ChangeUserEmailInput!): ChangeUserEmailPayload
+  updateUserInfo(input: UpdateUserInfoInput!): UpdateUserInfoPayload
+  validateUserPassword(
+    input: ValidateUserPasswordInput!
+  ): ValidateUserPasswordPayload
+  generateApiToken(input: GenerateAPITokenInput!): GenerateAPITokenPayload
+  revokeApiToken(input: RevokeAPITokenInput!): RevokeAPITokenPayload
+  checkUserExists(input: CheckUserExistsInput!): CheckUserExistsPayload
+  readNotification(input: ReadNotificationInput!): ReadNotificationPayload
+  seePendingNotifications(
+    input: SeePendingNotificationsInput!
+  ): SeePendingNotificationsPayload
+  newNonce(input: NewNonceInput!): NewNoncePayload
+  validateNonce(input: ValidateNonceInput!): ValidateNoncePayload
+  publishPublicKey(input: PublishPublicKeyInput!): PublishPublicKeyPayload
+  publishPackage(input: PublishPackageInput!): PublishPackagePayload
+  updatePackage(input: UpdatePackageInput!): UpdatePackagePayload
+  likePackage(input: LikePackageInput!): LikePackagePayload
+  unlikePackage(input: UnlikePackageInput!): UnlikePackagePayload
+  watchPackage(input: WatchPackageInput!): WatchPackagePayload
+  unwatchPackage(input: UnwatchPackageInput!): UnwatchPackagePayload
+  archivePackage(input: ArchivePackageInput!): ArchivePackagePayload
+  changePackageVersionArchivedStatus(
+    input: ChangePackageVersionArchivedStatusInput!
+  ): ChangePackageVersionArchivedStatusPayload
+  createNamespace(input: CreateNamespaceInput!): CreateNamespacePayload
+  updateNamespace(input: UpdateNamespaceInput!): UpdateNamespacePayload
+  deleteNamespace(input: DeleteNamespaceInput!): DeleteNamespacePayload
+  inviteNamespaceCollaborator(
+    input: InviteNamespaceCollaboratorInput!
+  ): InviteNamespaceCollaboratorPayload
+  acceptNamespaceCollaboratorInvite(
+    input: AcceptNamespaceCollaboratorInviteInput!
+  ): AcceptNamespaceCollaboratorInvitePayload
+  removeNamespaceCollaboratorInvite(
+    input: RemoveNamespaceCollaboratorInviteInput!
+  ): RemoveNamespaceCollaboratorInvitePayload
+  removeNamespaceCollaborator(
+    input: RemoveNamespaceCollaboratorInput!
+  ): RemoveNamespaceCollaboratorPayload
+  updateNamespaceCollaboratorRole(
+    input: UpdateNamespaceCollaboratorRoleInput!
+  ): UpdateNamespaceCollaboratorRolePayload
+  updateNamespaceCollaboratorInviteRole(
+    input: UpdateNamespaceCollaboratorInviteRoleInput!
+  ): UpdateNamespaceCollaboratorInviteRolePayload
+  invitePackageCollaborator(
+    input: InvitePackageCollaboratorInput!
+  ): InvitePackageCollaboratorPayload
+  acceptPackageCollaboratorInvite(
+    input: AcceptPackageCollaboratorInviteInput!
+  ): AcceptPackageCollaboratorInvitePayload
+  removePackageCollaboratorInvite(
+    input: RemovePackageCollaboratorInviteInput!
+  ): RemovePackageCollaboratorInvitePayload
+  updatePackageCollaboratorRole(
+    input: UpdatePackageCollaboratorRoleInput!
+  ): UpdatePackageCollaboratorRolePayload
+  updatePackageCollaboratorInviteRole(
+    input: UpdatePackageCollaboratorInviteRoleInput!
+  ): UpdatePackageCollaboratorInviteRolePayload
+  removePackageCollaborator(
+    input: RemovePackageCollaboratorInput!
+  ): RemovePackageCollaboratorPayload
+  requestPackageTransfer(
+    input: RequestPackageTransferInput!
+  ): RequestPackageTransferPayload
+  acceptPackageTransferRequest(
+    input: AcceptPackageTransferRequestInput!
+  ): AcceptPackageTransferRequestPayload
+  removePackageTransferRequest(
+    input: RemovePackageTransferRequestInput!
+  ): RemovePackageTransferRequestPayload
+  generateBindingsForAllPackages(
+    input: GenerateBindingsForAllPackagesInput!
+  ): GenerateBindingsForAllPackagesPayload
+}
+
+type PublishDeployConfigPayload {
+  deployConfigVersion: DeployConfigVersion!
   clientMutationId: String
 }
 
-type SeePendingNotificationsPayload {
-  success: Boolean
+input PublishDeployConfigInput {
+  content: String!
+  name: ID
+  description: String
   clientMutationId: String
 }
 
-type Signature {
-  id: ID!
-  publicKey: PublicKey!
-  data: String!
-  createdAt: DateTime!
+type PublishDeployAppPayload {
+  deployAppVersion: DeployAppVersion!
+  clientMutationId: String
 }
 
-type SignedUrl {
-  url: String!
+input PublishDeployAppInput {
+  config: Configuration!
+  name: ID
+  owner: ID
+  description: String
+  makeDefault: Boolean = true
+  clientMutationId: String
+}
+
+input Configuration {
+  deployment: AppV0
+  yamlConfig: String
+}
+
+input AppV0 {
+  kind: String = "wasmer.io/App.v0"
+  appId: ID
+  name: String!
+  description: String
+  package: String!
+}
+
+"""
+Add current user to the waitlist.
+"""
+type JoinWaitlistPayload {
+  waitlistMember: WaitlistMember!
+  clientMutationId: String
+}
+
+input JoinWaitlistInput {
+  name: String!
+  clientMutationId: String
+}
+
+"""
+Add stripe payment to the user
+"""
+type AddPaymentPayload {
+  customerSecret: String!
+  clientMutationId: String
+}
+
+input AddPaymentInput {
+  clientMutationId: String
+}
+
+"""
+Mutation to change the active version of a DeployApp to another DeployAppVersion.
+"""
+type MarkAppVersionAsActivePayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input MarkAppVersionAsActiveInput {
+  """
+  The ID of the DeployAppVersion to set as the new active version.
+  """
+  appVersion: ID!
+  clientMutationId: String
+}
+
+"""
+Set a payment method as default for the user.
+"""
+type SetDefaultPaymentMethodPayload {
+  success: Boolean!
+  billing: Billing!
+  clientMutationId: String
+}
+
+input SetDefaultPaymentMethodInput {
+  paymentMethod: ID!
+  clientMutationId: String
+}
+
+"""
+Try to detach a payment method from customer.
+Fails if trying to detach a default method,
+or if it's the only payment method.
+"""
+type DetachPaymentMethodPayload {
+  success: Boolean!
+  billing: Billing!
+  clientMutationId: String
+}
+
+input DetachPaymentMethodInput {
+  paymentMethod: ID!
+  clientMutationId: String
+}
+
+type GenerateDeployConfigTokenPayload {
+  token: String!
+  config: String!
+  clientMutationId: String
+}
+
+input GenerateDeployConfigTokenInput {
+  config: String!
+  clientMutationId: String
+}
+
+type ObtainJSONWebTokenPayload {
+  payload: GenericScalar!
+  refreshExpiresIn: Int!
+  username: CaseInsensitiveString!
+  clientMutationId: String
+  token: String!
+  refreshToken: String!
+}
+
+"""
+The `GenericScalar` scalar type represents a generic
+GraphQL scalar value that could be:
+String, Boolean, Int, Float, List or Object.
+"""
+scalar GenericScalar
+
+"""
+The `CaseInsensitiveString` scalar type represents textual data, represented as UTF-8
+character sequences. The String type is most often used by GraphQL to
+represent free-form human-readable text.
+"""
+scalar CaseInsensitiveString
+
+input ObtainJSONWebTokenInput {
+  clientMutationId: String
+  username: String!
+  password: String!
+}
+
+type GenerateDeployTokenPayload {
+  token: String!
+  deployConfigVersion: DeployConfigVersion!
+  clientMutationId: String
+}
+
+input GenerateDeployTokenInput {
+  deployConfigVersionId: String!
+  clientMutationId: String
+}
+
+type Verify {
+  payload: GenericScalar!
+}
+
+type Refresh {
+  payload: GenericScalar!
+  refreshExpiresIn: Int!
+  token: String!
+  refreshToken: String!
+}
+
+type Revoke {
+  revoked: Int!
+}
+
+type RegisterUserPayload {
+  token: String
+  clientMutationId: String
+}
+
+input RegisterUserInput {
+  fullName: String!
+  email: String!
+  username: CaseInsensitiveString!
+  password: String!
+  clientMutationId: String
+}
+
+type SocialAuthJWTPayload {
+  social: SocialAuth
+  token: String
+  clientMutationId: String
 }
 
 type SocialAuth implements Node {
@@ -2135,124 +2736,91 @@ input SocialAuthJWTInput {
   clientMutationId: String
 }
 
-type SocialAuthJWTPayload {
-  social: SocialAuth
+type ValidateUserEmailPayload {
+  user: User
+  clientMutationId: String
+}
+
+input ValidateUserEmailInput {
+  """
+  The user id
+  """
+  userId: ID
+  challenge: String!
+  clientMutationId: String
+}
+
+type RequestPasswordResetPayload {
+  email: String!
+  errors: [ErrorType]
+  clientMutationId: String
+}
+
+type ErrorType {
+  field: String!
+  messages: [String!]!
+}
+
+input RequestPasswordResetInput {
+  email: String!
+  clientMutationId: String
+}
+
+type RequestValidationEmailPayload {
+  user: User
+  success: Boolean!
+  clientMutationId: String
+}
+
+input RequestValidationEmailInput {
+  """
+  The user id
+  """
+  userId: ID
+  clientMutationId: String
+}
+
+type ChangeUserPasswordPayload {
   token: String
   clientMutationId: String
 }
 
-type Subscription {
-  usageMetrics: [UsageMetric]!
-  packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
-  userNotificationCreated(userId: ID!): UserNotificationCreated!
-}
-
-input UnlikePackageInput {
-  packageId: ID!
-  clientMutationId: String
-}
-
-type UnlikePackagePayload {
-  package: Package!
-  clientMutationId: String
-}
-
-input UnwatchPackageInput {
-  packageId: ID!
-  clientMutationId: String
-}
-
-type UnwatchPackagePayload {
-  package: Package!
-  clientMutationId: String
-}
-
-input UpdateNamespaceCollaboratorInviteRoleInput {
-  namespaceCollaboratorInviteId: ID!
-  role: GrapheneRole!
-  clientMutationId: String
-}
-
-type UpdateNamespaceCollaboratorInviteRolePayload {
-  collaboratorInvite: NamespaceCollaboratorInvite!
-  clientMutationId: String
-}
-
-input UpdateNamespaceCollaboratorRoleInput {
-  namespaceCollaboratorId: ID!
-  role: GrapheneRole!
-  clientMutationId: String
-}
-
-type UpdateNamespaceCollaboratorRolePayload {
-  collaborator: NamespaceCollaborator!
-  clientMutationId: String
-}
-
-input UpdateNamespaceInput {
-  namespaceId: ID!
-
+input ChangeUserPasswordInput {
   """
-  The namespace slug name
+  The token associated to change the password. If not existing it will use the request user by default
   """
-  name: String
-
-  """
-  The namespace display name
-  """
-  displayName: String
-
-  """
-  The namespace description
-  """
-  description: String
-
-  """
-  The namespace avatar
-  """
-  avatar: String
+  token: String
+  oldPassword: String
+  password: String!
   clientMutationId: String
 }
 
-type UpdateNamespacePayload {
-  namespace: Namespace!
+type ChangeUserUsernamePayload {
+  user: User
+  token: String
   clientMutationId: String
 }
 
-input UpdatePackageCollaboratorInviteRoleInput {
-  packageCollaboratorInviteId: ID!
-  role: GrapheneRole!
-  clientMutationId: String
-}
-
-type UpdatePackageCollaboratorInviteRolePayload {
-  collaboratorInvite: PackageCollaboratorInvite!
-  clientMutationId: String
-}
-
-input UpdatePackageCollaboratorRoleInput {
-  packageCollaboratorId: ID!
-  role: GrapheneRole!
-  clientMutationId: String
-}
-
-type UpdatePackageCollaboratorRolePayload {
-  collaborator: PackageCollaborator!
-  clientMutationId: String
-}
-
-input UpdatePackageInput {
-  packageId: ID!
-
+input ChangeUserUsernameInput {
   """
-  The package icon
+  The new user username
   """
-  icon: String
+  username: CaseInsensitiveString!
   clientMutationId: String
 }
 
-type UpdatePackagePayload {
-  package: Package!
+type ChangeUserEmailPayload {
+  user: User!
+  clientMutationId: String
+}
+
+input ChangeUserEmailInput {
+  newEmail: String!
+  clientMutationId: String
+}
+
+type UpdateUserInfoPayload {
+  user: User
   clientMutationId: String
 }
 
@@ -2299,222 +2867,8 @@ input UpdateUserInfoInput {
   clientMutationId: String
 }
 
-type UpdateUserInfoPayload {
-  user: User
-  clientMutationId: String
-}
-
-type UsageMetric {
-  metricType: String!
-  metricValue: String!
-  metricDatetime: DateTime!
-}
-
-type User implements Node & PackageOwner & Owner {
-  """
-  Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
-  """
-  username: String!
-  firstName: String!
-  lastName: String!
-  email: String!
-  dateJoined: DateTime!
-  isEmailValidated: Boolean!
-  bio: String
-  location: String
-  websiteUrl: String
-
-  """
-  The ID of the object
-  """
-  id: ID!
-  globalName: String!
-  avatar(size: Int = 80): String!
-  isViewer: Boolean!
-  hasUsablePassword: Boolean
-  fullName: String!
-  githubUrl: String
-  twitterUrl: String
-  publicActivity(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): ActivityEventConnection!
-  namespaces(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): NamespaceConnection!
-  packages(
-    collaborating: Boolean = false
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageConnection!
-  apps(
-    collaborating: Boolean = false
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): AppConnection!
-  packageVersions(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageVersionConnection!
-  packageTransfersIncoming(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageTransferRequestConnection!
-  packageInvitesIncoming(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): PackageCollaboratorInviteConnection!
-  namespaceInvitesIncoming(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): NamespaceCollaboratorInviteConnection!
-  apiTokens(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): APITokenConnection!
-  notifications(
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): UserNotificationConnection!
-}
-
-type UserConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [UserEdge]!
-}
-
-"""
-A Relay edge containing a `User` and its cursor.
-"""
-type UserEdge {
-  """
-  The item at the end of the edge
-  """
-  node: User
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-type UserNotification implements Node {
-  """
-  The ID of the object
-  """
-  id: ID!
-  icon: String
-  body: UserNotificationBody!
-  seenState: UserNotificationSeenState!
-  kind: UserNotificationKind
-  createdAt: DateTime!
-}
-
-type UserNotificationBody {
-  text: String!
-  ranges: [NodeBodyRange]!
-}
-
-type UserNotificationConnection {
-  """
-  Pagination data for this connection.
-  """
-  pageInfo: PageInfo!
-
-  """
-  Contains the nodes in this connection.
-  """
-  edges: [UserNotificationEdge]!
-  hasPendingNotifications: Boolean!
-}
-
-type UserNotificationCreated {
-  notification: UserNotification
-  notificationDeletedId: ID
-}
-
-"""
-A Relay edge containing a `UserNotification` and its cursor.
-"""
-type UserNotificationEdge {
-  """
-  The item at the end of the edge
-  """
-  node: UserNotification
-
-  """
-  A cursor for use in pagination
-  """
-  cursor: String!
-}
-
-union UserNotificationKind =
-    UserNotificationKindPublishedPackageVersion
-  | UserNotificationKindIncomingPackageTransfer
-  | UserNotificationKindIncomingPackageInvite
-  | UserNotificationKindIncomingNamespaceInvite
-
-type UserNotificationKindIncomingNamespaceInvite {
-  namespaceInvite: NamespaceCollaboratorInvite!
-}
-
-type UserNotificationKindIncomingPackageInvite {
-  packageInvite: PackageCollaboratorInvite!
-}
-
-type UserNotificationKindIncomingPackageTransfer {
-  packageTransferRequest: PackageTransferRequest!
-}
-
-type UserNotificationKindPublishedPackageVersion {
-  packageVersion: PackageVersion!
-}
-
-enum UserNotificationSeenState {
-  UNSEEN
-  SEEN
-  SEEN_AND_READ
-}
-
-input ValidateUserEmailInput {
-  """
-  The user id
-  """
-  userId: ID
-  challenge: String!
-  clientMutationId: String
-}
-
-type ValidateUserEmailPayload {
-  user: User
+type ValidateUserPasswordPayload {
+  success: Boolean
   clientMutationId: String
 }
 
@@ -2523,16 +2877,167 @@ input ValidateUserPasswordInput {
   clientMutationId: String
 }
 
-type ValidateUserPasswordPayload {
+type GenerateAPITokenPayload {
+  token: APIToken
+  tokenRaw: String
+  user: User
+  clientMutationId: String
+}
+
+input GenerateAPITokenInput {
+  identifier: String
+  clientMutationId: String
+}
+
+type RevokeAPITokenPayload {
+  token: APIToken
   success: Boolean
   clientMutationId: String
 }
 
-type Verify {
-  payload: GenericScalar!
+input RevokeAPITokenInput {
+  """
+  The API token ID
+  """
+  tokenId: ID!
+  clientMutationId: String
 }
 
-input WatchPackageInput {
+type CheckUserExistsPayload {
+  exists: Boolean!
+
+  """
+  The user is only returned if the user input was the username
+  """
+  user: User
+  clientMutationId: String
+}
+
+input CheckUserExistsInput {
+  """
+  The user
+  """
+  user: String!
+  clientMutationId: String
+}
+
+type ReadNotificationPayload {
+  notification: UserNotification
+  clientMutationId: String
+}
+
+input ReadNotificationInput {
+  notificationId: ID!
+  clientMutationId: String
+}
+
+type SeePendingNotificationsPayload {
+  success: Boolean
+  clientMutationId: String
+}
+
+input SeePendingNotificationsInput {
+  clientMutationId: String
+}
+
+type NewNoncePayload {
+  nonce: Nonce!
+  clientMutationId: String
+}
+
+input NewNonceInput {
+  name: String!
+  callbackUrl: String!
+  clientMutationId: String
+}
+
+type ValidateNoncePayload {
+  nonce: Nonce!
+  clientMutationId: String
+}
+
+input ValidateNonceInput {
+  id: ID!
+  secret: String!
+  clientMutationId: String
+}
+
+type PublishPublicKeyPayload {
+  success: Boolean!
+  publicKey: PublicKey!
+  clientMutationId: String
+}
+
+input PublishPublicKeyInput {
+  keyId: String!
+  key: String!
+  verifyingSignatureId: String
+  clientMutationId: String
+}
+
+type PublishPackagePayload {
+  success: Boolean!
+  packageVersion: PackageVersion!
+  clientMutationId: String
+}
+
+input PublishPackageInput {
+  name: String!
+  version: String!
+  description: String!
+  manifest: String!
+  license: String
+  licenseFile: String
+  readme: String
+  repository: String
+  homepage: String
+  file: String
+  signedUrl: String
+  signature: InputSignature
+
+  """
+  The package icon
+  """
+  icon: String
+  clientMutationId: String
+}
+
+input InputSignature {
+  publicKeyKeyId: String!
+  data: String!
+}
+
+type UpdatePackagePayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input UpdatePackageInput {
+  packageId: ID!
+
+  """
+  The package icon
+  """
+  icon: String
+  clientMutationId: String
+}
+
+type LikePackagePayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input LikePackageInput {
+  packageId: ID!
+  clientMutationId: String
+}
+
+type UnlikePackagePayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input UnlikePackageInput {
   packageId: ID!
   clientMutationId: String
 }
@@ -2540,4 +3045,291 @@ input WatchPackageInput {
 type WatchPackagePayload {
   package: Package!
   clientMutationId: String
+}
+
+input WatchPackageInput {
+  packageId: ID!
+  clientMutationId: String
+}
+
+type UnwatchPackagePayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input UnwatchPackageInput {
+  packageId: ID!
+  clientMutationId: String
+}
+
+type ArchivePackagePayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input ArchivePackageInput {
+  packageId: ID!
+  clientMutationId: String
+}
+
+type ChangePackageVersionArchivedStatusPayload {
+  packageVersion: PackageVersion!
+  clientMutationId: String
+}
+
+input ChangePackageVersionArchivedStatusInput {
+  packageVersionId: ID!
+  isArchived: Boolean
+  clientMutationId: String
+}
+
+type CreateNamespacePayload {
+  namespace: Namespace!
+  user: User!
+  clientMutationId: String
+}
+
+input CreateNamespaceInput {
+  name: String!
+
+  """
+  The namespace display name
+  """
+  displayName: String
+
+  """
+  The namespace description
+  """
+  description: String
+
+  """
+  The namespace avatar
+  """
+  avatar: String
+  clientMutationId: String
+}
+
+type UpdateNamespacePayload {
+  namespace: Namespace!
+  clientMutationId: String
+}
+
+input UpdateNamespaceInput {
+  namespaceId: ID!
+
+  """
+  The namespace slug name
+  """
+  name: String
+
+  """
+  The namespace display name
+  """
+  displayName: String
+
+  """
+  The namespace description
+  """
+  description: String
+
+  """
+  The namespace avatar
+  """
+  avatar: String
+  clientMutationId: String
+}
+
+type DeleteNamespacePayload {
+  success: Boolean!
+  clientMutationId: String
+}
+
+input DeleteNamespaceInput {
+  namespaceId: ID!
+  clientMutationId: String
+}
+
+type InviteNamespaceCollaboratorPayload {
+  invite: NamespaceCollaboratorInvite!
+  namespace: Namespace!
+  clientMutationId: String
+}
+
+input InviteNamespaceCollaboratorInput {
+  namespaceId: ID!
+  role: GrapheneRole!
+  username: String
+  email: String
+  clientMutationId: String
+}
+
+type AcceptNamespaceCollaboratorInvitePayload {
+  namespaceCollaboratorInvite: NamespaceCollaboratorInvite!
+  clientMutationId: String
+}
+
+input AcceptNamespaceCollaboratorInviteInput {
+  inviteId: ID!
+  clientMutationId: String
+}
+
+type RemoveNamespaceCollaboratorInvitePayload {
+  namespace: Namespace!
+  clientMutationId: String
+}
+
+input RemoveNamespaceCollaboratorInviteInput {
+  inviteId: ID!
+  clientMutationId: String
+}
+
+type RemoveNamespaceCollaboratorPayload {
+  namespace: Namespace!
+  clientMutationId: String
+}
+
+input RemoveNamespaceCollaboratorInput {
+  namespaceCollaboratorId: ID!
+  clientMutationId: String
+}
+
+type UpdateNamespaceCollaboratorRolePayload {
+  collaborator: NamespaceCollaborator!
+  clientMutationId: String
+}
+
+input UpdateNamespaceCollaboratorRoleInput {
+  namespaceCollaboratorId: ID!
+  role: GrapheneRole!
+  clientMutationId: String
+}
+
+type UpdateNamespaceCollaboratorInviteRolePayload {
+  collaboratorInvite: NamespaceCollaboratorInvite!
+  clientMutationId: String
+}
+
+input UpdateNamespaceCollaboratorInviteRoleInput {
+  namespaceCollaboratorInviteId: ID!
+  role: GrapheneRole!
+  clientMutationId: String
+}
+
+type InvitePackageCollaboratorPayload {
+  invite: PackageCollaboratorInvite!
+  package: Package!
+  clientMutationId: String
+}
+
+input InvitePackageCollaboratorInput {
+  packageName: String!
+  role: GrapheneRole!
+  username: String
+  email: String
+  clientMutationId: String
+}
+
+type AcceptPackageCollaboratorInvitePayload {
+  packageCollaboratorInvite: PackageCollaboratorInvite!
+  clientMutationId: String
+}
+
+input AcceptPackageCollaboratorInviteInput {
+  inviteId: ID!
+  clientMutationId: String
+}
+
+type RemovePackageCollaboratorInvitePayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input RemovePackageCollaboratorInviteInput {
+  inviteId: ID!
+  clientMutationId: String
+}
+
+type UpdatePackageCollaboratorRolePayload {
+  collaborator: PackageCollaborator!
+  clientMutationId: String
+}
+
+input UpdatePackageCollaboratorRoleInput {
+  packageCollaboratorId: ID!
+  role: GrapheneRole!
+  clientMutationId: String
+}
+
+type UpdatePackageCollaboratorInviteRolePayload {
+  collaboratorInvite: PackageCollaboratorInvite!
+  clientMutationId: String
+}
+
+input UpdatePackageCollaboratorInviteRoleInput {
+  packageCollaboratorInviteId: ID!
+  role: GrapheneRole!
+  clientMutationId: String
+}
+
+type RemovePackageCollaboratorPayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input RemovePackageCollaboratorInput {
+  packageCollaboratorId: ID!
+  clientMutationId: String
+}
+
+type RequestPackageTransferPayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input RequestPackageTransferInput {
+  packageId: ID!
+  newOwnerId: ID!
+  clientMutationId: String
+}
+
+type AcceptPackageTransferRequestPayload {
+  package: Package!
+  packageTransferRequest: PackageTransferRequest!
+  clientMutationId: String
+}
+
+input AcceptPackageTransferRequestInput {
+  packageTransferRequestId: ID!
+  clientMutationId: String
+}
+
+type RemovePackageTransferRequestPayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input RemovePackageTransferRequestInput {
+  packageTransferRequestId: ID!
+  clientMutationId: String
+}
+
+type GenerateBindingsForAllPackagesPayload {
+  message: String!
+  clientMutationId: String
+}
+
+input GenerateBindingsForAllPackagesInput {
+  bindingsGeneratorId: ID
+  bindingsGeneratorCommand: String
+  clientMutationId: String
+}
+
+type Subscription {
+  packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
+  userNotificationCreated(userId: ID!): UserNotificationCreated!
+}
+
+type UserNotificationCreated {
+  notification: UserNotification
+  notificationDeletedId: ID
 }

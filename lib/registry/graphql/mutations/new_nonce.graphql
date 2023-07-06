@@ -1,0 +1,9 @@
+mutation NewNonce($name: String!, $callbackUrl: String!) {
+  newNonce(input: { name: $name, callbackUrl: $callbackUrl }) {
+    nonce {
+      id
+      secret
+      authUrl
+    }
+  }
+}

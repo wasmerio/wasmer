@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 /// Payload for publishing a new Deploy app.
 #[derive(Clone, Debug)]
 pub struct PublishDeployAppRawVars {
@@ -23,4 +25,19 @@ pub struct PublishDeployAppOutput {
     pub version_id: String,
     pub version_name: String,
     pub owner_name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct NewNonceOutput {
+    pub id: String,
+    pub secret: String,
+    pub auth_url: String,
+}
+
+/// Payload from the frontend after the user has authenticated.
+///
+/// This has the token that we need to set in the WASMER_TOML file.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ValidatedNonceOutput {
+    pub token: String,
 }

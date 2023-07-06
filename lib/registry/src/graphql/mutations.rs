@@ -25,3 +25,11 @@ pub type JSONString = String;
     response_derives = "Debug"
 )]
 pub(crate) struct PublishDeployApp;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/schema.graphql",
+    query_path = "graphql/mutations/new_nonce.graphql",
+    response_derives = "Debug"
+)]
+pub(crate) struct NewNonce;
