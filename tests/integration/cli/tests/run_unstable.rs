@@ -310,7 +310,6 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasi_executable() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::qjs())
@@ -327,7 +326,6 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn no_abi() {
         let assert = wasmer_run_unstable().arg(fixtures::fib()).assert();
 
@@ -339,7 +337,6 @@ mod wasm_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn error_if_no_start_function_found() {
         let assert = wasmer_run_unstable().arg(fixtures::wat_no_start()).assert();
 
