@@ -71,15 +71,8 @@ struct ArcDirectoryNode {
 struct SymlinkNode {
     inode: Inode,
     name: OsString,
-    original: SymlinkNodeConnection,
-    link: PathBuf,
+    link: Box<Node>,
     metadata: Metadata,
-}
-
-#[derive(Debug)]
-enum SymlinkNodeConnection {
-    File(FileNode),
-    Directory(DirectoryNode),
 }
 
 #[derive(Debug)]
@@ -102,6 +95,7 @@ impl Node {
             Self::CustomFile(CustomFileNode { inode, .. }) => inode,
             Self::Directory(DirectoryNode { inode, .. }) => inode,
             Self::ArcDirectory(ArcDirectoryNode { inode, .. }) => inode,
+            Self::Symlink(SymlinkNode { inode, .. }) => inode,
         }
     }
 
@@ -113,6 +107,7 @@ impl Node {
             Self::CustomFile(CustomFileNode { name, .. }) => name.as_os_str(),
             Self::Directory(DirectoryNode { name, .. }) => name.as_os_str(),
             Self::ArcDirectory(ArcDirectoryNode { name, .. }) => name.as_os_str(),
+            Self::Symlink(SymlinkNode { name, .. }) => name.as_os_str(),
         }
     }
 
@@ -124,6 +119,7 @@ impl Node {
             Self::CustomFile(CustomFileNode { metadata, .. }) => metadata,
             Self::Directory(DirectoryNode { metadata, .. }) => metadata,
             Self::ArcDirectory(ArcDirectoryNode { metadata, .. }) => metadata,
+            Self::Symlink(SymlinkNode { metadata, .. }) => metadata,
         }
     }
 
@@ -135,6 +131,7 @@ impl Node {
             Self::CustomFile(CustomFileNode { metadata, .. }) => metadata,
             Self::Directory(DirectoryNode { metadata, .. }) => metadata,
             Self::ArcDirectory(ArcDirectoryNode { metadata, .. }) => metadata,
+            Self::Symlink(SymlinkNode { metadata, .. }) => metadata,
         }
     }
 
@@ -146,6 +143,7 @@ impl Node {
             Self::CustomFile(CustomFileNode { name, .. }) => *name = new_name,
             Self::Directory(DirectoryNode { name, .. }) => *name = new_name,
             Self::ArcDirectory(ArcDirectoryNode { name, .. }) => *name = new_name,
+            Self::Symlink(SymlinkNode { name, .. }) => *name = new_name,
         }
     }
 }
