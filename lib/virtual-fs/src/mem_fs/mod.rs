@@ -71,7 +71,7 @@ struct ArcDirectoryNode {
 struct SymlinkNode {
     inode: Inode,
     name: OsString,
-    link: Box<Node>,
+    link: PathBuf,
     metadata: Metadata,
 }
 

@@ -607,7 +607,83 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
-        todo!()
+        // Ensure original exists.
+        let _ = self.metadata(original)?;
+
+        if self.metadata(link).is_ok() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        let (inode_of_parent, name_of_symlink) = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+            // Canonicalize the link path without checking the path exists,
+            // because it's about to be created.
+            let link = guard.canonicalize_without_inode(link)?;
+
+            // Check the path has a parent.
+            let parent_of_path = link.parent().ok_or(FsError::BaseNotDirectory)?;
+
+            // Check the directory name.
+            let name_of_directory = link
+                .file_name()
+                .ok_or(FsError::InvalidInput)?
+                .to_os_string();
+
+            // Find the parent inode.
+            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(fs, mut path) => {
+                    drop(guard);
+                    path.push(name_of_directory);
+                    return fs.create_dir(path.as_path());
+                }
+            };
+
+            (inode_of_parent, name_of_directory)
+        };
+
+        if self.metadata(link).is_ok() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        {
+            // Write lock.
+            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+            // Creating the directory in the storage.
+            let inode_of_symlink = fs.storage.vacant_entry().key();
+            let real_inode_of_symlink = fs.storage.insert(Node::Symlink(SymlinkNode {
+                inode: inode_of_symlink,
+                name: name_of_symlink,
+                link: original.to_path_buf(),
+                metadata: {
+                    let time = time();
+
+                    Metadata {
+                        ft: FileType {
+                            symlink: true,
+                            ..Default::default()
+                        },
+                        accessed: time,
+                        created: time,
+                        modified: time,
+                        len: 0,
+                    }
+                },
+            }));
+
+            assert_eq!(
+                inode_of_symlink, real_inode_of_symlink,
+                "new symlink inode should have been correctly calculated",
+            );
+
+            // Adding the new directory to its parent.
+            fs.add_child_to_node(inode_of_parent, inode_of_symlink)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -965,6 +1041,7 @@ impl fmt::Debug for FileSystemInner {
                         Node::CustomFile { .. } => "custom-file",
                         Node::Directory { .. } => "dir",
                         Node::ArcDirectory { .. } => "arc-dir",
+                        Node::Symlink { .. } => "symlink",
                     },
                     name = node.name().to_string_lossy(),
                     indentation_symbol = " ",
@@ -1852,5 +1929,98 @@ mod test_filesystem {
         f.read_to_end(&mut buf).await.unwrap();
 
         assert_eq!(buf, b"a");
+    }
+
+    #[test]
+    fn test_symlink() {
+        let fs = FileSystem::default();
+
+        fs.create_dir(path!("/foo")).unwrap();
+
+        assert!(false);
+
+        {
+            let fs_inner = fs.inner.read().unwrap();
+            assert_eq!(
+                fs_inner.storage.len(),
+                2,
+                "storage contains the new directory"
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(ROOT_INODE),
+                    Some(Node::Directory(DirectoryNode {
+                        inode: ROOT_INODE,
+                        name,
+                        children,
+                        ..
+                    })) if name == "/" && children == &[1]
+                ),
+                "the root is updated and well-defined",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(1),
+                    Some(Node::Directory(DirectoryNode {
+                        inode: 1,
+                        name,
+                        children,
+                        ..
+                    })) if name == "foo" && children.is_empty(),
+                ),
+                "the new directory is well-defined",
+            );
+        }
+
+        assert_eq!(
+            fs.create_dir(path!("/foo/bar")),
+            Ok(()),
+            "creating a sub-directory",
+        );
+
+        {
+            let fs_inner = fs.inner.read().unwrap();
+            assert_eq!(
+                fs_inner.storage.len(),
+                3,
+                "storage contains the new sub-directory",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(ROOT_INODE),
+                    Some(Node::Directory(DirectoryNode {
+                        inode: ROOT_INODE,
+                        name,
+                        children,
+                        ..
+                    })) if name == "/" && children == &[1]
+                ),
+                "the root is updated again and well-defined",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(1),
+                    Some(Node::Directory(DirectoryNode {
+                        inode: 1,
+                        name,
+                        children,
+                        ..
+                    })) if name == "foo" && children == &[2]
+                ),
+                "the new directory is updated and well-defined",
+            );
+            assert!(
+                matches!(
+                    fs_inner.storage.get(2),
+                    Some(Node::Directory(DirectoryNode {
+                        inode: 2,
+                        name,
+                        children,
+                        ..
+                    })) if name == "bar" && children.is_empty()
+                ),
+                "the new directory is well-defined",
+            );
+        }
     }
 }
