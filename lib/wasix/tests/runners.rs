@@ -16,7 +16,7 @@ use wasmer_wasix::{
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
-        task_manager::tokio::TokioTaskManager,
+        task_manager::tokio::TokioTaskManager, package_loader::BuiltinPackageLoader,
     },
     PluggableRuntime, Runtime,
 };
@@ -219,6 +219,8 @@ fn client() -> Client {
 fn runtime() -> impl Runtime + Send + Sync {
     let tasks = TokioTaskManager::new(Handle::current());
     let mut rt = PluggableRuntime::new(Arc::new(tasks));
+
+    rt.set_package_loader(BuiltinPackageLoader::from_env().unwrap());
 
     let cache =
         SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
