@@ -1,4 +1,4 @@
-use std::{net::TcpListener, path::PathBuf, sync::Arc, time::Duration};
+use std::{net::TcpListener, path::PathBuf, time::Duration};
 
 use anyhow::Ok;
 
@@ -15,9 +15,7 @@ use wasmer_registry::{
     RegistryClient,
 };
 
-use axum::{http::StatusCode, routing::post, Json, Router};
-
-use tokio::sync::{watch, RwLock};
+use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 
 const WASMER_CLI: &str = "wasmer-cli";
 
@@ -86,13 +84,6 @@ impl LoginWithBrowser {
         )
     }
 
-    //As this function will only run once so return a Result
-    async fn save_validated_token(Json(payload): Json<ValidatedNonceOutput>) -> StatusCode {
-        let ValidatedNonceOutput { token } = payload;
-        println!("Token: {}", token);
-        StatusCode::OK
-    }
-
     async fn setup_listener() -> Result<(TcpListener, String), anyhow::Error> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
@@ -113,21 +104,28 @@ impl LoginWithBrowser {
 
         let registry = env.registry_endpoint()?;
 
-        let client = RegistryClient::new(registry, None, None);
+        let client = RegistryClient::new(registry.clone(), None, None);
 
         // let server_url = Self::setup_server().await?;
         let (listener, server_url) = Self::setup_listener().await?;
 
         let cors_middleware = CorsLayer::new()
-            .allow_headers([
-                axum::http::header::AUTHORIZATION,
-                axum::http::header::CONTENT_TYPE,
-            ])
+            .allow_headers([axum::http::header::CONTENT_TYPE])
             .allow_methods([Method::POST])
             .allow_origin(Any)
             .max_age(Duration::from_secs(60) * 10);
 
-        let app = Router::new().route("/", post(Self::save_validated_token));
+        let (server_shutdown_tx, mut server_shutdown_rx) = tokio::sync::mpsc::channel::<bool>(1);
+        let (token_tx, mut token_rx) = tokio::sync::mpsc::channel::<String>(1);
+
+        // let state = ServerState {
+        //     txs: Arc::new(Mutex::new((server_shutdown_tx, token_tx))),
+        // };
+
+        let app = Router::new().route(
+            "/",
+            post(save_validated_token).with_state((server_shutdown_tx.clone(), token_tx.clone())),
+        );
         let app = app.layer(cors_middleware);
 
         let NewNonceOutput { auth_url, .. } =
@@ -140,15 +138,15 @@ impl LoginWithBrowser {
         let auth_url = auth_url.split_once("cli").unwrap().1.to_string();
         let auth_url = vercel_url + &auth_url;
 
+        // if failed to open the browser, then don't error out just print the auth_url with a message
         println!("Opening browser at {}", &auth_url);
-        opener::open_browser(&auth_url).map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to open browser at {} due to {}", &auth_url, e),
-            )
-        })?;
-
-        let (_tx, mut rx) = watch::channel((false, String::new()));
+        opener::open_browser(&auth_url).unwrap_or_else(|_| {
+            println!(
+                "Failed to open the browser.\n
+                Please open the url: {}",
+                &auth_url
+            );
+        });
 
         // let (tx, rx) = watch::channel((false, String::new()));
         // let shutdown_signal = Arc::new(RwLock::new(tx));
@@ -165,18 +163,51 @@ impl LoginWithBrowser {
 
         axum::Server::from_tcp(listener)?
             .serve(app.into_make_service())
-            .with_graceful_shutdown(async move { rx.changed().await.unwrap() })
+            .with_graceful_shutdown(async {
+                server_shutdown_rx.recv().await;
+                eprintln!("Shutting down server");
+            })
             .await?;
 
-        // match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
-        //     Some(s) => println!("Login for Wasmer user {:?} saved", s),
-        //     None => println!(
-        //         "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
-        //         registry, token
-        //     ),
-        // }
+        // receive the token from the server
+        let token = token_rx
+            .recv()
+            .await
+            .expect("Failed to receive token from the server");
+
+        match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
+            Some(s) => println!("Login for Wasmer user {:?} saved", s),
+            None => println!(
+                "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
+                registry, token
+            ),
+        }
         Ok(())
     }
+}
+
+//As this function will only run once so return a Result
+async fn save_validated_token(
+    State((shutdown_server_tx, token_tx)): State<(
+        tokio::sync::mpsc::Sender<bool>,
+        tokio::sync::mpsc::Sender<String>,
+    )>,
+    Json(payload): Json<ValidatedNonceOutput>,
+) -> StatusCode {
+    let ValidatedNonceOutput { token } = payload;
+    println!("Token: {}", token);
+
+    shutdown_server_tx
+        .send(true)
+        .await
+        .expect("Failed to send shutdown signal");
+
+    token_tx
+        .send(token.clone())
+        .await
+        .expect("Failed to send token");
+
+    StatusCode::OK
 }
 
 // #[cfg(test)]
