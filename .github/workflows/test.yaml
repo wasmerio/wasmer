@@ -794,8 +794,8 @@ jobs:
         if: matrix.build != 'macos-arm'
         shell: bash
         run: |
-          export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
           export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release
