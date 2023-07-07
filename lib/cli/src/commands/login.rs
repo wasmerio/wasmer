@@ -189,7 +189,10 @@ impl Login {
         let person_wants_to_login =
             match wasmer_registry::whoami(env.dir(), Some(registry.as_str()), None) {
                 std::result::Result::Ok((registry, user)) => {
-                    println!("You are logged in as {:?} on registry {:?}", user, registry);
+                    println!(
+                        "You are already logged in as {:?} on registry {:?}",
+                        user, registry
+                    );
 
                     #[cfg(not(test))]
                     {
