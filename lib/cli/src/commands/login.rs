@@ -134,7 +134,7 @@ impl Login {
             wasmer_registry::api::create_nonce(&client, WASMER_CLI.to_string(), server_url).await?;
 
         // if failed to open the browser, then don't error out just print the auth_url with a message
-        println!("Opening browser at {}", &auth_url);
+        println!("Opening auth link in your default browser: {}", &auth_url);
         opener::open_browser(&auth_url).unwrap_or_else(|_| {
             println!(
                 "⚠️ Failed to open the browser.\n
@@ -143,7 +143,7 @@ impl Login {
             );
         });
 
-        println!("\n\nWaiting for authorization from the browser 🌐 ... \n");
+        print!("Waiting for session... ");
 
         // start the server
         axum::Server::from_tcp(listener)?
@@ -222,15 +222,33 @@ impl Login {
         }
 
         let token = if self.no_browser {
-            self.get_token_or_ask_user(&env)?
+            Some(self.get_token_or_ask_user(&env)?)
         } else {
-            self.get_token_from_browser(&env).await?
+            // switch between two methods of getting the token.
+            // start two async processes, 10 minute timeout and get token from browser. Whichever finishes first, use that.
+
+            let timeout_future = tokio::time::sleep(Duration::from_secs(60) * 10);
+
+            tokio::select! {
+             _ = timeout_future => {
+                     print!("Timed out (10 mins exceeded)");
+                     None
+                 },
+                 token = self.get_token_from_browser(&env) => {
+                     Some(token?)
+                 }
+            }
         };
 
+        let token = token.ok_or_else(|| anyhow::anyhow!("Failed to get token"))?;
+
         match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
-            Some(s) => println!("✅ Login for Wasmer user {:?} saved", s),
+            Some(s) => {
+                print!("Done!");
+                println!("\n✅ Login for Wasmer user {:?} saved", s)
+            }
             None => println!(
-                "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
+                "\nError: no user found on registry {:?} with token {:?}. Token saved regardless.",
                 registry, token
             ),
         }
