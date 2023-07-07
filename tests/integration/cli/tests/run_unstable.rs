@@ -118,7 +118,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasi_runner_with_dependencies() {
         let mut cmd = wasmer_run_unstable();
         let port = random_port();
@@ -148,7 +147,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn webc_files_with_multiple_commands_require_an_entrypoint_flag() {
         let assert = wasmer_run_unstable().arg(fixtures::wabt()).assert();
 
@@ -161,7 +159,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasi_runner_with_env_vars() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::python())
@@ -180,7 +177,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wcgi_runner() {
         // Start the WCGI server in the background
         let port = random_port();
@@ -215,7 +211,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wcgi_runner_with_mounted_directories() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
