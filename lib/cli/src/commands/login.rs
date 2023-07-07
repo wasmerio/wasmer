@@ -218,7 +218,7 @@ impl Login {
         };
 
         match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
-            Some(s) => println!("Login for Wasmer user {:?} saved", s),
+            Some(s) => println!("✅ Login for Wasmer user {:?} saved", s),
             None => println!(
                 "Error: no user found on registry {:?} with token {:?}. Token saved regardless.",
                 registry, token
