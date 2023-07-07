@@ -59,7 +59,6 @@ mod webc_on_disk {
 
     /// See <https://github.com/wasmerio/wasmer/issues/4010> for more.
     #[test]
-    #[ignore = "testing"]
     fn wasi_runner_mount_using_relative_directory_on_the_host() {
         let temp = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
@@ -80,7 +79,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasi_runner_with_mounted_directories() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("index.js"), "console.log('Hello, World!')").unwrap();
@@ -100,7 +98,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasi_runner_with_mounted_directories_and_webc_volumes() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
