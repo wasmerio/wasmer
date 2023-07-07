@@ -243,12 +243,14 @@ impl FileSystem {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
-        match guard.inode_of(path)? {
+        match guard.inode_of(path, follow_symlink)? {
             InodeResolution::Found(inode) => {
                 let node = guard.storage.get(inode).ok_or(FsError::UnknownError)?;
 
                 match node {
-                    Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => self.metadata(link),
+                    Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => {
+                        self.metadata(link)
+                    }
                     _ => Ok(node.metadata().clone()),
                 }
             }
@@ -733,7 +735,7 @@ impl InodeResolution {
 
 impl FileSystemInner {
     /// Get the inode associated to a path if it exists.
-    pub(super) fn inode_of(&self, path: &Path) -> Result<InodeResolution> {
+    pub(super) fn inode_of(&self, path: &Path, follow_symlink: bool) -> Result<InodeResolution> {
         // SAFETY: The root node always exists, so it's safe to unwrap here.
         let mut node = self.storage.get(ROOT_INODE).unwrap();
         let mut components = path.components();
@@ -745,11 +747,18 @@ impl FileSystemInner {
 
         while let Some(component) = components.next() {
             node = match node {
-                Node::Directory(DirectoryNode { children, .. }) => children
-                    .iter()
-                    .filter_map(|inode| self.storage.get(*inode))
-                    .find(|node| node.name() == component.as_os_str())
-                    .ok_or(FsError::EntryNotFound)?,
+                Node::Directory(DirectoryNode { children, .. }) => {
+                    let found = children
+                        .iter()
+                        .filter_map(|inode| self.storage.get(*inode))
+                        .find(|node| node.name() == component.as_os_str())
+                        .ok_or(FsError::EntryNotFound)?;
+
+                    match found {
+                        Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => return self.inode_of(link, true),
+                        _ => found,
+                    }
+                }
                 Node::ArcDirectory(ArcDirectoryNode {
                     fs, path: fs_path, ..
                 }) => {
@@ -770,7 +779,7 @@ impl FileSystemInner {
     /// Get the inode associated to a “parent path”. The returned
     /// inode necessarily represents a directory.
     pub(super) fn inode_of_parent(&self, parent_path: &Path) -> Result<InodeResolution> {
-        match self.inode_of(parent_path)? {
+        match self.inode_of(parent_path, true)? {
             InodeResolution::Found(inode_of_parent) => {
                 // Ensure it is a directory.
                 match self.storage.get(inode_of_parent) {
@@ -976,7 +985,7 @@ impl FileSystemInner {
     /// * A normalized path exists in the file system.
     pub(super) fn canonicalize(&self, path: &Path) -> Result<(PathBuf, InodeResolution)> {
         let new_path = self.canonicalize_without_inode(path)?;
-        let inode = self.inode_of(&new_path)?;
+        let inode = self.inode_of(&new_path, true)?;
 
         Ok((new_path, inode))
     }
