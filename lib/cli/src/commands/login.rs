@@ -18,33 +18,32 @@ use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
 
 const WASMER_CLI: &str = "wasmer-cli";
 
-/// Enum for the login prompt options
-// Login using a browser - shows like `y/n`
+/// Enum for the boolean like prompt options
 #[derive(Debug, Clone, PartialEq)]
-pub enum LoginBrowserPromptOptions {
-    /// Login with a browser - using `y/Y`
-    LoginUsingBrowser,
-    /// Login without a browser - using `n/N`
-    LoginWithoutBrowser,
+pub enum BoolPromptOptions {
+    /// Signifying a yes/true - using `y/Y`
+    Yes,
+    /// Signifying a No/false - using `n/N`
+    No,
 }
 
-impl FromStr for LoginBrowserPromptOptions {
+impl FromStr for BoolPromptOptions {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "y" | "Y" => Ok(LoginBrowserPromptOptions::LoginUsingBrowser),
-            "n" | "N" => Ok(LoginBrowserPromptOptions::LoginWithoutBrowser),
+            "y" | "Y" => Ok(BoolPromptOptions::Yes),
+            "n" | "N" => Ok(BoolPromptOptions::No),
             _ => Err(anyhow::anyhow!("Invalid option")),
         }
     }
 }
 
-impl ToString for LoginBrowserPromptOptions {
+impl ToString for BoolPromptOptions {
     fn to_string(&self) -> String {
         match self {
-            LoginBrowserPromptOptions::LoginUsingBrowser => "y".to_string(),
-            LoginBrowserPromptOptions::LoginWithoutBrowser => "n".to_string(),
+            BoolPromptOptions::Yes => "y".to_string(),
+            BoolPromptOptions::No => "n".to_string(),
         }
     }
 }
@@ -133,13 +132,6 @@ impl Login {
         let NewNonceOutput { auth_url, .. } =
             wasmer_registry::api::get_nonce(&client, WASMER_CLI.to_string(), server_url).await?;
 
-        // currently replace the auth_url with vercel's dev url
-        // https://frontend-git-867-add-auth-flow-for-the-wasmer-cli-frontend-wapm.vercel.app/auth/cli
-
-        let vercel_url="https://frontend-git-867-add-auth-flow-for-the-wasmer-cli-frontend-wapm.vercel.app/auth/cli".to_string();
-        let auth_url = auth_url.split_once("cli").unwrap().1.to_string();
-        let auth_url = vercel_url + &auth_url;
-
         // if failed to open the browser, then don't error out just print the auth_url with a message
         println!("Opening browser at {}", &auth_url);
         opener::open_browser(&auth_url).unwrap_or_else(|_| {
@@ -150,7 +142,7 @@ impl Login {
             );
         });
 
-        println!("\n\nWaiting for the token from the browser...\n");
+        println!("\n\nWaiting for the token from the browser 🌐 ... \n");
 
         // start the server
         axum::Server::from_tcp(listener)?
@@ -164,7 +156,7 @@ impl Login {
         let token = token_rx
             .recv()
             .await
-            .ok_or_else(|| anyhow::anyhow!("❌ Failed to receive token from server"))?;
+            .ok_or_else(|| anyhow::anyhow!("❌ Failed to receive token from localhost"))?;
 
         Ok(token)
     }
@@ -193,36 +185,36 @@ impl Login {
     #[tokio::main]
     pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let env = self.wasmer_env();
-        // let token = self.get_token_or_ask_user(&env)?;
-
         let registry = env.registry_endpoint()?;
 
-        let token = match self.token.clone() {
-            Some(token) => token,
-            None => {
-                if self.no_browser {
-                    self.get_token_or_ask_user(&env)?
-                } else {
-                    // Ask the user to choose if he wants to login with the browser or not
-                    let login_with_browser = Input::<LoginBrowserPromptOptions>::new()
-                        .with_prompt(&format!(
-                            "{} {} [{}/n]",
+        let person_wants_to_login =
+            match wasmer_registry::whoami(env.dir(), Some(registry.as_str()), None) {
+                std::result::Result::Ok((registry, user)) => {
+                    println!("You are logged in as {:?} on registry {:?}", user, registry);
+                    let login_again = Input::new()
+                        .with_prompt(format!(
+                            "{} {} - [y/{}]",
                             style("?").yellow().bold(),
-                            style("Do you want to login with the browser 🌐 ?")
-                                .bright()
-                                .bold(),
-                            style("y").green().bold()
+                            style("Do you want to login again ?").bright().bold(),
+                            style("N").green().bold()
                         ))
                         .show_default(false)
-                        .default(LoginBrowserPromptOptions::LoginUsingBrowser)
-                        .interact()?;
-                    if login_with_browser == LoginBrowserPromptOptions::LoginUsingBrowser {
-                        self.get_token_from_browser(&env).await?
-                    } else {
-                        self.get_token_or_ask_user(&env)?
-                    }
+                        .default(BoolPromptOptions::No)
+                        .interact_text()?;
+
+                    login_again == BoolPromptOptions::Yes
                 }
-            }
+                _ => true,
+            };
+
+        if !person_wants_to_login {
+            return Ok(());
+        }
+
+        let token = if self.no_browser {
+            self.get_token_or_ask_user(&env)?
+        } else {
+            self.get_token_from_browser(&env).await?
         };
 
         match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
