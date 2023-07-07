@@ -3,6 +3,7 @@ use std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 use anyhow::Ok;
 
 use clap::Parser;
+#[cfg(not(test))]
 use dialoguer::{console::style, Input};
 use reqwest::Method;
 use tower_http::cors::{Any, CorsLayer};
@@ -129,8 +130,8 @@ impl Login {
         );
         let app = app.layer(cors_middleware);
 
-        let NewNonceOutput { auth_url, .. } =
-            wasmer_registry::api::get_nonce(&client, WASMER_CLI.to_string(), server_url).await?;
+        let NewNonceOutput { auth_url } =
+            wasmer_registry::api::create_nonce(&client, WASMER_CLI.to_string(), server_url).await?;
 
         // if failed to open the browser, then don't error out just print the auth_url with a message
         println!("Opening browser at {}", &auth_url);
@@ -142,7 +143,7 @@ impl Login {
             );
         });
 
-        println!("\n\nWaiting for the token from the browser 🌐 ... \n");
+        println!("\n\nWaiting for authorization from the browser 🌐 ... \n");
 
         // start the server
         axum::Server::from_tcp(listener)?
@@ -176,8 +177,6 @@ impl Login {
 
         let server_url = format!("http://localhost:{}", port);
 
-        eprintln!("Server URL: {}", server_url);
-
         Ok((listener, server_url))
     }
 
@@ -191,18 +190,26 @@ impl Login {
             match wasmer_registry::whoami(env.dir(), Some(registry.as_str()), None) {
                 std::result::Result::Ok((registry, user)) => {
                     println!("You are logged in as {:?} on registry {:?}", user, registry);
-                    let login_again = Input::new()
-                        .with_prompt(format!(
-                            "{} {} - [y/{}]",
-                            style("?").yellow().bold(),
-                            style("Do you want to login again?").bright().bold(),
-                            style("N").green().bold()
-                        ))
-                        .show_default(false)
-                        .default(BoolPromptOptions::No)
-                        .interact_text()?;
 
-                    login_again == BoolPromptOptions::Yes
+                    #[cfg(not(test))]
+                    {
+                        let login_again = Input::new()
+                            .with_prompt(format!(
+                                "{} {} - [y/{}]",
+                                style("?").yellow().bold(),
+                                style("Do you want to login again?").bright().bold(),
+                                style("N").green().bold()
+                            ))
+                            .show_default(false)
+                            .default(BoolPromptOptions::No)
+                            .interact_text()?;
+
+                        login_again == BoolPromptOptions::Yes
+                    }
+                    #[cfg(test)]
+                    {
+                        false
+                    }
                 }
                 _ => true,
             };
@@ -237,7 +244,6 @@ async fn save_validated_token(
     Json(payload): Json<ValidatedNonceOutput>,
 ) -> StatusCode {
     let ValidatedNonceOutput { token } = payload;
-    println!("Token: {}", token);
 
     shutdown_server_tx
         .send(true)

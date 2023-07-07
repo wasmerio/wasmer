@@ -58,7 +58,7 @@ pub async fn publish_deploy_app_raw(
 /// Generate a new Nonce
 ///
 /// Takes a name and a callbackUrl and returns a nonce
-pub async fn get_nonce(
+pub async fn create_nonce(
     client: &RegistryClient,
     name: String,
     callback_url: String,
@@ -72,8 +72,6 @@ pub async fn get_nonce(
         .nonce;
 
     Ok(NewNonceOutput {
-        id: nonce.id,
-        secret: nonce.secret,
         auth_url: nonce.auth_url,
     })
 }
