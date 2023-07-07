@@ -1931,20 +1931,40 @@ mod test_filesystem {
         assert_eq!(buf, b"a");
     }
 
-    #[test]
-    fn test_symlink() {
+    #[tokio::test]
+    async fn test_symlink() {
         let fs = FileSystem::default();
 
-        fs.create_dir(path!("/foo")).unwrap();
+        assert!(
+            matches!(fs.create_dir(path!("/foo")), Ok(_)),
+            "creating dir `/foo`",
+        );
+        assert!(
+            matches!(
+                fs.insert_ro_file(path!("/foo/bar"), Cow::Borrowed(b"a")),
+                Ok(_)
+            ),
+            "creating file `/foo/bar`",
+        );
+        assert!(
+            matches!(fs.symlink(path!("/foo/bar"), path!("/baz")), Ok(_)),
+            "creating symlink `/foo/bar` -> `baz`",
+        );
+        assert!(
+            matches!(fs.symlink(path!("/foo/bar"), path!("/qux")), Ok(_)),
+            "creating symlink `baz` -> `/foo/qux`",
+        );
 
-        assert!(false);
+        // TODO: create a directory symlink, make sure it works, then change the symlink to point
+        // to a file. Additionally, try to read a child of the symlinked directory. `/ccc` ->
+        // `/foo`, then try to read `/ccc/bar`
 
         {
             let fs_inner = fs.inner.read().unwrap();
             assert_eq!(
                 fs_inner.storage.len(),
-                2,
-                "storage contains the new directory"
+                5,
+                "storage contains the new entries"
             );
             assert!(
                 matches!(
@@ -1954,7 +1974,7 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    })) if name == "/" && children == &[1]
+                    })) if name == "/" && children == &[1, 3, 4]
                 ),
                 "the root is updated and well-defined",
             );
@@ -1966,61 +1986,117 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    })) if name == "foo" && children.is_empty(),
+                    })) if name == "foo" && children == &[2],
                 ),
                 "the new directory is well-defined",
             );
         }
 
-        assert_eq!(
-            fs.create_dir(path!("/foo/bar")),
-            Ok(()),
-            "creating a sub-directory",
+        assert!(
+            matches!(
+                fs.metadata(path!("/baz")),
+                Ok(Metadata {
+                    ft: FileType {
+                        symlink,
+                        ..
+                    },
+                    ..
+                }) if symlink
+            ),
+            "metadata reads `/baz` as a symlink"
         );
 
-        {
-            let fs_inner = fs.inner.read().unwrap();
-            assert_eq!(
-                fs_inner.storage.len(),
-                3,
-                "storage contains the new sub-directory",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory(DirectoryNode {
-                        inode: ROOT_INODE,
-                        name,
-                        children,
+        assert!(
+            matches!(
+                fs.symlink_metadata(path!("/baz")),
+                Ok(Metadata {
+                    ft: FileType {
+                        symlink,
                         ..
-                    })) if name == "/" && children == &[1]
-                ),
-                "the root is updated again and well-defined",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(1),
-                    Some(Node::Directory(DirectoryNode {
-                        inode: 1,
-                        name,
-                        children,
-                        ..
-                    })) if name == "foo" && children == &[2]
-                ),
-                "the new directory is updated and well-defined",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(2),
-                    Some(Node::Directory(DirectoryNode {
-                        inode: 2,
-                        name,
-                        children,
-                        ..
-                    })) if name == "bar" && children.is_empty()
-                ),
-                "the new directory is well-defined",
-            );
-        }
+                    },
+                    ..
+                }) if symlink
+            ),
+            "symlink_metadata reads `/baz` as a file"
+        );
+
+        // let mut bar = String::new();
+        //
+        // fs.new_open_options()
+        //     .read(true)
+        //     .open(&Path::new("/foo/bar"))
+        //     .unwrap()
+        //     .read_to_string(&mut bar)
+        //     .await
+        //     .unwrap();
+        //
+        // let mut baz = String::new();
+        //
+        // fs.new_open_options()
+        //     .read(true)
+        //     .open(&Path::new("/baz"))
+        //     .unwrap()
+        //     .read_to_string(&mut baz)
+        //     .await
+        //     .unwrap();
+        //
+        // assert_eq!(bar, baz);
+        //
+        // let mut qux = String::new();
+        //
+        // fs.new_open_options()
+        //     .read(true)
+        //     .open(&Path::new("/qux"))
+        //     .unwrap()
+        //     .read_to_string(&mut qux)
+        //     .await
+        //     .unwrap();
+        //
+        // assert_eq!(bar, qux);
+
+        // {
+        //     let fs_inner = fs.inner.read().unwrap();
+        //     assert_eq!(
+        //         fs_inner.storage.len(),
+        //         3,
+        //         "storage contains the new sub-directory",
+        //     );
+        //     assert!(
+        //         matches!(
+        //             fs_inner.storage.get(ROOT_INODE),
+        //             Some(Node::Directory(DirectoryNode {
+        //                 inode: ROOT_INODE,
+        //                 name,
+        //                 children,
+        //                 ..
+        //             })) if name == "/" && children == &[1]
+        //         ),
+        //         "the root is updated again and well-defined",
+        //     );
+        //     assert!(
+        //         matches!(
+        //             fs_inner.storage.get(1),
+        //             Some(Node::Directory(DirectoryNode {
+        //                 inode: 1,
+        //                 name,
+        //                 children,
+        //                 ..
+        //             })) if name == "foo" && children == &[2]
+        //         ),
+        //         "the new directory is updated and well-defined",
+        //     );
+        //     assert!(
+        //         matches!(
+        //             fs_inner.storage.get(2),
+        //             Some(Node::Directory(DirectoryNode {
+        //                 inode: 2,
+        //                 name,
+        //                 children,
+        //                 ..
+        //             })) if name == "bar" && children.is_empty()
+        //         ),
+        //         "the new directory is well-defined",
+        //     );
+        // }
     }
 }
