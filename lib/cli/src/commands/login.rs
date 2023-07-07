@@ -49,6 +49,15 @@ impl ToString for BoolPromptOptions {
     }
 }
 
+type Token = String;
+
+#[derive(Debug, Clone)]
+enum AuthorizationState {
+    TokenSuccess(Token),
+    Cancelled,
+    TimedOut,
+}
+
 /// Subcommand for logging in using a browser
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
@@ -73,9 +82,9 @@ pub struct Login {
 }
 
 impl Login {
-    fn get_token_or_ask_user(&self, env: &WasmerEnv) -> Result<String, anyhow::Error> {
+    fn get_token_or_ask_user(&self, env: &WasmerEnv) -> Result<AuthorizationState, anyhow::Error> {
         if let Some(token) = &self.token {
-            return Ok(token.clone());
+            return Ok(AuthorizationState::TokenSuccess(token.clone()));
         }
 
         let registry_host = env.registry_endpoint()?;
@@ -99,16 +108,19 @@ impl Login {
         };
         #[cfg(test)]
         {
-            Ok(login_prompt)
+            Ok(AuthorizationState::TokenSuccess(login_prompt))
         }
         #[cfg(not(test))]
         {
             let token = Input::new().with_prompt(&login_prompt).interact_text()?;
-            Ok(token)
+            Ok(AuthorizationState::TokenSuccess(token))
         }
     }
 
-    async fn get_token_from_browser(&self, env: &WasmerEnv) -> Result<String, anyhow::Error> {
+    async fn get_token_from_browser(
+        &self,
+        env: &WasmerEnv,
+    ) -> Result<AuthorizationState, anyhow::Error> {
         let registry = env.registry_endpoint()?;
 
         let client = RegistryClient::new(registry.clone(), None, None);
@@ -122,12 +134,16 @@ impl Login {
             .max_age(Duration::from_secs(60) * 10);
 
         let (server_shutdown_tx, mut server_shutdown_rx) = tokio::sync::mpsc::channel::<bool>(1);
-        let (token_tx, mut token_rx) = tokio::sync::mpsc::channel::<String>(1);
+        let (token_tx, mut token_rx) = tokio::sync::mpsc::channel::<AuthorizationState>(1);
 
         let app = Router::new().route(
             "/",
-            post(save_validated_token).with_state((server_shutdown_tx.clone(), token_tx.clone())),
+            post(authorize_token).with_state((server_shutdown_tx.clone(), token_tx.clone())),
         );
+        // .route(
+        //     "/cancel-login",
+        //     get(cancel_login).with_state((server_shutdown_tx.clone(), token_tx.clone())),
+        // );
         let app = app.layer(cors_middleware);
 
         let NewNonceOutput { auth_url } =
@@ -161,6 +177,7 @@ impl Login {
 
         Ok(token)
     }
+
     fn wasmer_env(&self) -> WasmerEnv {
         WasmerEnv::new(
             self.wasmer_dir.clone(),
@@ -223,63 +240,97 @@ impl Login {
             return Ok(());
         }
 
-        let token = if self.no_browser {
-            Some(self.get_token_or_ask_user(&env)?)
+        let auth_state = if self.no_browser {
+            self.get_token_or_ask_user(&env)?
         } else {
             // switch between two methods of getting the token.
             // start two async processes, 10 minute timeout and get token from browser. Whichever finishes first, use that.
-
             let timeout_future = tokio::time::sleep(Duration::from_secs(60) * 10);
-
             tokio::select! {
              _ = timeout_future => {
-                     print!("Timed out (10 mins exceeded)");
-                     None
+                     AuthorizationState::TimedOut
                  },
                  token = self.get_token_from_browser(&env) => {
-                     Some(token?)
+                    token?
                  }
             }
         };
 
-        let token = token.ok_or_else(|| anyhow::anyhow!("Failed to get token"))?;
-
-        match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
-            Some(s) => {
-                print!("Done!");
-                println!("\n✅ Login for Wasmer user {:?} saved", s)
+        match auth_state {
+            AuthorizationState::TokenSuccess(token) => {
+                match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
+                    Some(s) => {
+                        print!("Done!");
+                        println!("\n✅ Login for Wasmer user {:?} saved", s)
+                    }
+                    None => println!(
+                        "\nError: no user found on registry {:?} with token {:?}. Token saved regardless.",
+                        registry, token
+                    ),
+                };
             }
-            None => println!(
-                "\nError: no user found on registry {:?} with token {:?}. Token saved regardless.",
-                registry, token
-            ),
-        }
+            AuthorizationState::TimedOut => {
+                print!("Timed out (10 mins exceeded)");
+            }
+            AuthorizationState::Cancelled => {
+                print!("Cancelled by the user");
+            }
+        };
         Ok(())
     }
 }
 
 //As this function will only run once so return a Result
-async fn save_validated_token(
+async fn authorize_token(
     State((shutdown_server_tx, token_tx)): State<(
         tokio::sync::mpsc::Sender<bool>,
-        tokio::sync::mpsc::Sender<String>,
+        tokio::sync::mpsc::Sender<AuthorizationState>,
     )>,
     Json(payload): Json<ValidatedNonceOutput>,
 ) -> StatusCode {
     let ValidatedNonceOutput { token } = payload;
+
+    match token.is_empty() {
+        true => {
+            token_tx
+                .send(AuthorizationState::Cancelled)
+                .await
+                .expect("Failed to send token");
+        }
+        false => {
+            token_tx
+                .send(AuthorizationState::TokenSuccess(token.clone()))
+                .await
+                .expect("Failed to send token");
+        }
+    }
 
     shutdown_server_tx
         .send(true)
         .await
         .expect("Failed to send shutdown signal");
 
-    token_tx
-        .send(token.clone())
-        .await
-        .expect("Failed to send token");
-
     StatusCode::OK
 }
+
+// async fn cancel_login(
+//     State((shutdown_server_tx, token_tx)): State<(
+//         tokio::sync::mpsc::Sender<bool>,
+//         tokio::sync::mpsc::Sender<AuthorizationState>,
+//     )>,
+// ) -> &'static str {
+//     shutdown_server_tx
+//         .send(true)
+//         .await
+//         .expect("Failed to send shutdown signal");
+
+//     token_tx
+//         .send(AuthorizationState::Cancelled)
+//         .await
+//         .expect("Failed to send token");
+
+//     "Login cancelled"
+// }
 
 #[cfg(test)]
 mod tests {
@@ -301,11 +352,17 @@ mod tests {
         let env = login.wasmer_env();
 
         let token = login.get_token_or_ask_user(&env).unwrap();
-
-        assert_eq!(
-            token,
-            "Please paste the login token from https://wasmer.wtf/settings/access-tokens"
-        );
+        match token {
+            AuthorizationState::TokenSuccess(token) => {
+                assert_eq!(
+                    token,
+                    "Please paste the login token from https://wasmer.wtf/settings/access-tokens"
+                );
+            }
+            AuthorizationState::Cancelled | AuthorizationState::TimedOut => {
+                panic!("Should not reach here")
+            }
+        }
     }
 
     #[test]
@@ -322,7 +379,14 @@ mod tests {
 
         let token = login.get_token_or_ask_user(&env).unwrap();
 
-        assert_eq!(token, "abc");
+        match token {
+            AuthorizationState::TokenSuccess(token) => {
+                assert_eq!(token, "abc");
+            }
+            AuthorizationState::Cancelled | AuthorizationState::TimedOut => {
+                panic!("Should not reach here")
+            }
+        }
     }
 
     #[test]
