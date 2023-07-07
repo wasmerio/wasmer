@@ -367,7 +367,7 @@ impl crate::FileOpener for FileSystem {
         };
 
         let mut cursor = 0u64;
-        let inode_of_file = match maybe_inode_of_file {
+        let inode_of_file = match dbg!(maybe_inode_of_file) {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
             Some(_inode_of_file) if create_new => return Err(FsError::AlreadyExists),
@@ -385,7 +385,7 @@ impl crate::FileOpener for FileSystem {
                 let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
                 let inode = fs.storage.get_mut(inode_of_file);
-                match inode {
+                match dbg!(inode) {
                     Some(Node::File(FileNode { metadata, file, .. })) => {
                         // Update the accessed time.
                         metadata.accessed = time();

@@ -238,6 +238,26 @@ impl FileSystem {
 
         Ok(())
     }
+
+    fn get_metadata(&self, path: &Path, follow_symlink: bool) -> Result<Metadata> {
+        // Read lock.
+        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+        match guard.inode_of(path)? {
+            InodeResolution::Found(inode) => {
+                let node = guard.storage.get(inode).ok_or(FsError::UnknownError)?;
+
+                match node {
+                    Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => self.metadata(link),
+                    _ => Ok(node.metadata().clone()),
+                }
+            }
+            InodeResolution::Redirect(fs, path) => {
+                drop(guard);
+                fs.metadata(path.as_path())
+            }
+        }
+    }
 }
 
 impl crate::FileSystem for FileSystem {
@@ -529,20 +549,11 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        // Read lock.
-        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
-        match guard.inode_of(path)? {
-            InodeResolution::Found(inode) => Ok(guard
-                .storage
-                .get(inode)
-                .ok_or(FsError::UnknownError)?
-                .metadata()
-                .clone()),
-            InodeResolution::Redirect(fs, path) => {
-                drop(guard);
-                fs.metadata(path.as_path())
-            }
-        }
+        self.get_metadata(path, true)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        self.get_metadata(path, false)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -2001,9 +2012,9 @@ mod test_filesystem {
                         ..
                     },
                     ..
-                }) if symlink
+                }) if !symlink
             ),
-            "metadata reads `/baz` as a symlink"
+            "metadata reads `/baz` as a file"
         );
 
         assert!(
@@ -2017,7 +2028,7 @@ mod test_filesystem {
                     ..
                 }) if symlink
             ),
-            "symlink_metadata reads `/baz` as a file"
+            "symlink_metadata reads `/baz` as a symlink"
         );
 
         // let mut bar = String::new();
