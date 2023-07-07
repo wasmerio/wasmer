@@ -244,7 +244,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn issue_3794_unable_to_mount_relative_paths() {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
@@ -269,7 +268,6 @@ mod webc_on_disk {
         windows,
         ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
     )]
-    #[ignore = "testing"]
     fn merged_filesystem_contains_all_files() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::bash())
