@@ -244,16 +244,12 @@ impl FileSystem {
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
         match guard.inode_of(path, follow_symlink)? {
-            InodeResolution::Found(inode) => {
-                let node = guard.storage.get(inode).ok_or(FsError::UnknownError)?;
-
-                match node {
-                    Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => {
-                        self.metadata(link)
-                    }
-                    _ => Ok(node.metadata().clone()),
-                }
-            }
+            InodeResolution::Found(inode) => Ok(guard
+                .storage
+                .get(inode)
+                .ok_or(FsError::UnknownError)?
+                .metadata()
+                .clone()),
             InodeResolution::Redirect(fs, path) => {
                 drop(guard);
                 fs.metadata(path.as_path())
