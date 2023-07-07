@@ -46,7 +46,6 @@ mod webc_on_disk {
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
     )]
-    #[ignore = "testing"]
     fn wasi_runner() {
         let assert = wasmer_run_unstable()
             .arg(fixtures::qjs())
