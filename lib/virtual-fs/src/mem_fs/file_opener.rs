@@ -367,7 +367,7 @@ impl crate::FileOpener for FileSystem {
         };
 
         let mut cursor = 0u64;
-        let inode_of_file = match dbg!(maybe_inode_of_file) {
+        let inode_of_file = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
             Some(_inode_of_file) if create_new => return Err(FsError::AlreadyExists),
@@ -381,11 +381,23 @@ impl crate::FileOpener for FileSystem {
                     }
                 };
 
+                // If node is a symlink, follow it.
+                {
+                    // Read lock.
+                    let fs = self.inner.read().map_err(|_| FsError::Lock)?;
+
+                    if let Some(Node::Symlink(SymlinkNode { link, .. })) = fs.storage.get(inode_of_file) {
+                        let link = link.clone();
+                        drop(fs);
+                        return self.open(&link, conf);
+                    }
+                }
+
                 // Write lock.
                 let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
                 let inode = fs.storage.get_mut(inode_of_file);
-                match dbg!(inode) {
+                match inode {
                     Some(Node::File(FileNode { metadata, file, .. })) => {
                         // Update the accessed time.
                         metadata.accessed = time();
@@ -454,6 +466,10 @@ impl crate::FileOpener for FileSystem {
                         if append {
                             cursor = file.size();
                         }
+                    }
+
+                    Some(Node::Symlink(SymlinkNode { link, .. })) => {
+                        return self.open(dbg!(link), conf);
                     }
 
                     None => return Err(FsError::EntryNotFound),

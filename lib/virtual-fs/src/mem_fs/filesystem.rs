@@ -755,7 +755,9 @@ impl FileSystemInner {
                         .ok_or(FsError::EntryNotFound)?;
 
                     match found {
-                        Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => return self.inode_of(link, true),
+                        Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => {
+                            return self.inode_of(link, true)
+                        }
                         _ => found,
                     }
                 }
@@ -854,6 +856,7 @@ impl FileSystemInner {
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
                     Node::File(FileNode { inode, name, .. })
+                    | Node::Symlink(SymlinkNode { inode, name, .. })
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
                     | Node::ArcFile(ArcFileNode { inode, name, .. })
@@ -1972,12 +1975,8 @@ mod test_filesystem {
         );
         assert!(
             matches!(fs.symlink(path!("/foo/bar"), path!("/qux")), Ok(_)),
-            "creating symlink `baz` -> `/foo/qux`",
+            "creating symlink `qux` -> `/foo/bar`",
         );
-
-        // TODO: create a directory symlink, make sure it works, then change the symlink to point
-        // to a file. Additionally, try to read a child of the symlinked directory. `/ccc` ->
-        // `/foo`, then try to read `/ccc/bar`
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -2040,83 +2039,55 @@ mod test_filesystem {
             "symlink_metadata reads `/baz` as a symlink"
         );
 
-        // let mut bar = String::new();
-        //
-        // fs.new_open_options()
-        //     .read(true)
-        //     .open(&Path::new("/foo/bar"))
-        //     .unwrap()
-        //     .read_to_string(&mut bar)
-        //     .await
-        //     .unwrap();
-        //
-        // let mut baz = String::new();
-        //
-        // fs.new_open_options()
-        //     .read(true)
-        //     .open(&Path::new("/baz"))
-        //     .unwrap()
-        //     .read_to_string(&mut baz)
-        //     .await
-        //     .unwrap();
-        //
-        // assert_eq!(bar, baz);
-        //
-        // let mut qux = String::new();
-        //
-        // fs.new_open_options()
-        //     .read(true)
-        //     .open(&Path::new("/qux"))
-        //     .unwrap()
-        //     .read_to_string(&mut qux)
-        //     .await
-        //     .unwrap();
-        //
-        // assert_eq!(bar, qux);
+        let mut bar = String::new();
 
-        // {
-        //     let fs_inner = fs.inner.read().unwrap();
-        //     assert_eq!(
-        //         fs_inner.storage.len(),
-        //         3,
-        //         "storage contains the new sub-directory",
-        //     );
-        //     assert!(
-        //         matches!(
-        //             fs_inner.storage.get(ROOT_INODE),
-        //             Some(Node::Directory(DirectoryNode {
-        //                 inode: ROOT_INODE,
-        //                 name,
-        //                 children,
-        //                 ..
-        //             })) if name == "/" && children == &[1]
-        //         ),
-        //         "the root is updated again and well-defined",
-        //     );
-        //     assert!(
-        //         matches!(
-        //             fs_inner.storage.get(1),
-        //             Some(Node::Directory(DirectoryNode {
-        //                 inode: 1,
-        //                 name,
-        //                 children,
-        //                 ..
-        //             })) if name == "foo" && children == &[2]
-        //         ),
-        //         "the new directory is updated and well-defined",
-        //     );
-        //     assert!(
-        //         matches!(
-        //             fs_inner.storage.get(2),
-        //             Some(Node::Directory(DirectoryNode {
-        //                 inode: 2,
-        //                 name,
-        //                 children,
-        //                 ..
-        //             })) if name == "bar" && children.is_empty()
-        //         ),
-        //         "the new directory is well-defined",
-        //     );
-        // }
+        fs.new_open_options()
+            .read(true)
+            .open(&Path::new("/foo/bar"))
+            .unwrap()
+            .read_to_string(&mut bar)
+            .await
+            .unwrap();
+
+        let mut baz = String::new();
+
+        fs.new_open_options()
+            .read(true)
+            .open(&Path::new("/baz"))
+            .unwrap()
+            .read_to_string(&mut baz)
+            .await
+            .unwrap();
+
+        assert_eq!(bar, baz);
+
+        let mut qux = String::new();
+
+        fs.new_open_options()
+            .read(true)
+            .open(&Path::new("/qux"))
+            .unwrap()
+            .read_to_string(&mut qux)
+            .await
+            .unwrap();
+
+        assert_eq!(bar, qux);
+
+        assert!(
+            matches!(fs.symlink(path!("/foo"), path!("/quux")), Ok(_)),
+            "creating symlink `/quux` -> `/foo`",
+        );
+
+        let mut quux_bar = String::new();
+
+        fs.new_open_options()
+            .read(true)
+            .open(&Path::new("/quux/bar"))
+            .unwrap()
+            .read_to_string(&mut quux_bar)
+            .await
+            .unwrap();
+
+        assert_eq!(bar, quux_bar);
     }
 }
