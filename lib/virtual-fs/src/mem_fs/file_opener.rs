@@ -387,7 +387,9 @@ impl crate::FileOpener for FileSystem {
                     // Read lock.
                     let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
-                    if let Some(Node::Symlink(SymlinkNode { link, .. })) = fs.storage.get(inode_of_file) {
+                    if let Some(Node::Symlink(SymlinkNode { link, .. })) =
+                        fs.storage.get(inode_of_file)
+                    {
                         let link = link.clone();
                         drop(fs);
                         return self.open(&link, conf);
