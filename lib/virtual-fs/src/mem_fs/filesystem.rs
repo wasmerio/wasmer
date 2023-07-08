@@ -616,9 +616,6 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
-        // Ensure original exists.
-        let _ = self.metadata(original)?;
-
         if self.metadata(link).is_ok() {
             return Err(FsError::AlreadyExists);
         }
@@ -738,7 +735,7 @@ impl FileSystemInner {
 
         match components.next() {
             Some(Component::RootDir) => {}
-            _ => return Err(FsError::BaseNotDirectory),
+            _ => return dbg!(Err(FsError::BaseNotDirectory)),
         }
 
         while let Some(component) = components.next() {
@@ -766,6 +763,10 @@ impl FileSystemInner {
                         path.push(PathBuf::from(component.as_os_str()));
                     }
                     return Ok(InodeResolution::Redirect(fs.clone(), path));
+                }
+                // Symlink appears to be a directory, so we'll follow it despite `follow_symlink`.
+                Node::Symlink(SymlinkNode { link, .. }) => {
+                    return self.inode_of(link, follow_symlink)
                 }
                 _ => return Err(FsError::BaseNotDirectory),
             };
@@ -1141,7 +1142,7 @@ impl DirectoryMustBeEmpty {
 mod test_filesystem {
     use std::{borrow::Cow, path::Path};
 
-    use tokio::io::AsyncReadExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
 
@@ -1955,327 +1956,6 @@ mod test_filesystem {
     async fn test_symlink() {
         let fs = FileSystem::default();
 
-        assert!(
-            matches!(fs.create_dir(path!("/foo")), Ok(_)),
-            "creating dir `/foo`",
-        );
-        assert!(
-            matches!(
-                fs.insert_ro_file(path!("/foo/bar"), Cow::Borrowed(b"a")),
-                Ok(_)
-            ),
-            "creating file `/foo/bar`",
-        );
-        assert!(
-            matches!(fs.symlink(path!("/foo/bar"), path!("/baz")), Ok(_)),
-            "creating symlink `/foo/bar` -> `baz`",
-        );
-        assert!(
-            matches!(fs.symlink(path!("/foo/bar"), path!("/qux")), Ok(_)),
-            "creating symlink `qux` -> `/foo/bar`",
-        );
-
-        {
-            let fs_inner = fs.inner.read().unwrap();
-            assert_eq!(
-                fs_inner.storage.len(),
-                5,
-                "storage contains the new entries"
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(ROOT_INODE),
-                    Some(Node::Directory(DirectoryNode {
-                        inode: ROOT_INODE,
-                        name,
-                        children,
-                        ..
-                    })) if name == "/" && children == &[1, 3, 4]
-                ),
-                "the root is updated and well-defined",
-            );
-            assert!(
-                matches!(
-                    fs_inner.storage.get(1),
-                    Some(Node::Directory(DirectoryNode {
-                        inode: 1,
-                        name,
-                        children,
-                        ..
-                    })) if name == "foo" && children == &[2],
-                ),
-                "the new directory is well-defined",
-            );
-        }
-
-        assert!(
-            matches!(
-                fs.metadata(path!("/baz")),
-                Ok(Metadata {
-                    ft: FileType {
-                        symlink,
-                        ..
-                    },
-                    ..
-                }) if !symlink
-            ),
-            "metadata reads `/baz` as a file"
-        );
-
-        assert!(
-            matches!(
-                fs.symlink_metadata(path!("/baz")),
-                Ok(Metadata {
-                    ft: FileType {
-                        symlink,
-                        ..
-                    },
-                    ..
-                }) if symlink
-            ),
-            "symlink_metadata reads `/baz` as a symlink"
-        );
-
-        let mut bar = String::new();
-
-        fs.new_open_options()
-            .read(true)
-            .open(&Path::new("/foo/bar"))
-            .unwrap()
-            .read_to_string(&mut bar)
-            .await
-            .unwrap();
-
-        let mut baz = String::new();
-
-        fs.new_open_options()
-            .read(true)
-            .open(&Path::new("/baz"))
-            .unwrap()
-            .read_to_string(&mut baz)
-            .await
-            .unwrap();
-
-        assert_eq!(bar, baz);
-
-        let mut qux = String::new();
-
-        fs.new_open_options()
-            .read(true)
-            .open(&Path::new("/qux"))
-            .unwrap()
-            .read_to_string(&mut qux)
-            .await
-            .unwrap();
-
-        assert_eq!(bar, qux);
-
-        assert!(
-            matches!(fs.symlink(path!("/foo"), path!("/quux")), Ok(_)),
-            "creating symlink `/quux` -> `/foo`",
-        );
-
-        let mut quux_bar = String::new();
-
-        fs.new_open_options()
-            .read(true)
-            .open(&Path::new("/quux/bar"))
-            .unwrap()
-            .read_to_string(&mut quux_bar)
-            .await
-            .unwrap();
-
-        assert_eq!(bar, quux_bar);
-
-        fs.rename(path!("/baz"), path!("/a")).await.unwrap();
-
-        assert!(
-            matches!(
-                fs.symlink_metadata(path!("/a")),
-                Ok(Metadata {
-                    ft: FileType {
-                        symlink,
-                        ..
-                    },
-                    ..
-                }) if symlink
-            ),
-            "renamed symlink is still a symlink"
-        );
-
-        let mut a = String::new();
-
-        fs.new_open_options()
-            .read(true)
-            .open(&Path::new("/a"))
-            .unwrap()
-            .read_to_string(&mut a)
-            .await
-            .unwrap();
-
-        assert_eq!(bar, a);
-
-        fs.remove_file(path!("/foo/bar")).unwrap();
-
-        assert!(
-            matches!(fs.symlink_metadata(path!("/a")), Ok(_)),
-            "symlink of removed file still exists"
-        );
-
-        assert!(
-            matches!(fs.metadata(path!("/a")), Err(FsError::EntryNotFound)),
-            "metadata can't be read for removed file"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_symlink1() {
-        let fs = FileSystem::default();
-
-        macro_rules! read_to_string {
-            ($path:expr) => {{
-                let mut a = String::new();
-
-                fs.new_open_options()
-                    .read(true)
-                    .open(path!($path))
-                    .unwrap()
-                    .read_to_string(&mut a)
-                    .await
-                    .unwrap();
-
-                a
-            }};
-        }
-
-        macro_rules! assert_file_contents_eq {
-            ($a:expr, $b:expr) => {
-                assert_eq!(read_to_string!($a), read_to_string!($b));
-            };
-        }
-
-        fs.create_dir(path!("/a")).unwrap();
-        fs.insert_ro_file(path!("/a/b"), Cow::Borrowed(b"0"))
-            .unwrap();
-
-        fs.symlink(path!("/a/b"), path!("/c")).unwrap();
-
-        assert_file_contents_eq!("/a/b", "/c");
-
-        fs.symlink(path!("/c"), path!("/d")).unwrap();
-
-        assert_file_contents_eq!("/a/b", "/d");
-
-        assert!(fs.metadata(path!("/c")).unwrap().file_type().is_file());
-
-        assert!(matches!(
-            fs.metadata(path!("/c")),
-            Ok(Metadata {
-                ft: FileType {
-                    file,
-                    symlink,
-                    ..
-                },
-                ..
-            }) if file && !symlink
-        ));
-
-        assert!(matches!(
-            fs.symlink_metadata(path!("/c")),
-            Ok(Metadata {
-                ft: FileType {
-                    file,
-                    symlink,
-                    ..
-                },
-                ..
-            }) if !file && symlink
-        ));
-
-        fs.remove_file(path!("/c")).unwrap();
-        fs.create_dir(path!("/c")).unwrap();
-
-        assert!(matches!(
-            fs.metadata(path!("/d")),
-            Ok(Metadata {
-                ft: FileType {
-                    file,
-                    symlink,
-                    dir,
-                    ..
-                },
-                ..
-            }) if dir && !file && !symlink
-        ));
-
-        fs.new_open_options()
-            .create(true)
-            .open(path!("/d/e"))
-            .unwrap();
-
-        // let nf = tempfile::Builder::new()
-        //     .rand_bytes(10)
-        //     .tempfile_in(dir.path())
-        //     .unwrap();
-        //
-        // std::os::unix::fs::symlink(nf.path(), "s3").unwrap();
-        //
-        // let m1 = std::fs::read_to_string(std::path::PathBuf::from("s3").join(nf.path())).unwrap();
-        //
-        // assert_eq!(m1, std::fs::read_to_string(nf.path()).unwrap());
-        //
-        // std::fs::rename("s3", "s4").unwrap();
-        //
-        // let m2 = std::fs::read_to_string(std::path::PathBuf::from("s4").join(nf.path())).unwrap();
-        //
-        // assert_eq!(m1, m2);
-        //
-        // std::fs::rename(dir.path(), "moved").unwrap();
-        //
-        // assert!(std::fs::read_to_string("s4/main.rs").is_err());
-        //
-        // std::fs::rename("s1", "etc").unwrap();
-        //
-        // assert!(std::fs::symlink_metadata("s2").is_ok());
-        // assert!(std::fs::metadata("s2").is_err());
-        //
-        // assert!(std::fs::read_to_string("s2").is_err());
-        //
-        // let nd = tempfile::Builder::new().tempdir().unwrap();
-        //
-        // std::os::unix::fs::symlink(nd.path(), "sd").unwrap();
-        //
-        // let nf_in_symlink_dir = tempfile::Builder::new()
-        //     .rand_bytes(10)
-        //     .tempfile_in("sd")
-        //     .unwrap();
-        //
-        // assert_eq!(
-        //     std::fs::read_to_string(nf_in_symlink_dir.path()).unwrap(),
-        //     std::fs::read_to_string(
-        //         std::path::PathBuf::from("sd").join(nf_in_symlink_dir.path().file_name().unwrap())
-        //     )
-        //     .unwrap()
-        // );
-        //
-        // let nf_in_symlink_dir = tempfile::Builder::new()
-        //     .rand_bytes(10)
-        //     .tempfile_in(nd.path())
-        //     .unwrap();
-        //
-        // assert_eq!(
-        //     std::fs::read_to_string(nf_in_symlink_dir.path()).unwrap(),
-        //     std::fs::read_to_string(
-        //         std::path::PathBuf::from("sd").join(nf_in_symlink_dir.path().file_name().unwrap())
-        //     )
-        //     .unwrap()
-        // );
-    }
-
-    #[tokio::test]
-    async fn test_symlink2() {
-        let fs = FileSystem::default();
-
         macro_rules! path {
             ($path:expr) => {
                 &std::path::PathBuf::from("/").join($path)
@@ -2398,5 +2078,23 @@ mod test_filesystem {
             symlink_metadata!("aa_b/foo"),
             Err(FsError::EntryNotFound)
         ));
+
+        symlink!("bbb", "bbbb").unwrap();
+
+        let mut file = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(path!("bbbb/bar"))
+            .unwrap();
+
+        file.write(b"foobarbazqux").await.unwrap();
+
+        assert_file_contents_eq!("bbb/bar", "bbbb/bar");
+
+        fs.insert_ro_file(path!("bbbb/baz"), Cow::Borrowed(b"baz"))
+            .unwrap();
+
+        assert_file_contents_eq!("bbb/baz", "bbbb/baz");
     }
 }
