@@ -6,7 +6,6 @@ use clap::Parser;
 #[cfg(not(test))]
 use dialoguer::{console::style, Input};
 use reqwest::Method;
-use tower_http::cors::{Any, CorsLayer};
 
 use wasmer_registry::{
     types::NewNonceOutput,
@@ -15,7 +14,10 @@ use wasmer_registry::{
     RegistryClient,
 };
 
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server, StatusCode,
+};
 
 const WASMER_CLI: &str = "wasmer-cli";
 
@@ -56,6 +58,13 @@ enum AuthorizationState {
     TokenSuccess(Token),
     Cancelled,
     TimedOut,
+    UnknownMethod,
+}
+
+#[derive(Clone)]
+struct AppContext {
+    server_shutdown_tx: tokio::sync::mpsc::Sender<bool>,
+    token_tx: tokio::sync::mpsc::Sender<AuthorizationState>,
 }
 
 /// Subcommand for logging in using a browser
@@ -127,24 +136,14 @@ impl Login {
 
         let (listener, server_url) = Self::setup_listener().await?;
 
-        let cors_middleware = CorsLayer::new()
-            .allow_headers([axum::http::header::CONTENT_TYPE])
-            .allow_methods([Method::POST])
-            .allow_origin(Any)
-            .max_age(Duration::from_secs(60) * 10);
-
         let (server_shutdown_tx, mut server_shutdown_rx) = tokio::sync::mpsc::channel::<bool>(1);
         let (token_tx, mut token_rx) = tokio::sync::mpsc::channel::<AuthorizationState>(1);
 
-        let app = Router::new().route(
-            "/",
-            post(authorize_token).with_state((server_shutdown_tx.clone(), token_tx.clone())),
-        );
-        // .route(
-        //     "/cancel-login",
-        //     get(cancel_login).with_state((server_shutdown_tx.clone(), token_tx.clone())),
-        // );
-        let app = app.layer(cors_middleware);
+        // Create a new AppContext
+        let app_context = AppContext {
+            server_shutdown_tx,
+            token_tx,
+        };
 
         let NewNonceOutput { auth_url } =
             wasmer_registry::api::create_nonce(&client, WASMER_CLI.to_string(), server_url).await?;
@@ -154,16 +153,27 @@ impl Login {
         opener::open_browser(&auth_url).unwrap_or_else(|_| {
             println!(
                 "⚠️ Failed to open the browser.\n
-                Please open the url: {}",
+            Please open the url: {}",
                 &auth_url
             );
+        });
+
+        // Create a new server
+        let make_svc = make_service_fn(move |_| {
+            let context = app_context.clone();
+
+            // Create a `Service` for responding to the request.
+            let service = service_fn(move |req| service_router(context.clone(), req));
+
+            // Return the service to hyper.
+            async move { Ok(service) }
         });
 
         print!("Waiting for session... ");
 
         // start the server
-        axum::Server::from_tcp(listener)?
-            .serve(app.into_make_service())
+        Server::from_tcp(listener)?
+            .serve(make_svc)
             .with_graceful_shutdown(async {
                 server_shutdown_rx.recv().await;
             })
@@ -275,20 +285,37 @@ impl Login {
             AuthorizationState::Cancelled => {
                 print!("Cancelled by the user");
             }
+            AuthorizationState::UnknownMethod => {
+                print!("Error: unknown method");
+            }
         };
         Ok(())
     }
 }
 
-//As this function will only run once so return a Result
-async fn authorize_token(
-    State((shutdown_server_tx, token_tx)): State<(
-        tokio::sync::mpsc::Sender<bool>,
-        tokio::sync::mpsc::Sender<AuthorizationState>,
-    )>,
-    Json(payload): Json<ValidatedNonceOutput>,
-) -> StatusCode {
-    let ValidatedNonceOutput { token } = payload;
+async fn preflight(req: Request<Body>) -> Result<Response<Body>, anyhow::Error> {
+    let _whole_body = hyper::body::aggregate(req).await?;
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header("Access-Control-Allow-Origin", "*") // FIXME: this is not secure, Don't allow all origins. @syrusakbary
+        .header("Access-Control-Allow-Headers", "Content-Type")
+        .header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        .body(Body::default())?;
+    Ok(response)
+}
+
+async fn handle_post_save_token(
+    context: AppContext,
+    req: Request<Body>,
+) -> Result<Response<Body>, anyhow::Error> {
+    let AppContext {
+        server_shutdown_tx,
+        token_tx,
+    } = context;
+    let (.., body) = req.into_parts();
+    let body = hyper::body::to_bytes(body).await?;
+
+    let token = serde_json::from_slice::<ValidatedNonceOutput>(&body)?.token;
 
     match token.is_empty() {
         true => {
@@ -305,32 +332,47 @@ async fn authorize_token(
         }
     }
 
-    shutdown_server_tx
+    server_shutdown_tx
         .send(true)
         .await
         .expect("Failed to send shutdown signal");
 
-    StatusCode::OK
+    Ok(Response::new(Body::from("Auth token received")))
 }
 
-// async fn cancel_login(
-//     State((shutdown_server_tx, token_tx)): State<(
-//         tokio::sync::mpsc::Sender<bool>,
-//         tokio::sync::mpsc::Sender<AuthorizationState>,
-//     )>,
-// ) -> &'static str {
-//     shutdown_server_tx
-//         .send(true)
-//         .await
-//         .expect("Failed to send shutdown signal");
+async fn handle_unknown_method(context: AppContext) -> Result<Response<Body>, anyhow::Error> {
+    let AppContext {
+        server_shutdown_tx,
+        token_tx,
+    } = context;
 
-//     token_tx
-//         .send(AuthorizationState::Cancelled)
-//         .await
-//         .expect("Failed to send token");
+    token_tx
+        .send(AuthorizationState::UnknownMethod)
+        .await
+        .expect("Failed to send token");
 
-//     "Login cancelled"
-// }
+    server_shutdown_tx
+        .send(true)
+        .await
+        .expect("Failed to send shutdown signal");
+
+    Ok(Response::builder()
+        .status(StatusCode::METHOD_NOT_ALLOWED)
+        .body(Body::from("Method not allowed"))?)
+}
+
+/// Handle the preflight headers first - OPTIONS request
+/// Then proceed to handle the actual request - POST request
+async fn service_router(
+    context: AppContext,
+    req: Request<Body>,
+) -> Result<Response<Body>, anyhow::Error> {
+    match *req.method() {
+        Method::OPTIONS => preflight(req).await,
+        Method::POST => handle_post_save_token(context, req).await,
+        _ => handle_unknown_method(context).await,
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -359,7 +401,9 @@ mod tests {
                     "Please paste the login token from https://wasmer.wtf/settings/access-tokens"
                 );
             }
-            AuthorizationState::Cancelled | AuthorizationState::TimedOut => {
+            AuthorizationState::Cancelled
+            | AuthorizationState::TimedOut
+            | AuthorizationState::UnknownMethod => {
                 panic!("Should not reach here")
             }
         }
@@ -383,7 +427,9 @@ mod tests {
             AuthorizationState::TokenSuccess(token) => {
                 assert_eq!(token, "abc");
             }
-            AuthorizationState::Cancelled | AuthorizationState::TimedOut => {
+            AuthorizationState::Cancelled
+            | AuthorizationState::TimedOut
+            | AuthorizationState::UnknownMethod => {
                 panic!("Should not reach here")
             }
         }
