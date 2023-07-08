@@ -95,8 +95,10 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Utility functions for the WebAssembly module
 </span><span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::{env, path::Path};
 
@@ -105,7 +107,7 @@
     env::var(<span class="string">&quot;WASMER_COLOR&quot;</span>)
         .ok()
         .and_then(|inner| inner.parse::&lt;bool&gt;().ok())
-        .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
+        .unwrap_or_else(|| std::io::stdout().is_terminal())
 }
 
 <span class="kw">fn </span>retrieve_alias_pathbuf(alias: <span class="kw-2">&amp;</span>str, real_dir: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;(String, PathBuf)&gt; {

@@ -107,9 +107,11 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Logging functions for the debug feature.
 
-</span><span class="kw">use </span>tracing::level_filters::LevelFilter;
+</span><span class="kw">use </span>is_terminal::IsTerminal;
+<span class="kw">use </span>tracing::level_filters::LevelFilter;
 <span class="kw">use </span>tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 <span class="kw">const </span>WHITELISTED_LOG_TARGETS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">&quot;wasmer&quot;</span>, <span class="string">&quot;wasmer_wasix&quot;</span>, <span class="string">&quot;virtual_fs&quot;</span>];
@@ -197,7 +199,7 @@
     /// For more, see https://github.com/tokio-rs/tracing/issues/2388
     </span><span class="kw">fn </span>should_emit_colors(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">match </span><span class="self">self</span>.color {
-            clap::ColorChoice::Auto =&gt; isatty::stderr_isatty(),
+            clap::ColorChoice::Auto =&gt; std::io::stderr().is_terminal(),
             clap::ColorChoice::Always =&gt; <span class="bool-val">true</span>,
             clap::ColorChoice::Never =&gt; <span class="bool-val">false</span>,
         }
