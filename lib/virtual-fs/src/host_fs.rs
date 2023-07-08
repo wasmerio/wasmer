@@ -135,16 +135,6 @@ impl crate::FileSystem for FileSystem {
 
     #[cfg(feature = "symlink")]
     fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
-        let exists = original.try_exists()?;
-
-        if !exists {
-            return Err(FsError::EntryNotFound);
-        }
-
-        if link.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-
         #[cfg(taget_os = "windows")]
         if original.is_dir() {
             std::os::windows::fs::symlink_dir(original, link)?;
