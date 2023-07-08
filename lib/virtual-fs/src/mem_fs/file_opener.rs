@@ -382,6 +382,7 @@ impl crate::FileOpener for FileSystem {
                 };
 
                 // If node is a symlink, follow it.
+                #[cfg(feature = "symlink")]
                 {
                     // Read lock.
                     let fs = self.inner.read().map_err(|_| FsError::Lock)?;
@@ -468,6 +469,7 @@ impl crate::FileOpener for FileSystem {
                         }
                     }
 
+                    #[cfg(feature = "symlink")]
                     Some(Node::Symlink(SymlinkNode { link, .. })) => {
                         return self.open(dbg!(link), conf);
                     }

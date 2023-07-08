@@ -134,10 +134,6 @@ impl FileSystem for WebcVolumeFileSystem {
             .ok_or(FsError::EntryNotFound)
     }
 
-    fn symlink(&self, original: &Path, link: &Path) -> Result<(), FsError> {
-        todo!()
-    }
-
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         let meta = self.metadata(path)?;
 

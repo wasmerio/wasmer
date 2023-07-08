@@ -49,3 +49,4 @@ enable-serde = ["typetag"]
 no-time = []
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
+symlink = []

@@ -295,61 +295,16 @@ where
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        // Whiteout files can not be read, they are just markers
-        if ops::is_white_out(path).is_some() {
-            return Err(FsError::EntryNotFound);
-        }
-
-        // Check if the file is in the primary
-        match self.primary.metadata(path) {
-            Ok(meta) => return Ok(meta),
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        }
-
-        // There might be a whiteout, search for this
-        if ops::has_white_out(&self.primary, path) {
-            return Err(FsError::EntryNotFound);
-        }
-
-        // Otherwise scan the secondaries
-        for fs in self.secondaries.filesystems() {
-            match fs.metadata(path) {
-                Err(e) if should_continue(e) => continue,
-                other => return other,
-            }
-        }
-
-        Err(FsError::EntryNotFound)
+        self.get_metadata(
+            path,
+            #[cfg(feature = "symlink")]
+            true,
+        )
     }
 
+    #[cfg(feature = "symlink")]
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        // Whiteout files can not be read, they are just markers
-        if ops::is_white_out(path).is_some() {
-            return Err(FsError::EntryNotFound);
-        }
-
-        // Check if the file is in the primary
-        match self.primary.symlink_metadata(path) {
-            Ok(meta) => return Ok(meta),
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        }
-
-        // There might be a whiteout, search for this
-        if ops::has_white_out(&self.primary, path) {
-            return Err(FsError::EntryNotFound);
-        }
-
-        // Otherwise scan the secondaries
-        for fs in self.secondaries.filesystems() {
-            match fs.symlink_metadata(path) {
-                Err(e) if should_continue(e) => continue,
-                other => return other,
-            }
-        }
-
-        Err(FsError::EntryNotFound)
+        self.get_metadata(path, false)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
@@ -377,36 +332,65 @@ where
         self.permission_error_or_not_found(path)
     }
 
-    fn symlink(&self, original: &Path, link: &Path) -> Result<(), FsError> {
-        // You can not create directories that use the whiteout prefix
-        if ops::is_white_out(link).is_some() {
-            return Err(FsError::InvalidInput);
-        }
-
-        // It could be the case that the directory was earlier hidden in the secondaries
-        // by a whiteout file, hence we need to make sure those are cleared out.
-        ops::remove_white_out(self.primary.as_ref(), link);
-
-        // Make sure the parent tree is in place on the primary, this is to cover the
-        // scenario where the secondaries has a parent structure that is not yet in the
-        // primary and the primary needs it to create a sub-directory
-        if let Some(parent) = link.parent() {
-            if self.read_dir(parent).is_ok() {
-                ops::create_dir_all(&self.primary, parent).ok();
-            }
-        }
-
-        // Create the directory in the primary
-        match self.primary.create_dir(link) {
-            Err(e) if should_continue(e) => {}
-            other => return other,
-        }
-
-        self.permission_error_or_not_found(link)
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, _original: &Path, _link: &Path) -> Result<(), FsError> {
+        todo!()
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
+    }
+}
+
+impl<P, S> OverlayFileSystem<P, S>
+where
+    P: FileSystem + Send + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
+    for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
+{
+    fn get_metadata(
+        &self,
+        path: &Path,
+        #[cfg(feature = "symlink")] follow_symlink: bool,
+    ) -> Result<Metadata, FsError> {
+        #[cfg(not(feature = "symlink"))]
+        let read_metadata = |fs: &dyn FileSystem| fs.metadata(path);
+
+        #[cfg(feature = "symlink")]
+        let read_metadata = |fs: &dyn FileSystem| {
+            if follow_symlink {
+                fs.metadata(path)
+            } else {
+                fs.symlink_metadata(path)
+            }
+        };
+
+        // Whiteout files can not be read, they are just markers
+        if ops::is_white_out(path).is_some() {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Check if the file is in the primary
+        match read_metadata(&self.primary) {
+            Ok(meta) => return Ok(meta),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        // There might be a whiteout, search for this
+        if ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Otherwise scan the secondaries
+        for fs in self.secondaries.filesystems() {
+            match read_metadata(fs) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
+
+        Err(FsError::EntryNotFound)
     }
 }
 

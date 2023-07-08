@@ -133,6 +133,7 @@ impl crate::FileSystem for FileSystem {
             .map_err(Into::into)
     }
 
+    #[cfg(feature = "symlink")]
     fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
         let exists = original.try_exists()?;
 
@@ -157,6 +158,7 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
+    #[cfg(feature = "symlink")]
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
