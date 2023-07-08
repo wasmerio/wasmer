@@ -90,6 +90,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn metadata(&self, path: &Path) -> Result<Metadata>;
 
     #[cfg(feature = "symlink")]
+    /// This method gets metadata without following symlinks in the path.
+    /// Currently identical to `metadata` because symlinks aren't implemented
+    /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         self.metadata(path)
     }
