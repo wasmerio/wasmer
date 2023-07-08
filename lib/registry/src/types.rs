@@ -33,9 +33,34 @@ pub struct NewNonceOutput {
 }
 
 /// Payload from the frontend after the user has authenticated.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenStatus {
+    Cancelled,
+    Authorized,
+}
+
+fn token_status_deserializer<'de, D>(deserializer: D) -> Result<TokenStatus, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    match s.as_str() {
+        "cancelled" => Ok(TokenStatus::Cancelled),
+        "authorized" => Ok(TokenStatus::Authorized),
+        _ => Err(serde::de::Error::custom(format!(
+            "invalid token status: {}",
+            s
+        ))),
+    }
+}
+
+/// Payload from the frontend after the user has authenticated.
 ///
 /// This has the token that we need to set in the WASMER_TOML file.
 #[derive(Clone, Debug, Deserialize)]
 pub struct ValidatedNonceOutput {
     pub token: String,
+    #[serde(deserialize_with = "token_status_deserializer")]
+    pub status: TokenStatus,
 }

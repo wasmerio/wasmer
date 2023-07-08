@@ -315,29 +315,42 @@ async fn handle_post_save_token(
     let (.., body) = req.into_parts();
     let body = hyper::body::to_bytes(body).await?;
 
-    let token = serde_json::from_slice::<ValidatedNonceOutput>(&body)?.token;
+    let ValidatedNonceOutput {
+        token,
+        status: token_status,
+    } = serde_json::from_slice::<ValidatedNonceOutput>(&body)?;
 
-    match token.is_empty() {
-        true => {
+    // send the AuthorizationState based on token_status to the main thread and get the response message
+    let response_message = match token_status {
+        wasmer_registry::types::TokenStatus::Cancelled => {
             token_tx
                 .send(AuthorizationState::Cancelled)
                 .await
                 .expect("Failed to send token");
+
+            "Token Cancelled by the user"
         }
-        false => {
+        wasmer_registry::types::TokenStatus::Authorized => {
             token_tx
                 .send(AuthorizationState::TokenSuccess(token.clone()))
                 .await
                 .expect("Failed to send token");
+
+            "Token Authorized"
         }
-    }
+    };
 
     server_shutdown_tx
         .send(true)
         .await
         .expect("Failed to send shutdown signal");
 
-    Ok(Response::new(Body::from("Auth token received")))
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("Access-Control-Allow-Origin", "*") // FIXME: this is not secure, Don't allow all origins. @syrusakbary
+        .header("Access-Control-Allow-Headers", "Content-Type")
+        .header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        .body(Body::from(response_message))?)
 }
 
 async fn handle_unknown_method(context: AppContext) -> Result<Response<Body>, anyhow::Error> {
