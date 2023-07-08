@@ -2313,7 +2313,7 @@ mod test_filesystem {
 
         macro_rules! rename {
             ($from:expr, $to:expr) => {
-                std::fs::rename(path!($from), path!($to)).unwrap()
+                fs.rename(path!($from), path!($to)).await.unwrap()
             };
         }
 
@@ -2374,7 +2374,7 @@ mod test_filesystem {
 
         assert!(matches!(metadata!("aa_b"), Err(FsError::EntryNotFound)));
 
-        std::fs::create_dir(path!("b")).unwrap();
+        fs.create_dir(path!("b")).unwrap();
 
         assert!(matches!(
             metadata!("aa_b"),
