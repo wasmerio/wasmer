@@ -1269,15 +1269,18 @@ impl InodeSocketProtected {
         handler: Box<dyn InterestHandler + Send + Sync>,
         interest: InterestType,
     ) -> virtual_net::Result<()> {
-        if self.aggregate_handler.is_none() {
-            let upper = FilteredHandler::new();
-            let subs = upper.subscriptions().clone();
-
-            self.set_handler(upper)?;
-            self.aggregate_handler.replace(subs);
+        match self.aggregate_handler.as_mut() {
+            Some(upper) => {
+                upper.add_interest(interest, handler);
+            }
+            None => {
+                let upper = FilteredHandler::new();
+                upper.add_interest(interest, handler);
+                self.aggregate_handler
+                    .replace(upper.subscriptions().clone());
+                self.set_handler(upper)?;
+            }
         }
-        let upper = self.aggregate_handler.as_mut().unwrap();
-        upper.add_interest(interest, handler);
         Ok(())
     }
 }

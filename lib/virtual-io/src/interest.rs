@@ -94,20 +94,31 @@ const VTABLE: RawWakerVTable = unsafe {
     )
 };
 
+enum FilteredHandlerSubscriptionsState {
+    Triggered,
+    Handler(Box<dyn InterestHandler + Send + Sync>),
+}
+
 #[derive(Derivative, Default, Clone)]
 #[derivative(Debug)]
 pub struct FilteredHandlerSubscriptions {
     #[derivative(Debug = "ignore")]
-    mapping: Arc<Mutex<HashMap<InterestType, Box<dyn InterestHandler + Send + Sync>>>>,
+    mapping: Arc<Mutex<HashMap<InterestType, FilteredHandlerSubscriptionsState>>>,
 }
 impl FilteredHandlerSubscriptions {
     pub fn add_interest(
         &self,
         interest: InterestType,
-        handler: Box<dyn InterestHandler + Send + Sync>,
+        mut handler: Box<dyn InterestHandler + Send + Sync>,
     ) {
         let mut guard = self.mapping.lock().unwrap();
-        guard.insert(interest, handler);
+        if let Some(FilteredHandlerSubscriptionsState::Triggered) = guard.get(&interest) {
+            handler.interest(interest);
+        }
+        guard.insert(
+            interest,
+            FilteredHandlerSubscriptionsState::Handler(handler),
+        );
     }
 }
 
@@ -122,12 +133,11 @@ impl FilteredHandler {
         })
     }
     pub fn add_interest(
-        self: Box<Self>,
+        &self,
         interest: InterestType,
         handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> Box<Self> {
+    ) {
         self.subs.add_interest(interest, handler);
-        self
     }
     pub fn subscriptions(&self) -> &FilteredHandlerSubscriptions {
         &self.subs
@@ -137,8 +147,13 @@ impl FilteredHandler {
 impl InterestHandler for FilteredHandler {
     fn interest(&mut self, interest: InterestType) {
         let mut guard = self.subs.mapping.lock().unwrap();
-        if let Some(handler) = guard.get_mut(&interest) {
-            handler.interest(interest);
+        match guard.get_mut(&interest) {
+            Some(FilteredHandlerSubscriptionsState::Handler(handler)) => {
+                handler.interest(interest);
+            }
+            _ => {
+                guard.insert(interest, FilteredHandlerSubscriptionsState::Triggered);
+            }
         }
     }
 }

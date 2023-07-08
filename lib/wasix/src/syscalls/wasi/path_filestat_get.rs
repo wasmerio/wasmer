@@ -79,6 +79,7 @@ pub(crate) fn path_filestat_get_internal(
         state.fs.get_stat_for_kind(guard.deref())?
     };
     stat.st_ino = st_ino;
+    tracing::trace!(st_ino = stat.st_ino, st_size = stat.st_size);
     Ok(stat)
 }
 

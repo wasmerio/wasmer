@@ -429,6 +429,8 @@ where
         return Ok(Errno::Success);
     }
 
+    tracing::trace!("running __asyncify_with_deep_sleep");
+
     // We use asyncify with a deep sleep to wait on new IO events
     let res = __asyncify_with_deep_sleep::<M, Result<Vec<EventResult>, Errno>, _>(
         ctx,
