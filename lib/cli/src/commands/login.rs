@@ -7,9 +7,9 @@ use clap::Parser;
 use dialoguer::{console::style, Input};
 use reqwest::Method;
 
+use serde::Deserialize;
 use wasmer_registry::{
     types::NewNonceOutput,
-    types::ValidatedNonceOutput,
     wasmer_env::{Registry, WasmerEnv, WASMER_DIR},
     RegistryClient,
 };
@@ -20,6 +20,27 @@ use hyper::{
 };
 
 const WASMER_CLI: &str = "wasmer-cli";
+
+/// Payload from the frontend after the user has authenticated.
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TokenStatus {
+    /// Signifying that the token is cancelled
+    Cancelled,
+    /// Signifying that the token is authorized
+    Authorized,
+}
+
+/// Payload from the frontend after the user has authenticated.
+///
+/// This has the token that we need to set in the WASMER_TOML file.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ValidatedNonceOutput {
+    /// Token Received from the frontend
+    pub token: Option<String>,
+    /// Status of the token , whether it is authorized or cancelled
+    pub status: TokenStatus,
+}
 
 /// Enum for the boolean like prompt options
 #[derive(Debug, Clone, PartialEq)]
@@ -271,10 +292,10 @@ impl Login {
                 match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
                     Some(s) => {
                         print!("Done!");
-                        println!("\n✅ Login for Wasmer user \"{:?}\" saved", s)
+                        println!("\n✅ Login for Wasmer user {:?} saved", s)
                     }
                     None => println!(
-                        "\nError: no user found on registry \"{:?}\" with token \"{:?}\". Token saved regardless.",
+                        "\nError: no user found on registry {:?} with token \"{:?}\". Token saved regardless.",
                         registry, token
                     ),
                 };
@@ -321,22 +342,25 @@ async fn handle_post_save_token(
     } = serde_json::from_slice::<ValidatedNonceOutput>(&body)?;
 
     // send the AuthorizationState based on token_status to the main thread and get the response message
-    let response_message = match token_status {
-        wasmer_registry::types::TokenStatus::Cancelled => {
+    let (response_message, parse_failure) = match token_status {
+        TokenStatus::Cancelled => {
             token_tx
                 .send(AuthorizationState::Cancelled)
                 .await
                 .expect("Failed to send token");
 
-            "Token Cancelled by the user"
+            ("Token Cancelled by the user", false)
         }
-        wasmer_registry::types::TokenStatus::Authorized => {
-            token_tx
-                .send(AuthorizationState::TokenSuccess(token.clone()))
-                .await
-                .expect("Failed to send token");
-
-            "Token Authorized"
+        TokenStatus::Authorized => {
+            if let Some(token) = token {
+                token_tx
+                    .send(AuthorizationState::TokenSuccess(token.clone()))
+                    .await
+                    .expect("Failed to send token");
+                ("Token Authorized", false)
+            } else {
+                ("Token not found", true)
+            }
         }
     };
 
@@ -345,8 +369,14 @@ async fn handle_post_save_token(
         .await
         .expect("Failed to send shutdown signal");
 
+    let status = if parse_failure {
+        StatusCode::BAD_REQUEST
+    } else {
+        StatusCode::OK
+    };
+
     Ok(Response::builder()
-        .status(StatusCode::OK)
+        .status(status)
         .header("Access-Control-Allow-Origin", "*") // FIXME: this is not secure, Don't allow all origins. @syrusakbary
         .header("Access-Control-Allow-Headers", "Content-Type")
         .header("Access-Control-Allow-Methods", "POST, OPTIONS")
