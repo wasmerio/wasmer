@@ -16,7 +16,7 @@ use crate::sys::externals::memory_view as memory_view_impl;
 /// A memory view is used to read and write to the linear memory.
 ///
 /// After a memory is grown a view must not be used anymore. Views are
-/// created using the Memory.grow() method.
+/// created using the Memory.view() method.
 #[derive(Debug)]
 pub struct MemoryView<'a>(pub(crate) memory_view_impl::MemoryView<'a>);
 
