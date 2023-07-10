@@ -20,7 +20,7 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
 use crate::{
-    http::DynHttpClient,
+    http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
         module_cache::{ModuleCache, ThreadLocalCache},
@@ -260,6 +260,14 @@ impl PluggableRuntime {
         package_loader: impl PackageLoader + Send + Sync + 'static,
     ) -> &mut Self {
         self.package_loader = Arc::new(package_loader);
+        self
+    }
+
+    pub fn set_http_client(
+        &mut self,
+        client: impl HttpClient + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.http_client = Some(Arc::new(client));
         self
     }
 }

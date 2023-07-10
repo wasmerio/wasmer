@@ -16,6 +16,7 @@ use wasmer_wasix::{
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
+        package_loader::BuiltinPackageLoader,
         task_manager::tokio::TokioTaskManager,
     },
     PluggableRuntime, Runtime,
@@ -223,8 +224,16 @@ fn runtime() -> impl Runtime + Send + Sync {
     let cache =
         SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
 
+    let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(env!("CARGO_PKG_NAME"))
+        .join(std::thread::current().name().unwrap_or("cache"));
+
+    std::fs::create_dir_all(&cache_dir).unwrap();
+
     rt.set_engine(Some(Engine::default()))
-        .set_module_cache(cache);
+        .set_module_cache(cache)
+        .set_package_loader(BuiltinPackageLoader::new(cache_dir))
+        .set_http_client(wasmer_wasix::http::default_http_client().unwrap());
 
     rt
 }

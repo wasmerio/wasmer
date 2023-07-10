@@ -281,18 +281,23 @@ mod tests {
 
     use std::{io::Read, sync::Arc};
 
-    use crate::{runtime::task_manager::tokio::TokioTaskManager, PluggableRuntime};
+    use crate::{
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
+        PluggableRuntime,
+    };
 
     /// Test that [`Console`] correctly runs a command with arguments and
     /// specified env vars, and that the TTY correctly handles stdout output.
     #[test]
+    #[cfg_attr(not(feature = "host-reqwest"), ignore = "Requires a HTTP client")]
     fn test_console_dash_tty_with_args_and_env() {
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
         let _guard = tokio_rt.handle().enter();
 
         let tm = TokioTaskManager::new(tokio_rt.handle().clone());
         let mut rt = PluggableRuntime::new(Arc::new(tm));
-        rt.set_engine(Some(wasmer::Engine::default()));
+        rt.set_engine(Some(wasmer::Engine::default()))
+            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
 
         let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
             .into_iter()
