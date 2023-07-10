@@ -454,10 +454,10 @@ test-build-docs-rs:
 			fi; \
 			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
 			if [ -z "$$features" ]; then \
-				$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
+				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
 			else \
 				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
+				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
 			fi; \
 		fi; \
 	done
