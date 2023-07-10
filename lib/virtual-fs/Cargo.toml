@@ -49,3 +49,6 @@ enable-serde = ["typetag"]
 no-time = []
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

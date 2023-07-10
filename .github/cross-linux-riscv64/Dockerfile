@@ -1,4 +1,4 @@
-FROM debian:unstable AS openssl_riscv64
+FROM debian:stable AS openssl_riscv64
 #FROM ghcr.io/cross-rs/riscv64gc-unknown-linux-gnu:edge AS openssl_riscv64
 
 # set CROSS_DOCKER_IN_DOCKER to inform `cross` that it is executed from within a container

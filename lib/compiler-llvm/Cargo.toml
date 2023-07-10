@@ -42,3 +42,6 @@ rustc_version = "0.4"
 
 [features]
 test = []
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

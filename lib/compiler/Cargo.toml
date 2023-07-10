@@ -64,3 +64,4 @@ features = [
     "wasmer-artifact-create",
     "wasmer-artifact-load",
 ]
+rustc-args = ["--cfg", "docsrs"]

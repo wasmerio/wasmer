@@ -1,5 +1,6 @@
 //! Utility functions for the WebAssembly module
 use anyhow::{bail, Result};
+use is_terminal::IsTerminal;
 use std::env;
 use std::path::PathBuf;
 use wasmer_wasix::runners::MappedDirectory;
@@ -9,7 +10,7 @@ pub fn wasmer_should_print_color() -> bool {
     env::var("WASMER_COLOR")
         .ok()
         .and_then(|inner| inner.parse::<bool>().ok())
-        .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
+        .unwrap_or_else(|| std::io::stdout().is_terminal())
 }
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
