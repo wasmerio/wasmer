@@ -292,14 +292,19 @@ impl Login {
 
         match auth_state {
             AuthorizationState::TokenSuccess(token) => {
-                match wasmer_registry::login::login_and_save_token(env.dir(), registry.as_str(), &token)? {
+                match wasmer_registry::login::login_and_save_token(
+                    env.dir(),
+                    registry.as_str(),
+                    &token,
+                )? {
                     Some(s) => {
                         print!("Done!");
                         println!("\n✅ Login for Wasmer user {:?} saved", s)
                     }
-                    None => println!(
-                        "\nError: no user found on registry {:?} with token \"{:?}\". Token saved regardless.",
-                        registry, token
+                    None => print!(
+                        "Error: no user found on {:?} with token {:?}.\nToken saved regardless.",
+                        registry.domain().unwrap_or("registry.wasmer.io"),
+                        token
                     ),
                 };
             }
@@ -307,7 +312,7 @@ impl Login {
                 print!("Timed out (10 mins exceeded)");
             }
             AuthorizationState::Cancelled => {
-                println!("Cancelled by the user\n");
+                println!("Cancelled by the user");
             }
             AuthorizationState::UnknownMethod => {
                 println!("Error: unknown method\n");
