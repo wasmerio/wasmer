@@ -62,7 +62,7 @@ jobs:
         npm run dev &
         NPM_PID=$!
         # Give the webpack dev server time to start
-        sleep 3
+        sleep 10
 
-        cd ../../tests/wasi-web
+        cd ../../tests/wasmer-web
         cargo test --verbose --locked -- --test-threads=1
