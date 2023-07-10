@@ -302,7 +302,7 @@ impl Login {
                         println!("\n✅ Login for Wasmer user {:?} saved", s)
                     }
                     None => print!(
-                        "Warning: no user found on {:?} with the provided token. Token saved regardless.",
+                        "Warning: no user found on {:?} with the provided token.\nToken saved regardless.",
                         registry.domain().unwrap_or("registry.wasmer.io")
                     ),
                 };
