@@ -25,6 +25,7 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
 </pre><pre class="rust"><code><span class="attr">#![deny(
     nonstandard_style,
     unused_imports,
@@ -39,6 +40,7 @@
 )]
 #![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
 #![doc(html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">mod </span>abi;
 <span class="kw">mod </span>compiler;

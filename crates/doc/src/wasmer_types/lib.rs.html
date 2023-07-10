@@ -229,7 +229,6 @@
 
 </span><span class="attr">#![deny(missing_docs, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = <span class="string">&quot;std&quot;</span>, deny(unstable_features))]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
 #![cfg_attr(feature = <span class="string">&quot;cargo-clippy&quot;</span>, allow(clippy::new_without_default))]
 #![cfg_attr(
@@ -244,6 +243,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(all(feature = <span class="string">&quot;std&quot;</span>, feature = <span class="string">&quot;core&quot;</span>))]
 </span><span class="macro">compile_error!</span>(

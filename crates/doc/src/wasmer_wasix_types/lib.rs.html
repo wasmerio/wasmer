@@ -68,8 +68,10 @@
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre><pre class="rust"><code><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
 #![doc(html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">pub mod </span>asyncify;
 <span class="kw">pub mod </span>types;

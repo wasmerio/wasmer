@@ -695,7 +695,11 @@
 <a href="#695" id="695">695</a>
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
-</pre><pre class="rust"><code><span class="attr">#[cfg(test)]
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+</pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+#[cfg(test)]
 #[macro_use]
 </span><span class="kw">extern crate </span>pretty_assertions;
 

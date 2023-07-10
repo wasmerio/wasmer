@@ -30,6 +30,7 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Wasmer C API.
 //!
 //! [Wasmer](https://github.com/wasmerio/wasmer) is the leading
@@ -58,6 +59,7 @@
 </span><span class="comment">// Because this crate exposes a lot of C APIs which are unsafe by definition,
 // we allow unsafe without explicit safety documentation for each of them.
 </span><span class="attr">#![allow(clippy::missing_safety_doc)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">pub mod </span>error;
 <span class="kw">pub mod </span>wasm_c_api;

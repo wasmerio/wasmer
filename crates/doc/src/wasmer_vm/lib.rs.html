@@ -148,6 +148,7 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.
 
 </span><span class="attr">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
@@ -169,6 +170,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">mod </span>export;
 <span class="kw">mod </span>extern_ref;

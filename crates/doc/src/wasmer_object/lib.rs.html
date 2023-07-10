@@ -25,6 +25,7 @@
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Object creator for Wasm Compilations.
 //!
 //! Given a compilation result (this is, the result when calling `Compiler::compile_module`)
@@ -45,6 +46,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">mod </span>error;
 <span class="kw">mod </span>module;

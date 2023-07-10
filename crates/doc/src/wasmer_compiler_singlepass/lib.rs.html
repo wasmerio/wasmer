@@ -31,6 +31,7 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A WebAssembly `Compiler` implementation using Singlepass.
 //!
 //! Singlepass is a super-fast assembly generator that generates
@@ -42,6 +43,7 @@
 //! runtime performance.
 
 </span><span class="attr">#![allow(clippy::unnecessary_cast)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 </span><span class="kw">mod </span>address_map;
 <span class="kw">mod </span>arm64_decl;

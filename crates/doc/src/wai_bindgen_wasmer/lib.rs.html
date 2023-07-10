@@ -234,7 +234,11 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-</pre><pre class="rust"><code><span class="kw">pub use </span>wai_bindgen_wasmer_impl::{export, import};
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+</pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+</span><span class="kw">pub use </span>wai_bindgen_wasmer_impl::{export, import};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;async&quot;</span>)]
 </span><span class="kw">pub use </span>async_trait::async_trait;

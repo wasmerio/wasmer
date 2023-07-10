@@ -14,7 +14,11 @@
 <a href="#14" id="14">14</a>
 <a href="#15" id="15">15</a>
 <a href="#16" id="16">16</a>
-</pre><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;link_external_libs&quot;</span>)]
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+</pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
+#[cfg(feature = <span class="string">&quot;link_external_libs&quot;</span>)]
 #[path = <span class="string">&quot;link-ext.rs&quot;</span>]
 </span><span class="kw">pub mod </span>link_ext;
 <span class="attr">#[doc(inline)]

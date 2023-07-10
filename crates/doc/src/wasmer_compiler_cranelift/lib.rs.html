@@ -60,6 +60,7 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
 </pre><pre class="rust"><code><span class="doccomment">//! A WebAssembly `Compiler` implementation using Cranelift.
 //!
 //! Cranelift is a fast IR generator created by Mozilla for usage in
@@ -84,6 +85,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(not(feature = <span class="string">&quot;std&quot;</span>))]
 #[macro_use]

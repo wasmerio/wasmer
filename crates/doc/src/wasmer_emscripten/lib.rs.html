@@ -1568,6 +1568,7 @@
 <a href="#1567" id="1567">1567</a>
 <a href="#1568" id="1568">1568</a>
 <a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
 </pre><pre class="rust"><code><span class="attr">#![deny(
     dead_code,
     nonstandard_style,
@@ -1583,6 +1584,7 @@
 </span><span class="attr">#![allow(clippy::type_complexity, clippy::unnecessary_cast)]
 #![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
 #![doc(html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>)]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[macro_use]
 </span><span class="kw">extern crate </span>log;
