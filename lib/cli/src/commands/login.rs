@@ -277,7 +277,7 @@ impl Login {
                 } else {
                     // switch between two methods of getting the token.
                     // start two async processes, 10 minute timeout and get token from browser. Whichever finishes first, use that.
-                    let timeout_future = tokio::time::sleep(Duration::from_secs(60) * 10);
+                    let timeout_future = tokio::time::sleep(Duration::from_secs(60 * 10));
                     tokio::select! {
                      _ = timeout_future => {
                              Ok(AuthorizationState::TimedOut)
