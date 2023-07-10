@@ -3,6 +3,8 @@ pub mod client;
 #[cfg(feature = "host-net")]
 pub mod host;
 pub mod meta;
+#[cfg(any(feature = "ws-net", feature = "host-net"))]
+pub mod server;
 #[cfg(feature = "host-net")]
 pub mod tun;
 

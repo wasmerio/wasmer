@@ -3,6 +3,7 @@ use std::future::Future;
 use std::mem::MaybeUninit;
 use std::net::IpAddr;
 use std::net::SocketAddr;
+use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -10,11 +11,18 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
+use std::task::RawWaker;
+use std::task::RawWakerVTable;
+use std::task::Waker;
 use std::time::Duration;
 
 use bytes::Buf;
 use bytes::BytesMut;
 use derivative::Derivative;
+use futures_util::future::BoxFuture;
+use futures_util::stream::FuturesOrdered;
+use futures_util::StreamExt;
+use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
 use tokio::io::AsyncWriteExt;
@@ -22,6 +30,7 @@ use tokio::io::ReadBuf;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::oneshot;
 use virtual_io::InlineWaker;
 use virtual_io::InterestType;
 
@@ -30,7 +39,7 @@ use crate::meta;
 use crate::meta::RequestType;
 use crate::meta::ResponseType;
 use crate::meta::SocketId;
-use crate::meta::{InterfaceId, MessageRequest, MessageResponse};
+use crate::meta::{MessageRequest, MessageResponse};
 use crate::IpCidr;
 use crate::IpRoute;
 use crate::NetworkError;
@@ -48,18 +57,299 @@ use crate::VirtualUdpSocket;
 
 use crate::Result;
 
-enum RemoteTx {
-    Mpsc(mpsc::Sender<MessageRequest>),
-    Stream(tokio::sync::Mutex<Pin<Box<dyn AsyncWrite + Send + Sync>>>),
+#[derive(Debug, Clone)]
+pub struct RemoteNetworking {
+    common: Arc<RemoteCommon>,
 }
-impl RemoteTx {
-    async fn send(&self, req: MessageRequest) -> Result<()> {
+
+impl RemoteNetworking {
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    pub fn new_from_mpsc(
+        tx: mpsc::Sender<MessageRequest>,
+        rx: mpsc::Receiver<MessageResponse>,
+    ) -> (Self, RemoteNetworkingDriver) {
+        let (_, rx_work) = mpsc::unbounded_channel();
+
+        let common = RemoteCommon {
+            tx: RemoteTx::Mpsc(tx),
+            rx: Mutex::new(RemoteRx::Mpsc(rx)),
+            request_seed: AtomicU64::new(1),
+            requests: Default::default(),
+            socket_seed: AtomicU64::new(1),
+            recv_tx: Default::default(),
+            recv_with_addr_tx: Default::default(),
+            handlers: Default::default(),
+            stall: Default::default(),
+        };
+        let common = Arc::new(common);
+
+        let driver = RemoteNetworkingDriver {
+            more_work: rx_work,
+            tasks: Default::default(),
+            common: common.clone(),
+        };
+        let networking = Self { common };
+
+        (networking, driver)
+    }
+
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    pub fn new_from_stream(
+        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
+        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+    ) -> (Self, RemoteNetworkingDriver) {
+        Self::new_from_stream_internal(tx, rx, false)
+    }
+
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    ///
+    /// This version will run the async read and write operations
+    /// only the driver (this is needed for mixed runtimes)
+    pub fn new_from_stream_via_driver(
+        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
+        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+    ) -> (Self, RemoteNetworkingDriver) {
+        Self::new_from_stream_internal(tx, rx, true)
+    }
+
+    fn new_from_stream_internal(
+        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
+        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+        via_driver: bool,
+    ) -> (Self, RemoteNetworkingDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+
+        let common = RemoteCommon {
+            tx: if via_driver {
+                RemoteTx::StreamViaDriver {
+                    tx: Arc::new(tokio::sync::Mutex::new(tx)),
+                    work: tx_work,
+                }
+            } else {
+                RemoteTx::Stream {
+                    tx: tokio::sync::Mutex::new(tx),
+                }
+            },
+            rx: Mutex::new(RemoteRx::Stream {
+                rx,
+                next: None,
+                buf: BytesMut::new(),
+            }),
+            request_seed: AtomicU64::new(1),
+            requests: Default::default(),
+            socket_seed: AtomicU64::new(1),
+            recv_tx: Default::default(),
+            recv_with_addr_tx: Default::default(),
+            handlers: Default::default(),
+            stall: Default::default(),
+        };
+        let common = Arc::new(common);
+
+        let driver = RemoteNetworkingDriver {
+            more_work: rx_work,
+            tasks: Default::default(),
+            common: common.clone(),
+        };
+        let networking = Self { common };
+
+        (networking, driver)
+    }
+
+    fn new_socket(&self, id: SocketId) -> RemoteSocket {
+        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
+        self.common.recv_tx.lock().unwrap().insert(id, tx);
+
+        let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
+        self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
+
+        RemoteSocket {
+            socket_id: id,
+            common: self.common.clone(),
+            rx_buffer: BytesMut::new(),
+            rx_recv,
+            rx_recv_with_addr,
+            tx_waker: TxWaker::new(&self.common).as_waker(),
+        }
+    }
+}
+
+pin_project_lite::pin_project! {
+    pub struct RemoteNetworkingDriver {
+        common: Arc<RemoteCommon>,
+        more_work: mpsc::UnboundedReceiver<BoxFuture<'static, ()>>,
+        #[pin]
+        tasks: FuturesOrdered<BoxFuture<'static, ()>>,
+    }
+}
+
+impl Future for RemoteNetworkingDriver {
+    type Output = ();
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // This guard will be held while the pipeline is not currently
+        // stalled by some back pressure. It is only acquired when there
+        // is background tasks being processed
+        let mut not_stalled_guard = None;
+
+        // We loop until the waker is registered with the receiving stream
+        // and all the background tasks
+        loop {
+            // Background tasks are sent to this driver in certain circumstances
+            while let Poll::Ready(Some(work)) = Pin::new(&mut self.more_work).poll_recv(cx) {
+                self.tasks.push_back(work);
+            }
+
+            // Background work basically stalls the stream until its all processed
+            // which makes the back pressure system work properly
+            match self.tasks.poll_next_unpin(cx) {
+                Poll::Ready(Some(_)) => continue,
+                Poll::Ready(None) => {
+                    not_stalled_guard.take();
+                }
+                Poll::Pending if not_stalled_guard.is_none() => {
+                    if let Ok(guard) = self.common.stall.clone().try_lock_owned() {
+                        not_stalled_guard.replace(guard);
+                    } else {
+                        return Poll::Pending;
+                    }
+                }
+                Poll::Pending => {}
+            };
+
+            // We grab the next message sent by the server to us
+            let msg = {
+                let mut rx_guard = self.common.rx.lock().unwrap();
+                rx_guard.poll(cx)
+            };
+            return match msg {
+                Poll::Ready(Some(msg)) => {
+                    match msg {
+                        MessageResponse::Recv { socket_id, data } => {
+                            let tx = {
+                                let guard = self.common.recv_tx.lock().unwrap();
+                                match guard.get(&socket_id) {
+                                    Some(tx) => tx.clone(),
+                                    None => continue,
+                                }
+                            };
+                            let common = self.common.clone();
+                            self.tasks.push_back(Box::pin(async move {
+                                tx.send(data).await.ok();
+
+                                common
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .get_mut(&socket_id)
+                                    .map(|h| h.interest(InterestType::Readable));
+                            }));
+                        }
+                        MessageResponse::RecvWithAddr {
+                            socket_id,
+                            data,
+                            addr,
+                        } => {
+                            let tx = {
+                                let guard = self.common.recv_with_addr_tx.lock().unwrap();
+                                match guard.get(&socket_id) {
+                                    Some(tx) => tx.clone(),
+                                    None => continue,
+                                }
+                            };
+                            let common = self.common.clone();
+                            self.tasks.push_back(Box::pin(async move {
+                                tx.send((data, addr)).await.ok();
+
+                                common
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .get_mut(&socket_id)
+                                    .map(|h| h.interest(InterestType::Readable));
+                            }));
+                        }
+                        MessageResponse::Sent { socket_id, .. } => {
+                            self.common
+                                .handlers
+                                .lock()
+                                .unwrap()
+                                .get_mut(&socket_id)
+                                .map(|h| h.interest(InterestType::Writable));
+                        }
+                        MessageResponse::SendError {
+                            socket_id, error, ..
+                        } => match &error {
+                            NetworkError::ConnectionAborted
+                            | NetworkError::ConnectionReset
+                            | NetworkError::BrokenPipe => {
+                                self.common
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .get_mut(&socket_id)
+                                    .map(|h| h.interest(InterestType::Closed));
+                            }
+                            _ => {
+                                self.common
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .get_mut(&socket_id)
+                                    .map(|h| h.interest(InterestType::Writable));
+                            }
+                        },
+                        MessageResponse::Closed { socket_id } => {
+                            self.common
+                                .handlers
+                                .lock()
+                                .unwrap()
+                                .get_mut(&socket_id)
+                                .map(|h| h.interest(InterestType::Closed));
+                        }
+                        MessageResponse::ResponseToRequest { req_id, res } => {
+                            let mut requests = self.common.requests.lock().unwrap();
+                            if let Some(request) = requests.remove(&req_id) {
+                                request.try_send(res).ok();
+                            }
+                        }
+                    }
+                    continue;
+                }
+                Poll::Ready(None) => Poll::Ready(()),
+                Poll::Pending => Poll::Pending,
+            };
+        }
+    }
+}
+
+pub(crate) type RemoteTxStream = Pin<Box<dyn AsyncWrite + Send + Sync>>;
+pub(crate) enum RemoteTx<T>
+where
+    T: Serialize,
+{
+    Mpsc(mpsc::Sender<T>),
+    Stream {
+        tx: tokio::sync::Mutex<RemoteTxStream>,
+    },
+    StreamViaDriver {
+        tx: Arc<tokio::sync::Mutex<RemoteTxStream>>,
+        work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
+    },
+}
+impl<T> RemoteTx<T>
+where
+    T: Serialize + Send + Sync + 'static,
+{
+    pub(crate) async fn send(&self, req: T) -> Result<()> {
         match self {
             RemoteTx::Mpsc(tx) => tx
                 .send(req)
                 .await
                 .map_err(|_| NetworkError::ConnectionAborted),
-            RemoteTx::Stream(tx) => {
+            RemoteTx::Stream { tx, .. } => {
                 let mut tx = tx.lock().await;
                 let data = bincode::serialize(&req).map_err(|err| {
                     tracing::warn!("failed to serialize message - {}", err);
@@ -72,30 +362,189 @@ impl RemoteTx {
                     .map_err(io_err_into_net_error)?;
                 tx.write_all(&data).await.map_err(io_err_into_net_error)
             }
+            RemoteTx::StreamViaDriver { tx, work, .. } => {
+                let (tx_done, rx_done) = oneshot::channel();
+                let tx = tx.clone();
+                work.send(Box::pin(async move {
+                    let job = async {
+                        let mut tx = tx.lock().await;
+                        let data = bincode::serialize(&req).map_err(|err| {
+                            tracing::warn!("failed to serialize message - {}", err);
+                            NetworkError::IOError
+                        })?;
+                        let data_len = data.len() as u64;
+                        let data_len_buf = data_len.to_le_bytes();
+                        tx.write_all(&data_len_buf)
+                            .await
+                            .map_err(io_err_into_net_error)?;
+                        tx.write_all(&data).await.map_err(io_err_into_net_error)
+                    };
+                    tx_done.send(job.await).ok();
+                }))
+                .map_err(|_| NetworkError::ConnectionAborted)?;
+
+                rx_done
+                    .await
+                    .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
+            }
         }
     }
-    fn try_send(&self, req: MessageRequest) -> Result<()> {
+    pub(crate) fn try_send(&self, interest_cx: &mut Context<'_>, req: T) -> Result<()> {
         match self {
             RemoteTx::Mpsc(tx) => match tx.try_send(req) {
                 Ok(()) => Ok(()),
                 Err(TrySendError::Closed(_)) => Err(NetworkError::ConnectionAborted),
                 Err(TrySendError::Full(_)) => Err(NetworkError::WouldBlock),
             },
-            RemoteTx::Stream(_) => InlineWaker::block_on(self.send(req)),
+            RemoteTx::Stream { tx } => {
+                let data = bincode::serialize(&req).map_err(|err| {
+                    tracing::warn!("failed to serialize message - {}", err);
+                    NetworkError::IOError
+                })?;
+                let data_len = data.len() as u64;
+                let data_len_buf = data_len.to_le_bytes();
+
+                let mut tx = InlineWaker::block_on(tx.lock());
+                let data_len_buf_left =
+                    match Pin::new(tx.deref_mut()).poll_write(interest_cx, &data_len_buf) {
+                        Poll::Ready(Ok(0)) => {
+                            return Err(NetworkError::ConnectionAborted);
+                        }
+                        Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => 0,
+                        Poll::Ready(Ok(amt)) => data_len_buf.len() - amt,
+                        Poll::Ready(Err(err)) => {
+                            return Err(io_err_into_net_error(err));
+                        }
+                        Poll::Pending => {
+                            return Err(NetworkError::WouldBlock);
+                        }
+                    };
+
+                InlineWaker::block_on(Box::pin(async move {
+                    if data_len_buf_left > 0 {
+                        let offset = data_len_buf.len() - data_len_buf_left;
+                        tx.write_all(&data_len_buf[offset..])
+                            .await
+                            .map_err(io_err_into_net_error)?;
+                    }
+                    tx.write_all(&data).await.map_err(io_err_into_net_error)
+                }))
+            }
+            RemoteTx::StreamViaDriver { tx, work } => {
+                let data = bincode::serialize(&req).map_err(|err| {
+                    tracing::warn!("failed to serialize message - {}", err);
+                    NetworkError::IOError
+                })?;
+                let data_len = data.len() as u64;
+                let data_len_buf = data_len.to_le_bytes();
+
+                let interest_waker = interest_cx.waker().clone();
+
+                let (tx_done, rx_done) = std::sync::mpsc::channel();
+                let tx = tx.clone();
+                work.send(Box::pin(async move {
+                    let job = async {
+                        let mut tx = tx.lock().await;
+
+                        let mut interest_cx = Context::from_waker(&interest_waker);
+                        let data_len_buf_left = match Pin::new(tx.deref_mut())
+                            .poll_write(&mut interest_cx, &data_len_buf)
+                        {
+                            Poll::Ready(Ok(0)) => {
+                                return Err(NetworkError::ConnectionAborted);
+                            }
+                            Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => 0,
+                            Poll::Ready(Ok(amt)) => data_len_buf.len() - amt,
+                            Poll::Ready(Err(err)) => {
+                                return Err(io_err_into_net_error(err));
+                            }
+                            Poll::Pending => {
+                                return Err(NetworkError::WouldBlock);
+                            }
+                        };
+
+                        if data_len_buf_left > 0 {
+                            let offset = data_len_buf.len() - data_len_buf_left;
+                            tx.write_all(&data_len_buf[offset..])
+                                .await
+                                .map_err(io_err_into_net_error)?;
+                        }
+                        tx.write_all(&data).await.map_err(io_err_into_net_error)
+                    };
+                    let ret = job.await;
+                    tx_done.send(ret).ok();
+                }))
+                .map_err(|_| NetworkError::ConnectionAborted)?;
+
+                rx_done
+                    .recv()
+                    .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
+            }
         }
     }
 }
 
-enum RemoteRx {
-    Mpsc(mpsc::Receiver<MessageResponse>),
+#[derive(Debug)]
+struct TxWaker {
+    common: Arc<RemoteCommon>,
+}
+impl TxWaker {
+    pub fn new(common: &Arc<RemoteCommon>) -> Arc<Self> {
+        Arc::new(Self {
+            common: common.clone(),
+        })
+    }
+
+    fn wake_now(&self) {
+        let mut guard = self.common.handlers.lock().unwrap();
+        for (_, handler) in guard.iter_mut() {
+            handler.interest(InterestType::Writable);
+        }
+    }
+
+    pub fn as_waker(self: &Arc<Self>) -> Waker {
+        let s: *const Self = Arc::into_raw(Arc::clone(self));
+        let raw_waker = RawWaker::new(s as *const (), &VTABLE);
+        unsafe { Waker::from_raw(raw_waker) }
+    }
+}
+
+fn tx_waker_wake(s: &TxWaker) {
+    let waker_arc = unsafe { Arc::from_raw(s) };
+    waker_arc.wake_now();
+}
+
+fn tx_waker_clone(s: &TxWaker) -> RawWaker {
+    let arc = unsafe { Arc::from_raw(s) };
+    std::mem::forget(arc.clone());
+    RawWaker::new(Arc::into_raw(arc) as *const (), &VTABLE)
+}
+
+const VTABLE: RawWakerVTable = unsafe {
+    RawWakerVTable::new(
+        |s| tx_waker_clone(&*(s as *const TxWaker)),  // clone
+        |s| tx_waker_wake(&*(s as *const TxWaker)),   // wake
+        |s| (*(s as *const TxWaker)).wake_now(),      // wake by ref (don't decrease refcount)
+        |s| drop(Arc::from_raw(s as *const TxWaker)), // decrease refcount
+    )
+};
+
+pub(crate) enum RemoteRx<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    Mpsc(mpsc::Receiver<T>),
     Stream {
         rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
         next: Option<u64>,
         buf: BytesMut,
     },
 }
-impl RemoteRx {
-    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<MessageResponse>> {
+impl<T> RemoteRx<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    pub(crate) fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>> {
         loop {
             return match self {
                 RemoteRx::Mpsc(rx) => Pin::new(rx).poll_recv(cx),
@@ -111,12 +560,18 @@ impl RemoteRx {
                                 }
                             };
                             buf.advance(next);
+                            if buf.is_empty() {
+                                buf.clear();
+                            }
                             return Poll::Ready(Some(msg));
                         }
                         None if buf.len() >= 8 => {
                             let mut data_len_buf = [0u8; 8];
                             data_len_buf.copy_from_slice(&buf[..8]);
                             buf.advance(8);
+                            if buf.is_empty() {
+                                buf.clear();
+                            }
                             next.replace(u64::from_le_bytes(data_len_buf));
                             continue;
                         }
@@ -167,11 +622,10 @@ impl RequestTx {
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct RemoteCommon {
-    interface_id: InterfaceId,
     #[derivative(Debug = "ignore")]
-    tx: RemoteTx,
+    tx: RemoteTx<MessageRequest>,
     #[derivative(Debug = "ignore")]
-    rx: Mutex<RemoteRx>,
+    rx: Mutex<RemoteRx<MessageResponse>>,
     request_seed: AtomicU64,
     requests: Mutex<HashMap<u64, RequestTx>>,
     socket_seed: AtomicU64,
@@ -179,6 +633,10 @@ struct RemoteCommon {
     recv_with_addr_tx: Mutex<HashMap<SocketId, mpsc::Sender<(Vec<u8>, SocketAddr)>>>,
     #[derivative(Debug = "ignore")]
     handlers: Mutex<HashMap<SocketId, Box<dyn virtual_io::InterestHandler + Send + Sync>>>,
+
+    // The stall guard will prevent reads while its held and there are background tasks running
+    // (the idea behind this is to create back pressure so that the task list infinitely grow)
+    stall: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl RemoteCommon {
@@ -192,11 +650,7 @@ impl RemoteCommon {
         };
         if let Err(err) = self
             .tx
-            .send(MessageRequest::Interface {
-                iface: self.interface_id,
-                req_id,
-                req,
-            })
+            .send(MessageRequest::Interface { req_id, req })
             .await
         {
             return ResponseType::Err(err);
@@ -206,194 +660,6 @@ impl RemoteCommon {
 
     fn blocking_io_iface(&self, req: RequestType) -> ResponseType {
         InlineWaker::block_on(self.io_iface(req))
-    }
-}
-
-#[derive(Debug)]
-pub struct RemoteNetworking {
-    common: Arc<RemoteCommon>,
-}
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct RemoteNetworkingDriver {
-    #[derivative(Debug = "ignore")]
-    polling: Option<Pin<Box<dyn Future<Output = ()> + Send + Sync>>>,
-    common: Arc<RemoteCommon>,
-}
-
-impl Future for RemoteNetworkingDriver {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        loop {
-            if let Some(polling) = self.polling.as_mut() {
-                match polling.as_mut().poll(cx) {
-                    Poll::Pending => return Poll::Pending,
-                    Poll::Ready(()) => {}
-                }
-                self.polling.take();
-            }
-            let msg = {
-                let mut rx_guard = self.common.rx.lock().unwrap();
-                rx_guard.poll(cx)
-            };
-            return match msg {
-                Poll::Ready(Some(msg)) => {
-                    match msg {
-                        MessageResponse::Recv { socket_id, data } => {
-                            let tx = {
-                                let guard = self.common.recv_tx.lock().unwrap();
-                                match guard.get(&socket_id) {
-                                    Some(tx) => tx.clone(),
-                                    None => continue,
-                                }
-                            };
-                            let common = self.common.clone();
-                            self.polling.replace(Box::pin(async move {
-                                tx.send(data).await.ok();
-
-                                common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Readable));
-                            }));
-                        }
-                        MessageResponse::RecvWithAddr {
-                            socket_id,
-                            data,
-                            addr,
-                        } => {
-                            let tx = {
-                                let guard = self.common.recv_with_addr_tx.lock().unwrap();
-                                match guard.get(&socket_id) {
-                                    Some(tx) => tx.clone(),
-                                    None => continue,
-                                }
-                            };
-                            let common = self.common.clone();
-                            self.polling.replace(Box::pin(async move {
-                                tx.send((data, addr)).await.ok();
-
-                                common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Readable));
-                            }));
-                        }
-                        MessageResponse::Sent { socket_id, .. } => {
-                            self.common
-                                .handlers
-                                .lock()
-                                .unwrap()
-                                .get_mut(&socket_id)
-                                .map(|h| h.interest(InterestType::Writable));
-                        }
-                        MessageResponse::Closed { socket_id } => {
-                            self.common
-                                .handlers
-                                .lock()
-                                .unwrap()
-                                .get_mut(&socket_id)
-                                .map(|h| h.interest(InterestType::Closed));
-                        }
-                        MessageResponse::ResponseToRequest { req_id, res } => {
-                            let mut requests = self.common.requests.lock().unwrap();
-                            if let Some(request) = requests.remove(&req_id) {
-                                request.try_send(res).ok();
-                            }
-                        }
-                    }
-                    continue;
-                }
-                Poll::Ready(None) => Poll::Ready(()),
-                Poll::Pending => Poll::Pending,
-            };
-        }
-    }
-}
-
-impl RemoteNetworking {
-    /// Creates a new interface on the remote location using
-    /// a unique interface ID and a pair of channels
-    pub fn new_from_mpsc(
-        id: InterfaceId,
-        tx: mpsc::Sender<MessageRequest>,
-        rx: mpsc::Receiver<MessageResponse>,
-    ) -> (Self, RemoteNetworkingDriver) {
-        let common = RemoteCommon {
-            interface_id: id,
-            tx: RemoteTx::Mpsc(tx),
-            rx: Mutex::new(RemoteRx::Mpsc(rx)),
-            request_seed: AtomicU64::new(1),
-            requests: Default::default(),
-            socket_seed: AtomicU64::new(1),
-            recv_tx: Default::default(),
-            recv_with_addr_tx: Default::default(),
-            handlers: Default::default(),
-        };
-        let common = Arc::new(common);
-
-        let driver = RemoteNetworkingDriver {
-            polling: None,
-            common: common.clone(),
-        };
-        let networking = Self { common };
-
-        (networking, driver)
-    }
-
-    /// Creates a new interface on the remote location using
-    /// a unique interface ID and a pair of channels
-    pub fn new_from_stream(
-        id: InterfaceId,
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
-    ) -> (Self, RemoteNetworkingDriver) {
-        let common = RemoteCommon {
-            interface_id: id,
-            tx: RemoteTx::Stream(tokio::sync::Mutex::new(tx)),
-            rx: Mutex::new(RemoteRx::Stream {
-                rx,
-                next: None,
-                buf: BytesMut::new(),
-            }),
-            request_seed: AtomicU64::new(1),
-            requests: Default::default(),
-            socket_seed: AtomicU64::new(1),
-            recv_tx: Default::default(),
-            recv_with_addr_tx: Default::default(),
-            handlers: Default::default(),
-        };
-        let common = Arc::new(common);
-
-        let driver = RemoteNetworkingDriver {
-            polling: None,
-            common: common.clone(),
-        };
-        let networking = Self { common };
-
-        (networking, driver)
-    }
-
-    fn new_socket(&self, id: SocketId) -> RemoteSocket {
-        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common.recv_tx.lock().unwrap().insert(id, tx);
-
-        let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
-        self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
-
-        RemoteSocket {
-            socket_id: id,
-            common: self.common.clone(),
-            rx_buffer: BytesMut::new(),
-            rx_recv,
-            rx_recv_with_addr,
-        }
     }
 }
 
@@ -673,6 +939,7 @@ struct RemoteSocket {
     rx_buffer: BytesMut,
     rx_recv: mpsc::Receiver<Vec<u8>>,
     rx_recv_with_addr: mpsc::Receiver<(Vec<u8>, SocketAddr)>,
+    tx_waker: Waker,
 }
 impl Drop for RemoteSocket {
     fn drop(&mut self) {
@@ -768,7 +1035,12 @@ impl VirtualSocket for RemoteSocket {
 
 impl VirtualTcpListener for RemoteSocket {
     fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
-        match self.blocking_io_socket(RequestType::TryAccept) {
+        let child_id: SocketId = self
+            .common
+            .socket_seed
+            .fetch_add(1, Ordering::SeqCst)
+            .into();
+        match self.blocking_io_socket(RequestType::TryAccept(child_id)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketWithAddr { id, addr } => {
                 let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
@@ -783,6 +1055,7 @@ impl VirtualTcpListener for RemoteSocket {
                     rx_buffer: BytesMut::new(),
                     rx_recv,
                     rx_recv_with_addr,
+                    tx_waker: TxWaker::new(&self.common).as_waker(),
                 };
                 Ok((Box::new(socket), addr))
             }
@@ -825,13 +1098,18 @@ impl VirtualTcpListener for RemoteSocket {
 impl VirtualRawSocket for RemoteSocket {
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
+
+        let mut cx = Context::from_waker(&self.tx_waker);
         self.common
             .tx
-            .try_send(MessageRequest::Send {
-                socket: self.socket_id,
-                data: data.to_vec(),
-                req_id,
-            })
+            .try_send(
+                &mut cx,
+                MessageRequest::Send {
+                    socket: self.socket_id,
+                    data: data.to_vec(),
+                    req_id,
+                },
+            )
             .map(|_| data.len())
     }
 
@@ -880,14 +1158,18 @@ impl VirtualRawSocket for RemoteSocket {
 impl VirtualConnectionlessSocket for RemoteSocket {
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
+        let mut cx = Context::from_waker(&self.tx_waker);
         self.common
             .tx
-            .try_send(MessageRequest::SendTo {
-                socket: self.socket_id,
-                data: data.to_vec(),
-                addr,
-                req_id,
-            })
+            .try_send(
+                &mut cx,
+                MessageRequest::SendTo {
+                    socket: self.socket_id,
+                    data: data.to_vec(),
+                    addr,
+                    req_id,
+                },
+            )
             .map(|_| data.len())
     }
 
@@ -1045,13 +1327,17 @@ impl VirtualConnectedSocket for RemoteSocket {
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
+        let mut cx = Context::from_waker(&self.tx_waker);
         self.common
             .tx
-            .try_send(MessageRequest::Send {
-                socket: self.socket_id,
-                data: data.to_vec(),
-                req_id,
-            })
+            .try_send(
+                &mut cx,
+                MessageRequest::Send {
+                    socket: self.socket_id,
+                    data: data.to_vec(),
+                    req_id,
+                },
+            )
             .map(|_| data.len())
     }
 

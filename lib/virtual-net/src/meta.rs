@@ -112,7 +112,7 @@ pub enum RequestType {
     /// Closes the socket
     Close,
     /// Tries to accept a new connection
-    TryAccept,
+    TryAccept(SocketId),
     /// Returns the local address of this TCP listener
     GetAddrLocal,
     /// Returns the address (IP and Port) of the peer socket that this
@@ -251,15 +251,10 @@ pub enum ResponseType {
     Status(SocketStatus),
 }
 
-/// Represents an interface ID
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct InterfaceId(u64);
-
 /// Message sent by the client to the server
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum MessageRequest {
     Interface {
-        iface: InterfaceId,
         req: RequestType,
         req_id: u64,
     },
@@ -301,6 +296,11 @@ pub enum MessageResponse {
         socket_id: SocketId,
         req_id: u64,
         amount: u64,
+    },
+    SendError {
+        socket_id: SocketId,
+        req_id: u64,
+        error: NetworkError,
     },
     Closed {
         socket_id: SocketId,
