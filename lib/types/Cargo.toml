@@ -32,3 +32,6 @@ default = ["std"]
 std = []
 core = []
 enable-serde = ["serde", "serde/std", "serde_bytes", "indexmap/serde-1"]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

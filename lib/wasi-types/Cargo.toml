@@ -39,3 +39,4 @@ enable-serde = ["serde", "wasmer-types/serde"]
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys"]
+rustc-args = ["--cfg", "docsrs"]

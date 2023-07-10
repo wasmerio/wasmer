@@ -48,3 +48,6 @@ maintenance = { status = "actively-developed" }
 [features]
 default = []
 enable-serde = ["serde", "indexmap/serde-1", "wasmer-types/enable-serde" ]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

@@ -16,3 +16,6 @@ version.workspace = true
 wasmer-types = { path = "../types", version = "=4.0.0" }
 object = { version = "0.28.3", default-features = false, features = ["write"] }
 thiserror = "1.0"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

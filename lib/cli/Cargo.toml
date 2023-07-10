@@ -67,11 +67,12 @@ virtual-net = { version = "0.3.0", path = "../virtual-net" }
 # Wasmer-owned dependencies.
 webc = { workspace = true }
 wapm-targz-to-pirita = { workspace = true }
-wasmer-deploy-cli = { version = "0.1.16", default-features = false }
+wasmer-deploy-cli = { version = "0.1.17", default-features = false }
 
 # Third-party dependencies.
 
 atty = "0.2"
+is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
 spinoff = "0.5.4"
@@ -94,7 +95,6 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
 hex = "0.4.3"
@@ -263,3 +263,6 @@ bin-dir = "bin/{ bin }"
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-url = "{ repo }/releases/download/v{ version }/wasmer-windows-amd64.{ archive-format }"
 bin-dir = "bin/{ bin }.exe"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
