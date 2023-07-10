@@ -40,3 +40,6 @@ wasm = ["std", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

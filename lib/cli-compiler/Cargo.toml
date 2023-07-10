@@ -78,3 +78,6 @@ cranelift = [
 debug = ["fern", "log"]
 disable-all-logging = []
 jit = []
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
