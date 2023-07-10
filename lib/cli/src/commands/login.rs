@@ -88,7 +88,7 @@ struct AppContext {
     token_tx: tokio::sync::mpsc::Sender<AuthorizationState>,
 }
 
-/// Subcommand for logging in using a browser
+/// Subcommand for log in a user into Wasmer (using a browser or provided a token)
 #[derive(Debug, Clone, Parser)]
 pub struct Login {
     /// Variable to login without opening a browser
