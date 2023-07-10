@@ -22,3 +22,6 @@ wasmer = { path = "../api", version = "=4.0.0", features = ["compiler"] }
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

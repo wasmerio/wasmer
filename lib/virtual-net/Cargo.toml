@@ -19,3 +19,7 @@ libc = { version = "0.2.139", optional = true }
 
 [features]
 host-net = [ "tokio", "libc" ]
+
+[package.metadata.docs.rs]
+features = ["host-net"]
+rustc-args = ["--cfg", "docsrs"]

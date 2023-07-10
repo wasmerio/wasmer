@@ -26,3 +26,4 @@ getrandom = "0.2"
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys"]
+rustc-args = ["--cfg", "docsrs"]
