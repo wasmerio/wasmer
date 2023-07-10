@@ -7,6 +7,7 @@
 //! $ make update-graphql-schema
 //! curl -sSfL https://registry.wasmer.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 //! ```
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 pub mod api;
 mod client;
