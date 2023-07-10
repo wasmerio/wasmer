@@ -71,6 +71,11 @@ pub fn start() -> Result<(), JsValue> {
     );
 
     let window = web_sys::window().unwrap();
+
+    // HACK: Make the xterm terminal publicly accessible so integration tests
+    // can tap into it
+    js_sys::Reflect::set(&window, &JsValue::from_str("xterm"), &terminal)?;
+
     let location = window.location().href().unwrap();
 
     let user_agent = USER_AGENT.clone();
