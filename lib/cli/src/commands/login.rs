@@ -307,10 +307,10 @@ impl Login {
                 print!("Timed out (10 mins exceeded)");
             }
             AuthorizationState::Cancelled => {
-                print!("Cancelled by the user");
+                println!("Cancelled by the user\n");
             }
             AuthorizationState::UnknownMethod => {
-                print!("Error: unknown method");
+                println!("Error: unknown method\n");
             }
         };
         Ok(())
