@@ -5481,13 +5481,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.8"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96d3d713e203593b245f700f42f23ec632e6cf8c01be3ed2ce828b6948a261e4"
+checksum = "e5f22cf70f93c4690d4e82b325634ad973cd3a02d5a6b6565d442b452ea729bf"
 dependencies = [
  "anyhow",
  "cynic",
  "futures",
+ "pin-project-lite",
  "reqwest",
  "serde",
  "serde_json",
@@ -5757,9 +5758,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "401220ca92419731ffb670b6d6f8442fc32b110f6e9bb5658c4cfa658c48ab32"
+checksum = "f27185d77bc941b5e3bd84d548f5e0074ae8b560c3d862eb83af4d04fc4d9df0"
 dependencies = [
  "anyhow",
  "clap 4.3.5",
