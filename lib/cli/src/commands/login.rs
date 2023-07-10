@@ -234,58 +234,61 @@ impl Login {
         let env = self.wasmer_env();
         let registry = env.registry_endpoint()?;
 
-        let person_wants_to_login =
-            match wasmer_registry::whoami(env.dir(), Some(registry.as_str()), None) {
-                std::result::Result::Ok((registry, user)) => {
-                    println!(
-                        "You are already logged in as {:?} on registry {:?}",
-                        user, registry
-                    );
+        let auth_state = match self.token.clone() {
+            Some(token) => Ok(AuthorizationState::TokenSuccess(token)),
+            None => {
+                let person_wants_to_login =
+                    match wasmer_registry::whoami(env.dir(), Some(registry.as_str()), None) {
+                        std::result::Result::Ok((registry, user)) => {
+                            println!(
+                                "You are already logged in as {:?} on registry {:?}",
+                                user, registry
+                            );
 
-                    #[cfg(not(test))]
-                    {
-                        let login_again = Input::new()
-                            .with_prompt(format!(
-                                "{} {} - [y/{}]",
-                                style("?").yellow().bold(),
-                                style("Do you want to login with another user?")
-                                    .bright()
-                                    .bold(),
-                                style("N").green().bold()
-                            ))
-                            .show_default(false)
-                            .default(BoolPromptOptions::No)
-                            .interact_text()?;
+                            #[cfg(not(test))]
+                            {
+                                let login_again = Input::new()
+                                    .with_prompt(format!(
+                                        "{} {} - [y/{}]",
+                                        style("?").yellow().bold(),
+                                        style("Do you want to login with another user?")
+                                            .bright()
+                                            .bold(),
+                                        style("N").green().bold()
+                                    ))
+                                    .show_default(false)
+                                    .default(BoolPromptOptions::No)
+                                    .interact_text()?;
 
-                        login_again == BoolPromptOptions::Yes
-                    }
-                    #[cfg(test)]
-                    {
-                        false
+                                login_again == BoolPromptOptions::Yes
+                            }
+                            #[cfg(test)]
+                            {
+                                false
+                            }
+                        }
+                        _ => true,
+                    };
+
+                if !person_wants_to_login {
+                    Ok(AuthorizationState::Cancelled)
+                } else if self.no_browser {
+                    self.get_token_or_ask_user(&env)
+                } else {
+                    // switch between two methods of getting the token.
+                    // start two async processes, 10 minute timeout and get token from browser. Whichever finishes first, use that.
+                    let timeout_future = tokio::time::sleep(Duration::from_secs(60) * 10);
+                    tokio::select! {
+                     _ = timeout_future => {
+                             Ok(AuthorizationState::TimedOut)
+                         },
+                         token = self.get_token_from_browser(&env) => {
+                            token
+                         }
                     }
                 }
-                _ => true,
-            };
-
-        if !person_wants_to_login {
-            return Ok(());
-        }
-
-        let auth_state = if self.no_browser {
-            self.get_token_or_ask_user(&env)?
-        } else {
-            // switch between two methods of getting the token.
-            // start two async processes, 10 minute timeout and get token from browser. Whichever finishes first, use that.
-            let timeout_future = tokio::time::sleep(Duration::from_secs(60) * 10);
-            tokio::select! {
-             _ = timeout_future => {
-                     AuthorizationState::TimedOut
-                 },
-                 token = self.get_token_from_browser(&env) => {
-                    token?
-                 }
             }
-        };
+        }?;
 
         match auth_state {
             AuthorizationState::TokenSuccess(token) => {
