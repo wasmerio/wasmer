@@ -2,8 +2,8 @@ use anyhow::Context;
 
 use crate::RegistryClient;
 
-use crate::graphql::mutations;
-use crate::types::{PublishDeployAppOutput, PublishDeployAppRawVars};
+use crate::graphql::mutations::{self};
+use crate::types::{NewNonceOutput, PublishDeployAppOutput, PublishDeployAppRawVars};
 
 /// Generate a Deploy token for for the given Deploy app version id.
 pub async fn generate_deploy_token(
@@ -42,7 +42,9 @@ pub async fn publish_deploy_app_raw(
         .publish_deploy_app
         .context("Query did not return data")?
         .deploy_app_version;
-    let app = version.app.context("Query did not return expected data")?;
+
+    let app = version.app;
+    // let app = version.app.context("Query did not return expected data")?;
 
     Ok(PublishDeployAppOutput {
         app_id: app.id,
@@ -50,5 +52,26 @@ pub async fn publish_deploy_app_raw(
         version_id: version.id,
         version_name: version.version,
         owner_name: app.owner.global_name,
+    })
+}
+
+/// Generate a new Nonce
+///
+/// Takes a name and a callbackUrl and returns a nonce
+pub async fn create_nonce(
+    client: &RegistryClient,
+    name: String,
+    callback_url: String,
+) -> Result<NewNonceOutput, anyhow::Error> {
+    let vars = mutations::new_nonce::Variables { name, callback_url };
+    let nonce = client
+        .execute::<mutations::NewNonce>(vars)
+        .await?
+        .new_nonce
+        .context("Query did not return a nonce")?
+        .nonce;
+
+    Ok(NewNonceOutput {
+        auth_url: nonce.auth_url,
     })
 }

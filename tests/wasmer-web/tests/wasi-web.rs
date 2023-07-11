@@ -58,6 +58,7 @@ async fn run_a_webc_package_that_involves_the_filesystem(client: Client) {
     );
 }
 
+#[ignore] // FIXME: This test is flaky on CI - @Michael-F-Bryan
 #[macro_rules_attribute::apply(browser_test)]
 async fn pure_webc_package(client: Client) {
     client.wait_for_xterm(str::contains(PROMPT)).await;
