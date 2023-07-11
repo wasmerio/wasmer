@@ -15,6 +15,7 @@ fn login_works() -> anyhow::Result<()> {
     if wapm_dev_token.is_empty() {
         return Ok(());
     }
+    // FIXME: Change the registry to wasmer.wtf and all the associated terms with WAPM
     let output = Command::new(get_wasmer_path())
         .arg("login")
         .arg("--registry")
@@ -37,7 +38,7 @@ fn login_works() -> anyhow::Result<()> {
     }
 
     let stdout_output = std::str::from_utf8(&output.stdout).unwrap();
-    let expected = "Login for Wasmer user \"ciuser\" saved\n";
+    let expected = "Done!\n✅ Login for Wasmer user \"ciuser\" saved\n";
     if stdout_output != expected {
         println!("expected:");
         println!("{expected}");
