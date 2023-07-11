@@ -13,8 +13,8 @@ pub use self::{
     filesystem_source::FileSystemSource,
     in_memory_source::InMemorySource,
     inputs::{
-        Command, Dependency, DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary,
-        WebcHash,
+        Command, Dependency, DistributionInfo, FileSystemMapping, PackageInfo, PackageSpecifier,
+        PackageSummary, WebcHash,
     },
     multi_source::{MultiSource, MultiSourceStrategy},
     outputs::{
