@@ -52,12 +52,35 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 
 <span class="kw">use </span><span class="kw">crate</span>::RegistryClient;
 
-<span class="kw">use </span><span class="kw">crate</span>::graphql::mutations;
-<span class="kw">use </span><span class="kw">crate</span>::types::{PublishDeployAppOutput, PublishDeployAppRawVars};
+<span class="kw">use </span><span class="kw">crate</span>::graphql::mutations::{<span class="self">self</span>};
+<span class="kw">use </span><span class="kw">crate</span>::types::{NewNonceOutput, PublishDeployAppOutput, PublishDeployAppRawVars};
 
 <span class="doccomment">/// Generate a Deploy token for for the given Deploy app version id.
 </span><span class="kw">pub async fn </span>generate_deploy_token(
@@ -96,14 +119,37 @@
         </span>.publish_deploy_app
         .context(<span class="string">&quot;Query did not return data&quot;</span>)<span class="question-mark">?
         </span>.deploy_app_version;
-    <span class="kw">let </span>app = version.app.context(<span class="string">&quot;Query did not return expected data&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(PublishDeployAppOutput {
+    <span class="kw">let </span>app = version.app;
+    <span class="comment">// let app = version.app.context(&quot;Query did not return expected data&quot;)?;
+
+    </span><span class="prelude-val">Ok</span>(PublishDeployAppOutput {
         app_id: app.id,
         app_name: app.name,
         version_id: version.id,
         version_name: version.version,
         owner_name: app.owner.global_name,
+    })
+}
+
+<span class="doccomment">/// Generate a new Nonce
+///
+/// Takes a name and a callbackUrl and returns a nonce
+</span><span class="kw">pub async fn </span>create_nonce(
+    client: <span class="kw-2">&amp;</span>RegistryClient,
+    name: String,
+    callback_url: String,
+) -&gt; <span class="prelude-ty">Result</span>&lt;NewNonceOutput, anyhow::Error&gt; {
+    <span class="kw">let </span>vars = mutations::new_nonce::Variables { name, callback_url };
+    <span class="kw">let </span>nonce = client
+        .execute::&lt;mutations::NewNonce&gt;(vars)
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>.new_nonce
+        .context(<span class="string">&quot;Query did not return a nonce&quot;</span>)<span class="question-mark">?
+        </span>.nonce;
+
+    <span class="prelude-val">Ok</span>(NewNonceOutput {
+        auth_url: nonce.auth_url,
     })
 }
 </code></pre></div>
