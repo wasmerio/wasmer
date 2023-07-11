@@ -104,7 +104,7 @@ curl https://get.wasmer.io -sSfL | sh
 
 You can start by running
 [QuickJS](https://wasmer.io/saghul/quickjs), a small and
-embeddable Javascript engine compiled as a WebAssembly module ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
+embeddable Javascript engine:
 
 ```bash
 $ wasmer run saghul/quickjs --command=qjs
@@ -113,7 +113,7 @@ qjs > console.log("hello world");
 hello world
 ```
 
-You can check many more packages here: https://wasmer.io/explore
+> There are many more available packages, such as `wasmer/python` or `syrusakbary/cowsay`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore from the community: https://wasmer.io/explore
 
 #### Here is what you can do next:
 
