@@ -224,11 +224,17 @@ impl InodeSocket {
                     match *family {
                         Addressfamily::Inet4 => {
                             if !set_addr.is_ipv4() {
+                                tracing::debug!(
+                                    "IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family"
+                                );
                                 return Err(Errno::Inval);
                             }
                         }
                         Addressfamily::Inet6 => {
                             if !set_addr.is_ipv6() {
+                                tracing::debug!(
+                                    "IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family"
+                                );
                                 return Err(Errno::Inval);
                             }
                         }
