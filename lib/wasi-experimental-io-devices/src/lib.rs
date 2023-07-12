@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 #[cfg(feature = "link_external_libs")]
 #[path = "link-ext.rs"]
 pub mod link_ext;

@@ -23,7 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-
           working-directory: lib/wasi-web
     steps:
     - name: Checkout code
@@ -37,6 +36,14 @@ jobs:
       with:
         toolchain: nightly-2023-05-25
 
+    - name: Install wasm-pack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-pack
+
+    - name: Setup Chromedriver
+      uses: nanasess/setup-chromedriver@v2
+
     - name: Show Rust version
       run: rustc --version --verbose
 
@@ -46,3 +53,16 @@ jobs:
 
     - name: Check
       run: cargo check --verbose --locked
+
+    - name: Browser Integration Tests
+      run: |
+        set -xe
+        npm install
+        npm run build
+        npm run dev &
+        NPM_PID=$!
+        # Give the webpack dev server time to start
+        sleep 10
+
+        cd ../../tests/wasmer-web
+        cargo test --verbose --locked -- --test-threads=1
