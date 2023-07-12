@@ -87,11 +87,13 @@ impl VirtualNetworking for LocalNetworking {
     async fn connect_tcp(
         &self,
         _addr: SocketAddr,
-        peer: SocketAddr,
+        mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
         socket2::SockRef::from(&stream).set_nonblocking(true).ok();
-        let peer = stream.peer_addr().map_err(io_err_into_net_error)?;
+        if let Ok(p) = stream.peer_addr() {
+            peer = p;
+        }
         Ok(Box::new(LocalTcpStream::new(
             self.selector.clone(),
             stream,
