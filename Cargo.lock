@@ -6233,6 +6233,7 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "time 0.2.27",
+ "tracing",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",
  "wai-bindgen-gen-rust-wasm",
