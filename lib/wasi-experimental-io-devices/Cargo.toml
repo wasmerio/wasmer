@@ -43,3 +43,4 @@ link_external_libs = [
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys"]
+rustc-args = ["--cfg", "docsrs"]

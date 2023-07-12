@@ -365,6 +365,22 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
         }
     }
 
+    if entrypoint.is_none() {
+        // We *still* haven't been able to figure out what the entrypoint for the
+        // resolved package should be. If there is only one command in the main
+        // package, let's assume they want to use that.
+        //
+        // This works around packages like saghul/quickjs and syrusakbary/cowsay
+        // which don't specify their entrypoints explicitly.
+        if let [cmd] = dependency_graph.root_info().commands.as_slice() {
+            tracing::debug!(
+                command = cmd.name.as_str(),
+                "No entrypoint specified. Falling back to the root package's only command.",
+            );
+            entrypoint = Some(cmd.name.clone());
+        }
+    }
+
     // Note: when resolving filesystem mappings, the first mapping will come
     // from the root package and its dependencies will be following. However, we
     // actually want things closer to the root package in the dependency tree to
@@ -699,7 +715,7 @@ mod tests {
                         package: root.package_id(),
                     },
                 },
-                entrypoint: None,
+                entrypoint: Some("asdf".to_string()),
                 filesystem: Vec::new(),
             }
         );
@@ -1039,6 +1055,24 @@ mod tests {
                 filesystem: Vec::new(),
             }
         );
+    }
+
+    #[tokio::test]
+    async fn infer_entrypoint_if_unspecified_and_only_one_command_in_root_package() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_command("root-cmd")
+            .with_dependency("dep", "=1.0.0");
+        builder.register("dep", "1.0.0").with_command("entry");
+        let registry = builder.finish();
+        let root = builder.get("root", "1.0.0");
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        assert_eq!(resolution.package.entrypoint.as_deref(), Some("root-cmd"));
     }
 
     #[test]

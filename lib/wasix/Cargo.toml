@@ -139,4 +139,8 @@ disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
 enable-serde = ["typetag", "virtual-fs/enable-serde", "wasmer-wasix-types/enable-serde"]
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys"]
+features = [
+    "wasmer/sys", "webc_runner", "webc_runner_rt_wasi", "webc_runner_rt_wcgi",
+    "webc_runner_rt_emscripten", "sys-default",
+]
+rustc-args = ["--cfg", "docsrs"]

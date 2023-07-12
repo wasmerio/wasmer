@@ -19,6 +19,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 mod export;
 mod extern_ref;

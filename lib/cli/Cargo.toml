@@ -188,3 +188,6 @@ bin-dir = "bin/{ bin }"
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-url = "{ repo }/releases/download/v{ version }/wasmer-windows-amd64.{ archive-format }"
 bin-dir = "bin/{ bin }.exe"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
