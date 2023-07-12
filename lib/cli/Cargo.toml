@@ -42,7 +42,7 @@ wasmer-types = { version = "=4.0.0", path = "../types", features = ["enable-serd
 wasmer-registry = { version = "5.2.0", path = "../registry", features = ["build-package", "clap"]  }
 wasmer-object = { version = "=4.0.0", path = "../object", optional = true }
 virtual-fs  = { version = "0.6.0", path = "../virtual-fs", default-features = false, features = ["host-fs"] }
-virtual-net  = { version = "0.3.0", path = "../virtual-net", features = ["ws-net"] }
+virtual-net  = { version = "0.3.0", path = "../virtual-net", features = ["remote"] }
 
 # Wasmer-owned dependencies.
 webc = { workspace = true }

@@ -133,7 +133,7 @@ host-vnet = ["virtual-net/host-net"]
 host-threads = []
 host-reqwest = ["reqwest"]
 host-fs = ["virtual-fs/host-fs"]
-ws-net = ["virtual-net/ws-net"]
+remote-vnet = ["virtual-net/remote"]
 
 logging = ["tracing/log"]
 disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
