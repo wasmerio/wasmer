@@ -69,6 +69,7 @@ pub fn write_ip<M: MemorySize>(
             let o = ip.octets();
             __wasi_addr_t {
                 tag: Addressfamily::Inet4,
+                _padding: 0,
                 u: __wasi_addr_u {
                     octs: [o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 },
@@ -78,6 +79,7 @@ pub fn write_ip<M: MemorySize>(
             let o = ip.octets();
             __wasi_addr_t {
                 tag: Addressfamily::Inet6,
+                _padding: 0,
                 u: __wasi_addr_u { octs: o },
             }
         }
@@ -131,6 +133,7 @@ pub(crate) fn write_cidr<M: MemorySize>(
             let o = ip.octets();
             __wasi_cidr_t {
                 tag: Addressfamily::Inet4,
+                _padding: 0,
                 u: __wasi_cidr_u {
                     octs: [
                         o[0], o[1], o[2], o[3], p, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -142,6 +145,7 @@ pub(crate) fn write_cidr<M: MemorySize>(
             let o = ip.octets();
             __wasi_cidr_t {
                 tag: Addressfamily::Inet6,
+                _padding: 0,
                 u: __wasi_cidr_u {
                     octs: [
                         o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11],
@@ -163,7 +167,6 @@ pub(crate) fn read_ip_port<M: MemorySize>(
 ) -> Result<(IpAddr, u16), Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
-
     let o = addr.u.octs;
     Ok(match addr.tag {
         Addressfamily::Inet4 => {
@@ -183,7 +186,10 @@ pub(crate) fn read_ip_port<M: MemorySize>(
                 u16::from_ne_bytes([o[0], o[1]]),
             )
         }
-        _ => return Err(Errno::Inval),
+        _ => {
+            tracing::debug!("invalid address family ({})", addr.tag as u8);
+            return Err(Errno::Inval);
+        }
     })
 }
 
@@ -200,6 +206,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
             let o = ip.octets();
             __wasi_addr_port_t {
                 tag: Addressfamily::Inet4,
+                _padding: 0,
                 u: __wasi_addr_port_u {
                     octs: [
                         p[0], p[1], o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -211,6 +218,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
             let o = ip.octets();
             __wasi_addr_port_t {
                 tag: Addressfamily::Inet6,
+                _padding: 0,
                 u: __wasi_addr_port_u {
                     octs: [
                         p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9],
@@ -292,6 +300,7 @@ pub(crate) fn write_route<M: MemorySize>(
                 let o = ip.octets();
                 __wasi_cidr_t {
                     tag: Addressfamily::Inet4,
+                    _padding: 0,
                     u: __wasi_cidr_u {
                         octs: [
                             o[0], o[1], o[2], o[3], p, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -303,6 +312,7 @@ pub(crate) fn write_route<M: MemorySize>(
                 let o = ip.octets();
                 __wasi_cidr_t {
                     tag: Addressfamily::Inet6,
+                    _padding: 0,
                     u: __wasi_cidr_u {
                         octs: [
                             o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
@@ -318,6 +328,7 @@ pub(crate) fn write_route<M: MemorySize>(
             let o = ip.octets();
             __wasi_addr_t {
                 tag: Addressfamily::Inet4,
+                _padding: 0,
                 u: __wasi_addr_u {
                     octs: [o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 },
@@ -327,6 +338,7 @@ pub(crate) fn write_route<M: MemorySize>(
             let o = ip.octets();
             __wasi_addr_t {
                 tag: Addressfamily::Inet6,
+                _padding: 0,
                 u: __wasi_addr_u { octs: o },
             }
         }

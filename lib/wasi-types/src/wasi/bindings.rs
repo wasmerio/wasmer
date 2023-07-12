@@ -1060,7 +1060,7 @@ impl core::fmt::Debug for Streamsecurity {
         }
     }
 }
-#[repr(u16)]
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Addressfamily {
     Unspec,
