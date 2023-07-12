@@ -12,6 +12,7 @@ use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 use virtual_io::{InterestGuard, InterestHandler, Selector};
@@ -20,12 +21,14 @@ use virtual_io::{InterestGuard, InterestHandler, Selector};
 #[derivative(Debug)]
 pub struct LocalNetworking {
     selector: Arc<Selector>,
+    handle: Handle,
 }
 
 impl LocalNetworking {
     pub fn new() -> Self {
         Self {
             selector: Selector::new(),
+            handle: Handle::current(),
         }
     }
 }
@@ -107,8 +110,10 @@ impl VirtualNetworking for LocalNetworking {
         } else {
             format!("{}:{}", host, port.unwrap_or(0))
         };
-        tokio::net::lookup_host(host_to_lookup)
+        self.handle
+            .spawn(tokio::net::lookup_host(host_to_lookup))
             .await
+            .map_err(|_| NetworkError::IOError)?
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
             .map_err(io_err_into_net_error)
     }
