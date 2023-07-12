@@ -5722,7 +5722,7 @@ version = "4.0.0"
 dependencies = [
  "anyhow",
  "bytesize",
- "cfg-if 1.0.0",
+ "cfg-if",
  "clap 4.3.10",
  "colored 2.0.0",
  "distance",
