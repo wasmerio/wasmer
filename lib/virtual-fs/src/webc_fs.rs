@@ -408,7 +408,7 @@ where
                 modified: 0,
                 len: 0,
             })
-        } else if follow_symlink {
+        } else if !follow_symlink {
             self.memory.symlink_metadata(Path::new(&path))
         } else {
             self.memory.metadata(Path::new(&path))
