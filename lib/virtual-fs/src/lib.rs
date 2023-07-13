@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;

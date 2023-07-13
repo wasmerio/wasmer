@@ -50,3 +50,6 @@ no-time = []
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
 symlink = []
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

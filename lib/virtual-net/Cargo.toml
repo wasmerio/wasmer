@@ -14,8 +14,12 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal" ], default_features = false, optional = true }
+tokio = { version = "1", features = [ "sync", "macros", "io-util", "signal", "net" ], default_features = false, optional = true }
 libc = { version = "0.2.139", optional = true }
 
 [features]
 host-net = [ "tokio", "libc" ]
+
+[package.metadata.docs.rs]
+features = ["host-net"]
+rustc-args = ["--cfg", "docsrs"]

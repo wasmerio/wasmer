@@ -24,3 +24,8 @@ pub struct PublishDeployAppOutput {
     pub version_name: String,
     pub owner_name: String,
 }
+
+#[derive(Clone, Debug)]
+pub struct NewNonceOutput {
+    pub auth_url: String,
+}

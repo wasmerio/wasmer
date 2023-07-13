@@ -45,7 +45,6 @@ urlencoding = { version = "^2" }
 serde_derive = { version = "^1" }
 serde_json = { version = "^1" }
 serde_yaml = { version = "^0.8" }
-shellexpand = { version = "^2" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 term_size = { version = "0.3" }
@@ -139,4 +138,8 @@ disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
 enable-serde = ["typetag", "virtual-fs/enable-serde", "wasmer-wasix-types/enable-serde"]
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys"]
+features = [
+    "wasmer/sys", "webc_runner", "webc_runner_rt_wasi", "webc_runner_rt_wcgi",
+    "webc_runner_rt_emscripten", "sys-default",
+]
+rustc-args = ["--cfg", "docsrs"]

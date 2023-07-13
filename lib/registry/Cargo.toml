@@ -50,3 +50,7 @@ whoami = "1.2.3"
 
 [dev-dependencies]
 pretty_assertions = "1.3.0"
+
+[package.metadata.docs.rs]
+features = ["build-package"]
+rustc-args = ["--cfg", "docsrs"]
