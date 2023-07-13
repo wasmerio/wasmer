@@ -91,14 +91,14 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
 
-    #[cfg(feature = "symlink")]
+    #[cfg(not(feature = "symlink"))]
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         self.metadata(path)
     }
-    #[cfg(not(feature = "symlink"))]
+    #[cfg(feature = "symlink")]
     fn symlink_metadata(&self, _path: &Path) -> Result<Metadata> {
         unimplemented!()
     }
