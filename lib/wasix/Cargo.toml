@@ -139,7 +139,7 @@ enable-serde = ["typetag", "virtual-fs/enable-serde", "wasmer-wasix-types/enable
 
 [package.metadata.docs.rs]
 features = [
-    "wasmer/sys", "webc_runner", "webc_runner_rt_wasi", "webc_runner_rt_wcgi",
+    "wasmer/sys", "webc_runner_rt_wcgi",
     "webc_runner_rt_emscripten", "sys-default",
 ]
 rustc-args = ["--cfg", "docsrs"]
