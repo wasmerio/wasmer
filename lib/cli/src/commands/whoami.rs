@@ -22,7 +22,7 @@ impl Whoami {
             }) => {
                 println!("logged into registry \"{registry}\" as user \"{user}\"");
                 if !verified {
-                    println!("Warning: Your email address still needs to be verified");
+                    println!("Warning: Please verify your email address to fully access all Wasmer features");
                 }
             }
             None => {

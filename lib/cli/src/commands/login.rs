@@ -237,46 +237,49 @@ impl Login {
         let auth_state = match self.token.clone() {
             Some(token) => Ok(AuthorizationState::TokenSuccess(token)),
             None => {
-                let person_wants_to_login =
-                    match wasmer_registry::current_user(env.dir(), Some(registry.as_str()), None) {
-                        Result::Ok(Some(CurrentUser {
-                            registry,
-                            user,
-                            verified,
-                            ..
-                        })) => {
-                            println!(
-                                "You are already logged in as {:?} on registry {:?}",
-                                user, registry
-                            );
-                            if !verified {
-                                println!("Warning: Your email address still needs to be verified");
-                            }
-
-                            #[cfg(not(test))]
-                            {
-                                let login_again = Input::new()
-                                    .with_prompt(format!(
-                                        "{} {} - [y/{}]",
-                                        style("?").yellow().bold(),
-                                        style("Do you want to login with another user?")
-                                            .bright()
-                                            .bold(),
-                                        style("N").green().bold()
-                                    ))
-                                    .show_default(false)
-                                    .default(BoolPromptOptions::No)
-                                    .interact_text()?;
-
-                                login_again == BoolPromptOptions::Yes
-                            }
-                            #[cfg(test)]
-                            {
-                                false
-                            }
+                let person_wants_to_login = match wasmer_registry::current_user(
+                    env.dir(),
+                    Some(registry.as_str()),
+                    None,
+                ) {
+                    Result::Ok(Some(CurrentUser {
+                        registry,
+                        user,
+                        verified,
+                        ..
+                    })) => {
+                        println!(
+                            "You are already logged in as {:?} on registry {:?}",
+                            user, registry
+                        );
+                        if !verified {
+                            println!("Warning: Please verify your email address to fully access all Wasmer features");
                         }
-                        Result::Ok(None) | Err(_) => true,
-                    };
+
+                        #[cfg(not(test))]
+                        {
+                            let login_again = Input::new()
+                                .with_prompt(format!(
+                                    "{} {} - [y/{}]",
+                                    style("?").yellow().bold(),
+                                    style("Do you want to login with another user?")
+                                        .bright()
+                                        .bold(),
+                                    style("N").green().bold()
+                                ))
+                                .show_default(false)
+                                .default(BoolPromptOptions::No)
+                                .interact_text()?;
+
+                            login_again == BoolPromptOptions::Yes
+                        }
+                        #[cfg(test)]
+                        {
+                            false
+                        }
+                    }
+                    Result::Ok(None) | Err(_) => true,
+                };
 
                 if !person_wants_to_login {
                     Ok(AuthorizationState::Cancelled)
@@ -305,9 +308,12 @@ impl Login {
                     registry.as_str(),
                     &token,
                 )? {
-                    Some(s) => {
+                    Some(CurrentUser { user, verified, .. }) => {
                         print!("Done!");
-                        println!("\n✅ Login for Wasmer user {:?} saved", s)
+                        println!("\n✅ Login for Wasmer user \"{user}\" saved");
+                        if !verified {
+                    println!("Warning: Please verify your email address to fully access all Wasmer features");
+                        }
                     }
                     None => print!(
                         "Warning: no user found on {:?} with the provided token.\nToken saved regardless.",
