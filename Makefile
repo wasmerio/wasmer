@@ -926,4 +926,4 @@ test-minimal-versions:
 	cargo +nightly build --tests -Z minimal-versions --all-features
 
 update-graphql-schema:
-	curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
+	curl -sSfL https://registry.wasmer.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
