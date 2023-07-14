@@ -136,10 +136,9 @@ impl VirtualTcpListener for LocalTcpListener {
                 socket2::SockRef::from(&self.stream)
                     .set_nonblocking(true)
                     .ok();
-                Ok((
-                    Box::new(LocalTcpStream::new(self.selector.clone(), stream, addr)),
-                    addr,
-                ))
+                let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
+                socket.set_first_handler_writeable();
+                Ok((Box::new(socket), addr))
             }
             Err(NetworkError::WouldBlock) => Err(NetworkError::WouldBlock),
             Err(err) => Err(err),
@@ -197,6 +196,7 @@ pub struct LocalTcpStream {
     shutdown: Option<Shutdown>,
     selector: Arc<Selector>,
     handler_guard: Option<InterestGuard>,
+    first_handler_writeable: bool,
 }
 
 impl LocalTcpStream {
@@ -207,7 +207,11 @@ impl LocalTcpStream {
             shutdown: None,
             selector,
             handler_guard: None,
+            first_handler_writeable: false,
         }
+    }
+    fn set_first_handler_writeable(&mut self) {
+        self.first_handler_writeable = true;
     }
 }
 
@@ -243,6 +247,7 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn shutdown(&mut self, how: Shutdown) -> Result<()> {
+        self.stream.shutdown(how).map_err(io_err_into_net_error)?;
         self.shutdown = Some(how);
         Ok(())
     }
@@ -301,9 +306,14 @@ impl VirtualSocket for LocalTcpStream {
         Ok(SocketStatus::Opened)
     }
 
-    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+    fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
         if let Some(guard) = self.handler_guard.take() {
             InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
+
+        if self.first_handler_writeable {
+            self.first_handler_writeable = false;
+            handler.interest(virtual_io::InterestType::Writable);
         }
 
         let guard = InterestGuard::new(
