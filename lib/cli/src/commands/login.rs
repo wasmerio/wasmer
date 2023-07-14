@@ -11,7 +11,7 @@ use serde::Deserialize;
 use wasmer_registry::{
     types::NewNonceOutput,
     wasmer_env::{Registry, WasmerEnv, WASMER_DIR},
-    RegistryClient,
+    CurrentUser, RegistryClient,
 };
 
 use hyper::{
@@ -238,12 +238,20 @@ impl Login {
             Some(token) => Ok(AuthorizationState::TokenSuccess(token)),
             None => {
                 let person_wants_to_login =
-                    match wasmer_registry::whoami(env.dir(), Some(registry.as_str()), None) {
-                        std::result::Result::Ok((registry, user)) => {
+                    match wasmer_registry::current_user(env.dir(), Some(registry.as_str()), None) {
+                        Result::Ok(Some(CurrentUser {
+                            registry,
+                            user,
+                            verified,
+                            ..
+                        })) => {
                             println!(
                                 "You are already logged in as {:?} on registry {:?}",
                                 user, registry
                             );
+                            if !verified {
+                                println!("Warning: Your email address still needs to be verified");
+                            }
 
                             #[cfg(not(test))]
                             {
@@ -267,7 +275,7 @@ impl Login {
                                 false
                             }
                         }
-                        _ => true,
+                        Result::Ok(None) | Err(_) => true,
                     };
 
                 if !person_wants_to_login {

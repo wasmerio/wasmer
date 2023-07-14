@@ -1,5 +1,5 @@
 use clap::Parser;
-use wasmer_registry::wasmer_env::WasmerEnv;
+use wasmer_registry::{wasmer_env::WasmerEnv, CurrentUser};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer whoami` subcommand
@@ -12,9 +12,24 @@ impl Whoami {
     /// Execute `wasmer whoami`
     pub fn execute(&self) -> Result<(), anyhow::Error> {
         let registry = self.env.registry_endpoint()?;
-        let (registry, username) =
-            wasmer_registry::whoami(self.env.dir(), Some(registry.as_str()), None)?;
-        println!("logged into registry {registry:?} as user {username:?}");
+
+        match wasmer_registry::current_user(self.env.dir(), Some(registry.as_str()), None)? {
+            Some(CurrentUser {
+                registry,
+                user,
+                verified,
+                ..
+            }) => {
+                println!("logged into registry \"{registry}\" as user \"{user}\"");
+                if !verified {
+                    println!("Warning: Your email address still needs to be verified");
+                }
+            }
+            None => {
+                println!("Not logged in.");
+            }
+        }
+
         Ok(())
     }
 }
