@@ -94,6 +94,7 @@ impl From<Clockid> for Snapshot0Clockid {
             Clockid::Monotonic => Self::Monotonic,
             Clockid::ProcessCputimeId => Self::ProcessCputimeId,
             Clockid::ThreadCputimeId => Self::ThreadCputimeId,
+            Clockid::Unknown => Self::Unknown,
         }
     }
 }
@@ -105,6 +106,7 @@ impl From<Snapshot0Clockid> for Clockid {
             Snapshot0Clockid::Monotonic => Self::Monotonic,
             Snapshot0Clockid::ProcessCputimeId => Self::ProcessCputimeId,
             Snapshot0Clockid::ThreadCputimeId => Self::ThreadCputimeId,
+            Snapshot0Clockid::Unknown => Self::Unknown,
         }
     }
 }
@@ -248,6 +250,7 @@ impl Prestat {
             Preopentype::Dir => Some(PrestatEnum::Dir {
                 pr_name_len: self.u.dir.pr_name_len,
             }),
+            Preopentype::Unknown => None,
         }
     }
 }
@@ -281,6 +284,7 @@ unsafe impl wasmer::ValueType for Prestat {
                     .zero_padding_bytes(&mut bytes[field!(u.dir)..field_end!(u.dir)]);
                 zero!(field_end!(u.dir), field_end!(u));
             }
+            Preopentype::Unknown => {}
         }
         zero!(field_end!(u), core::mem::size_of_val(self));
     }
