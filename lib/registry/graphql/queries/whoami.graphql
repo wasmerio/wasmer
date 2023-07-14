@@ -1,5 +1,6 @@
 query WhoAmIQuery {
   viewer {
     username
+    isEmailValidated
   }
 }

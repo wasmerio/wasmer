@@ -356,11 +356,21 @@ where
     Ok(())
 }
 
-pub fn whoami(
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct CurrentUser {
+    pub registry: String,
+    pub user: String,
+    /// Has the user's email been verified?
+    pub verified: bool,
+}
+
+/// Look up information about the current user.
+pub fn current_user(
     wasmer_dir: &Path,
     registry: Option<&str>,
     token: Option<&str>,
-) -> Result<(String, String), anyhow::Error> {
+) -> Result<Option<CurrentUser>, anyhow::Error> {
     use crate::graphql::queries::{who_am_i_query, WhoAmIQuery};
 
     let config = WasmerConfig::from_file(wasmer_dir);
@@ -384,14 +394,28 @@ pub fn whoami(
         crate::graphql::execute_query(&registry, &login_token, &q)
             .with_context(|| format!("{registry:?}"))?;
 
-    let username = response
-        .viewer
-        .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("not logged into registry {:?}", registry))?
-        .username
-        .to_string();
+    let viewer = match response.viewer {
+        Some(v) => v,
+        None => {
+            return Ok(None);
+        }
+    };
 
-    Ok((registry, username))
+    Ok(Some(CurrentUser {
+        registry,
+        user: viewer.username,
+        verified: viewer.is_email_validated,
+    }))
+}
+
+pub fn whoami(
+    wasmer_dir: &Path,
+    registry: Option<&str>,
+    token: Option<&str>,
+) -> Result<(String, String), anyhow::Error> {
+    let CurrentUser { registry, user, .. } =
+        current_user(wasmer_dir, registry, token)?.context("Not logged into registry")?;
+    Ok((registry, user))
 }
 
 pub fn test_if_registry_present(registry: &str) -> Result<bool, String> {
