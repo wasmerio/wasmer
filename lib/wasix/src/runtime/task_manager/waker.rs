@@ -18,6 +18,7 @@ impl InlineWaker {
     }
 
     fn wake_now(&self) {
+        let _guard = self.lock.lock().unwrap();
         self.condvar.notify_all();
     }
 
