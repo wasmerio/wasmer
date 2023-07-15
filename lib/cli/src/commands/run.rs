@@ -599,7 +599,7 @@ impl ExecutableTarget {
                 })
             }
             TargetOnDisk::Artifact => {
-                let engine = runtime.engine().context("No engine available")?;
+                let engine = runtime.engine();
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
 
@@ -835,7 +835,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         })
     }
 
-    fn engine(&self) -> Option<wasmer::Engine> {
+    fn engine(&self) -> wasmer::Engine {
         self.runtime.engine()
     }
 
