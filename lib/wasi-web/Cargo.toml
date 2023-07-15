@@ -23,8 +23,8 @@ wasm-bindgen = { version = "0.2", features = [ "serde-serialize" ] }
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "^0.1"
 js-sys = "0.3"
-tracing = { version = "^0.1", features = [ "log", "release_max_level_info" ] }
-#tracing = { version = "^0.1", features = [ "log" ] }
+#tracing = { version = "^0.1", features = [ "log", "release_max_level_info" ] }
+tracing = { version = "^0.1", features = [ "log" ] }
 tracing-futures = { version = "^0.2" }
 tracing-subscriber = { version = "^0.2" }
 tracing-wasm = { version = "^0.2" }

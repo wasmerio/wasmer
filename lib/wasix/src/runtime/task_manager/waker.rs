@@ -1,25 +1,24 @@
 use std::{
-    sync::{mpsc, Arc},
+    sync::{Arc, Condvar, Mutex},
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
 use futures::Future;
 
 pub struct InlineWaker {
-    waker_rx: mpsc::Receiver<()>,
-    waker_tx: mpsc::Sender<()>,
+    lock: Mutex<()>,
+    condvar: Condvar,
 }
 impl InlineWaker {
     pub fn new() -> Arc<Self> {
-        let (tx, rx) = mpsc::channel();
         Arc::new(Self {
-            waker_rx: rx,
-            waker_tx: tx,
+            lock: Mutex::new(()),
+            condvar: Condvar::new(),
         })
     }
 
     fn wake_now(&self) {
-        self.waker_tx.send(()).ok();
+        self.condvar.notify_all();
     }
 
     pub fn as_waker(self: &Arc<InlineWaker>) -> Waker {
@@ -37,10 +36,11 @@ impl InlineWaker {
         // We loop waiting for the waker to be woken, then we poll again
         let mut task = Box::pin(task);
         loop {
+            let lock = inline_waker.lock.lock().unwrap();
             match task.as_mut().poll(&mut cx) {
-                Poll::Pending => inline_waker.waker_rx.recv().expect(
-                    "It should not be possible by design for the waker to close in this loop",
-                ),
+                Poll::Pending => {
+                    inline_waker.condvar.wait(lock).ok();
+                }
                 Poll::Ready(ret) => {
                     return ret;
                 }
