@@ -1,3 +1,4 @@
+#![allow(dead_code, unused)]
 use std::{
     sync::{Arc, Condvar, Mutex},
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
@@ -10,7 +11,7 @@ pub struct InlineWaker {
     condvar: Condvar,
 }
 impl InlineWaker {
-    pub fn new() -> Arc<Self> {
+    fn new() -> Arc<Self> {
         Arc::new(Self {
             lock: Mutex::new(()),
             condvar: Condvar::new(),
@@ -18,16 +19,27 @@ impl InlineWaker {
     }
 
     fn wake_now(&self) {
+        // Note: This guard should be there to prevent race conditions however in the
+        // browser it causes a lock up - some strange browser issue. What I suspect
+        // is that the Condvar::wait call is not releasing the mutex lock
+        #[cfg(not(feature = "js"))]
         let _guard = self.lock.lock().unwrap();
+
         self.condvar.notify_all();
     }
 
-    pub fn as_waker(self: &Arc<InlineWaker>) -> Waker {
-        let s: *const InlineWaker = Arc::into_raw(Arc::clone(self));
+    fn as_waker(self: &Arc<Self>) -> Waker {
+        let s: *const Self = Arc::into_raw(Arc::clone(self));
         let raw_waker = RawWaker::new(s as *const (), &VTABLE);
         unsafe { Waker::from_raw(raw_waker) }
     }
 
+    #[cfg(not(feature = "js"))]
+    pub fn block_on<'a, A>(task: impl Future<Output = A> + 'a) -> A {
+        futures::executor::block_on(task)
+    }
+
+    #[cfg(feature = "js")]
     pub fn block_on<'a, A>(task: impl Future<Output = A> + 'a) -> A {
         // Create the waker
         let inline_waker = Self::new();
