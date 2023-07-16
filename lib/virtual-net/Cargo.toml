@@ -30,8 +30,9 @@ futures-util = { version = "0.3" }
 
 [features]
 host-net = [ "tokio", "libc", "virtual-io/sys", "tokio/net", "socket2", "mio" ]
-remote = [ ]
+remote = [ "tokio/io-util", "tokio/sync" ]
+tun-tap = [ "remote", "host-net" ]
 
 [package.metadata.docs.rs]
-features = ["host-net"]
+features = ["host-net", "remote", "tun-tap"]
 rustc-args = ["--cfg", "docsrs"]
