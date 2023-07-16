@@ -2479,6 +2479,7 @@ dependencies = [
  "num_enum",
  "serde",
  "time",
+ "tracing",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",
  "wai-bindgen-gen-rust-wasm",
