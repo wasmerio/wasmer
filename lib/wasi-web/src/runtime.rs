@@ -548,7 +548,9 @@ impl wasmer_wasix::http::HttpClient for WebHttpClient {
         self.pool.spawn_shared(Box::new(move || {
             Box::pin(async move {
                 let res = Self::do_request(request).await;
-                let _ = tx.send(res);
+                if let Err(err) = tx.send(res) {
+                    tracing::error!("failed to reply http response to caller - {:?}", err);
+                }
             })
         }));
         Box::pin(async move { rx.await.unwrap() })

@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+
 #[cfg(any(feature = "remote", feature = "host-net"))]
 pub mod client;
 #[cfg(feature = "host-net")]

@@ -25,14 +25,18 @@ fn main() {
             .append(true)
             .open(&file)
             .expect("Couldn't create file");
-        file_handle.write(STR1.as_bytes()).unwrap();
+        file_handle.write_all(STR1.as_bytes()).unwrap();
+        file_handle.flush().unwrap();
+        file_handle.sync_all();
     }
     {
         let mut file_handle = OpenOptions::new()
             .append(true)
             .open(&file)
             .expect("Couldn't reopen file to append");
-        file_handle.write(STR2.as_bytes()).unwrap();
+        file_handle.write_all(STR2.as_bytes()).unwrap();
+        file_handle.flush().unwrap();
+        file_handle.sync_all();
     }
 
     {

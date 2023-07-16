@@ -27,7 +27,7 @@ use crate::{
     utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum InodeValFilePollGuardMode {
     File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),
     EventNotifications(Arc<NotificationInner>),
@@ -124,6 +124,7 @@ pub struct InodeValFilePollGuardJoin {
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
+    spent: bool,
 }
 
 impl InodeValFilePollGuardJoin {
@@ -133,6 +134,7 @@ impl InodeValFilePollGuardJoin {
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
+            spent: false,
         }
     }
     pub(crate) fn fd(&self) -> u32 {
@@ -140,6 +142,20 @@ impl InodeValFilePollGuardJoin {
     }
     pub(crate) fn peb(&self) -> PollEventSet {
         self.peb
+    }
+    pub fn is_spent(&self) -> bool {
+        self.spent
+    }
+    pub fn reset(&mut self) {
+        match &self.mode {
+            InodeValFilePollGuardMode::File(_) => {}
+            InodeValFilePollGuardMode::EventNotifications(inner) => {
+                inner.reset();
+            }
+            InodeValFilePollGuardMode::Socket { .. } => {}
+            InodeValFilePollGuardMode::Pipe { .. } => {}
+        }
+        self.spent = false;
     }
 }
 
@@ -228,28 +244,32 @@ impl Future for InodeValFilePollGuardJoin {
             };
             match poll_result {
                 Poll::Ready(Err(err)) if has_close && is_err_closed(&err) => {
-                    ret.push((
-                        EventResult {
-                            userdata: self.subscription.userdata,
-                            error: Errno::Success,
-                            type_: self.subscription.type_,
-                            inner: match self.subscription.type_ {
-                                Eventtype::FdRead | Eventtype::FdWrite => {
-                                    EventResultType::Fd(EventFdReadwrite {
-                                        nbytes: 0,
-                                        flags: if has_hangup {
-                                            Eventrwflags::FD_READWRITE_HANGUP
-                                        } else {
-                                            Eventrwflags::empty()
-                                        },
-                                    })
-                                }
-                                Eventtype::Clock => EventResultType::Clock(0),
+                    let inner = match self.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite => {
+                            Some(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: 0,
+                                flags: if has_hangup {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock => Some(EventResultType::Clock(0)),
+                        Eventtype::Unknown => None,
+                    };
+                    if let Some(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: self.subscription.userdata,
+                                error: Errno::Success,
+                                type_: self.subscription.type_,
+                                inner,
                             },
-                        },
-                        EpollType::EPOLLHUP,
-                    ))
-                    .ok();
+                            EpollType::EPOLLHUP,
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Ready(bytes_available) => {
                     let mut error = Errno::Success;
@@ -260,32 +280,36 @@ impl Future for InodeValFilePollGuardJoin {
                             0
                         }
                     };
-                    ret.push((
-                        EventResult {
-                            userdata: self.subscription.userdata,
-                            error,
-                            type_: self.subscription.type_,
-                            inner: match self.subscription.type_ {
-                                Eventtype::FdRead | Eventtype::FdWrite => {
-                                    EventResultType::Fd(EventFdReadwrite {
-                                        nbytes: bytes_available as u64,
-                                        flags: if bytes_available == 0 {
-                                            Eventrwflags::FD_READWRITE_HANGUP
-                                        } else {
-                                            Eventrwflags::empty()
-                                        },
-                                    })
-                                }
-                                Eventtype::Clock => EventResultType::Clock(0),
+                    let inner = match self.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite => {
+                            Some(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: bytes_available as u64,
+                                flags: if bytes_available == 0 {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock => Some(EventResultType::Clock(0)),
+                        Eventtype::Unknown => None,
+                    };
+                    if let Some(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: self.subscription.userdata,
+                                error,
+                                type_: self.subscription.type_,
+                                inner,
                             },
-                        },
-                        if error == Errno::Success {
-                            EpollType::EPOLLIN
-                        } else {
-                            EpollType::EPOLLERR
-                        },
-                    ))
-                    .ok();
+                            if error == Errno::Success {
+                                EpollType::EPOLLIN
+                            } else {
+                                EpollType::EPOLLERR
+                            },
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Pending => {}
             };
@@ -345,28 +369,32 @@ impl Future for InodeValFilePollGuardJoin {
             };
             match poll_result {
                 Poll::Ready(Err(err)) if has_close && is_err_closed(&err) => {
-                    ret.push((
-                        EventResult {
-                            userdata: self.subscription.userdata,
-                            error: Errno::Success,
-                            type_: self.subscription.type_,
-                            inner: match self.subscription.type_ {
-                                Eventtype::FdRead | Eventtype::FdWrite => {
-                                    EventResultType::Fd(EventFdReadwrite {
-                                        nbytes: 0,
-                                        flags: if has_hangup {
-                                            Eventrwflags::FD_READWRITE_HANGUP
-                                        } else {
-                                            Eventrwflags::empty()
-                                        },
-                                    })
-                                }
-                                Eventtype::Clock => EventResultType::Clock(0),
+                    let inner = match self.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite => {
+                            Some(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: 0,
+                                flags: if has_hangup {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock => Some(EventResultType::Clock(0)),
+                        Eventtype::Unknown => None,
+                    };
+                    if let Some(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: self.subscription.userdata,
+                                error: Errno::Success,
+                                type_: self.subscription.type_,
+                                inner,
                             },
-                        },
-                        EpollType::EPOLLHUP,
-                    ))
-                    .ok();
+                            EpollType::EPOLLHUP,
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Ready(bytes_available) => {
                     let mut error = Errno::Success;
@@ -377,37 +405,42 @@ impl Future for InodeValFilePollGuardJoin {
                             0
                         }
                     };
-                    ret.push((
-                        EventResult {
-                            userdata: self.subscription.userdata,
-                            error,
-                            type_: self.subscription.type_,
-                            inner: match self.subscription.type_ {
-                                Eventtype::FdRead | Eventtype::FdWrite => {
-                                    EventResultType::Fd(EventFdReadwrite {
-                                        nbytes: bytes_available as u64,
-                                        flags: if bytes_available == 0 {
-                                            Eventrwflags::FD_READWRITE_HANGUP
-                                        } else {
-                                            Eventrwflags::empty()
-                                        },
-                                    })
-                                }
-                                Eventtype::Clock => EventResultType::Clock(0),
+                    let inner = match self.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite => {
+                            Some(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: bytes_available as u64,
+                                flags: if bytes_available == 0 {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } else {
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock => Some(EventResultType::Clock(0)),
+                        Eventtype::Unknown => None,
+                    };
+                    if let Some(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: self.subscription.userdata,
+                                error,
+                                type_: self.subscription.type_,
+                                inner,
                             },
-                        },
-                        if error == Errno::Success {
-                            EpollType::EPOLLOUT
-                        } else {
-                            EpollType::EPOLLERR
-                        },
-                    ))
-                    .ok();
+                            if error == Errno::Success {
+                                EpollType::EPOLLOUT
+                            } else {
+                                EpollType::EPOLLERR
+                            },
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Pending => {}
             };
         }
         if !ret.is_empty() {
+            self.spent = true;
             return Poll::Ready(ret);
         }
         Poll::Pending

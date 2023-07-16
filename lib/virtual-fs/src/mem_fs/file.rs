@@ -291,11 +291,22 @@ impl VirtualFile for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(inode) => {
+                    let metadata = Metadata {
+                        ft: crate::FileType {
+                            file: true,
+                            ..Default::default()
+                        },
+                        accessed: src.last_accessed(),
+                        created: src.created_time(),
+                        modified: src.last_modified(),
+                        len: src.size(),
+                    };
+
                     *inode = Node::CustomFile(CustomFileNode {
                         inode: inode.inode(),
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
-                        metadata: inode.metadata().clone(),
+                        metadata,
                     });
                     Ok(())
                 }

@@ -305,6 +305,9 @@ where
                     return Ok(Errno::Inval);
                 }
             }
+            Eventtype::Unknown => {
+                continue;
+            }
         };
     }
 

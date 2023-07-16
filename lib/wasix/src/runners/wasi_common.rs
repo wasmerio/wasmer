@@ -353,8 +353,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn python_use_case() {
+    #[tokio::test]
+    async fn python_use_case() {
         let temp = TempDir::new().unwrap();
         let sub_dir = temp.path().join("path").join("to");
         std::fs::create_dir_all(&sub_dir).unwrap();

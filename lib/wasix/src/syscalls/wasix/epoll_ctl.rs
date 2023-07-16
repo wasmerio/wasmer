@@ -101,6 +101,7 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
     }
 }
 
+#[derive(Debug)]
 pub struct EpollJoinWaker {
     fd: WasiFd,
     readiness: EpollType,
@@ -220,16 +221,19 @@ pub(super) fn register_epoll_waker(
             // Otherwise we fall back on the regular polling guard
 
             // First we create the waker
-            let waker = EpollJoinWaker::new(event.fd, event.events, tx);
-            let waker = waker.as_waker();
+            let epoll_waker = EpollJoinWaker::new(event.fd, event.events, tx);
+            let waker = epoll_waker.as_waker();
             let mut cx = Context::from_waker(&waker);
 
             // Now we use the waker to trigger events
-            let mut fd_guard = InodeValFilePollGuardJoin::new(fd_guard);
-            if Pin::new(&mut fd_guard).poll(&mut cx).is_ready() {
+            let mut join_guard = InodeValFilePollGuardJoin::new(fd_guard);
+            if Pin::new(&mut join_guard).poll(&mut cx).is_ready() {
                 waker.wake();
             }
-            ret.push(EpollJoinGuard::Join(fd_guard));
+            ret.push(EpollJoinGuard::Join {
+                join_guard,
+                epoll_waker,
+            });
         }
     }
     Ok(ret)

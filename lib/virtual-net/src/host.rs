@@ -12,6 +12,7 @@ use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 use virtual_io::{InterestGuard, InterestHandler, Selector};
@@ -20,12 +21,14 @@ use virtual_io::{InterestGuard, InterestHandler, Selector};
 #[derivative(Debug)]
 pub struct LocalNetworking {
     selector: Arc<Selector>,
+    handle: Handle,
 }
 
 impl LocalNetworking {
     pub fn new() -> Self {
         Self {
             selector: Selector::new(),
+            handle: Handle::current(),
         }
     }
 }
@@ -84,11 +87,13 @@ impl VirtualNetworking for LocalNetworking {
     async fn connect_tcp(
         &self,
         _addr: SocketAddr,
-        peer: SocketAddr,
+        mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
         socket2::SockRef::from(&stream).set_nonblocking(true).ok();
-        let peer = stream.peer_addr().map_err(io_err_into_net_error)?;
+        if let Ok(p) = stream.peer_addr() {
+            peer = p;
+        }
         Ok(Box::new(LocalTcpStream::new(
             self.selector.clone(),
             stream,
@@ -107,8 +112,10 @@ impl VirtualNetworking for LocalNetworking {
         } else {
             format!("{}:{}", host, port.unwrap_or(0))
         };
-        tokio::net::lookup_host(host_to_lookup)
+        self.handle
+            .spawn(tokio::net::lookup_host(host_to_lookup))
             .await
+            .map_err(|_| NetworkError::IOError)?
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
             .map_err(io_err_into_net_error)
     }
@@ -129,10 +136,9 @@ impl VirtualTcpListener for LocalTcpListener {
                 socket2::SockRef::from(&self.stream)
                     .set_nonblocking(true)
                     .ok();
-                Ok((
-                    Box::new(LocalTcpStream::new(self.selector.clone(), stream, addr)),
-                    addr,
-                ))
+                let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
+                socket.set_first_handler_writeable();
+                Ok((Box::new(socket), addr))
             }
             Err(NetworkError::WouldBlock) => Err(NetworkError::WouldBlock),
             Err(err) => Err(err),
@@ -190,6 +196,7 @@ pub struct LocalTcpStream {
     shutdown: Option<Shutdown>,
     selector: Arc<Selector>,
     handler_guard: Option<InterestGuard>,
+    first_handler_writeable: bool,
 }
 
 impl LocalTcpStream {
@@ -200,7 +207,11 @@ impl LocalTcpStream {
             shutdown: None,
             selector,
             handler_guard: None,
+            first_handler_writeable: false,
         }
+    }
+    fn set_first_handler_writeable(&mut self) {
+        self.first_handler_writeable = true;
     }
 }
 
@@ -236,6 +247,7 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn shutdown(&mut self, how: Shutdown) -> Result<()> {
+        self.stream.shutdown(how).map_err(io_err_into_net_error)?;
         self.shutdown = Some(how);
         Ok(())
     }
@@ -294,9 +306,14 @@ impl VirtualSocket for LocalTcpStream {
         Ok(SocketStatus::Opened)
     }
 
-    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+    fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
         if let Some(guard) = self.handler_guard.take() {
             InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
+
+        if self.first_handler_writeable {
+            self.first_handler_writeable = false;
+            handler.interest(virtual_io::InterestType::Writable);
         }
 
         let guard = InterestGuard::new(

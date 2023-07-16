@@ -24,3 +24,6 @@ wat = "1.0"
 validation = ["wasmparser"]
 binary_encode = ["bincode"]
 default = ["validation"]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

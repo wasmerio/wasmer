@@ -86,6 +86,11 @@ impl From<Snapshot0Subscription> for Subscription {
                 Eventtype::FdWrite => SubscriptionUnion {
                     fd_readwrite: unsafe { other.u.fd_readwrite },
                 },
+                Eventtype::Unknown => SubscriptionUnion {
+                    fd_readwrite: SubscriptionFsReadwrite {
+                        file_descriptor: u32::MAX,
+                    },
+                },
             },
         }
     }
@@ -379,6 +384,8 @@ pub enum EpollCtl {
     Mod,
     #[doc = " Remove (deregister) the target file descriptor fd from the interest list."]
     Del,
+    #[doc = " Unknown."]
+    Unknown,
 }
 impl core::fmt::Debug for EpollCtl {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -386,6 +393,7 @@ impl core::fmt::Debug for EpollCtl {
             EpollCtl::Add => f.debug_tuple("EPOLL_CTL_ADD").finish(),
             EpollCtl::Mod => f.debug_tuple("EPOLL_CTL_MOD").finish(),
             EpollCtl::Del => f.debug_tuple("EPOLL_CTL_DEL").finish(),
+            EpollCtl::Unknown => f.debug_tuple("Unknown").finish(),
         }
     }
 }
@@ -408,7 +416,10 @@ unsafe impl wasmer::FromToNativeWasmType for EpollCtl {
             1 => Self::Mod,
             2 => Self::Del,
 
-            q => todo!("could not serialize number {q} to enum EpollCtl"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum EpollCtl");
+                Self::Unknown
+            }
         }
     }
 

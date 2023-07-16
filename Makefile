@@ -1,6 +1,5 @@
 SHELL=/usr/bin/env bash
 
-
 #####
 #
 # The Matrix
@@ -171,8 +170,6 @@ endif
 # If findstring is not empty, then it have found the value
 
 exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-compiler-cli
-# Is failing to compile in Linux for some reason
-exclude_tests += --exclude wasmer-wasi-experimental-io-devices
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
@@ -455,10 +452,10 @@ test-build-docs-rs:
 			fi; \
 			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
 			if [ -z "$$features" ]; then \
-				$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
+				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" || exit 1; \
 			else \
 				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
+				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" || exit 1; \
 			fi; \
 		fi; \
 	done
@@ -627,7 +624,7 @@ test-integration-cli: build-wasmer build-capi package-capi-headless package dist
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci:
 	rustup target add wasm32-wasi
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --  --test-threads=1
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --  --test-threads=1 --nocapture
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios

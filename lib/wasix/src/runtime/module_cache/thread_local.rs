@@ -10,7 +10,7 @@ std::thread_local! {
 }
 
 /// A cache that will cache modules in a thread-local variable.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct ThreadLocalCache {}
 

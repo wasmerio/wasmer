@@ -2,16 +2,19 @@ use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     path::PathBuf,
+    pin::Pin,
     sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    task::Context,
 };
 
+use futures::Future;
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::{watch, Mutex as AsyncMutex};
 use virtual_fs::{Pipe, VirtualFile};
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
 
-use crate::net::socket::InodeSocket;
+use crate::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
 
 use super::{
     InodeGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
@@ -98,15 +101,47 @@ pub struct EpollInterest {
 /// Guard the cleans up the selector registrations
 #[derive(Debug)]
 pub enum EpollJoinGuard {
-    Join(InodeValFilePollGuardJoin),
-    Handler { fd_guard: InodeValFilePollGuard },
+    Join {
+        join_guard: InodeValFilePollGuardJoin,
+        epoll_waker: Arc<EpollJoinWaker>,
+    },
+    Handler {
+        fd_guard: InodeValFilePollGuard,
+    },
 }
 impl Drop for EpollJoinGuard {
     fn drop(&mut self) {
-        if let Self::Handler { fd_guard } = self {
+        if let Self::Handler { fd_guard, .. } = self {
             if let InodeValFilePollGuardMode::Socket { inner } = &mut fd_guard.mode {
                 let mut inner = inner.protected.write().unwrap();
                 inner.remove_handler();
+            }
+        }
+    }
+}
+impl EpollJoinGuard {
+    pub fn is_spent(&self) -> bool {
+        match self {
+            Self::Join { join_guard, .. } => join_guard.is_spent(),
+            Self::Handler { .. } => false,
+        }
+    }
+    pub fn renew(&mut self) {
+        if let Self::Join {
+            join_guard,
+            epoll_waker,
+        } = self
+        {
+            let fd = join_guard.fd();
+            join_guard.reset();
+
+            let waker = epoll_waker.as_waker();
+            let mut cx = Context::from_waker(&waker);
+            if Pin::new(join_guard).poll(&mut cx).is_ready() {
+                tracing::trace!(fd, "join renew already woken");
+                waker.wake();
+            } else {
+                tracing::trace!(fd, "join waker reinstalled");
             }
         }
     }
