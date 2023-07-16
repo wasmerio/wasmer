@@ -26,6 +26,7 @@ fn main() {
             .open(&file)
             .expect("Couldn't create file");
         file_handle.write(STR1.as_bytes()).unwrap();
+        file_handle.flush().unwrap();
     }
     {
         let mut file_handle = OpenOptions::new()
@@ -33,6 +34,7 @@ fn main() {
             .open(&file)
             .expect("Couldn't reopen file to append");
         file_handle.write(STR2.as_bytes()).unwrap();
+        file_handle.flush().unwrap();
     }
 
     {
