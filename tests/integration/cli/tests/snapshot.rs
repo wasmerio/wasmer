@@ -333,6 +333,13 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
         }
     };
 
+    // Launch a watchman (after 60 seconds the process will be killed)
+    let pid = proc.id();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(300));
+        unsafe { libc::kill(pid as i32, libc::SIGSEGV) };
+    });
+
     let mut stdout_handle = proc.stdout.take().unwrap();
     let mut stderr_handle = proc.stderr.take().unwrap();
 
