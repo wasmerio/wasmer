@@ -213,6 +213,15 @@ fn client() -> Client {
         .unwrap()
 }
 
+#[cfg(not(target_os = "windows"))]
+fn sanitze_name_for_path(name: &str) -> String {
+    name.into()
+}
+#[cfg(target_os = "windows")]
+fn sanitze_name_for_path(name: &str) -> String {
+    name.replace(":", "_")
+}
+
 fn runtime() -> impl Runtime + Send + Sync {
     let tasks = TokioTaskManager::new(Handle::current());
     let mut rt = PluggableRuntime::new(Arc::new(tasks));
@@ -222,7 +231,9 @@ fn runtime() -> impl Runtime + Send + Sync {
 
     let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(env!("CARGO_PKG_NAME"))
-        .join(std::thread::current().name().unwrap_or("cache"));
+        .join(sanitze_name_for_path(
+            std::thread::current().name().unwrap_or("cache"),
+        ));
 
     std::fs::create_dir_all(&cache_dir).unwrap();
 
