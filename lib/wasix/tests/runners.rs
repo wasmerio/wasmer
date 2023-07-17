@@ -208,13 +208,10 @@ async fn download_cached(url: &str) -> bytes::Bytes {
 }
 
 fn client() -> Client {
-    static CLIENT: Lazy<Client> = Lazy::new(|| {
-        Client::builder()
-            .connect_timeout(Duration::from_secs(30))
-            .build()
-            .unwrap()
-    });
-    CLIENT.clone()
+    Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        .build()
+        .unwrap()
 }
 
 fn runtime() -> impl Runtime + Send + Sync {
