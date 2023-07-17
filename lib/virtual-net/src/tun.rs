@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::io::{self, ErrorKind};
 use std::mem::MaybeUninit;
+use std::ops::DerefMut;
 use std::os::fd::{AsRawFd, RawFd};
 use std::pin::Pin;
 use std::process::Command;
@@ -8,15 +9,20 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
 use bytes::Bytes;
-use futures_util::{Future, SinkExt, StreamExt};
+use futures_util::Future;
 use mio::unix::SourceFd;
 use mio::{event, Interest, Registry, Token};
-use tokio_tungstenite::tungstenite::Message;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio_tungstenite::{MaybeTlsStream, WebSocketStream};
 use tun_tap::{Iface, Mode};
 use virtual_io::{InterestGuard, InterestHandler, Selector};
 
 use crate::meta::Hello;
-use crate::{io_err_into_net_error, NetworkError, RemoteNetworking, VirtualRawSocket};
+use crate::{
+    io_err_into_net_error, NetworkError, RemoteNetworking, RemoteNetworkingDriver,
+    VirtualNetworking, VirtualRawSocket,
+};
 
 fn cmd(cmd: &str, args: &[&str]) -> anyhow::Result<()> {
     let ecode = Command::new(cmd).args(args).spawn()?.wait()?;
@@ -30,6 +36,65 @@ fn cmd(cmd: &str, args: &[&str]) -> anyhow::Result<()> {
     }
 }
 
+#[derive(Debug, Clone)]
+struct TungstensiteAdapter {
+    stream: Arc<Mutex<WebSocketStream<MaybeTlsStream<TcpStream>>>>,
+}
+impl TungstensiteAdapter {
+    fn new(stream: WebSocketStream<MaybeTlsStream<TcpStream>>) -> Self {
+        Self {
+            stream: Arc::new(Mutex::new(stream)),
+        }
+    }
+    fn split(self) -> (Self, Self) {
+        (self.clone(), self.clone())
+    }
+}
+impl AsyncRead for TungstensiteAdapter {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let mut guard = self.stream.lock().unwrap();
+        Pin::new(guard.deref_mut().get_mut()).poll_read(cx, buf)
+    }
+}
+impl AsyncWrite for TungstensiteAdapter {
+    fn poll_write_vectored(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        bufs: &[io::IoSlice<'_>],
+    ) -> Poll<Result<usize, io::Error>> {
+        let mut guard = self.stream.lock().unwrap();
+        Pin::new(guard.deref_mut().get_mut()).poll_write_vectored(cx, bufs)
+    }
+
+    fn is_write_vectored(&self) -> bool {
+        let mut guard = self.stream.lock().unwrap();
+        Pin::new(guard.deref_mut().get_mut()).is_write_vectored()
+    }
+
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let mut guard = self.stream.lock().unwrap();
+        Pin::new(guard.deref_mut().get_mut()).poll_write(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let mut guard = self.stream.lock().unwrap();
+        Pin::new(guard.deref_mut().get_mut()).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let mut guard = self.stream.lock().unwrap();
+        Pin::new(guard.deref_mut().get_mut()).poll_shutdown(cx)
+    }
+}
+
 pub struct TunTapSocket {}
 impl TunTapSocket {
     pub async fn create(
@@ -38,14 +103,16 @@ impl TunTapSocket {
         hello: Hello,
     ) -> anyhow::Result<TunTapDriver> {
         // Create the remote client
-        let (stream, res) = tokio_tungstenite::connect_async(url).await?;
-        let (tx, rx) = stream.split();
-        tx.send(Message::Binary(bincode::serialize(&hello)?.to_vec()))
-            .await?;
+        let (stream, _res) = tokio_tungstenite::connect_async(url).await?;
+        let (mut tx, rx) = TungstensiteAdapter::new(stream).split();
+
+        // Send the hello message
+        tx.write_all(&bincode::serialize(&hello)?).await?;
 
         // Now pass it on to a remote networking adapter
         let (remote, remote_driver) =
             RemoteNetworking::new_from_stream_via_driver(Box::pin(tx), Box::pin(rx));
+        let mut client = remote.bind_raw().await?;
 
         let iface = Iface::new("wasmer%d", Mode::Tun)?;
         cmd("ip", &["link", "set", "up", "dev", iface.name()])?;
@@ -75,6 +142,7 @@ impl TunTapSocket {
             send_queue: Default::default(),
             _interest: interest,
             client,
+            remote_driver,
         };
 
         Ok(driver)
@@ -113,12 +181,21 @@ pub struct TunTapDriver {
     handler: TunTapHandler,
     send_queue: VecDeque<Bytes>,
     _interest: InterestGuard,
-    client: Box<dyn VirtualRawSocket + Send + Sync + 'static>,
+    client: Box<dyn VirtualRawSocket + Sync + 'static>,
+    remote_driver: RemoteNetworkingDriver,
 }
 
 impl Future for TunTapDriver {
     type Output = io::Result<()>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        // Run the remote networking
+        loop {
+            match Pin::new(&mut self.remote_driver).poll(cx) {
+                Poll::Ready(()) => return Poll::Ready(Ok(())),
+                Poll::Pending => break,
+            }
+        }
+
         // Add the waker before we drain all the the events
         // we need to read and send
         let inner = self.handler.inner.clone();
