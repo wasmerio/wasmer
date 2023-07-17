@@ -6,6 +6,8 @@ mod cache;
 #[cfg(feature = "compiler")]
 mod compile;
 mod config;
+mod connect;
+mod connect;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
 mod create_exe;
 #[cfg(feature = "static-artifact-create")]
@@ -32,7 +34,7 @@ pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
 pub use {
-    add::*, cache::*, config::*, init::*, inspect::*, login::*, publish::*, run::Run,
+    add::*, cache::*, config::*, connect::*, init::*, inspect::*, login::*, publish::*, run::Run,
     self_update::*, validate::*, whoami::*,
 };
 #[cfg(feature = "static-artifact-create")]
