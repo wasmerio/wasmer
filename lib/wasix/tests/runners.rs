@@ -8,7 +8,6 @@ use std::{
     time::Duration,
 };
 
-use once_cell::sync::Lazy;
 use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
