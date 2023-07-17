@@ -7,9 +7,6 @@ pub mod host;
 pub mod meta;
 #[cfg(any(feature = "remote"))]
 pub mod server;
-#[cfg(target_os = "linux")]
-#[cfg(feature = "tun-tap")]
-pub mod tun;
 
 #[cfg(any(feature = "remote"))]
 pub use client::{RemoteNetworking, RemoteNetworkingDriver};
@@ -25,16 +22,13 @@ pub use std::net::SocketAddr;
 use std::sync::Arc;
 pub use std::time::Duration;
 use thiserror::Error;
-#[cfg(target_os = "linux")]
-#[cfg(feature = "tun-tap")]
-pub use tun::{TunTapDriver, TunTapSocket};
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
-pub use virtual_io::{handler_into_waker, InterestHandler};
+pub use wasmer_virtual_io::{handler_into_waker, InterestHandler};
 #[cfg(feature = "host-net")]
-pub use virtual_io::{InterestGuard, InterestHandlerWaker, InterestType};
+pub use wasmer_virtual_io::{InterestGuard, InterestHandlerWaker, InterestType};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 

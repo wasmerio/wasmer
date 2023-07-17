@@ -16,7 +16,7 @@ use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
 use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
-pub use virtual_io::waker::*;
+pub use wasmer_virtual_io::waker::*;
 
 #[derive(Debug)]
 pub enum SpawnMemoryType<'a> {

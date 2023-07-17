@@ -32,14 +32,6 @@ pub enum Shutdown {
     Both,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct Hello {
-    /// The network that we will connect to
-    pub network_hash: [u8; 16],
-    /// The encryption key that authorizes the connection
-    pub encrypt_key: [u8; 32],
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RequestType {
     /// Bridges this local network with a remote network, which is required in

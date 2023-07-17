@@ -256,9 +256,11 @@ impl Wasi {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
 
         if self.networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+            rt.set_networking_implementation(wasmer_virtual_net::host::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+            rt.set_networking_implementation(
+                wasmer_virtual_net::UnsupportedVirtualNetworking::default(),
+            );
         }
 
         if !self.no_tty {

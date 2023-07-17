@@ -31,8 +31,8 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::oneshot;
-use virtual_io::InlineWaker;
-use virtual_io::InterestType;
+use wasmer_virtual_io::InlineWaker;
+use wasmer_virtual_io::InterestType;
 
 use crate::io_err_into_net_error;
 use crate::meta;
@@ -632,7 +632,7 @@ struct RemoteCommon {
     recv_tx: Mutex<HashMap<SocketId, mpsc::Sender<Vec<u8>>>>,
     recv_with_addr_tx: Mutex<HashMap<SocketId, mpsc::Sender<(Vec<u8>, SocketAddr)>>>,
     #[derivative(Debug = "ignore")]
-    handlers: Mutex<HashMap<SocketId, Box<dyn virtual_io::InterestHandler + Send + Sync>>>,
+    handlers: Mutex<HashMap<SocketId, Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>>>,
 
     // The stall guard will prevent reads while its held and there are background tasks running
     // (the idea behind this is to create back pressure so that the task list infinitely grow)
@@ -1022,7 +1022,7 @@ impl VirtualSocket for RemoteSocket {
 
     fn set_handler(
         &mut self,
-        handler: Box<dyn virtual_io::InterestHandler + Send + Sync>,
+        handler: Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>,
     ) -> Result<()> {
         self.common
             .handlers
@@ -1065,7 +1065,7 @@ impl VirtualTcpListener for RemoteSocket {
 
     fn set_handler(
         &mut self,
-        handler: Box<dyn virtual_io::InterestHandler + Send + Sync>,
+        handler: Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>,
     ) -> Result<()> {
         VirtualSocket::set_handler(self, handler)
     }

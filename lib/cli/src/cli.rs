@@ -108,6 +108,7 @@ impl Args {
             Some(Cmd::Init(init)) => init.execute(),
             Some(Cmd::Login(login)) => login.execute(),
             Some(Cmd::Publish(publish)) => publish.execute(),
+            Some(Cmd::Connect(connect)) => connect.execute(),
             #[cfg(feature = "static-artifact-create")]
             Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
             #[cfg(feature = "wast")]
@@ -266,6 +267,9 @@ enum Cmd {
 
     /// Create a dynamic on the Deploy Edge, and connect to it through SSH.
     Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+
+    /// Connect to the Edge.
+    Connect(wasmer_deploy_cli::cmd::connect::CmdConnect),
 
     /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]

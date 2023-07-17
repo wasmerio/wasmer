@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::{VirtualIoSource, io_err_into_net_error};
+use crate::{io_err_into_net_error, VirtualIoSource};
 #[allow(unused_imports)]
 use crate::{
     IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
@@ -15,7 +15,7 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-use virtual_io::{InterestGuard, InterestHandler, Selector};
+use wasmer_virtual_io::{InterestGuard, InterestHandler, Selector};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -313,7 +313,7 @@ impl VirtualSocket for LocalTcpStream {
 
         if self.first_handler_writeable {
             self.first_handler_writeable = false;
-            handler.interest(virtual_io::InterestType::Writable);
+            handler.interest(wasmer_virtual_io::InterestType::Writable);
         }
 
         let guard = InterestGuard::new(

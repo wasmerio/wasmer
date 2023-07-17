@@ -10,15 +10,15 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtual_io::{
+use wasmer_types::MemorySize;
+use wasmer_virtual_io::{
     FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType,
     StatefulHandlerState,
 };
-use virtual_net::{
+use wasmer_virtual_net::{
     NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
     VirtualTcpSocket, VirtualUdpSocket,
 };
-use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
 
 use crate::{net::net_error_into_wasi_err, VirtualTaskManager};
@@ -1266,7 +1266,9 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.set_handler(handler),
             InodeSocketKind::Raw(socket) => socket.set_handler(handler),
             InodeSocketKind::Icmp(socket) => socket.set_handler(handler),
-            InodeSocketKind::PreSocket { .. } => Err(virtual_net::NetworkError::NotConnected),
+            InodeSocketKind::PreSocket { .. } => {
+                Err(wasmer_virtual_net::NetworkError::NotConnected)
+            }
         }
     }
 
@@ -1274,7 +1276,7 @@ impl InodeSocketProtected {
         &mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
         interest: InterestType,
-    ) -> virtual_net::Result<()> {
+    ) -> wasmer_virtual_net::Result<()> {
         if self.aggregate_handler.is_none() {
             let upper = FilteredHandler::new();
             let subs = upper.subscriptions().clone();

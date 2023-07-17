@@ -25,7 +25,7 @@ use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::mpsc,
 };
-use virtual_io::InterestHandler;
+use wasmer_virtual_io::InterestHandler;
 
 type BackgroundTask = Option<BoxFuture<'static, ()>>;
 
@@ -1273,7 +1273,7 @@ impl RemoteAdapterHandler {
     }
 }
 impl InterestHandler for RemoteAdapterHandler {
-    fn interest(&mut self, interest: virtual_io::InterestType) {
+    fn interest(&mut self, interest: wasmer_virtual_io::InterestType) {
         let mut guard = self.state.lock().unwrap();
         guard.driver_wakers.drain(..).for_each(|w| w.wake());
         let socket_id = match self.socket_id.clone() {
@@ -1281,7 +1281,7 @@ impl InterestHandler for RemoteAdapterHandler {
             None => return,
         };
         match interest {
-            virtual_io::InterestType::Readable => {
+            wasmer_virtual_io::InterestType::Readable => {
                 guard.readable.insert(socket_id);
             }
             _ => {}

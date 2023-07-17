@@ -4,9 +4,9 @@ use std::{
     time::Duration,
 };
 
-use virtual_net::{IpCidr, IpRoute, NetworkError};
 use wasmer::{MemoryView, WasmPtr};
 use wasmer_types::MemorySize;
+use wasmer_virtual_net::{IpCidr, IpRoute, NetworkError};
 use wasmer_wasix_types::{
     types::{
         OptionTag, OptionTimestamp, Route, __wasi_addr_ip4_t, __wasi_addr_ip6_t,
