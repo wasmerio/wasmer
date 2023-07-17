@@ -8,13 +8,15 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Waker};
 
 use bytes::Bytes;
-use futures_util::Future;
+use futures_util::{Future, SinkExt, StreamExt};
 use mio::unix::SourceFd;
 use mio::{event, Interest, Registry, Token};
+use tokio_tungstenite::tungstenite::Message;
 use tun_tap::{Iface, Mode};
 use virtual_io::{InterestGuard, InterestHandler, Selector};
 
-use crate::{io_err_into_net_error, NetworkError, VirtualRawSocket};
+use crate::meta::Hello;
+use crate::{io_err_into_net_error, NetworkError, RemoteNetworking, VirtualRawSocket};
 
 fn cmd(cmd: &str, args: &[&str]) -> anyhow::Result<()> {
     let ecode = Command::new(cmd).args(args).spawn()?.wait()?;
@@ -30,11 +32,22 @@ fn cmd(cmd: &str, args: &[&str]) -> anyhow::Result<()> {
 
 pub struct TunTapSocket {}
 impl TunTapSocket {
-    pub fn create(
+    pub async fn create(
         selector: Arc<Selector>,
-        mut client: Box<dyn VirtualRawSocket + Send + Sync + 'static>,
+        url: &str,
+        hello: Hello,
     ) -> anyhow::Result<TunTapDriver> {
-        let iface = Iface::new("testtun%d", Mode::Tun)?;
+        // Create the remote client
+        let (stream, res) = tokio_tungstenite::connect_async(url).await?;
+        let (tx, rx) = stream.split();
+        tx.send(Message::Binary(bincode::serialize(&hello)?.to_vec()))
+            .await?;
+
+        // Now pass it on to a remote networking adapter
+        let (remote, remote_driver) =
+            RemoteNetworking::new_from_stream_via_driver(Box::pin(tx), Box::pin(rx));
+
+        let iface = Iface::new("wasmer%d", Mode::Tun)?;
         cmd("ip", &["link", "set", "up", "dev", iface.name()])?;
 
         // Set non-blocking and wrap the MIO

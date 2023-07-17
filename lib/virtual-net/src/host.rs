@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::{io_err_into_net_error, VirtualIoSource};
+use crate::{VirtualIoSource, io_err_into_net_error};
 #[allow(unused_imports)]
 use crate::{
     IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
