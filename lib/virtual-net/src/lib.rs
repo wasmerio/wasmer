@@ -1,15 +1,20 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[cfg(any(feature = "remote", feature = "host-net"))]
+#[cfg(any(feature = "remote"))]
 pub mod client;
 #[cfg(feature = "host-net")]
 pub mod host;
 pub mod meta;
-#[cfg(any(feature = "remote", feature = "host-net"))]
+#[cfg(any(feature = "remote"))]
 pub mod server;
-#[cfg(feature = "host-net")]
+#[cfg(target_os = "linux")]
+#[cfg(feature = "tun-tap")]
 pub mod tun;
 
+#[cfg(any(feature = "remote"))]
+pub use client::{RemoteNetworking, RemoteNetworkingDriver};
+#[cfg(any(feature = "remote"))]
+pub use server::{RemoteNetworkingAdapter, RemoteNetworkingAdapterDriver};
 use std::fmt;
 use std::mem::MaybeUninit;
 pub use std::net::IpAddr;
@@ -20,6 +25,9 @@ pub use std::net::SocketAddr;
 use std::sync::Arc;
 pub use std::time::Duration;
 use thiserror::Error;
+#[cfg(target_os = "linux")]
+#[cfg(feature = "tun-tap")]
+pub use tun::{TunTapDriver, TunTapSocket};
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
@@ -492,4 +500,56 @@ pub enum NetworkError {
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
+}
+
+pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
+    use std::io::ErrorKind;
+    match net_error.kind() {
+        ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
+        ErrorKind::AlreadyExists => NetworkError::AlreadyExists,
+        ErrorKind::AddrInUse => NetworkError::AddressInUse,
+        ErrorKind::AddrNotAvailable => NetworkError::AddressNotAvailable,
+        ErrorKind::ConnectionAborted => NetworkError::ConnectionAborted,
+        ErrorKind::ConnectionRefused => NetworkError::ConnectionRefused,
+        ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
+        ErrorKind::Interrupted => NetworkError::Interrupted,
+        ErrorKind::InvalidData => NetworkError::InvalidData,
+        ErrorKind::InvalidInput => NetworkError::InvalidInput,
+        ErrorKind::NotConnected => NetworkError::NotConnected,
+        ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
+        ErrorKind::TimedOut => NetworkError::TimedOut,
+        ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
+        ErrorKind::WouldBlock => NetworkError::WouldBlock,
+        ErrorKind::WriteZero => NetworkError::WriteZero,
+        ErrorKind::Unsupported => NetworkError::Unsupported,
+
+        #[cfg(all(target_family = "unix", feature = "libc"))]
+        _ => {
+            if let Some(code) = net_error.raw_os_error() {
+                match code {
+                    libc::EPERM => NetworkError::PermissionDenied,
+                    libc::EBADF => NetworkError::InvalidFd,
+                    libc::ECHILD => NetworkError::InvalidFd,
+                    libc::EMFILE => NetworkError::TooManyOpenFiles,
+                    libc::EINTR => NetworkError::Interrupted,
+                    libc::EIO => NetworkError::IOError,
+                    libc::ENXIO => NetworkError::IOError,
+                    libc::EAGAIN => NetworkError::WouldBlock,
+                    libc::ENOMEM => NetworkError::InsufficientMemory,
+                    libc::EACCES => NetworkError::PermissionDenied,
+                    libc::ENODEV => NetworkError::NoDevice,
+                    libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EPIPE => NetworkError::BrokenPipe,
+                    err => {
+                        tracing::trace!("unknown os error {}", err);
+                        NetworkError::UnknownError
+                    }
+                }
+            } else {
+                NetworkError::UnknownError
+            }
+        }
+        #[cfg(not(all(target_family = "unix", feature = "libc")))]
+        _ => NetworkError::UnknownError,
+    }
 }

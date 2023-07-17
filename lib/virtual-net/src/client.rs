@@ -34,7 +34,7 @@ use tokio::sync::oneshot;
 use virtual_io::InlineWaker;
 use virtual_io::InterestType;
 
-use crate::host::io_err_into_net_error;
+use crate::io_err_into_net_error;
 use crate::meta;
 use crate::meta::RequestType;
 use crate::meta::ResponseType;
@@ -578,7 +578,7 @@ where
                         _ => {}
                     }
 
-                    let mut chunk: [MaybeUninit<u8>; 4096] =
+                    let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
                     let chunk_unsafe: &mut [MaybeUninit<u8>] = &mut chunk[..];
                     let chunk_unsafe: &mut [u8] = unsafe { std::mem::transmute(chunk_unsafe) };

@@ -1144,7 +1144,7 @@ impl RemoteAdapterSocket {
         loop {
             break match self {
                 Self::TcpSocket(this) => {
-                    let mut chunk: [MaybeUninit<u8>; 4096] =
+                    let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
                     match this.try_recv(&mut chunk) {
                         Ok(0) => {}
@@ -1164,7 +1164,7 @@ impl RemoteAdapterSocket {
                     }
                 }
                 Self::UdpSocket(this) => {
-                    let mut chunk: [MaybeUninit<u8>; 4096] =
+                    let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
                     match this.try_recv_from(&mut chunk) {
                         Ok((0, _)) => {}
@@ -1184,7 +1184,7 @@ impl RemoteAdapterSocket {
                     }
                 }
                 Self::IcmpSocket(this) => {
-                    let mut chunk: [MaybeUninit<u8>; 4096] =
+                    let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
                     match this.try_recv_from(&mut chunk) {
                         Ok((0, _)) => {}
@@ -1204,7 +1204,7 @@ impl RemoteAdapterSocket {
                     }
                 }
                 Self::RawSocket(this) => {
-                    let mut chunk: [MaybeUninit<u8>; 4096] =
+                    let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
                     match this.try_recv(&mut chunk) {
                         Ok(0) => {}
