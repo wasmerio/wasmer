@@ -24,7 +24,12 @@ impl From<u64> for SocketId {
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum FrameSerializationFormat {
     Bincode,
-    Json
+    #[cfg(feature = "json")]
+    Json,
+    #[cfg(feature = "messagepack")]
+    MessagePack,
+    #[cfg(feature = "cbor")]
+    Cbor,
 }
 
 /// Possible values which can be passed to the [`TcpStream::shutdown`] method.

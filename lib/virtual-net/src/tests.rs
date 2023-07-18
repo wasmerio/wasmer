@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::{
     net::{Ipv4Addr, SocketAddrV4},
     sync::atomic::{AtomicU16, Ordering},
@@ -5,14 +6,17 @@ use std::{
 
 use tracing_test::traced_test;
 
+#[cfg(feature = "remote")]
+use crate::RemoteNetworkingServer;
 use crate::{
-    host::LocalNetworking, meta::FrameSerializationFormat, RemoteNetworkingServer,
-    VirtualConnectedSocketExt, VirtualTcpListenerExt,
+    host::LocalNetworking, meta::FrameSerializationFormat, VirtualConnectedSocketExt,
+    VirtualTcpListenerExt,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::*;
 
+#[cfg(feature = "remote")]
 async fn setup_mpsc() -> (RemoteNetworkingClient, RemoteNetworkingServer) {
     tracing::info!("building MPSC channels");
     let (tx1, rx1) = tokio::sync::mpsc::channel(100);
@@ -37,6 +41,7 @@ async fn setup_mpsc() -> (RemoteNetworkingClient, RemoteNetworkingServer) {
     (client, server)
 }
 
+#[cfg(feature = "remote")]
 async fn setup_pipe(
     buf_size: usize,
     format: FrameSerializationFormat,
@@ -64,6 +69,7 @@ async fn setup_pipe(
     (client, server)
 }
 
+#[cfg(feature = "remote")]
 async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServer) {
     static PORT: AtomicU16 = AtomicU16::new(8000);
     let addr = SocketAddr::V4(SocketAddrV4::new(
@@ -118,6 +124,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
     tracing::info!("all good");
 }
 
+#[cfg(feature = "remote")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_mpsc() {
@@ -125,6 +132,7 @@ async fn test_tcp_with_mpsc() {
     test_tcp(client, server).await
 }
 
+#[cfg(feature = "remote")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_small_pipe_using_bincode() {
@@ -132,6 +140,7 @@ async fn test_tcp_with_small_pipe_using_bincode() {
     test_tcp(client, server).await
 }
 
+#[cfg(feature = "remote")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_large_pipe_using_bincode() {
@@ -139,6 +148,8 @@ async fn test_tcp_with_large_pipe_using_bincode() {
     test_tcp(client, server).await
 }
 
+#[cfg(feature = "remote")]
+#[cfg(feature = "json")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_small_pipe_using_json() {
@@ -146,9 +157,47 @@ async fn test_tcp_with_small_pipe_using_json() {
     test_tcp(client, server).await
 }
 
+#[cfg(feature = "remote")]
+#[cfg(feature = "json")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_large_pipe_json_using_json() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Json).await;
+    test_tcp(client, server).await
+}
+
+#[cfg(feature = "remote")]
+#[cfg(feature = "messagepack")]
+#[traced_test]
+#[tokio::test]
+async fn test_tcp_with_small_pipe_using_messagepack() {
+    let (client, server) = setup_pipe(10, FrameSerializationFormat::MessagePack).await;
+    test_tcp(client, server).await
+}
+
+#[cfg(feature = "remote")]
+#[cfg(feature = "messagepack")]
+#[traced_test]
+#[tokio::test]
+async fn test_tcp_with_large_pipe_json_using_messagepack() {
+    let (client, server) = setup_pipe(1024000, FrameSerializationFormat::MessagePack).await;
+    test_tcp(client, server).await
+}
+
+#[cfg(feature = "remote")]
+#[cfg(feature = "cbor")]
+#[traced_test]
+#[tokio::test]
+async fn test_tcp_with_small_pipe_using_cbor() {
+    let (client, server) = setup_pipe(10, FrameSerializationFormat::Cbor).await;
+    test_tcp(client, server).await
+}
+
+#[cfg(feature = "remote")]
+#[cfg(feature = "cbor")]
+#[traced_test]
+#[tokio::test]
+async fn test_tcp_with_large_pipe_json_using_cbor() {
+    let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
 }

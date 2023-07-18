@@ -28,7 +28,12 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio_serde::formats::SymmetricalBincode;
+#[cfg(feature = "cbor")]
+use tokio_serde::formats::SymmetricalCbor;
+#[cfg(feature = "json")]
 use tokio_serde::formats::SymmetricalJson;
+#[cfg(feature = "messagepack")]
+use tokio_serde::formats::SymmetricalMessagePack;
 use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
@@ -128,8 +133,18 @@ impl RemoteNetworkingClient {
                 FrameSerializationFormat::Bincode => {
                     Box::pin(SymmetricallyFramed::new(tx, SymmetricalBincode::default()))
                 }
+                #[cfg(feature = "json")]
                 FrameSerializationFormat::Json => {
                     Box::pin(SymmetricallyFramed::new(tx, SymmetricalJson::default()))
+                }
+                #[cfg(feature = "messagepack")]
+                FrameSerializationFormat::MessagePack => Box::pin(SymmetricallyFramed::new(
+                    tx,
+                    SymmetricalMessagePack::default(),
+                )),
+                #[cfg(feature = "cbor")]
+                FrameSerializationFormat::Cbor => {
+                    Box::pin(SymmetricallyFramed::new(tx, SymmetricalCbor::default()))
                 }
             };
 
@@ -139,8 +154,18 @@ impl RemoteNetworkingClient {
                 FrameSerializationFormat::Bincode => {
                     Box::pin(SymmetricallyFramed::new(rx, SymmetricalBincode::default()))
                 }
+                #[cfg(feature = "json")]
                 FrameSerializationFormat::Json => {
                     Box::pin(SymmetricallyFramed::new(rx, SymmetricalJson::default()))
+                }
+                #[cfg(feature = "messagepack")]
+                FrameSerializationFormat::MessagePack => Box::pin(SymmetricallyFramed::new(
+                    rx,
+                    SymmetricalMessagePack::default(),
+                )),
+                #[cfg(feature = "cbor")]
+                FrameSerializationFormat::Cbor => {
+                    Box::pin(SymmetricallyFramed::new(rx, SymmetricalCbor::default()))
                 }
             };
 

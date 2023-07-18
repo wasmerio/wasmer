@@ -9,6 +9,7 @@ pub mod meta;
 pub mod rx_tx;
 #[cfg(any(feature = "remote"))]
 pub mod server;
+#[cfg(feature = "tokio")]
 #[cfg(test)]
 mod tests;
 
@@ -30,7 +31,9 @@ use std::task::Context;
 use std::task::Poll;
 pub use std::time::Duration;
 use thiserror::Error;
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncRead;
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncWrite;
 
 pub use bytes::Bytes;
@@ -581,6 +584,7 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     fn is_closed(&self) -> bool;
 }
 
+#[cfg(feature = "tokio")]
 impl<'a> AsyncRead for Box<dyn VirtualTcpSocket + Sync + 'a> {
     fn poll_read(
         self: Pin<&mut Self>,
@@ -605,6 +609,7 @@ impl<'a> AsyncRead for Box<dyn VirtualTcpSocket + Sync + 'a> {
     }
 }
 
+#[cfg(feature = "tokio")]
 impl<'a> AsyncWrite for Box<dyn VirtualTcpSocket + Sync + 'a> {
     fn poll_write(
         self: Pin<&mut Self>,
@@ -867,11 +872,11 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
         NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
         NetworkError::TooManyOpenFiles => {
-            #[cfg(target_family = "unix")]
+            #[cfg(all(target_family = "unix", feature = "libc"))]
             {
                 std::io::Error::from_raw_os_error(libc::EMFILE)
             }
-            #[cfg(not(target_family = "unix"))]
+            #[cfg(not(all(target_family = "unix", feature = "libc")))]
             {
                 ErrorKind::Other.into()
             }
