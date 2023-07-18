@@ -206,7 +206,6 @@ impl Wasi {
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap()
-                .map_dir(".", "/")?
         } else {
             builder
                 .fs(default_fs_backing())
