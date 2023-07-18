@@ -51,7 +51,7 @@ async fn setup_pipe(
     let (tx2, rx2) = tokio::io::duplex(buf_size);
 
     tracing::info!("constructing remote client (mpsc)");
-    let (client, client_driver) = RemoteNetworkingClient::new_from_stream(tx1, rx2, format);
+    let (client, client_driver) = RemoteNetworkingClient::new_from_async_io(tx1, rx2, format);
 
     tracing::info!("spawning driver for remote client");
     tokio::task::spawn(client_driver);
@@ -61,7 +61,7 @@ async fn setup_pipe(
 
     tracing::info!("constructing remote server (mpsc)");
     let (server, server_driver) =
-        RemoteNetworkingServer::new_from_stream(tx2, rx1, format, Box::new(local_networking));
+        RemoteNetworkingServer::new_from_async_io(tx2, rx1, format, Box::new(local_networking));
 
     tracing::info!("spawning driver for remote server");
     tokio::task::spawn(server_driver);

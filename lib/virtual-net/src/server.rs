@@ -89,7 +89,7 @@ impl RemoteNetworkingServer {
 
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
-    pub fn new_from_stream<TX, RX>(
+    pub fn new_from_async_io<TX, RX>(
         tx: TX,
         rx: RX,
         format: FrameSerializationFormat,

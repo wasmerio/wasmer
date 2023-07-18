@@ -118,7 +118,7 @@ impl RemoteNetworkingClient {
     ///
     /// This version will run the async read and write operations
     /// only the driver (this is needed for mixed runtimes)
-    pub fn new_from_stream<TX, RX>(
+    pub fn new_from_async_io<TX, RX>(
         tx: TX,
         rx: RX,
         format: FrameSerializationFormat,
