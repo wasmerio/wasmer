@@ -1,17 +1,19 @@
-use crate::meta::ResponseType;
+use crate::meta::{FrameSerializationFormat, ResponseType};
+use crate::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
 use crate::{
-    client::{RemoteRx, RemoteTx},
     meta::{MessageRequest, MessageResponse, RequestType, SocketId},
     VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
-use crate::{NetworkError, VirtualIcmpSocket};
-use bytes::BytesMut;
+use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
 use derivative::Derivative;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{future::BoxFuture, StreamExt};
+use futures_util::{Sink, Stream};
 use std::collections::HashSet;
 use std::mem::MaybeUninit;
+use std::net::IpAddr;
 use std::task::Waker;
+use std::time::Duration;
 use std::{
     collections::HashMap,
     future::Future,
@@ -25,111 +27,261 @@ use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::mpsc,
 };
+use tokio_serde::formats::{SymmetricalBincode, SymmetricalJson};
+use tokio_serde::SymmetricallyFramed;
+use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use wasmer_virtual_io::InterestHandler;
 
 type BackgroundTask = Option<BoxFuture<'static, ()>>;
 
 #[derive(Debug, Clone)]
-pub struct RemoteNetworkingAdapter {
+pub struct RemoteNetworkingServer {
     #[allow(dead_code)]
     common: Arc<RemoteAdapterCommon>,
+    inner: Arc<tokio::sync::Mutex<Box<dyn VirtualNetworking + Send + Sync + 'static>>>,
 }
 
-impl RemoteNetworkingAdapter {
+impl RemoteNetworkingServer {
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
     pub fn new_from_mpsc(
         tx: mpsc::Sender<MessageResponse>,
         rx: mpsc::Receiver<MessageRequest>,
         inner: Box<dyn VirtualNetworking + Send + Sync + 'static>,
-    ) -> (Self, RemoteNetworkingAdapterDriver) {
-        let (_, rx_work) = mpsc::unbounded_channel();
+    ) -> (Self, RemoteNetworkingServerDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
 
         let common = RemoteAdapterCommon {
-            tx: RemoteTx::Mpsc(tx),
-            rx: Mutex::new(RemoteRx::Mpsc(rx)),
+            tx: RemoteTx::Mpsc {
+                tx,
+                work: tx_work,
+                wakers: tx_wakers.clone(),
+            },
+            rx: Mutex::new(RemoteRx::Mpsc {
+                rx,
+                wakers: tx_wakers,
+            }),
             sockets: Default::default(),
+            socket_accept: Default::default(),
             handler: Default::default(),
             stall_rx: Default::default(),
         };
         let common = Arc::new(common);
 
-        let driver = RemoteNetworkingAdapterDriver {
+        let inner = Arc::new(tokio::sync::Mutex::new(inner));
+        let driver = RemoteNetworkingServerDriver {
             more_work: rx_work,
             tasks: Default::default(),
             common: common.clone(),
-            inner: Arc::new(tokio::sync::Mutex::new(inner)),
+            inner: inner.clone(),
         };
-        let networking = Self { common };
+        let networking = Self { common, inner };
 
         (networking, driver)
     }
 
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
-    pub fn new_from_stream(
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+    pub fn new_from_stream<TX, RX>(
+        tx: TX,
+        rx: RX,
+        format: FrameSerializationFormat,
         inner: Box<dyn VirtualNetworking + Send + Sync + 'static>,
-    ) -> (Self, RemoteNetworkingAdapterDriver) {
-        Self::new_from_stream_internal(tx, rx, inner, false)
-    }
+    ) -> (Self, RemoteNetworkingServerDriver)
+    where
+        TX: AsyncWrite + Send + 'static,
+        RX: AsyncRead + Send + 'static,
+    {
+        let tx = FramedWrite::new(tx, LengthDelimitedCodec::new());
+        let tx: Pin<Box<dyn Sink<MessageResponse, Error = std::io::Error> + Send + 'static>> =
+            match format {
+                FrameSerializationFormat::Bincode => {
+                    Box::pin(SymmetricallyFramed::new(tx, SymmetricalBincode::default()))
+                }
+                FrameSerializationFormat::Json => {
+                    Box::pin(SymmetricallyFramed::new(tx, SymmetricalJson::default()))
+                }
+            };
 
-    /// Creates a new interface on the remote location using
-    /// a unique interface ID and a pair of channels
-    pub fn new_from_stream_via_driver(
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
-        inner: Box<dyn VirtualNetworking + Send + Sync + 'static>,
-    ) -> (Self, RemoteNetworkingAdapterDriver) {
-        Self::new_from_stream_internal(tx, rx, inner, true)
-    }
+        let rx = FramedRead::new(rx, LengthDelimitedCodec::new());
+        let rx: Pin<Box<dyn Stream<Item = std::io::Result<MessageRequest>> + Send + 'static>> =
+            match format {
+                FrameSerializationFormat::Bincode => {
+                    Box::pin(SymmetricallyFramed::new(rx, SymmetricalBincode::default()))
+                }
+                FrameSerializationFormat::Json => {
+                    Box::pin(SymmetricallyFramed::new(rx, SymmetricalJson::default()))
+                }
+            };
 
-    fn new_from_stream_internal(
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
-        inner: Box<dyn VirtualNetworking + Send + Sync + 'static>,
-        via_driver: bool,
-    ) -> (Self, RemoteNetworkingAdapterDriver) {
         let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
 
         let handler = RemoteAdapterHandler::default();
         let common = RemoteAdapterCommon {
-            tx: if via_driver {
-                RemoteTx::StreamViaDriver {
-                    tx: Arc::new(Mutex::new(tx)),
-                    work: tx_work,
-                }
-            } else {
-                RemoteTx::Stream {
-                    tx: Arc::new(Mutex::new(tx)),
-                }
+            tx: RemoteTx::Stream {
+                tx: Arc::new(tokio::sync::Mutex::new(tx)),
+                work: tx_work,
+                wakers: tx_wakers.clone(),
             },
-            rx: Mutex::new(RemoteRx::Stream {
-                rx,
-                next: None,
-                buf: BytesMut::new(),
-            }),
+            rx: Mutex::new(RemoteRx::Stream { rx }),
             sockets: Default::default(),
+            socket_accept: Default::default(),
             handler,
             stall_rx: Default::default(),
         };
         let common = Arc::new(common);
 
-        let driver = RemoteNetworkingAdapterDriver {
+        let inner = Arc::new(tokio::sync::Mutex::new(inner));
+        let driver = RemoteNetworkingServerDriver {
             more_work: rx_work,
             tasks: Default::default(),
             common: common.clone(),
-            inner: Arc::new(tokio::sync::Mutex::new(inner)),
+            inner: inner.clone(),
         };
-        let networking = Self { common };
+        let networking = Self { common, inner };
 
         (networking, driver)
     }
 }
 
+#[async_trait::async_trait]
+impl VirtualNetworking for RemoteNetworkingServer {
+    async fn bridge(
+        &self,
+        network: &str,
+        access_token: &str,
+        security: StreamSecurity,
+    ) -> Result<(), NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.bridge(network, access_token, security).await
+    }
+
+    async fn unbridge(&self) -> Result<(), NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.unbridge().await
+    }
+
+    async fn dhcp_acquire(&self) -> Result<Vec<IpAddr>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.dhcp_acquire().await
+    }
+
+    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.ip_add(ip, prefix)
+    }
+
+    fn ip_remove(&self, ip: IpAddr) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.ip_remove(ip)
+    }
+
+    fn ip_clear(&self) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.ip_clear()
+    }
+
+    fn ip_list(&self) -> Result<Vec<IpCidr>, NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.ip_list()
+    }
+
+    fn mac(&self) -> Result<[u8; 6], NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.mac()
+    }
+
+    fn gateway_set(&self, ip: IpAddr) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.gateway_set(ip)
+    }
+
+    fn route_add(
+        &self,
+        cidr: IpCidr,
+        via_router: IpAddr,
+        preferred_until: Option<Duration>,
+        expires_at: Option<Duration>,
+    ) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.route_add(cidr, via_router, preferred_until, expires_at)
+    }
+
+    fn route_remove(&self, cidr: IpAddr) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.route_remove(cidr)
+    }
+
+    fn route_clear(&self) -> Result<(), NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.route_clear()
+    }
+
+    fn route_list(&self) -> Result<Vec<IpRoute>, NetworkError> {
+        let inner = self.inner.blocking_lock();
+        inner.route_list()
+    }
+
+    async fn bind_raw(&self) -> Result<Box<dyn VirtualRawSocket + Sync>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.bind_raw().await
+    }
+
+    async fn listen_tcp(
+        &self,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualTcpListener + Sync>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner
+            .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
+            .await
+    }
+
+    async fn bind_udp(
+        &self,
+        addr: SocketAddr,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualUdpSocket + Sync>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.bind_udp(addr, reuse_port, reuse_addr).await
+    }
+
+    async fn bind_icmp(
+        &self,
+        addr: IpAddr,
+    ) -> Result<Box<dyn VirtualIcmpSocket + Sync>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.bind_icmp(addr).await
+    }
+
+    async fn connect_tcp(
+        &self,
+        addr: SocketAddr,
+        peer: SocketAddr,
+    ) -> Result<Box<dyn VirtualTcpSocket + Sync>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.connect_tcp(addr, peer).await
+    }
+
+    async fn resolve(
+        &self,
+        host: &str,
+        port: Option<u16>,
+        dns_server: Option<IpAddr>,
+    ) -> Result<Vec<IpAddr>, NetworkError> {
+        let inner = self.inner.lock().await;
+        inner.resolve(host, port, dns_server).await
+    }
+}
+
 pin_project_lite::pin_project! {
-    pub struct RemoteNetworkingAdapterDriver {
+    pub struct RemoteNetworkingServerDriver {
         common: Arc<RemoteAdapterCommon>,
         more_work: mpsc::UnboundedReceiver<BoxFuture<'static, ()>>,
         #[pin]
@@ -138,7 +290,7 @@ pin_project_lite::pin_project! {
     }
 }
 
-impl Future for RemoteNetworkingAdapterDriver {
+impl Future for RemoteNetworkingServerDriver {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -161,7 +313,7 @@ impl Future for RemoteNetworkingAdapterDriver {
             for socket_id in readable {
                 if let Some(task) = guard
                     .get_mut(&socket_id)
-                    .map(|s| s.drain_reads(&common, socket_id))
+                    .map(|s| s.drain_reads_and_accepts(&common, socket_id))
                     .unwrap_or(None)
                 {
                     self.tasks.push_back(task);
@@ -221,7 +373,7 @@ impl Future for RemoteNetworkingAdapterDriver {
     }
 }
 
-impl RemoteNetworkingAdapterDriver {
+impl RemoteNetworkingServerDriver {
     fn process(&mut self, msg: MessageRequest) -> BackgroundTask {
         match msg {
             MessageRequest::Send {
@@ -244,11 +396,20 @@ impl RemoteNetworkingAdapterDriver {
         }
     }
 
-    fn process_send(&mut self, socket_id: SocketId, data: Vec<u8>, req_id: u64) -> BackgroundTask {
+    fn process_send(
+        &mut self,
+        socket_id: SocketId,
+        data: Vec<u8>,
+        req_id: Option<u64>,
+    ) -> BackgroundTask {
         let mut guard = self.common.sockets.lock().unwrap();
         guard
             .get_mut(&socket_id)
-            .map(|s| s.send(&self.common, socket_id, data, req_id))
+            .map(|s| {
+                req_id
+                    .map(|req_id| s.send(&self.common, socket_id, data, req_id))
+                    .flatten()
+            })
             .unwrap_or(None)
     }
 
@@ -257,12 +418,16 @@ impl RemoteNetworkingAdapterDriver {
         socket_id: SocketId,
         data: Vec<u8>,
         addr: SocketAddr,
-        req_id: u64,
+        req_id: Option<u64>,
     ) -> BackgroundTask {
         let mut guard = self.common.sockets.lock().unwrap();
         guard
             .get_mut(&socket_id)
-            .map(|s| s.send_to(&self.common, socket_id, data, addr, req_id))
+            .map(|s| {
+                req_id
+                    .map(|req_id| s.send_to(&self.common, socket_id, data, addr, req_id))
+                    .flatten()
+            })
             .unwrap_or(None)
     }
 
@@ -278,7 +443,12 @@ impl RemoteNetworkingAdapterDriver {
         }))
     }
 
-    fn process_async_inner<F, Fut, T>(&self, work: F, transmute: T, req_id: u64) -> BackgroundTask
+    fn process_async_inner<F, Fut, T>(
+        &self,
+        work: F,
+        transmute: T,
+        req_id: Option<u64>,
+    ) -> BackgroundTask
     where
         F: FnOnce(OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>) -> Fut
             + Send
@@ -292,14 +462,18 @@ impl RemoteNetworkingAdapterDriver {
             let inner = inner.lock_owned().await;
             let future = work(inner);
             let ret = future.await;
-            common.send(MessageResponse::ResponseToRequest {
-                req_id,
-                res: transmute(ret),
-            })
+            req_id
+                .map(|req_id| {
+                    common.send(MessageResponse::ResponseToRequest {
+                        req_id,
+                        res: transmute(ret),
+                    })
+                })
+                .flatten()
         })
     }
 
-    fn process_async_noop<F, Fut>(&self, work: F, req_id: u64) -> BackgroundTask
+    fn process_async_noop<F, Fut>(&self, work: F, req_id: Option<u64>) -> BackgroundTask
     where
         F: FnOnce(OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>) -> Fut
             + Send
@@ -316,11 +490,11 @@ impl RemoteNetworkingAdapterDriver {
         )
     }
 
-    fn process_async_socket<F, Fut>(
+    fn process_async_new_socket<F, Fut>(
         &self,
         work: F,
         socket_id: SocketId,
-        req_id: u64,
+        req_id: Option<u64>,
     ) -> BackgroundTask
     where
         F: FnOnce(OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>) -> Fut
@@ -336,7 +510,12 @@ impl RemoteNetworkingAdapterDriver {
                     let handler = Box::new(common.handler.clone().for_socket(socket_id));
 
                     let err = match &mut socket {
-                        RemoteAdapterSocket::TcpListener(s) => s.set_handler(handler),
+                        RemoteAdapterSocket::TcpListener { .. } => {
+                            // we do not attach the handler immediately with new TPC listeners as we
+                            // only want it to trigger when the BeginAccept message is received with
+                            // a child ID we can actually use
+                            Ok(())
+                        }
                         RemoteAdapterSocket::TcpSocket(s) => s.set_handler(handler),
                         RemoteAdapterSocket::UdpSocket(s) => s.set_handler(handler),
                         RemoteAdapterSocket::IcmpSocket(s) => s.set_handler(handler),
@@ -362,7 +541,7 @@ impl RemoteNetworkingAdapterDriver {
         work: F,
         transmute: T,
         socket_id: SocketId,
-        req_id: u64,
+        req_id: Option<u64>,
     ) -> BackgroundTask
     where
         F: FnOnce(&mut RemoteAdapterSocket) -> R + Send + 'static,
@@ -373,21 +552,34 @@ impl RemoteNetworkingAdapterDriver {
             let socket = match guard.get_mut(&socket_id) {
                 Some(s) => s,
                 None => {
-                    return self.common.send(MessageResponse::ResponseToRequest {
-                        req_id,
-                        res: ResponseType::Err(NetworkError::InvalidFd),
-                    })
+                    return req_id
+                        .map(|req_id| {
+                            self.common.send(MessageResponse::ResponseToRequest {
+                                req_id,
+                                res: ResponseType::Err(NetworkError::InvalidFd),
+                            })
+                        })
+                        .flatten()
                 }
             };
             work(socket)
         };
-        self.common.send(MessageResponse::ResponseToRequest {
-            req_id,
-            res: transmute(ret),
-        })
+        req_id
+            .map(|req_id| {
+                self.common.send(MessageResponse::ResponseToRequest {
+                    req_id,
+                    res: transmute(ret),
+                })
+            })
+            .flatten()
     }
 
-    fn process_inner_noop<F>(&self, work: F, socket_id: SocketId, req_id: u64) -> BackgroundTask
+    fn process_inner_noop<F>(
+        &self,
+        work: F,
+        socket_id: SocketId,
+        req_id: Option<u64>,
+    ) -> BackgroundTask
     where
         F: FnOnce(&mut RemoteAdapterSocket) -> Result<(), NetworkError> + Send + 'static,
     {
@@ -402,51 +594,46 @@ impl RemoteNetworkingAdapterDriver {
         )
     }
 
-    fn process_inner_socket<F>(
+    fn process_inner_begin_accept(
         &self,
-        work: F,
         socket_id: SocketId,
         child_id: SocketId,
-        req_id: u64,
-    ) -> BackgroundTask
-    where
-        F: FnOnce(
-                &mut RemoteAdapterSocket,
-            ) -> Result<(RemoteAdapterSocket, SocketAddr), NetworkError>
-            + Send
-            + 'static,
-    {
-        let common = self.common.clone();
-        self.process_inner(
-            work,
-            move |ret| match ret {
-                Ok((mut socket, addr)) => {
-                    let handler = Box::new(common.handler.clone().for_socket(child_id));
+        req_id: Option<u64>,
+    ) -> BackgroundTask {
+        // We record the child socket so it can be used on the next accepted socket
+        {
+            let mut guard = self.common.socket_accept.lock().unwrap();
+            guard.insert(socket_id, child_id);
+        }
 
-                    let err = match &mut socket {
-                        RemoteAdapterSocket::TcpListener(s) => s.set_handler(handler),
-                        RemoteAdapterSocket::TcpSocket(s) => s.set_handler(handler),
-                        RemoteAdapterSocket::UdpSocket(s) => s.set_handler(handler),
-                        RemoteAdapterSocket::IcmpSocket(s) => s.set_handler(handler),
-                        RemoteAdapterSocket::RawSocket(s) => s.set_handler(handler),
-                    };
-                    if let Err(err) = err {
-                        return ResponseType::Err(err);
-                    }
-
-                    let mut guard = common.sockets.lock().unwrap();
-                    guard.insert(child_id, socket);
-
-                    ResponseType::SocketWithAddr { id: child_id, addr }
+        // Now we attach the handler to the main listening socket
+        let mut handler = Box::new(self.common.handler.clone().for_socket(socket_id));
+        handler.interest(wasmer_virtual_io::InterestType::Readable);
+        self.process_inner_noop(
+            move |socket| match socket {
+                RemoteAdapterSocket::TcpListener {
+                    socket: s,
+                    next_accept,
+                    ..
+                } => {
+                    next_accept.replace(child_id);
+                    s.set_handler(handler)
                 }
-                Err(err) => ResponseType::Err(err),
+                _ => {
+                    // only the TCP listener needs its socket set as the other sockets
+                    // set their handlers when the socket is created instead. we need to
+                    // delay setting the handler so we have a child ID to use and return
+                    // to the client when a socket is accepted, thus we can not accept them
+                    // immediately
+                    Err(NetworkError::Unsupported)
+                }
             },
             socket_id,
             req_id,
         )
     }
 
-    fn process_interface(&mut self, req: RequestType, req_id: u64) -> BackgroundTask {
+    fn process_interface(&mut self, req: RequestType, req_id: Option<u64>) -> BackgroundTask {
         match req {
             RequestType::Bridge {
                 network,
@@ -544,7 +731,7 @@ impl RemoteNetworkingAdapterDriver {
                 },
                 req_id,
             ),
-            RequestType::BindRaw(socket_id) => self.process_async_socket(
+            RequestType::BindRaw(socket_id) => self.process_async_new_socket(
                 move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
                     Ok(RemoteAdapterSocket::RawSocket(inner.bind_raw().await?))
                 },
@@ -557,13 +744,14 @@ impl RemoteNetworkingAdapterDriver {
                 only_v6,
                 reuse_port,
                 reuse_addr,
-            } => self.process_async_socket(
+            } => self.process_async_new_socket(
                 move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
-                    Ok(RemoteAdapterSocket::TcpListener(
-                        inner
+                    Ok(RemoteAdapterSocket::TcpListener {
+                        socket: inner
                             .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
                             .await?,
-                    ))
+                        next_accept: None,
+                    })
                 },
                 socket_id,
                 req_id,
@@ -573,7 +761,7 @@ impl RemoteNetworkingAdapterDriver {
                 addr,
                 reuse_port,
                 reuse_addr,
-            } => self.process_async_socket(
+            } => self.process_async_new_socket(
                 move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
                     Ok(RemoteAdapterSocket::UdpSocket(
                         inner.bind_udp(addr, reuse_port, reuse_addr).await?,
@@ -582,7 +770,7 @@ impl RemoteNetworkingAdapterDriver {
                 socket_id,
                 req_id,
             ),
-            RequestType::BindIcmp { socket_id, addr } => self.process_async_socket(
+            RequestType::BindIcmp { socket_id, addr } => self.process_async_new_socket(
                 move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
                     Ok(RemoteAdapterSocket::IcmpSocket(
                         inner.bind_icmp(addr).await?,
@@ -595,7 +783,7 @@ impl RemoteNetworkingAdapterDriver {
                 socket_id,
                 addr,
                 peer,
-            } => self.process_async_socket(
+            } => self.process_async_new_socket(
                 move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
                     Ok(RemoteAdapterSocket::TcpSocket(
                         inner.connect_tcp(addr, peer).await?,
@@ -618,10 +806,14 @@ impl RemoteNetworkingAdapterDriver {
                 },
                 req_id,
             ),
-            _ => self.common.send(MessageResponse::ResponseToRequest {
-                req_id,
-                res: ResponseType::Err(NetworkError::Unsupported),
-            }),
+            _ => req_id
+                .map(|req_id| {
+                    self.common.send(MessageResponse::ResponseToRequest {
+                        req_id,
+                        res: ResponseType::Err(NetworkError::Unsupported),
+                    })
+                })
+                .flatten(),
         }
     }
 
@@ -629,7 +821,7 @@ impl RemoteNetworkingAdapterDriver {
         &mut self,
         socket_id: SocketId,
         req: RequestType,
-        req_id: u64,
+        req_id: Option<u64>,
     ) -> BackgroundTask {
         match req {
             RequestType::Flush => self.process_inner_noop(
@@ -649,22 +841,13 @@ impl RemoteNetworkingAdapterDriver {
                 socket_id,
                 req_id,
             ),
-            RequestType::TryAccept(child_id) => self.process_inner_socket(
-                move |socket| match socket {
-                    RemoteAdapterSocket::TcpListener(s) => match s.try_accept() {
-                        Ok((socket, addr)) => Ok((RemoteAdapterSocket::TcpSocket(socket), addr)),
-                        Err(err) => Err(err),
-                    },
-                    _ => Err(NetworkError::Unsupported),
-                },
-                socket_id,
-                child_id,
-                req_id,
-            ),
+            RequestType::BeginAccept(child_id) => {
+                self.process_inner_begin_accept(socket_id, child_id, req_id)
+            }
             RequestType::GetAddrLocal => self.process_inner(
                 move |socket| match socket {
                     RemoteAdapterSocket::TcpSocket(s) => s.addr_local(),
-                    RemoteAdapterSocket::TcpListener(s) => s.addr_local(),
+                    RemoteAdapterSocket::TcpListener { socket: s, .. } => s.addr_local(),
                     RemoteAdapterSocket::UdpSocket(s) => s.addr_local(),
                     RemoteAdapterSocket::IcmpSocket(s) => s.addr_local(),
                     RemoteAdapterSocket::RawSocket(s) => s.addr_local(),
@@ -679,7 +862,7 @@ impl RemoteNetworkingAdapterDriver {
             RequestType::GetAddrPeer => self.process_inner(
                 move |socket| match socket {
                     RemoteAdapterSocket::TcpSocket(s) => s.addr_peer().map(Some),
-                    RemoteAdapterSocket::TcpListener(_) => Err(NetworkError::Unsupported),
+                    RemoteAdapterSocket::TcpListener { .. } => Err(NetworkError::Unsupported),
                     RemoteAdapterSocket::UdpSocket(s) => s.addr_peer(),
                     RemoteAdapterSocket::IcmpSocket(_) => Err(NetworkError::Unsupported),
                     RemoteAdapterSocket::RawSocket(_) => Err(NetworkError::Unsupported),
@@ -695,7 +878,7 @@ impl RemoteNetworkingAdapterDriver {
             RequestType::SetTtl(ttl) => self.process_inner_noop(
                 move |socket| match socket {
                     RemoteAdapterSocket::TcpSocket(s) => s.set_ttl(ttl),
-                    RemoteAdapterSocket::TcpListener(s) => {
+                    RemoteAdapterSocket::TcpListener { socket: s, .. } => {
                         s.set_ttl(ttl.try_into().unwrap_or_default())
                     }
                     RemoteAdapterSocket::UdpSocket(s) => s.set_ttl(ttl),
@@ -708,7 +891,7 @@ impl RemoteNetworkingAdapterDriver {
             RequestType::GetTtl => self.process_inner(
                 move |socket| match socket {
                     RemoteAdapterSocket::TcpSocket(s) => s.ttl(),
-                    RemoteAdapterSocket::TcpListener(s) => s.ttl().map(|t| t as u32),
+                    RemoteAdapterSocket::TcpListener { socket: s, .. } => s.ttl().map(|t| t as u32),
                     RemoteAdapterSocket::UdpSocket(s) => s.ttl(),
                     RemoteAdapterSocket::IcmpSocket(s) => s.ttl(),
                     RemoteAdapterSocket::RawSocket(s) => s.ttl(),
@@ -723,7 +906,7 @@ impl RemoteNetworkingAdapterDriver {
             RequestType::GetStatus => self.process_inner(
                 move |socket| match socket {
                     RemoteAdapterSocket::TcpSocket(s) => s.status(),
-                    RemoteAdapterSocket::TcpListener(_) => Err(NetworkError::Unsupported),
+                    RemoteAdapterSocket::TcpListener { .. } => Err(NetworkError::Unsupported),
                     RemoteAdapterSocket::UdpSocket(s) => s.status(),
                     RemoteAdapterSocket::IcmpSocket(s) => s.status(),
                     RemoteAdapterSocket::RawSocket(s) => s.status(),
@@ -976,16 +1159,23 @@ impl RemoteNetworkingAdapterDriver {
                 socket_id,
                 req_id,
             ),
-            _ => self.common.send(MessageResponse::ResponseToRequest {
-                req_id,
-                res: ResponseType::Err(NetworkError::Unsupported),
-            }),
+            _ => req_id
+                .map(|req_id| {
+                    self.common.send(MessageResponse::ResponseToRequest {
+                        req_id,
+                        res: ResponseType::Err(NetworkError::Unsupported),
+                    })
+                })
+                .flatten(),
         }
     }
 }
 
 enum RemoteAdapterSocket {
-    TcpListener(Box<dyn VirtualTcpListener + Sync + 'static>),
+    TcpListener {
+        socket: Box<dyn VirtualTcpListener + Sync + 'static>,
+        next_accept: Option<SocketId>,
+    },
     TcpSocket(Box<dyn VirtualTcpSocket + Sync + 'static>),
     UdpSocket(Box<dyn VirtualUdpSocket + Sync + 'static>),
     RawSocket(Box<dyn VirtualRawSocket + Sync + 'static>),
@@ -1133,7 +1323,7 @@ impl RemoteAdapterSocket {
             }),
         }
     }
-    pub fn drain_reads(
+    pub fn drain_reads_and_accepts(
         &mut self,
         common: &Arc<RemoteAdapterCommon>,
         socket_id: SocketId,
@@ -1143,6 +1333,48 @@ impl RemoteAdapterSocket {
         let mut ret: FuturesOrdered<BoxFuture<'static, ()>> = Default::default();
         loop {
             break match self {
+                Self::TcpListener {
+                    socket,
+                    next_accept,
+                } => {
+                    if next_accept.is_some() {
+                        match socket.try_accept() {
+                            Ok((mut child_socket, addr)) => {
+                                let child_id = next_accept.take().unwrap();
+
+                                // We set the handler on the socket so that it can
+                                let handler = Box::new(common.handler.clone().for_socket(child_id));
+                                child_socket.set_handler(handler).ok();
+
+                                // We will fix up the socket in the background then notify
+                                // the client of the new socket
+                                let common = common.clone();
+                                ret.push_back(Box::pin(async move {
+                                    // Next we record the socket so that it is active
+                                    {
+                                        let child_socket =
+                                            RemoteAdapterSocket::TcpSocket(child_socket);
+                                        let mut guard = common.sockets.lock().unwrap();
+                                        guard.insert(child_id, child_socket);
+                                    }
+
+                                    // Lastly we tell the client about the new socket
+                                    if let Some(task) = common.send(MessageResponse::FinishAccept {
+                                        socket_id,
+                                        child_id,
+                                        addr,
+                                    }) {
+                                        task.await;
+                                    }
+                                }));
+                            }
+                            Err(NetworkError::WouldBlock) => {}
+                            Err(err) => {
+                                tracing::error!("failed to accept socket - {}", err);
+                            }
+                        }
+                    }
+                }
                 Self::TcpSocket(this) => {
                     let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
@@ -1222,7 +1454,6 @@ impl RemoteAdapterSocket {
                         Err(_) => {}
                     }
                 }
-                _ => {}
             };
         }
 
@@ -1298,6 +1529,7 @@ struct RemoteAdapterCommon {
     rx: Mutex<RemoteRx<MessageRequest>>,
     #[derivative(Debug = "ignore")]
     sockets: Mutex<HashMap<SocketId, RemoteAdapterSocket>>,
+    socket_accept: Mutex<HashMap<SocketId, SocketId>>,
     handler: RemoteAdapterHandler,
 
     // The stall guard will prevent reads while its held and there are background tasks running

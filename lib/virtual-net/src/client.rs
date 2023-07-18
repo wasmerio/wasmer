@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 use std::future::Future;
-use std::mem::MaybeUninit;
 use std::net::IpAddr;
 use std::net::SocketAddr;
-use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
@@ -17,25 +15,29 @@ use std::task::Waker;
 use std::time::Duration;
 
 use bytes::Buf;
-use bytes::Bytes;
 use bytes::BytesMut;
 use derivative::Derivative;
 use futures_util::future::BoxFuture;
 use futures_util::stream::FuturesOrdered;
+use futures_util::Sink;
+use futures_util::Stream;
 use futures_util::StreamExt;
-use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
-use tokio::io::ReadBuf;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::error::TrySendError;
-use tokio::sync::oneshot;
+use tokio_serde::formats::SymmetricalBincode;
+use tokio_serde::formats::SymmetricalJson;
+use tokio_serde::SymmetricallyFramed;
+use tokio_util::codec::FramedRead;
+use tokio_util::codec::FramedWrite;
+use tokio_util::codec::LengthDelimitedCodec;
 use wasmer_virtual_io::InlineWaker;
 use wasmer_virtual_io::InterestType;
 
-use crate::io_err_into_net_error;
 use crate::meta;
+use crate::meta::FrameSerializationFormat;
 use crate::meta::RequestType;
 use crate::meta::ResponseType;
 use crate::meta::SocketId;
@@ -55,38 +57,48 @@ use crate::VirtualTcpListener;
 use crate::VirtualTcpSocket;
 use crate::VirtualUdpSocket;
 
-use crate::write_all::locking_write_all;
-use crate::write_all::locking_write_all_many;
+use crate::rx_tx::RemoteRx;
+use crate::rx_tx::RemoteTx;
+use crate::rx_tx::RemoteTxWakers;
 use crate::Result;
 
 #[derive(Debug, Clone)]
-pub struct RemoteNetworking {
+pub struct RemoteNetworkingClient {
     common: Arc<RemoteCommon>,
 }
 
-impl RemoteNetworking {
+impl RemoteNetworkingClient {
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
     pub fn new_from_mpsc(
         tx: mpsc::Sender<MessageRequest>,
         rx: mpsc::Receiver<MessageResponse>,
-    ) -> (Self, RemoteNetworkingDriver) {
-        let (_, rx_work) = mpsc::unbounded_channel();
+    ) -> (Self, RemoteNetworkingClientDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
 
         let common = RemoteCommon {
-            tx: RemoteTx::Mpsc(tx),
-            rx: Mutex::new(RemoteRx::Mpsc(rx)),
+            tx: RemoteTx::Mpsc {
+                tx,
+                work: tx_work,
+                wakers: tx_wakers.clone(),
+            },
+            rx: Mutex::new(RemoteRx::Mpsc {
+                rx,
+                wakers: tx_wakers,
+            }),
             request_seed: AtomicU64::new(1),
             requests: Default::default(),
             socket_seed: AtomicU64::new(1),
             recv_tx: Default::default(),
             recv_with_addr_tx: Default::default(),
+            accept_tx: Default::default(),
             handlers: Default::default(),
             stall: Default::default(),
         };
         let common = Arc::new(common);
 
-        let driver = RemoteNetworkingDriver {
+        let driver = RemoteNetworkingClientDriver {
             more_work: rx_work,
             tasks: Default::default(),
             common: common.clone(),
@@ -98,59 +110,62 @@ impl RemoteNetworking {
 
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
-    pub fn new_from_stream(
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
-    ) -> (Self, RemoteNetworkingDriver) {
-        Self::new_from_stream_internal(tx, rx, false)
-    }
-
-    /// Creates a new interface on the remote location using
-    /// a unique interface ID and a pair of channels
     ///
     /// This version will run the async read and write operations
     /// only the driver (this is needed for mixed runtimes)
-    pub fn new_from_stream_via_driver(
-        tx: Pin<Box<dyn AsyncWrite + Send>>,
-        rx: Pin<Box<dyn AsyncRead + Send>>,
-    ) -> (Self, RemoteNetworkingDriver) {
-        Self::new_from_stream_internal(tx, rx, true)
-    }
+    pub fn new_from_stream<TX, RX>(
+        tx: TX,
+        rx: RX,
+        format: FrameSerializationFormat,
+    ) -> (Self, RemoteNetworkingClientDriver)
+    where
+        TX: AsyncWrite + Send + 'static,
+        RX: AsyncRead + Send + 'static,
+    {
+        let tx = FramedWrite::new(tx, LengthDelimitedCodec::new());
+        let tx: Pin<Box<dyn Sink<MessageRequest, Error = std::io::Error> + Send + 'static>> =
+            match format {
+                FrameSerializationFormat::Bincode => {
+                    Box::pin(SymmetricallyFramed::new(tx, SymmetricalBincode::default()))
+                }
+                FrameSerializationFormat::Json => {
+                    Box::pin(SymmetricallyFramed::new(tx, SymmetricalJson::default()))
+                }
+            };
 
-    fn new_from_stream_internal(
-        tx: Pin<Box<dyn AsyncWrite + Send>>,
-        rx: Pin<Box<dyn AsyncRead + Send>>,
-        via_driver: bool,
-    ) -> (Self, RemoteNetworkingDriver) {
+        let rx = FramedRead::new(rx, LengthDelimitedCodec::new());
+        let rx: Pin<Box<dyn Stream<Item = std::io::Result<MessageResponse>> + Send + 'static>> =
+            match format {
+                FrameSerializationFormat::Bincode => {
+                    Box::pin(SymmetricallyFramed::new(rx, SymmetricalBincode::default()))
+                }
+                FrameSerializationFormat::Json => {
+                    Box::pin(SymmetricallyFramed::new(rx, SymmetricalJson::default()))
+                }
+            };
+
         let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
 
         let common = RemoteCommon {
-            tx: if via_driver {
-                RemoteTx::StreamViaDriver {
-                    tx: Arc::new(Mutex::new(tx)),
-                    work: tx_work,
-                }
-            } else {
-                RemoteTx::Stream {
-                    tx: Arc::new(Mutex::new(tx)),
-                }
+            tx: RemoteTx::Stream {
+                tx: Arc::new(tokio::sync::Mutex::new(tx)),
+                work: tx_work,
+                wakers: tx_wakers.clone(),
             },
-            rx: Mutex::new(RemoteRx::Stream {
-                rx,
-                next: None,
-                buf: BytesMut::new(),
-            }),
+            rx: Mutex::new(RemoteRx::Stream { rx }),
             request_seed: AtomicU64::new(1),
             requests: Default::default(),
             socket_seed: AtomicU64::new(1),
             recv_tx: Default::default(),
             recv_with_addr_tx: Default::default(),
+            accept_tx: Default::default(),
             handlers: Default::default(),
             stall: Default::default(),
         };
         let common = Arc::new(common);
 
-        let driver = RemoteNetworkingDriver {
+        let driver = RemoteNetworkingClientDriver {
             more_work: rx_work,
             tasks: Default::default(),
             common: common.clone(),
@@ -167,19 +182,24 @@ impl RemoteNetworking {
         let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
         self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
 
+        let (tx, rx_accept) = tokio::sync::mpsc::channel(100);
+        self.common.accept_tx.lock().unwrap().insert(id, tx);
+
         RemoteSocket {
             socket_id: id,
             common: self.common.clone(),
             rx_buffer: BytesMut::new(),
             rx_recv,
             rx_recv_with_addr,
+            rx_accept,
             tx_waker: TxWaker::new(&self.common).as_waker(),
+            pending_accept: None,
         }
     }
 }
 
 pin_project_lite::pin_project! {
-    pub struct RemoteNetworkingDriver {
+    pub struct RemoteNetworkingClientDriver {
         common: Arc<RemoteCommon>,
         more_work: mpsc::UnboundedReceiver<BoxFuture<'static, ()>>,
         #[pin]
@@ -187,7 +207,7 @@ pin_project_lite::pin_project! {
     }
 }
 
-impl Future for RemoteNetworkingDriver {
+impl Future for RemoteNetworkingClientDriver {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -303,6 +323,32 @@ impl Future for RemoteNetworkingDriver {
                                     .map(|h| h.interest(InterestType::Writable));
                             }
                         },
+
+                        MessageResponse::FinishAccept {
+                            socket_id,
+                            child_id,
+                            addr,
+                        } => {
+                            let common = self.common.clone();
+                            self.tasks.push_back(Box::pin(async move {
+                                let tx = common
+                                    .accept_tx
+                                    .lock()
+                                    .unwrap()
+                                    .get(&socket_id)
+                                    .map(|tx| tx.clone());
+                                if let Some(tx) = tx {
+                                    tx.send((child_id, addr)).await.ok();
+                                }
+
+                                common
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .get_mut(&socket_id)
+                                    .map(|h| h.interest(InterestType::Readable));
+                            }));
+                        }
                         MessageResponse::Closed { socket_id } => {
                             self.common
                                 .handlers
@@ -323,161 +369,6 @@ impl Future for RemoteNetworkingDriver {
                 Poll::Ready(None) => Poll::Ready(()),
                 Poll::Pending => Poll::Pending,
             };
-        }
-    }
-}
-
-pub(crate) type RemoteTxStream = Pin<Box<dyn AsyncWrite + Send>>;
-pub(crate) enum RemoteTx<T>
-where
-    T: Serialize,
-{
-    Mpsc(mpsc::Sender<T>),
-    Stream {
-        tx: Arc<Mutex<RemoteTxStream>>,
-    },
-    StreamViaDriver {
-        tx: Arc<Mutex<RemoteTxStream>>,
-        work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
-    },
-}
-impl<T> RemoteTx<T>
-where
-    T: Serialize + Send + Sync + 'static,
-{
-    pub(crate) async fn send(&self, req: T) -> Result<()> {
-        match self {
-            RemoteTx::Mpsc(tx) => tx
-                .send(req)
-                .await
-                .map_err(|_| NetworkError::ConnectionAborted),
-            RemoteTx::Stream { tx, .. } => {
-                let data = bincode::serialize(&req).map_err(|err| {
-                    tracing::warn!("failed to serialize message - {}", err);
-                    NetworkError::IOError
-                })?;
-                locking_write_all(tx, data.into())
-                    .await
-                    .map_err(io_err_into_net_error)
-            }
-            RemoteTx::StreamViaDriver { tx, work, .. } => {
-                let (tx_done, rx_done) = oneshot::channel();
-                let tx = tx.clone();
-                work.send(Box::pin(async move {
-                    let job = async {
-                        let data = bincode::serialize(&req).map_err(|err| {
-                            tracing::warn!("failed to serialize message - {}", err);
-                            NetworkError::IOError
-                        })?;
-                        locking_write_all(&tx, data.into())
-                            .await
-                            .map_err(io_err_into_net_error)
-                    };
-                    tx_done.send(job.await).ok();
-                }))
-                .map_err(|_| NetworkError::ConnectionAborted)?;
-
-                rx_done
-                    .await
-                    .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
-            }
-        }
-    }
-    pub(crate) fn try_send(&self, interest_cx: &mut Context<'_>, req: T) -> Result<()> {
-        match self {
-            RemoteTx::Mpsc(tx) => match tx.try_send(req) {
-                Ok(()) => Ok(()),
-                Err(TrySendError::Closed(_)) => Err(NetworkError::ConnectionAborted),
-                Err(TrySendError::Full(_)) => Err(NetworkError::WouldBlock),
-            },
-            RemoteTx::Stream { tx } => {
-                let data = bincode::serialize(&req).map_err(|err| {
-                    tracing::warn!("failed to serialize message - {}", err);
-                    NetworkError::IOError
-                })?;
-                let data_len = data.len() as u64;
-                let data_len_buf = data_len.to_le_bytes();
-
-                let data_len_remaining = {
-                    let mut tx = tx.lock().unwrap();
-                    match Pin::new(tx.deref_mut()).poll_write(interest_cx, &data_len_buf) {
-                        Poll::Ready(Ok(0)) => {
-                            return Err(NetworkError::ConnectionAborted);
-                        }
-                        Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => None,
-                        Poll::Ready(Ok(amt)) => {
-                            let remaining = &data_len_buf[amt..];
-                            Some(remaining.to_vec())
-                        }
-                        Poll::Ready(Err(err)) => {
-                            return Err(io_err_into_net_error(err));
-                        }
-                        Poll::Pending => {
-                            return Err(NetworkError::WouldBlock);
-                        }
-                    }
-                };
-
-                let bufs = if let Some(data_len_remaining) = data_len_remaining {
-                    vec![Bytes::from(data_len_remaining), Bytes::from(data)]
-                } else {
-                    vec![Bytes::from(data)]
-                };
-
-                InlineWaker::block_on(Box::pin(async move {
-                    locking_write_all_many(&tx, bufs)
-                        .await
-                        .map_err(io_err_into_net_error)
-                }))
-            }
-            RemoteTx::StreamViaDriver { tx, work } => {
-                let data = bincode::serialize(&req).map_err(|err| {
-                    tracing::warn!("failed to serialize message - {}", err);
-                    NetworkError::IOError
-                })?;
-                let data_len = data.len() as u64;
-                let data_len_buf = data_len.to_le_bytes();
-
-                let data_len_remaining = {
-                    let mut tx = tx.lock().unwrap();
-                    match Pin::new(tx.deref_mut()).poll_write(interest_cx, &data_len_buf) {
-                        Poll::Ready(Ok(0)) => {
-                            return Err(NetworkError::ConnectionAborted);
-                        }
-                        Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => None,
-                        Poll::Ready(Ok(amt)) => {
-                            let remaining = &data_len_buf[amt..];
-                            Some(remaining.to_vec())
-                        }
-                        Poll::Ready(Err(err)) => {
-                            return Err(io_err_into_net_error(err));
-                        }
-                        Poll::Pending => {
-                            return Err(NetworkError::WouldBlock);
-                        }
-                    }
-                };
-
-                let bufs = if let Some(data_len_remaining) = data_len_remaining {
-                    vec![Bytes::from(data_len_remaining), Bytes::from(data)]
-                } else {
-                    vec![Bytes::from(data)]
-                };
-
-                let (tx_done, rx_done) = std::sync::mpsc::channel();
-                let tx = tx.clone();
-                work.send(Box::pin(async move {
-                    let ret = locking_write_all_many(&tx, bufs)
-                        .await
-                        .map_err(io_err_into_net_error);
-                    tx_done.send(ret).ok();
-                }))
-                .map_err(|_| NetworkError::ConnectionAborted)?;
-
-                rx_done
-                    .recv()
-                    .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
-            }
         }
     }
 }
@@ -527,82 +418,6 @@ const VTABLE: RawWakerVTable = unsafe {
     )
 };
 
-pub(crate) enum RemoteRx<T>
-where
-    T: serde::de::DeserializeOwned,
-{
-    Mpsc(mpsc::Receiver<T>),
-    Stream {
-        rx: Pin<Box<dyn AsyncRead + Send>>,
-        next: Option<u64>,
-        buf: BytesMut,
-    },
-}
-impl<T> RemoteRx<T>
-where
-    T: serde::de::DeserializeOwned,
-{
-    pub(crate) fn poll(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>> {
-        loop {
-            return match self {
-                RemoteRx::Mpsc(rx) => Pin::new(rx).poll_recv(cx),
-                RemoteRx::Stream { rx, next, buf } => {
-                    match next.clone() {
-                        Some(next) if (buf.len() as u64) >= next => {
-                            let next = next as usize;
-                            let msg = match bincode::deserialize(&buf[..next]) {
-                                Ok(m) => m,
-                                Err(err) => {
-                                    tracing::warn!("failed to deserialize message - {}", err);
-                                    return Poll::Ready(None);
-                                }
-                            };
-                            buf.advance(next);
-                            if buf.is_empty() {
-                                buf.clear();
-                            }
-                            return Poll::Ready(Some(msg));
-                        }
-                        None if buf.len() >= 8 => {
-                            let mut data_len_buf = [0u8; 8];
-                            data_len_buf.copy_from_slice(&buf[..8]);
-                            buf.advance(8);
-                            if buf.is_empty() {
-                                buf.clear();
-                            }
-                            next.replace(u64::from_le_bytes(data_len_buf));
-                            continue;
-                        }
-                        _ => {}
-                    }
-
-                    let mut chunk: [MaybeUninit<u8>; 10240] =
-                        unsafe { MaybeUninit::uninit().assume_init() };
-                    let chunk_unsafe: &mut [MaybeUninit<u8>] = &mut chunk[..];
-                    let chunk_unsafe: &mut [u8] = unsafe { std::mem::transmute(chunk_unsafe) };
-
-                    let mut read_buf = ReadBuf::new(chunk_unsafe);
-                    match rx.as_mut().poll_read(cx, &mut read_buf) {
-                        Poll::Ready(Ok(_)) => {
-                            let filled = read_buf.filled();
-                            if filled.is_empty() {
-                                return Poll::Ready(None);
-                            }
-                            buf.extend_from_slice(&filled);
-                            continue;
-                        }
-                        Poll::Ready(Err(err)) => {
-                            tracing::warn!("failed to read from channel - {}", err);
-                            Poll::Ready(None)
-                        }
-                        Poll::Pending => Poll::Pending,
-                    }
-                }
-            };
-        }
-    }
-}
-
 #[derive(Debug)]
 struct RequestTx {
     tx: mpsc::Sender<ResponseType>,
@@ -629,6 +444,7 @@ struct RemoteCommon {
     socket_seed: AtomicU64,
     recv_tx: Mutex<HashMap<SocketId, mpsc::Sender<Vec<u8>>>>,
     recv_with_addr_tx: Mutex<HashMap<SocketId, mpsc::Sender<(Vec<u8>, SocketAddr)>>>,
+    accept_tx: Mutex<HashMap<SocketId, mpsc::Sender<(SocketId, SocketAddr)>>>,
     #[derivative(Debug = "ignore")]
     handlers: Mutex<HashMap<SocketId, Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>>>,
 
@@ -648,7 +464,10 @@ impl RemoteCommon {
         };
         if let Err(err) = self
             .tx
-            .send(MessageRequest::Interface { req_id, req })
+            .send(MessageRequest::Interface {
+                req_id: Some(req_id),
+                req,
+            })
             .await
         {
             return ResponseType::Err(err);
@@ -656,13 +475,14 @@ impl RemoteCommon {
         req_rx.recv().await.unwrap()
     }
 
-    fn blocking_io_iface(&self, req: RequestType) -> ResponseType {
-        InlineWaker::block_on(self.io_iface(req))
+    fn io_iface_fire_and_forget(&self, req: RequestType) -> Result<()> {
+        self.tx
+            .send_with_driver(MessageRequest::Interface { req_id: None, req })
     }
 }
 
 #[async_trait::async_trait]
-impl VirtualNetworking for RemoteNetworking {
+impl VirtualNetworking for RemoteNetworkingClient {
     async fn bridge(
         &self,
         network: &str,
@@ -680,7 +500,10 @@ impl VirtualNetworking for RemoteNetworking {
         {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to bridge request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -688,7 +511,10 @@ impl VirtualNetworking for RemoteNetworking {
         match self.common.io_iface(RequestType::Unbridge).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to unbridge request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -696,59 +522,52 @@ impl VirtualNetworking for RemoteNetworking {
         match self.common.io_iface(RequestType::DhcpAcquire).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::IpAddressList(ips) => Ok(ips),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to DHCP acquire request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
-        match self
-            .common
-            .blocking_io_iface(RequestType::IpAdd { ip, prefix })
-        {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.common
+            .io_iface_fire_and_forget(RequestType::IpAdd { ip, prefix })
     }
 
     fn ip_remove(&self, ip: IpAddr) -> Result<()> {
-        match self.common.blocking_io_iface(RequestType::IpRemove(ip)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.common
+            .io_iface_fire_and_forget(RequestType::IpRemove(ip))
     }
 
     fn ip_clear(&self) -> Result<()> {
-        match self.common.blocking_io_iface(RequestType::IpClear) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.common.io_iface_fire_and_forget(RequestType::IpClear)
     }
 
     fn ip_list(&self) -> Result<Vec<IpCidr>> {
-        match self.common.blocking_io_iface(RequestType::Unbridge) {
+        match InlineWaker::block_on(self.common.io_iface(RequestType::Unbridge)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::CidrList(routes) => Ok(routes),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to IP list request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn mac(&self) -> Result<[u8; 6]> {
-        match self.common.blocking_io_iface(RequestType::GetMac) {
+        match InlineWaker::block_on(self.common.io_iface(RequestType::GetMac)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Mac(mac) => Ok(mac),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to MAC request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn gateway_set(&self, ip: IpAddr) -> Result<()> {
-        match self.common.blocking_io_iface(RequestType::GatewaySet(ip)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.common
+            .io_iface_fire_and_forget(RequestType::GatewaySet(ip))
     }
 
     fn route_add(
@@ -758,42 +577,32 @@ impl VirtualNetworking for RemoteNetworking {
         preferred_until: Option<Duration>,
         expires_at: Option<Duration>,
     ) -> Result<()> {
-        match self.common.blocking_io_iface(RequestType::RouteAdd {
+        self.common.io_iface_fire_and_forget(RequestType::RouteAdd {
             cidr,
             via_router,
             preferred_until,
             expires_at,
-        }) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        })
     }
 
     fn route_remove(&self, cidr: IpAddr) -> Result<()> {
-        match self
-            .common
-            .blocking_io_iface(RequestType::RouteRemove(cidr))
-        {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.common
+            .io_iface_fire_and_forget(RequestType::RouteRemove(cidr))
     }
 
     fn route_clear(&self) -> Result<()> {
-        match self.common.blocking_io_iface(RequestType::RouteClear) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.common
+            .io_iface_fire_and_forget(RequestType::RouteClear)
     }
 
     fn route_list(&self) -> Result<Vec<IpRoute>> {
-        match self.common.blocking_io_iface(RequestType::GetRouteList) {
+        match InlineWaker::block_on(self.common.io_iface(RequestType::GetRouteList)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::RouteList(routes) => Ok(routes),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to route list request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -806,7 +615,11 @@ impl VirtualNetworking for RemoteNetworking {
         match self.common.io_iface(RequestType::BindRaw(socket_id)).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
-            _ => Err(NetworkError::IOError),
+            ResponseType::Socket(socket_id) => Ok(Box::new(self.new_socket(socket_id))),
+            res => {
+                tracing::debug!("invalid response to bind RAw request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -835,7 +648,15 @@ impl VirtualNetworking for RemoteNetworking {
         {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
-            _ => Err(NetworkError::IOError),
+            ResponseType::Socket(socket_id) => {
+                let mut socket = self.new_socket(socket_id);
+                socket.touch_begin_accept().ok();
+                Ok(Box::new(socket))
+            }
+            res => {
+                tracing::debug!("invalid response to listen TCP request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -862,7 +683,11 @@ impl VirtualNetworking for RemoteNetworking {
         {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
-            _ => Err(NetworkError::IOError),
+            ResponseType::Socket(socket_id) => Ok(Box::new(self.new_socket(socket_id))),
+            res => {
+                tracing::debug!("invalid response to bind UDP request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -879,7 +704,11 @@ impl VirtualNetworking for RemoteNetworking {
         {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
-            _ => Err(NetworkError::IOError),
+            ResponseType::Socket(socket_id) => Ok(Box::new(self.new_socket(socket_id))),
+            res => {
+                tracing::debug!("invalid response to bind ICMP request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -904,7 +733,11 @@ impl VirtualNetworking for RemoteNetworking {
         {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
-            _ => Err(NetworkError::IOError),
+            ResponseType::Socket(socket_id) => Ok(Box::new(self.new_socket(socket_id))),
+            res => {
+                tracing::debug!("invalid response to connect TCP request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -925,7 +758,10 @@ impl VirtualNetworking for RemoteNetworking {
         {
             ResponseType::Err(err) => Err(err),
             ResponseType::IpAddressList(ips) => Ok(ips),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to resolve request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 }
@@ -938,6 +774,8 @@ struct RemoteSocket {
     rx_recv: mpsc::Receiver<Vec<u8>>,
     rx_recv_with_addr: mpsc::Receiver<(Vec<u8>, SocketAddr)>,
     tx_waker: Waker,
+    rx_accept: mpsc::Receiver<(SocketId, SocketAddr)>,
+    pending_accept: Option<SocketId>,
 }
 impl Drop for RemoteSocket {
     fn drop(&mut self) {
@@ -964,7 +802,7 @@ impl RemoteSocket {
             .tx
             .send(MessageRequest::Socket {
                 socket: self.socket_id,
-                req_id,
+                req_id: Some(req_id),
                 req,
             })
             .await
@@ -974,8 +812,26 @@ impl RemoteSocket {
         req_rx.recv().await.unwrap()
     }
 
-    fn blocking_io_socket(&self, req: RequestType) -> ResponseType {
-        InlineWaker::block_on(self.io_socket(req))
+    fn io_socket_fire_and_forget(&self, req: RequestType) -> Result<()> {
+        self.common.tx.send_with_driver(MessageRequest::Socket {
+            socket: self.socket_id,
+            req_id: None,
+            req,
+        })
+    }
+
+    fn touch_begin_accept(&mut self) -> Result<()> {
+        if self.pending_accept.is_some() {
+            return Ok(());
+        }
+        let child_id: SocketId = self
+            .common
+            .socket_seed
+            .fetch_add(1, Ordering::SeqCst)
+            .into();
+        self.io_socket_fire_and_forget(RequestType::BeginAccept(child_id))?;
+        self.pending_accept.replace(child_id);
+        Ok(())
     }
 }
 
@@ -987,34 +843,39 @@ impl VirtualIoSource for RemoteSocket {
 
 impl VirtualSocket for RemoteSocket {
     fn set_ttl(&mut self, ttl: u32) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetTtl(ttl)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetTtl(ttl))
     }
 
     fn ttl(&self) -> Result<u32> {
-        match self.blocking_io_socket(RequestType::GetTtl) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetTtl)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Ttl(ttl) => Ok(ttl),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get TTL request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
-        match self.blocking_io_socket(RequestType::GetAddrLocal) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrLocal)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketAddr(addr) => Ok(addr),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to address local request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn status(&self) -> Result<crate::SocketStatus> {
-        match self.blocking_io_socket(RequestType::GetStatus) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetStatus)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Status(status) => Ok(status),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to status request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -1033,32 +894,40 @@ impl VirtualSocket for RemoteSocket {
 
 impl VirtualTcpListener for RemoteSocket {
     fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
-        let child_id: SocketId = self
-            .common
-            .socket_seed
-            .fetch_add(1, Ordering::SeqCst)
-            .into();
-        match self.blocking_io_socket(RequestType::TryAccept(child_id)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::SocketWithAddr { id, addr } => {
-                let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-                self.common.recv_tx.lock().unwrap().insert(id, tx);
+        self.touch_begin_accept()?;
 
-                let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
-                self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
+        let (id, addr) = self.rx_accept.try_recv().map_err(|err| match err {
+            TryRecvError::Empty => NetworkError::WouldBlock,
+            TryRecvError::Disconnected => NetworkError::ConnectionAborted,
+        })?;
 
-                let socket = RemoteSocket {
-                    socket_id: id,
-                    common: self.common.clone(),
-                    rx_buffer: BytesMut::new(),
-                    rx_recv,
-                    rx_recv_with_addr,
-                    tx_waker: TxWaker::new(&self.common).as_waker(),
-                };
-                Ok((Box::new(socket), addr))
-            }
-            _ => Err(NetworkError::IOError),
-        }
+        // This placed here will mean there is always an accept request pending at the
+        // server as the constructor invokes this method and we invoke it here after
+        // receiving a child connection.
+        self.pending_accept.take();
+        self.touch_begin_accept().ok();
+
+        // Now we construct the child
+        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
+        self.common.recv_tx.lock().unwrap().insert(id, tx);
+
+        let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
+        self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
+
+        let (tx, rx_accept) = tokio::sync::mpsc::channel(100);
+        self.common.accept_tx.lock().unwrap().insert(id, tx);
+
+        let socket = RemoteSocket {
+            socket_id: id,
+            common: self.common.clone(),
+            rx_buffer: BytesMut::new(),
+            rx_recv,
+            rx_recv_with_addr,
+            rx_accept,
+            pending_accept: None,
+            tx_waker: TxWaker::new(&self.common).as_waker(),
+        };
+        Ok((Box::new(socket), addr))
     }
 
     fn set_handler(
@@ -1069,53 +938,62 @@ impl VirtualTcpListener for RemoteSocket {
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
-        match self.blocking_io_socket(RequestType::GetAddrLocal) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrLocal)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketAddr(addr) => Ok(addr),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to addr local request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn set_ttl(&mut self, ttl: u8) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetTtl(ttl as u32)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetTtl(ttl as u32))
     }
 
     fn ttl(&self) -> Result<u8> {
-        match self.blocking_io_socket(RequestType::GetTtl) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetTtl)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Ttl(val) => Ok(val.try_into().map_err(|_| NetworkError::InvalidData)?),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get TTL request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 }
 
 impl VirtualRawSocket for RemoteSocket {
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
-        let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
-
         let mut cx = Context::from_waker(&self.tx_waker);
-        self.common
-            .tx
-            .try_send(
-                &mut cx,
-                MessageRequest::Send {
-                    socket: self.socket_id,
-                    data: data.to_vec(),
-                    req_id,
-                },
-            )
-            .map(|_| data.len())
+        match self.common.tx.poll_send(
+            &mut cx,
+            MessageRequest::Send {
+                socket: self.socket_id,
+                data: data.to_vec(),
+                req_id: None,
+            },
+        ) {
+            Poll::Ready(Ok(())) => Ok(data.len()),
+            Poll::Ready(Err(err)) => Err(err),
+            Poll::Pending => Err(NetworkError::WouldBlock),
+        }
     }
 
     fn try_flush(&mut self) -> Result<()> {
-        match self.blocking_io_socket(RequestType::Flush) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
+        let mut cx = Context::from_waker(&self.tx_waker);
+        match self.common.tx.poll_send(
+            &mut cx,
+            MessageRequest::Socket {
+                socket: self.socket_id,
+                req: RequestType::Flush,
+                req_id: None,
+            },
+        ) {
+            Poll::Ready(Ok(())) => Ok(()),
+            Poll::Ready(Err(err)) => Err(err),
+            Poll::Pending => Err(NetworkError::WouldBlock),
         }
     }
 
@@ -1137,18 +1015,17 @@ impl VirtualRawSocket for RemoteSocket {
     }
 
     fn set_promiscuous(&mut self, promiscuous: bool) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetPromiscuous(promiscuous)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetPromiscuous(promiscuous))
     }
 
     fn promiscuous(&self) -> Result<bool> {
-        match self.blocking_io_socket(RequestType::GetPromiscuous) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetPromiscuous)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get promiscuous request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 }
@@ -1157,18 +1034,19 @@ impl VirtualConnectionlessSocket for RemoteSocket {
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
         let mut cx = Context::from_waker(&self.tx_waker);
-        self.common
-            .tx
-            .try_send(
-                &mut cx,
-                MessageRequest::SendTo {
-                    socket: self.socket_id,
-                    data: data.to_vec(),
-                    addr,
-                    req_id,
-                },
-            )
-            .map(|_| data.len())
+        match self.common.tx.poll_send(
+            &mut cx,
+            MessageRequest::SendTo {
+                socket: self.socket_id,
+                data: data.to_vec(),
+                addr,
+                req_id: Some(req_id),
+            },
+        ) {
+            Poll::Ready(Ok(())) => Ok(data.len()),
+            Poll::Ready(Err(err)) => Err(err),
+            Poll::Pending => Err(NetworkError::WouldBlock),
+        }
     }
 
     fn try_recv_from(
@@ -1190,66 +1068,62 @@ impl VirtualConnectionlessSocket for RemoteSocket {
 
 impl VirtualUdpSocket for RemoteSocket {
     fn set_broadcast(&mut self, broadcast: bool) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetBroadcast(broadcast)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetBroadcast(broadcast))
     }
 
     fn broadcast(&self) -> Result<bool> {
-        match self.blocking_io_socket(RequestType::GetBroadcast) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetBroadcast)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get broadcast request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn set_multicast_loop_v4(&mut self, val: bool) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetMulticastLoopV4(val)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetMulticastLoopV4(val))
     }
 
     fn multicast_loop_v4(&self) -> Result<bool> {
-        match self.blocking_io_socket(RequestType::GetMulticastLoopV4) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetMulticastLoopV4)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get multicast loop v4 request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn set_multicast_loop_v6(&mut self, val: bool) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetMulticastLoopV6(val)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetMulticastLoopV6(val))
     }
 
     fn multicast_loop_v6(&self) -> Result<bool> {
-        match self.blocking_io_socket(RequestType::GetMulticastLoopV6) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetMulticastLoopV6)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get multicast loop v6 request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn set_multicast_ttl_v4(&mut self, ttl: u32) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetMulticastTtlV4(ttl)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetMulticastTtlV4(ttl))
     }
 
     fn multicast_ttl_v4(&self) -> Result<u32> {
-        match self.blocking_io_socket(RequestType::GetMulticastTtlV4) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetMulticastTtlV4)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Ttl(ttl) => Ok(ttl),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get multicast TTL v4 request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -1258,11 +1132,7 @@ impl VirtualUdpSocket for RemoteSocket {
         multiaddr: std::net::Ipv4Addr,
         iface: std::net::Ipv4Addr,
     ) -> Result<()> {
-        match self.blocking_io_socket(RequestType::JoinMulticastV4 { multiaddr, iface }) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::JoinMulticastV4 { multiaddr, iface })
     }
 
     fn leave_multicast_v4(
@@ -1270,35 +1140,26 @@ impl VirtualUdpSocket for RemoteSocket {
         multiaddr: std::net::Ipv4Addr,
         iface: std::net::Ipv4Addr,
     ) -> Result<()> {
-        match self.blocking_io_socket(RequestType::LeaveMulticastV4 { multiaddr, iface }) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::LeaveMulticastV4 { multiaddr, iface })
     }
 
     fn join_multicast_v6(&mut self, multiaddr: std::net::Ipv6Addr, iface: u32) -> Result<()> {
-        match self.blocking_io_socket(RequestType::JoinMulticastV6 { multiaddr, iface }) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::JoinMulticastV6 { multiaddr, iface })
     }
 
     fn leave_multicast_v6(&mut self, multiaddr: std::net::Ipv6Addr, iface: u32) -> Result<()> {
-        match self.blocking_io_socket(RequestType::LeaveMulticastV6 { multiaddr, iface }) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::LeaveMulticastV6 { multiaddr, iface })
     }
 
     fn addr_peer(&self) -> Result<Option<SocketAddr>> {
-        match self.blocking_io_socket(RequestType::GetAddrPeer) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(None),
             ResponseType::SocketAddr(addr) => Ok(Some(addr)),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to addr peer request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 }
@@ -1307,52 +1168,56 @@ impl VirtualIcmpSocket for RemoteSocket {}
 
 impl VirtualConnectedSocket for RemoteSocket {
     fn set_linger(&mut self, linger: Option<Duration>) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetLinger(linger)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetLinger(linger))
     }
 
     fn linger(&self) -> Result<Option<Duration>> {
-        match self.blocking_io_socket(RequestType::GetLinger) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetLinger)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(None),
             ResponseType::Duration(val) => Ok(Some(val)),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get linger request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
         let mut cx = Context::from_waker(&self.tx_waker);
-        self.common
-            .tx
-            .try_send(
-                &mut cx,
-                MessageRequest::Send {
-                    socket: self.socket_id,
-                    data: data.to_vec(),
-                    req_id,
-                },
-            )
-            .map(|_| data.len())
+        match self.common.tx.poll_send(
+            &mut cx,
+            MessageRequest::Send {
+                socket: self.socket_id,
+                data: data.to_vec(),
+                req_id: Some(req_id),
+            },
+        ) {
+            Poll::Ready(Ok(())) => Ok(data.len()),
+            Poll::Ready(Err(err)) => Err(err),
+            Poll::Pending => Err(NetworkError::WouldBlock),
+        }
     }
 
     fn try_flush(&mut self) -> Result<()> {
-        match self.blocking_io_socket(RequestType::Flush) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
+        let mut cx = Context::from_waker(&self.tx_waker);
+        match self.common.tx.poll_send(
+            &mut cx,
+            MessageRequest::Socket {
+                socket: self.socket_id,
+                req: RequestType::Flush,
+                req_id: None,
+            },
+        ) {
+            Poll::Ready(Ok(())) => Ok(()),
+            Poll::Ready(Err(err)) => Err(err),
+            Poll::Pending => Err(NetworkError::WouldBlock),
         }
     }
 
     fn close(&mut self) -> Result<()> {
-        match self.blocking_io_socket(RequestType::Close) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::Close)
     }
 
     fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>]) -> Result<usize> {
@@ -1375,58 +1240,58 @@ impl VirtualConnectedSocket for RemoteSocket {
 
 impl VirtualTcpSocket for RemoteSocket {
     fn set_recv_buf_size(&mut self, size: usize) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetRecvBufSize(size as u64)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetRecvBufSize(size as u64))
     }
 
     fn recv_buf_size(&self) -> Result<usize> {
-        match self.blocking_io_socket(RequestType::GetRecvBufSize) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetRecvBufSize)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Amount(amt) => Ok(amt.try_into().map_err(|_| NetworkError::IOError)?),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get recv buf size request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn set_send_buf_size(&mut self, size: usize) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetSendBufSize(size as u64)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetSendBufSize(size as u64))
     }
 
     fn send_buf_size(&self) -> Result<usize> {
-        match self.blocking_io_socket(RequestType::GetSendBufSize) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetSendBufSize)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Amount(val) => Ok(val.try_into().map_err(|_| NetworkError::IOError)?),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get send buf size request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn set_nodelay(&mut self, reuse: bool) -> Result<()> {
-        match self.blocking_io_socket(RequestType::SetNoDelay(reuse)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::SetNoDelay(reuse))
     }
 
     fn nodelay(&self) -> Result<bool> {
-        match self.blocking_io_socket(RequestType::GetNoDelay) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetNoDelay)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to get nodelay request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
     fn addr_peer(&self) -> Result<SocketAddr> {
-        match self.blocking_io_socket(RequestType::GetAddrPeer) {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketAddr(addr) => Ok(addr),
-            _ => Err(NetworkError::IOError),
+            res => {
+                tracing::debug!("invalid response to addr peer request - {res:?}");
+                Err(NetworkError::IOError)
+            }
         }
     }
 
@@ -1436,15 +1301,11 @@ impl VirtualTcpSocket for RemoteSocket {
             std::net::Shutdown::Write => meta::Shutdown::Write,
             std::net::Shutdown::Both => meta::Shutdown::Both,
         };
-        match self.blocking_io_socket(RequestType::Shutdown(shutdown)) {
-            ResponseType::Err(err) => Err(err),
-            ResponseType::None => Ok(()),
-            _ => Err(NetworkError::IOError),
-        }
+        self.io_socket_fire_and_forget(RequestType::Shutdown(shutdown))
     }
 
     fn is_closed(&self) -> bool {
-        match self.blocking_io_socket(RequestType::IsClosed) {
+        match InlineWaker::block_on(self.io_socket(RequestType::IsClosed)) {
             ResponseType::Flag(val) => val,
             _ => false,
         }

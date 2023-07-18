@@ -6,13 +6,17 @@ pub mod client;
 pub mod host;
 pub mod meta;
 #[cfg(any(feature = "remote"))]
+pub mod rx_tx;
+#[cfg(any(feature = "remote"))]
 pub mod server;
-pub mod write_all;
+#[cfg(test)]
+mod tests;
 
 #[cfg(any(feature = "remote"))]
-pub use client::{RemoteNetworking, RemoteNetworkingDriver};
+pub use client::{RemoteNetworkingClient, RemoteNetworkingClientDriver};
+use pin_project_lite::pin_project;
 #[cfg(any(feature = "remote"))]
-pub use server::{RemoteNetworkingAdapter, RemoteNetworkingAdapterDriver};
+pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
 use std::mem::MaybeUninit;
 pub use std::net::IpAddr;
@@ -20,9 +24,14 @@ pub use std::net::Ipv4Addr;
 pub use std::net::Ipv6Addr;
 use std::net::Shutdown;
 pub use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::Context;
+use std::task::Poll;
 pub use std::time::Duration;
 use thiserror::Error;
+use tokio::io::AsyncRead;
+use tokio::io::AsyncWrite;
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
@@ -213,6 +222,42 @@ pub trait VirtualTcpListener: VirtualIoSource + fmt::Debug + Send + Sync + 'stat
     fn ttl(&self) -> Result<u8>;
 }
 
+#[async_trait::async_trait]
+pub trait VirtualTcpListenerExt: VirtualTcpListener {
+    /// Accepts a new connection from the TCP listener
+    async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
+}
+
+#[async_trait::async_trait]
+impl<R: VirtualTcpListener + ?Sized> VirtualTcpListenerExt for R {
+    async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
+        struct Poller<'a, R>
+        where
+            R: VirtualTcpListener + ?Sized,
+        {
+            listener: &'a mut R,
+        }
+        impl<'a, R> std::future::Future for Poller<'a, R>
+        where
+            R: VirtualTcpListener + ?Sized,
+        {
+            type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = self.listener.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match self.listener.try_accept() {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { listener: self }.await
+    }
+}
+
 pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     /// Sets how many network hops the packets are permitted for new connections
     fn set_ttl(&mut self, ttl: u32) -> Result<()>;
@@ -273,6 +318,109 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
+#[async_trait::async_trait]
+pub trait VirtualConnectedSocketExt: VirtualConnectedSocket {
+    async fn send(&mut self, data: &[u8]) -> Result<usize>;
+
+    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+
+    async fn flush(&mut self) -> Result<()>;
+}
+
+#[async_trait::async_trait]
+impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
+    async fn send(&mut self, data: &[u8]) -> Result<usize> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectedSocket,
+            {
+                socket: &'a mut R,
+                data: &'b [u8],
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            type Output = Result<usize>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_send(this.data) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self, data }.await
+    }
+
+    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectedSocket,
+            {
+                socket: &'a mut R,
+                buf: &'b mut [MaybeUninit<u8>],
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            type Output = Result<usize>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_recv(this.buf) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self, buf }.await
+    }
+
+    async fn flush(&mut self) -> Result<()> {
+        struct Poller<'a, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            socket: &'a mut R,
+        }
+        impl<'a, R> std::future::Future for Poller<'a, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            type Output = Result<()>;
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = self.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match self.socket.try_flush() {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self }.await
+    }
+}
+
 /// Connectionless sockets are able to send and receive datagrams and stream
 /// bytes to multiple addresses at the same time (peer-to-peer)
 pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
@@ -282,6 +430,86 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
 
     /// Recv a packet from the socket
     fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+}
+
+#[async_trait::async_trait]
+pub trait VirtualConnectionlessSocketExt: VirtualConnectionlessSocket {
+    async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
+
+    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+}
+
+#[async_trait::async_trait]
+impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for R {
+    async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectionlessSocket,
+            {
+                socket: &'a mut R,
+                data: &'b [u8],
+                addr: SocketAddr,
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectionlessSocket + ?Sized,
+        {
+            type Output = Result<usize>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_send_to(this.data, *this.addr) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller {
+            socket: self,
+            data,
+            addr,
+        }
+        .await
+    }
+
+    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectionlessSocket,
+            {
+                socket: &'a mut R,
+                buf: &'b mut [MaybeUninit<u8>],
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectionlessSocket + ?Sized,
+        {
+            type Output = Result<(usize, SocketAddr)>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_recv_from(this.buf) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self, buf }.await
+    }
 }
 
 /// ICMP sockets are low level devices bound to a specific address
@@ -351,6 +579,69 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
 
     /// Return true if the socket is closed
     fn is_closed(&self) -> bool;
+}
+
+impl<'a> AsyncRead for Box<dyn VirtualTcpSocket + Sync + 'a> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let this = self.get_mut();
+        let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+        if let Err(err) = this.set_handler(handler) {
+            return Poll::Ready(Err(net_error_into_io_err(err)));
+        }
+        let buf_unsafe = unsafe { buf.unfilled_mut() };
+        match this.try_recv(buf_unsafe) {
+            Ok(ret) => {
+                unsafe { buf.assume_init(ret) };
+                buf.set_filled(ret);
+                Poll::Ready(Ok(()))
+            }
+            Err(NetworkError::WouldBlock) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(net_error_into_io_err(err))),
+        }
+    }
+}
+
+impl<'a> AsyncWrite for Box<dyn VirtualTcpSocket + Sync + 'a> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        let this = self.get_mut();
+        let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+        if let Err(err) = this.set_handler(handler) {
+            return Poll::Ready(Err(net_error_into_io_err(err)));
+        }
+        match this.try_send(buf) {
+            Ok(ret) => Poll::Ready(Ok(ret)),
+            Err(NetworkError::WouldBlock) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(net_error_into_io_err(err))),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        let this = self.get_mut();
+        let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+        if let Err(err) = this.set_handler(handler) {
+            return Poll::Ready(Err(net_error_into_io_err(err)));
+        }
+        match this.try_flush() {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(NetworkError::WouldBlock) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(net_error_into_io_err(err))),
+        }
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(
+            self.shutdown(Shutdown::Write)
+                .map_err(net_error_into_io_err),
+        )
+    }
 }
 
 pub trait VirtualUdpSocket:
@@ -546,5 +837,44 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         }
         #[cfg(not(all(target_family = "unix", feature = "libc")))]
         _ => NetworkError::UnknownError,
+    }
+}
+
+pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
+    use std::io::ErrorKind;
+    match net_error {
+        NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
+        NetworkError::AlreadyExists => ErrorKind::AlreadyExists.into(),
+        NetworkError::Lock => ErrorKind::BrokenPipe.into(),
+        NetworkError::IOError => ErrorKind::BrokenPipe.into(),
+        NetworkError::AddressInUse => ErrorKind::AddrInUse.into(),
+        NetworkError::AddressNotAvailable => ErrorKind::AddrNotAvailable.into(),
+        NetworkError::BrokenPipe => ErrorKind::BrokenPipe.into(),
+        NetworkError::ConnectionAborted => ErrorKind::ConnectionAborted.into(),
+        NetworkError::ConnectionRefused => ErrorKind::ConnectionRefused.into(),
+        NetworkError::ConnectionReset => ErrorKind::ConnectionReset.into(),
+        NetworkError::Interrupted => ErrorKind::Interrupted.into(),
+        NetworkError::InvalidData => ErrorKind::InvalidData.into(),
+        NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
+        NetworkError::NotConnected => ErrorKind::NotConnected.into(),
+        NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
+        NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),
+        NetworkError::TimedOut => ErrorKind::TimedOut.into(),
+        NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
+        NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
+        NetworkError::WriteZero => ErrorKind::WriteZero.into(),
+        NetworkError::Unsupported => ErrorKind::Unsupported.into(),
+        NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
+        NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
+        NetworkError::TooManyOpenFiles => {
+            #[cfg(target_family = "unix")]
+            {
+                std::io::Error::from_raw_os_error(libc::EMFILE)
+            }
+            #[cfg(not(target_family = "unix"))]
+            {
+                ErrorKind::Other.into()
+            }
+        }
     }
 }

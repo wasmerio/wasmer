@@ -21,6 +21,12 @@ impl From<u64> for SocketId {
     }
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum FrameSerializationFormat {
+    Bincode,
+    Json
+}
+
 /// Possible values which can be passed to the [`TcpStream::shutdown`] method.
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Shutdown {
@@ -111,8 +117,8 @@ pub enum RequestType {
     },
     /// Closes the socket
     Close,
-    /// Tries to accept a new connection
-    TryAccept(SocketId),
+    /// Begins the process of accepting a socket and returns it later
+    BeginAccept(SocketId),
     /// Returns the local address of this TCP listener
     GetAddrLocal,
     /// Returns the address (IP and Port) of the peer socket that this
@@ -243,8 +249,6 @@ pub enum ResponseType {
     RouteList(Vec<IpRoute>),
     /// Reference to a socket
     Socket(SocketId),
-    /// Reference to a socket with an address
-    SocketWithAddr { id: SocketId, addr: SocketAddr },
     /// The TTL of a packet
     Ttl(u32),
     /// The status of the socket
@@ -256,23 +260,23 @@ pub enum ResponseType {
 pub enum MessageRequest {
     Interface {
         req: RequestType,
-        req_id: u64,
+        req_id: Option<u64>,
     },
     Socket {
         socket: SocketId,
         req: RequestType,
-        req_id: u64,
+        req_id: Option<u64>,
     },
     Send {
         socket: SocketId,
         data: Vec<u8>,
-        req_id: u64,
+        req_id: Option<u64>,
     },
     SendTo {
         socket: SocketId,
         data: Vec<u8>,
         addr: SocketAddr,
-        req_id: u64,
+        req_id: Option<u64>,
     },
 }
 
@@ -301,6 +305,11 @@ pub enum MessageResponse {
         socket_id: SocketId,
         req_id: u64,
         error: NetworkError,
+    },
+    FinishAccept {
+        socket_id: SocketId,
+        child_id: SocketId,
+        addr: SocketAddr,
     },
     Closed {
         socket_id: SocketId,
