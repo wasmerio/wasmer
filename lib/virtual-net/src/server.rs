@@ -97,12 +97,12 @@ impl RemoteNetworkingAdapter {
         let common = RemoteAdapterCommon {
             tx: if via_driver {
                 RemoteTx::StreamViaDriver {
-                    tx: Arc::new(tokio::sync::Mutex::new(tx)),
+                    tx: Arc::new(Mutex::new(tx)),
                     work: tx_work,
                 }
             } else {
                 RemoteTx::Stream {
-                    tx: tokio::sync::Mutex::new(tx),
+                    tx: Arc::new(Mutex::new(tx)),
                 }
             },
             rx: Mutex::new(RemoteRx::Stream {

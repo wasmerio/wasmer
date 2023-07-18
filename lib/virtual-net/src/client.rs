@@ -17,6 +17,7 @@ use std::task::Waker;
 use std::time::Duration;
 
 use bytes::Buf;
+use bytes::Bytes;
 use bytes::BytesMut;
 use derivative::Derivative;
 use futures_util::future::BoxFuture;
@@ -25,7 +26,6 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
-use tokio::io::AsyncWriteExt;
 use tokio::io::ReadBuf;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
@@ -55,6 +55,8 @@ use crate::VirtualTcpListener;
 use crate::VirtualTcpSocket;
 use crate::VirtualUdpSocket;
 
+use crate::write_all::locking_write_all;
+use crate::write_all::locking_write_all_many;
 use crate::Result;
 
 #[derive(Debug, Clone)]
@@ -109,15 +111,15 @@ impl RemoteNetworking {
     /// This version will run the async read and write operations
     /// only the driver (this is needed for mixed runtimes)
     pub fn new_from_stream_via_driver(
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+        tx: Pin<Box<dyn AsyncWrite + Send>>,
+        rx: Pin<Box<dyn AsyncRead + Send>>,
     ) -> (Self, RemoteNetworkingDriver) {
         Self::new_from_stream_internal(tx, rx, true)
     }
 
     fn new_from_stream_internal(
-        tx: Pin<Box<dyn AsyncWrite + Send + Sync>>,
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+        tx: Pin<Box<dyn AsyncWrite + Send>>,
+        rx: Pin<Box<dyn AsyncRead + Send>>,
         via_driver: bool,
     ) -> (Self, RemoteNetworkingDriver) {
         let (tx_work, rx_work) = mpsc::unbounded_channel();
@@ -125,12 +127,12 @@ impl RemoteNetworking {
         let common = RemoteCommon {
             tx: if via_driver {
                 RemoteTx::StreamViaDriver {
-                    tx: Arc::new(tokio::sync::Mutex::new(tx)),
+                    tx: Arc::new(Mutex::new(tx)),
                     work: tx_work,
                 }
             } else {
                 RemoteTx::Stream {
-                    tx: tokio::sync::Mutex::new(tx),
+                    tx: Arc::new(Mutex::new(tx)),
                 }
             },
             rx: Mutex::new(RemoteRx::Stream {
@@ -325,17 +327,17 @@ impl Future for RemoteNetworkingDriver {
     }
 }
 
-pub(crate) type RemoteTxStream = Pin<Box<dyn AsyncWrite + Send + Sync>>;
+pub(crate) type RemoteTxStream = Pin<Box<dyn AsyncWrite + Send>>;
 pub(crate) enum RemoteTx<T>
 where
     T: Serialize,
 {
     Mpsc(mpsc::Sender<T>),
     Stream {
-        tx: tokio::sync::Mutex<RemoteTxStream>,
+        tx: Arc<Mutex<RemoteTxStream>>,
     },
     StreamViaDriver {
-        tx: Arc<tokio::sync::Mutex<RemoteTxStream>>,
+        tx: Arc<Mutex<RemoteTxStream>>,
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
     },
 }
@@ -350,34 +352,26 @@ where
                 .await
                 .map_err(|_| NetworkError::ConnectionAborted),
             RemoteTx::Stream { tx, .. } => {
-                let mut tx = tx.lock().await;
                 let data = bincode::serialize(&req).map_err(|err| {
                     tracing::warn!("failed to serialize message - {}", err);
                     NetworkError::IOError
                 })?;
-                let data_len = data.len() as u64;
-                let data_len_buf = data_len.to_le_bytes();
-                tx.write_all(&data_len_buf)
+                locking_write_all(tx, data.into())
                     .await
-                    .map_err(io_err_into_net_error)?;
-                tx.write_all(&data).await.map_err(io_err_into_net_error)
+                    .map_err(io_err_into_net_error)
             }
             RemoteTx::StreamViaDriver { tx, work, .. } => {
                 let (tx_done, rx_done) = oneshot::channel();
                 let tx = tx.clone();
                 work.send(Box::pin(async move {
                     let job = async {
-                        let mut tx = tx.lock().await;
                         let data = bincode::serialize(&req).map_err(|err| {
                             tracing::warn!("failed to serialize message - {}", err);
                             NetworkError::IOError
                         })?;
-                        let data_len = data.len() as u64;
-                        let data_len_buf = data_len.to_le_bytes();
-                        tx.write_all(&data_len_buf)
+                        locking_write_all(&tx, data.into())
                             .await
-                            .map_err(io_err_into_net_error)?;
-                        tx.write_all(&data).await.map_err(io_err_into_net_error)
+                            .map_err(io_err_into_net_error)
                     };
                     tx_done.send(job.await).ok();
                 }))
@@ -404,30 +398,36 @@ where
                 let data_len = data.len() as u64;
                 let data_len_buf = data_len.to_le_bytes();
 
-                let mut tx = InlineWaker::block_on(tx.lock());
-                let data_len_buf_left =
+                let data_len_remaining = {
+                    let mut tx = tx.lock().unwrap();
                     match Pin::new(tx.deref_mut()).poll_write(interest_cx, &data_len_buf) {
                         Poll::Ready(Ok(0)) => {
                             return Err(NetworkError::ConnectionAborted);
                         }
-                        Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => 0,
-                        Poll::Ready(Ok(amt)) => data_len_buf.len() - amt,
+                        Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => None,
+                        Poll::Ready(Ok(amt)) => {
+                            let remaining = &data_len_buf[amt..];
+                            Some(remaining.to_vec())
+                        }
                         Poll::Ready(Err(err)) => {
                             return Err(io_err_into_net_error(err));
                         }
                         Poll::Pending => {
                             return Err(NetworkError::WouldBlock);
                         }
-                    };
+                    }
+                };
+
+                let bufs = if let Some(data_len_remaining) = data_len_remaining {
+                    vec![Bytes::from(data_len_remaining), Bytes::from(data)]
+                } else {
+                    vec![Bytes::from(data)]
+                };
 
                 InlineWaker::block_on(Box::pin(async move {
-                    if data_len_buf_left > 0 {
-                        let offset = data_len_buf.len() - data_len_buf_left;
-                        tx.write_all(&data_len_buf[offset..])
-                            .await
-                            .map_err(io_err_into_net_error)?;
-                    }
-                    tx.write_all(&data).await.map_err(io_err_into_net_error)
+                    locking_write_all_many(&tx, bufs)
+                        .await
+                        .map_err(io_err_into_net_error)
                 }))
             }
             RemoteTx::StreamViaDriver { tx, work } => {
@@ -438,40 +438,38 @@ where
                 let data_len = data.len() as u64;
                 let data_len_buf = data_len.to_le_bytes();
 
-                let interest_waker = interest_cx.waker().clone();
+                let data_len_remaining = {
+                    let mut tx = tx.lock().unwrap();
+                    match Pin::new(tx.deref_mut()).poll_write(interest_cx, &data_len_buf) {
+                        Poll::Ready(Ok(0)) => {
+                            return Err(NetworkError::ConnectionAborted);
+                        }
+                        Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => None,
+                        Poll::Ready(Ok(amt)) => {
+                            let remaining = &data_len_buf[amt..];
+                            Some(remaining.to_vec())
+                        }
+                        Poll::Ready(Err(err)) => {
+                            return Err(io_err_into_net_error(err));
+                        }
+                        Poll::Pending => {
+                            return Err(NetworkError::WouldBlock);
+                        }
+                    }
+                };
+
+                let bufs = if let Some(data_len_remaining) = data_len_remaining {
+                    vec![Bytes::from(data_len_remaining), Bytes::from(data)]
+                } else {
+                    vec![Bytes::from(data)]
+                };
 
                 let (tx_done, rx_done) = std::sync::mpsc::channel();
                 let tx = tx.clone();
                 work.send(Box::pin(async move {
-                    let job = async {
-                        let mut tx = tx.lock().await;
-
-                        let mut interest_cx = Context::from_waker(&interest_waker);
-                        let data_len_buf_left = match Pin::new(tx.deref_mut())
-                            .poll_write(&mut interest_cx, &data_len_buf)
-                        {
-                            Poll::Ready(Ok(0)) => {
-                                return Err(NetworkError::ConnectionAborted);
-                            }
-                            Poll::Ready(Ok(amt)) if amt == data_len_buf.len() => 0,
-                            Poll::Ready(Ok(amt)) => data_len_buf.len() - amt,
-                            Poll::Ready(Err(err)) => {
-                                return Err(io_err_into_net_error(err));
-                            }
-                            Poll::Pending => {
-                                return Err(NetworkError::WouldBlock);
-                            }
-                        };
-
-                        if data_len_buf_left > 0 {
-                            let offset = data_len_buf.len() - data_len_buf_left;
-                            tx.write_all(&data_len_buf[offset..])
-                                .await
-                                .map_err(io_err_into_net_error)?;
-                        }
-                        tx.write_all(&data).await.map_err(io_err_into_net_error)
-                    };
-                    let ret = job.await;
+                    let ret = locking_write_all_many(&tx, bufs)
+                        .await
+                        .map_err(io_err_into_net_error);
                     tx_done.send(ret).ok();
                 }))
                 .map_err(|_| NetworkError::ConnectionAborted)?;
@@ -535,7 +533,7 @@ where
 {
     Mpsc(mpsc::Receiver<T>),
     Stream {
-        rx: Pin<Box<dyn AsyncRead + Send + Sync>>,
+        rx: Pin<Box<dyn AsyncRead + Send>>,
         next: Option<u64>,
         buf: BytesMut,
     },
