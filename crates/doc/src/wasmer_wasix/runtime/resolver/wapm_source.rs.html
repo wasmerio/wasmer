@@ -690,8 +690,6 @@
 <a href="#689" id="689">689</a>
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
-<a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -909,9 +907,7 @@
     <span class="kw">let </span>manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context(<span class="string">&quot;Unable to deserialize the manifest&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>webc_sha256 = [<span class="number">0_u8</span>; <span class="number">32</span>];
-    hex::decode_to_slice(<span class="kw-2">&amp;</span>hash, <span class="kw-2">&amp;mut </span>webc_sha256)<span class="question-mark">?</span>;
-    <span class="kw">let </span>webc_sha256 = WebcHash::from_bytes(webc_sha256);
+    <span class="kw">let </span>webc_sha256 = WebcHash::parse_hex(<span class="kw-2">&amp;</span>hash).context(<span class="string">&quot;invalid webc sha256 hash in manifest&quot;</span>)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(PackageSummary {
         pkg: PackageInfo::from_manifest(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>,

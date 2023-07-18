@@ -448,6 +448,13 @@
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Display, Formatter},
     fs::File,
@@ -785,6 +792,13 @@
 <span class="kw">impl </span>WebcHash {
     <span class="kw">pub fn </span>from_bytes(bytes: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
         WebcHash(bytes)
+    }
+
+    <span class="doccomment">/// Parse a sha256 hash from a hex-encoded string.
+    </span><span class="kw">pub fn </span>parse_hex(hex_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, hex::FromHexError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>hash = [<span class="number">0_u8</span>; <span class="number">32</span>];
+        hex::decode_to_slice(hex_str, <span class="kw-2">&amp;mut </span>hash)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(hash))
     }
 
     <span class="kw">pub fn </span>for_file(path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, std::io::Error&gt; {
