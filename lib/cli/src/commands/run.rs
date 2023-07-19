@@ -543,6 +543,7 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
+    #[tracing::instrument(level = "debug", skip_all)]
     fn from_dir(dir: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
         pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
 
@@ -559,7 +560,7 @@ impl ExecutableTarget {
     }
 
     /// Try to load a file into something that can be used to run it.
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     fn from_file(path: &Path, runtime: &dyn Runtime, pb: &ProgressBar) -> Result<Self, Error> {
         pb.set_message(format!("Loading from \"{}\"", path.display()));
 
