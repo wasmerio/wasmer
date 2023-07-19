@@ -80,7 +80,6 @@ version = "4.0.0"
 
 [workspace.dependencies]
 webc = { version = "5.0.4", default-features = false }
-wapm-targz-to-pirita = "0.3.1"
 wasmer-toml = "0.6.0"
 
 [build-dependencies]
@@ -291,3 +290,6 @@ required-features = ["backend"]
 name = "features"
 path = "examples/features.rs"
 required-features = ["cranelift"]
+
+[patch.crates-io]
+webc = { git = "https://github.com/wasmerio/pirita", package = "webc", rev = "6c40cfdf5fc760a19e2226db498824575ef3d2a8" }

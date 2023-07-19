@@ -112,7 +112,6 @@ exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
     { name = "webc", allow = ["BUSL-1.1"] },
-    { name = "wapm-targz-to-pirita", allow = ["BUSL-1.1"] },
 ]
 
 
