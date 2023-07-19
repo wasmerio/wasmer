@@ -71,7 +71,6 @@ wasmer-deploy-cli = { version = "0.1.17", default-features = false }
 
 # Third-party dependencies.
 
-atty = "0.2"
 is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
