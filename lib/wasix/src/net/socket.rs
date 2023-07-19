@@ -1259,7 +1259,7 @@ impl InodeSocketProtected {
     pub fn set_handler(
         &mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
-    ) -> virtual_net::Result<()> {
+    ) -> wasmer_virtual_net::Result<()> {
         match &mut self.kind {
             InodeSocketKind::TcpListener { socket, .. } => socket.set_handler(handler),
             InodeSocketKind::TcpStream { socket, .. } => socket.set_handler(handler),

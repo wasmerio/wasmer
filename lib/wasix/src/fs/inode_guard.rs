@@ -12,7 +12,7 @@ use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
 use wasmer_virtual_io::{InterestType, StatefulHandler};
-use wasmer_virtual_net::NetworkError;
+use wasmer_virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::{
     types::Eventtype,
     wasi::{self, EpollType},
