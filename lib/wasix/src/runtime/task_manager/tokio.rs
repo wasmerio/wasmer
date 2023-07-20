@@ -106,6 +106,8 @@ impl VirtualTaskManager for TokioTaskManager {
 
             // Run the callback on a dedicated thread
             self.pool.spawn(move || {
+                tracing::trace!("task_wasm started in blocking thread");
+
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
