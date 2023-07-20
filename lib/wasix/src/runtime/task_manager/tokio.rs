@@ -85,6 +85,8 @@ impl VirtualTaskManager for TokioTaskManager {
         // If we have a trigger then we first need to run
         // the poller to completion
         if let Some(trigger) = task.trigger {
+            tracing::trace!("spawning task_wasm trigger in async pool");
+
             let trigger = trigger();
             let pool = self.pool.clone();
             self.handle.spawn(async move {
@@ -100,6 +102,8 @@ impl VirtualTaskManager for TokioTaskManager {
                 });
             });
         } else {
+            tracing::trace!("spawning task_wasm in blocking thread");
+
             // Run the callback on a dedicated thread
             self.pool.spawn(move || {
                 // Invoke the callback
