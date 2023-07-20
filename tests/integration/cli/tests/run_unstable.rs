@@ -26,15 +26,45 @@ static RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 fn wasmer_run_unstable() -> std::process::Command {
+    // FIXME: undo this
+    // let mut cmd = std::process::Command::new("cargo");
+    // cmd.arg("run")
+    //     .arg("--quiet")
+    //     .arg("--package=wasmer-cli")
+    //     .arg("--features=singlepass,cranelift,compiler")
+    //     .arg("--color=never")
+    //     .arg("--")
+    //     .arg("run");
+    // cmd.env("RUST_LOG", "wasmer_wasix=trace,wasmer_cli=trace,virtual_fs=trace");
+
     let mut cmd = std::process::Command::new("cargo");
-    cmd.arg("run")
-        .arg("--quiet")
+    let status = cmd
+        .arg("build")
         .arg("--package=wasmer-cli")
         .arg("--features=singlepass,cranelift,compiler")
-        .arg("--color=never")
-        .arg("--")
-        .arg("run");
-    cmd.env("RUST_LOG", &*RUST_LOG);
+        .spawn()
+        .unwrap()
+        .wait()
+        .unwrap();
+
+    if !status.success() {
+        panic!("could not compile");
+    }
+
+    let path = std::env::var("CARGO_MANIFEST_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap()
+        .ancestors()
+        .nth(3)
+        .unwrap()
+        .join("target")
+        .join("release")
+        .join("wasmer");
+
+    dbg!(&path);
+
+    let mut cmd = std::process::Command::new(path);
+    cmd.env("RUST_LOG", "trace");
     cmd
 }
 
@@ -437,6 +467,7 @@ mod remote_webc {
         ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
     )]
     fn bash_using_coreutils() {
+        dbg!("a");
         let assert = wasmer_run_unstable()
             .arg("sharrattj/bash")
             .arg("--entrypoint=bash")
