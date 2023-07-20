@@ -149,11 +149,8 @@ impl BinaryPackage {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, path::Path};
-
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
-    use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 
     use crate::{runtime::task_manager::VirtualTaskManager, PluggableRuntime};
 
@@ -185,13 +182,15 @@ mod tests {
             [fs]
             "/public" = "./out"
         "#;
-        std::fs::write(temp.path().join("wasmer.toml"), wasmer_toml).unwrap();
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
         let out = temp.path().join("out");
         std::fs::create_dir_all(&out).unwrap();
         let file_txt = "Hello, World!";
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
-        let webc = construct_webc_in_memory(temp.path());
-        let webc = Container::from_bytes(webc).unwrap();
+        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
+            .unwrap()
+            .into();
         let tasks = task_manager();
         let runtime = PluggableRuntime::new(tasks);
 
@@ -208,41 +207,5 @@ mod tests {
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await.unwrap();
         assert_eq!(buffer, file_txt);
-    }
-
-    fn construct_webc_in_memory(dir: &Path) -> Vec<u8> {
-        let mut files = BTreeMap::new();
-        load_files_from_disk(&mut files, dir, dir);
-
-        let wasmer_toml = DirOrFile::File("wasmer.toml".into());
-        if let Some(toml_data) = files.remove(&wasmer_toml) {
-            // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-            // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
-            // manually patch things up if people have already migrated their
-            // projects.
-            files
-                .entry(DirOrFile::File("wapm.toml".into()))
-                .or_insert(toml_data);
-        }
-
-        let functions = TransformManifestFunctions::default();
-        wapm_targz_to_pirita::generate_webc_file(files, dir, &functions).unwrap()
-    }
-
-    fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) {
-        let entries = dir.read_dir().unwrap();
-
-        for entry in entries {
-            let path = entry.unwrap().path();
-            let relative_path = path.strip_prefix(base).unwrap().to_path_buf();
-
-            if path.is_dir() {
-                load_files_from_disk(files, &path, base);
-                files.insert(DirOrFile::Dir(relative_path), Vec::new());
-            } else if path.is_file() {
-                let data = std::fs::read(&path).unwrap();
-                files.insert(DirOrFile::File(relative_path), data);
-            }
-        }
     }
 }
