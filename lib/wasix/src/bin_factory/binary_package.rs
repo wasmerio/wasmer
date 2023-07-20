@@ -149,8 +149,6 @@ impl BinaryPackage {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, path::Path};
-
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
 
@@ -184,13 +182,13 @@ mod tests {
             [fs]
             "/public" = "./out"
         "#;
-        let wasmer_toml = temp.path().join("wasmer.toml");
-        std::fs::write(&wasmer_toml, wasmer_toml).unwrap();
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
         let out = temp.path().join("out");
         std::fs::create_dir_all(&out).unwrap();
         let file_txt = "Hello, World!";
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
-        let webc: Container = webc::wasmer_package::Package::from_manifest(wasmer_toml)
+        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
             .unwrap()
             .into();
         let tasks = task_manager();
