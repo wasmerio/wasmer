@@ -60,7 +60,7 @@ wasmer-object = { version = "=4.0.0", path = "../object", optional = true }
 virtual-fs = { version = "0.6.0", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }
-wasmer-virtual-net = { version = "0.3.0", path = "../virtual-net" }
+virtual-net = { version = "0.3.0", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
 webc = { workspace = true }
@@ -170,7 +170,7 @@ coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
 jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
-host-net = ["wasmer-virtual-net/host-net"]
+host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
 compiler = [
   "backend",

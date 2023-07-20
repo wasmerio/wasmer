@@ -2047,7 +2047,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-virtual-io"
+name = "virtual-io"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -2060,7 +2060,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-virtual-net"
+name = "virtual-net"
 version = "0.3.0"
 dependencies = [
  "async-trait",
@@ -2073,7 +2073,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tracing",
- "wasmer-virtual-io",
+ "virtual-io",
 ]
 
 [[package]]
@@ -2462,8 +2462,8 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
- "wasmer-virtual-io",
- "wasmer-virtual-net",
+ "virtual-io",
+ "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",

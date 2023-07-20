@@ -803,7 +803,7 @@ impl<R> MonitoringRuntime<R> {
 }
 
 impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for MonitoringRuntime<R> {
-    fn networking(&self) -> &wasmer_virtual_net::DynVirtualNetworking {
+    fn networking(&self) -> &virtual_net::DynVirtualNetworking {
         self.runtime.networking()
     }
 

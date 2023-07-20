@@ -38,8 +38,8 @@ use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 use tokio_util::codec::LengthDelimitedCodec;
-use wasmer_virtual_io::InlineWaker;
-use wasmer_virtual_io::InterestType;
+use virtual_io::InlineWaker;
+use virtual_io::InterestType;
 
 use crate::meta;
 use crate::meta::FrameSerializationFormat;
@@ -73,25 +73,14 @@ pub struct RemoteNetworkingClient {
 }
 
 impl RemoteNetworkingClient {
-    /// Creates a new interface on the remote location using
-    /// a unique interface ID and a pair of channels
-    pub fn new_from_mpsc(
-        tx: mpsc::Sender<MessageRequest>,
-        rx: mpsc::Receiver<MessageResponse>,
+    fn new(
+        tx: RemoteTx<MessageRequest>,
+        rx: RemoteRx<MessageResponse>,
+        rx_work: mpsc::UnboundedReceiver<BoxFuture<'static, ()>>,
     ) -> (Self, RemoteNetworkingClientDriver) {
-        let (tx_work, rx_work) = mpsc::unbounded_channel();
-        let tx_wakers = RemoteTxWakers::default();
-
         let common = RemoteCommon {
-            tx: RemoteTx::Mpsc {
-                tx,
-                work: tx_work,
-                wakers: tx_wakers.clone(),
-            },
-            rx: Mutex::new(RemoteRx::Mpsc {
-                rx,
-                wakers: tx_wakers,
-            }),
+            tx,
+            rx: Mutex::new(rx),
             request_seed: AtomicU64::new(1),
             requests: Default::default(),
             socket_seed: AtomicU64::new(1),
@@ -111,6 +100,28 @@ impl RemoteNetworkingClient {
         let networking = Self { common };
 
         (networking, driver)
+    }
+
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    pub fn new_from_mpsc(
+        tx: mpsc::Sender<MessageRequest>,
+        rx: mpsc::Receiver<MessageResponse>,
+    ) -> (Self, RemoteNetworkingClientDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
+
+        let tx = RemoteTx::Mpsc {
+            tx,
+            work: tx_work,
+            wakers: tx_wakers.clone(),
+        };
+        let rx = RemoteRx::Mpsc {
+            rx,
+            wakers: tx_wakers,
+        };
+
+        Self::new(tx, rx, rx_work)
     }
 
     /// Creates a new interface on the remote location using
@@ -172,32 +183,68 @@ impl RemoteNetworkingClient {
         let (tx_work, rx_work) = mpsc::unbounded_channel();
         let tx_wakers = RemoteTxWakers::default();
 
-        let common = RemoteCommon {
-            tx: RemoteTx::Stream {
-                tx: Arc::new(tokio::sync::Mutex::new(tx)),
-                work: tx_work,
-                wakers: tx_wakers.clone(),
-            },
-            rx: Mutex::new(RemoteRx::Stream { rx }),
-            request_seed: AtomicU64::new(1),
-            requests: Default::default(),
-            socket_seed: AtomicU64::new(1),
-            recv_tx: Default::default(),
-            recv_with_addr_tx: Default::default(),
-            accept_tx: Default::default(),
-            handlers: Default::default(),
-            stall: Default::default(),
+        let tx = RemoteTx::Stream {
+            tx: Arc::new(tokio::sync::Mutex::new(tx)),
+            work: tx_work,
+            wakers: tx_wakers.clone(),
         };
-        let common = Arc::new(common);
+        let rx = RemoteRx::Stream { rx };
 
-        let driver = RemoteNetworkingClientDriver {
-            more_work: rx_work,
-            tasks: Default::default(),
-            common: common.clone(),
+        Self::new(tx, rx, rx_work)
+    }
+
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    #[cfg(feature = "hyper")]
+    pub fn new_from_hyper_ws_io(
+        tx: futures_util::stream::SplitSink<
+            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::tungstenite::Message,
+        >,
+        rx: futures_util::stream::SplitStream<
+            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+        >,
+        format: FrameSerializationFormat,
+    ) -> (Self, RemoteNetworkingClientDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+
+        let tx = RemoteTx::HyperWebSocket {
+            tx: Arc::new(tokio::sync::Mutex::new(tx)),
+            work: tx_work,
+            wakers: RemoteTxWakers::default(),
+            format,
         };
-        let networking = Self { common };
+        let rx = RemoteRx::HyperWebSocket { rx, format };
+        Self::new(tx, rx, rx_work)
+    }
 
-        (networking, driver)
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    #[cfg(feature = "tokio-tungstenite")]
+    pub fn new_from_tokio_ws_io(
+        tx: futures_util::stream::SplitSink<
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+            tokio_tungstenite::tungstenite::Message,
+        >,
+        rx: futures_util::stream::SplitStream<
+            tokio_tungstenite::WebSocketStream<
+                tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+            >,
+        >,
+        format: FrameSerializationFormat,
+    ) -> (Self, RemoteNetworkingClientDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+
+        let tx = RemoteTx::TokioWebSocket {
+            tx: Arc::new(tokio::sync::Mutex::new(tx)),
+            work: tx_work,
+            wakers: RemoteTxWakers::default(),
+            format,
+        };
+        let rx = RemoteRx::TokioWebSocket { rx, format };
+        Self::new(tx, rx, rx_work)
     }
 
     fn new_socket(&self, id: SocketId) -> RemoteSocket {
@@ -471,7 +518,7 @@ struct RemoteCommon {
     recv_with_addr_tx: Mutex<HashMap<SocketId, mpsc::Sender<(Vec<u8>, SocketAddr)>>>,
     accept_tx: Mutex<HashMap<SocketId, mpsc::Sender<(SocketId, SocketAddr)>>>,
     #[derivative(Debug = "ignore")]
-    handlers: Mutex<HashMap<SocketId, Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>>>,
+    handlers: Mutex<HashMap<SocketId, Box<dyn virtual_io::InterestHandler + Send + Sync>>>,
 
     // The stall guard will prevent reads while its held and there are background tasks running
     // (the idea behind this is to create back pressure so that the task list infinitely grow)
@@ -906,7 +953,7 @@ impl VirtualSocket for RemoteSocket {
 
     fn set_handler(
         &mut self,
-        handler: Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>,
+        handler: Box<dyn virtual_io::InterestHandler + Send + Sync>,
     ) -> Result<()> {
         self.common
             .handlers
@@ -957,7 +1004,7 @@ impl VirtualTcpListener for RemoteSocket {
 
     fn set_handler(
         &mut self,
-        handler: Box<dyn wasmer_virtual_io::InterestHandler + Send + Sync>,
+        handler: Box<dyn virtual_io::InterestHandler + Send + Sync>,
     ) -> Result<()> {
         VirtualSocket::set_handler(self, handler)
     }

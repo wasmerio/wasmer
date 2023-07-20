@@ -16,8 +16,8 @@ use std::{
 
 use derivative::Derivative;
 use futures::future::BoxFuture;
+use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
-use wasmer_virtual_net::{DynVirtualNetworking, VirtualNetworking};
 
 use crate::{
     http::{DynHttpClient, HttpClient},
@@ -187,9 +187,9 @@ impl PluggableRuntime {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {
-                let networking = Arc::new(wasmer_virtual_net::host::LocalNetworking::default());
+                let networking = Arc::new(virtual_net::host::LocalNetworking::default());
             } else {
-                let networking = Arc::new(wasmer_virtual_net::UnsupportedVirtualNetworking::default());
+                let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }
         let http_client =

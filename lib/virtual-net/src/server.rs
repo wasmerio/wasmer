@@ -9,8 +9,6 @@ use derivative::Derivative;
 use futures_util::stream::{FuturesOrdered, SplitSink, SplitStream};
 use futures_util::{future::BoxFuture, StreamExt};
 use futures_util::{Sink, Stream};
-#[cfg(feature = "hyper")]
-use hyper_tungstenite::WebSocketStream;
 use std::collections::HashSet;
 use std::mem::MaybeUninit;
 use std::net::IpAddr;
@@ -37,7 +35,7 @@ use tokio_serde::formats::SymmetricalJson;
 use tokio_serde::formats::SymmetricalMessagePack;
 use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
-use wasmer_virtual_io::InterestHandler;
+use virtual_io::InterestHandler;
 
 type BackgroundTask = Option<BoxFuture<'static, ()>>;
 
@@ -165,24 +163,24 @@ impl RemoteNetworkingServer {
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
     #[cfg(feature = "hyper")]
-    pub fn new_from_ws_io(
+    pub fn new_from_hyper_ws_io(
         tx: SplitSink<
-            WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
             hyper_tungstenite::tungstenite::Message,
         >,
-        rx: SplitStream<WebSocketStream<hyper::upgrade::Upgraded>>,
+        rx: SplitStream<hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>>,
         format: FrameSerializationFormat,
         inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
     ) -> (Self, RemoteNetworkingServerDriver) {
         let (tx_work, rx_work) = mpsc::unbounded_channel();
 
-        let tx = RemoteTx::WebSocket {
+        let tx = RemoteTx::HyperWebSocket {
             tx: Arc::new(tokio::sync::Mutex::new(tx)),
             work: tx_work,
             wakers: RemoteTxWakers::default(),
             format,
         };
-        let rx = RemoteRx::WebSocket { rx, format };
+        let rx = RemoteRx::HyperWebSocket { rx, format };
         Self::new(tx, rx, rx_work, inner)
     }
 }
@@ -624,7 +622,7 @@ impl RemoteNetworkingServerDriver {
 
         // Now we attach the handler to the main listening socket
         let mut handler = Box::new(self.common.handler.clone().for_socket(socket_id));
-        handler.interest(wasmer_virtual_io::InterestType::Readable);
+        handler.interest(virtual_io::InterestType::Readable);
         self.process_inner_noop(
             move |socket| match socket {
                 RemoteAdapterSocket::TcpListener {
@@ -1524,7 +1522,7 @@ impl RemoteAdapterHandler {
     }
 }
 impl InterestHandler for RemoteAdapterHandler {
-    fn interest(&mut self, interest: wasmer_virtual_io::InterestType) {
+    fn interest(&mut self, interest: virtual_io::InterestType) {
         let mut guard = self.state.lock().unwrap();
         guard.driver_wakers.drain(..).for_each(|w| w.wake());
         let socket_id = match self.socket_id.clone() {
@@ -1532,7 +1530,7 @@ impl InterestHandler for RemoteAdapterHandler {
             None => return,
         };
         match interest {
-            wasmer_virtual_io::InterestType::Readable => {
+            virtual_io::InterestType::Readable => {
                 guard.readable.insert(socket_id);
             }
             _ => {}

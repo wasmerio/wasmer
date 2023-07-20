@@ -70,11 +70,11 @@ use wasmer::{
 
 pub use virtual_fs;
 pub use virtual_fs::{DuplexPipe, FsError, Pipe, VirtualFile, WasiBidirectionalSharedPipePair};
-pub use wasmer_virtual_net;
-pub use wasmer_virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
+pub use virtual_net;
+pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "host-vnet")]
-pub use wasmer_virtual_net::{
+pub use virtual_net::{
     host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
     io_err_into_net_error,
 };

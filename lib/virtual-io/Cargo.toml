@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-virtual-io"
+name = "virtual-io"
 version = "0.1.0"
 description = "Wasmer Virtual IO Engine"
 authors.workspace = true

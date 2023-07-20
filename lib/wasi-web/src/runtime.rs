@@ -57,7 +57,7 @@ pub(crate) struct WebRuntime {
     package_loader: Arc<BuiltinPackageLoader>,
     source: Arc<WapmSource>,
     module_cache: Arc<dyn ModuleCache + Send + Sync>,
-    net: wasmer_wasix::wasmer_virtual_net::DynVirtualNetworking,
+    net: wasmer_wasix::virtual_net::DynVirtualNetworking,
     tasks: Arc<dyn VirtualTaskManager>,
 }
 
@@ -426,7 +426,7 @@ impl VirtualFile for TermLog {
 }
 
 impl wasmer_wasix::Runtime for WebRuntime {
-    fn networking(&self) -> &wasmer_wasix::wasmer_virtual_net::DynVirtualNetworking {
+    fn networking(&self) -> &wasmer_wasix::virtual_net::DynVirtualNetworking {
         &self.net
     }
 

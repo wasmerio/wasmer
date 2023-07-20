@@ -11,11 +11,11 @@ use futures::future::BoxFuture;
 use rand::Rng;
 use tracing::{trace, warn};
 use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
+use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
     Module, TypedFunction,
 };
-use wasmer_virtual_net::DynVirtualNetworking;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
