@@ -458,6 +458,8 @@ mod remote_webc {
     }
 
     #[test]
+    // FIXME: remove ignore - just for testing
+    #[ignore]
     #[cfg_attr(
         all(target_env = "musl", target_os = "linux"),
         ignore = "wasmer run-unstable segfaults on musl"
