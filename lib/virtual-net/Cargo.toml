@@ -28,18 +28,21 @@ futures-util = { version = "0.3" }
 anyhow = "1.0"
 tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
 tokio-util = { version = "0.6", features = ["codec"], optional = true }
+hyper-tungstenite = { version = "0.10", optional = true }
+hyper = { version = "0.14", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", default_features = false, features = [ "macros" ] }
 tracing-test = { version = "0.2" }
 
 [features]
-default = [ "host-net", "remote", "json", "messagepack", "cbor" ]
+default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper" ]
 host-net = [ "tokio", "libc", "tokio/io-util", "wasmer-virtual-io/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
 remote = [ "tokio", "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
 json = [ "tokio-serde/json" ]
 messagepack = [ "tokio-serde/messagepack" ]
 cbor = [ "tokio-serde/cbor" ]
+hyper = [ "hyper-tungstenite", "dep:hyper" ]
 
 [package.metadata.docs.rs]
 features = ["host-net", "remote"]

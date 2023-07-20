@@ -33,7 +33,7 @@ async fn setup_mpsc() -> (RemoteNetworkingClient, RemoteNetworkingServer) {
 
     tracing::info!("constructing remote server (mpsc)");
     let (server, server_driver) =
-        RemoteNetworkingServer::new_from_mpsc(tx2, rx1, Box::new(local_networking));
+        RemoteNetworkingServer::new_from_mpsc(tx2, rx1, Arc::new(local_networking));
 
     tracing::info!("spawning driver for remote server");
     tokio::task::spawn(server_driver);
@@ -61,7 +61,7 @@ async fn setup_pipe(
 
     tracing::info!("constructing remote server (mpsc)");
     let (server, server_driver) =
-        RemoteNetworkingServer::new_from_async_io(tx2, rx1, format, Box::new(local_networking));
+        RemoteNetworkingServer::new_from_async_io(tx2, rx1, format, Arc::new(local_networking));
 
     tracing::info!("spawning driver for remote server");
     tokio::task::spawn(server_driver);

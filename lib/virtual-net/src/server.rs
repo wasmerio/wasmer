@@ -6,9 +6,11 @@ use crate::{
 };
 use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
 use derivative::Derivative;
-use futures_util::stream::FuturesOrdered;
+use futures_util::stream::{FuturesOrdered, SplitSink, SplitStream};
 use futures_util::{future::BoxFuture, StreamExt};
 use futures_util::{Sink, Stream};
+#[cfg(feature = "hyper")]
+use hyper_tungstenite::WebSocketStream;
 use std::collections::HashSet;
 use std::mem::MaybeUninit;
 use std::net::IpAddr;
@@ -22,7 +24,6 @@ use std::{
     sync::{Arc, Mutex},
     task::{Context, Poll},
 };
-use tokio::sync::OwnedMutexGuard;
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::mpsc,
@@ -44,30 +45,19 @@ type BackgroundTask = Option<BoxFuture<'static, ()>>;
 pub struct RemoteNetworkingServer {
     #[allow(dead_code)]
     common: Arc<RemoteAdapterCommon>,
-    inner: Arc<tokio::sync::Mutex<Box<dyn VirtualNetworking + Send + Sync + 'static>>>,
+    inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
 }
 
 impl RemoteNetworkingServer {
-    /// Creates a new interface on the remote location using
-    /// a unique interface ID and a pair of channels
-    pub fn new_from_mpsc(
-        tx: mpsc::Sender<MessageResponse>,
-        rx: mpsc::Receiver<MessageRequest>,
-        inner: Box<dyn VirtualNetworking + Send + Sync + 'static>,
+    fn new(
+        tx: RemoteTx<MessageResponse>,
+        rx: RemoteRx<MessageRequest>,
+        work: mpsc::UnboundedReceiver<BoxFuture<'static, ()>>,
+        inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
     ) -> (Self, RemoteNetworkingServerDriver) {
-        let (tx_work, rx_work) = mpsc::unbounded_channel();
-        let tx_wakers = RemoteTxWakers::default();
-
         let common = RemoteAdapterCommon {
-            tx: RemoteTx::Mpsc {
-                tx,
-                work: tx_work,
-                wakers: tx_wakers.clone(),
-            },
-            rx: Mutex::new(RemoteRx::Mpsc {
-                rx,
-                wakers: tx_wakers,
-            }),
+            tx,
+            rx: Mutex::new(rx),
             sockets: Default::default(),
             socket_accept: Default::default(),
             handler: Default::default(),
@@ -75,9 +65,8 @@ impl RemoteNetworkingServer {
         };
         let common = Arc::new(common);
 
-        let inner = Arc::new(tokio::sync::Mutex::new(inner));
         let driver = RemoteNetworkingServerDriver {
-            more_work: rx_work,
+            more_work: work,
             tasks: Default::default(),
             common: common.clone(),
             inner: inner.clone(),
@@ -86,6 +75,27 @@ impl RemoteNetworkingServer {
 
         (networking, driver)
     }
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    pub fn new_from_mpsc(
+        tx: mpsc::Sender<MessageResponse>,
+        rx: mpsc::Receiver<MessageRequest>,
+        inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+    ) -> (Self, RemoteNetworkingServerDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
+
+        let tx = RemoteTx::Mpsc {
+            tx,
+            work: tx_work,
+            wakers: tx_wakers.clone(),
+        };
+        let rx = RemoteRx::Mpsc {
+            rx,
+            wakers: tx_wakers,
+        };
+        Self::new(tx, rx, rx_work, inner)
+    }
 
     /// Creates a new interface on the remote location using
     /// a unique interface ID and a pair of channels
@@ -93,7 +103,7 @@ impl RemoteNetworkingServer {
         tx: TX,
         rx: RX,
         format: FrameSerializationFormat,
-        inner: Box<dyn VirtualNetworking + Send + Sync + 'static>,
+        inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
     ) -> (Self, RemoteNetworkingServerDriver)
     where
         TX: AsyncWrite + Send + 'static,
@@ -142,33 +152,38 @@ impl RemoteNetworkingServer {
             };
 
         let (tx_work, rx_work) = mpsc::unbounded_channel();
-        let tx_wakers = RemoteTxWakers::default();
 
-        let handler = RemoteAdapterHandler::default();
-        let common = RemoteAdapterCommon {
-            tx: RemoteTx::Stream {
-                tx: Arc::new(tokio::sync::Mutex::new(tx)),
-                work: tx_work,
-                wakers: tx_wakers.clone(),
-            },
-            rx: Mutex::new(RemoteRx::Stream { rx }),
-            sockets: Default::default(),
-            socket_accept: Default::default(),
-            handler,
-            stall_rx: Default::default(),
+        let tx = RemoteTx::Stream {
+            tx: Arc::new(tokio::sync::Mutex::new(tx)),
+            work: tx_work,
+            wakers: RemoteTxWakers::default(),
         };
-        let common = Arc::new(common);
+        let rx = RemoteRx::Stream { rx };
+        Self::new(tx, rx, rx_work, inner)
+    }
 
-        let inner = Arc::new(tokio::sync::Mutex::new(inner));
-        let driver = RemoteNetworkingServerDriver {
-            more_work: rx_work,
-            tasks: Default::default(),
-            common: common.clone(),
-            inner: inner.clone(),
+    /// Creates a new interface on the remote location using
+    /// a unique interface ID and a pair of channels
+    #[cfg(feature = "hyper")]
+    pub fn new_from_ws_io(
+        tx: SplitSink<
+            WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::tungstenite::Message,
+        >,
+        rx: SplitStream<WebSocketStream<hyper::upgrade::Upgraded>>,
+        format: FrameSerializationFormat,
+        inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
+    ) -> (Self, RemoteNetworkingServerDriver) {
+        let (tx_work, rx_work) = mpsc::unbounded_channel();
+
+        let tx = RemoteTx::WebSocket {
+            tx: Arc::new(tokio::sync::Mutex::new(tx)),
+            work: tx_work,
+            wakers: RemoteTxWakers::default(),
+            format,
         };
-        let networking = Self { common, inner };
-
-        (networking, driver)
+        let rx = RemoteRx::WebSocket { rx, format };
+        Self::new(tx, rx, rx_work, inner)
     }
 }
 
@@ -180,48 +195,39 @@ impl VirtualNetworking for RemoteNetworkingServer {
         access_token: &str,
         security: StreamSecurity,
     ) -> Result<(), NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.bridge(network, access_token, security).await
+        self.inner.bridge(network, access_token, security).await
     }
 
     async fn unbridge(&self) -> Result<(), NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.unbridge().await
+        self.inner.unbridge().await
     }
 
     async fn dhcp_acquire(&self) -> Result<Vec<IpAddr>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.dhcp_acquire().await
+        self.inner.dhcp_acquire().await
     }
 
     fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.ip_add(ip, prefix)
+        self.inner.ip_add(ip, prefix)
     }
 
     fn ip_remove(&self, ip: IpAddr) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.ip_remove(ip)
+        self.inner.ip_remove(ip)
     }
 
     fn ip_clear(&self) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.ip_clear()
+        self.inner.ip_clear()
     }
 
     fn ip_list(&self) -> Result<Vec<IpCidr>, NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.ip_list()
+        self.inner.ip_list()
     }
 
     fn mac(&self) -> Result<[u8; 6], NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.mac()
+        self.inner.mac()
     }
 
     fn gateway_set(&self, ip: IpAddr) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.gateway_set(ip)
+        self.inner.gateway_set(ip)
     }
 
     fn route_add(
@@ -231,28 +237,24 @@ impl VirtualNetworking for RemoteNetworkingServer {
         preferred_until: Option<Duration>,
         expires_at: Option<Duration>,
     ) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.route_add(cidr, via_router, preferred_until, expires_at)
+        self.inner
+            .route_add(cidr, via_router, preferred_until, expires_at)
     }
 
     fn route_remove(&self, cidr: IpAddr) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.route_remove(cidr)
+        self.inner.route_remove(cidr)
     }
 
     fn route_clear(&self) -> Result<(), NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.route_clear()
+        self.inner.route_clear()
     }
 
     fn route_list(&self) -> Result<Vec<IpRoute>, NetworkError> {
-        let inner = self.inner.blocking_lock();
-        inner.route_list()
+        self.inner.route_list()
     }
 
     async fn bind_raw(&self) -> Result<Box<dyn VirtualRawSocket + Sync>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.bind_raw().await
+        self.inner.bind_raw().await
     }
 
     async fn listen_tcp(
@@ -262,8 +264,7 @@ impl VirtualNetworking for RemoteNetworkingServer {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner
+        self.inner
             .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
             .await
     }
@@ -274,16 +275,14 @@ impl VirtualNetworking for RemoteNetworkingServer {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.bind_udp(addr, reuse_port, reuse_addr).await
+        self.inner.bind_udp(addr, reuse_port, reuse_addr).await
     }
 
     async fn bind_icmp(
         &self,
         addr: IpAddr,
     ) -> Result<Box<dyn VirtualIcmpSocket + Sync>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.bind_icmp(addr).await
+        self.inner.bind_icmp(addr).await
     }
 
     async fn connect_tcp(
@@ -291,8 +290,7 @@ impl VirtualNetworking for RemoteNetworkingServer {
         addr: SocketAddr,
         peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.connect_tcp(addr, peer).await
+        self.inner.connect_tcp(addr, peer).await
     }
 
     async fn resolve(
@@ -301,8 +299,7 @@ impl VirtualNetworking for RemoteNetworkingServer {
         port: Option<u16>,
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>, NetworkError> {
-        let inner = self.inner.lock().await;
-        inner.resolve(host, port, dns_server).await
+        self.inner.resolve(host, port, dns_server).await
     }
 }
 
@@ -312,7 +309,7 @@ pin_project_lite::pin_project! {
         more_work: mpsc::UnboundedReceiver<BoxFuture<'static, ()>>,
         #[pin]
         tasks: FuturesOrdered<BoxFuture<'static, ()>>,
-        inner: Arc<tokio::sync::Mutex<Box<dyn VirtualNetworking + Send + Sync + 'static>>>,
+        inner: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
     }
 }
 
@@ -476,16 +473,13 @@ impl RemoteNetworkingServerDriver {
         req_id: Option<u64>,
     ) -> BackgroundTask
     where
-        F: FnOnce(OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>) -> Fut
-            + Send
-            + 'static,
+        F: FnOnce(Arc<dyn VirtualNetworking + Send + Sync>) -> Fut + Send + 'static,
         Fut: Future + Send + 'static,
         T: FnOnce(Fut::Output) -> ResponseType + Send + 'static,
     {
         let inner = self.inner.clone();
         let common = self.common.clone();
         Self::process_async(async move {
-            let inner = inner.lock_owned().await;
             let future = work(inner);
             let ret = future.await;
             req_id
@@ -501,9 +495,7 @@ impl RemoteNetworkingServerDriver {
 
     fn process_async_noop<F, Fut>(&self, work: F, req_id: Option<u64>) -> BackgroundTask
     where
-        F: FnOnce(OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>) -> Fut
-            + Send
-            + 'static,
+        F: FnOnce(Arc<dyn VirtualNetworking + Send + Sync>) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(), NetworkError>> + Send + 'static,
     {
         self.process_async_inner(
@@ -523,9 +515,7 @@ impl RemoteNetworkingServerDriver {
         req_id: Option<u64>,
     ) -> BackgroundTask
     where
-        F: FnOnce(OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>) -> Fut
-            + Send
-            + 'static,
+        F: FnOnce(Arc<dyn VirtualNetworking + Send + Sync>) -> Fut + Send + 'static,
         Fut: Future<Output = Result<RemoteAdapterSocket, NetworkError>> + Send + 'static,
     {
         let common = self.common.clone();
@@ -681,37 +671,39 @@ impl RemoteNetworkingServerDriver {
                 req_id,
             ),
             RequestType::IpAdd { ip, prefix } => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.ip_add(ip, prefix)
                 },
                 req_id,
             ),
             RequestType::IpRemove(ip) => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.ip_remove(ip)
                 },
                 req_id,
             ),
-            RequestType::IpClear => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
-                    inner.ip_clear()
-                },
-                req_id,
-            ),
-            RequestType::GetIpList => self.process_async_inner(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
-                    inner.ip_list()
-                },
-                |ret| match ret {
-                    Ok(cidr) => ResponseType::CidrList(cidr),
-                    Err(err) => ResponseType::Err(err),
-                },
-                req_id,
-            ),
+            RequestType::IpClear => {
+                self.process_async_noop(
+                    move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                        inner.ip_clear()
+                    },
+                    req_id,
+                )
+            }
+            RequestType::GetIpList => {
+                self.process_async_inner(
+                    move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                        inner.ip_list()
+                    },
+                    |ret| match ret {
+                        Ok(cidr) => ResponseType::CidrList(cidr),
+                        Err(err) => ResponseType::Err(err),
+                    },
+                    req_id,
+                )
+            }
             RequestType::GetMac => self.process_async_inner(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
-                    inner.mac()
-                },
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move { inner.mac() },
                 |ret| match ret {
                     Ok(mac) => ResponseType::Mac(mac),
                     Err(err) => ResponseType::Err(err),
@@ -719,7 +711,7 @@ impl RemoteNetworkingServerDriver {
                 req_id,
             ),
             RequestType::GatewaySet(ip) => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.gateway_set(ip)
                 },
                 req_id,
@@ -730,35 +722,37 @@ impl RemoteNetworkingServerDriver {
                 preferred_until,
                 expires_at,
             } => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.route_add(cidr, via_router, preferred_until, expires_at)
                 },
                 req_id,
             ),
             RequestType::RouteRemove(ip) => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.route_remove(ip)
                 },
                 req_id,
             ),
             RequestType::RouteClear => self.process_async_noop(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.route_clear()
                 },
                 req_id,
             ),
-            RequestType::GetRouteList => self.process_async_inner(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
-                    inner.route_list()
-                },
-                |ret| match ret {
-                    Ok(routes) => ResponseType::RouteList(routes),
-                    Err(err) => ResponseType::Err(err),
-                },
-                req_id,
-            ),
+            RequestType::GetRouteList => {
+                self.process_async_inner(
+                    move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                        inner.route_list()
+                    },
+                    |ret| match ret {
+                        Ok(routes) => ResponseType::RouteList(routes),
+                        Err(err) => ResponseType::Err(err),
+                    },
+                    req_id,
+                )
+            }
             RequestType::BindRaw(socket_id) => self.process_async_new_socket(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::RawSocket(inner.bind_raw().await?))
                 },
                 socket_id,
@@ -771,7 +765,7 @@ impl RemoteNetworkingServerDriver {
                 reuse_port,
                 reuse_addr,
             } => self.process_async_new_socket(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::TcpListener {
                         socket: inner
                             .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
@@ -788,7 +782,7 @@ impl RemoteNetworkingServerDriver {
                 reuse_port,
                 reuse_addr,
             } => self.process_async_new_socket(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::UdpSocket(
                         inner.bind_udp(addr, reuse_port, reuse_addr).await?,
                     ))
@@ -797,7 +791,7 @@ impl RemoteNetworkingServerDriver {
                 req_id,
             ),
             RequestType::BindIcmp { socket_id, addr } => self.process_async_new_socket(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::IcmpSocket(
                         inner.bind_icmp(addr).await?,
                     ))
@@ -810,7 +804,7 @@ impl RemoteNetworkingServerDriver {
                 addr,
                 peer,
             } => self.process_async_new_socket(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::TcpSocket(
                         inner.connect_tcp(addr, peer).await?,
                     ))
@@ -823,7 +817,7 @@ impl RemoteNetworkingServerDriver {
                 port,
                 dns_server,
             } => self.process_async_inner(
-                move |inner: OwnedMutexGuard<Box<dyn VirtualNetworking + Send + Sync>>| async move {
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     inner.resolve(&host, port, dns_server).await
                 },
                 |ret| match ret {

@@ -5,7 +5,7 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use crate::Result;
+use crate::{meta::FrameSerializationFormat, Result};
 use futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
 use serde::Serialize;
 use tokio::{
@@ -70,6 +70,19 @@ where
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
         wakers: RemoteTxWakers,
     },
+    WebSocket {
+        tx: Arc<
+            tokio::sync::Mutex<
+                futures_util::stream::SplitSink<
+                    hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+                    hyper_tungstenite::tungstenite::Message,
+                >,
+            >,
+        >,
+        work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
+        wakers: RemoteTxWakers,
+        format: FrameSerializationFormat,
+    },
 }
 impl<T> RemoteTx<T>
 where
@@ -96,6 +109,24 @@ where
                 rx_done
                     .await
                     .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
+            }
+            RemoteTx::WebSocket { tx, format, .. } => {
+                let data = match format {
+                    FrameSerializationFormat::Bincode => {
+                        bincode::serialize(&req).map_err(|err| {
+                            tracing::warn!("failed to serialize message - {err}");
+                            NetworkError::IOError
+                        })?
+                    }
+                    format => {
+                        tracing::warn!("format not currently supported - {format:?}");
+                        return Err(NetworkError::IOError);
+                    }
+                };
+                let mut tx = tx.lock().await;
+                tx.send(hyper_tungstenite::tungstenite::Message::Binary(data))
+                    .await
+                    .map_err(|_| NetworkError::ConnectionAborted)
             }
         }
     }
@@ -125,6 +156,64 @@ where
                 }
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard.send(req).await.map_err(io_err_into_net_error) {
+                        tracing::error!("failed to send remaining bytes for request - {}", err);
+                    }
+                });
+
+                // First we try to finish it synchronously
+                if job.as_mut().poll(cx).is_ready() {
+                    return Poll::Ready(Ok(()));
+                }
+
+                // Otherwise we push it to the driver which will block all future send
+                // operations until it finishes
+                work.send(job).map_err(|err| {
+                    tracing::error!("failed to send remaining bytes for request - {}", err);
+                    NetworkError::ConnectionAborted
+                })?;
+                Poll::Ready(Ok(()))
+            }
+            RemoteTx::WebSocket {
+                tx,
+                format,
+                work,
+                wakers,
+                ..
+            } => {
+                let mut tx_guard = match tx.clone().try_lock_owned() {
+                    Ok(lock) => lock,
+                    Err(_) => {
+                        wakers.add(cx.waker());
+                        return Poll::Pending;
+                    }
+                };
+                match tx_guard.poll_ready_unpin(cx) {
+                    Poll::Ready(Ok(())) => {}
+                    Poll::Ready(Err(err)) => {
+                        tracing::warn!("failed to poll web socket for readiness - {err}");
+                        return Poll::Ready(Err(NetworkError::IOError));
+                    }
+                    Poll::Pending => return Poll::Pending,
+                }
+
+                let data = match format {
+                    FrameSerializationFormat::Bincode => {
+                        bincode::serialize(&req).map_err(|err| {
+                            tracing::warn!("failed to serialize message - {err}");
+                            NetworkError::IOError
+                        })?
+                    }
+                    format => {
+                        tracing::warn!("format not currently supported - {format:?}");
+                        return Poll::Ready(Err(NetworkError::IOError));
+                    }
+                };
+
+                let mut job = Box::pin(async move {
+                    if let Err(err) = tx_guard
+                        .send(hyper_tungstenite::tungstenite::Message::Binary(data))
+                        .await
+                    {
                         tracing::error!("failed to send remaining bytes for request - {}", err);
                     }
                 });
@@ -196,6 +285,64 @@ where
                 })?;
                 Ok(())
             }
+            RemoteTx::WebSocket {
+                tx, format, work, ..
+            } => {
+                let data = match format {
+                    FrameSerializationFormat::Bincode => {
+                        bincode::serialize(&req).map_err(|err| {
+                            tracing::warn!("failed to serialize message - {err}");
+                            NetworkError::IOError
+                        })?
+                    }
+                    format => {
+                        tracing::warn!("format not currently supported - {format:?}");
+                        return Err(NetworkError::IOError);
+                    }
+                };
+
+                let mut tx_guard = match tx.clone().try_lock_owned() {
+                    Ok(lock) => lock,
+                    Err(_) => {
+                        let tx = tx.clone();
+                        work.send(Box::pin(async move {
+                            let mut tx_guard = tx.lock().await;
+                            tx_guard
+                                .send(hyper_tungstenite::tungstenite::Message::Binary(data))
+                                .await
+                                .ok();
+                        }))
+                        .ok();
+                        return Ok(());
+                    }
+                };
+
+                let inline_waker = InlineWaker::new();
+                let waker = inline_waker.as_waker();
+                let mut cx = Context::from_waker(&waker);
+
+                let mut job = Box::pin(async move {
+                    if let Err(err) = tx_guard
+                        .send(hyper_tungstenite::tungstenite::Message::Binary(data))
+                        .await
+                    {
+                        tracing::error!("failed to send remaining bytes for request - {}", err);
+                    }
+                });
+
+                // First we try to finish it synchronously
+                if job.as_mut().poll(&mut cx).is_ready() {
+                    return Ok(());
+                }
+
+                // Otherwise we push it to the driver which will block all future send
+                // operations until it finishes
+                work.send(job).map_err(|err| {
+                    tracing::error!("failed to send remaining bytes for request - {}", err);
+                    NetworkError::ConnectionAborted
+                })?;
+                Ok(())
+            }
         }
     }
 }
@@ -210,6 +357,12 @@ where
     },
     Stream {
         rx: Pin<Box<dyn Stream<Item = std::io::Result<T>> + Send + 'static>>,
+    },
+    WebSocket {
+        rx: futures_util::stream::SplitStream<
+            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+        >,
+        format: FrameSerializationFormat,
     },
 }
 impl<T> RemoteRx<T>
@@ -228,6 +381,35 @@ where
                 }
                 RemoteRx::Stream { rx } => match rx.as_mut().poll_next(cx) {
                     Poll::Ready(Some(Ok(msg))) => Poll::Ready(Some(msg)),
+                    Poll::Ready(Some(Err(err))) => {
+                        tracing::warn!("failed to read from channel - {}", err);
+                        Poll::Ready(None)
+                    }
+                    Poll::Ready(None) => Poll::Ready(None),
+                    Poll::Pending => Poll::Pending,
+                },
+                RemoteRx::WebSocket { rx, format } => match Pin::new(rx).poll_next(cx) {
+                    Poll::Ready(Some(Ok(hyper_tungstenite::tungstenite::Message::Binary(msg)))) => {
+                        match format {
+                            FrameSerializationFormat::Bincode => {
+                                return match bincode::deserialize(&msg) {
+                                    Ok(msg) => Poll::Ready(Some(msg)),
+                                    Err(err) => {
+                                        tracing::warn!("failed to deserialize message - {}", err);
+                                        continue;
+                                    }
+                                }
+                            }
+                            format => {
+                                tracing::warn!("format not currently supported - {format:?}");
+                                continue;
+                            }
+                        }
+                    }
+                    Poll::Ready(Some(Ok(msg))) => {
+                        tracing::warn!("unsupported message from channel - {}", msg);
+                        continue;
+                    }
                     Poll::Ready(Some(Err(err))) => {
                         tracing::warn!("failed to read from channel - {}", err);
                         Poll::Ready(None)
