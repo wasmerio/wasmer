@@ -1,176 +1,397 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `PACKAGE_WITH_VERSION` struct in crate `wasmer_registry`."><meta name="keywords" content="rust, rustlang, rust-lang, PACKAGE_WITH_VERSION"><title>PACKAGE_WITH_VERSION in wasmer_registry::package - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc struct"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></div></a><h2></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_registry/index.html"><div class="logo-container"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></div></a><h2 class="location"><a href="#">PACKAGE_WITH_VERSION</a></h2><div class="sidebar-elems"><section><h3><a href="#fields">Fields</a></h3><ul class="block"><li><a href="#structfield.__private_field">__private_field</a></li></ul><h3><a href="#deref-methods-Regex">Methods from Deref&lt;Target=Regex&gt;</a></h3><ul class="block"><li><a href="#method.as_str">as_str</a></li><li><a href="#method.capture_locations">capture_locations</a></li><li><a href="#method.capture_names">capture_names</a></li><li><a href="#method.captures">captures</a></li><li><a href="#method.captures_at">captures_at</a></li><li><a href="#method.captures_iter">captures_iter</a></li><li><a href="#method.captures_len">captures_len</a></li><li><a href="#method.captures_read">captures_read</a></li><li><a href="#method.captures_read_at">captures_read_at</a></li><li><a href="#method.find">find</a></li><li><a href="#method.find_at">find_at</a></li><li><a href="#method.find_iter">find_iter</a></li><li><a href="#method.is_match">is_match</a></li><li><a href="#method.is_match_at">is_match_at</a></li><li><a href="#method.replace">replace</a></li><li><a href="#method.replace_all">replace_all</a></li><li><a href="#method.replacen">replacen</a></li><li><a href="#method.shortest_match">shortest_match</a></li><li><a href="#method.shortest_match_at">shortest_match_at</a></li><li><a href="#method.split">split</a></li><li><a href="#method.splitn">splitn</a></li><li><a href="#method.static_captures_len">static_captures_len</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block"><li><a href="#impl-Deref-for-PACKAGE_WITH_VERSION">Deref</a></li><li><a href="#impl-LazyStatic-for-PACKAGE_WITH_VERSION">LazyStatic</a></li></ul><h3><a href="#synthetic-implementations">Auto Trait Implementations</a></h3><ul class="block"><li><a href="#impl-RefUnwindSafe-for-PACKAGE_WITH_VERSION">RefUnwindSafe</a></li><li><a href="#impl-Send-for-PACKAGE_WITH_VERSION">Send</a></li><li><a href="#impl-Sync-for-PACKAGE_WITH_VERSION">Sync</a></li><li><a href="#impl-Unpin-for-PACKAGE_WITH_VERSION">Unpin</a></li><li><a href="#impl-UnwindSafe-for-PACKAGE_WITH_VERSION">UnwindSafe</a></li></ul><h3><a href="#blanket-implementations">Blanket Implementations</a></h3><ul class="block"><li><a href="#impl-Any-for-PACKAGE_WITH_VERSION">Any</a></li><li><a href="#impl-Borrow%3CT%3E-for-PACKAGE_WITH_VERSION">Borrow&lt;T&gt;</a></li><li><a href="#impl-BorrowMut%3CT%3E-for-PACKAGE_WITH_VERSION">BorrowMut&lt;T&gt;</a></li><li><a href="#impl-From%3CT%3E-for-PACKAGE_WITH_VERSION">From&lt;T&gt;</a></li><li><a href="#impl-Instrument-for-PACKAGE_WITH_VERSION">Instrument</a></li><li><a href="#impl-Into%3CU%3E-for-PACKAGE_WITH_VERSION">Into&lt;U&gt;</a></li><li><a href="#impl-Same%3CT%3E-for-PACKAGE_WITH_VERSION">Same&lt;T&gt;</a></li><li><a href="#impl-TryFrom%3CU%3E-for-PACKAGE_WITH_VERSION">TryFrom&lt;U&gt;</a></li><li><a href="#impl-TryInto%3CU%3E-for-PACKAGE_WITH_VERSION">TryInto&lt;U&gt;</a></li><li><a href="#impl-WithSubscriber-for-PACKAGE_WITH_VERSION">WithSubscriber</a></li></ul></section><h2><a href="index.html">In wasmer_registry::package</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn">Struct <a href="../index.html">wasmer_registry</a>::<wbr><a href="index.html">package</a>::<wbr><a class="struct" href="#">PACKAGE_WITH_VERSION</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../src/wasmer_registry/package/mod.rs.html#13-15">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><div class="item-decl"><pre class="rust struct"><code>struct PACKAGE_WITH_VERSION {
     __private_field: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.unit.html">()</a>,
-}</code></pre></div><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.__private_field" class="structfield small-section-header"><a href="#structfield.__private_field" class="anchor field">§</a><code>__private_field: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.unit.html">()</a></code></span><h2 id="deref-methods-Regex" class="small-section-header"><span>Methods from <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">Deref</a>&lt;Target = Regex&gt;</span><a href="#deref-methods-Regex" class="anchor">§</a></h2><div id="deref-methods-Regex-1"><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.is_match" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.is_match" class="fn">is_match</a>(&amp;self, text: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns true if and only if there is a match for the regex in the
-string given.</p>
+}</code></pre></div><h2 id="fields" class="fields small-section-header">Fields<a href="#fields" class="anchor">§</a></h2><span id="structfield.__private_field" class="structfield small-section-header"><a href="#structfield.__private_field" class="anchor field">§</a><code>__private_field: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.unit.html">()</a></code></span><h2 id="deref-methods-Regex" class="small-section-header"><span>Methods from <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">Deref</a>&lt;Target = Regex&gt;</span><a href="#deref-methods-Regex" class="anchor">§</a></h2><div id="deref-methods-Regex-1"><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.is_match" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.is_match" class="fn">is_match</a>(&amp;self, haystack: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns true if and only if there is a match for the regex anywhere
+in the haystack given.</p>
 <p>It is recommended to use this method if all you need to do is test
-a match, since the underlying matching engine may be able to do less
-work.</p>
+whether a match exists, since the underlying matching engine may be
+able to do less work.</p>
 <h5 id="example"><a href="#example">Example</a></h5>
-<p>Test if some text contains at least one word with exactly 13
+<p>Test if some haystack contains at least one word with exactly 13
 Unicode word characters:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>text = <span class="string">&quot;I categorically deny having triskaidekaphobia.&quot;</span>;
-<span class="macro">assert!</span>(Regex::new(<span class="string">r&quot;\b\w{13}\b&quot;</span>).unwrap().is_match(text));</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.find" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.find" class="fn">find</a>&lt;'t&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'t&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the start and end byte range of the leftmost-first match in
-<code>text</code>. If no match exists, then <code>None</code> is returned.</p>
-<p>Note that this should only be used if you want to discover the position
-of the match. Testing the existence of a match is faster if you use
-<code>is_match</code>.</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\b\w{13}\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;I categorically deny having triskaidekaphobia.&quot;</span>;
+<span class="macro">assert!</span>(re.is_match(hay));</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.find" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.find" class="fn">find</a>&lt;'h&gt;(&amp;self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'h&gt;&gt;</h4></section></summary><div class="docblock"><p>This routine searches for the first match of this regex in the
+haystack given, and if found, returns a [<code>Match</code>]. The <code>Match</code>
+provides access to both the byte offsets of the match and the actual
+substring that matched.</p>
+<p>Note that this should only be used if you want to find the entire
+match. If instead you just want to test the existence of a match,
+it’s potentially faster to use <code>Regex::is_match(hay)</code> instead of
+<code>Regex::find(hay).is_some()</code>.</p>
 <h5 id="example-1"><a href="#example-1">Example</a></h5>
-<p>Find the start and end location of the first word with exactly 13
-Unicode word characters:</p>
+<p>Find the first word with exactly 13 Unicode word characters:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>text = <span class="string">&quot;I categorically deny having triskaidekaphobia.&quot;</span>;
-<span class="kw">let </span>mat = Regex::new(<span class="string">r&quot;\b\w{13}\b&quot;</span>).unwrap().find(text).unwrap();
-<span class="macro">assert_eq!</span>(mat.start(), <span class="number">2</span>);
-<span class="macro">assert_eq!</span>(mat.end(), <span class="number">15</span>);</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.find_iter" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.find_iter" class="fn">find_iter</a>&lt;'r, 't&gt;(&amp;'r self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; Matches&lt;'r, 't&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator for each successive non-overlapping match in
-<code>text</code>, returning the start and end byte indices with respect to
-<code>text</code>.</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\b\w{13}\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;I categorically deny having triskaidekaphobia.&quot;</span>;
+<span class="kw">let </span>mat = re.find(hay).unwrap();
+<span class="macro">assert_eq!</span>(<span class="number">2</span>..<span class="number">15</span>, mat.range());
+<span class="macro">assert_eq!</span>(<span class="string">&quot;categorically&quot;</span>, mat.as_str());</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.find_iter" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.find_iter" class="fn">find_iter</a>&lt;'r, 'h&gt;(&amp;'r self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; Matches&lt;'r, 'h&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator that yields successive non-overlapping matches in
+the given haystack. The iterator yields values of type [<code>Match</code>].</p>
+<h5 id="time-complexity"><a href="#time-complexity">Time complexity</a></h5>
+<p>Note that since <code>find_iter</code> runs potentially many searches on the
+haystack and since each search has worst case <code>O(m * n)</code> time
+complexity, the overall worst case time complexity for iteration is
+<code>O(m * n^2)</code>.</p>
 <h5 id="example-2"><a href="#example-2">Example</a></h5>
-<p>Find the start and end location of every word with exactly 13 Unicode
-word characters:</p>
+<p>Find every word with exactly 13 Unicode word characters:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>text = <span class="string">&quot;Retroactively relinquishing remunerations is reprehensible.&quot;</span>;
-<span class="kw">for </span>mat <span class="kw">in </span>Regex::new(<span class="string">r&quot;\b\w{13}\b&quot;</span>).unwrap().find_iter(text) {
-    <span class="macro">println!</span>(<span class="string">&quot;{:?}&quot;</span>, mat);
-}</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures" class="fn">captures</a>&lt;'t&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Captures&lt;'t&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the capture groups corresponding to the leftmost-first
-match in <code>text</code>. Capture group <code>0</code> always corresponds to the entire
-match. If no match is found, then <code>None</code> is returned.</p>
-<p>You should only use <code>captures</code> if you need access to the location of
-capturing group matches. Otherwise, <code>find</code> is faster for discovering
-the location of the overall match.</p>
-<h5 id="examples"><a href="#examples">Examples</a></h5>
-<p>Say you have some text with movie names and their release years,
-like “‘Citizen Kane’ (1941)”. It’d be nice if we could search for text
-looking like that, while also extracting the movie name and its release
-year separately.</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;([^&#39;]+)&#39;\s+\((\d{4})\)&quot;</span>).unwrap();
-<span class="kw">let </span>text = <span class="string">&quot;Not my favorite movie: &#39;Citizen Kane&#39; (1941).&quot;</span>;
-<span class="kw">let </span>caps = re.captures(text).unwrap();
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\b\w{13}\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Retroactively relinquishing remunerations is reprehensible.&quot;</span>;
+<span class="kw">let </span>matches: Vec&lt;<span class="kw">_</span>&gt; = re.find_iter(hay).map(|m| m.as_str()).collect();
+<span class="macro">assert_eq!</span>(matches, <span class="macro">vec!</span>[
+    <span class="string">&quot;Retroactively&quot;</span>,
+    <span class="string">&quot;relinquishing&quot;</span>,
+    <span class="string">&quot;remunerations&quot;</span>,
+    <span class="string">&quot;reprehensible&quot;</span>,
+]);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures" class="fn">captures</a>&lt;'h&gt;(&amp;self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Captures&lt;'h&gt;&gt;</h4></section></summary><div class="docblock"><p>This routine searches for the first match of this regex in the haystack
+given, and if found, returns not only the overall match but also the
+matches of each capture group in the regex. If no match is found, then
+<code>None</code> is returned.</p>
+<p>Capture group <code>0</code> always corresponds to an implicit unnamed group that
+includes the entire match. If a match is found, this group is always
+present. Subsequent groups may be named and are numbered, starting
+at 1, by the order in which the opening parenthesis appears in the
+pattern. For example, in the pattern <code>(?&lt;a&gt;.(?&lt;b&gt;.))(?&lt;c&gt;.)</code>, <code>a</code>,
+<code>b</code> and <code>c</code> correspond to capture group indices <code>1</code>, <code>2</code> and <code>3</code>,
+respectively.</p>
+<p>You should only use <code>captures</code> if you need access to the capture group
+matches. Otherwise, [<code>Regex::find</code>] is generally faster for discovering
+just the overall match.</p>
+<h5 id="example-3"><a href="#example-3">Example</a></h5>
+<p>Say you have some haystack with movie names and their release years,
+like “‘Citizen Kane’ (1941)”. It’d be nice if we could search for
+substrings looking like that, while also extracting the movie name and
+its release year separately. The example below shows how to do that.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;([^&#39;]+)&#39;\s+\((\d{4})\)&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Not my favorite movie: &#39;Citizen Kane&#39; (1941).&quot;</span>;
+<span class="kw">let </span>caps = re.captures(hay).unwrap();
+<span class="macro">assert_eq!</span>(caps.get(<span class="number">0</span>).unwrap().as_str(), <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
 <span class="macro">assert_eq!</span>(caps.get(<span class="number">1</span>).unwrap().as_str(), <span class="string">&quot;Citizen Kane&quot;</span>);
 <span class="macro">assert_eq!</span>(caps.get(<span class="number">2</span>).unwrap().as_str(), <span class="string">&quot;1941&quot;</span>);
-<span class="macro">assert_eq!</span>(caps.get(<span class="number">0</span>).unwrap().as_str(), <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
 <span class="comment">// You can also access the groups by index using the Index notation.
-// Note that this will panic on an invalid index.
-</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">1</span>], <span class="string">&quot;Citizen Kane&quot;</span>);
-<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">2</span>], <span class="string">&quot;1941&quot;</span>);
-<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">0</span>], <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);</code></pre></div>
+// Note that this will panic on an invalid index. In this case, these
+// accesses are always correct because the overall regex will only
+// match when these capture groups match.
+</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">0</span>], <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">1</span>], <span class="string">&quot;Citizen Kane&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">2</span>], <span class="string">&quot;1941&quot;</span>);</code></pre></div>
 <p>Note that the full match is at capture group <code>0</code>. Each subsequent
 capture group is indexed by the order of its opening <code>(</code>.</p>
 <p>We can make this example a bit clearer by using <em>named</em> capture groups:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;(?P&lt;title&gt;[^&#39;]+)&#39;\s+\((?P&lt;year&gt;\d{4})\)&quot;</span>)
-               .unwrap();
-<span class="kw">let </span>text = <span class="string">&quot;Not my favorite movie: &#39;Citizen Kane&#39; (1941).&quot;</span>;
-<span class="kw">let </span>caps = re.captures(text).unwrap();
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;(?&lt;title&gt;[^&#39;]+)&#39;\s+\((?&lt;year&gt;\d{4})\)&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Not my favorite movie: &#39;Citizen Kane&#39; (1941).&quot;</span>;
+<span class="kw">let </span>caps = re.captures(hay).unwrap();
+<span class="macro">assert_eq!</span>(caps.get(<span class="number">0</span>).unwrap().as_str(), <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
 <span class="macro">assert_eq!</span>(caps.name(<span class="string">&quot;title&quot;</span>).unwrap().as_str(), <span class="string">&quot;Citizen Kane&quot;</span>);
 <span class="macro">assert_eq!</span>(caps.name(<span class="string">&quot;year&quot;</span>).unwrap().as_str(), <span class="string">&quot;1941&quot;</span>);
-<span class="macro">assert_eq!</span>(caps.get(<span class="number">0</span>).unwrap().as_str(), <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
 <span class="comment">// You can also access the groups by name using the Index notation.
-// Note that this will panic on an invalid group name.
-</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;Citizen Kane&quot;</span>);
-<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;year&quot;</span>], <span class="string">&quot;1941&quot;</span>);
-<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">0</span>], <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
-</code></pre></div>
+// Note that this will panic on an invalid group name. In this case,
+// these accesses are always correct because the overall regex will
+// only match when these capture groups match.
+</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="number">0</span>], <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;Citizen Kane&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;year&quot;</span>], <span class="string">&quot;1941&quot;</span>);</code></pre></div>
 <p>Here we name the capture groups, which we can access with the <code>name</code>
 method or the <code>Index</code> notation with a <code>&amp;str</code>. Note that the named
 capture groups are still accessible with <code>get</code> or the <code>Index</code> notation
 with a <code>usize</code>.</p>
 <p>The <code>0</code>th capture group is always unnamed, so it must always be
 accessed with <code>get(0)</code> or <code>[0]</code>.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_iter" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_iter" class="fn">captures_iter</a>&lt;'r, 't&gt;(&amp;'r self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; CaptureMatches&lt;'r, 't&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator over all the non-overlapping capture groups matched
-in <code>text</code>. This is operationally the same as <code>find_iter</code>, except it
-yields information about capturing group matches.</p>
-<h5 id="example-3"><a href="#example-3">Example</a></h5>
-<p>We can use this to find all movie titles and their release years in
-some text, where the movie is formatted like “‘Title’ (xxxx)”:</p>
+<p>Finally, one other way to to get the matched substrings is with the
+[<code>Captures::extract</code>] API:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;(?P&lt;title&gt;[^&#39;]+)&#39;\s+\((?P&lt;year&gt;\d{4})\)&quot;</span>)
-               .unwrap();
-<span class="kw">let </span>text = <span class="string">&quot;&#39;Citizen Kane&#39; (1941), &#39;The Wizard of Oz&#39; (1939), &#39;M&#39; (1931).&quot;</span>;
-<span class="kw">for </span>caps <span class="kw">in </span>re.captures_iter(text) {
-    <span class="macro">println!</span>(<span class="string">&quot;Movie: {:?}, Released: {:?}&quot;</span>,
-             <span class="kw-2">&amp;</span>caps[<span class="string">&quot;title&quot;</span>], <span class="kw-2">&amp;</span>caps[<span class="string">&quot;year&quot;</span>]);
-}
-<span class="comment">// Output:
-// Movie: Citizen Kane, Released: 1941
-// Movie: The Wizard of Oz, Released: 1939
-// Movie: M, Released: 1931</span></code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.split" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.split" class="fn">split</a>&lt;'r, 't&gt;(&amp;'r self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; Split&lt;'r, 't&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator of substrings of <code>text</code> delimited by a match of the
-regular expression. Namely, each element of the iterator corresponds to
-text that <em>isn’t</em> matched by the regular expression.</p>
-<p>This method will <em>not</em> copy the text given.</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;([^&#39;]+)&#39;\s+\((\d{4})\)&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Not my favorite movie: &#39;Citizen Kane&#39; (1941).&quot;</span>;
+<span class="kw">let </span>(full, [title, year]) = re.captures(hay).unwrap().extract();
+<span class="macro">assert_eq!</span>(full, <span class="string">&quot;&#39;Citizen Kane&#39; (1941)&quot;</span>);
+<span class="macro">assert_eq!</span>(title, <span class="string">&quot;Citizen Kane&quot;</span>);
+<span class="macro">assert_eq!</span>(year, <span class="string">&quot;1941&quot;</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_iter" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_iter" class="fn">captures_iter</a>&lt;'r, 'h&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'r self,<br>&nbsp;&nbsp;&nbsp;&nbsp;haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a><br>) -&gt; CaptureMatches&lt;'r, 'h&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator that yields successive non-overlapping matches in
+the given haystack. The iterator yields values of type [<code>Captures</code>].</p>
+<p>This is the same as [<code>Regex::find_iter</code>], but instead of only providing
+access to the overall match, each value yield includes access to the
+matches of all capture groups in the regex. Reporting this extra match
+data is potentially costly, so callers should only use <code>captures_iter</code>
+over <code>find_iter</code> when they actually need access to the capture group
+matches.</p>
+<h5 id="time-complexity-1"><a href="#time-complexity-1">Time complexity</a></h5>
+<p>Note that since <code>captures_iter</code> runs potentially many searches on the
+haystack and since each search has worst case <code>O(m * n)</code> time
+complexity, the overall worst case time complexity for iteration is
+<code>O(m * n^2)</code>.</p>
 <h5 id="example-4"><a href="#example-4">Example</a></h5>
+<p>We can use this to find all movie titles and their release years in
+some haystack, where the movie is formatted like “‘Title’ (xxxx)”:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;([^&#39;]+)&#39;\s+\(([0-9]{4})\)&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;&#39;Citizen Kane&#39; (1941), &#39;The Wizard of Oz&#39; (1939), &#39;M&#39; (1931).&quot;</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>movies = <span class="macro">vec!</span>[];
+<span class="kw">for </span>(<span class="kw">_</span>, [title, year]) <span class="kw">in </span>re.captures_iter(hay).map(|c| c.extract()) {
+    movies.push((title, year.parse::&lt;i64&gt;()<span class="question-mark">?</span>));
+}
+<span class="macro">assert_eq!</span>(movies, <span class="macro">vec!</span>[
+    (<span class="string">&quot;Citizen Kane&quot;</span>, <span class="number">1941</span>),
+    (<span class="string">&quot;The Wizard of Oz&quot;</span>, <span class="number">1939</span>),
+    (<span class="string">&quot;M&quot;</span>, <span class="number">1931</span>),
+]);</code></pre></div>
+<p>Or with named groups:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&#39;(?&lt;title&gt;[^&#39;]+)&#39;\s+\((?&lt;year&gt;[0-9]{4})\)&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;&#39;Citizen Kane&#39; (1941), &#39;The Wizard of Oz&#39; (1939), &#39;M&#39; (1931).&quot;</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>it = re.captures_iter(hay);
+
+<span class="kw">let </span>caps = it.next().unwrap();
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;Citizen Kane&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;year&quot;</span>], <span class="string">&quot;1941&quot;</span>);
+
+<span class="kw">let </span>caps = it.next().unwrap();
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;The Wizard of Oz&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;year&quot;</span>], <span class="string">&quot;1939&quot;</span>);
+
+<span class="kw">let </span>caps = it.next().unwrap();
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;title&quot;</span>], <span class="string">&quot;M&quot;</span>);
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>caps[<span class="string">&quot;year&quot;</span>], <span class="string">&quot;1931&quot;</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.split" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.split" class="fn">split</a>&lt;'r, 'h&gt;(&amp;'r self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; Split&lt;'r, 'h&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator of substrings of the haystack given, delimited by a
+match of the regex. Namely, each element of the iterator corresponds to
+a part of the haystack that <em>isn’t</em> matched by the regular expression.</p>
+<h5 id="time-complexity-2"><a href="#time-complexity-2">Time complexity</a></h5>
+<p>Since iterators over all matches requires running potentially many
+searches on the haystack, and since each search has worst case
+<code>O(m * n)</code> time complexity, the overall worst case time complexity for
+this routine is <code>O(m * n^2)</code>.</p>
+<h5 id="example-5"><a href="#example-5">Example</a></h5>
 <p>To split a string delimited by arbitrary amounts of spaces or tabs:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;[ \t]+&quot;</span>).unwrap();
-<span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(<span class="string">&quot;a b \t  c\td    e&quot;</span>).collect();
-<span class="macro">assert_eq!</span>(fields, <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>, <span class="string">&quot;e&quot;</span>]);</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.splitn" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.splitn" class="fn">splitn</a>&lt;'r, 't&gt;(&amp;'r self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, limit: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; SplitN&lt;'r, 't&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator of at most <code>limit</code> substrings of <code>text</code> delimited
-by a match of the regular expression. (A <code>limit</code> of <code>0</code> will return no
-substrings.) Namely, each element of the iterator corresponds to text
-that <em>isn’t</em> matched by the regular expression. The remainder of the
-string that is not split will be the last element in the iterator.</p>
-<p>This method will <em>not</em> copy the text given.</p>
-<h5 id="example-5"><a href="#example-5">Example</a></h5>
-<p>Get the first two words in some text:</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\W+&quot;</span>).unwrap();
-<span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(<span class="string">&quot;Hey! How are you?&quot;</span>, <span class="number">3</span>).collect();
-<span class="macro">assert_eq!</span>(fields, <span class="macro">vec!</span>(<span class="string">&quot;Hey&quot;</span>, <span class="string">&quot;How&quot;</span>, <span class="string">&quot;are you?&quot;</span>));</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.replace" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.replace" class="fn">replace</a>&lt;R, 't&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, rep: R) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'t, <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces the leftmost-first match with the replacement provided.
-The replacement can be a regular string (where <code>$N</code> and <code>$name</code> are
-expanded to match capture groups) or a function that takes the matches’
-<code>Captures</code> and returns the replaced string.</p>
-<p>If no match is found, then a copy of the string is returned unchanged.</p>
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;[ \t]+&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;a b \t  c\td    e&quot;</span>;
+<span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(fields, <span class="macro">vec!</span>[<span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>, <span class="string">&quot;d&quot;</span>, <span class="string">&quot;e&quot;</span>]);</code></pre></div>
+<h5 id="example-more-cases"><a href="#example-more-cases">Example: more cases</a></h5>
+<p>Basic usage:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot; &quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Mary had a little lamb&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;Mary&quot;</span>, <span class="string">&quot;had&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;little&quot;</span>, <span class="string">&quot;lamb&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;lionXXtigerXleopard&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;lion&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;tiger&quot;</span>, <span class="string">&quot;leopard&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;::&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;lion::tiger::leopard&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;lion&quot;</span>, <span class="string">&quot;tiger&quot;</span>, <span class="string">&quot;leopard&quot;</span>]);</code></pre></div>
+<p>If a haystack contains multiple contiguous matches, you will end up
+with empty spans yielded by the iterator:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;XXXXaXXbXc&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;/&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;(///)&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;(&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;)&quot;</span>]);</code></pre></div>
+<p>Separators at the start or end of a haystack are neighbored by empty
+substring.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;0&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;010&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>, <span class="string">&quot;1&quot;</span>, <span class="string">&quot;&quot;</span>]);</code></pre></div>
+<p>When the empty string is used as a regex, it splits at every valid
+UTF-8 boundary by default (which includes the beginning and end of the
+haystack):</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;rust&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>, <span class="string">&quot;r&quot;</span>, <span class="string">&quot;u&quot;</span>, <span class="string">&quot;s&quot;</span>, <span class="string">&quot;t&quot;</span>, <span class="string">&quot;&quot;</span>]);
+
+<span class="comment">// Splitting by an empty string is UTF-8 aware by default!
+</span><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;☃&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>, <span class="string">&quot;☃&quot;</span>, <span class="string">&quot;&quot;</span>]);</code></pre></div>
+<p>Contiguous separators (commonly shows up with whitespace), can lead to
+possibly surprising behavior. For example, this code is correct:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot; &quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;    a  b c&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]);</code></pre></div>
+<p>It does <em>not</em> give you <code>[&quot;a&quot;, &quot;b&quot;, &quot;c&quot;]</code>. For that behavior, you’d want
+to match contiguous space characters:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot; +&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;    a  b c&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.split(hay).collect();
+<span class="comment">// N.B. This does still include a leading empty span because &#39; +&#39;
+// matches at the beginning of the haystack.
+</span><span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>, <span class="string">&quot;a&quot;</span>, <span class="string">&quot;b&quot;</span>, <span class="string">&quot;c&quot;</span>]);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.splitn" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.splitn" class="fn">splitn</a>&lt;'r, 'h&gt;(&amp;'r self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, limit: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; SplitN&lt;'r, 'h&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator of at most <code>limit</code> substrings of the haystack
+given, delimited by a match of the regex. (A <code>limit</code> of <code>0</code> will return
+no substrings.) Namely, each element of the iterator corresponds to a
+part of the haystack that <em>isn’t</em> matched by the regular expression.
+The remainder of the haystack that is not split will be the last
+element in the iterator.</p>
+<h5 id="time-complexity-3"><a href="#time-complexity-3">Time complexity</a></h5>
+<p>Since iterators over all matches requires running potentially many
+searches on the haystack, and since each search has worst case
+<code>O(m * n)</code> time complexity, the overall worst case time complexity for
+this routine is <code>O(m * n^2)</code>.</p>
+<p>Although note that the worst case time here has an upper bound given
+by the <code>limit</code> parameter.</p>
+<h5 id="example-6"><a href="#example-6">Example</a></h5>
+<p>Get the first two words in some haystack:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\W+&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Hey! How are you?&quot;</span>;
+<span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">3</span>).collect();
+<span class="macro">assert_eq!</span>(fields, <span class="macro">vec!</span>[<span class="string">&quot;Hey&quot;</span>, <span class="string">&quot;How&quot;</span>, <span class="string">&quot;are you?&quot;</span>]);</code></pre></div>
+<h5 id="examples-more-cases"><a href="#examples-more-cases">Examples: more cases</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot; &quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;Mary had a little lamb&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">3</span>).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;Mary&quot;</span>, <span class="string">&quot;had&quot;</span>, <span class="string">&quot;a little lamb&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">3</span>).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;lionXXtigerXleopard&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">3</span>).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;lion&quot;</span>, <span class="string">&quot;&quot;</span>, <span class="string">&quot;tigerXleopard&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;::&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;lion::tiger::leopard&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">2</span>).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;lion&quot;</span>, <span class="string">&quot;tiger::leopard&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;abcXdef&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">1</span>).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;abcXdef&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;abcdef&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">2</span>).collect();
+<span class="macro">assert_eq!</span>(got, <span class="macro">vec!</span>[<span class="string">&quot;abcdef&quot;</span>]);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;X&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;abcXdef&quot;</span>;
+<span class="kw">let </span>got: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = re.splitn(hay, <span class="number">0</span>).collect();
+<span class="macro">assert!</span>(got.is_empty());</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.replace" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.replace" class="fn">replace</a>&lt;R, 'h&gt;(&amp;self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, rep: R) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'h, <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces the leftmost-first match in the given haystack with the
+replacement provided. The replacement can be a regular string (where
+<code>$N</code> and <code>$name</code> are expanded to match capture groups) or a function
+that takes a [<code>Captures</code>] and returns the replaced string.</p>
+<p>If no match is found, then the haystack is returned unchanged. In that
+case, this implementation will likely return a <code>Cow::Borrowed</code> value
+such that no allocation is performed.</p>
 <h5 id="replacement-string-syntax"><a href="#replacement-string-syntax">Replacement string syntax</a></h5>
-<p>All instances of <code>$name</code> in the replacement text is replaced with the
-corresponding capture group <code>name</code>.</p>
-<p><code>name</code> may be an integer corresponding to the index of the
-capture group (counted by order of opening parenthesis where <code>0</code> is the
-entire match) or it can be a name (consisting of letters, digits or
-underscores) corresponding to a named capture group.</p>
-<p>If <code>name</code> isn’t a valid capture group (whether the name doesn’t exist
-or isn’t a valid index), then it is replaced with the empty string.</p>
-<p>The longest possible name is used. e.g., <code>$1a</code> looks up the capture
-group named <code>1a</code> and not the capture group at index <code>1</code>. To exert more
-precise control over the name, use braces, e.g., <code>${1}a</code>.</p>
+<p>All instances of <code>$ref</code> in the replacement string are replaced with
+the substring corresponding to the capture group identified by <code>ref</code>.</p>
+<p><code>ref</code> may be an integer corresponding to the index of the capture group
+(counted by order of opening parenthesis where <code>0</code> is the entire match)
+or it can be a name (consisting of letters, digits or underscores)
+corresponding to a named capture group.</p>
+<p>If <code>ref</code> isn’t a valid capture group (whether the name doesn’t exist or
+isn’t a valid index), then it is replaced with the empty string.</p>
+<p>The longest possible name is used. For example, <code>$1a</code> looks up the
+capture group named <code>1a</code> and not the capture group at index <code>1</code>. To
+exert more precise control over the name, use braces, e.g., <code>${1}a</code>.</p>
 <p>To write a literal <code>$</code> use <code>$$</code>.</p>
-<h5 id="examples-1"><a href="#examples-1">Examples</a></h5>
+<h5 id="example-7"><a href="#example-7">Example</a></h5>
 <p>Note that this function is polymorphic with respect to the replacement.
 In typical usage, this can just be a normal string:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">&quot;[^01]+&quot;</span>).unwrap();
-<span class="macro">assert_eq!</span>(re.replace(<span class="string">&quot;1078910&quot;</span>, <span class="string">&quot;&quot;</span>), <span class="string">&quot;1010&quot;</span>);</code></pre></div>
-<p>But anything satisfying the <code>Replacer</code> trait will work. For example,
-a closure of type <code>|&amp;Captures| -&gt; String</code> provides direct access to the
-captures corresponding to a match. This allows one to access
-capturing group matches easily:</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;([^,\s]+),\s+(\S+)&quot;</span>).unwrap();
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;[^01]+&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(re.replace(<span class="string">&quot;1078910&quot;</span>, <span class="string">&quot;&quot;</span>), <span class="string">&quot;1010&quot;</span>);</code></pre></div>
+<p>But anything satisfying the [<code>Replacer</code>] trait will work. For example,
+a closure of type <code>|&amp;Captures| -&gt; String</code> provides direct access to the
+captures corresponding to a match. This allows one to access capturing
+group matches easily:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::{Captures, Regex};
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;([^,\s]+),\s+(\S+)&quot;</span>).unwrap();
 <span class="kw">let </span>result = re.replace(<span class="string">&quot;Springsteen, Bruce&quot;</span>, |caps: <span class="kw-2">&amp;</span>Captures| {
     <span class="macro">format!</span>(<span class="string">&quot;{} {}&quot;</span>, <span class="kw-2">&amp;</span>caps[<span class="number">2</span>], <span class="kw-2">&amp;</span>caps[<span class="number">1</span>])
 });
 <span class="macro">assert_eq!</span>(result, <span class="string">&quot;Bruce Springsteen&quot;</span>);</code></pre></div>
 <p>But this is a bit cumbersome to use all the time. Instead, a simple
-syntax is supported that expands <code>$name</code> into the corresponding capture
-group. Here’s the last example, but using this expansion technique
-with named capture groups:</p>
+syntax is supported (as described above) that expands <code>$name</code> into the
+corresponding capture group. Here’s the last example, but using this
+expansion technique with named capture groups:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?P&lt;last&gt;[^,\s]+),\s+(?P&lt;first&gt;\S+)&quot;</span>).unwrap();
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?&lt;last&gt;[^,\s]+),\s+(?&lt;first&gt;\S+)&quot;</span>).unwrap();
 <span class="kw">let </span>result = re.replace(<span class="string">&quot;Springsteen, Bruce&quot;</span>, <span class="string">&quot;$first $last&quot;</span>);
 <span class="macro">assert_eq!</span>(result, <span class="string">&quot;Bruce Springsteen&quot;</span>);</code></pre></div>
 <p>Note that using <code>$2</code> instead of <code>$first</code> or <code>$1</code> instead of <code>$last</code>
 would produce the same result. To write a literal <code>$</code> use <code>$$</code>.</p>
 <p>Sometimes the replacement string requires use of curly braces to
-delineate a capture group replacement and surrounding literal text.
-For example, if we wanted to join two words together with an
-underscore:</p>
+delineate a capture group replacement when it is adjacent to some other
+literal text. For example, if we wanted to join two words together with
+an underscore:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?P&lt;first&gt;\w+)\s+(?P&lt;second&gt;\w+)&quot;</span>).unwrap();
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?&lt;first&gt;\w+)\s+(?&lt;second&gt;\w+)&quot;</span>).unwrap();
 <span class="kw">let </span>result = re.replace(<span class="string">&quot;deep fried&quot;</span>, <span class="string">&quot;${first}_$second&quot;</span>);
 <span class="macro">assert_eq!</span>(result, <span class="string">&quot;deep_fried&quot;</span>);</code></pre></div>
 <p>Without the curly braces, the capture group name <code>first_</code> would be
@@ -178,78 +399,340 @@ used, and since it doesn’t exist, it would be replaced with the empty
 string.</p>
 <p>Finally, sometimes you just want to replace a literal string with no
 regard for capturing group expansion. This can be done by wrapping a
-byte string with <code>NoExpand</code>:</p>
+string with [<code>NoExpand</code>]:</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::NoExpand;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::{NoExpand, Regex};
 
-<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?P&lt;last&gt;[^,\s]+),\s+(\S+)&quot;</span>).unwrap();
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?&lt;last&gt;[^,\s]+),\s+(\S+)&quot;</span>).unwrap();
 <span class="kw">let </span>result = re.replace(<span class="string">&quot;Springsteen, Bruce&quot;</span>, NoExpand(<span class="string">&quot;$2 $last&quot;</span>));
 <span class="macro">assert_eq!</span>(result, <span class="string">&quot;$2 $last&quot;</span>);</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.replace_all" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.replace_all" class="fn">replace_all</a>&lt;R, 't&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, rep: R) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'t, <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces all non-overlapping matches in <code>text</code> with the replacement
-provided. This is the same as calling <code>replacen</code> with <code>limit</code> set to
-<code>0</code>.</p>
-<p>See the documentation for <code>replace</code> for details on how to access
-capturing group matches in the replacement string.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.replacen" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.replacen" class="fn">replacen</a>&lt;R, 't&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, limit: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>, rep: R) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'t, <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces at most <code>limit</code> non-overlapping matches in <code>text</code> with the
-replacement provided. If <code>limit</code> is 0, then all non-overlapping matches
-are replaced.</p>
-<p>See the documentation for <code>replace</code> for details on how to access
-capturing group matches in the replacement string.</p>
-</div></details></div><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.shortest_match" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.shortest_match" class="fn">shortest_match</a>(&amp;self, text: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the end location of a match in the text given.</p>
+<p>Using <code>NoExpand</code> may also be faster, since the replacement string won’t
+need to be parsed for the <code>$</code> syntax.</p>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.replace_all" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.replace_all" class="fn">replace_all</a>&lt;R, 'h&gt;(&amp;self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, rep: R) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'h, <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces all non-overlapping matches in the haystack with the
+replacement provided. This is the same as calling <code>replacen</code> with
+<code>limit</code> set to <code>0</code>.</p>
+<p>The documentation for [<code>Regex::replace</code>] goes into more detail about
+what kinds of replacement strings are supported.</p>
+<h5 id="time-complexity-4"><a href="#time-complexity-4">Time complexity</a></h5>
+<p>Since iterators over all matches requires running potentially many
+searches on the haystack, and since each search has worst case
+<code>O(m * n)</code> time complexity, the overall worst case time complexity for
+this routine is <code>O(m * n^2)</code>.</p>
+<h5 id="fallibility"><a href="#fallibility">Fallibility</a></h5>
+<p>If you need to write a replacement routine where any individual
+replacement might “fail,” doing so with this API isn’t really feasible
+because there’s no way to stop the search process if a replacement
+fails. Instead, if you need this functionality, you should consider
+implementing your own replacement routine:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::{Captures, Regex};
+
+<span class="kw">fn </span>replace_all&lt;E&gt;(
+    re: <span class="kw-2">&amp;</span>Regex,
+    haystack: <span class="kw-2">&amp;</span>str,
+    replacement: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>Captures) -&gt; <span class="prelude-ty">Result</span>&lt;String, E&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;String, E&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>new = String::with_capacity(haystack.len());
+    <span class="kw">let </span><span class="kw-2">mut </span>last_match = <span class="number">0</span>;
+    <span class="kw">for </span>caps <span class="kw">in </span>re.captures_iter(haystack) {
+        <span class="kw">let </span>m = caps.get(<span class="number">0</span>).unwrap();
+        new.push_str(<span class="kw-2">&amp;</span>haystack[last_match..m.start()]);
+        new.push_str(<span class="kw-2">&amp;</span>replacement(<span class="kw-2">&amp;</span>caps)<span class="question-mark">?</span>);
+        last_match = m.end();
+    }
+    new.push_str(<span class="kw-2">&amp;</span>haystack[last_match..]);
+    <span class="prelude-val">Ok</span>(new)
+}
+
+<span class="comment">// Let&#39;s replace each word with the number of bytes in that word.
+// But if we see a word that is &quot;too long,&quot; we&#39;ll give up.
+</span><span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\w+&quot;</span>).unwrap();
+<span class="kw">let </span>replacement = |caps: <span class="kw-2">&amp;</span>Captures| -&gt; <span class="prelude-ty">Result</span>&lt;String, <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str&gt; {
+    <span class="kw">if </span>caps[<span class="number">0</span>].len() &gt;= <span class="number">5 </span>{
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;word too long&quot;</span>);
+    }
+    <span class="prelude-val">Ok</span>(caps[<span class="number">0</span>].len().to_string())
+};
+<span class="macro">assert_eq!</span>(
+    <span class="prelude-val">Ok</span>(<span class="string">&quot;2 3 3 3?&quot;</span>.to_string()),
+    replace_all(<span class="kw-2">&amp;</span>re, <span class="string">&quot;hi how are you?&quot;</span>, <span class="kw-2">&amp;</span>replacement),
+);
+<span class="macro">assert!</span>(replace_all(<span class="kw-2">&amp;</span>re, <span class="string">&quot;hi there&quot;</span>, <span class="kw-2">&amp;</span>replacement).is_err());</code></pre></div>
+<h5 id="example-8"><a href="#example-8">Example</a></h5>
+<p>This example shows how to flip the order of whitespace (excluding line
+terminators) delimited fields, and normalizes the whitespace that
+delimits the fields:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?m)^(\S+)[\s--\r\n]+(\S+)$&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;
+Greetings  1973
+Wild\t1973
+BornToRun\t\t\t\t1975
+Darkness                    1978
+TheRiver 1980
+&quot;</span>;
+<span class="kw">let </span>new = re.replace_all(hay, <span class="string">&quot;$2 $1&quot;</span>);
+<span class="macro">assert_eq!</span>(new, <span class="string">&quot;
+1973 Greetings
+1973 Wild
+1975 BornToRun
+1978 Darkness
+1980 TheRiver
+&quot;</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.replacen" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.replacen" class="fn">replacen</a>&lt;R, 'h&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;limit: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;rep: R<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/alloc/borrow/enum.Cow.html" title="enum alloc::borrow::Cow">Cow</a>&lt;'h, <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces at most <code>limit</code> non-overlapping matches in the haystack with
+the replacement provided. If <code>limit</code> is <code>0</code>, then all non-overlapping
+matches are replaced. That is, <code>Regex::replace_all(hay, rep)</code> is
+equivalent to <code>Regex::replacen(hay, 0, rep)</code>.</p>
+<p>The documentation for [<code>Regex::replace</code>] goes into more detail about
+what kinds of replacement strings are supported.</p>
+<h5 id="time-complexity-5"><a href="#time-complexity-5">Time complexity</a></h5>
+<p>Since iterators over all matches requires running potentially many
+searches on the haystack, and since each search has worst case
+<code>O(m * n)</code> time complexity, the overall worst case time complexity for
+this routine is <code>O(m * n^2)</code>.</p>
+<p>Although note that the worst case time here has an upper bound given
+by the <code>limit</code> parameter.</p>
+<h5 id="fallibility-1"><a href="#fallibility-1">Fallibility</a></h5>
+<p>See the corresponding section in the docs for [<code>Regex::replace_all</code>]
+for tips on how to deal with a replacement routine that can fail.</p>
+<h5 id="example-9"><a href="#example-9">Example</a></h5>
+<p>This example shows how to flip the order of whitespace (excluding line
+terminators) delimited fields, and normalizes the whitespace that
+delimits the fields. But we only do it for the first two matches.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?m)^(\S+)[\s--\r\n]+(\S+)$&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;
+Greetings  1973
+Wild\t1973
+BornToRun\t\t\t\t1975
+Darkness                    1978
+TheRiver 1980
+&quot;</span>;
+<span class="kw">let </span>new = re.replacen(hay, <span class="number">2</span>, <span class="string">&quot;$2 $1&quot;</span>);
+<span class="macro">assert_eq!</span>(new, <span class="string">&quot;
+1973 Greetings
+1973 Wild
+BornToRun\t\t\t\t1975
+Darkness                    1978
+TheRiver 1980
+&quot;</span>);</code></pre></div>
+</div></details></div><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.shortest_match" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.shortest_match" class="fn">shortest_match</a>(&amp;self, haystack: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the end byte offset of the first match in the haystack given.</p>
 <p>This method may have the same performance characteristics as
-<code>is_match</code>, except it provides an end location for a match. In
-particular, the location returned <em>may be shorter</em> than the proper end
-of the leftmost-first match that you would find via <code>Regex::find</code>.</p>
+<code>is_match</code>. Behaviorlly, it doesn’t just report whether it match
+occurs, but also the end offset for a match. In particular, the offset
+returned <em>may be shorter</em> than the proper end of the leftmost-first
+match that you would find via [<code>Regex::find</code>].</p>
 <p>Note that it is not guaranteed that this routine finds the shortest or
 “earliest” possible match. Instead, the main idea of this API is that
 it returns the offset at the point at which the internal regex engine
 has determined that a match has occurred. This may vary depending on
 which internal regex engine is used, and thus, the offset itself may
-change.</p>
-<h5 id="example-6"><a href="#example-6">Example</a></h5>
+change based on internal heuristics.</p>
+<h5 id="example-10"><a href="#example-10">Example</a></h5>
 <p>Typically, <code>a+</code> would match the entire first sequence of <code>a</code> in some
-text, but <code>shortest_match</code> can give up as soon as it sees the first
-<code>a</code>.</p>
+haystack, but <code>shortest_match</code> <em>may</em> give up as soon as it sees the
+first <code>a</code>.</p>
 
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>text = <span class="string">&quot;aaaaa&quot;</span>;
-<span class="kw">let </span>pos = Regex::new(<span class="string">r&quot;a+&quot;</span>).unwrap().shortest_match(text);
-<span class="macro">assert_eq!</span>(pos, <span class="prelude-val">Some</span>(<span class="number">1</span>));</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.shortest_match_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.shortest_match_at" class="fn">shortest_match_at</a>(&amp;self, text: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the same as <code>shortest_match</code>, but starts the search at the
-given offset.</p>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;a+&quot;</span>).unwrap();
+<span class="kw">let </span>offset = re.shortest_match(<span class="string">&quot;aaaaa&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(offset, <span class="number">1</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.shortest_match_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.shortest_match_at" class="fn">shortest_match_at</a>(&amp;self, haystack: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the same as [<code>Regex::shortest_match</code>], but starts the search at
+the given offset.</p>
 <p>The significance of the starting point is that it takes the surrounding
 context into consideration. For example, the <code>\A</code> anchor can only match
 when <code>start == 0</code>.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.is_match_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.is_match_at" class="fn">is_match_at</a>(&amp;self, text: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns the same as is_match, but starts the search at the given
-offset.</p>
-<p>The significance of the starting point is that it takes the surrounding
-context into consideration. For example, the <code>\A</code> anchor can only
-match when <code>start == 0</code>.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.find_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.find_at" class="fn">find_at</a>&lt;'t&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'t&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the same as find, but starts the search at the given
-offset.</p>
-<p>The significance of the starting point is that it takes the surrounding
-context into consideration. For example, the <code>\A</code> anchor can only
-match when <code>start == 0</code>.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_at" class="fn">captures_at</a>&lt;'t&gt;(&amp;self, text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Captures&lt;'t&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the same as [<code>Regex::captures</code>], but starts the search at the
+<p>If a match is found, the offset returned is relative to the beginning
+of the haystack, not the beginning of the search.</p>
+<h5 id="panics"><a href="#panics">Panics</a></h5>
+<p>This panics when <code>start &gt;= haystack.len() + 1</code>.</p>
+<h5 id="example-11"><a href="#example-11">Example</a></h5>
+<p>This example shows the significance of <code>start</code> by demonstrating how it
+can be used to permit look-around assertions in a regex to take the
+surrounding context into account.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\bchew\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;eschew&quot;</span>;
+<span class="comment">// We get a match here, but it&#39;s probably not intended.
+</span><span class="macro">assert_eq!</span>(re.shortest_match(<span class="kw-2">&amp;</span>hay[<span class="number">2</span>..]), <span class="prelude-val">Some</span>(<span class="number">4</span>));
+<span class="comment">// No match because the  assertions take the context into account.
+</span><span class="macro">assert_eq!</span>(re.shortest_match_at(hay, <span class="number">2</span>), <span class="prelude-val">None</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.is_match_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.is_match_at" class="fn">is_match_at</a>(&amp;self, haystack: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Returns the same as [<code>Regex::is_match</code>], but starts the search at the
 given offset.</p>
 <p>The significance of the starting point is that it takes the surrounding
 context into consideration. For example, the <code>\A</code> anchor can only
 match when <code>start == 0</code>.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_read" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_read" class="fn">captures_read</a>&lt;'t&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;locs: &amp;mut CaptureLocations,<br>&nbsp;&nbsp;&nbsp;&nbsp;text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'t&gt;&gt;</h4></section></summary><div class="docblock"><p>This is like <code>captures</code>, but uses
-<a href="struct.CaptureLocations.html"><code>CaptureLocations</code></a>
-instead of
-<a href="struct.Captures.html"><code>Captures</code></a> in order to amortize allocations.</p>
-<p>To create a <code>CaptureLocations</code> value, use the
-<code>Regex::capture_locations</code> method.</p>
-<p>This returns the overall match if this was successful, which is always
-equivalence to the <code>0</code>th capture group.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_read_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_read_at" class="fn">captures_read_at</a>&lt;'t&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;locs: &amp;mut CaptureLocations,<br>&nbsp;&nbsp;&nbsp;&nbsp;text: &amp;'t <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'t&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the same as captures, but starts the search at the given
-offset and populates the capture locations given.</p>
+<h5 id="panics-1"><a href="#panics-1">Panics</a></h5>
+<p>This panics when <code>start &gt;= haystack.len() + 1</code>.</p>
+<h5 id="example-12"><a href="#example-12">Example</a></h5>
+<p>This example shows the significance of <code>start</code> by demonstrating how it
+can be used to permit look-around assertions in a regex to take the
+surrounding context into account.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\bchew\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;eschew&quot;</span>;
+<span class="comment">// We get a match here, but it&#39;s probably not intended.
+</span><span class="macro">assert!</span>(re.is_match(<span class="kw-2">&amp;</span>hay[<span class="number">2</span>..]));
+<span class="comment">// No match because the  assertions take the context into account.
+</span><span class="macro">assert!</span>(!re.is_match_at(hay, <span class="number">2</span>));</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.find_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.find_at" class="fn">find_at</a>&lt;'h&gt;(&amp;self, haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>, start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'h&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the same as [<code>Regex::find</code>], but starts the search at the given
+offset.</p>
 <p>The significance of the starting point is that it takes the surrounding
 context into consideration. For example, the <code>\A</code> anchor can only
 match when <code>start == 0</code>.</p>
+<h5 id="panics-2"><a href="#panics-2">Panics</a></h5>
+<p>This panics when <code>start &gt;= haystack.len() + 1</code>.</p>
+<h5 id="example-13"><a href="#example-13">Example</a></h5>
+<p>This example shows the significance of <code>start</code> by demonstrating how it
+can be used to permit look-around assertions in a regex to take the
+surrounding context into account.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\bchew\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;eschew&quot;</span>;
+<span class="comment">// We get a match here, but it&#39;s probably not intended.
+</span><span class="macro">assert_eq!</span>(re.find(<span class="kw-2">&amp;</span>hay[<span class="number">2</span>..]).map(|m| m.range()), <span class="prelude-val">Some</span>(<span class="number">0</span>..<span class="number">4</span>));
+<span class="comment">// No match because the  assertions take the context into account.
+</span><span class="macro">assert_eq!</span>(re.find_at(hay, <span class="number">2</span>), <span class="prelude-val">None</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_at" class="fn">captures_at</a>&lt;'h&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Captures&lt;'h&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the same as [<code>Regex::captures</code>], but starts the search at the
+given offset.</p>
+<p>The significance of the starting point is that it takes the surrounding
+context into consideration. For example, the <code>\A</code> anchor can only
+match when <code>start == 0</code>.</p>
+<h5 id="panics-3"><a href="#panics-3">Panics</a></h5>
+<p>This panics when <code>start &gt;= haystack.len() + 1</code>.</p>
+<h5 id="example-14"><a href="#example-14">Example</a></h5>
+<p>This example shows the significance of <code>start</code> by demonstrating how it
+can be used to permit look-around assertions in a regex to take the
+surrounding context into account.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\bchew\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;eschew&quot;</span>;
+<span class="comment">// We get a match here, but it&#39;s probably not intended.
+</span><span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>re.captures(<span class="kw-2">&amp;</span>hay[<span class="number">2</span>..]).unwrap()[<span class="number">0</span>], <span class="string">&quot;chew&quot;</span>);
+<span class="comment">// No match because the  assertions take the context into account.
+</span><span class="macro">assert!</span>(re.captures_at(hay, <span class="number">2</span>).is_none());</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_read" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_read" class="fn">captures_read</a>&lt;'h&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;locs: &amp;mut CaptureLocations,<br>&nbsp;&nbsp;&nbsp;&nbsp;haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'h&gt;&gt;</h4></section></summary><div class="docblock"><p>This is like [<code>Regex::captures</code>], but writes the byte offsets of each
+capture group match into the locations given.</p>
+<p>A [<code>CaptureLocations</code>] stores the same byte offsets as a [<code>Captures</code>],
+but does <em>not</em> store a reference to the haystack. This makes its API
+a bit lower level and less convenience. But in exchange, callers
+may allocate their own <code>CaptureLocations</code> and reuse it for multiple
+searches. This may be helpful if allocating a <code>Captures</code> shows up in a
+profile as too costly.</p>
+<p>To create a <code>CaptureLocations</code> value, use the
+[<code>Regex::capture_locations</code>] method.</p>
+<p>This also the overall match if one was found. When a match is found,
+its offsets are also always stored in <code>locs</code> at index <code>0</code>.</p>
+<h5 id="panics-4"><a href="#panics-4">Panics</a></h5>
+<p>This routine may panic if the given <code>CaptureLocations</code> was not created
+by this regex.</p>
+<h5 id="example-15"><a href="#example-15">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;^([a-z]+)=(\S*)$&quot;</span>).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>locs = re.capture_locations();
+<span class="macro">assert!</span>(re.captures_read(<span class="kw-2">&amp;mut </span>locs, <span class="string">&quot;id=foo123&quot;</span>).is_some());
+<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">9</span>)), locs.get(<span class="number">0</span>));
+<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">2</span>)), locs.get(<span class="number">1</span>));
+<span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>((<span class="number">3</span>, <span class="number">9</span>)), locs.get(<span class="number">2</span>));</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_read_at" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_read_at" class="fn">captures_read_at</a>&lt;'h&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self,<br>&nbsp;&nbsp;&nbsp;&nbsp;locs: &amp;mut CaptureLocations,<br>&nbsp;&nbsp;&nbsp;&nbsp;haystack: &amp;'h <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;start: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Match&lt;'h&gt;&gt;</h4></section></summary><div class="docblock"><p>Returns the same as [<code>Regex::captures_read</code>], but starts the search at
+the given offset.</p>
+<p>The significance of the starting point is that it takes the surrounding
+context into consideration. For example, the <code>\A</code> anchor can only
+match when <code>start == 0</code>.</p>
+<h5 id="panics-5"><a href="#panics-5">Panics</a></h5>
+<p>This panics when <code>start &gt;= haystack.len() + 1</code>.</p>
+<p>This routine may also panic if the given <code>CaptureLocations</code> was not
+created by this regex.</p>
+<h5 id="example-16"><a href="#example-16">Example</a></h5>
+<p>This example shows the significance of <code>start</code> by demonstrating how it
+can be used to permit look-around assertions in a regex to take the
+surrounding context into account.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;\bchew\b&quot;</span>).unwrap();
+<span class="kw">let </span>hay = <span class="string">&quot;eschew&quot;</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>locs = re.capture_locations();
+<span class="comment">// We get a match here, but it&#39;s probably not intended.
+</span><span class="macro">assert!</span>(re.captures_read(<span class="kw-2">&amp;mut </span>locs, <span class="kw-2">&amp;</span>hay[<span class="number">2</span>..]).is_some());
+<span class="comment">// No match because the  assertions take the context into account.
+</span><span class="macro">assert!</span>(re.captures_read_at(<span class="kw-2">&amp;mut </span>locs, hay, <span class="number">2</span>).is_none());</code></pre></div>
 </div></details></div><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.as_str" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.as_str" class="fn">as_str</a>(&amp;self) -&gt; &amp;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.str.html">str</a></h4></section></summary><div class="docblock"><p>Returns the original string of this regex.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.capture_names" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.capture_names" class="fn">capture_names</a>(&amp;self) -&gt; CaptureNames&lt;'_&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator over the capture names.</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_len" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_len" class="fn">captures_len</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Returns the number of captures.</p>
+<h5 id="example-17"><a href="#example-17">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;foo\w+bar&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(re.as_str(), <span class="string">r&quot;foo\w+bar&quot;</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.capture_names" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.capture_names" class="fn">capture_names</a>(&amp;self) -&gt; CaptureNames&lt;'_&gt;</h4></section></summary><div class="docblock"><p>Returns an iterator over the capture names in this regex.</p>
+<p>The iterator returned yields elements of type <code>Option&lt;&amp;str&gt;</code>. That is,
+the iterator yields values for all capture groups, even ones that are
+unnamed. The order of the groups corresponds to the order of the group’s
+corresponding opening parenthesis.</p>
+<p>The first element of the iterator always yields the group corresponding
+to the overall match, and this group is always unnamed. Therefore, the
+iterator always yields at least one group.</p>
+<h5 id="example-18"><a href="#example-18">Example</a></h5>
+<p>This shows basic usage with a mix of named and unnamed capture groups:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?&lt;a&gt;.(?&lt;b&gt;.))(.)(?:.)(?&lt;c&gt;.)&quot;</span>).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>names = re.capture_names();
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>));
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;a&quot;</span>)));
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;b&quot;</span>)));
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>));
+<span class="comment">// the &#39;(?:.)&#39; group is non-capturing and so doesn&#39;t appear here!
+</span><span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(<span class="string">&quot;c&quot;</span>)));
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">None</span>);</code></pre></div>
+<p>The iterator always yields at least one element, even for regexes with
+no capture groups and even for regexes that can never match:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;&quot;</span>).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>names = re.capture_names();
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>));
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">None</span>);
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;[a&amp;&amp;b]&quot;</span>).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>names = re.capture_names();
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>));
+<span class="macro">assert_eq!</span>(names.next(), <span class="prelude-val">None</span>);</code></pre></div>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.captures_len" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.captures_len" class="fn">captures_len</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a></h4></section></summary><div class="docblock"><p>Returns the number of captures groups in this regex.</p>
+<p>This includes all named and unnamed groups, including the implicit
+unnamed group that is always present and corresponds to the entire
+match.</p>
+<p>Since the implicit unnamed group is always included in this length, the
+length returned is guaranteed to be greater than zero.</p>
+<h5 id="example-19"><a href="#example-19">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;foo&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(<span class="number">1</span>, re.captures_len());
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(foo)&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(<span class="number">2</span>, re.captures_len());
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(?&lt;a&gt;.(?&lt;b&gt;.))(.)(?:.)(?&lt;c&gt;.)&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(<span class="number">5</span>, re.captures_len());
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;[a&amp;&amp;b]&quot;</span>).unwrap();
+<span class="macro">assert_eq!</span>(<span class="number">1</span>, re.captures_len());</code></pre></div>
 </div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.static_captures_len" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.static_captures_len" class="fn">static_captures_len</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.67.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.usize.html">usize</a>&gt;</h4></section></summary><div class="docblock"><p>Returns the total number of capturing groups that appear in every
 possible match.</p>
 <p>If the number of capture groups can vary depending on the match, then
@@ -259,7 +742,7 @@ of matching groups is invariant or “static.”</p>
 implicit capturing group corresponding to the entire match. Therefore,
 when a non-None value is returned, it is guaranteed to be at least <code>1</code>.
 Stated differently, a return value of <code>Some(0)</code> is impossible.</p>
-<h5 id="example-7"><a href="#example-7">Example</a></h5>
+<h5 id="example-20"><a href="#example-20">Example</a></h5>
 <p>This shows a few cases where a static number of capture groups is
 available and a few cases where it is not.</p>
 
@@ -278,8 +761,22 @@ available and a few cases where it is not.</p>
 <span class="macro">assert_eq!</span>(<span class="prelude-val">None</span>, len(<span class="string">&quot;(b)*&quot;</span>)<span class="question-mark">?</span>);
 <span class="macro">assert_eq!</span>(<span class="prelude-val">Some</span>(<span class="number">2</span>), len(<span class="string">&quot;(b)+&quot;</span>)<span class="question-mark">?</span>);
 </code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.capture_locations" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.capture_locations" class="fn">capture_locations</a>(&amp;self) -&gt; CaptureLocations</h4></section></summary><div class="docblock"><p>Returns an empty set of capture locations that can be reused in
-multiple calls to <code>captures_read</code> or <code>captures_read_at</code>.</p>
+</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.capture_locations" class="method has-srclink"><h4 class="code-header">pub fn <a href="#method.capture_locations" class="fn">capture_locations</a>(&amp;self) -&gt; CaptureLocations</h4></section></summary><div class="docblock"><p>Returns a fresh allocated set of capture locations that can
+be reused in multiple calls to [<code>Regex::captures_read</code>] or
+[<code>Regex::captures_read_at</code>].</p>
+<p>The returned locations can be used for any subsequent search for this
+particular regex. There is no guarantee that it is correct to use for
+other regexes, even if they have the same number of capture groups.</p>
+<h5 id="example-21"><a href="#example-21">Example</a></h5>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>regex::Regex;
+
+<span class="kw">let </span>re = Regex::new(<span class="string">r&quot;(.)(.)(\w+)&quot;</span>).unwrap();
+<span class="kw">let </span><span class="kw-2">mut </span>locs = re.capture_locations();
+<span class="macro">assert!</span>(re.captures_read(<span class="kw-2">&amp;mut </span>locs, <span class="string">&quot;Padron&quot;</span>).is_some());
+<span class="macro">assert_eq!</span>(locs.get(<span class="number">0</span>), <span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">6</span>)));
+<span class="macro">assert_eq!</span>(locs.get(<span class="number">1</span>), <span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">1</span>)));
+<span class="macro">assert_eq!</span>(locs.get(<span class="number">2</span>), <span class="prelude-val">Some</span>((<span class="number">1</span>, <span class="number">2</span>)));
+<span class="macro">assert_eq!</span>(locs.get(<span class="number">3</span>), <span class="prelude-val">Some</span>((<span class="number">2</span>, <span class="number">6</span>)));</code></pre></div>
 </div></details></div></div><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="rustdoc-toggle implementors-toggle" open><summary><section id="impl-Deref-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="../../src/wasmer_registry/package/mod.rs.html#13-15">source</a><a href="#impl-Deref-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/ops/deref/trait.Deref.html" title="trait core::ops::deref::Deref">Deref</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section></summary><div class="impl-items"><details class="rustdoc-toggle" open><summary><section id="associatedtype.Target" class="associatedtype trait-impl has-srclink"><a href="#associatedtype.Target" class="anchor">§</a><h4 class="code-header">type <a href="https://doc.rust-lang.org/1.67.1/core/ops/deref/trait.Deref.html#associatedtype.Target" class="associatedtype">Target</a> = Regex</h4></section></summary><div class='docblock'>The resulting type after dereferencing.</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.deref" class="method trait-impl has-srclink"><a class="srclink rightside" href="../../src/wasmer_registry/package/mod.rs.html#13-15">source</a><a href="#method.deref" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.67.1/core/ops/deref/trait.Deref.html#tymethod.deref" class="fn">deref</a>(&amp;self) -&gt; &amp;Regex</h4></section></summary><div class='docblock'>Dereferences the value.</div></details></div></details><section id="impl-LazyStatic-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="../../src/wasmer_registry/package/mod.rs.html#13-15">source</a><a href="#impl-LazyStatic-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://docs.rs/lazy_static/1.4.0/lazy_static/trait.LazyStatic.html" title="trait lazy_static::LazyStatic">LazyStatic</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section></div><h2 id="synthetic-implementations" class="small-section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor">§</a></h2><div id="synthetic-implementations-list"><section id="impl-RefUnwindSafe-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a href="#impl-RefUnwindSafe-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/panic/unwind_safe/trait.RefUnwindSafe.html" title="trait core::panic::unwind_safe::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section><section id="impl-Send-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a href="#impl-Send-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section><section id="impl-Sync-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a href="#impl-Sync-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section><section id="impl-Unpin-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a href="#impl-Unpin-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section><section id="impl-UnwindSafe-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a href="#impl-UnwindSafe-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/panic/unwind_safe/trait.UnwindSafe.html" title="trait core::panic::unwind_safe::UnwindSafe">UnwindSafe</a> for <a class="struct" href="struct.PACKAGE_WITH_VERSION.html" title="struct wasmer_registry::package::PACKAGE_WITH_VERSION">PACKAGE_WITH_VERSION</a></h3></section></div><h2 id="blanket-implementations" class="small-section-header">Blanket Implementations<a href="#blanket-implementations" class="anchor">§</a></h2><div id="blanket-implementations-list"><details class="rustdoc-toggle implementors-toggle"><summary><section id="impl-Any-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="https://doc.rust-lang.org/1.67.1/src/core/any.rs.html#200">source</a><a href="#impl-Any-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/any/trait.Any.html" title="trait core::any::Any">Any</a> for T<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: 'static + ?<a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></summary><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.type_id" class="method trait-impl has-srclink"><a class="srclink rightside" href="https://doc.rust-lang.org/1.67.1/src/core/any.rs.html#201">source</a><a href="#method.type_id" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.67.1/core/any/trait.Any.html#tymethod.type_id" class="fn">type_id</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.67.1/core/any/struct.TypeId.html" title="struct core::any::TypeId">TypeId</a></h4></section></summary><div class='docblock'>Gets the <code>TypeId</code> of <code>self</code>. <a href="https://doc.rust-lang.org/1.67.1/core/any/trait.Any.html#tymethod.type_id">Read more</a></div></details></div></details><details class="rustdoc-toggle implementors-toggle"><summary><section id="impl-Borrow%3CT%3E-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="https://doc.rust-lang.org/1.67.1/src/core/borrow.rs.html#211">source</a><a href="#impl-Borrow%3CT%3E-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T&gt; for T<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: ?<a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></summary><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.borrow" class="method trait-impl has-srclink"><span class="rightside"><span class="since" title="const unstable">const: <a href="https://github.com/rust-lang/rust/issues/91522" title="Tracking issue for const_borrow">unstable</a></span> · <a class="srclink" href="https://doc.rust-lang.org/1.67.1/src/core/borrow.rs.html#213">source</a></span><a href="#method.borrow" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.67.1/core/borrow/trait.Borrow.html#tymethod.borrow" class="fn">borrow</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;</a>T</h4></section></summary><div class='docblock'>Immutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.67.1/core/borrow/trait.Borrow.html#tymethod.borrow">Read more</a></div></details></div></details><details class="rustdoc-toggle implementors-toggle"><summary><section id="impl-BorrowMut%3CT%3E-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="https://doc.rust-lang.org/1.67.1/src/core/borrow.rs.html#220">source</a><a href="#impl-BorrowMut%3CT%3E-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/borrow/trait.BorrowMut.html" title="trait core::borrow::BorrowMut">BorrowMut</a>&lt;T&gt; for T<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: ?<a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></summary><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.borrow_mut" class="method trait-impl has-srclink"><span class="rightside"><span class="since" title="const unstable">const: <a href="https://github.com/rust-lang/rust/issues/91522" title="Tracking issue for const_borrow">unstable</a></span> · <a class="srclink" href="https://doc.rust-lang.org/1.67.1/src/core/borrow.rs.html#221">source</a></span><a href="#method.borrow_mut" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.67.1/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut" class="fn">borrow_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;mut </a>T</h4></section></summary><div class='docblock'>Mutably borrows from an owned value. <a href="https://doc.rust-lang.org/1.67.1/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut">Read more</a></div></details></div></details><details class="rustdoc-toggle implementors-toggle"><summary><section id="impl-From%3CT%3E-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="https://doc.rust-lang.org/1.67.1/src/core/convert/mod.rs.html#733">source</a><a href="#impl-From%3CT%3E-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for T</h3></section></summary><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.from" class="method trait-impl has-srclink"><span class="rightside"><span class="since" title="const unstable">const: <a href="https://github.com/rust-lang/rust/issues/88674" title="Tracking issue for const_convert">unstable</a></span> · <a class="srclink" href="https://doc.rust-lang.org/1.67.1/src/core/convert/mod.rs.html#736">source</a></span><a href="#method.from" class="anchor">§</a><h4 class="code-header">fn <a href="https://doc.rust-lang.org/1.67.1/core/convert/trait.From.html#tymethod.from" class="fn">from</a>(t: T) -&gt; T</h4></section></summary><div class="docblock"><p>Returns the argument unchanged.</p>
 </div></details></div></details><details class="rustdoc-toggle implementors-toggle"><summary><section id="impl-Instrument-for-PACKAGE_WITH_VERSION" class="impl has-srclink"><a class="srclink rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#276">source</a><a href="#impl-Instrument-for-PACKAGE_WITH_VERSION" class="anchor">§</a><h3 class="code-header">impl&lt;T&gt; <a class="trait" href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html" title="trait tracing::instrument::Instrument">Instrument</a> for T</h3></section></summary><div class="impl-items"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.instrument" class="method trait-impl has-srclink"><a class="srclink rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#82">source</a><a href="#method.instrument" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.instrument" class="fn">instrument</a>(self, span: <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html" title="struct tracing::span::Span">Span</a>) -&gt; <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.Instrumented.html" title="struct tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt;</h4></section></summary><div class='docblock'>Instruments this type with the provided <a href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html" title="Span"><code>Span</code></a>, returning an
 <code>Instrumented</code> wrapper. <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.instrument">Read more</a></div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.in_current_span" class="method trait-impl has-srclink"><a class="srclink rightside" href="https://docs.rs/tracing/0.1.37/src/tracing/instrument.rs.html#121">source</a><a href="#method.in_current_span" class="anchor">§</a><h4 class="code-header">fn <a href="https://docs.rs/tracing/0.1.37/tracing/instrument/trait.Instrument.html#method.in_current_span" class="fn">in_current_span</a>(self) -&gt; <a class="struct" href="https://docs.rs/tracing/0.1.37/tracing/instrument/struct.Instrumented.html" title="struct tracing::instrument::Instrumented">Instrumented</a>&lt;Self&gt;</h4></section></summary><div class='docblock'>Instruments this type with the <a href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html#method.current">current</a> <a href="https://docs.rs/tracing/0.1.37/tracing/span/struct.Span.html"><code>Span</code></a>, returning an

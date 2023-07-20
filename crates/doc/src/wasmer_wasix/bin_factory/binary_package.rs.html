@@ -210,43 +210,6 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Context;
@@ -398,11 +361,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::{collections::BTreeMap, path::Path};
-
     <span class="kw">use </span>tempfile::TempDir;
     <span class="kw">use </span>virtual_fs::AsyncReadExt;
-    <span class="kw">use </span>wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 
     <span class="kw">use crate</span>::{runtime::task_manager::VirtualTaskManager, PluggableRuntime};
 
@@ -434,13 +394,15 @@
             [fs]
             &quot;/public&quot; = &quot;./out&quot;
         &quot;#</span>;
-        std::fs::write(temp.path().join(<span class="string">&quot;wasmer.toml&quot;</span>), wasmer_toml).unwrap();
+        <span class="kw">let </span>manifest = temp.path().join(<span class="string">&quot;wasmer.toml&quot;</span>);
+        std::fs::write(<span class="kw-2">&amp;</span>manifest, wasmer_toml).unwrap();
         <span class="kw">let </span>out = temp.path().join(<span class="string">&quot;out&quot;</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>out).unwrap();
         <span class="kw">let </span>file_txt = <span class="string">&quot;Hello, World!&quot;</span>;
         std::fs::write(out.join(<span class="string">&quot;file.txt&quot;</span>), file_txt).unwrap();
-        <span class="kw">let </span>webc = construct_webc_in_memory(temp.path());
-        <span class="kw">let </span>webc = Container::from_bytes(webc).unwrap();
+        <span class="kw">let </span>webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
+            .unwrap()
+            .into();
         <span class="kw">let </span>tasks = task_manager();
         <span class="kw">let </span>runtime = PluggableRuntime::new(tasks);
 
@@ -457,42 +419,6 @@
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = String::new();
         f.read_to_string(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.unwrap();
         <span class="macro">assert_eq!</span>(buffer, file_txt);
-    }
-
-    <span class="kw">fn </span>construct_webc_in_memory(dir: <span class="kw-2">&amp;</span>Path) -&gt; Vec&lt;u8&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
-        load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir);
-
-        <span class="kw">let </span>wasmer_toml = DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(toml_data) = files.remove(<span class="kw-2">&amp;</span>wasmer_toml) {
-            <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-            // using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we
-            // manually patch things up if people have already migrated their
-            // projects.
-            </span>files
-                .entry(DirOrFile::File(<span class="string">&quot;wapm.toml&quot;</span>.into()))
-                .or_insert(toml_data);
-        }
-
-        <span class="kw">let </span>functions = TransformManifestFunctions::default();
-        wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="kw-2">&amp;</span>functions).unwrap()
-    }
-
-    <span class="kw">fn </span>load_files_from_disk(files: <span class="kw-2">&amp;mut </span>FileMap, dir: <span class="kw-2">&amp;</span>Path, base: <span class="kw-2">&amp;</span>Path) {
-        <span class="kw">let </span>entries = dir.read_dir().unwrap();
-
-        <span class="kw">for </span>entry <span class="kw">in </span>entries {
-            <span class="kw">let </span>path = entry.unwrap().path();
-            <span class="kw">let </span>relative_path = path.strip_prefix(base).unwrap().to_path_buf();
-
-            <span class="kw">if </span>path.is_dir() {
-                load_files_from_disk(files, <span class="kw-2">&amp;</span>path, base);
-                files.insert(DirOrFile::Dir(relative_path), Vec::new());
-            } <span class="kw">else if </span>path.is_file() {
-                <span class="kw">let </span>data = std::fs::read(<span class="kw-2">&amp;</span>path).unwrap();
-                files.insert(DirOrFile::File(relative_path), data);
-            }
-        }
     }
 }
 </code></pre></div>

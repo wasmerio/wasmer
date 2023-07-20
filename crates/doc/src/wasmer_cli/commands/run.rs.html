@@ -853,48 +853,6 @@
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
-<a href="#870" id="870">870</a>
-<a href="#871" id="871">871</a>
-<a href="#872" id="872">872</a>
-<a href="#873" id="873">873</a>
-<a href="#874" id="874">874</a>
-<a href="#875" id="875">875</a>
-<a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a>
-<a href="#887" id="887">887</a>
-<a href="#888" id="888">888</a>
-<a href="#889" id="889">889</a>
-<a href="#890" id="890">890</a>
-<a href="#891" id="891">891</a>
-<a href="#892" id="892">892</a>
-<a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a>
-<a href="#895" id="895">895</a>
-<a href="#896" id="896">896</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -919,7 +877,6 @@
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>url::Url;
-<span class="kw">use </span>wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 <span class="kw">use </span>wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -1441,11 +1398,13 @@
 <span class="kw">impl </span>ExecutableTarget {
     <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">fn </span>from_dir(dir: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime, pb: <span class="kw-2">&amp;</span>ProgressBar) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         pb.set_message(<span class="macro">format!</span>(<span class="string">&quot;Loading \&quot;{}\&quot; into memory&quot;</span>, dir.display()));
 
-        <span class="kw">let </span>webc = construct_webc_in_memory(dir)<span class="question-mark">?</span>;
-        <span class="kw">let </span>container = Container::from_bytes(webc)<span class="question-mark">?</span>;
+        <span class="kw">let </span>manifest_path = dir.join(<span class="string">&quot;wasmer.toml&quot;</span>);
+        <span class="kw">let </span>webc = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>container = Container::from(webc);
 
         pb.set_message(<span class="string">&quot;Resolving dependencies&quot;</span>);
         <span class="kw">let </span>pkg = runtime
@@ -1456,7 +1415,7 @@
     }
 
     <span class="doccomment">/// Try to load a file into something that can be used to run it.
-    </span><span class="attr">#[tracing::instrument(skip_all)]
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">fn </span>from_file(path: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime, pb: <span class="kw-2">&amp;</span>ProgressBar) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         pb.set_message(<span class="macro">format!</span>(<span class="string">&quot;Loading from \&quot;{}\&quot;&quot;</span>, path.display()));
 
@@ -1517,49 +1476,6 @@
             }
         }
     }
-}
-
-<span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
-</span><span class="kw">fn </span>construct_webc_in_memory(dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, Error&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>files = BTreeMap::new();
-    load_files_from_disk(<span class="kw-2">&amp;mut </span>files, dir, dir)<span class="question-mark">?</span>;
-
-    <span class="kw">let </span>wasmer_toml = DirOrFile::File(<span class="string">&quot;wasmer.toml&quot;</span>.into());
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(toml_data) = files.remove(<span class="kw-2">&amp;</span>wasmer_toml) {
-        <span class="comment">// HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-        // using doesn&#39;t know we renamed &quot;wapm.toml&quot; to &quot;wasmer.toml&quot;, so we
-        // manually patch things up if people have already migrated their
-        // projects.
-        </span>files
-            .entry(DirOrFile::File(<span class="string">&quot;wapm.toml&quot;</span>.into()))
-            .or_insert(toml_data);
-    }
-
-    <span class="kw">let </span>functions = TransformManifestFunctions::default();
-    <span class="kw">let </span>webc = wapm_targz_to_pirita::generate_webc_file(files, dir, <span class="kw-2">&amp;</span>functions)<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(webc)
-}
-
-<span class="kw">fn </span>load_files_from_disk(files: <span class="kw-2">&amp;mut </span>FileMap, dir: <span class="kw-2">&amp;</span>Path, base: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-    <span class="kw">let </span>entries = dir
-        .read_dir()
-        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read the contents of \&quot;{}\&quot;&quot;</span>, dir.display()))<span class="question-mark">?</span>;
-
-    <span class="kw">for </span>entry <span class="kw">in </span>entries {
-        <span class="kw">let </span>path = entry<span class="question-mark">?</span>.path();
-        <span class="kw">let </span>relative_path = path.strip_prefix(base)<span class="question-mark">?</span>.to_path_buf();
-
-        <span class="kw">if </span>path.is_dir() {
-            load_files_from_disk(files, <span class="kw-2">&amp;</span>path, base)<span class="question-mark">?</span>;
-            files.insert(DirOrFile::Dir(relative_path), Vec::new());
-        } <span class="kw">else if </span>path.is_file() {
-            <span class="kw">let </span>data = std::fs::read(<span class="kw-2">&amp;</span>path)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
-            files.insert(DirOrFile::File(relative_path), data);
-        }
-    }
-    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;coredump&quot;</span>)]
