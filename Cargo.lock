@@ -2257,17 +2257,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "json5"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96b0db21af676c1ce64250b5f40f3ce2cf27e4e47cb91ed91eb6fe9350b430c1"
-dependencies = [
- "pest",
- "pest_derive",
- "serde",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2948,40 +2937,6 @@ checksum = "0d2d1d55045829d65aad9d389139882ad623b33b904e7c9f1b10c5b8927298e5"
 dependencies = [
  "thiserror",
  "ucd-trie",
-]
-
-[[package]]
-name = "pest_derive"
-version = "2.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f94bca7e7a599d89dea5dfa309e217e7906c3c007fb9c3299c40b10d6a315d3"
-dependencies = [
- "pest",
- "pest_generator",
-]
-
-[[package]]
-name = "pest_generator"
-version = "2.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99d490fe7e8556575ff6911e45567ab95e71617f43781e5c05490dc8d75c965c"
-dependencies = [
- "pest",
- "pest_meta",
- "proc-macro2",
- "quote",
- "syn 2.0.26",
-]
-
-[[package]]
-name = "pest_meta"
-version = "2.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2674c66ebb4b4d9036012091b537aae5878970d6999f81a265034d85b136b341"
-dependencies = [
- "once_cell",
- "pest",
- "sha2",
 ]
 
 [[package]]
@@ -5230,32 +5185,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wapm-targz-to-pirita"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae276b0a41327a4829d32237dddff6ddec11bf509d3f76cea4b793275d1e581f"
-dependencies = [
- "anyhow",
- "base64",
- "bytes",
- "flate2",
- "indexmap 1.9.3",
- "json5",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "shared-buffer",
- "tar",
- "tempfile",
- "toml 0.7.6",
- "tracing",
- "url",
- "wasmer-toml",
- "webc",
-]
-
-[[package]]
 name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5617,7 +5546,6 @@ dependencies = [
  "anyhow",
  "assert_cmd 2.0.12",
  "async-trait",
- "atty",
  "bytes",
  "bytesize",
  "cargo_metadata",
@@ -5664,7 +5592,6 @@ dependencies = [
  "virtual-fs",
  "virtual-net",
  "walkdir",
- "wapm-targz-to-pirita",
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-cache",
@@ -6174,7 +6101,6 @@ dependencies = [
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
- "wapm-targz-to-pirita",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "wasmer",

@@ -337,6 +337,13 @@ impl WebcHash {
         WebcHash(bytes)
     }
 
+    /// Parse a sha256 hash from a hex-encoded string.
+    pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
+        let mut hash = [0_u8; 32];
+        hex::decode_to_slice(hex_str, &mut hash)?;
+        Ok(Self(hash))
+    }
+
     pub fn for_file(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
         let mut hasher = Sha256::default();
         let mut reader = BufReader::new(File::open(path)?);
