@@ -98,7 +98,6 @@ wasm-bindgen = ">= 0.2.74, < 0.2.85"
 wasmer = { path = "../api", version = "=4.0.0", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
 pretty_assertions = "1.3.0"
-wapm-targz-to-pirita = { workspace = true }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

@@ -21,7 +21,6 @@ use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
-use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 use wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
     Value,
@@ -556,6 +555,7 @@ enum ExecutableTarget {
 impl ExecutableTarget {
     /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
+    #[tracing::instrument(level = "debug", skip_all)]
     fn from_dir(
         dir: &Path,
         runtime: &Arc<dyn Runtime + Send + Sync>,
@@ -563,8 +563,9 @@ impl ExecutableTarget {
     ) -> Result<Self, Error> {
         pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
 
-        let webc = construct_webc_in_memory(dir)?;
-        let container = Container::from_bytes(webc)?;
+        let manifest_path = dir.join("wasmer.toml");
+        let webc = webc::wasmer_package::Package::from_manifest(manifest_path)?;
+        let container = Container::from(webc);
 
         pb.set_message("Resolving dependencies");
         let inner_runtime = runtime.clone();
@@ -576,7 +577,7 @@ impl ExecutableTarget {
     }
 
     /// Try to load a file into something that can be used to run it.
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(level = "debug", skip_all)]
     fn from_file(
         path: &Path,
         runtime: &Arc<dyn Runtime + Send + Sync>,
@@ -620,49 +621,6 @@ impl ExecutableTarget {
             }
         }
     }
-}
-
-#[tracing::instrument(level = "debug", skip_all)]
-fn construct_webc_in_memory(dir: &Path) -> Result<Vec<u8>, Error> {
-    let mut files = BTreeMap::new();
-    load_files_from_disk(&mut files, dir, dir)?;
-
-    let wasmer_toml = DirOrFile::File("wasmer.toml".into());
-    if let Some(toml_data) = files.remove(&wasmer_toml) {
-        // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-        // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
-        // manually patch things up if people have already migrated their
-        // projects.
-        files
-            .entry(DirOrFile::File("wapm.toml".into()))
-            .or_insert(toml_data);
-    }
-
-    let functions = TransformManifestFunctions::default();
-    let webc = wapm_targz_to_pirita::generate_webc_file(files, dir, &functions)?;
-
-    Ok(webc)
-}
-
-fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) -> Result<(), Error> {
-    let entries = dir
-        .read_dir()
-        .with_context(|| format!("Unable to read the contents of \"{}\"", dir.display()))?;
-
-    for entry in entries {
-        let path = entry?.path();
-        let relative_path = path.strip_prefix(base)?.to_path_buf();
-
-        if path.is_dir() {
-            load_files_from_disk(files, &path, base)?;
-            files.insert(DirOrFile::Dir(relative_path), Vec::new());
-        } else if path.is_file() {
-            let data = std::fs::read(&path)
-                .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
-            files.insert(DirOrFile::File(relative_path), data);
-        }
-    }
-    Ok(())
 }
 
 #[cfg(feature = "coredump")]
