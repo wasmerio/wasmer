@@ -24,9 +24,19 @@ impl Default for ThreadTaskManager {
         let runtime: std::sync::Arc<Runtime> =
             std::sync::Arc::new(Builder::new_current_thread().enable_all().build().unwrap());
 
+        let concurrency = std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get();
+        let max_threads = 200usize.max(concurrency * 100);
+
         Self {
             runtime,
-            pool: Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()),
+            pool: Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(max_threads)
+                    .build()
+                    .unwrap(),
+            ),
         }
     }
 
@@ -34,8 +44,10 @@ impl Default for ThreadTaskManager {
     fn default() -> Self {
         let (tx, _) = tokio::sync::broadcast::channel(100);
 
-        let concurrency = std::thread::available_concurrency().unwrap_or(1);
-        let max_threads = concurrency * 100;
+        let concurrency = std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get();
+        let max_threads = 200usize.max(concurrency * 100);
 
         Self {
             periodic_wakers: Arc::new(Mutex::new((Vec::new(), tx))),

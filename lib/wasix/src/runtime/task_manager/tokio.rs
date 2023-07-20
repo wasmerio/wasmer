@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 use futures::{future::BoxFuture, Future};
 use tokio::runtime::Handle;
@@ -16,9 +16,19 @@ pub struct TokioTaskManager {
 
 impl TokioTaskManager {
     pub fn new(rt: Handle) -> Self {
+        let concurrency = std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get();
+        let max_threads = 200usize.max(concurrency * 100);
+
         Self {
             handle: rt,
-            pool: Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()),
+            pool: Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(max_threads)
+                    .build()
+                    .unwrap(),
+            ),
         }
     }
 
