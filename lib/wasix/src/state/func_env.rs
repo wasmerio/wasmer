@@ -73,6 +73,7 @@ impl WasiFunctionEnv {
 
         // Set all the globals
         if let Some(snapshot) = snapshot {
+            tracing::trace!("restoring snapshot for new thread");
             restore_snapshot(&mut store, snapshot);
         }
 
