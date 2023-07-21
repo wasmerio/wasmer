@@ -38,9 +38,7 @@ wasmer-emscripten = { version = "=4.0.0", path = "../emscripten" }
 wasmer-vm = { version = "=4.0.0", path = "../vm", optional = true }
 wasmer-wasix = { version = "0.9.0", path = "../wasix", features = [
   "logging",
-  "webc_runner",
   "webc_runner_rt_wcgi",
-  "webc_runner_rt_wasi",
   "webc_runner_rt_emscripten",
   "host-fs",
 ] }
@@ -56,7 +54,7 @@ wasmer-types = { version = "=4.0.0", path = "../types", features = [
 ] }
 wasmer-registry = { version = "5.2.0", path = "../registry", features = [
   "build-package",
-  "clap",
+  "clap", 
 ] }
 wasmer-object = { version = "=4.0.0", path = "../object", optional = true }
 virtual-fs = { version = "0.6.0", path = "../virtual-fs", default-features = false, features = [

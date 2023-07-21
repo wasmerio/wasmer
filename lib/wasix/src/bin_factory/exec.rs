@@ -19,44 +19,32 @@ use crate::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
 pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
-    store: Store,
+    _store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    let key = binary.hash();
-
-    let compiled_modules = runtime.module_cache();
-    let module = compiled_modules.load(key, store.engine()).await.ok();
-
-    let module = match (module, binary.entrypoint_bytes()) {
-        (Some(a), _) => a,
-        (None, Some(entry)) => {
-            let module = Module::new(&store, entry).map_err(|err| {
-                error!(
-                    "failed to compile module [{}, len={}] - {}",
-                    name,
-                    entry.len(),
-                    err
-                );
-                SpawnError::CompileError
-            });
-            if module.is_err() {
-                env.cleanup(Some(Errno::Noexec.into())).await;
-            }
-            let module = module?;
-
-            if let Err(e) = compiled_modules.save(key, store.engine(), &module).await {
-                tracing::debug!(
-                    %key,
-                    package_name=%binary.package_name,
-                    error=&e as &dyn std::error::Error,
-                    "Unable to save the compiled module",
-                );
-            }
-            module
+    let wasm = match binary.entrypoint_bytes() {
+        Some(wasm) => wasm,
+        None => {
+            tracing::error!(
+              command=name,
+              pkg.name=%binary.package_name,
+              pkg.version=%binary.version,
+              "Unable to spawn a command because its package has no entrypoint",
+            );
+            env.cleanup(Some(Errno::Noexec.into())).await;
+            return Err(SpawnError::CompileError);
         }
-        (None, None) => {
-            error!("package has no entry [{}]", name,);
+    };
+
+    let module = match runtime.load_module(wasm).await {
+        Ok(module) => module,
+        Err(err) => {
+            tracing::error!(
+                command = name,
+                error = &*err,
+                "Failed to compile the module",
+            );
             env.cleanup(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }

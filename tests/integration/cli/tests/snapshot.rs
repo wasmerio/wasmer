@@ -63,8 +63,9 @@ static WEBC_COREUTILS_11: &[u8] =
 static WEBC_DASH: &[u8] =
     include_bytes!("./webc/dash-1.0.18-f0d13233-bcda-4cf1-9a23-3460bffaae2a.webc");
 static WEBC_PYTHON: &[u8] = include_bytes!("./webc/python-0.1.0.webc");
-static WEBC_WEB_SERVER: &[u8] =
-    include_bytes!("./webc/static-web-server-1.0.96-e2b80276-c194-473d-bbd0-27c8a2c96a59.webc");
+static WEBC_WEB_SERVER: &[u8] = include_bytes!(
+    "./webc/static-web-server-async-1.0.3-5d739d1a-20b7-4edf-8cf4-44e813f96b25.webc"
+);
 static WEBC_WASMER_SH: &[u8] =
     include_bytes!("./webc/wasmer-sh-1.0.63-dd3d67d1-de94-458c-a9ee-caea3b230ccf.webc");
 
@@ -702,11 +703,10 @@ fn test_snapshot_unix_pipe() {
 }
 
 #[test]
-// #[cfg_attr(
-//     any(target_env = "musl", target_os = "macos", target_os = "windows"),
-//     ignore
-// )]
-#[ignore = "TODO(Michael-F-Bryan): figure out why the request body doesn't get sent fully on Linux"]
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
 fn test_snapshot_web_server() {
     let name: &str = function!();
     let port = 7777;
@@ -720,7 +720,7 @@ fn test_snapshot_web_server() {
     let script = format!(
         r#"
 cat /public/main.js | wc -c > /public/main.js.size
-rm -f /cfg/
+rm -r -f /cfg/
 cd /public
 /bin/webserver --log-level warn --root /public --port {}"#,
         port
@@ -743,7 +743,7 @@ cd /public
     ignore
 )]
 #[test]
-fn test_snapshot_web_server_async() {
+fn test_snapshot_web_server_epoll() {
     let name = function!();
     let port = 7778;
 
@@ -764,10 +764,45 @@ fn test_snapshot_web_server_async() {
         .arg("--port")
         .arg(&format!("{}", port));
 
-    let snapshot = builder.run_wasm_with(include_bytes!("./wasm/web-server.wasm"), Box::new(with));
+    let snapshot = builder.run_wasm_with(
+        include_bytes!("./wasm/web-server-epoll.wasm"),
+        Box::new(with),
+    );
     assert_json_snapshot!(snapshot);
 }
 
+#[cfg_attr(
+    any(target_env = "musl", target_os = "macos", target_os = "windows"),
+    ignore
+)]
+#[test]
+fn test_snapshot_web_server_poll() {
+    let name = function!();
+    let port = 7779;
+
+    let with = move |mut child: Child| {
+        let ret = test_run_http_request(port, "null", Some(0));
+        child.kill().ok();
+        ret
+    };
+
+    let builder = TestBuilder::new()
+        .with_name(name)
+        .with_async_threads()
+        .enable_network(true)
+        .arg("--root")
+        .arg("/dev")
+        .arg("--log-level")
+        .arg("warn")
+        .arg("--port")
+        .arg(&format!("{}", port));
+
+    let snapshot = builder.run_wasm_with(
+        include_bytes!("./wasm/web-server-poll.wasm"),
+        Box::new(with),
+    );
+    assert_json_snapshot!(snapshot);
+}
 // The ability to fork the current process and run a different image but retain
 // the existing open file handles (which is needed for stdin and stdout redirection)
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]

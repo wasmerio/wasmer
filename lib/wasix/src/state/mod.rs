@@ -132,6 +132,7 @@ pub(crate) struct WasiState {
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
     pub envs: Vec<Vec<u8>>,
+
     // TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
     pub preopen: Vec<String>,

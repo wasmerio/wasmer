@@ -2155,13 +2155,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "virtual-io"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derivative",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "virtual-net"
 version = "0.3.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "derivative",
  "thiserror",
  "tracing",
+ "virtual-io",
 ]
 
 [[package]]
@@ -2567,6 +2580,7 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
+ "virtual-io",
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
@@ -2590,6 +2604,7 @@ dependencies = [
  "num_enum",
  "serde",
  "time",
+ "tracing",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",
  "wai-bindgen-gen-rust-wasm",

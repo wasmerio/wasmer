@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_recv()`
 /// Receive a message from a socket.
@@ -39,6 +39,15 @@ pub fn sock_recv<M: MemorySize>(
         ro_flags,
     )?;
 
+    sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
+}
+
+pub(super) fn sock_recv_internal_handler<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    res: Result<usize, Errno>,
+    ro_data_len: WasmPtr<M::Offset, M>,
+    ro_flags: WasmPtr<RoFlags, M>,
+) -> Result<Errno, WasiError> {
     let mut ret = Errno::Success;
     let bytes_read = match res {
         Ok(bytes_read) => {
@@ -81,7 +90,7 @@ pub fn sock_recv<M: MemorySize>(
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-fn sock_recv_internal<M: MemorySize>(
+pub(super) fn sock_recv_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
@@ -95,6 +104,7 @@ fn sock_recv_internal<M: MemorySize>(
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };
 
+    let peek = (ri_flags & __WASI_SOCK_RECV_INPUT_PEEK) != 0;
     let data = wasi_try_ok_ok!(__sock_asyncify(
         env,
         sock,
@@ -113,8 +123,20 @@ fn sock_recv_internal<M: MemorySize>(
                     .access()
                     .map_err(mem_error_to_wasi)?;
 
+                let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                let timeout = socket
+                    .opt_time(TimeType::ReadTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(30));
+
                 let local_read = match socket
-                    .recv(env.tasks().deref(), buf.as_mut_uninit(), fd.flags)
+                    .recv(
+                        env.tasks().deref(),
+                        buf.as_mut_uninit(),
+                        Some(timeout),
+                        nonblocking,
+                    )
                     .await
                 {
                     Ok(s) => s,
@@ -127,7 +149,7 @@ fn sock_recv_internal<M: MemorySize>(
                 }
             }
             Ok(total_read)
-        },
+        }
     ));
     Ok(Ok(data))
 }

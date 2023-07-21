@@ -4547,7 +4547,6 @@ dependencies = [
  "mio",
  "num_cpus",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.48.0",
@@ -5013,15 +5012,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "virtual-io"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derivative",
+ "mio",
+ "socket2",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "virtual-net"
 version = "0.3.0"
 dependencies = [
  "async-trait",
  "bytes",
+ "derivative",
  "libc",
+ "mio",
+ "socket2",
  "thiserror",
  "tokio",
  "tracing",
+ "virtual-io",
 ]
 
 [[package]]
@@ -5473,6 +5489,7 @@ dependencies = [
  "libc",
  "paste",
  "thiserror",
+ "tokio",
  "typetag",
  "virtual-fs",
  "wasmer",
@@ -5833,6 +5850,7 @@ dependencies = [
  "futures",
  "hex",
  "insta",
+ "libc",
  "md5",
  "object 0.30.4",
  "once_cell",
@@ -6056,6 +6074,7 @@ dependencies = [
  "pin-project",
  "pretty_assertions",
  "rand",
+ "rayon",
  "reqwest",
  "semver 1.0.18",
  "serde",
@@ -6078,6 +6097,7 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
+ "virtual-io",
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
@@ -6121,6 +6141,7 @@ dependencies = [
  "pretty_assertions",
  "serde",
  "time 0.2.27",
+ "tracing",
  "wai-bindgen-gen-core",
  "wai-bindgen-gen-rust",
  "wai-bindgen-gen-rust-wasm",
@@ -6187,6 +6208,7 @@ dependencies = [
  "tempfile",
  "test-generator",
  "test-log",
+ "tokio",
  "tracing",
  "tracing-subscriber 0.3.17",
  "wasi-test-generator",

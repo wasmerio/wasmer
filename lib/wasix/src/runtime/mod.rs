@@ -4,6 +4,10 @@ pub mod resolver;
 pub mod task_manager;
 
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
+use self::{
+    module_cache::{CacheError, ModuleHash},
+    task_manager::InlineWaker,
+};
 
 use std::{
     fmt,
@@ -11,10 +15,12 @@ use std::{
 };
 
 use derivative::Derivative;
+use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
+use wasmer::Module;
 
 use crate::{
-    http::DynHttpClient,
+    http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
         module_cache::{ModuleCache, ThreadLocalCache},
@@ -58,19 +64,15 @@ where
     fn source(&self) -> Arc<dyn Source + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
-    fn engine(&self) -> Option<wasmer::Engine> {
-        None
+    fn engine(&self) -> wasmer::Engine {
+        wasmer::Engine::default()
     }
 
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys")] {
-                if let Some(engine) = self.engine() {
-                    wasmer::Store::new(engine)
-                } else {
-                    wasmer::Store::default()
-                }
+                wasmer::Store::new(self.engine())
             } else {
                 wasmer::Store::default()
             }
@@ -86,6 +88,60 @@ where
     fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
         None
     }
+
+    /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, anyhow::Error>> {
+        let engine = self.engine();
+        let module_cache = self.module_cache();
+
+        let task = async move { load_module(&engine, &module_cache, wasm).await };
+
+        Box::pin(task)
+    }
+
+    /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+    ///
+    /// Non-async version of [`Self::load_module`].
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
+        InlineWaker::block_on(self.load_module(wasm))
+    }
+}
+
+/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+///
+// This function exists to provide a reusable baseline implementation for
+// implementing [`Runtime::load_module`], so custom logic can be added on top.
+pub async fn load_module(
+    engine: &wasmer::Engine,
+    module_cache: &(dyn ModuleCache + Send + Sync),
+    wasm: &[u8],
+) -> Result<Module, anyhow::Error> {
+    let hash = ModuleHash::sha256(wasm);
+    let result = module_cache.load(hash, engine).await;
+
+    match result {
+        Ok(module) => return Ok(module),
+        Err(CacheError::NotFound) => {}
+        Err(other) => {
+            tracing::warn!(
+                %hash,
+                error=&other as &dyn std::error::Error,
+                "Unable to load the cached module",
+            );
+        }
+    }
+
+    let module = Module::new(&engine, wasm)?;
+
+    if let Err(e) = module_cache.save(hash, engine, &module).await {
+        tracing::warn!(
+            %hash,
+            error=&e as &dyn std::error::Error,
+            "Unable to cache the compiled module",
+        );
+    }
+
+    Ok(module)
 }
 
 #[derive(Debug, Default)]
@@ -199,6 +255,14 @@ impl PluggableRuntime {
         self.package_loader = Arc::new(package_loader);
         self
     }
+
+    pub fn set_http_client(
+        &mut self,
+        client: impl HttpClient + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.http_client = Some(Arc::new(client));
+        self
+    }
 }
 
 impl Runtime for PluggableRuntime {
@@ -218,8 +282,12 @@ impl Runtime for PluggableRuntime {
         Arc::clone(&self.source)
     }
 
-    fn engine(&self) -> Option<wasmer::Engine> {
-        self.engine.clone()
+    fn engine(&self) -> wasmer::Engine {
+        if let Some(engine) = self.engine.clone() {
+            engine
+        } else {
+            wasmer::Engine::default()
+        }
     }
 
     fn new_store(&self) -> wasmer::Store {

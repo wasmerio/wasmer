@@ -6,3 +6,4 @@ dist
 target
 pkg
 wapm/*.wasm
+vendor

@@ -20,6 +20,7 @@ getrandom = "0.2"
 wasmer-wasix-types = { path = "../wasi-types", version = "0.9.0", features = [ "enable-serde" ] }
 wasmer-types = { path = "../types", version = "=4.0.0", default-features = false }
 wasmer = { path = "../api", version = "=4.0.0", default-features = false, features = ["wat", "js-serializable-module"] }
+virtual-io  = { path = "../virtual-io", version = "0.1.0", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.6.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../virtual-net", version = "0.3.0", default-features = false }
 wasmer-emscripten = { path = "../emscripten", version = "=4.0.0", optional = true }
@@ -65,6 +66,7 @@ tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "c
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
 petgraph = "0.6.3"
+rayon = { version = "1.7.0", optional = true }
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
@@ -110,15 +112,13 @@ default = ["sys-default"]
 
 time = ["tokio/time"]
 
-webc_runner = []
-webc_runner_rt_wasi = []
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest"]
 sys-poll = []
-sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rayon"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
@@ -138,7 +138,7 @@ enable-serde = ["typetag", "virtual-fs/enable-serde", "wasmer-wasix-types/enable
 
 [package.metadata.docs.rs]
 features = [
-    "wasmer/sys", "webc_runner", "webc_runner_rt_wasi", "webc_runner_rt_wcgi",
+    "wasmer/sys", "webc_runner_rt_wcgi",
     "webc_runner_rt_emscripten", "sys-default",
 ]
 rustc-args = ["--cfg", "docsrs"]

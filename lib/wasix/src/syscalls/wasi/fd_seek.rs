@@ -87,7 +87,8 @@ pub fn fd_seek<M: MemorySize>(
                 | Kind::Root { .. }
                 | Kind::Socket { .. }
                 | Kind::Pipe { .. }
-                | Kind::EventNotifications { .. } => {
+                | Kind::EventNotifications { .. }
+                | Kind::Epoll { .. } => {
                     // TODO: check this
                     return Ok(Errno::Inval);
                 }

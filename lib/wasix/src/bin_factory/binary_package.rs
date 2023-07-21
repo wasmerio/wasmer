@@ -77,7 +77,10 @@ pub struct BinaryPackage {
 impl BinaryPackage {
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
-    pub async fn from_webc(container: &Container, rt: &dyn Runtime) -> Result<Self, anyhow::Error> {
+    pub async fn from_webc(
+        container: &Container,
+        rt: &(dyn Runtime + Send + Sync),
+    ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
         let root_id = PackageId {
@@ -98,7 +101,7 @@ impl BinaryPackage {
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     pub async fn from_registry(
         specifier: &PackageSpecifier,
-        runtime: &dyn Runtime,
+        runtime: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();
         let root_summary =

@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use futures::future::BoxFuture;
-use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
+use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
@@ -30,8 +30,10 @@ impl CommonWasiOptions {
         builder: &mut WasiEnvBuilder,
         container_fs: Arc<dyn FileSystem + Send + Sync>,
         wasi: &WasiAnnotation,
+        root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
-        let fs = prepare_filesystem(&self.mapped_dirs, container_fs, builder)?;
+        let root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+        let fs = prepare_filesystem(root_fs, &self.mapped_dirs, container_fs, builder)?;
 
         builder.add_preopen_dir("/")?;
 
@@ -40,7 +42,7 @@ impl CommonWasiOptions {
             builder.add_map_dir(".", "/")?;
         }
 
-        builder.set_fs(fs);
+        builder.set_fs(Box::new(fs));
 
         for pkg in &self.injected_packages {
             builder.add_webc(pkg.clone());
@@ -85,13 +87,15 @@ impl CommonWasiOptions {
     }
 }
 
+type ContainerFs =
+    OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
+
 fn prepare_filesystem(
+    root_fs: TmpFileSystem,
     mapped_dirs: &[MappedDirectory],
     container_fs: Arc<dyn FileSystem>,
     builder: &mut WasiEnvBuilder,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
-    let root_fs = RootFileSystemBuilder::default().build();
-
+) -> Result<ContainerFs, Error> {
     if !mapped_dirs.is_empty() {
         let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
 
@@ -165,7 +169,7 @@ fn prepare_filesystem(
     let container_fs = RelativeOrAbsolutePathHack(container_fs);
     let fs = OverlayFileSystem::new(root_fs, [container_fs]);
 
-    Ok(Box::new(fs))
+    Ok(fs)
 }
 
 /// HACK: We need this so users can mount host directories at relative paths.
@@ -290,8 +294,8 @@ mod tests {
     const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
-    #[test]
-    fn mix_args_from_the_webc_and_user() {
+    #[tokio::test]
+    async fn mix_args_from_the_webc_and_user() {
         let args = CommonWasiOptions {
             args: vec!["extra".to_string(), "args".to_string()],
             ..Default::default()
@@ -305,7 +309,7 @@ mod tests {
             "args".to_string(),
         ]);
 
-        args.prepare_webc_env(&mut builder, fs, &annotations)
+        args.prepare_webc_env(&mut builder, fs, &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -324,8 +328,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn mix_env_vars_from_the_webc_and_user() {
+    #[tokio::test]
+    async fn mix_env_vars_from_the_webc_and_user() {
         let args = CommonWasiOptions {
             env: vec![("EXTRA".to_string(), "envs".to_string())]
                 .into_iter()
@@ -337,7 +341,7 @@ mod tests {
         let mut annotations = WasiAnnotation::new("python");
         annotations.env = Some(vec!["HARD_CODED=env-vars".to_string()]);
 
-        args.prepare_webc_env(&mut builder, fs, &annotations)
+        args.prepare_webc_env(&mut builder, fs, &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -349,8 +353,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn python_use_case() {
+    #[tokio::test]
+    async fn python_use_case() {
         let temp = TempDir::new().unwrap();
         let sub_dir = temp.path().join("path").join("to");
         std::fs::create_dir_all(&sub_dir).unwrap();
@@ -363,7 +367,8 @@ mod tests {
         let webc_fs = WebcVolumeFileSystem::mount_all(&container);
         let mut builder = WasiEnvBuilder::new("");
 
-        let fs = prepare_filesystem(&mapping, Arc::new(webc_fs), &mut builder).unwrap();
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(root_fs, &mapping, Arc::new(webc_fs), &mut builder).unwrap();
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());

@@ -1,3 +1,5 @@
+use std::task::Waker;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -10,6 +12,13 @@ use crate::syscalls::*;
 /// * `tid` - Handle of the thread to wait on
 //#[instrument(level = "debug", skip_all, fields(%join_tid), ret, err)]
 pub fn thread_join<M: MemorySize + 'static>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    join_tid: Tid,
+) -> Result<Errno, WasiError> {
+    thread_join_internal::<M>(ctx, join_tid)
+}
+
+pub(super) fn thread_join_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,
 ) -> Result<Errno, WasiError> {

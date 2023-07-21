@@ -541,24 +541,28 @@ jobs:
             build: linux-x64,
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
+            exe: '',
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.0/clang+llvm-14.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-11,
             target: x86_64-apple-darwin,
+            exe: '',
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-14.0.6/clang+llvm-14.0.6-x86_64-apple-darwin.tar.xz'
           },
           {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
+            exe: '.exe',
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
             target: x86_64-unknown-linux-musl,
             os: ubuntu-22.04,
+            exe: '',
             container: 'alpine:latest'
           }
         ]
@@ -789,7 +793,9 @@ jobs:
       - name: Test integration CLI
         if: matrix.build != 'macos-arm'
         shell: bash
-        run: export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
+        run: |
+          export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
         env:
           TARGET: ${{ matrix.target }}
           TARGET_DIR: target/${{ matrix.target }}/release

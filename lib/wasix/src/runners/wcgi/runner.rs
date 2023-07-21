@@ -21,6 +21,7 @@ use crate::{
         wcgi::handler::{Handler, SharedState},
         MappedDirectory,
     },
+    runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder,
 };
 
@@ -53,7 +54,7 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
+        let module = runtime.load_module_sync(cmd.atom())?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
@@ -66,7 +67,7 @@ impl WcgiRunner {
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
+            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi, None)?;
             builder.set_runtime(Arc::clone(&rt));
 
             Ok(())
@@ -126,7 +127,7 @@ impl crate::runners::Runner for WcgiRunner {
 
         runtime
             .task_manager()
-            .block_on(async {
+            .spawn_and_block_on(async move {
                 let (shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::<()>());
 
