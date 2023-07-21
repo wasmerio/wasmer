@@ -1,5 +1,6 @@
 //! Logging functions for the debug feature.
 
+use is_terminal::IsTerminal;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -30,7 +31,7 @@ impl Output {
     pub fn initialize_logging(&self) {
         let fmt_layer = fmt::layer()
             .with_target(true)
-            .with_span_events(fmt::format::FmtSpan::CLOSE)
+            .with_span_events(fmt::format::FmtSpan::CLOSE | fmt::format::FmtSpan::ENTER)
             .with_ansi(self.should_emit_colors())
             .with_thread_ids(true)
             .with_writer(std::io::stderr)
@@ -88,7 +89,7 @@ impl Output {
     /// For more, see https://github.com/tokio-rs/tracing/issues/2388
     fn should_emit_colors(&self) -> bool {
         match self.color {
-            clap::ColorChoice::Auto => isatty::stderr_isatty(),
+            clap::ColorChoice::Auto => std::io::stderr().is_terminal(),
             clap::ColorChoice::Always => true,
             clap::ColorChoice::Never => false,
         }

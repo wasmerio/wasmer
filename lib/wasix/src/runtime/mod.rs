@@ -5,6 +5,10 @@ pub mod task_manager;
 
 use self::module_cache::{CacheError, ModuleHash};
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
+use self::{
+    module_cache::{CacheError, ModuleHash},
+    task_manager::InlineWaker,
+};
 
 use std::{
     fmt,
@@ -17,7 +21,7 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
 use crate::{
-    http::DynHttpClient,
+    http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
         module_cache::{ModuleCache, ThreadLocalCache},
@@ -61,19 +65,15 @@ where
     fn source(&self) -> Arc<dyn Source + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
-    fn engine(&self) -> Option<wasmer::Engine> {
-        None
+    fn engine(&self) -> wasmer::Engine {
+        wasmer::Engine::default()
     }
 
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys")] {
-                if let Some(engine) = self.engine() {
-                    wasmer::Store::new(engine)
-                } else {
-                    wasmer::Store::default()
-                }
+                wasmer::Store::new(self.engine())
             } else {
                 wasmer::Store::default()
             }
@@ -92,10 +92,7 @@ where
 
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
     fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, anyhow::Error>> {
-        let engine = match self.engine() {
-            Some(engine) => engine,
-            None => return Box::pin(futures::future::err(anyhow::anyhow!("No engine provided"))),
-        };
+        let engine = self.engine();
         let module_cache = self.module_cache();
 
         let task = async move { load_module(&engine, &module_cache, wasm).await };
@@ -107,7 +104,7 @@ where
     ///
     /// Non-async version of [`Self::load_module`].
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
-        self.task_manager().block_on(self.load_module(wasm))
+        InlineWaker::block_on(self.load_module(wasm))
     }
 }
 
@@ -259,6 +256,14 @@ impl PluggableRuntime {
         self.package_loader = Arc::new(package_loader);
         self
     }
+
+    pub fn set_http_client(
+        &mut self,
+        client: impl HttpClient + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.http_client = Some(Arc::new(client));
+        self
+    }
 }
 
 impl Runtime for PluggableRuntime {
@@ -278,8 +283,12 @@ impl Runtime for PluggableRuntime {
         Arc::clone(&self.source)
     }
 
-    fn engine(&self) -> Option<wasmer::Engine> {
-        self.engine.clone()
+    fn engine(&self) -> wasmer::Engine {
+        if let Some(engine) = self.engine.clone() {
+            engine
+        } else {
+            wasmer::Engine::default()
+        }
     }
 
     fn new_store(&self) -> wasmer::Store {

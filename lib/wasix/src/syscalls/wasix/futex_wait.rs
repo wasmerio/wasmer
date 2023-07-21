@@ -70,8 +70,18 @@ impl Drop for FutexPoller {
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
-//#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 pub fn futex_wait<M: MemorySize + 'static>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    futex_ptr: WasmPtr<u32, M>,
+    expected: u32,
+    timeout: WasmPtr<OptionTimestamp, M>,
+    ret_woken: WasmPtr<Bool, M>,
+) -> Result<Errno, WasiError> {
+    futex_wait_internal(ctx, futex_ptr, expected, timeout, ret_woken)
+}
+
+pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
@@ -148,6 +158,7 @@ pub fn futex_wait<M: MemorySize + 'static>(
     wasi_try_mem_ok!(ret_woken.write(&memory, Bool::False));
 
     // We use asyncify on the poller and potentially go into deep sleep
+    tracing::trace!("wait on {futex_idx}");
     let res =
         __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), Box::pin(poller))?;
     if let AsyncifyAction::Finish(ctx, res) = res {

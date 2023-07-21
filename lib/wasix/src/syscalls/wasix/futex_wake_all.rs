@@ -28,8 +28,10 @@ pub fn futex_wake_all<M: MemorySize>(
                     waker.wake();
                 }
             }
+            tracing::trace!("wake_all (hit) on {pointer}");
             true
         } else {
+            tracing::trace!("wake_all (miss) on {pointer}");
             true
         }
     };

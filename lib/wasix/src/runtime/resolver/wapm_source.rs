@@ -215,9 +215,7 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
     let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context("Unable to deserialize the manifest")?;
 
-    let mut webc_sha256 = [0_u8; 32];
-    hex::decode_to_slice(&hash, &mut webc_sha256)?;
-    let webc_sha256 = WebcHash::from_bytes(webc_sha256);
+    let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(&manifest)?,

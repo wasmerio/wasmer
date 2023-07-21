@@ -1,6 +1,9 @@
 <div align="center">
-  <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
+  <a href="https://wasmer.io" target="_blank">
+    <picture>
+      <source srcset="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo-white.png"  media="(prefers-color-scheme: dark)">
+      <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
+    </picture>
   </a>
 
   <p>
@@ -37,8 +40,7 @@ _lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ 
 - Secure by default. No file, network, or environment access, unless explicitly enabled.
 - Supports [WASIX](http://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
 - Fast. Run WebAssembly at near-native speeds.
-- Embeddable in [multiple programming languages](https://github.com/wasmerio/wasmer/#-language-integrations)
-- Compliant with latest WebAssembly Proposals (SIMD, Reference Types, Threads, ...). Read more about [Wasmer's WebAssembly Features](https://docs.wasmer.io/runtime/features#webassembly-features).
+- Embeddable [anywhere via Wasmer SDKs](https://github.com/wasmerio/wasmer/#wasmer-sdk)
 
 ### Install
 
@@ -102,26 +104,28 @@ curl https://get.wasmer.io -sSfL | sh
 
 You can start by running
 [QuickJS](https://wasmer.io/saghul/quickjs), a small and
-embeddable Javascript engine compiled as a WebAssembly module ([`qjs.wasm`](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)):
+embeddable Javascript engine:
 
 ```bash
-$ wasmer qjs.wasm
+$ wasmer run saghul/quickjs --command=qjs
 QuickJS - Type "\h" for help
-qjs > const i = 1 + 2;
-qjs > console.log("hello " + i);
-hello 3
+qjs > console.log("hello world");
+hello world
 ```
+
+> There are many more available packages, such as `wasmer/python` or `syrusakbary/cowsay`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore from the community: https://wasmer.io/explore
 
 #### Here is what you can do next:
 
-- [Use Wasmer from your Rust application](https://docs.rs/wasmer/latest/wasmer/)
-- [Publish a WASM/WASIX package on Wasmer](https://docs.wasmer.io/registry/get-started)
+- [Run a package](https://docs.wasmer.io/runtime/get-started)
+- [Publish a package](https://docs.wasmer.io/registry/get-started)
+- [Deploy your website](https://docs.wasmer.io/edge/get-started)
 - [Read more about Wasmer](https://wasmer.io/posts)
 
-## 📦 Language Integrations
+## Wasmer SDK
 
-The Wasmer runtime can be used as a library **embedded in different
-languages**, so you can use WebAssembly _anywhere_.
+You can use the Wasmer runtime **embedded in different
+languages** with the Wasmer SDK:
 
 |                  | Language                             | Package                               | Documentation          |
 | ---------------- | ------------------------------------ | ------------------------------------- | ---------------------- |
@@ -231,7 +235,7 @@ https://mitchellh.com/writing/contributing-to-complex-projects
 Check our docs on how to [build Wasmer from
 source](https://docs.wasmer.io/developers/build-from-source) or [test your changes](https://docs.wasmer.io/developers/testing).
 
-## Bounties
+<!-- ## Bounties
 
 For some issues we offer paid bounties. You'll get paid automatically as soon as your PR solving the issue is merged!
 
@@ -240,7 +244,7 @@ For some issues we offer paid bounties. You'll get paid automatically as soon as
     <source media="(prefers-color-scheme: dark)" srcset="https://console.algora.io/api/og/wasmerio/bounties.png?p=0&status=open&theme=dark">
     <img alt="Bounties of wasmerio" src="https://console.algora.io/api/og/wasmerio/bounties.png?p=0&status=open&theme=light">
   </picture>
-</a>
+</a> -->
 
 ## Community
 
@@ -248,4 +252,3 @@ Wasmer has an amazing community of developers and contributors. Welcome, please 
 
 - [Wasmer Community Discord](https://discord.gg/rWkMNStrEW)
 - [Wasmer on Twitter](https://twitter.com/wasmerio)
-- [Email](mailto:hello@wasmer.io)

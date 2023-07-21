@@ -2,6 +2,7 @@
 
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 //! Wasmer's WASI implementation
 //!
@@ -89,10 +90,7 @@ pub use crate::{
         WasiTtyState,
     },
     rewind::*,
-    runtime::{
-        task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, Runtime,
-    },
+    runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
@@ -427,6 +425,9 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "clock_time_set" => Function::new_typed_with_env(&mut store, env, clock_time_set::<Memory32>),
         "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get::<Memory32>),
         "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get::<Memory32>),
+        "epoll_create" => Function::new_typed_with_env(&mut store, env, epoll_create::<Memory32>),
+        "epoll_ctl" => Function::new_typed_with_env(&mut store, env, epoll_ctl::<Memory32>),
+        "epoll_wait" => Function::new_typed_with_env(&mut store, env, epoll_wait::<Memory32>),
         "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
         "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
         "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
@@ -545,6 +546,9 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "clock_time_set" => Function::new_typed_with_env(&mut store, env, clock_time_set::<Memory64>),
         "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get::<Memory64>),
         "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get::<Memory64>),
+        "epoll_create" => Function::new_typed_with_env(&mut store, env, epoll_create::<Memory64>),
+        "epoll_ctl" => Function::new_typed_with_env(&mut store, env, epoll_ctl::<Memory64>),
+        "epoll_wait" => Function::new_typed_with_env(&mut store, env, epoll_wait::<Memory64>),
         "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
         "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
         "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),

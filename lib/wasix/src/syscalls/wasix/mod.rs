@@ -1,5 +1,8 @@
 mod callback_signal;
 mod chdir;
+mod epoll_create;
+mod epoll_ctl;
+mod epoll_wait;
 mod fd_pipe;
 mod futex_wait;
 mod futex_wake;
@@ -65,6 +68,9 @@ mod tty_set;
 
 pub use callback_signal::*;
 pub use chdir::*;
+pub use epoll_create::*;
+pub use epoll_ctl::*;
+pub use epoll_wait::*;
 pub use fd_pipe::*;
 pub use futex_wait::*;
 pub use futex_wake::*;

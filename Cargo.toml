@@ -27,6 +27,7 @@ wasmer-cache = { version = "=4.0.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "=4.0.0", path = "lib/types" }
 wasmer-middlewares = { version = "=4.0.0", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
+tokio = { version = "1", features = [ "rt", "rt-multi-thread", "macros" ], optional = true }
 
 [workspace]
 members = [
@@ -49,6 +50,7 @@ members = [
     "lib/registry",
     "lib/sys-utils",
     "lib/types",
+    "lib/virtual-io",
     "lib/virtual-fs",
     "lib/virtual-net",
     "lib/vm",
@@ -79,8 +81,7 @@ rust-version = "1.67"
 version = "4.0.0"
 
 [workspace.dependencies]
-webc = { version = "5.0.4", default-features = false }
-wapm-targz-to-pirita = "0.3.1"
+webc = { version = "5.1.1", default-features = false, features = ["package"] }
 wasmer-toml = "0.6.0"
 
 [build-dependencies]
@@ -235,12 +236,12 @@ required-features = ["backend", "wasi"]
 [[example]]
 name = "wasi-manual-setup"
 path = "examples/wasi_manual_setup.rs"
-required-features = ["backend", "wasi"]
+required-features = ["tokio", "backend", "wasi"]
 
 [[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
-required-features = ["backend", "wasi"]
+required-features = ["tokio", "backend", "wasi"]
 
 [[example]]
 name = "table"
@@ -291,3 +292,4 @@ required-features = ["backend"]
 name = "features"
 path = "examples/features.rs"
 required-features = ["cranelift"]
+

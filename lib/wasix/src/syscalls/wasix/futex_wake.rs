@@ -34,8 +34,10 @@ pub fn futex_wake<M: MemorySize>(
             if futex.wakers.is_empty() {
                 guard.futexes.remove(&pointer);
             }
+            tracing::trace!("wake(hit) on {pointer}");
             true
         } else {
+            tracing::trace!("wake(miss) on {pointer}");
             true
         }
     };

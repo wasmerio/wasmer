@@ -294,8 +294,8 @@ mod tests {
     const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
-    #[test]
-    fn mix_args_from_the_webc_and_user() {
+    #[tokio::test]
+    async fn mix_args_from_the_webc_and_user() {
         let args = CommonWasiOptions {
             args: vec!["extra".to_string(), "args".to_string()],
             ..Default::default()
@@ -328,8 +328,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn mix_env_vars_from_the_webc_and_user() {
+    #[tokio::test]
+    async fn mix_env_vars_from_the_webc_and_user() {
         let args = CommonWasiOptions {
             env: vec![("EXTRA".to_string(), "envs".to_string())]
                 .into_iter()
@@ -353,8 +353,8 @@ mod tests {
         );
     }
 
-    #[test]
-    fn python_use_case() {
+    #[tokio::test]
+    async fn python_use_case() {
         let temp = TempDir::new().unwrap();
         let sub_dir = temp.path().join("path").join("to");
         std::fs::create_dir_all(&sub_dir).unwrap();

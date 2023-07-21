@@ -8,7 +8,6 @@ use std::{
     time::Duration,
 };
 
-use once_cell::sync::Lazy;
 use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
@@ -16,7 +15,8 @@ use wasmer_wasix::{
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
-        task_manager::tokio::TokioTaskManager, package_loader::BuiltinPackageLoader,
+        package_loader::BuiltinPackageLoader,
+        task_manager::tokio::TokioTaskManager,
     },
     PluggableRuntime, Runtime,
 };
@@ -207,13 +207,19 @@ async fn download_cached(url: &str) -> bytes::Bytes {
 }
 
 fn client() -> Client {
-    static CLIENT: Lazy<Client> = Lazy::new(|| {
-        Client::builder()
-            .connect_timeout(Duration::from_secs(30))
-            .build()
-            .unwrap()
-    });
-    CLIENT.clone()
+    Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        .build()
+        .unwrap()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn sanitze_name_for_path(name: &str) -> String {
+    name.into()
+}
+#[cfg(target_os = "windows")]
+fn sanitze_name_for_path(name: &str) -> String {
+    name.replace(":", "_")
 }
 
 fn runtime() -> impl Runtime + Send + Sync {
@@ -225,8 +231,18 @@ fn runtime() -> impl Runtime + Send + Sync {
     let cache =
         SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
 
+    let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(env!("CARGO_PKG_NAME"))
+        .join(sanitze_name_for_path(
+            std::thread::current().name().unwrap_or("cache"),
+        ));
+
+    std::fs::create_dir_all(&cache_dir).unwrap();
+
     rt.set_engine(Some(Engine::default()))
-        .set_module_cache(cache);
+        .set_module_cache(cache)
+        .set_package_loader(BuiltinPackageLoader::new(cache_dir))
+        .set_http_client(wasmer_wasix::http::default_http_client().unwrap());
 
     rt
 }

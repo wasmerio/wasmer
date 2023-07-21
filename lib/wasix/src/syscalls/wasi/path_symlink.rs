@@ -66,9 +66,10 @@ pub fn path_symlink<M: MemorySize>(
                 }
             }
             Kind::Root { .. } => return Errno::Notcapable,
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return Errno::Inval
-            }
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Errno::Inval,
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } => {
                 unreachable!("get_parent_inode_at_path returned something other than a Dir or Root")
             }

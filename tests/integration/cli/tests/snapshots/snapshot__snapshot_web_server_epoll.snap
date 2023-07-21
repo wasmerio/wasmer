@@ -1,0 +1,30 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 772
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_web_server_epoll",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "--root",
+      "/dev",
+      "--log-level",
+      "warn",
+      "--port",
+      "7778"
+    ],
+    "enable_threads": true,
+    "enable_network": true,
+    "enable_async_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

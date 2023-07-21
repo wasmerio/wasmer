@@ -14,8 +14,9 @@ pub fn fd_event<M: MemorySize>(
     let (memory, state, mut inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let is_semaphore = flags & EVENT_FD_FLAGS_SEMAPHORE != 0;
-    let kind =
-        Kind::EventNotifications(Arc::new(NotificationInner::new(initial_val, is_semaphore)));
+    let kind = Kind::EventNotifications {
+        inner: Arc::new(NotificationInner::new(initial_val, is_semaphore)),
+    };
 
     let inode = state.fs.create_inode_with_default_stat(
         inodes.deref(),

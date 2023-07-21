@@ -5,7 +5,9 @@ use std::{collections::HashMap, sync::Arc};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasix_types::wasi::Errno;
 
-use crate::{syscalls::stderr_write, Runtime, SpawnError, WasiEnv};
+use crate::{
+    runtime::task_manager::InlineWaker, syscalls::stderr_write, Runtime, SpawnError, WasiEnv,
+};
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
@@ -92,15 +94,12 @@ impl Commands {
             cmd.exec(parent_ctx, path.as_str(), store, builder)
         } else {
             unsafe {
-                let _ = parent_ctx
-                    .data()
-                    .runtime()
-                    .task_manager()
-                    .block_on(stderr_write(
-                        parent_ctx,
-                        format!("wasm command unknown - {}\r\n", path).as_bytes(),
-                    ));
+                InlineWaker::block_on(stderr_write(
+                    parent_ctx,
+                    format!("wasm command unknown - {}\r\n", path).as_bytes(),
+                ))
             }
+            .ok();
 
             let res = OwnedTaskStatus::new(TaskStatus::Finished(Ok(Errno::Noent.into())));
             Ok(res.handle())

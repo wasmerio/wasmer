@@ -1,13 +1,14 @@
 // TODO: should be behind a different , tokio specific feature flag.
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
+mod waker;
 
 use std::ops::Deref;
 use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
-use ::tokio::runtime::Handle;
 use bytes::Bytes;
+use futures::future::BoxFuture;
 use futures::Future;
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
@@ -15,6 +16,8 @@ use wasmer_wasix_types::wasi::{Errno, ExitCode};
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
 use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+
+pub use waker::*;
 
 #[derive(Debug)]
 pub enum SpawnMemoryType<'a> {
@@ -140,17 +143,8 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// This task must not block the execution or it could cause a deadlock
     fn task_shared(
         &self,
-        task: Box<
-            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
-        >,
+        task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError>;
-
-    /// Returns a runtime that can be used for asynchronous tasks
-    fn runtime(&self) -> &Handle;
-
-    /// Enters a runtime context
-    #[allow(dyn_drop)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g>;
 
     /// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
@@ -190,20 +184,9 @@ where
 
     fn task_shared(
         &self,
-        task: Box<
-            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
-        >,
+        task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
         (**self).task_shared(task)
-    }
-
-    fn runtime(&self) -> &Handle {
-        (**self).runtime()
-    }
-
-    #[allow(dyn_drop)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
-        (**self).runtime_enter()
     }
 
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
@@ -223,13 +206,6 @@ where
 }
 
 impl dyn VirtualTaskManager {
-    /// Execute a future and return the output.
-    /// This method blocks until the future is complete.
-    // This needs to be a generic impl on `dyn T` because it is generic, and hence not object-safe.
-    pub fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
-        self.runtime().block_on(task)
-    }
-
     /// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// After the poller has succeeded
@@ -317,7 +293,11 @@ impl dyn VirtualTaskManager {
 
 /// Generic utility methods for VirtualTaskManager
 pub trait VirtualTaskManagerExt {
-    fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A;
+    /// Runs the work in the background via the task managers shared background
+    /// threads while blocking the current execution until it finishs
+    fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
+    where
+        A: Send + 'static;
 }
 
 impl<D, T> VirtualTaskManagerExt for D
@@ -325,7 +305,18 @@ where
     D: Deref<Target = T>,
     T: VirtualTaskManager + ?Sized,
 {
-    fn block_on<'a, A>(&self, task: impl Future<Output = A> + 'a) -> A {
-        self.runtime().block_on(task)
+    /// Runs the work in the background via the task managers shared background
+    /// threads while blocking the current execution until it finishs
+    fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
+    where
+        A: Send + 'static,
+    {
+        let (work_tx, mut work_rx) = ::tokio::sync::mpsc::unbounded_channel();
+        let work = Box::pin(async move {
+            let ret = task.await;
+            work_tx.send(ret).ok();
+        });
+        self.task_shared(Box::new(move || work)).unwrap();
+        InlineWaker::block_on(work_rx.recv()).unwrap()
     }
 }

@@ -29,7 +29,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::PackageSpecifier,
+    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker},
     Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
@@ -170,9 +170,7 @@ impl Console {
             }
         };
 
-        let tasks = self.runtime.task_manager().clone();
-
-        let resolved_package = tasks.block_on(BinaryPackage::from_registry(
+        let resolved_package = InlineWaker::block_on(BinaryPackage::from_registry(
             &webc_ident,
             self.runtime.as_ref(),
         ));
@@ -181,7 +179,7 @@ impl Console {
             Ok(pkg) => pkg,
             Err(e) => {
                 let mut stderr = self.stderr.clone();
-                tasks.block_on(async {
+                InlineWaker::block_on(async {
                     let mut buffer = Vec::new();
                     writeln!(buffer, "Error: {e}").ok();
                     let mut source = e.source();
@@ -228,14 +226,14 @@ impl Console {
 
         // Display the welcome message
         if !self.whitelabel && !self.no_welcome {
-            tasks.block_on(self.draw_welcome());
+            InlineWaker::block_on(self.draw_welcome());
         }
 
         let wasi_process = env.process.clone();
 
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
-            tasks.block_on(async {
+            InlineWaker::block_on(async {
                 virtual_fs::AsyncWriteExt::write_all(
                     &mut stderr,
                     format!("{}\r\n", err).as_bytes(),
@@ -250,7 +248,7 @@ impl Console {
         // Build the config
         // Run the binary
         let store = self.runtime.new_store();
-        let process = tasks.block_on(spawn_exec(pkg, prog, store, env, &self.runtime))?;
+        let process = InlineWaker::block_on(spawn_exec(pkg, prog, store, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))
@@ -291,13 +289,15 @@ mod tests {
     /// Test that [`Console`] correctly runs a command with arguments and
     /// specified env vars, and that the TTY correctly handles stdout output.
     #[test]
+    #[cfg_attr(not(feature = "host-reqwest"), ignore = "Requires a HTTP client")]
     fn test_console_dash_tty_with_args_and_env() {
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+        let _guard = tokio_rt.handle().enter();
 
         let tm = TokioTaskManager::new(tokio_rt.handle().clone());
         let mut rt = PluggableRuntime::new(Arc::new(tm));
-        rt.set_engine(Some(wasmer::Engine::default()));
-        rt.set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+        rt.set_engine(Some(wasmer::Engine::default()))
+            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
 
         let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
             .into_iter()

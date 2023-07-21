@@ -6,7 +6,6 @@
 
 #![deny(missing_docs, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = "std", deny(unstable_features))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
@@ -21,6 +20,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(all(feature = "std", feature = "core"))]
 compile_error!(

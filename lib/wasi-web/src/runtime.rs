@@ -10,7 +10,7 @@ use http::{HeaderMap, StatusCode};
 use js_sys::Promise;
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
-    runtime::{Builder, Handle, Runtime},
+    runtime::{Builder, Runtime},
     sync::mpsc,
 };
 #[allow(unused_imports, dead_code)]
@@ -72,10 +72,7 @@ impl WebRuntime {
         let webgl_tx = GlContext::init(webgl2);
 
         let runtime: Arc<Runtime> = Arc::new(Builder::new_current_thread().build().unwrap());
-        let runtime = Arc::new(WebTaskManager {
-            pool: pool.clone(),
-            runtime,
-        });
+        let runtime = Arc::new(WebTaskManager { pool: pool.clone() });
 
         let http_client = Arc::new(WebHttpClient { pool: pool.clone() });
         let source = WapmSource::new(
@@ -114,7 +111,6 @@ impl VirtualNetworking for WebVirtualNetworking {}
 #[derive(Debug, Clone)]
 pub(crate) struct WebTaskManager {
     pool: WebThreadPool,
-    runtime: Arc<Runtime>,
 }
 
 struct WebRuntimeGuard<'g> {
@@ -173,19 +169,6 @@ impl VirtualTaskManager for WebTaskManager {
             })
         }));
         Ok(())
-    }
-
-    /// Returns a runtime that can be used for asynchronous tasks
-    fn runtime(&self) -> &Handle {
-        self.runtime.handle()
-    }
-
-    /// Enters a runtime context
-    #[allow(dyn_drop)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
-        Box::new(WebRuntimeGuard {
-            inner: self.runtime.enter(),
-        })
     }
 
     /// Starts an asynchronous task will will run on a dedicated thread
@@ -565,7 +548,9 @@ impl wasmer_wasix::http::HttpClient for WebHttpClient {
         self.pool.spawn_shared(Box::new(move || {
             Box::pin(async move {
                 let res = Self::do_request(request).await;
-                let _ = tx.send(res);
+                if let Err(err) = tx.send(res) {
+                    tracing::error!("failed to reply http response to caller - {:?}", err);
+                }
             })
         }));
         Box::pin(async move { rx.await.unwrap() })

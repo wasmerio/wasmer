@@ -14,6 +14,10 @@ use wasmer_integration_tests_cli::get_wasmer_path;
 
 const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 
+#[cfg(feature = "debug")]
+static RUST_LOG: Lazy<String> = Lazy::new(|| ["trace"].join(","));
+
+#[cfg(not(feature = "debug"))]
 static RUST_LOG: Lazy<String> = Lazy::new(|| {
     [
         "info",
@@ -25,7 +29,7 @@ static RUST_LOG: Lazy<String> = Lazy::new(|| {
     .join(",")
 });
 
-fn wasmer_run_unstable() -> std::process::Command {
+fn wasmer_run_unstable(inherit_stderr: bool) -> std::process::Command {
     let mut cmd = std::process::Command::new("cargo");
     cmd.arg("run")
         .arg("--quiet")
@@ -35,6 +39,9 @@ fn wasmer_run_unstable() -> std::process::Command {
         .arg("--")
         .arg("run");
     cmd.env("RUST_LOG", &*RUST_LOG);
+    if inherit_stderr {
+        cmd.stderr(Stdio::inherit());
+    }
     cmd
 }
 
@@ -47,7 +54,7 @@ mod webc_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn wasi_runner() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::qjs())
             .arg("--")
             .arg("--eval")
@@ -63,7 +70,7 @@ mod webc_on_disk {
         let temp = TempDir::new_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
 
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::python())
             .arg("--mapdir=/app:.")
             .arg("--")
@@ -83,7 +90,7 @@ mod webc_on_disk {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("index.js"), "console.log('Hello, World!')").unwrap();
 
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::qjs())
             .arg(format!("--mapdir=/app:{}", temp.path().display()))
             .arg("--")
@@ -102,7 +109,7 @@ mod webc_on_disk {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("main.py"), "print('Hello, World!')").unwrap();
 
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::python())
             .arg(format!("--mapdir=/app:{}", temp.path().display()))
             .arg("--")
@@ -119,7 +126,7 @@ mod webc_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn wasi_runner_with_dependencies() {
-        let mut cmd = wasmer_run_unstable();
+        let mut cmd = wasmer_run_unstable(false);
         let port = random_port();
         cmd.arg(fixtures::hello())
             .arg(format!("--env=SERVER_PORT={port}"))
@@ -148,7 +155,7 @@ mod webc_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn webc_files_with_multiple_commands_require_an_entrypoint_flag() {
-        let assert = wasmer_run_unstable().arg(fixtures::wabt()).assert();
+        let assert = wasmer_run_unstable(false).arg(fixtures::wabt()).assert();
 
         let msg = r#"Unable to determine the WEBC file's entrypoint. Please choose one of ["wasm-interp", "wasm-strip", "wasm-validate", "wasm2wat", "wast2json", "wat2wasm"]"#;
         assert.failure().stderr(contains(msg));
@@ -160,7 +167,7 @@ mod webc_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn wasi_runner_with_env_vars() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::python())
             .arg("--env=SOME_VAR=Hello, World!")
             .arg("--")
@@ -180,7 +187,7 @@ mod webc_on_disk {
     fn wcgi_runner() {
         // Start the WCGI server in the background
         let port = random_port();
-        let mut cmd = wasmer_run_unstable();
+        let mut cmd = wasmer_run_unstable(false);
         cmd.arg(format!("--addr=127.0.0.1:{port}"))
             .arg(fixtures::static_server());
 
@@ -216,7 +223,7 @@ mod webc_on_disk {
         std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
         // Start the WCGI server in the background
         let port = random_port();
-        let mut cmd = wasmer_run_unstable();
+        let mut cmd = wasmer_run_unstable(false);
         cmd.arg(format!("--addr=127.0.0.1:{port}"))
             .arg(format!("--mapdir=/path/to:{}", temp.path().display()))
             .arg(fixtures::static_server());
@@ -248,7 +255,7 @@ mod webc_on_disk {
         let temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
 
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::coreutils())
             .arg(format!("--mapdir=./some-dir/:{}", temp.path().display()))
             .arg("--command-name=cat")
@@ -269,7 +276,7 @@ mod webc_on_disk {
         ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
     )]
     fn merged_filesystem_contains_all_files() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::bash())
             .arg("--entrypoint=bash")
             .arg("--use")
@@ -300,7 +307,7 @@ mod wasm_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn wasi_executable() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(fixtures::qjs())
             .arg("--")
             .arg("--eval")
@@ -316,7 +323,7 @@ mod wasm_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn no_abi() {
-        let assert = wasmer_run_unstable().arg(fixtures::fib()).assert();
+        let assert = wasmer_run_unstable(true).arg(fixtures::fib()).assert();
 
         assert.success();
     }
@@ -327,7 +334,9 @@ mod wasm_on_disk {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn error_if_no_start_function_found() {
-        let assert = wasmer_run_unstable().arg(fixtures::wat_no_start()).assert();
+        let assert = wasmer_run_unstable(false)
+            .arg(fixtures::wat_no_start())
+            .assert();
 
         assert
             .failure()
@@ -354,7 +363,7 @@ mod wasm_on_disk {
         assert!(dest.exists());
 
         // Now we can try to run the compiled artifact
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(&dest)
             .arg("--")
             .arg("--eval")
@@ -378,7 +387,7 @@ mod local_directory {
         std::fs::copy(fixtures::qjs(), temp.path().join("qjs.wasm")).unwrap();
         std::fs::copy(fixtures::qjs_wasmer_toml(), temp.path().join("wasmer.toml")).unwrap();
 
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg(temp.path())
             .arg("--")
             .arg("--eval")
@@ -398,7 +407,7 @@ mod remote_webc {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn quickjs_as_package_name() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg("saghul/quickjs")
             .arg("--entrypoint=quickjs")
             .arg("--registry=wapm.io")
@@ -416,7 +425,7 @@ mod remote_webc {
         ignore = "wasmer run-unstable segfaults on musl"
     )]
     fn quickjs_as_url() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg("https://wapm.io/saghul/quickjs")
             .arg("--entrypoint=quickjs")
             .arg("--")
@@ -437,7 +446,7 @@ mod remote_webc {
         ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
     )]
     fn bash_using_coreutils() {
-        let assert = wasmer_run_unstable()
+        let assert = wasmer_run_unstable(true)
             .arg("sharrattj/bash")
             .arg("--entrypoint=bash")
             .arg("--use=sharrattj/coreutils")

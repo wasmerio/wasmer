@@ -81,7 +81,8 @@ pub fn path_link<M: MemorySize>(
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } => return Errno::Notdir,
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Errno::Notdir,
         }
     }
     source_inode.stat.write().unwrap().st_nlink += 1;

@@ -97,7 +97,8 @@ pub fn fd_readdir<M: MemorySize>(
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } => return Errno::Notdir,
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Errno::Notdir,
         }
     };
 

@@ -1,10 +1,6 @@
-use std::{
-    pin::Pin,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-use futures::Future;
+use futures::{future::BoxFuture, Future};
 use tokio::runtime::Handle;
 
 use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
@@ -13,57 +9,37 @@ use super::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
-pub struct TokioTaskManager(Handle);
-
-/// This holds the currently set shared runtime which should be accessed via
-/// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()
-static GLOBAL_RUNTIME: Mutex<Option<(Arc<tokio::runtime::Runtime>, Handle)>> = Mutex::new(None);
+pub struct TokioTaskManager {
+    handle: Handle,
+    pool: Arc<rayon::ThreadPool>,
+}
 
 impl TokioTaskManager {
     pub fn new(rt: Handle) -> Self {
-        Self(rt)
+        let concurrency = std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get();
+        let max_threads = 200usize.max(concurrency * 100);
+
+        Self {
+            handle: rt,
+            pool: Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(max_threads)
+                    .build()
+                    .unwrap(),
+            ),
+        }
     }
 
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
-        self.0.clone()
-    }
-
-    /// Allows the caller to set the shared runtime that will be used by other
-    /// async processes within Wasmer
-    ///
-    /// The shared runtime must be set before it is used and can only be set once
-    /// otherwise this call will fail with an error.
-    pub fn set_shared(rt: Arc<tokio::runtime::Runtime>) -> Result<(), anyhow::Error> {
-        let mut guard = GLOBAL_RUNTIME.lock().unwrap();
-        if guard.is_some() {
-            return Err(anyhow::format_err!("The shared runtime has already been set or lazy initialized - it can not be overridden"));
-        }
-        guard.replace((rt.clone(), rt.handle().clone()));
-        Ok(())
-    }
-
-    /// Shared tokio [`VirtualTaskManager`] that is used by default.
-    ///
-    /// This exists because a tokio runtime is heavy, and there should not be many
-    /// independent ones in a process.
-    pub fn shared() -> Self {
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            Self(handle)
-        } else {
-            let mut guard = GLOBAL_RUNTIME.lock().unwrap();
-            let rt = guard.get_or_insert_with(|| {
-                let rt = tokio::runtime::Runtime::new().unwrap();
-                let handle = rt.handle().clone();
-                (Arc::new(rt), handle)
-            });
-            Self(rt.1.clone())
-        }
+        self.handle.clone()
     }
 }
 
 impl Default for TokioTaskManager {
     fn default() -> Self {
-        Self::shared()
+        Self::new(Handle::current())
     }
 }
 
@@ -78,39 +54,30 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
-        Box::pin(async move {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        self.handle.spawn(async move {
             if time == Duration::ZERO {
                 tokio::task::yield_now().await;
             } else {
                 tokio::time::sleep(time).await;
             }
+            tx.send(()).ok();
+        });
+        Box::pin(async move {
+            rx.recv().await;
         })
     }
 
     /// See [`VirtualTaskManager::task_shared`].
     fn task_shared(
         &self,
-        task: Box<
-            dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
-        >,
+        task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.0.spawn(async move {
+        self.handle.spawn(async move {
             let fut = task();
             fut.await
         });
         Ok(())
-    }
-
-    /// See [`VirtualTaskManager::runtime`].
-    fn runtime(&self) -> &Handle {
-        &self.0
-    }
-
-    #[allow(dyn_drop)]
-    fn runtime_enter<'g>(&'g self) -> Box<dyn std::ops::Drop + 'g> {
-        Box::new(TokioRuntimeGuard {
-            inner: self.0.enter(),
-        })
     }
 
     /// See [`VirtualTaskManager::task_wasm`].
@@ -128,12 +95,14 @@ impl VirtualTaskManager for TokioTaskManager {
         // If we have a trigger then we first need to run
         // the poller to completion
         if let Some(trigger) = task.trigger {
+            tracing::trace!("spawning task_wasm trigger in async pool");
+
             let trigger = trigger();
-            let handle = self.0.clone();
-            self.0.spawn(async move {
+            let pool = self.pool.clone();
+            self.handle.spawn(async move {
                 let result = trigger.await;
                 // Build the task that will go on the callback
-                handle.spawn_blocking(move || {
+                pool.spawn(move || {
                     // Invoke the callback
                     run(TaskWasmRunProperties {
                         ctx,
@@ -143,8 +112,12 @@ impl VirtualTaskManager for TokioTaskManager {
                 });
             });
         } else {
+            tracing::trace!("spawning task_wasm in blocking thread");
+
             // Run the callback on a dedicated thread
-            self.0.spawn_blocking(move || {
+            self.pool.spawn(move || {
+                tracing::trace!("task_wasm started in blocking thread");
+
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
@@ -161,7 +134,7 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.0.spawn_blocking(move || {
+        self.pool.spawn(move || {
             task();
         });
         Ok(())
