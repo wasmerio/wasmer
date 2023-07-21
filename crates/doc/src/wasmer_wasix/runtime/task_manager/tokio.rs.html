@@ -148,40 +148,9 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a>
-<a href="#153" id="153">153</a>
-<a href="#154" id="154">154</a>
-<a href="#155" id="155">155</a>
-<a href="#156" id="156">156</a>
-<a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a>
-<a href="#161" id="161">161</a>
-<a href="#162" id="162">162</a>
-<a href="#163" id="163">163</a>
-<a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{
-    pin::Pin,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+</pre><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-<span class="kw">use </span>futures::Future;
+<span class="kw">use </span>futures::{future::BoxFuture, Future};
 <span class="kw">use </span>tokio::runtime::Handle;
 
 <span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
@@ -190,57 +159,37 @@
 
 <span class="doccomment">/// A task manager that uses tokio to spawn tasks.
 </span><span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub struct </span>TokioTaskManager(Handle);
-
-<span class="doccomment">/// This holds the currently set shared runtime which should be accessed via
-/// TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()
-</span><span class="kw">static </span>GLOBAL_RUNTIME: Mutex&lt;<span class="prelude-ty">Option</span>&lt;(Arc&lt;tokio::runtime::Runtime&gt;, Handle)&gt;&gt; = Mutex::new(<span class="prelude-val">None</span>);
+</span><span class="kw">pub struct </span>TokioTaskManager {
+    handle: Handle,
+    pool: Arc&lt;rayon::ThreadPool&gt;,
+}
 
 <span class="kw">impl </span>TokioTaskManager {
     <span class="kw">pub fn </span>new(rt: Handle) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(rt)
+        <span class="kw">let </span>concurrency = std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(<span class="number">1</span>).unwrap())
+            .get();
+        <span class="kw">let </span>max_threads = <span class="number">200usize</span>.max(concurrency * <span class="number">100</span>);
+
+        <span class="self">Self </span>{
+            handle: rt,
+            pool: Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(max_threads)
+                    .build()
+                    .unwrap(),
+            ),
+        }
     }
 
     <span class="kw">pub fn </span>runtime_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; tokio::runtime::Handle {
-        <span class="self">self</span>.<span class="number">0</span>.clone()
-    }
-
-    <span class="doccomment">/// Allows the caller to set the shared runtime that will be used by other
-    /// async processes within Wasmer
-    ///
-    /// The shared runtime must be set before it is used and can only be set once
-    /// otherwise this call will fail with an error.
-    </span><span class="kw">pub fn </span>set_shared(rt: Arc&lt;tokio::runtime::Runtime&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>guard = GLOBAL_RUNTIME.lock().unwrap();
-        <span class="kw">if </span>guard.is_some() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">&quot;The shared runtime has already been set or lazy initialized - it can not be overridden&quot;</span>));
-        }
-        guard.replace((rt.clone(), rt.handle().clone()));
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Shared tokio [`VirtualTaskManager`] that is used by default.
-    ///
-    /// This exists because a tokio runtime is heavy, and there should not be many
-    /// independent ones in a process.
-    </span><span class="kw">pub fn </span>shared() -&gt; <span class="self">Self </span>{
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(handle) = tokio::runtime::Handle::try_current() {
-            <span class="self">Self</span>(handle)
-        } <span class="kw">else </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>guard = GLOBAL_RUNTIME.lock().unwrap();
-            <span class="kw">let </span>rt = guard.get_or_insert_with(|| {
-                <span class="kw">let </span>rt = tokio::runtime::Runtime::new().unwrap();
-                <span class="kw">let </span>handle = rt.handle().clone();
-                (Arc::new(rt), handle)
-            });
-            <span class="self">Self</span>(rt.<span class="number">1</span>.clone())
-        }
+        <span class="self">self</span>.handle.clone()
     }
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>TokioTaskManager {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>::shared()
+        <span class="self">Self</span>::new(Handle::current())
     }
 }
 
@@ -255,39 +204,30 @@
 <span class="kw">impl </span>VirtualTaskManager <span class="kw">for </span>TokioTaskManager {
     <span class="doccomment">/// See [`VirtualTaskManager::sleep_now`].
     </span><span class="kw">fn </span>sleep_now(<span class="kw-2">&amp;</span><span class="self">self</span>, time: Duration) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
-        Box::pin(<span class="kw">async move </span>{
+        <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tokio::sync::mpsc::unbounded_channel();
+        <span class="self">self</span>.handle.spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>time == Duration::ZERO {
                 tokio::task::yield_now().<span class="kw">await</span>;
             } <span class="kw">else </span>{
                 tokio::time::sleep(time).<span class="kw">await</span>;
             }
+            tx.send(()).ok();
+        });
+        Box::pin(<span class="kw">async move </span>{
+            rx.recv().<span class="kw">await</span>;
         })
     }
 
     <span class="doccomment">/// See [`VirtualTaskManager::task_shared`].
     </span><span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;
-            <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
-        &gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.spawn(<span class="kw">async move </span>{
+        <span class="self">self</span>.handle.spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>fut = task();
             fut.<span class="kw">await
         </span>});
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// See [`VirtualTaskManager::runtime`].
-    </span><span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Handle {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0
-    </span>}
-
-    <span class="attr">#[allow(dyn_drop)]
-    </span><span class="kw">fn </span>runtime_enter&lt;<span class="lifetime">&#39;g</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>std::ops::Drop + <span class="lifetime">&#39;g</span>&gt; {
-        Box::new(TokioRuntimeGuard {
-            inner: <span class="self">self</span>.<span class="number">0</span>.enter(),
-        })
     }
 
     <span class="doccomment">/// See [`VirtualTaskManager::task_wasm`].
@@ -305,12 +245,14 @@
         <span class="comment">// If we have a trigger then we first need to run
         // the poller to completion
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(trigger) = task.trigger {
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawning task_wasm trigger in async pool&quot;</span>);
+
             <span class="kw">let </span>trigger = trigger();
-            <span class="kw">let </span>handle = <span class="self">self</span>.<span class="number">0</span>.clone();
-            <span class="self">self</span>.<span class="number">0</span>.spawn(<span class="kw">async move </span>{
+            <span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
+            <span class="self">self</span>.handle.spawn(<span class="kw">async move </span>{
                 <span class="kw">let </span>result = trigger.<span class="kw">await</span>;
                 <span class="comment">// Build the task that will go on the callback
-                </span>handle.spawn_blocking(<span class="kw">move </span>|| {
+                </span>pool.spawn(<span class="kw">move </span>|| {
                     <span class="comment">// Invoke the callback
                     </span>run(TaskWasmRunProperties {
                         ctx,
@@ -320,8 +262,12 @@
                 });
             });
         } <span class="kw">else </span>{
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawning task_wasm in blocking thread&quot;</span>);
+
             <span class="comment">// Run the callback on a dedicated thread
-            </span><span class="self">self</span>.<span class="number">0</span>.spawn_blocking(<span class="kw">move </span>|| {
+            </span><span class="self">self</span>.pool.spawn(<span class="kw">move </span>|| {
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;task_wasm started in blocking thread&quot;</span>);
+
                 <span class="comment">// Invoke the callback
                 </span>run(TaskWasmRunProperties {
                     ctx,
@@ -338,7 +284,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="self">self</span>.<span class="number">0</span>.spawn_blocking(<span class="kw">move </span>|| {
+        <span class="self">self</span>.pool.spawn(<span class="kw">move </span>|| {
             task();
         });
         <span class="prelude-val">Ok</span>(())

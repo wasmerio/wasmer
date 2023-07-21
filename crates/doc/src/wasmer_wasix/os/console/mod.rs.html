@@ -299,6 +299,48 @@
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -330,8 +372,8 @@
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::resolver::PackageSpecifier,
-    Runtime, SpawnError, VirtualTaskManagerExt, WasiEnv,
+    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker},
+    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
 <span class="attr">#[derive(Derivative)]
@@ -347,7 +389,7 @@
     no_welcome: bool,
     prompt: String,
     env: HashMap&lt;String, String&gt;,
-    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     stdin: ArcBoxFile,
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
@@ -357,16 +399,9 @@
 
 <span class="kw">impl </span>Console {
     <span class="kw">pub fn </span>new(webc_boot_package: <span class="kw-2">&amp;</span>str, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>prog = webc_boot_package
-            .split_once(<span class="string">&#39; &#39;</span>)
-            .map(|a| a.<span class="number">1</span>)
-            .unwrap_or(webc_boot_package);
-
-        <span class="kw">let </span><span class="kw-2">mut </span>uses = LinkedHashSet::new();
-        uses.insert(prog.to_string());
         <span class="self">Self </span>{
             boot_cmd: webc_boot_package.to_string(),
-            uses,
+            uses: LinkedHashSet::new(),
             is_mobile: <span class="bool-val">false</span>,
             is_ssh: <span class="bool-val">false</span>,
             user_agent: <span class="prelude-val">None</span>,
@@ -453,12 +488,12 @@
 
     <span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(TaskJoinHandle, WasiProcess), SpawnError&gt; {
         <span class="comment">// Extract the program name from the arguments
-        </span><span class="kw">let </span>empty_args: Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt; = Vec::new();
+        </span><span class="kw">let </span>empty_args: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = Vec::new();
         <span class="kw">let </span>(webc, prog, args) = <span class="kw">match </span><span class="self">self</span>.boot_cmd.split_once(<span class="string">&#39; &#39;</span>) {
             <span class="prelude-val">Some</span>((webc, args)) =&gt; (
                 webc,
                 webc.split_once(<span class="string">&#39;/&#39;</span>).map(|a| a.<span class="number">1</span>).unwrap_or(webc),
-                args.split(<span class="string">&#39; &#39;</span>).map(|a| a.as_bytes()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+                args.split(<span class="string">&#39; &#39;</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
             ),
             <span class="prelude-val">None </span>=&gt; (
                 <span class="self">self</span>.boot_cmd.as_str(),
@@ -469,56 +504,6 @@
                 empty_args,
             ),
         };
-        <span class="kw">let </span>envs = <span class="self">self</span>.env.clone();
-
-        <span class="comment">// Build a new store that will be passed to the threadimpo
-        </span><span class="kw">let </span>store = <span class="self">self</span>.runtime.new_store();
-
-        <span class="kw">let </span>root_fs = RootFileSystemBuilder::new()
-            .with_tty(Box::new(CombineFile::new(
-                Box::new(<span class="self">self</span>.stdout.clone()),
-                Box::new(<span class="self">self</span>.stdin.clone()),
-            )))
-            .build();
-
-        <span class="kw">let </span>env_init = WasiEnv::builder(prog)
-            .stdin(Box::new(<span class="self">self</span>.stdin.clone()))
-            .args(args.iter())
-            .envs(envs.iter())
-            .sandbox_fs(root_fs)
-            .preopen_dir(Path::new(<span class="string">&quot;/&quot;</span>))
-            .unwrap()
-            .map_dir(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;/&quot;</span>)
-            .unwrap()
-            .stdout(Box::new(<span class="self">self</span>.stdout.clone()))
-            .stderr(Box::new(<span class="self">self</span>.stderr.clone()))
-            .runtime(<span class="self">self</span>.runtime.clone())
-            .capabilities(<span class="self">self</span>.capabilities.clone())
-            .build_init()
-            <span class="comment">// TODO: propagate better error
-            </span>.map_err(|_e| SpawnError::InternalError)<span class="question-mark">?</span>;
-
-        <span class="comment">// TODO: no unwrap!
-        </span><span class="kw">let </span>env = WasiEnv::from_init(env_init).unwrap();
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(limiter) = <span class="kw-2">&amp;</span><span class="self">self</span>.memfs_memory_limiter {
-            <span class="kw">match </span><span class="kw-2">&amp;</span>env.state.fs.root_fs {
-                <span class="kw">crate</span>::fs::WasiFsRoot::Sandbox(tmpfs) =&gt; {
-                    tmpfs.set_memory_limiter(limiter.clone());
-                }
-                <span class="kw">crate</span>::fs::WasiFsRoot::Backing(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;tried to set a tmpfs memory limiter on a backing fs&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::BadRequest);
-                }
-            }
-        }
-
-        <span class="comment">// TODO: this should not happen here...
-        // Display the welcome message
-        </span><span class="kw">let </span>tasks = env.tasks().clone();
-        <span class="kw">if </span>!<span class="self">self</span>.whitelabel &amp;&amp; !<span class="self">self</span>.no_welcome {
-            tasks.block_on(<span class="self">self</span>.draw_welcome());
-        }
 
         <span class="kw">let </span>webc_ident: PackageSpecifier = <span class="kw">match </span>webc.parse() {
             <span class="prelude-val">Ok</span>(ident) =&gt; ident,
@@ -528,14 +513,16 @@
             }
         };
 
-        <span class="kw">let </span>resolved_package =
-            tasks.block_on(BinaryPackage::from_registry(<span class="kw-2">&amp;</span>webc_ident, env.runtime()));
+        <span class="kw">let </span>resolved_package = InlineWaker::block_on(BinaryPackage::from_registry(
+            <span class="kw-2">&amp;</span>webc_ident,
+            <span class="self">self</span>.runtime.as_ref(),
+        ));
 
-        <span class="kw">let </span>binary = <span class="kw">match </span>resolved_package {
+        <span class="kw">let </span>pkg = <span class="kw">match </span>resolved_package {
             <span class="prelude-val">Ok</span>(pkg) =&gt; pkg,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
-                tasks.block_on(<span class="kw">async </span>{
+                InlineWaker::block_on(<span class="kw">async </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
                     <span class="macro">writeln!</span>(buffer, <span class="string">&quot;Error: {e}&quot;</span>).ok();
                     <span class="kw">let </span><span class="kw-2">mut </span>source = e.source();
@@ -553,15 +540,43 @@
             }
         };
 
+        <span class="kw">let </span>wasi_opts = webc::metadata::annotations::Wasi::new(prog);
+
+        <span class="kw">let </span>root_fs = RootFileSystemBuilder::new()
+            .with_tty(Box::new(CombineFile::new(
+                Box::new(<span class="self">self</span>.stdout.clone()),
+                Box::new(<span class="self">self</span>.stdin.clone()),
+            )))
+            .build();
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(limiter) = <span class="kw-2">&amp;</span><span class="self">self</span>.memfs_memory_limiter {
+            root_fs.set_memory_limiter(limiter.clone());
+        }
+
+        <span class="kw">let </span>builder = <span class="kw">crate</span>::runners::wasi::WasiRunner::new()
+            .with_envs(<span class="self">self</span>.env.clone().into_iter())
+            .with_args(args)
+            .with_capabilities(<span class="self">self</span>.capabilities.clone())
+            .prepare_webc_env(prog, <span class="kw-2">&amp;</span>wasi_opts, <span class="kw-2">&amp;</span>pkg, <span class="self">self</span>.runtime.clone(), <span class="prelude-val">Some</span>(root_fs))
+            <span class="comment">// TODO: better error conversion
+            </span>.map_err(|err| SpawnError::Other(err.into()))<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>env = builder
+            .stdin(Box::new(<span class="self">self</span>.stdin.clone()))
+            .stdout(Box::new(<span class="self">self</span>.stdout.clone()))
+            .stderr(Box::new(<span class="self">self</span>.stderr.clone()))
+            .build()<span class="question-mark">?</span>;
+
+        <span class="comment">// Display the welcome message
+        </span><span class="kw">if </span>!<span class="self">self</span>.whitelabel &amp;&amp; !<span class="self">self</span>.no_welcome {
+            InlineWaker::block_on(<span class="self">self</span>.draw_welcome());
+        }
+
         <span class="kw">let </span>wasi_process = env.process.clone();
 
-        <span class="comment">// TODO: fetching dependencies should be moved to the builder!
-        // TODO: the Console only makes sense in the context of SSH and the terminal.
-        // We should make this just take a WasiBuilder and the console related configs
-        // and not add so much custom logic in here.
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = env.uses(<span class="self">self</span>.uses.clone()) {
+        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = env.uses(<span class="self">self</span>.uses.clone()) {
             <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
-            tasks.block_on(<span class="kw">async </span>{
+            InlineWaker::block_on(<span class="kw">async </span>{
                 virtual_fs::AsyncWriteExt::write_all(
                     <span class="kw-2">&amp;mut </span>stderr,
                     <span class="macro">format!</span>(<span class="string">&quot;{}\r\n&quot;</span>, err).as_bytes(),
@@ -575,7 +590,8 @@
 
         <span class="comment">// Build the config
         // Run the binary
-        </span><span class="kw">let </span>process = tasks.block_on(spawn_exec(binary, prog, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>store = <span class="self">self</span>.runtime.new_store();
+        <span class="kw">let </span>process = InlineWaker::block_on(spawn_exec(pkg, prog, store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
 
         <span class="comment">// Return the process
         </span><span class="prelude-val">Ok</span>((process, wasi_process))
@@ -597,6 +613,74 @@
         virtual_fs::AsyncWriteExt::write_all(<span class="kw-2">&amp;mut </span>stderr, data.as_str().as_bytes())
             .<span class="kw">await
             </span>.ok();
+    }
+}
+
+<span class="attr">#[cfg(all(test, not(target_family = <span class="string">&quot;wasm&quot;</span>)))]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
+
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="kw">use </span>std::{io::Read, sync::Arc};
+
+    <span class="kw">use crate</span>::{
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
+        PluggableRuntime,
+    };
+
+    <span class="doccomment">/// Test that [`Console`] correctly runs a command with arguments and
+    /// specified env vars, and that the TTY correctly handles stdout output.
+    </span><span class="attr">#[test]
+    #[cfg_attr(not(feature = <span class="string">&quot;host-reqwest&quot;</span>), ignore = <span class="string">&quot;Requires a HTTP client&quot;</span>)]
+    </span><span class="kw">fn </span>test_console_dash_tty_with_args_and_env() {
+        <span class="kw">let </span>tokio_rt = tokio::runtime::Runtime::new().unwrap();
+        <span class="kw">let </span>_guard = tokio_rt.handle().enter();
+
+        <span class="kw">let </span>tm = TokioTaskManager::new(tokio_rt.handle().clone());
+        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(tm));
+        rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
+            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+
+        <span class="kw">let </span>env: HashMap&lt;String, String&gt; = [(<span class="string">&quot;MYENV1&quot;</span>.to_string(), <span class="string">&quot;VAL1&quot;</span>.to_string())]
+            .into_iter()
+            .collect();
+
+        <span class="comment">// Pass some arguments.
+        </span><span class="kw">let </span>cmd = <span class="string">&quot;sharrattj/dash -s stdin&quot;</span>;
+
+        <span class="kw">let </span>(<span class="kw-2">mut </span>stdin_tx, stdin_rx) = Pipe::channel();
+        <span class="kw">let </span>(stdout_tx, <span class="kw-2">mut </span>stdout_rx) = Pipe::channel();
+
+        <span class="kw">let </span>(<span class="kw-2">mut </span>handle, _proc) = Console::new(cmd, Arc::new(rt))
+            .with_env(env)
+            .with_stdin(Box::new(stdin_rx))
+            .with_stdout(Box::new(stdout_tx))
+            .run()
+            .unwrap();
+
+        <span class="kw">let </span>code = tokio_rt
+            .block_on(<span class="kw">async move </span>{
+                virtual_fs::AsyncWriteExt::write_all(
+                    <span class="kw-2">&amp;mut </span>stdin_tx,
+                    <span class="string">b&quot;echo hello $MYENV1 &gt; /dev/tty; exit\n&quot;</span>,
+                )
+                .<span class="kw">await</span><span class="question-mark">?</span>;
+
+                stdin_tx.close();
+                std::mem::drop(stdin_tx);
+
+                <span class="kw">let </span>res = handle.wait_finished().<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, anyhow::Error&gt;(res)
+            })
+            .unwrap();
+
+        <span class="macro">assert_eq!</span>(code.raw(), <span class="number">0</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
+        stdout_rx.read_to_string(<span class="kw-2">&amp;mut </span>out).unwrap();
+
+        <span class="macro">assert_eq!</span>(out, <span class="string">&quot;hello VAL1\n&quot;</span>);
     }
 }
 </code></pre></div>

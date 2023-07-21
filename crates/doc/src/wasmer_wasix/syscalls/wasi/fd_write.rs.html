@@ -283,8 +283,22 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
-</pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
+
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use crate</span>::{net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `fd_write()`
 /// Write data to the file descriptor
@@ -360,7 +374,7 @@
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
-</span><span class="kw">fn </span>fd_write_internal&lt;M: MemorySize&gt;(
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_write_internal&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     iovs: WasmPtr&lt;__wasi_ciovec_t&lt;M&gt;, M&gt;,
@@ -397,7 +411,7 @@
                         <span class="kw">let </span>handle = handle.clone();
                         drop(guard);
 
-                        <span class="kw">let </span>written = <span class="macro">wasi_try_ok!</span>(__asyncify_light(
+                        <span class="kw">let </span>res = __asyncify_light(
                             env,
                             <span class="kw">if </span>fd_entry.flags.contains(Fdflags::NONBLOCK) {
                                 <span class="prelude-val">Some</span>(Duration::ZERO)
@@ -434,9 +448,9 @@
                                     handle.flush().<span class="kw">await</span>.map_err(map_io_err)<span class="question-mark">?</span>;
                                 }
                                 <span class="prelude-val">Ok</span>(written)
-                            }
-                        )<span class="question-mark">?
-                        </span>.map_err(|err| <span class="kw">match </span>err {
+                            },
+                        );
+                        <span class="kw">let </span>written = <span class="macro">wasi_try_ok!</span>(res<span class="question-mark">?</span>.map_err(|err| <span class="kw">match </span>err {
                             Errno::Timedout =&gt; Errno::Again,
                             a =&gt; a,
                         }));
@@ -450,8 +464,16 @@
                     <span class="kw">let </span>socket = socket.clone();
                     drop(guard);
 
+                    <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+                    <span class="kw">let </span>timeout = socket
+                        .opt_time(TimeType::WriteTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+
                     <span class="kw">let </span>tasks = env.tasks().clone();
-                    <span class="kw">let </span>written = <span class="macro">wasi_try_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+
+                    <span class="kw">let </span>res = __asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
                         <span class="kw">let </span><span class="kw-2">mut </span>sent = <span class="number">0usize</span>;
                         <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
                             <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
@@ -459,15 +481,17 @@
                                 .map_err(mem_error_to_wasi)<span class="question-mark">?
                                 </span>.access()
                                 .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-                            <span class="kw">let </span>local_sent =
-                                socket.send(tasks.deref(), buf.as_ref(), fd_flags).<span class="kw">await</span><span class="question-mark">?</span>;
+                            <span class="kw">let </span>local_sent = socket
+                                .send(tasks.deref(), buf.as_ref(), <span class="prelude-val">Some</span>(timeout), nonblocking)
+                                .<span class="kw">await</span><span class="question-mark">?</span>;
                             sent += local_sent;
                             <span class="kw">if </span>local_sent != buf.len() {
                                 <span class="kw">break</span>;
                             }
                         }
                         <span class="prelude-val">Ok</span>(sent)
-                    })<span class="question-mark">?</span>);
+                    });
+                    <span class="kw">let </span>written = <span class="macro">wasi_try_ok!</span>(res<span class="question-mark">?</span>);
                     (written, <span class="bool-val">false</span>)
                 }
                 Kind::Pipe { pipe } =&gt; {
@@ -491,7 +515,7 @@
                     <span class="comment">// TODO: verify
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir);
                 }
-                Kind::EventNotifications(inner) =&gt; {
+                Kind::EventNotifications { inner } =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>written = <span class="number">0usize</span>;
                     <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
                         <span class="kw">let </span>buf_len: usize =
@@ -514,7 +538,7 @@
                     }
                     (written, <span class="bool-val">false</span>)
                 }
-                Kind::Symlink { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
+                Kind::Symlink { .. } | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
                 Kind::Buffer { buffer } =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>written = <span class="number">0usize</span>;
                     <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {

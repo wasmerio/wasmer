@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":[["GLOBAL_RUNTIME","This holds the currently set shared runtime which should be accessed via TokioTaskManager::shared() and/or set via TokioTaskManager::set_shared()"]],"struct":[["TokioRuntimeGuard",""],["TokioTaskManager","A task manager that uses tokio to spawn tasks."]]};
+window.SIDEBAR_ITEMS = {"struct":[["TokioRuntimeGuard",""],["TokioTaskManager","A task manager that uses tokio to spawn tasks."]]};

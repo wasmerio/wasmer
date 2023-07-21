@@ -777,6 +777,17 @@
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
 <a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -790,10 +801,11 @@
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>virtual_fs::{FsError, Pipe <span class="kw">as </span>VirtualPipe, VirtualFile};
+<span class="kw">use </span>virtual_io::{InterestType, StatefulHandler};
 <span class="kw">use </span>virtual_net::NetworkError;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
-    wasi,
+    wasi::{<span class="self">self</span>, EpollType},
     wasi::{Errno, EventFdReadwrite, Eventrwflags, Subscription},
 };
 
@@ -805,14 +817,15 @@
     utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>InodeValFilePollGuardMode {
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>InodeValFilePollGuardMode {
     File(Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;&gt;),
     EventNotifications(Arc&lt;NotificationInner&gt;),
     Socket { inner: Arc&lt;InodeSocketInner&gt; },
     Pipe { pipe: Arc&lt;RwLock&lt;Box&lt;VirtualPipe&gt;&gt;&gt; },
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeValFilePollGuard {
+<span class="kw">pub struct </span>InodeValFilePollGuard {
     <span class="kw">pub</span>(<span class="kw">crate</span>) fd: u32,
     <span class="kw">pub</span>(<span class="kw">crate</span>) peb: PollEventSet,
     <span class="kw">pub</span>(<span class="kw">crate</span>) subscription: Subscription,
@@ -827,17 +840,17 @@
         guard: <span class="kw-2">&amp;</span>Kind,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span>mode = <span class="kw">match </span>guard.deref() {
-            Kind::EventNotifications(inner) =&gt; {
+            Kind::EventNotifications { inner, .. } =&gt; {
                 InodeValFilePollGuardMode::EventNotifications(inner.clone())
             }
-            Kind::Socket { socket } =&gt; InodeValFilePollGuardMode::Socket {
+            Kind::Socket { socket, .. } =&gt; InodeValFilePollGuardMode::Socket {
                 inner: socket.inner.clone(),
             },
             Kind::File {
                 handle: <span class="prelude-val">Some</span>(handle),
                 ..
             } =&gt; InodeValFilePollGuardMode::File(handle.clone()),
-            Kind::Pipe { pipe } =&gt; InodeValFilePollGuardMode::Pipe {
+            Kind::Pipe { pipe, .. } =&gt; InodeValFilePollGuardMode::Pipe {
                 pipe: Arc::new(RwLock::new(Box::new(pipe.clone()))),
             },
             <span class="kw">_ </span>=&gt; {
@@ -895,11 +908,13 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeValFilePollGuardJoin {
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>InodeValFilePollGuardJoin {
     mode: InodeValFilePollGuardMode,
     fd: u32,
     peb: PollEventSet,
     subscription: Subscription,
+    spent: bool,
 }
 
 <span class="kw">impl </span>InodeValFilePollGuardJoin {
@@ -909,6 +924,7 @@
             fd: guard.fd,
             peb: guard.peb,
             subscription: guard.subscription,
+            spent: <span class="bool-val">false</span>,
         }
     }
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
@@ -917,13 +933,30 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>peb(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; PollEventSet {
         <span class="self">self</span>.peb
     }
+    <span class="kw">pub fn </span>is_spent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.spent
+    }
+    <span class="kw">pub fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.mode {
+            InodeValFilePollGuardMode::File(<span class="kw">_</span>) =&gt; {}
+            InodeValFilePollGuardMode::EventNotifications(inner) =&gt; {
+                inner.reset();
+            }
+            InodeValFilePollGuardMode::Socket { .. } =&gt; {}
+            InodeValFilePollGuardMode::Pipe { .. } =&gt; {}
+        }
+        <span class="self">self</span>.spent = <span class="bool-val">false</span>;
+    }
 }
 
+<span class="kw">pub const </span>POLL_GUARD_MAX_RET: usize = <span class="number">4</span>;
+
 <span class="kw">impl </span>Future <span class="kw">for </span>InodeValFilePollGuardJoin {
-    <span class="kw">type </span>Output = heapless::Vec&lt;EventResult, <span class="number">4</span>&gt;;
+    <span class="kw">type </span>Output = heapless::Vec&lt;(EventResult, EpollType), POLL_GUARD_MAX_RET&gt;;
 
     <span class="kw">fn </span>poll(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-        <span class="kw">let </span>fd = <span class="self">self</span>.fd();
+        <span class="comment">// Otherwise we need to register for the event
+        </span><span class="kw">let </span>fd = <span class="self">self</span>.fd();
         <span class="kw">let </span>waker = cx.waker();
         <span class="kw">let </span><span class="kw-2">mut </span>has_read = <span class="bool-val">false</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>has_write = <span class="bool-val">false</span>;
@@ -950,67 +983,6 @@
                 }
             }
         }
-        <span class="kw">if </span>has_close {
-            <span class="kw">let </span>is_closed = <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.mode {
-                InodeValFilePollGuardMode::File(file) =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>guard = file.write().unwrap();
-                    <span class="kw">let </span>file = Pin::new(guard.as_mut());
-                    file.poll_shutdown(cx).is_ready()
-                }
-                InodeValFilePollGuardMode::EventNotifications { .. } =&gt; <span class="bool-val">false</span>,
-                InodeValFilePollGuardMode::Socket { <span class="kw-2">ref </span>inner } =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.protected.write().unwrap();
-                    <span class="kw">let </span>is_closed = <span class="kw">if </span>has_read || has_write {
-                        <span class="comment">// this will be handled in the read/write poll instead
-                        </span><span class="bool-val">false
-                    </span>} <span class="kw">else </span>{
-                        <span class="comment">// we do a read poll which will error out if its closed
-                        </span><span class="attr">#[allow(clippy::match_like_matches_macro)]
-                        </span><span class="kw">match </span>guard.poll_read_ready(cx) {
-                            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)) =&gt; <span class="bool-val">true</span>,
-                            Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::ConnectionAborted))
-                            | Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::ConnectionRefused))
-                            | Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::ConnectionReset))
-                            | Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::BrokenPipe))
-                            | Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::NotConnected))
-                            | Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::UnexpectedEof)) =&gt; <span class="bool-val">true</span>,
-                            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-                        }
-                    };
-                    <span class="kw">if </span>is_closed {
-                        !replace(<span class="kw-2">&amp;mut </span>guard.notifications.closed, <span class="bool-val">true</span>)
-                    } <span class="kw">else </span>{
-                        <span class="bool-val">false
-                    </span>}
-                }
-                InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>guard = pipe.write().unwrap();
-                    <span class="kw">let </span>pipe = Pin::new(guard.as_mut());
-                    pipe.poll_shutdown(cx).is_ready()
-                }
-            };
-            <span class="kw">if </span>is_closed {
-                ret.push(EventResult {
-                    userdata: <span class="self">self</span>.subscription.userdata,
-                    error: Errno::Success,
-                    type_: <span class="self">self</span>.subscription.type_,
-                    inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                        Eventtype::FdRead | Eventtype::FdWrite =&gt; {
-                            EventResultType::Fd(EventFdReadwrite {
-                                nbytes: <span class="number">0</span>,
-                                flags: <span class="kw">if </span>has_hangup {
-                                    Eventrwflags::FD_READWRITE_HANGUP
-                                } <span class="kw">else </span>{
-                                    Eventrwflags::empty()
-                                },
-                            })
-                        }
-                        Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
-                    },
-                })
-                .ok();
-            }
-        }
         <span class="kw">if </span>has_read {
             <span class="kw">let </span>poll_result = <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.mode {
                 InodeValFilePollGuardMode::File(file) =&gt; {
@@ -1021,32 +993,37 @@
                 InodeValFilePollGuardMode::EventNotifications(inner) =&gt; inner.poll(waker).map(<span class="prelude-val">Ok</span>),
                 InodeValFilePollGuardMode::Socket { <span class="kw-2">ref </span>inner } =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.protected.write().unwrap();
-                    <span class="kw">let </span>res = guard.poll_read_ready(cx).map_err(net_error_into_io_err);
-                    <span class="kw">match </span>res {
-                        Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;socket read ready error (fd={}) - {}&quot;</span>, fd, err);
-                            <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.closed, <span class="bool-val">true</span>) {
-                                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
-                            } <span class="kw">else </span>{
+                    <span class="kw">if </span>guard.handler_state.take(InterestType::Readable) {
+                        Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
+                    } <span class="kw">else </span>{
+                        <span class="kw">let </span>handler =
+                            StatefulHandler::new(cx.waker().into(), guard.handler_state.clone());
+
+                        <span class="kw">let </span>res = guard
+                            .add_handler(handler, InterestType::Readable)
+                            .map_err(net_error_into_io_err);
+                        <span class="kw">match </span>res {
+                            <span class="prelude-val">Err</span>(err) <span class="kw">if </span>is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
+                                <span class="macro">tracing::trace!</span>(<span class="string">&quot;socket read ready error (fd={}) - {}&quot;</span>, fd, err);
+                                <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.closed, <span class="bool-val">true</span>) {
+                                    Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+                                } <span class="kw">else </span>{
+                                    Poll::Pending
+                                }
+                            }
+                            <span class="prelude-val">Err</span>(err) =&gt; {
+                                <span class="macro">tracing::debug!</span>(<span class="string">&quot;poll socket error - {}&quot;</span>, err);
+                                <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.failed, <span class="bool-val">true</span>) {
+                                    Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+                                } <span class="kw">else </span>{
+                                    Poll::Pending
+                                }
+                            }
+                            <span class="prelude-val">Ok</span>(()) =&gt; {
+                                drop(guard);
                                 Poll::Pending
                             }
                         }
-                        Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
-                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;poll socket error - {}&quot;</span>, err);
-                            <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.failed, <span class="bool-val">true</span>) {
-                                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
-                            } <span class="kw">else </span>{
-                                Poll::Pending
-                            }
-                        }
-                        Poll::Ready(<span class="prelude-val">Ok</span>(amt)) =&gt; {
-                            <span class="kw">if </span>guard.notifications.closed {
-                                Poll::Pending
-                            } <span class="kw">else </span>{
-                                Poll::Ready(<span class="prelude-val">Ok</span>(amt))
-                            }
-                        }
-                        Poll::Pending =&gt; Poll::Pending,
                     }
                 }
                 InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
@@ -1057,25 +1034,32 @@
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                    ret.push(EventResult {
-                        userdata: <span class="self">self</span>.subscription.userdata,
-                        error: Errno::Success,
-                        type_: <span class="self">self</span>.subscription.type_,
-                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
-                                EventResultType::Fd(EventFdReadwrite {
-                                    nbytes: <span class="number">0</span>,
-                                    flags: <span class="kw">if </span>has_hangup {
-                                        Eventrwflags::FD_READWRITE_HANGUP
-                                    } <span class="kw">else </span>{
-                                        Eventrwflags::empty()
-                                    },
-                                })
-                            }
-                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
-                        },
-                    })
-                    .ok();
+                    <span class="kw">let </span>inner = <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                            <span class="prelude-val">Some</span>(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: <span class="number">0</span>,
+                                flags: <span class="kw">if </span>has_hangup {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } <span class="kw">else </span>{
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock =&gt; <span class="prelude-val">Some</span>(EventResultType::Clock(<span class="number">0</span>)),
+                        Eventtype::Unknown =&gt; <span class="prelude-val">None</span>,
+                    };
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: <span class="self">self</span>.subscription.userdata,
+                                error: Errno::Success,
+                                type_: <span class="self">self</span>.subscription.type_,
+                                inner,
+                            },
+                            EpollType::EPOLLHUP,
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Ready(bytes_available) =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>error = Errno::Success;
@@ -1086,25 +1070,36 @@
                             <span class="number">0
                         </span>}
                     };
-                    ret.push(EventResult {
-                        userdata: <span class="self">self</span>.subscription.userdata,
-                        error,
-                        type_: <span class="self">self</span>.subscription.type_,
-                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
-                                EventResultType::Fd(EventFdReadwrite {
-                                    nbytes: bytes_available <span class="kw">as </span>u64,
-                                    flags: <span class="kw">if </span>bytes_available == <span class="number">0 </span>{
-                                        Eventrwflags::FD_READWRITE_HANGUP
-                                    } <span class="kw">else </span>{
-                                        Eventrwflags::empty()
-                                    },
-                                })
-                            }
-                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
-                        },
-                    })
-                    .ok();
+                    <span class="kw">let </span>inner = <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                            <span class="prelude-val">Some</span>(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: bytes_available <span class="kw">as </span>u64,
+                                flags: <span class="kw">if </span>bytes_available == <span class="number">0 </span>{
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } <span class="kw">else </span>{
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock =&gt; <span class="prelude-val">Some</span>(EventResultType::Clock(<span class="number">0</span>)),
+                        Eventtype::Unknown =&gt; <span class="prelude-val">None</span>,
+                    };
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: <span class="self">self</span>.subscription.userdata,
+                                error,
+                                type_: <span class="self">self</span>.subscription.type_,
+                                inner,
+                            },
+                            <span class="kw">if </span>error == Errno::Success {
+                                EpollType::EPOLLIN
+                            } <span class="kw">else </span>{
+                                EpollType::EPOLLERR
+                            },
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Pending =&gt; {}
             };
@@ -1119,32 +1114,41 @@
                 InodeValFilePollGuardMode::EventNotifications(inner) =&gt; inner.poll(waker).map(<span class="prelude-val">Ok</span>),
                 InodeValFilePollGuardMode::Socket { <span class="kw-2">ref </span>inner } =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inner.protected.write().unwrap();
-                    <span class="kw">let </span>res = guard.poll_write_ready(cx).map_err(net_error_into_io_err);
-                    <span class="kw">match </span>res {
-                        Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;socket write ready error (fd={}) - err={}&quot;</span>, fd, err);
-                            <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.closed, <span class="bool-val">true</span>) {
-                                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
-                            } <span class="kw">else </span>{
+                    <span class="kw">if </span>guard.handler_state.take(InterestType::Writable) {
+                        Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
+                    } <span class="kw">else </span>{
+                        <span class="kw">let </span>handler =
+                            StatefulHandler::new(cx.waker().into(), guard.handler_state.clone());
+
+                        <span class="kw">let </span>res = guard
+                            .add_handler(handler, InterestType::Writable)
+                            .map_err(net_error_into_io_err);
+                        <span class="kw">match </span>res {
+                            <span class="prelude-val">Err</span>(err) <span class="kw">if </span>is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
+                                <span class="macro">tracing::trace!</span>(
+                                    <span class="string">&quot;socket write ready error (fd={}) - err={}&quot;</span>,
+                                    fd,
+                                    err
+                                );
+                                <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.closed, <span class="bool-val">true</span>) {
+                                    Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+                                } <span class="kw">else </span>{
+                                    Poll::Pending
+                                }
+                            }
+                            <span class="prelude-val">Err</span>(err) =&gt; {
+                                <span class="macro">tracing::debug!</span>(<span class="string">&quot;poll socket error - {}&quot;</span>, err);
+                                <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.failed, <span class="bool-val">true</span>) {
+                                    Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+                                } <span class="kw">else </span>{
+                                    Poll::Pending
+                                }
+                            }
+                            <span class="prelude-val">Ok</span>(()) =&gt; {
+                                drop(guard);
                                 Poll::Pending
                             }
                         }
-                        Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; {
-                            <span class="macro">tracing::debug!</span>(<span class="string">&quot;poll socket error - {}&quot;</span>, err);
-                            <span class="kw">if </span>!replace(<span class="kw-2">&amp;mut </span>guard.notifications.failed, <span class="bool-val">true</span>) {
-                                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
-                            } <span class="kw">else </span>{
-                                Poll::Pending
-                            }
-                        }
-                        Poll::Ready(<span class="prelude-val">Ok</span>(amt)) =&gt; {
-                            <span class="kw">if </span>guard.notifications.closed {
-                                Poll::Pending
-                            } <span class="kw">else </span>{
-                                Poll::Ready(<span class="prelude-val">Ok</span>(amt))
-                            }
-                        }
-                        Poll::Pending =&gt; Poll::Pending,
                     }
                 }
                 InodeValFilePollGuardMode::Pipe { pipe } =&gt; {
@@ -1155,25 +1159,32 @@
             };
             <span class="kw">match </span>poll_result {
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) <span class="kw">if </span>has_close &amp;&amp; is_err_closed(<span class="kw-2">&amp;</span>err) =&gt; {
-                    ret.push(EventResult {
-                        userdata: <span class="self">self</span>.subscription.userdata,
-                        error: Errno::Success,
-                        type_: <span class="self">self</span>.subscription.type_,
-                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
-                                EventResultType::Fd(EventFdReadwrite {
-                                    nbytes: <span class="number">0</span>,
-                                    flags: <span class="kw">if </span>has_hangup {
-                                        Eventrwflags::FD_READWRITE_HANGUP
-                                    } <span class="kw">else </span>{
-                                        Eventrwflags::empty()
-                                    },
-                                })
-                            }
-                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
-                        },
-                    })
-                    .ok();
+                    <span class="kw">let </span>inner = <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                            <span class="prelude-val">Some</span>(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: <span class="number">0</span>,
+                                flags: <span class="kw">if </span>has_hangup {
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } <span class="kw">else </span>{
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock =&gt; <span class="prelude-val">Some</span>(EventResultType::Clock(<span class="number">0</span>)),
+                        Eventtype::Unknown =&gt; <span class="prelude-val">None</span>,
+                    };
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: <span class="self">self</span>.subscription.userdata,
+                                error: Errno::Success,
+                                type_: <span class="self">self</span>.subscription.type_,
+                                inner,
+                            },
+                            EpollType::EPOLLHUP,
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Ready(bytes_available) =&gt; {
                     <span class="kw">let </span><span class="kw-2">mut </span>error = Errno::Success;
@@ -1184,31 +1195,42 @@
                             <span class="number">0
                         </span>}
                     };
-                    ret.push(EventResult {
-                        userdata: <span class="self">self</span>.subscription.userdata,
-                        error,
-                        type_: <span class="self">self</span>.subscription.type_,
-                        inner: <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
-                            Eventtype::FdRead | Eventtype::FdWrite =&gt; {
-                                EventResultType::Fd(EventFdReadwrite {
-                                    nbytes: bytes_available <span class="kw">as </span>u64,
-                                    flags: <span class="kw">if </span>bytes_available == <span class="number">0 </span>{
-                                        Eventrwflags::FD_READWRITE_HANGUP
-                                    } <span class="kw">else </span>{
-                                        Eventrwflags::empty()
-                                    },
-                                })
-                            }
-                            Eventtype::Clock =&gt; EventResultType::Clock(<span class="number">0</span>),
-                        },
-                    })
-                    .ok();
+                    <span class="kw">let </span>inner = <span class="kw">match </span><span class="self">self</span>.subscription.type_ {
+                        Eventtype::FdRead | Eventtype::FdWrite =&gt; {
+                            <span class="prelude-val">Some</span>(EventResultType::Fd(EventFdReadwrite {
+                                nbytes: bytes_available <span class="kw">as </span>u64,
+                                flags: <span class="kw">if </span>bytes_available == <span class="number">0 </span>{
+                                    Eventrwflags::FD_READWRITE_HANGUP
+                                } <span class="kw">else </span>{
+                                    Eventrwflags::empty()
+                                },
+                            }))
+                        }
+                        Eventtype::Clock =&gt; <span class="prelude-val">Some</span>(EventResultType::Clock(<span class="number">0</span>)),
+                        Eventtype::Unknown =&gt; <span class="prelude-val">None</span>,
+                    };
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = inner {
+                        ret.push((
+                            EventResult {
+                                userdata: <span class="self">self</span>.subscription.userdata,
+                                error,
+                                type_: <span class="self">self</span>.subscription.type_,
+                                inner,
+                            },
+                            <span class="kw">if </span>error == Errno::Success {
+                                EpollType::EPOLLOUT
+                            } <span class="kw">else </span>{
+                                EpollType::EPOLLERR
+                            },
+                        ))
+                        .ok();
+                    }
                 }
                 Poll::Pending =&gt; {}
             };
         }
-
         <span class="kw">if </span>!ret.is_empty() {
+            <span class="self">self</span>.spent = <span class="bool-val">true</span>;
             <span class="kw">return </span>Poll::Ready(ret);
         }
         Poll::Pending
@@ -1517,7 +1539,7 @@
         || err.kind() == std::io::ErrorKind::UnexpectedEof
 }
 
-<span class="kw">fn </span>net_error_into_io_err(net_error: NetworkError) -&gt; std::io::Error {
+<span class="kw">pub fn </span>net_error_into_io_err(net_error: NetworkError) -&gt; std::io::Error {
     <span class="kw">use </span>std::io::ErrorKind;
     <span class="kw">match </span>net_error {
         NetworkError::InvalidFd =&gt; ErrorKind::BrokenPipe.into(),

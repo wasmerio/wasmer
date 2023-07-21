@@ -3625,6 +3625,89 @@
 <a href="#3624" id="3624">3624</a>
 <a href="#3625" id="3625">3625</a>
 <a href="#3626" id="3626">3626</a>
+<a href="#3627" id="3627">3627</a>
+<a href="#3628" id="3628">3628</a>
+<a href="#3629" id="3629">3629</a>
+<a href="#3630" id="3630">3630</a>
+<a href="#3631" id="3631">3631</a>
+<a href="#3632" id="3632">3632</a>
+<a href="#3633" id="3633">3633</a>
+<a href="#3634" id="3634">3634</a>
+<a href="#3635" id="3635">3635</a>
+<a href="#3636" id="3636">3636</a>
+<a href="#3637" id="3637">3637</a>
+<a href="#3638" id="3638">3638</a>
+<a href="#3639" id="3639">3639</a>
+<a href="#3640" id="3640">3640</a>
+<a href="#3641" id="3641">3641</a>
+<a href="#3642" id="3642">3642</a>
+<a href="#3643" id="3643">3643</a>
+<a href="#3644" id="3644">3644</a>
+<a href="#3645" id="3645">3645</a>
+<a href="#3646" id="3646">3646</a>
+<a href="#3647" id="3647">3647</a>
+<a href="#3648" id="3648">3648</a>
+<a href="#3649" id="3649">3649</a>
+<a href="#3650" id="3650">3650</a>
+<a href="#3651" id="3651">3651</a>
+<a href="#3652" id="3652">3652</a>
+<a href="#3653" id="3653">3653</a>
+<a href="#3654" id="3654">3654</a>
+<a href="#3655" id="3655">3655</a>
+<a href="#3656" id="3656">3656</a>
+<a href="#3657" id="3657">3657</a>
+<a href="#3658" id="3658">3658</a>
+<a href="#3659" id="3659">3659</a>
+<a href="#3660" id="3660">3660</a>
+<a href="#3661" id="3661">3661</a>
+<a href="#3662" id="3662">3662</a>
+<a href="#3663" id="3663">3663</a>
+<a href="#3664" id="3664">3664</a>
+<a href="#3665" id="3665">3665</a>
+<a href="#3666" id="3666">3666</a>
+<a href="#3667" id="3667">3667</a>
+<a href="#3668" id="3668">3668</a>
+<a href="#3669" id="3669">3669</a>
+<a href="#3670" id="3670">3670</a>
+<a href="#3671" id="3671">3671</a>
+<a href="#3672" id="3672">3672</a>
+<a href="#3673" id="3673">3673</a>
+<a href="#3674" id="3674">3674</a>
+<a href="#3675" id="3675">3675</a>
+<a href="#3676" id="3676">3676</a>
+<a href="#3677" id="3677">3677</a>
+<a href="#3678" id="3678">3678</a>
+<a href="#3679" id="3679">3679</a>
+<a href="#3680" id="3680">3680</a>
+<a href="#3681" id="3681">3681</a>
+<a href="#3682" id="3682">3682</a>
+<a href="#3683" id="3683">3683</a>
+<a href="#3684" id="3684">3684</a>
+<a href="#3685" id="3685">3685</a>
+<a href="#3686" id="3686">3686</a>
+<a href="#3687" id="3687">3687</a>
+<a href="#3688" id="3688">3688</a>
+<a href="#3689" id="3689">3689</a>
+<a href="#3690" id="3690">3690</a>
+<a href="#3691" id="3691">3691</a>
+<a href="#3692" id="3692">3692</a>
+<a href="#3693" id="3693">3693</a>
+<a href="#3694" id="3694">3694</a>
+<a href="#3695" id="3695">3695</a>
+<a href="#3696" id="3696">3696</a>
+<a href="#3697" id="3697">3697</a>
+<a href="#3698" id="3698">3698</a>
+<a href="#3699" id="3699">3699</a>
+<a href="#3700" id="3700">3700</a>
+<a href="#3701" id="3701">3701</a>
+<a href="#3702" id="3702">3702</a>
+<a href="#3703" id="3703">3703</a>
+<a href="#3704" id="3704">3704</a>
+<a href="#3705" id="3705">3705</a>
+<a href="#3706" id="3706">3706</a>
+<a href="#3707" id="3707">3707</a>
+<a href="#3708" id="3708">3708</a>
+<a href="#3709" id="3709">3709</a>
 </pre><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -3674,6 +3757,8 @@
     </span>ProcessCputimeId,
     <span class="attr">#[doc = <span class="string">&quot; The CPU-time clock associated with the current thread.&quot;</span>]
     </span>ThreadCputimeId,
+    <span class="attr">#[doc = <span class="string">&quot; The clock type is not known.&quot;</span>]
+    </span>Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Snapshot0Clockid {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -3686,6 +3771,7 @@
             Snapshot0Clockid::ThreadCputimeId =&gt; {
                 f.debug_tuple(<span class="string">&quot;Snapshot0Clockid::ThreadCputimeId&quot;</span>).finish()
             }
+            Snapshot0Clockid::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Snapshot0Clockid::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -3705,6 +3791,8 @@
     </span>ProcessCputimeId,
     <span class="attr">#[doc = <span class="string">&quot; The CPU-time clock associated with the current thread.&quot;</span>]
     </span>ThreadCputimeId,
+    <span class="attr">#[doc = <span class="string">&quot; The clock type is unknown.&quot;</span>]
+    </span>Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Clockid {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -3713,6 +3801,7 @@
             Clockid::Monotonic =&gt; f.debug_tuple(<span class="string">&quot;Clockid::Monotonic&quot;</span>).finish(),
             Clockid::ProcessCputimeId =&gt; f.debug_tuple(<span class="string">&quot;Clockid::ProcessCputimeId&quot;</span>).finish(),
             Clockid::ThreadCputimeId =&gt; f.debug_tuple(<span class="string">&quot;Clockid::ThreadCputimeId&quot;</span>).finish(),
+            Clockid::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Clockid::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -4274,6 +4363,8 @@
     </span>Dontneed,
     <span class="attr">#[doc = <span class="string">&quot; The application expects to access the specified data once and then not reuse it thereafter.&quot;</span>]
     </span>Noreuse,
+    <span class="attr">#[doc = <span class="string">&quot; The application expectations are unknown.&quot;</span>]
+    </span>Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Advice {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -4284,6 +4375,7 @@
             Advice::Willneed =&gt; f.debug_tuple(<span class="string">&quot;Advice::Willneed&quot;</span>).finish(),
             Advice::Dontneed =&gt; f.debug_tuple(<span class="string">&quot;Advice::Dontneed&quot;</span>).finish(),
             Advice::Noreuse =&gt; f.debug_tuple(<span class="string">&quot;Advice::Noreuse&quot;</span>).finish(),
+            Advice::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Advice::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -4412,6 +4504,8 @@
     <span class="attr">#[doc = <span class="string">&quot; File descriptor `subscription_fd_readwrite::fd` has capacity&quot;</span>]
     #[doc = <span class="string">&quot; available for writing. This event always triggers for regular files.&quot;</span>]
     </span>FdWrite,
+    <span class="attr">#[doc = <span class="string">&quot; Event type is unknown&quot;</span>]
+    </span>Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Eventtype {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -4419,6 +4513,7 @@
             Eventtype::Clock =&gt; f.debug_tuple(<span class="string">&quot;Eventtype::Clock&quot;</span>).finish(),
             Eventtype::FdRead =&gt; f.debug_tuple(<span class="string">&quot;Eventtype::FdRead&quot;</span>).finish(),
             Eventtype::FdWrite =&gt; f.debug_tuple(<span class="string">&quot;Eventtype::FdWrite&quot;</span>).finish(),
+            Eventtype::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Eventtype::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -4498,11 +4593,14 @@
 </span><span class="kw">pub enum </span>Preopentype {
     <span class="attr">#[doc = <span class="string">&quot; A pre-opened directory.&quot;</span>]
     </span>Dir,
+    <span class="attr">#[doc = <span class="string">&quot; Unknown.&quot;</span>]
+    </span>Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Preopentype {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
             Preopentype::Dir =&gt; f.debug_tuple(<span class="string">&quot;Preopentype::Dir&quot;</span>).finish(),
+            Preopentype::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Preopentype::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -4561,7 +4659,7 @@
             .finish()
     }
 }
-<span class="attr">#[repr(u16)]
+<span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Socktype {
     Unknown,
@@ -4588,6 +4686,7 @@
     Opened,
     Closed,
     Failed,
+    Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Sockstatus {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -4596,6 +4695,7 @@
             Sockstatus::Opened =&gt; f.debug_tuple(<span class="string">&quot;Sockstatus::Opened&quot;</span>).finish(),
             Sockstatus::Closed =&gt; f.debug_tuple(<span class="string">&quot;Sockstatus::Closed&quot;</span>).finish(),
             Sockstatus::Failed =&gt; f.debug_tuple(<span class="string">&quot;Sockstatus::Failed&quot;</span>).finish(),
+            Sockstatus::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Sockstatus::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -4670,6 +4770,7 @@
     AnyEncryption,
     ClassicEncryption,
     DoubleEncryption,
+    Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Streamsecurity {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -4684,10 +4785,11 @@
             Streamsecurity::DoubleEncryption =&gt; {
                 f.debug_tuple(<span class="string">&quot;Streamsecurity::DoubleEncryption&quot;</span>).finish()
             }
+            Streamsecurity::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Streamsecurity::Unknown&quot;</span>).finish(),
         }
     }
 }
-<span class="attr">#[repr(u16)]
+<span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>Addressfamily {
     Unspec,
@@ -4763,6 +4865,7 @@
     Cur,
     End,
     Set,
+    Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Snapshot0Whence {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -4770,6 +4873,7 @@
             Snapshot0Whence::Cur =&gt; f.debug_tuple(<span class="string">&quot;Snapshot0Whence::Cur&quot;</span>).finish(),
             Snapshot0Whence::End =&gt; f.debug_tuple(<span class="string">&quot;Snapshot0Whence::End&quot;</span>).finish(),
             Snapshot0Whence::Set =&gt; f.debug_tuple(<span class="string">&quot;Snapshot0Whence::Set&quot;</span>).finish(),
+            Snapshot0Whence::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Snapshot0Whence::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -4779,6 +4883,7 @@
     Set,
     Cur,
     End,
+    Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Whence {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -4786,6 +4891,7 @@
             Whence::Set =&gt; f.debug_tuple(<span class="string">&quot;Whence::Set&quot;</span>).finish(),
             Whence::Cur =&gt; f.debug_tuple(<span class="string">&quot;Whence::Cur&quot;</span>).finish(),
             Whence::End =&gt; f.debug_tuple(<span class="string">&quot;Whence::End&quot;</span>).finish(),
+            Whence::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Whence::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -5988,6 +6094,7 @@
     Write,
     Connect,
     Accept,
+    Unknown = <span class="number">255</span>,
 }
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Timeout {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
@@ -5996,6 +6103,7 @@
             Timeout::Write =&gt; f.debug_tuple(<span class="string">&quot;Timeout::Write&quot;</span>).finish(),
             Timeout::Connect =&gt; f.debug_tuple(<span class="string">&quot;Timeout::Connect&quot;</span>).finish(),
             Timeout::Accept =&gt; f.debug_tuple(<span class="string">&quot;Timeout::Accept&quot;</span>).finish(),
+            Timeout::Unknown =&gt; f.debug_tuple(<span class="string">&quot;Timeout::Unknown&quot;</span>).finish(),
         }
     }
 }
@@ -6091,7 +6199,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::ProcessCputimeId,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::ThreadCputimeId,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Snapshot0Clockid&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Snapshot0Clockid&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6120,7 +6231,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::ProcessCputimeId,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::ThreadCputimeId,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Clockid&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Clockid&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6266,7 +6380,10 @@
             <span class="number">8 </span>=&gt; <span class="self">Self</span>::SocketRaw,
             <span class="number">9 </span>=&gt; <span class="self">Self</span>::SocketSeqpacket,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Filetype&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Filetype&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6309,7 +6426,10 @@
             <span class="number">4 </span>=&gt; <span class="self">Self</span>::Dontneed,
             <span class="number">5 </span>=&gt; <span class="self">Self</span>::Noreuse,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Advice&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Advice&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6367,7 +6487,10 @@
             <span class="number">1 </span>=&gt; <span class="self">Self</span>::FdRead,
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::FdWrite,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Eventtype&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Eventtype&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6411,7 +6534,10 @@
         <span class="kw">match </span>n {
             <span class="number">0 </span>=&gt; <span class="self">Self</span>::Dir,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Preopentype&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Preopentype&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6453,12 +6579,16 @@
 
     <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>n {
-            <span class="number">0 </span>=&gt; <span class="self">Self</span>::Dgram,
+            <span class="number">0 </span>=&gt; <span class="self">Self</span>::Unknown,
             <span class="number">1 </span>=&gt; <span class="self">Self</span>::Stream,
-            <span class="number">2 </span>=&gt; <span class="self">Self</span>::Raw,
-            <span class="number">3 </span>=&gt; <span class="self">Self</span>::Seqpacket,
+            <span class="number">2 </span>=&gt; <span class="self">Self</span>::Dgram,
+            <span class="number">3 </span>=&gt; <span class="self">Self</span>::Raw,
+            <span class="number">4 </span>=&gt; <span class="self">Self</span>::Seqpacket,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Socktype&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Socktype&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6487,7 +6617,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::Closed,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::Failed,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Sockstatus&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Sockstatus&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6539,7 +6672,10 @@
             <span class="number">25 </span>=&gt; <span class="self">Self</span>::Type,
             <span class="number">26 </span>=&gt; <span class="self">Self</span>::Proto,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Sockoption&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Sockoption&quot;</span>);
+                <span class="self">Self</span>::Noop
+            }
         }
     }
 
@@ -6568,7 +6704,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::ClassicEncryption,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::DoubleEncryption,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Streamsecurity&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Streamsecurity&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6597,7 +6736,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::Inet6,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::Unix,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Addressfamily&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Addressfamily&quot;</span>);
+                <span class="self">Self</span>::Unspec
+            }
         }
     }
 
@@ -6637,7 +6779,10 @@
             <span class="number">1 </span>=&gt; <span class="self">Self</span>::End,
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::Set,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Snapshot0Whence&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Snapshot0Whence&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6665,7 +6810,10 @@
             <span class="number">1 </span>=&gt; <span class="self">Self</span>::Cur,
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::End,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Whence&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Whence&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -6698,7 +6846,10 @@
             <span class="number">0 </span>=&gt; <span class="self">Self</span>::None,
             <span class="number">1 </span>=&gt; <span class="self">Self</span>::Some,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum OptionTag&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum OptionTag&quot;</span>);
+                <span class="self">Self</span>::None
+            }
         }
     }
 
@@ -6764,7 +6915,10 @@
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::Null,
             <span class="number">4 </span>=&gt; <span class="self">Self</span>::Log,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum StdioMode&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum StdioMode&quot;</span>);
+                <span class="self">Self</span>::Null
+            }
         }
     }
 
@@ -7053,7 +7207,10 @@
             <span class="number">262 </span>=&gt; <span class="self">Self</span>::Mptcp,
             <span class="number">263 </span>=&gt; <span class="self">Self</span>::Max,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum SockProto&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum SockProto&quot;</span>);
+                <span class="self">Self</span>::None
+            }
         }
     }
 
@@ -7080,7 +7237,10 @@
             <span class="number">0 </span>=&gt; <span class="self">Self</span>::False,
             <span class="number">1 </span>=&gt; <span class="self">Self</span>::True,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Bool&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Bool&quot;</span>);
+                <span class="self">Self</span>::False
+            }
         }
     }
 
@@ -7202,7 +7362,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::Connect,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::Accept,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum Timeout&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum Timeout&quot;</span>);
+                <span class="self">Self</span>::Unknown
+            }
         }
     }
 
@@ -7237,7 +7400,10 @@
             <span class="number">2 </span>=&gt; <span class="self">Self</span>::ExitSignal,
             <span class="number">3 </span>=&gt; <span class="self">Self</span>::Stopped,
 
-            q =&gt; <span class="macro">todo!</span>(<span class="string">&quot;could not serialize number {q} to enum JoinStatusType&quot;</span>),
+            q =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum JoinStatusType&quot;</span>);
+                <span class="self">Self</span>::Nothing
+            }
         }
     }
 

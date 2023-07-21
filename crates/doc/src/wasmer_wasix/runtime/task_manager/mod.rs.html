@@ -321,25 +321,17 @@
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
+<span class="kw">mod </span>waker;
 
 <span class="kw">use </span>std::ops::Deref;
 <span class="kw">use </span>std::task::{Context, Poll};
 <span class="kw">use </span>std::{pin::Pin, time::Duration};
 
-<span class="kw">use </span>::tokio::runtime::Handle;
 <span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>futures::Future;
 <span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, ExitCode};
@@ -347,6 +339,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiThreadError;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::AsyncifyFuture;
 <span class="kw">use crate</span>::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+
+<span class="kw">pub use </span>waker::<span class="kw-2">*</span>;
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt; {
@@ -472,17 +466,8 @@
     /// This task must not block the execution or it could cause a deadlock
     </span><span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;
-            <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
-        &gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt;;
-
-    <span class="doccomment">/// Returns a runtime that can be used for asynchronous tasks
-    </span><span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Handle;
-
-    <span class="doccomment">/// Enters a runtime context
-    </span><span class="attr">#[allow(dyn_drop)]
-    </span><span class="kw">fn </span>runtime_enter&lt;<span class="lifetime">&#39;g</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>std::ops::Drop + <span class="lifetime">&#39;g</span>&gt;;
 
     <span class="doccomment">/// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
@@ -522,20 +507,9 @@
 
     <span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        task: Box&lt;
-            <span class="kw">dyn </span>FnOnce() -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;&gt; + Send + <span class="lifetime">&#39;static</span>,
-        &gt;,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).task_shared(task)
-    }
-
-    <span class="kw">fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Handle {
-        (<span class="kw-2">**</span><span class="self">self</span>).runtime()
-    }
-
-    <span class="attr">#[allow(dyn_drop)]
-    </span><span class="kw">fn </span>runtime_enter&lt;<span class="lifetime">&#39;g</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;g </span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>std::ops::Drop + <span class="lifetime">&#39;g</span>&gt; {
-        (<span class="kw-2">**</span><span class="self">self</span>).runtime_enter()
     }
 
     <span class="kw">fn </span>task_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>, task: TaskWasm) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
@@ -555,13 +529,6 @@
 }
 
 <span class="kw">impl dyn </span>VirtualTaskManager {
-    <span class="doccomment">/// Execute a future and return the output.
-    /// This method blocks until the future is complete.
-    </span><span class="comment">// This needs to be a generic impl on `dyn T` because it is generic, and hence not object-safe.
-    </span><span class="kw">pub fn </span>block_on&lt;<span class="lifetime">&#39;a</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;a</span>) -&gt; A {
-        <span class="self">self</span>.runtime().block_on(task)
-    }
-
     <span class="doccomment">/// Starts an WebAssembly task will will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// After the poller has succeeded
@@ -649,7 +616,11 @@
 
 <span class="doccomment">/// Generic utility methods for VirtualTaskManager
 </span><span class="kw">pub trait </span>VirtualTaskManagerExt {
-    <span class="kw">fn </span>block_on&lt;<span class="lifetime">&#39;a</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;a</span>) -&gt; A;
+    <span class="doccomment">/// Runs the work in the background via the task managers shared background
+    /// threads while blocking the current execution until it finishs
+    </span><span class="kw">fn </span>spawn_and_block_on&lt;A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">&#39;static</span>) -&gt; A
+    <span class="kw">where
+        </span>A: Send + <span class="lifetime">&#39;static</span>;
 }
 
 <span class="kw">impl</span>&lt;D, T&gt; VirtualTaskManagerExt <span class="kw">for </span>D
@@ -657,8 +628,19 @@
     </span>D: Deref&lt;Target = T&gt;,
     T: VirtualTaskManager + <span class="question-mark">?</span>Sized,
 {
-    <span class="kw">fn </span>block_on&lt;<span class="lifetime">&#39;a</span>, A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">&#39;a</span>) -&gt; A {
-        <span class="self">self</span>.runtime().block_on(task)
+    <span class="doccomment">/// Runs the work in the background via the task managers shared background
+    /// threads while blocking the current execution until it finishs
+    </span><span class="kw">fn </span>spawn_and_block_on&lt;A&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">&#39;static</span>) -&gt; A
+    <span class="kw">where
+        </span>A: Send + <span class="lifetime">&#39;static</span>,
+    {
+        <span class="kw">let </span>(work_tx, <span class="kw-2">mut </span>work_rx) = ::tokio::sync::mpsc::unbounded_channel();
+        <span class="kw">let </span>work = Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span>ret = task.<span class="kw">await</span>;
+            work_tx.send(ret).ok();
+        });
+        <span class="self">self</span>.task_shared(Box::new(<span class="kw">move </span>|| work)).unwrap();
+        InlineWaker::block_on(work_rx.recv()).unwrap()
     }
 }
 </code></pre></div>

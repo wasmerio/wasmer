@@ -374,6 +374,10 @@
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
 <a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -404,7 +408,7 @@
             FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
             WebSource,
         },
-        task_manager::tokio::TokioTaskManager,
+        task_manager::{tokio::TokioTaskManager, VirtualTaskManagerExt},
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
@@ -545,10 +549,14 @@
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.uses {
             <span class="kw">let </span>specifier = PackageSpecifier::parse(name)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{name}\&quot; as a package specifier&quot;</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>pkg = rt
-                .task_manager()
-                .block_on(BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span>rt))
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>pkg = {
+                <span class="kw">let </span>inner_rt = rt.clone();
+                rt.task_manager()
+                    .spawn_and_block_on(<span class="kw">async move </span>{
+                        BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span>inner_rt).<span class="kw">await
+                    </span>})
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">?
+            </span>};
             uses.push(pkg);
         }
 

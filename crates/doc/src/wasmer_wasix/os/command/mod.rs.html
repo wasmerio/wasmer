@@ -107,7 +107,6 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>builtins;
 
 <span class="kw">use </span>std::{collections::HashMap, sync::Arc};
@@ -115,7 +114,9 @@
 <span class="kw">use </span>wasmer::{FunctionEnvMut, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
-<span class="kw">use crate</span>::{syscalls::stderr_write, Runtime, SpawnError, WasiEnv};
+<span class="kw">use crate</span>::{
+    runtime::task_manager::InlineWaker, syscalls::stderr_write, Runtime, SpawnError, WasiEnv,
+};
 
 <span class="kw">use </span><span class="kw">super</span>::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
@@ -202,15 +203,12 @@
             cmd.exec(parent_ctx, path.as_str(), store, builder)
         } <span class="kw">else </span>{
             <span class="kw">unsafe </span>{
-                <span class="kw">let _ </span>= parent_ctx
-                    .data()
-                    .runtime()
-                    .task_manager()
-                    .block_on(stderr_write(
-                        parent_ctx,
-                        <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, path).as_bytes(),
-                    ));
+                InlineWaker::block_on(stderr_write(
+                    parent_ctx,
+                    <span class="macro">format!</span>(<span class="string">&quot;wasm command unknown - {}\r\n&quot;</span>, path).as_bytes(),
+                ))
             }
+            .ok();
 
             <span class="kw">let </span>res = OwnedTaskStatus::new(TaskStatus::Finished(<span class="prelude-val">Ok</span>(Errno::Noent.into())));
             <span class="prelude-val">Ok</span>(res.handle())

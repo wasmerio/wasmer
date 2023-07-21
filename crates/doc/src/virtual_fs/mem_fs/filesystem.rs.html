@@ -2906,8 +2906,8 @@
         };
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_new_filesystem() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_new_filesystem() {
         <span class="kw">let </span>fs = FileSystem::default();
         <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
 
@@ -2926,8 +2926,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_create_dir() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_create_dir() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(
@@ -3023,8 +3023,8 @@
         }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_remove_dir() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_remove_dir() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(
@@ -3380,8 +3380,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_remove_file() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_remove_file() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert!</span>(
@@ -3455,8 +3455,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_readdir() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_readdir() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
@@ -3548,8 +3548,8 @@
         <span class="macro">assert!</span>(<span class="macro">matches!</span>(readdir.next(), <span class="prelude-val">None</span>), <span class="string">&quot;no more entries&quot;</span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_canonicalize() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_canonicalize() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
@@ -3644,9 +3644,9 @@
         );
     }
 
-    <span class="attr">#[test]
+    <span class="attr">#[tokio::test]
     #[ignore = <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]
-    </span><span class="kw">fn </span>mount_to_overlapping_directories() {
+    </span><span class="kw">async fn </span>mount_to_overlapping_directories() {
         <span class="kw">let </span>top_level = FileSystem::default();
         ops::touch(<span class="kw-2">&amp;</span>top_level, <span class="string">&quot;/file.txt&quot;</span>).unwrap();
         <span class="kw">let </span>nested = FileSystem::default();

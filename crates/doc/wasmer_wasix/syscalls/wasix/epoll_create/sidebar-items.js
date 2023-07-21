@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["epoll_create","`epoll_create()`"]]};

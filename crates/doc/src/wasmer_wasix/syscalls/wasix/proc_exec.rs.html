@@ -257,19 +257,6 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
 </pre><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -380,7 +367,7 @@
             <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>new_store, <span class="kw-2">&amp;mut </span>config) {
                 <span class="prelude-val">Ok</span>(a) =&gt; {}
                 <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="kw">if </span>err != SpawnError::NotFound {
+                    <span class="kw">if </span>!err.is_not_found() {
                         <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                     }
 
@@ -395,7 +382,7 @@
                                 <span class="macro">trace!</span>(%child_pid, <span class="string">&quot;spawned sub-process&quot;</span>);
                             }
                             <span class="prelude-val">Err</span>(err) =&gt; {
-                                err_exit_code = conv_spawn_err_to_exit_code(err);
+                                err_exit_code = conv_spawn_err_to_exit_code(<span class="kw-2">&amp;</span>err);
 
                                 <span class="macro">debug!</span>(%child_pid, <span class="string">&quot;process failed with (err={})&quot;</span>, err_exit_code);
                                 child_finished.set_finished(<span class="prelude-val">Ok</span>(err_exit_code));
@@ -475,9 +462,9 @@
             <span class="kw-2">&amp;mut </span>new_store,
             <span class="kw-2">&amp;mut </span>builder,
         ) {
-            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)),
+            <span class="prelude-val">Ok</span>(a) =&gt; <span class="prelude-val">Ok</span>(a),
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="kw">if </span>err != SpawnError::NotFound {
+                <span class="kw">if </span>!err.is_not_found() {
                     <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                 }
 
@@ -485,18 +472,12 @@
                 <span class="kw">let </span>env = builder.take().unwrap();
 
                 <span class="comment">// Spawn a new process with this current execution environment
-                //let pid = wasi_env.process.pid();
-                </span><span class="kw">let </span>(tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(<span class="kw">async move </span>{
-                    <span class="kw">let </span>ret = bin_factory.spawn(name, new_store, env).<span class="kw">await</span>;
-                    tx.send(ret);
-                }));
-                rx.recv()
+                </span>InlineWaker::block_on(bin_factory.spawn(name, new_store, env))
             }
         };
 
         <span class="kw">match </span>process {
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>process)) =&gt; {
+            <span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>process) =&gt; {
                 <span class="comment">// If we support deep sleeping then we switch to deep sleep mode
                 </span><span class="kw">let </span>env = ctx.data();
                 <span class="kw">let </span>thread = env.thread.clone();
@@ -524,16 +505,9 @@
                     AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(()),
                 }
             }
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; {
-                <span class="macro">warn!</span>(
-                    <span class="string">&quot;failed to execve as the process could not be spawned (fork)[0] - {}&quot;</span>,
-                    err
-                );
-                <span class="prelude-val">Err</span>(WasiError::Exit(Errno::Noexec.into()))
-            }
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="macro">warn!</span>(
-                    <span class="string">&quot;failed to execve as the process could not be spawned (fork)[1] - {}&quot;</span>,
+                    <span class="string">&quot;failed to execve as the process could not be spawned (fork)[0] - {}&quot;</span>,
                     err
                 );
                 <span class="prelude-val">Err</span>(WasiError::Exit(Errno::Noexec.into()))

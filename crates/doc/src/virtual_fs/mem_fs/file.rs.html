@@ -1427,6 +1427,17 @@
 <a href="#1427" id="1427">1427</a>
 <a href="#1428" id="1428">1428</a>
 <a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
 </pre><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`
 //! implementations. They aren&#39;t exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
@@ -1720,11 +1731,22 @@
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
             <span class="kw">match </span>inode {
                 <span class="prelude-val">Some</span>(inode) =&gt; {
+                    <span class="kw">let </span>metadata = Metadata {
+                        ft: <span class="kw">crate</span>::FileType {
+                            file: <span class="bool-val">true</span>,
+                            ..Default::default()
+                        },
+                        accessed: src.last_accessed(),
+                        created: src.created_time(),
+                        modified: src.last_modified(),
+                        len: src.size(),
+                    };
+
                     <span class="kw-2">*</span>inode = Node::CustomFile(CustomFileNode {
                         inode: inode.inode(),
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
-                        metadata: inode.metadata().clone(),
+                        metadata,
                     });
                     <span class="prelude-val">Ok</span>(())
                 }
@@ -1842,8 +1864,8 @@
         };
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_last_accessed() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_last_accessed() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="kw">let </span>file = fs
@@ -1871,8 +1893,8 @@
         </span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_last_modified() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_last_modified() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="kw">let </span>file = fs
@@ -1885,8 +1907,8 @@
         <span class="macro">assert!</span>(file.last_modified() &gt; <span class="number">0</span>, <span class="string">&quot;last modified time is not zero&quot;</span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_created_time() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_created_time() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="kw">let </span>file = fs
@@ -1912,8 +1934,8 @@
         </span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_size() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_size() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="kw">let </span>file = fs

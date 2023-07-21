@@ -210,6 +210,9 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Context;
@@ -289,7 +292,10 @@
 <span class="kw">impl </span>BinaryPackage {
     <span class="doccomment">/// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
-    </span><span class="kw">pub async fn </span>from_webc(container: <span class="kw-2">&amp;</span>Container, rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
+    </span><span class="kw">pub async fn </span>from_webc(
+        container: <span class="kw-2">&amp;</span>Container,
+        rt: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>source = rt.source();
         <span class="kw">let </span>root = PackageInfo::from_manifest(container.manifest())<span class="question-mark">?</span>;
         <span class="kw">let </span>root_id = PackageId {
@@ -310,7 +316,7 @@
     <span class="doccomment">/// Load a [`BinaryPackage`] and all its dependencies from a registry.
     </span><span class="kw">pub async fn </span>from_registry(
         specifier: <span class="kw-2">&amp;</span>PackageSpecifier,
-        runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime,
+        runtime: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>source = runtime.source();
         <span class="kw">let </span>root_summary =

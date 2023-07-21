@@ -507,19 +507,6 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
-<a href="#513" id="513">513</a>
-<a href="#514" id="514">514</a>
-<a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
 </pre><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="attr">#[cfg(feature = <span class="string">&quot;futures&quot;</span>)]
@@ -549,8 +536,6 @@
 </span><span class="kw">pub struct </span>PipeTx {
     <span class="doccomment">/// Sends bytes down the pipe
     </span>tx: Arc&lt;Mutex&lt;mpsc::UnboundedSender&lt;Vec&lt;u8&gt;&gt;&gt;&gt;,
-    <span class="doccomment">/// Whether the pipe should block or not block to wait for stdin reads
-    </span>block: bool,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -558,8 +543,43 @@
     <span class="doccomment">/// Receives bytes from the pipe
     /// Also, buffers the last read message from the pipe while its being consumed
     </span>rx: Arc&lt;Mutex&lt;PipeReceiver&gt;&gt;,
-    <span class="doccomment">/// Whether the pipe should block or not block to wait for stdin reads
-    </span>block: bool,
+}
+
+<span class="kw">impl </span>PipeRx {
+    <span class="kw">fn </span>try_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="kw">let </span>max_size = buf.len();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>rx = <span class="self">self</span>.rx.lock().unwrap();
+        <span class="kw">loop </span>{
+            {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(read_buffer) = rx.buffer.as_mut() {
+                    <span class="kw">let </span>buf_len = read_buffer.len();
+                    <span class="kw">if </span>buf_len &gt; <span class="number">0 </span>{
+                        <span class="kw">let </span><span class="kw-2">mut </span>read = buf_len.min(max_size);
+                        <span class="kw">let </span><span class="kw-2">mut </span>inner_buf = <span class="kw-2">&amp;</span>read_buffer[..read];
+                        read = <span class="kw">match </span>Read::read(<span class="kw-2">&amp;mut </span>inner_buf, buf) {
+                            <span class="prelude-val">Ok</span>(a) =&gt; a,
+                            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+                        };
+                        read_buffer.advance(read);
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(read);
+                    }
+                }
+            }
+            <span class="kw">let </span>data = {
+                <span class="kw">match </span>rx.chan.try_recv() {
+                    <span class="prelude-val">Ok</span>(a) =&gt; a,
+                    <span class="prelude-val">Err</span>(TryRecvError::Empty) =&gt; {
+                        <span class="kw">return </span><span class="prelude-val">None</span>;
+                    }
+                    <span class="prelude-val">Err</span>(TryRecvError::Disconnected) =&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="number">0</span>);
+                    }
+                }
+            };
+            rx.buffer.replace(Bytes::from(data));
+        }
+    }
 }
 
 <span class="attr">#[derive(Debug)]
@@ -575,14 +595,12 @@
         Pipe {
             send: PipeTx {
                 tx: Arc::new(Mutex::new(tx)),
-                block: <span class="bool-val">true</span>,
             },
             recv: PipeRx {
                 rx: Arc::new(Mutex::new(PipeReceiver {
                     chan: rx,
                     buffer: <span class="prelude-val">None</span>,
                 })),
-                block: <span class="bool-val">true</span>,
             },
         }
     }
@@ -603,6 +621,10 @@
     <span class="kw">pub fn </span>combine(tx: PipeTx, rx: PipeRx) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ send: tx, recv: rx }
     }
+
+    <span class="kw">pub fn </span>try_read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+        <span class="self">self</span>.recv.try_read(buf)
+    }
 }
 
 <span class="kw">impl </span>From&lt;Pipe&gt; <span class="kw">for </span>PipeTx {
@@ -618,18 +640,6 @@
 }
 
 <span class="kw">impl </span>Pipe {
-    <span class="doccomment">/// Same as `set_blocking`, but as a builder method
-    </span><span class="kw">pub fn </span>with_blocking(<span class="kw-2">mut </span><span class="self">self</span>, block: bool) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_blocking(block);
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
-    </span><span class="kw">pub fn </span>set_blocking(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: bool) {
-        <span class="self">self</span>.send.block = block;
-        <span class="self">self</span>.recv.block = block;
-    }
-
     <span class="kw">pub fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="self">self</span>.send.close();
     }
@@ -689,22 +699,11 @@
                 }
             }
             <span class="kw">let </span>data = {
-                <span class="kw">match </span><span class="self">self</span>.block {
-                    <span class="bool-val">true </span>=&gt; <span class="kw">match </span>rx.chan.blocking_recv() {
-                        <span class="prelude-val">Some</span>(a) =&gt; a,
-                        <span class="prelude-val">None </span>=&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
-                        }
-                    },
-                    <span class="bool-val">false </span>=&gt; <span class="kw">match </span>rx.chan.try_recv() {
-                        <span class="prelude-val">Ok</span>(a) =&gt; a,
-                        <span class="prelude-val">Err</span>(TryRecvError::Empty) =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(Into::&lt;io::Error&gt;::into(io::ErrorKind::WouldBlock));
-                        }
-                        <span class="prelude-val">Err</span>(TryRecvError::Disconnected) =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
-                        }
-                    },
+                <span class="kw">match </span>rx.chan.blocking_recv() {
+                    <span class="prelude-val">Some</span>(a) =&gt; a,
+                    <span class="prelude-val">None </span>=&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
+                    }
                 }
             };
             rx.buffer.replace(Bytes::from(data));
@@ -869,14 +868,7 @@
             <span class="kw">let </span>data = <span class="kw">match </span>rx.chan.poll_recv(cx) {
                 Poll::Ready(<span class="prelude-val">Some</span>(a)) =&gt; a,
                 Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(())),
-                Poll::Pending =&gt; {
-                    <span class="kw">return match </span><span class="self">self</span>.block {
-                        <span class="bool-val">true </span>=&gt; Poll::Pending,
-                        <span class="bool-val">false </span>=&gt; {
-                            Poll::Ready(<span class="prelude-val">Err</span>(Into::&lt;io::Error&gt;::into(io::ErrorKind::WouldBlock)))
-                        }
-                    }
-                }
+                Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             };
 
             rx.buffer.replace(Bytes::from(data));
@@ -943,14 +935,7 @@
             <span class="kw">let </span>data = <span class="kw">match </span>pinned_rx.poll_recv(cx) {
                 Poll::Ready(<span class="prelude-val">Some</span>(a)) =&gt; a,
                 Poll::Ready(<span class="prelude-val">None</span>) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-                Poll::Pending =&gt; {
-                    <span class="kw">return match </span><span class="self">self</span>.recv.block {
-                        <span class="bool-val">true </span>=&gt; Poll::Pending,
-                        <span class="bool-val">false </span>=&gt; {
-                            Poll::Ready(<span class="prelude-val">Err</span>(Into::&lt;io::Error&gt;::into(io::ErrorKind::WouldBlock)))
-                        }
-                    }
-                }
+                Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             };
 
             rx.buffer.replace(Bytes::from(data));
@@ -1025,17 +1010,6 @@
             front: end1,
             back: end2,
         }
-    }
-
-    <span class="kw">pub fn </span>with_blocking(<span class="kw-2">mut </span><span class="self">self</span>, block: bool) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_blocking(block);
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Whether to block on reads (ususally for waiting for stdin keyboard input). Default: `true`
-    </span><span class="kw">pub fn </span>set_blocking(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: bool) {
-        <span class="self">self</span>.front.set_blocking(block);
-        <span class="self">self</span>.back.set_blocking(block);
     }
 }
 

@@ -283,6 +283,7 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -306,6 +307,7 @@
         wcgi::handler::{Handler, SharedState},
         MappedDirectory,
     },
+    runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder,
 };
 
@@ -338,7 +340,7 @@
             .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
 
-        <span class="kw">let </span>module = <span class="kw">crate</span>::runners::compile_module(cmd.atom(), <span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = runtime.load_module_sync(cmd.atom())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>Wcgi { dialect, .. } = metadata.annotation(<span class="string">&quot;wcgi&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
         <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
@@ -351,7 +353,7 @@
         <span class="kw">let </span>wasi_common = <span class="self">self</span>.config.wasi.clone();
         <span class="kw">let </span>rt = Arc::clone(<span class="kw-2">&amp;</span>runtime);
         <span class="kw">let </span>setup_builder = <span class="kw">move </span>|builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>wasi)<span class="question-mark">?</span>;
+            wasi_common.prepare_webc_env(builder, Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
             builder.set_runtime(Arc::clone(<span class="kw-2">&amp;</span>rt));
 
             <span class="prelude-val">Ok</span>(())
@@ -411,7 +413,7 @@
 
         runtime
             .task_manager()
-            .block_on(<span class="kw">async </span>{
+            .spawn_and_block_on(<span class="kw">async move </span>{
                 <span class="kw">let </span>(shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::&lt;()&gt;());
 

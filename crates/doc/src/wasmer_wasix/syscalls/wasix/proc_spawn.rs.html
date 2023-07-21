@@ -490,7 +490,7 @@
         <span class="kw">match </span>bin_factory.try_built_in(name.clone(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ctx), <span class="kw-2">&amp;mut </span>new_store, <span class="kw-2">&amp;mut </span>builder) {
             <span class="prelude-val">Ok</span>(a) =&gt; a,
             <span class="prelude-val">Err</span>(err) =&gt; {
-                <span class="kw">if </span>err != SpawnError::NotFound {
+                <span class="kw">if </span>!err.is_not_found() {
                     <span class="macro">error!</span>(<span class="string">&quot;builtin failed - {}&quot;</span>, err);
                 }
                 <span class="comment">// Now we actually spawn the process
@@ -501,7 +501,7 @@
                     </span>.map_err(|err| Errno::Unknown)
                 {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(a)) =&gt; a,
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(conv_spawn_err_to_errno(err))),
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(conv_spawn_err_to_errno(<span class="kw-2">&amp;</span>err))),
                     <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
                 }
             }

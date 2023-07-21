@@ -1304,8 +1304,8 @@
         };
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_create_new_file() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_create_new_file() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert!</span>(
@@ -1383,8 +1383,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_truncate_a_read_only_file() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_truncate_a_read_only_file() {
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert!</span>(

@@ -162,6 +162,17 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -234,8 +245,18 @@
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
-</span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
 </span><span class="kw">pub fn </span>futex_wait&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
+    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    futex_ptr: WasmPtr&lt;u32, M&gt;,
+    expected: u32,
+    timeout: WasmPtr&lt;OptionTimestamp, M&gt;,
+    ret_woken: WasmPtr&lt;Bool, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    futex_wait_internal(ctx, futex_ptr, expected, timeout, ret_woken)
+}
+
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>futex_wait_internal&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     futex_ptr: WasmPtr&lt;u32, M&gt;,
     expected: u32,
@@ -312,7 +333,8 @@
     </span><span class="macro">wasi_try_mem_ok!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, Bool::False));
 
     <span class="comment">// We use asyncify on the poller and potentially go into deep sleep
-    </span><span class="kw">let </span>res =
+    </span><span class="macro">tracing::trace!</span>(<span class="string">&quot;wait on {futex_idx}&quot;</span>);
+    <span class="kw">let </span>res =
         __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, Duration::from_millis(<span class="number">50</span>), Box::pin(poller))<span class="question-mark">?</span>;
     <span class="kw">if let </span>AsyncifyAction::Finish(ctx, res) = res {
         <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();

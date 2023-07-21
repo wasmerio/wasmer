@@ -121,6 +121,7 @@
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -210,7 +211,8 @@
                 | Kind::Root { .. }
                 | Kind::Socket { .. }
                 | Kind::Pipe { .. }
-                | Kind::EventNotifications { .. } =&gt; {
+                | Kind::EventNotifications { .. }
+                | Kind::Epoll { .. } =&gt; {
                     <span class="comment">// TODO: check this
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                 }

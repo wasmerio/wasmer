@@ -369,6 +369,10 @@
 <a href="#368" id="368">368</a>
 <a href="#369" id="369">369</a>
 <a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::wasi::bindings::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>Rights {
@@ -465,6 +469,7 @@
             Clockid::Monotonic =&gt; <span class="self">Self</span>::Monotonic,
             Clockid::ProcessCputimeId =&gt; <span class="self">Self</span>::ProcessCputimeId,
             Clockid::ThreadCputimeId =&gt; <span class="self">Self</span>::ThreadCputimeId,
+            Clockid::Unknown =&gt; <span class="self">Self</span>::Unknown,
         }
     }
 }
@@ -476,6 +481,7 @@
             Snapshot0Clockid::Monotonic =&gt; <span class="self">Self</span>::Monotonic,
             Snapshot0Clockid::ProcessCputimeId =&gt; <span class="self">Self</span>::ProcessCputimeId,
             Snapshot0Clockid::ThreadCputimeId =&gt; <span class="self">Self</span>::ThreadCputimeId,
+            Snapshot0Clockid::Unknown =&gt; <span class="self">Self</span>::Unknown,
         }
     }
 }
@@ -619,6 +625,7 @@
             Preopentype::Dir =&gt; <span class="prelude-val">Some</span>(PrestatEnum::Dir {
                 pr_name_len: <span class="self">self</span>.u.dir.pr_name_len,
             }),
+            Preopentype::Unknown =&gt; <span class="prelude-val">None</span>,
         }
     }
 }
@@ -652,6 +659,7 @@
                     .zero_padding_bytes(<span class="kw-2">&amp;mut </span>bytes[<span class="macro">field!</span>(u.dir)..<span class="macro">field_end!</span>(u.dir)]);
                 <span class="macro">zero!</span>(<span class="macro">field_end!</span>(u.dir), <span class="macro">field_end!</span>(u));
             }
+            Preopentype::Unknown =&gt; {}
         }
         <span class="macro">zero!</span>(<span class="macro">field_end!</span>(u), core::mem::size_of_val(<span class="self">self</span>));
     }

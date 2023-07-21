@@ -2190,9 +2190,9 @@
     }
     */
 
-    </span><span class="attr">#[test]
+    </span><span class="attr">#[tokio::test]
     #[ignore = <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]
-    </span><span class="kw">fn </span>mount_to_overlapping_directories() {
+    </span><span class="kw">async fn </span>mount_to_overlapping_directories() {
         <span class="kw">let </span>top_level = mem_fs::FileSystem::default();
         ops::touch(<span class="kw-2">&amp;</span>top_level, <span class="string">&quot;/file.txt&quot;</span>).unwrap();
         <span class="kw">let </span>nested = mem_fs::FileSystem::default();

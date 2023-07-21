@@ -378,6 +378,11 @@
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -386,7 +391,7 @@
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>futures::future::BoxFuture;
-<span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder};
+<span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
 <span class="kw">use crate</span>::{
@@ -410,8 +415,10 @@
         builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder,
         container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
+        root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, builder)<span class="question-mark">?</span>;
+        <span class="kw">let </span>root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+        <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, builder)<span class="question-mark">?</span>;
 
         builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
 
@@ -420,7 +427,7 @@
             </span>builder.add_map_dir(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;
         }
 
-        builder.set_fs(fs);
+        builder.set_fs(Box::new(fs));
 
         <span class="kw">for </span>pkg <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.injected_packages {
             builder.add_webc(pkg.clone());
@@ -465,13 +472,15 @@
     }
 }
 
+<span class="kw">type </span>ContainerFs =
+    OverlayFileSystem&lt;TmpFileSystem, [RelativeOrAbsolutePathHack&lt;Arc&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;; <span class="number">1</span>]&gt;;
+
 <span class="kw">fn </span>prepare_filesystem(
+    root_fs: TmpFileSystem,
     mapped_dirs: <span class="kw-2">&amp;</span>[MappedDirectory],
     container_fs: Arc&lt;<span class="kw">dyn </span>FileSystem&gt;,
     builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Error&gt; {
-    <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-
+) -&gt; <span class="prelude-ty">Result</span>&lt;ContainerFs, Error&gt; {
     <span class="kw">if </span>!mapped_dirs.is_empty() {
         <span class="kw">let </span>host_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; = Arc::new(<span class="kw">crate</span>::default_fs_backing());
 
@@ -545,7 +554,7 @@
     </span><span class="kw">let </span>container_fs = RelativeOrAbsolutePathHack(container_fs);
     <span class="kw">let </span>fs = OverlayFileSystem::new(root_fs, [container_fs]);
 
-    <span class="prelude-val">Ok</span>(Box::new(fs))
+    <span class="prelude-val">Ok</span>(fs)
 }
 
 <span class="doccomment">/// HACK: We need this so users can mount host directories at relative paths.
@@ -670,8 +679,8 @@
     <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
 
     <span class="doccomment">/// Fixes &lt;https://github.com/wasmerio/wasmer/issues/3789&gt;
-    </span><span class="attr">#[test]
-    </span><span class="kw">fn </span>mix_args_from_the_webc_and_user() {
+    </span><span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>mix_args_from_the_webc_and_user() {
         <span class="kw">let </span>args = CommonWasiOptions {
             args: <span class="macro">vec!</span>[<span class="string">&quot;extra&quot;</span>.to_string(), <span class="string">&quot;args&quot;</span>.to_string()],
             ..Default::default()
@@ -685,7 +694,7 @@
             <span class="string">&quot;args&quot;</span>.to_string(),
         ]);
 
-        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, fs, <span class="kw-2">&amp;</span>annotations)
+        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, fs, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
             .unwrap();
 
         <span class="macro">assert_eq!</span>(
@@ -704,8 +713,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>mix_env_vars_from_the_webc_and_user() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>mix_env_vars_from_the_webc_and_user() {
         <span class="kw">let </span>args = CommonWasiOptions {
             env: <span class="macro">vec!</span>[(<span class="string">&quot;EXTRA&quot;</span>.to_string(), <span class="string">&quot;envs&quot;</span>.to_string())]
                 .into_iter()
@@ -717,7 +726,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">&quot;python&quot;</span>);
         annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">&quot;HARD_CODED=env-vars&quot;</span>.to_string()]);
 
-        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, fs, <span class="kw-2">&amp;</span>annotations)
+        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, fs, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
             .unwrap();
 
         <span class="macro">assert_eq!</span>(
@@ -729,8 +738,8 @@
         );
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>python_use_case() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>python_use_case() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">&quot;path&quot;</span>).join(<span class="string">&quot;to&quot;</span>);
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>sub_dir).unwrap();
@@ -743,7 +752,8 @@
         <span class="kw">let </span>webc_fs = WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
         <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">&quot;&quot;</span>);
 
-        <span class="kw">let </span>fs = prepare_filesystem(<span class="kw-2">&amp;</span>mapping, Arc::new(webc_fs), <span class="kw-2">&amp;mut </span>builder).unwrap();
+        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+        <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span>mapping, Arc::new(webc_fs), <span class="kw-2">&amp;mut </span>builder).unwrap();
 
         <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;/home/file.txt&quot;</span>.as_ref()).unwrap().is_file());
         <span class="macro">assert!</span>(fs.metadata(<span class="string">&quot;lib&quot;</span>.as_ref()).unwrap().is_dir());

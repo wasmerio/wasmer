@@ -242,12 +242,84 @@
 <a href="#241" id="241">241</a>
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
 <span class="kw">pub mod </span>task_manager;
 
 <span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnMemoryType, VirtualTaskManager};
+<span class="kw">use </span><span class="self">self</span>::{
+    module_cache::{CacheError, ModuleHash},
+    task_manager::InlineWaker,
+};
 
 <span class="kw">use </span>std::{
     fmt,
@@ -255,10 +327,12 @@
 };
 
 <span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
+<span class="kw">use </span>wasmer::Module;
 
 <span class="kw">use crate</span>::{
-    http::DynHttpClient,
+    http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
         module_cache::{ModuleCache, ThreadLocalCache},
@@ -302,19 +376,15 @@
     </span><span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;;
 
     <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.
-    </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
-        <span class="prelude-val">None
-    </span>}
+    </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
+        wasmer::Engine::default()
+    }
 
     <span class="doccomment">/// Create a new [`wasmer::Store`].
     </span><span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {
         <span class="macro">cfg_if::cfg_if! </span>{
             <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)] </span>{
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(engine) = <span class="self">self</span>.engine() {
-                    wasmer::Store::new(engine)
-                } <span class="kw">else </span>{
-                    wasmer::Store::default()
-                }
+                wasmer::Store::new(<span class="self">self</span>.engine())
             } <span class="kw">else </span>{
                 wasmer::Store::default()
             }
@@ -330,6 +400,60 @@
     </span><span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>TtyBridge + Send + Sync)&gt; {
         <span class="prelude-val">None
     </span>}
+
+    <span class="doccomment">/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+    </span><span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt;&gt; {
+        <span class="kw">let </span>engine = <span class="self">self</span>.engine();
+        <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
+
+        <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm).<span class="kw">await </span>};
+
+        Box::pin(task)
+    }
+
+    <span class="doccomment">/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+    ///
+    /// Non-async version of [`Self::load_module`].
+    </span><span class="kw">fn </span>load_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
+        InlineWaker::block_on(<span class="self">self</span>.load_module(wasm))
+    }
+}
+
+<span class="doccomment">/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+///
+</span><span class="comment">// This function exists to provide a reusable baseline implementation for
+// implementing [`Runtime::load_module`], so custom logic can be added on top.
+</span><span class="kw">pub async fn </span>load_module(
+    engine: <span class="kw-2">&amp;</span>wasmer::Engine,
+    module_cache: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>ModuleCache + Send + Sync),
+    wasm: <span class="kw-2">&amp;</span>[u8],
+) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
+    <span class="kw">let </span>hash = ModuleHash::sha256(wasm);
+    <span class="kw">let </span>result = module_cache.load(hash, engine).<span class="kw">await</span>;
+
+    <span class="kw">match </span>result {
+        <span class="prelude-val">Ok</span>(module) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(module),
+        <span class="prelude-val">Err</span>(CacheError::NotFound) =&gt; {}
+        <span class="prelude-val">Err</span>(other) =&gt; {
+            <span class="macro">tracing::warn!</span>(
+                %hash,
+                error=<span class="kw-2">&amp;</span>other <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                <span class="string">&quot;Unable to load the cached module&quot;</span>,
+            );
+        }
+    }
+
+    <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, wasm)<span class="question-mark">?</span>;
+
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = module_cache.save(hash, engine, <span class="kw-2">&amp;</span>module).<span class="kw">await </span>{
+        <span class="macro">tracing::warn!</span>(
+            %hash,
+            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+            <span class="string">&quot;Unable to cache the compiled module&quot;</span>,
+        );
+    }
+
+    <span class="prelude-val">Ok</span>(module)
 }
 
 <span class="attr">#[derive(Debug, Default)]
@@ -443,6 +567,14 @@
         <span class="self">self</span>.package_loader = Arc::new(package_loader);
         <span class="self">self
     </span>}
+
+    <span class="kw">pub fn </span>set_http_client(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        client: <span class="kw">impl </span>HttpClient + Send + Sync + <span class="lifetime">&#39;static</span>,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.http_client = <span class="prelude-val">Some</span>(Arc::new(client));
+        <span class="self">self
+    </span>}
 }
 
 <span class="kw">impl </span>Runtime <span class="kw">for </span>PluggableRuntime {
@@ -462,8 +594,12 @@
         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.source)
     }
 
-    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
-        <span class="self">self</span>.engine.clone()
+    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(engine) = <span class="self">self</span>.engine.clone() {
+            engine
+        } <span class="kw">else </span>{
+            wasmer::Engine::default()
+        }
     }
 
     <span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {

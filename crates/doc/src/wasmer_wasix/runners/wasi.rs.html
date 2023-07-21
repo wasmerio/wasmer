@@ -199,11 +199,23 @@
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
 </pre><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>virtual_fs::TmpFileSystem;
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
 <span class="kw">use crate</span>::{
@@ -334,17 +346,27 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.wasi.capabilities
     }
 
-    <span class="kw">fn </span>prepare_webc_env(
+    <span class="kw">pub fn </span>with_capabilities(<span class="kw-2">mut </span><span class="self">self</span>, capabilities: Capabilities) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.set_capabilities(capabilities);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) {
+        <span class="self">self</span>.wasi.capabilities = capabilities;
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+        root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name);
         <span class="kw">let </span>container_fs = Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs);
         <span class="self">self</span>.wasi
-            .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container_fs, wasi)<span class="question-mark">?</span>;
+            .prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, container_fs, wasi, root_fs)<span class="question-mark">?</span>;
 
         builder.add_webc(pkg.clone());
         builder.set_runtime(runtime);
@@ -375,10 +397,10 @@
             .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
 
-        <span class="kw">let </span>module = <span class="kw">crate</span>::runners::compile_module(cmd.atom(), <span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = runtime.load_module_sync(cmd.atom())<span class="question-mark">?</span>;
         <span class="kw">let </span>store = runtime.new_store();
 
-        <span class="self">self</span>.prepare_webc_env(command_name, <span class="kw-2">&amp;</span>wasi, pkg, runtime)
+        <span class="self">self</span>.prepare_webc_env(command_name, <span class="kw-2">&amp;</span>wasi, pkg, runtime, <span class="prelude-val">None</span>)
             .context(<span class="string">&quot;Unable to prepare the WASI environment&quot;</span>)<span class="question-mark">?
             </span>.run_with_store_async(module, store)<span class="question-mark">?</span>;
 

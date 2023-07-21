@@ -164,10 +164,6 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
-<a href="#166" id="166">166</a>
-<a href="#167" id="167">167</a>
-<a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>http::{HeaderMap, HeaderValue};
@@ -177,6 +173,7 @@
     bindings::wasix_http_client_v1 <span class="kw">as </span>sys,
     capabilities::Capabilities,
     http::{DynHttpClient, HttpClientCapabilityV1},
+    runtime::task_manager::InlineWaker,
     Runtime, WasiEnv,
 };
 
@@ -304,12 +301,7 @@
             },
         };
         <span class="kw">let </span>f = self_.client.request(req);
-
-        <span class="kw">let </span>res = <span class="self">self
-            </span>.runtime
-            .task_manager()
-            .block_on(f)
-            .map_err(|e| e.to_string())<span class="question-mark">?</span>;
+        <span class="kw">let </span>res = InlineWaker::block_on(f).map_err(|e| e.to_string())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>res_headers = res
             .headers

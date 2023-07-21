@@ -1277,6 +1277,51 @@
 <a href="#1276" id="1276">1276</a>
 <a href="#1277" id="1277">1277</a>
 <a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     mem::MaybeUninit,
@@ -1289,14 +1334,16 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
+<span class="kw">use </span>virtual_io::{
+    FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType,
+    StatefulHandlerState,
+};
 <span class="kw">use </span>virtual_net::{
-    VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket,
-    VirtualUdpSocket,
+    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket,
 };
 <span class="kw">use </span>wasmer_types::MemorySize;
-<span class="kw">use </span>wasmer_wasix_types::wasi::{
-    Addressfamily, Errno, Fdflags, Rights, SockProto, Sockoption, Socktype,
-};
+<span class="kw">use </span>wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
 
 <span class="kw">use crate</span>::{net::net_error_into_wasi_err, VirtualTaskManager};
 
@@ -1434,6 +1481,8 @@
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>InodeSocketProtected {
     <span class="kw">pub </span>kind: InodeSocketKind,
     <span class="kw">pub </span>notifications: InodeSocketNotifications,
+    <span class="kw">pub </span>aggregate_handler: <span class="prelude-ty">Option</span>&lt;FilteredHandlerSubscriptions&gt;,
+    <span class="kw">pub </span>handler_state: StatefulHandlerState,
 }
 
 <span class="attr">#[derive(Debug, Default)]
@@ -1457,11 +1506,17 @@
 
 <span class="kw">impl </span>InodeSocket {
     <span class="kw">pub fn </span>new(kind: InodeSocketKind) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>handler_state: StatefulHandlerState = Default::default();
+        <span class="kw">if let </span>InodeSocketKind::TcpStream { .. } = <span class="kw-2">&amp;</span>kind {
+            handler_state.set(InterestType::Writable);
+        }
         <span class="self">Self </span>{
             inner: Arc::new(InodeSocketInner {
                 protected: RwLock::new(InodeSocketProtected {
                     kind,
                     notifications: Default::default(),
+                    aggregate_handler: <span class="prelude-val">None</span>,
+                    handler_state,
                 }),
             }),
         }
@@ -1493,11 +1548,17 @@
                     <span class="kw">match </span><span class="kw-2">*</span>family {
                         Addressfamily::Inet4 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv4() {
+                                <span class="macro">tracing::debug!</span>(
+                                    <span class="string">&quot;IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family&quot;
+                                </span>);
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                             }
                         }
                         Addressfamily::Inet6 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv6() {
+                                <span class="macro">tracing::debug!</span>(
+                                    <span class="string">&quot;IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family&quot;
+                                </span>);
                                 <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                             }
                         }
@@ -1601,48 +1662,68 @@
     <span class="kw">pub async fn </span>accept(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
-        fd_flags: Fdflags,
+        nonblocking: bool,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr), Errno&gt; {
-        <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        <span class="kw">let </span>timeout = <span class="self">self
-            </span>.opt_time(TimeType::AcceptTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
         <span class="kw">struct </span>SocketAccepter&lt;<span class="lifetime">&#39;a</span>&gt; {
             sock: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocket,
             nonblocking: bool,
+            handler_registered: bool,
+        }
+        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Drop <span class="kw">for </span>SocketAccepter&lt;<span class="lifetime">&#39;a</span>&gt; {
+            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+                <span class="kw">if </span><span class="self">self</span>.handler_registered {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.sock.inner.protected.write().unwrap();
+                    inner.remove_handler();
+                }
+            }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>SocketAccepter&lt;<span class="lifetime">&#39;a</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr), Errno&gt;;
             <span class="kw">fn </span>poll(
-                <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+                <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
                 cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
             ) -&gt; std::task::Poll&lt;<span class="self">Self</span>::Output&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.sock.inner.protected.write().unwrap();
-                <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                    InodeSocketKind::TcpListener { socket, .. } =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>socket.try_accept() {
-                                <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((child, addr))) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>((child, addr))),
-                                <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                                <span class="prelude-val">None </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again)),
+                <span class="kw">loop </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.sock.inner.protected.write().unwrap();
+                    <span class="kw">return match </span><span class="kw-2">&amp;mut </span>inner.kind {
+                        InodeSocketKind::TcpListener { socket, .. } =&gt; <span class="kw">match </span>socket.try_accept() {
+                            <span class="prelude-val">Ok</span>((child, addr)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>((child, addr))),
+                            <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+                                Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
                             }
-                        } <span class="kw">else </span>{
-                            socket.poll_accept(cx).map_err(net_error_into_wasi_err)
-                        }
-                    }
-                    InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
-                    <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                            <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+                                <span class="kw">let </span>res = socket.set_handler(cx.waker().into());
+                                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = res {
+                                    <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err)));
+                                }
+                                drop(inner);
+                                <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+                                <span class="kw">continue</span>;
+                            }
+                            <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+                            <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+                        },
+                        InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
+                        <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                    };
                 }
             }
         }
 
-        <span class="macro">tokio::select! </span>{
-            res = SocketAccepter { sock: <span class="self">self</span>, nonblocking } =&gt; res,
-            <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-        }
+        <span class="kw">let </span>acceptor = SocketAccepter {
+            sock: <span class="self">self</span>,
+            nonblocking,
+            handler_registered: <span class="bool-val">false</span>,
+        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            <span class="macro">tokio::select! </span>{
+                res = acceptor =&gt; res,
+                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+            }
+        } <span class="kw">else </span>{
+            acceptor.<span class="kw">await
+        </span>}
     }
 
     <span class="kw">pub fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
@@ -1658,40 +1739,6 @@
             InodeSocketKind::PreSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
         };
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">pub async fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>, tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
-        <span class="kw">let </span>timeout = <span class="self">self
-            </span>.opt_time(TimeType::WriteTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
-        <span class="attr">#[derive(Debug)]
-        </span><span class="kw">struct </span>SocketFlusher&lt;<span class="lifetime">&#39;a</span>&gt; {
-            inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
-        }
-        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Future <span class="kw">for </span>SocketFlusher&lt;<span class="lifetime">&#39;a</span>&gt; {
-            <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;;
-            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-                <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                    InodeSocketKind::TcpListener { .. } =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
-                    InodeSocketKind::TcpStream { socket, .. } =&gt; {
-                        socket.poll_flush(cx).map_err(net_error_into_wasi_err)
-                    }
-                    InodeSocketKind::Icmp(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
-                    InodeSocketKind::UdpSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
-                    InodeSocketKind::Raw(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
-                    InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
-                }
-            }
-        }
-
-        <span class="macro">tokio::select! </span>{
-            res = SocketFlusher { inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner } =&gt; res,
-            <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-        }
     }
 
     <span class="kw">pub async fn </span>connect(
@@ -2177,75 +2224,81 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
         buf: <span class="kw-2">&amp;</span>[u8],
-        fd_flags: Fdflags,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+        nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
-        <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        <span class="kw">let </span>timeout = <span class="self">self
-            </span>.opt_time(TimeType::WriteTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
-        <span class="attr">#[derive(Debug)]
-        </span><span class="kw">struct </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">struct </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
             data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8],
             nonblocking: bool,
+            handler_registered: bool,
+        }
+        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+                <span class="kw">if </span><span class="self">self</span>.handler_registered {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    inner.remove_handler();
+                }
+            }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;;
-            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-                <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                    InodeSocketKind::Raw(sock) =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>sock.try_send(<span class="self">self</span>.data) {
-                                <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            sock.poll_send(cx, <span class="self">self</span>.data)
-                                .map_err(net_error_into_wasi_err)
-                        }
-                    }
-                    InodeSocketKind::TcpStream { socket, .. } =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>socket.try_send(<span class="self">self</span>.data) {
-                                <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            socket
-                                .poll_send(cx, <span class="self">self</span>.data)
-                                .map_err(net_error_into_wasi_err)
-                        }
-                    }
-                    InodeSocketKind::UdpSocket { socket, peer } =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
-                            <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                                <span class="kw">match </span>socket.try_send_to(<span class="self">self</span>.data, <span class="kw-2">*</span>peer) {
-                                    <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                    <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                                }
+            <span class="kw">fn </span>poll(
+                <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                <span class="kw">loop </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
+                        InodeSocketKind::Raw(socket) =&gt; socket.try_send(<span class="self">self</span>.data),
+                        InodeSocketKind::TcpStream { socket, .. } =&gt; socket.try_send(<span class="self">self</span>.data),
+                        InodeSocketKind::UdpSocket { socket, peer } =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
+                                socket.try_send_to(<span class="self">self</span>.data, <span class="kw-2">*</span>peer)
                             } <span class="kw">else </span>{
-                                socket
-                                    .poll_send_to(cx, <span class="self">self</span>.data, <span class="kw-2">*</span>peer)
-                                    .map_err(net_error_into_wasi_err)
+                                <span class="prelude-val">Err</span>(NetworkError::NotConnected)
                             }
-                        } <span class="kw">else </span>{
-                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                    }
-                    InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
-                    <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                        InodeSocketKind::PreSocket { .. } =&gt; {
+                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
+                        }
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                    };
+                    <span class="kw">return match </span>res {
+                        <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+                            <span class="kw">let </span>res = inner.set_handler(cx.waker().into());
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = res {
+                                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err)));
+                            }
+                            drop(inner);
+                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+                            <span class="kw">continue</span>;
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+                    };
                 }
             }
         }
 
-        <span class="macro">tokio::select! </span>{
-            res = SocketSender { inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner, data: buf, nonblocking } =&gt; res,
-            <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-        }
+        <span class="kw">let </span>poller = SocketSender {
+            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
+            data: buf,
+            nonblocking,
+            handler_registered: <span class="bool-val">false</span>,
+        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            <span class="macro">tokio::select! </span>{
+                res = poller =&gt; res,
+                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+            }
+        } <span class="kw">else </span>{
+            poller.<span class="kw">await
+        </span>}
     }
 
     <span class="kw">pub async fn </span>send_to&lt;M: MemorySize&gt;(
@@ -2253,80 +2306,100 @@
         tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
         buf: <span class="kw-2">&amp;</span>[u8],
         addr: SocketAddr,
-        fd_flags: Fdflags,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+        nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
-        <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        <span class="kw">let </span>timeout = <span class="self">self
-            </span>.opt_time(TimeType::WriteTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
-        <span class="attr">#[derive(Debug)]
-        </span><span class="kw">struct </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">struct </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
             data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>[u8],
             addr: SocketAddr,
             nonblocking: bool,
+            handler_registered: bool,
+        }
+        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+                <span class="kw">if </span><span class="self">self</span>.handler_registered {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    inner.remove_handler();
+                }
+            }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketSender&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;;
-            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-                <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                    InodeSocketKind::Icmp(sock) =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>sock.try_send_to(<span class="self">self</span>.data, <span class="self">self</span>.addr) {
-                                <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            sock.poll_send_to(cx, <span class="self">self</span>.data, <span class="self">self</span>.addr)
-                                .map_err(net_error_into_wasi_err)
+            <span class="kw">fn </span>poll(
+                <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+            ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                <span class="kw">loop </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
+                        InodeSocketKind::Icmp(socket) =&gt; socket.try_send_to(<span class="self">self</span>.data, <span class="self">self</span>.addr),
+                        InodeSocketKind::UdpSocket { socket, .. } =&gt; {
+                            socket.try_send_to(<span class="self">self</span>.data, <span class="self">self</span>.addr)
                         }
-                    }
-                    InodeSocketKind::UdpSocket { socket, .. } =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>socket.try_send_to(<span class="self">self</span>.data, <span class="self">self</span>.addr) {
-                                <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            socket
-                                .poll_send_to(cx, <span class="self">self</span>.data, <span class="self">self</span>.addr)
-                                .map_err(net_error_into_wasi_err)
+                        InodeSocketKind::PreSocket { .. } =&gt; {
+                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                    }
-                    InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
-                    <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                    };
+                    <span class="kw">return match </span>res {
+                        <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+                            <span class="kw">let </span>res = inner.set_handler(cx.waker().into());
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = res {
+                                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err)));
+                            }
+                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+                            drop(inner);
+                            <span class="kw">continue</span>;
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+                    };
                 }
             }
         }
 
-        <span class="macro">tokio::select! </span>{
-            res = SocketSender { inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner, data: buf, addr, nonblocking } =&gt; res,
-            <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-        }
+        <span class="kw">let </span>poller = SocketSender {
+            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
+            data: buf,
+            addr,
+            nonblocking,
+            handler_registered: <span class="bool-val">false</span>,
+        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            <span class="macro">tokio::select! </span>{
+                res = poller =&gt; res,
+                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+            }
+        } <span class="kw">else </span>{
+            poller.<span class="kw">await
+        </span>}
     }
 
     <span class="kw">pub async fn </span>recv(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
         buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
-        fd_flags: Fdflags,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+        nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
-        <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        <span class="kw">let </span>timeout = <span class="self">self
-            </span>.opt_time(TimeType::ReadTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
-        <span class="attr">#[derive(Debug)]
-        </span><span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
             data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
             nonblocking: bool,
+            handler_registered: bool,
+        }
+        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+                <span class="kw">if </span><span class="self">self</span>.handler_registered {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    inner.remove_handler();
+                }
+            }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;;
@@ -2334,89 +2407,85 @@
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
                 cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-                <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                    InodeSocketKind::Raw(sock) =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>sock.try_recv(<span class="self">self</span>.data) {
-                                <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            sock.poll_recv(cx, <span class="self">self</span>.data)
-                                .map_err(net_error_into_wasi_err)
-                        }
-                    }
-                    InodeSocketKind::TcpStream { socket, .. } =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>socket.try_recv(<span class="self">self</span>.data) {
-                                <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            socket
-                                .poll_recv(cx, <span class="self">self</span>.data)
-                                .map_err(net_error_into_wasi_err)
-                        }
-                    }
-                    InodeSocketKind::UdpSocket { socket, peer } =&gt; {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
-                            <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                                <span class="kw">loop </span>{
-                                    <span class="kw">match </span>socket
-                                        .try_recv_from(<span class="self">self</span>.data)
-                                        .map_err(net_error_into_wasi_err)
-                                    {
-                                        <span class="prelude-val">Ok</span>((<span class="kw">_</span>, addr)) <span class="kw">if </span>addr != <span class="kw-2">*</span>peer =&gt; <span class="kw">continue</span>,
-                                        <span class="prelude-val">Ok</span>((amt, <span class="kw">_</span>)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-                                        <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
-                                    }
+                <span class="kw">loop </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
+                        InodeSocketKind::Raw(socket) =&gt; socket.try_recv(<span class="self">self</span>.data),
+                        InodeSocketKind::TcpStream { socket, .. } =&gt; socket.try_recv(<span class="self">self</span>.data),
+                        InodeSocketKind::UdpSocket { socket, peer } =&gt; {
+                            <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
+                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data) {
+                                    <span class="prelude-val">Ok</span>((amt, addr)) <span class="kw">if </span>addr == <span class="kw-2">*</span>peer =&gt; <span class="prelude-val">Ok</span>(amt),
+                                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(NetworkError::WouldBlock),
+                                    <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
                                 }
                             } <span class="kw">else </span>{
-                                <span class="kw">loop </span>{
-                                    <span class="kw">match </span>socket
-                                        .poll_recv_from(cx, <span class="self">self</span>.data)
-                                        .map_err(net_error_into_wasi_err)
-                                    {
-                                        Poll::Ready(<span class="prelude-val">Ok</span>((<span class="kw">_</span>, addr))) <span class="kw">if </span>addr != <span class="kw-2">*</span>peer =&gt; <span class="kw">continue</span>,
-                                        res =&gt; <span class="kw">return </span>res.map_ok(|a| a.<span class="number">0</span>),
-                                    }
-                                }
+                                <span class="prelude-val">Err</span>(NetworkError::NotConnected)
                             }
-                        } <span class="kw">else </span>{
-                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                    }
-                    InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
-                    <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                        InodeSocketKind::PreSocket { .. } =&gt; {
+                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
+                        }
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                    };
+                    <span class="kw">return match </span>res {
+                        <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+                            <span class="kw">let </span>res = inner.set_handler(cx.waker().into());
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = res {
+                                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err)));
+                            }
+                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+                            drop(inner);
+                            <span class="kw">continue</span>;
+                        }
+
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+                    };
                 }
             }
         }
 
-        <span class="macro">tokio::select! </span>{
-            res = SocketReceiver { inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner, data: buf, nonblocking } =&gt; res,
-            <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-        }
+        <span class="kw">let </span>poller = SocketReceiver {
+            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
+            data: buf,
+            nonblocking,
+            handler_registered: <span class="bool-val">false</span>,
+        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            <span class="macro">tokio::select! </span>{
+                res = poller =&gt; res,
+                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+            }
+        } <span class="kw">else </span>{
+            poller.<span class="kw">await
+        </span>}
     }
 
     <span class="kw">pub async fn </span>recv_from(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
         buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
-        fd_flags: Fdflags,
+        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+        nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt; {
-        <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
-        <span class="kw">let </span>timeout = <span class="self">self
-            </span>.opt_time(TimeType::ReadTimeout)
-            .ok()
-            .flatten()
-            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
-        <span class="attr">#[derive(Debug)]
-        </span><span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             inner: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>InodeSocketInner,
             data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
             nonblocking: bool,
+            handler_registered: bool,
+        }
+        <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
+            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+                <span class="kw">if </span><span class="self">self</span>.handler_registered {
+                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+                    inner.remove_handler();
+                }
+            }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
             <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt;;
@@ -2425,40 +2494,51 @@
                 cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-                <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                    InodeSocketKind::Icmp(sock) =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>sock.try_recv_from(<span class="self">self</span>.data) {
-                                <span class="prelude-val">Ok</span>(res) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(res)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            sock.poll_recv_from(cx, <span class="self">self</span>.data)
-                                .map_err(net_error_into_wasi_err)
+                <span class="kw">loop </span>{
+                    <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
+                        InodeSocketKind::Icmp(socket) =&gt; socket.try_recv_from(<span class="self">self</span>.data),
+                        InodeSocketKind::UdpSocket { socket, .. } =&gt; {
+                            socket.try_recv_from(<span class="self">self</span>.data)
                         }
-                    }
-                    InodeSocketKind::UdpSocket { socket, .. } =&gt; {
-                        <span class="kw">if </span><span class="self">self</span>.nonblocking {
-                            <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data) {
-                                <span class="prelude-val">Ok</span>(res) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(res)),
-                                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-                            }
-                        } <span class="kw">else </span>{
-                            socket
-                                .poll_recv_from(cx, <span class="self">self</span>.data)
-                                .map_err(net_error_into_wasi_err)
+                        InodeSocketKind::PreSocket { .. } =&gt; {
+                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                    }
-                    InodeSocketKind::PreSocket { .. } =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn)),
-                    <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+                    };
+                    <span class="kw">return match </span>res {
+                        <span class="prelude-val">Ok</span>((amt, addr)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>((amt, addr))),
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+                            <span class="kw">let </span>res = inner.set_handler(cx.waker().into());
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = res {
+                                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err)));
+                            }
+                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+                            <span class="kw">continue</span>;
+                        }
+                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+                    };
                 }
             }
         }
 
-        <span class="macro">tokio::select! </span>{
-            res = SocketReceiver { inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner, data: buf, nonblocking } =&gt; res,
-            <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-        }
+        <span class="kw">let </span>poller = SocketReceiver {
+            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
+            data: buf,
+            nonblocking,
+            handler_registered: <span class="bool-val">false</span>,
+        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            <span class="macro">tokio::select! </span>{
+                res = poller =&gt; res,
+                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+            }
+        } <span class="kw">else </span>{
+            poller.<span class="kw">await
+        </span>}
     }
 
     <span class="kw">pub fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, how: std::net::Shutdown) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
@@ -2489,36 +2569,46 @@
 }
 
 <span class="kw">impl </span>InodeSocketProtected {
-    <span class="kw">pub fn </span>poll_read_ready(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; std::task::Poll&lt;virtual_net::Result&lt;usize&gt;&gt; {
+    <span class="kw">pub fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
-            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_accept_ready(cx),
-            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_read_ready(cx),
-            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.poll_read_ready(cx),
-            InodeSocketKind::Raw(socket) =&gt; socket.poll_read_ready(cx),
-            InodeSocketKind::Icmp(socket) =&gt; socket.poll_read_ready(cx),
-            InodeSocketKind::PreSocket { .. } =&gt; {
-                std::task::Poll::Ready(<span class="prelude-val">Err</span>(virtual_net::NetworkError::IOError))
-            }
+            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.remove_handler(),
+            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.remove_handler(),
+            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.remove_handler(),
+            InodeSocketKind::Raw(socket) =&gt; socket.remove_handler(),
+            InodeSocketKind::Icmp(socket) =&gt; socket.remove_handler(),
+            InodeSocketKind::PreSocket { .. } =&gt; {}
         }
     }
 
-    <span class="kw">pub fn </span>poll_write_ready(
+    <span class="kw">pub fn </span>set_handler(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; std::task::Poll&lt;virtual_net::Result&lt;usize&gt;&gt; {
+        handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
+    ) -&gt; virtual_net::Result&lt;()&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
-            InodeSocketKind::TcpListener { .. } =&gt; std::task::Poll::Pending,
-            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_write_ready(cx),
-            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.poll_write_ready(cx),
-            InodeSocketKind::Raw(socket) =&gt; socket.poll_write_ready(cx),
-            InodeSocketKind::Icmp(socket) =&gt; socket.poll_write_ready(cx),
-            InodeSocketKind::PreSocket { .. } =&gt; {
-                std::task::Poll::Ready(<span class="prelude-val">Err</span>(virtual_net::NetworkError::IOError))
-            }
+            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.set_handler(handler),
+            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.set_handler(handler),
+            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.set_handler(handler),
+            InodeSocketKind::Raw(socket) =&gt; socket.set_handler(handler),
+            InodeSocketKind::Icmp(socket) =&gt; socket.set_handler(handler),
+            InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(virtual_net::NetworkError::NotConnected),
         }
+    }
+
+    <span class="kw">pub fn </span>add_handler(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
+        interest: InterestType,
+    ) -&gt; virtual_net::Result&lt;()&gt; {
+        <span class="kw">if </span><span class="self">self</span>.aggregate_handler.is_none() {
+            <span class="kw">let </span>upper = FilteredHandler::new();
+            <span class="kw">let </span>subs = upper.subscriptions().clone();
+
+            <span class="self">self</span>.set_handler(upper)<span class="question-mark">?</span>;
+            <span class="self">self</span>.aggregate_handler.replace(subs);
+        }
+        <span class="kw">let </span>upper = <span class="self">self</span>.aggregate_handler.as_mut().unwrap();
+        upper.add_interest(interest, handler);
+        <span class="prelude-val">Ok</span>(())
     }
 }
 

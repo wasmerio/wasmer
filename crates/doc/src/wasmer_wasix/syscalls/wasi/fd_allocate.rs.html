@@ -98,7 +98,7 @@
                 buffer.resize(new_size <span class="kw">as </span>usize, <span class="number">0</span>);
             }
             Kind::Symlink { .. } =&gt; <span class="kw">return </span>Errno::Badf,
-            Kind::EventNotifications { .. } =&gt; <span class="kw">return </span>Errno::Badf,
+            Kind::EventNotifications { .. } | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Badf,
             Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Isdir,
         }
     }

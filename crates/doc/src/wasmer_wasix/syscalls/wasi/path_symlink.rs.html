@@ -105,6 +105,7 @@
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -173,9 +174,10 @@
                 }
             }
             Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Notcapable,
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } =&gt; {
-                <span class="kw">return </span>Errno::Inval
-            }
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Inval,
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } =&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">&quot;get_parent_inode_at_path returned something other than a Dir or Root&quot;</span>)
             }

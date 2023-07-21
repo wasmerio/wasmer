@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["NOOP_WAKER_VTABLE",""]],"fn":[["io_err_into_net_error",""],["noop",""],["noop_clone",""]],"struct":[["LocalNetworking",""],["LocalTcpListener",""],["LocalTcpStream",""],["LocalTcpStreamReadReady",""],["LocalTcpStreamWriteReady",""],["LocalUdpSocket",""],["LocalUdpSocketReadReady",""],["LocalUdpSocketWriteReady",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["io_err_into_net_error",""]],"struct":[["LocalNetworking",""],["LocalTcpListener",""],["LocalTcpStream",""],["LocalUdpSocket",""]]};

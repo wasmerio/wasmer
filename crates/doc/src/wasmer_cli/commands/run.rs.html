@@ -853,6 +853,9 @@
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -875,7 +878,6 @@
 <span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tempfile::NamedTempFile;
-<span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>wasmer::{
     DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
@@ -891,6 +893,7 @@
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
         resolver::{PackageSpecifier, QueryError},
+        task_manager::VirtualTaskManagerExt,
     },
     WasiError,
 };
@@ -958,20 +961,21 @@
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
 
+        <span class="kw">let </span>_guard = handle.enter();
         <span class="kw">let </span>(store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        <span class="kw">let </span>runtime = <span class="self">self
-            </span>.wasi
-            .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.env, handle)<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime =
+            <span class="self">self</span>.wasi
+                .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.env, handle.clone())<span class="question-mark">?</span>;
 
         <span class="comment">// This is a slow operation, so let&#39;s temporarily wrap the runtime with
         // something that displays progress
-        </span><span class="kw">let </span>monitoring_runtime = MonitoringRuntime::new(runtime, pb.clone());
+        </span><span class="kw">let </span>monitoring_runtime = Arc::new(MonitoringRuntime::new(runtime, pb.clone()));
+        <span class="kw">let </span>runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt; = monitoring_runtime.runtime.clone();
+        <span class="kw">let </span>monitoring_runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt; = monitoring_runtime;
 
         <span class="kw">let </span>target = <span class="self">self</span>.input.resolve_target(<span class="kw-2">&amp;</span>monitoring_runtime, <span class="kw-2">&amp;</span>pb)<span class="question-mark">?</span>;
 
         pb.finish_and_clear();
-
-        <span class="kw">let </span>runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt; = Arc::new(monitoring_runtime.runtime);
 
         <span class="kw">let </span>result = {
             <span class="kw">match </span>target {
@@ -1020,7 +1024,7 @@
             .get_command(id)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to get metadata for the \&quot;{id}\&quot; command&quot;</span>))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>uses = <span class="self">self</span>.load_injected_packages(<span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span>uses = <span class="self">self</span>.load_injected_packages(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
 
         <span class="kw">if </span>WcgiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_wcgi(id, pkg, uses, runtime)
@@ -1037,16 +1041,25 @@
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
-    </span><span class="kw">fn </span>load_injected_packages(<span class="kw-2">&amp;</span><span class="self">self</span>, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BinaryPackage&gt;, Error&gt; {
+    </span><span class="kw">fn </span>load_injected_packages(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BinaryPackage&gt;, Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>dependencies = Vec::new();
 
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.wasi.uses {
             <span class="kw">let </span>specifier = PackageSpecifier::parse(name)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{name}\&quot; as a package specifier&quot;</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>pkg = runtime
-                .task_manager()
-                .block_on(BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, runtime))
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>pkg = {
+                <span class="kw">let </span>specifier = specifier.clone();
+                <span class="kw">let </span>inner_runtime = runtime.clone();
+                runtime
+                    .task_manager()
+                    .spawn_and_block_on(<span class="kw">async move </span>{
+                        BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, inner_runtime.as_ref()).<span class="kw">await
+                    </span>})
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">?
+            </span>};
             dependencies.push(pkg);
         }
 
@@ -1315,7 +1328,7 @@
     /// internet.
     </span><span class="kw">fn </span>resolve_target(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime,
+        rt: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         pb: <span class="kw-2">&amp;</span>ProgressBar,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ExecutableTarget, Error&gt; {
         <span class="kw">match </span><span class="self">self </span>{
@@ -1323,9 +1336,11 @@
             PackageSource::Dir(d) =&gt; ExecutableTarget::from_dir(d, rt, pb),
             PackageSource::Package(pkg) =&gt; {
                 pb.set_message(<span class="string">&quot;Loading from the registry&quot;</span>);
-                <span class="kw">let </span>pkg = rt
-                    .task_manager()
-                    .block_on(BinaryPackage::from_registry(pkg, rt))<span class="question-mark">?</span>;
+                <span class="kw">let </span>inner_pck = pkg.clone();
+                <span class="kw">let </span>inner_rt = rt.clone();
+                <span class="kw">let </span>pkg = rt.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
+                    BinaryPackage::from_registry(<span class="kw-2">&amp;</span>inner_pck, inner_rt.as_ref()).<span class="kw">await
+                </span>})<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(ExecutableTarget::Package(pkg))
             }
         }
@@ -1399,7 +1414,11 @@
     <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
     /// file.
     </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
-    </span><span class="kw">fn </span>from_dir(dir: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime, pb: <span class="kw-2">&amp;</span>ProgressBar) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+    </span><span class="kw">fn </span>from_dir(
+        dir: <span class="kw-2">&amp;</span>Path,
+        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+        pb: <span class="kw-2">&amp;</span>ProgressBar,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         pb.set_message(<span class="macro">format!</span>(<span class="string">&quot;Loading \&quot;{}\&quot; into memory&quot;</span>, dir.display()));
 
         <span class="kw">let </span>manifest_path = dir.join(<span class="string">&quot;wasmer.toml&quot;</span>);
@@ -1407,49 +1426,31 @@
         <span class="kw">let </span>container = Container::from(webc);
 
         pb.set_message(<span class="string">&quot;Resolving dependencies&quot;</span>);
-        <span class="kw">let </span>pkg = runtime
-            .task_manager()
-            .block_on(BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, runtime))<span class="question-mark">?</span>;
+        <span class="kw">let </span>inner_runtime = runtime.clone();
+        <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
+            BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, inner_runtime.as_ref()).<span class="kw">await
+        </span>})<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(ExecutableTarget::Package(pkg))
     }
 
     <span class="doccomment">/// Try to load a file into something that can be used to run it.
     </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
-    </span><span class="kw">fn </span>from_file(path: <span class="kw-2">&amp;</span>Path, runtime: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime, pb: <span class="kw-2">&amp;</span>ProgressBar) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+    </span><span class="kw">fn </span>from_file(
+        path: <span class="kw-2">&amp;</span>Path,
+        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+        pb: <span class="kw-2">&amp;</span>ProgressBar,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         pb.set_message(<span class="macro">format!</span>(<span class="string">&quot;Loading from \&quot;{}\&quot;&quot;</span>, path.display()));
 
         <span class="kw">match </span>TargetOnDisk::from_file(path)<span class="question-mark">? </span>{
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat =&gt; {
                 <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
-                <span class="kw">let </span>engine = runtime.engine().context(<span class="string">&quot;No engine available&quot;</span>)<span class="question-mark">?</span>;
+
                 pb.set_message(<span class="string">&quot;Compiling to WebAssembly&quot;</span>);
-
-                <span class="kw">let </span>tasks = runtime.task_manager();
-                <span class="kw">let </span>module_cache = runtime.module_cache();
-                <span class="kw">let </span>module_hash = ModuleHash::sha256(<span class="kw-2">&amp;</span>wasm);
-
-                <span class="kw">let </span>module = <span class="kw">match </span>tasks.block_on(module_cache.load(module_hash, <span class="kw-2">&amp;</span>engine)) {
-                    <span class="prelude-val">Ok</span>(m) =&gt; m,
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="kw">if </span>!<span class="macro">matches!</span>(e, CacheError::NotFound) {
-                            <span class="macro">tracing::warn!</span>(
-                                module.path=%path.display(),
-                                module.hash=%module_hash,
-                                error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                                <span class="string">&quot;Unable to deserialize the pre-compiled module from the module cache&quot;</span>,
-                            );
-                        }
-
-                        <span class="kw">let </span>module = <span class="macro">tracing::debug_span!</span>(<span class="string">&quot;compiling_wasm&quot;</span>)
-                            .in_scope(|| Module::new(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>wasm))
-                            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to compile \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
-
-                        tasks.block_on(module_cache.save(module_hash, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module))<span class="question-mark">?</span>;
-
-                        module
-                    }
-                };
+                <span class="kw">let </span>module = runtime
+                    .load_module_sync(<span class="kw-2">&amp;</span>wasm)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to compile \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
@@ -1457,7 +1458,7 @@
                 })
             }
             TargetOnDisk::Artifact =&gt; {
-                <span class="kw">let </span>engine = runtime.engine().context(<span class="string">&quot;No engine available&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>engine = runtime.engine();
                 pb.set_message(<span class="string">&quot;Deserializing pre-compiled WebAssembly module&quot;</span>);
                 <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>engine, path)<span class="question-mark">? </span>};
 
@@ -1469,9 +1470,11 @@
             TargetOnDisk::LocalWebc =&gt; {
                 <span class="kw">let </span>container = Container::from_disk(path)<span class="question-mark">?</span>;
                 pb.set_message(<span class="string">&quot;Resolving dependencies&quot;</span>);
-                <span class="kw">let </span>pkg = runtime
-                    .task_manager()
-                    .block_on(BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, runtime))<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>inner_runtime = runtime.clone();
+                <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
+                    BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, inner_runtime.as_ref()).<span class="kw">await
+                </span>})<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(ExecutableTarget::Package(pkg))
             }
         }
@@ -1602,13 +1605,16 @@
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>MonitoringRuntime&lt;R&gt; {
-    runtime: R,
+    runtime: Arc&lt;R&gt;,
     progress: ProgressBar,
 }
 
 <span class="kw">impl</span>&lt;R&gt; MonitoringRuntime&lt;R&gt; {
     <span class="kw">fn </span>new(runtime: R, progress: ProgressBar) -&gt; <span class="self">Self </span>{
-        MonitoringRuntime { runtime, progress }
+        MonitoringRuntime {
+            runtime: Arc::new(runtime),
+            progress,
+        }
     }
 }
 
@@ -1645,7 +1651,7 @@
         })
     }
 
-    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt; {
+    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
         <span class="self">self</span>.runtime.engine()
     }
 

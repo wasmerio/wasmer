@@ -1280,6 +1280,14 @@
 <a href="#1279" id="1279">1279</a>
 <a href="#1280" id="1280">1280</a>
 <a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1302,7 +1310,10 @@
 <span class="kw">pub mod </span>wasix;
 
 <span class="kw">use </span>bytes::{Buf, BufMut};
-<span class="kw">use </span>futures::Future;
+<span class="kw">use </span>futures::{
+    future::{BoxFuture, LocalBoxFuture},
+    Future,
+};
 <span class="kw">use </span>tracing::instrument;
 <span class="kw">pub use </span>wasi::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>wasix::<span class="kw-2">*</span>;
@@ -1329,7 +1340,7 @@
     thread::LocalKey,
     time::Duration,
 };
-<span class="kw">use </span>std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, time::Instant};
+<span class="kw">use </span>std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, task::Waker, time::Instant};
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>bytes::{Bytes, BytesMut};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>cooked_waker::IntoWaker;
@@ -1382,7 +1393,7 @@
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::{task_manager::VirtualTaskManagerExt, SpawnMemoryType},
+    runtime::SpawnMemoryType,
     state::{
         <span class="self">self</span>, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
         WasiFutex, WasiState,
@@ -1397,6 +1408,7 @@
         MAX_SYMLINKS,
     },
     os::task::thread::RewindResult,
+    runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
 };
@@ -1500,16 +1512,19 @@
 
 </span><span class="comment">// TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
 </span><span class="attr">#[allow(clippy::await_holding_lock)]
-</span><span class="kw">pub async unsafe fn </span>stderr_write(
+</span><span class="kw">pub unsafe fn </span>stderr_write&lt;<span class="lifetime">&#39;a</span>&gt;(
     ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     buf: <span class="kw-2">&amp;</span>[u8],
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+) -&gt; LocalBoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;(), Errno&gt;&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, <span class="number">0</span>);
 
-    <span class="kw">let </span><span class="kw-2">mut </span>stderr = WasiInodes::stderr_mut(<span class="kw-2">&amp;</span>state.fs.fd_map).map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>;
-
-    stderr.write_all(buf).<span class="kw">await</span>.map_err(map_io_err)
+    <span class="kw">let </span>buf = buf.to_vec();
+    <span class="kw">let </span>fd_map = state.fs.fd_map.clone();
+    Box::pin(<span class="kw">async move </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>stderr = WasiInodes::stderr_mut(<span class="kw-2">&amp;</span>fd_map).map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>;
+        stderr.write_all(<span class="kw-2">&amp;</span>buf).<span class="kw">await</span>.map_err(map_io_err)
+    })
 }
 
 <span class="kw">fn </span>block_on_with_timeout&lt;T, Fut&gt;(
@@ -1549,7 +1564,6 @@
     </span><span class="kw">if </span>nonblocking {
         <span class="kw">let </span>waker = WasiDummyWaker.into_waker();
         <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
-        <span class="kw">let </span>_guard = tasks.runtime_enter();
         <span class="kw">let </span><span class="kw-2">mut </span>pinned_work = Box::pin(work);
         <span class="kw">if let </span>Poll::Ready(res) = pinned_work.as_mut().poll(<span class="kw-2">&amp;mut </span>cx) {
             <span class="kw">return </span>res;
@@ -1558,7 +1572,7 @@
     }
 
     <span class="comment">// Slow path, block on the work and process process
-    </span>tasks.block_on(work)
+    </span>InlineWaker::block_on(work)
 }
 
 <span class="doccomment">/// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -1598,9 +1612,6 @@
             <span class="kw">if let </span>Poll::Ready(res) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.pinned_work).poll(cx) {
                 <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
             }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = <span class="self">self</span>.ctx.data().should_exit() {
-                <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)));
-            }
             <span class="kw">if let </span><span class="prelude-val">Some</span>(signals) = <span class="self">self</span>.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = WasiEnv::process_signals_internal(<span class="self">self</span>.ctx, signals) {
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err));
@@ -1624,15 +1635,15 @@
 </span><span class="kw">pub type </span>AsyncifyFuture = <span class="kw">dyn </span>Future&lt;Output = Bytes&gt; + Send + Sync + <span class="lifetime">&#39;static</span>;
 
 <span class="comment">// This poller will process any signals when the main working function is idle
-</span><span class="kw">struct </span>AsyncifyPoller&lt;<span class="lifetime">&#39;a</span>, T, Fut&gt;
+</span><span class="kw">struct </span>AsyncifyPoller&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;c</span>, T, Fut&gt;
 <span class="kw">where
     </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
     process_signals: bool,
-    thread: WasiThread,
+    ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;c</span>, WasiEnv&gt;,
     work: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Pin&lt;Box&lt;Fut&gt;&gt;,
 }
-<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T, Fut&gt; Future <span class="kw">for </span>AsyncifyPoller&lt;<span class="lifetime">&#39;a</span>, T, Fut&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;c</span>, T, Fut&gt; Future <span class="kw">for </span>AsyncifyPoller&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>, <span class="lifetime">&#39;c</span>, T, Fut&gt;
 <span class="kw">where
     </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
@@ -1642,21 +1653,23 @@
         <span class="kw">if let </span>Poll::Ready(res) = <span class="self">self</span>.work.as_mut().poll(cx) {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
         }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(forced_exit) = <span class="self">self</span>.thread.try_join() {
+
+        <span class="kw">let </span>env = <span class="self">self</span>.ctx.data();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(forced_exit) = env.thread.try_join() {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
                 <span class="macro">tracing::debug!</span>(<span class="string">&quot;exit runtime error - {}&quot;</span>, err);
                 Errno::Child.into()
             }))));
         }
-        <span class="kw">if </span><span class="self">self</span>.process_signals &amp;&amp; <span class="self">self</span>.thread.has_signals_or_subscribe(cx.waker()) {
-            <span class="kw">let </span>signals = <span class="self">self</span>.thread.signals().lock().unwrap();
+        <span class="kw">if </span><span class="self">self</span>.process_signals &amp;&amp; env.thread.has_signals_or_subscribe(cx.waker()) {
+            <span class="kw">let </span>signals = env.thread.signals().lock().unwrap();
             <span class="kw">for </span>sig <span class="kw">in </span>signals.<span class="number">0</span>.iter() {
                 <span class="kw">if </span><span class="kw-2">*</span>sig == Signal::Sigint
                     || <span class="kw-2">*</span>sig == Signal::Sigquit
                     || <span class="kw-2">*</span>sig == Signal::Sigkill
                     || <span class="kw-2">*</span>sig == Signal::Sigabrt
                 {
-                    <span class="kw">let </span>exit_code = <span class="self">self</span>.thread.set_or_get_exit_code_for_signal(<span class="kw-2">*</span>sig);
+                    <span class="kw">let </span>exit_code = env.thread.set_or_get_exit_code_for_signal(<span class="kw-2">*</span>sig);
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)));
                 }
             }
@@ -1684,9 +1697,9 @@
 /// and instead process it on a shared task
 ///
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>__asyncify_with_deep_sleep&lt;M: MemorySize, T, Fut&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     deep_sleep_time: Duration,
-    trigger: Fut,
+    work: Fut,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;AsyncifyAction&lt;<span class="lifetime">&#39;_</span>, T&gt;, WasiError&gt;
 <span class="kw">where
     </span>T: serde::Serialize + serde::de::DeserializeOwned,
@@ -1700,7 +1713,7 @@
         .unwrap_or(<span class="bool-val">true</span>);
 
     <span class="comment">// Box up the trigger
-    </span><span class="kw">let </span><span class="kw-2">mut </span>trigger = Box::pin(trigger);
+    </span><span class="kw">let </span><span class="kw-2">mut </span>trigger = Box::pin(work);
 
     <span class="comment">// Define the work
     </span><span class="kw">let </span>tasks = ctx.data().tasks().clone();
@@ -1708,9 +1721,14 @@
         <span class="kw">let </span>env = ctx.data();
 
         <span class="comment">// Create the deep sleeper
-        </span><span class="kw">let </span>deep_sleep_wait = <span class="kw">async </span>{
-            <span class="kw">if </span>env.enable_deep_sleep {
-                env.tasks().sleep_now(deep_sleep_time).<span class="kw">await
+        </span><span class="kw">let </span>tasks_for_deep_sleep = <span class="kw">if </span>env.enable_deep_sleep {
+            <span class="prelude-val">Some</span>(env.tasks().clone())
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+        <span class="kw">let </span>deep_sleep_wait = <span class="kw">async </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(tasks) = tasks_for_deep_sleep {
+                tasks.sleep_now(deep_sleep_time).<span class="kw">await
             </span>} <span class="kw">else </span>{
                 InfiniteSleep::default().<span class="kw">await
             </span>}
@@ -1720,7 +1738,7 @@
             <span class="comment">// Inner wait with finializer
             </span>res = AsyncifyPoller {
                 process_signals,
-                thread: ctx.data().thread.clone(),
+                ctx: <span class="kw-2">&amp;mut </span>ctx,
                 work: <span class="kw-2">&amp;mut </span>trigger,
             } =&gt; {
                 <span class="kw">let </span>result = res<span class="question-mark">?</span>;
@@ -1740,8 +1758,9 @@
         })
     };
 
-    <span class="comment">// Block on the work
-    </span>tasks.block_on(work)
+    <span class="comment">// Block until the work is finished or until we
+    // unload the thread using asyncify
+    </span>InlineWaker::block_on(work)
 }
 
 <span class="doccomment">/// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -1777,17 +1796,16 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = <span class="self">self</span>.env.should_exit() {
                 <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)));
             }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(signals) = <span class="self">self</span>.env.thread.pop_signals_or_subscribe(cx.waker()) {
+            <span class="kw">if </span><span class="self">self</span>.env.thread.has_signals_or_subscribe(cx.waker()) {
                 <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Intr)));
             }
             Poll::Pending
         }
     }
 
-    <span class="comment">// Block on the work
-    </span><span class="kw">let </span><span class="kw-2">mut </span>pinned_work = Box::pin(work);
-    <span class="kw">let </span>poller = Poller { env, pinned_work };
-    block_on_with_timeout(env.tasks(), timeout, poller)
+    <span class="comment">// Block until the work is finished or until we
+    // unload the thread using asyncify
+    </span><span class="prelude-val">Ok</span>(InlineWaker::block_on(work))
 }
 
 <span class="comment">// This should be compiled away, it will simply wait forever however its never
@@ -1819,11 +1837,11 @@
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
-    <span class="kw">let </span>work = {
+    <span class="kw">let </span><span class="kw-2">mut </span>work = {
         <span class="kw">let </span>inode = fd_entry.inode.clone();
         <span class="kw">let </span>tasks = env.tasks().clone();
-        <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.read();
-        <span class="kw">match </span>guard.deref() {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
+        <span class="kw">match </span>guard.deref_mut() {
             Kind::Socket { socket } =&gt; {
                 <span class="comment">// Clone the socket and release the lock
                 </span><span class="kw">let </span>socket = socket.clone();
@@ -1838,8 +1856,9 @@
         }
     };
 
-    <span class="comment">// Block on the work and process it
-    </span>env.tasks().block_on(work)
+    <span class="comment">// Block until the work is finished or until we
+    // unload the thread using asyncify
+    </span>InlineWaker::block_on(work)
 }
 
 <span class="doccomment">/// Performs mutable work on a socket under an asynchronous runtime with
@@ -1871,10 +1890,11 @@
             drop(guard);
 
             <span class="comment">// Start the work using the socket
-            </span><span class="kw">let </span>work = actor(socket, fd_entry);
+            </span><span class="kw">let </span><span class="kw-2">mut </span>work = actor(socket, fd_entry);
 
-            <span class="comment">// Block on the work and process it
-            </span>tasks.block_on(work)
+            <span class="comment">// Otherwise we block on the work and process it
+            // using an asynchronou context
+            </span>InlineWaker::block_on(work)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsock),
     }
@@ -1903,8 +1923,8 @@
     <span class="kw">let </span>inode = fd_entry.inode.clone();
 
     <span class="kw">let </span>tasks = env.tasks().clone();
-    <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.read();
-    <span class="kw">match </span>guard.deref() {
+    <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
+    <span class="kw">match </span>guard.deref_mut() {
         Kind::Socket { socket } =&gt; {
             <span class="comment">// Clone the socket and release the lock
             </span><span class="kw">let </span>socket = socket.clone();
@@ -1991,17 +2011,13 @@
                 </span><span class="kw">let </span>work = actor(socket);
 
                 <span class="comment">// Block on the work and process it
-                </span><span class="kw">let </span>(tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(<span class="kw">async move </span>{
-                    <span class="kw">let </span>ret = work.<span class="kw">await</span>;
-                    tx.send(ret);
-                }));
-                <span class="kw">let </span>new_socket = rx.recv().unwrap()<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>res = InlineWaker::block_on(work);
+                <span class="kw">let </span>new_socket = res<span class="question-mark">?</span>;
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>new_socket) = new_socket {
                     <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
                     <span class="kw">match </span>guard.deref_mut() {
-                        Kind::Socket { socket } =&gt; {
+                        Kind::Socket { socket, .. } =&gt; {
                             std::mem::swap(socket, <span class="kw-2">&amp;mut </span>new_socket);
                         }
                         <span class="kw">_ </span>=&gt; {
@@ -2549,7 +2565,7 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_errno(err: SpawnError) -&gt; Errno {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_errno(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; Errno {
     <span class="kw">match </span>err {
         SpawnError::AccessDenied =&gt; Errno::Access,
         SpawnError::NotFound =&gt; Errno::Noent,
@@ -2558,7 +2574,7 @@
     }
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_exit_code(err: SpawnError) -&gt; ExitCode {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_exit_code(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; ExitCode {
     conv_spawn_err_to_errno(err).into()
 }
 </code></pre></div>

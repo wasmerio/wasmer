@@ -196,10 +196,34 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
 </pre><pre class="rust"><code><span class="kw">use </span>virtual_fs::AsyncReadExt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use crate</span>::{syscalls::<span class="kw-2">*</span>, WasiInodes};
+<span class="kw">use crate</span>::{net::socket::TimeType, syscalls::<span class="kw-2">*</span>, WasiInodes};
 
 <span class="doccomment">/// ### `sock_send_file()`
 /// Sends the entire contents of a file down a socket
@@ -298,31 +322,43 @@
                                         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                                     }
                                 }
-                                Kind::Socket { socket } =&gt; {
+                                Kind::Socket { socket, .. } =&gt; {
                                     <span class="kw">let </span>socket = socket.clone();
                                     <span class="kw">let </span>tasks = tasks.clone();
                                     drop(guard);
+
+                                    <span class="kw">let </span>read_timeout = socket
+                                        .opt_time(TimeType::WriteTimeout)
+                                        .ok()
+                                        .flatten()
+                                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
 
                                     <span class="kw">let </span>data = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
                                         <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(sub_count <span class="kw">as </span>usize);
                                         <span class="kw">unsafe </span>{
                                             buf.set_len(sub_count <span class="kw">as </span>usize);
                                         }
-                                        socket.recv(tasks.deref(), <span class="kw-2">&amp;mut </span>buf, fd_flags).<span class="kw">await</span>.map(
-                                            |amt| {
+                                        socket
+                                            .recv(
+                                                tasks.deref(),
+                                                <span class="kw-2">&amp;mut </span>buf,
+                                                <span class="prelude-val">Some</span>(read_timeout),
+                                                <span class="bool-val">false</span>,
+                                            )
+                                            .<span class="kw">await
+                                            </span>.map(|amt| {
                                                 <span class="kw">unsafe </span>{
                                                     buf.set_len(amt);
                                                 }
                                                 <span class="kw">let </span>buf: Vec&lt;u8&gt; =
                                                     <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
                                                 buf
-                                            },
-                                        )
+                                            })
                                     })<span class="question-mark">?</span>);
                                     env = ctx.data();
                                     data
                                 }
-                                Kind::Pipe { <span class="kw-2">ref mut </span>pipe } =&gt; {
+                                Kind::Pipe { <span class="kw-2">ref mut </span>pipe, .. } =&gt; {
                                     <span class="kw">let </span>data =
                                         <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
                                             <span class="comment">// TODO: optimize with MaybeUninit
@@ -336,6 +372,9 @@
                                         })<span class="question-mark">?</span>);
                                     env = ctx.data();
                                     data
+                                }
+                                Kind::Epoll { .. } =&gt; {
+                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                                 }
                                 Kind::Dir { .. } | Kind::Root { .. } =&gt; {
                                     <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir);
@@ -378,7 +417,16 @@
                 <span class="kw-2">&amp;mut </span>ctx,
                 sock,
                 Rights::SOCK_SEND,
-                |socket, fd| <span class="kw">async move </span>{ socket.send(tasks.deref(), <span class="kw-2">&amp;</span>data, fd.flags).<span class="kw">await </span>},
+                |socket, fd| <span class="kw">async move </span>{
+                    <span class="kw">let </span>write_timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+                    socket
+                        .send(tasks.deref(), <span class="kw-2">&amp;</span>data, <span class="prelude-val">Some</span>(write_timeout), <span class="bool-val">true</span>)
+                        .<span class="kw">await
+                </span>},
             ));
             env = ctx.data();
 

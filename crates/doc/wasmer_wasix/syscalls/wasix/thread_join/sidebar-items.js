@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["thread_join","`thread_join()`"]]};
+window.SIDEBAR_ITEMS = {"fn":[["thread_join","`thread_join()`"],["thread_join_internal",""]]};

@@ -1156,6 +1156,48 @@
 <a href="#1155" id="1155">1155</a>
 <a href="#1156" id="1156">1156</a>
 <a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1178,6 +1220,7 @@
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
+    runtime::task_manager::InlineWaker,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -1866,7 +1909,7 @@
         <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
             <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
             </span>{
-                Arc::new(PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::shared())))
+                Arc::new(PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default())))
             }
 
             <span class="attr">#[cfg(not(feature = <span class="string">&quot;sys-thread&quot;</span>))]
@@ -1952,6 +1995,20 @@
 
     <span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>run_with_store(<span class="self">self</span>, module: Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
+        <span class="comment">// If no handle or runtime exists then create one
+        </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+        </span><span class="kw">let </span>_guard = <span class="kw">if </span>tokio::runtime::Handle::try_current().is_err() {
+            <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            <span class="prelude-val">Some</span>(runtime)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+        <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+        </span><span class="kw">let </span>_guard = _guard.as_ref().map(|r| r.enter());
+
         <span class="kw">if </span><span class="self">self</span>.capabilites.threading.enable_asynchronous_threading {
             <span class="macro">tracing::warn!</span>(
                 <span class="string">&quot;The enable_asynchronous_threading capability is enabled. Use WasiEnvBuilder::run_with_store_async() to avoid spurious errors.&quot;</span>,
@@ -1988,6 +2045,20 @@
         module: Module,
         <span class="kw-2">mut </span>store: Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
+        <span class="comment">// If no handle or runtime exists then create one
+        </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+        </span><span class="kw">let </span>_guard = <span class="kw">if </span>tokio::runtime::Handle::try_current().is_err() {
+            <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            <span class="prelude-val">Some</span>(runtime)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+        <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+        </span><span class="kw">let </span>_guard = _guard.as_ref().map(|r| r.enter());
+
         <span class="kw">let </span>(<span class="kw">_</span>, env) = <span class="self">self</span>.instantiate(module, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
 
         env.data(<span class="kw-2">&amp;</span>store).thread.set_status_running();
@@ -1999,15 +2070,18 @@
         <span class="comment">// The return value is passed synchronously and will block until the result
         // is returned this is because the main thread can go into a deep sleep and
         // exit the dedicated thread
-        </span><span class="kw">let </span>(tx, rx) = std::sync::mpsc::channel();
+        </span><span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tokio::sync::mpsc::unbounded_channel();
 
         tasks.task_dedicated(Box::new(<span class="kw">move </span>|| {
             run_with_deep_sleep(store, <span class="prelude-val">None</span>, env, tx);
         }))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>result = rx.recv().expect(
-            <span class="string">&quot;main thread terminated without a result, this normally means a panic occurred&quot;</span>,
-        );
+        <span class="kw">let </span>result = InlineWaker::block_on(rx.recv());
+        <span class="kw">let </span>result = result.unwrap_or_else(|| {
+            <span class="prelude-val">Err</span>(WasiRuntimeError::Runtime(RuntimeError::new(
+                <span class="string">&quot;main thread terminated without a result, this normally means a panic occurred&quot;</span>,
+            )))
+        });
         <span class="kw">let </span>(result, exit_code) = wasi_exit_code(result);
 
         <span class="macro">tracing::trace!</span>(
@@ -2051,7 +2125,7 @@
     <span class="kw-2">mut </span>store: Store,
     rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
     env: WasiFunctionEnv,
-    sender: std::sync::mpsc::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;&gt;,
+    sender: tokio::sync::mpsc::UnboundedSender&lt;<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;&gt;,
 ) {
     <span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
         <span class="macro">tracing::trace!</span>(<span class="string">&quot;Rewinding&quot;</span>);
@@ -2111,7 +2185,7 @@
     <span class="kw-2">mut </span>store: Store,
     env: WasiFunctionEnv,
     result: <span class="prelude-ty">Result</span>&lt;Box&lt;[wasmer::Value]&gt;, RuntimeError&gt;,
-    sender: std::sync::mpsc::Sender&lt;<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;&gt;,
+    sender: tokio::sync::mpsc::UnboundedSender&lt;<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;&gt;,
 ) {
     <span class="kw">let </span>result = <span class="kw">match </span>result.map_err(|e| e.downcast::&lt;WasiError&gt;()) {
         <span class="prelude-val">Err</span>(<span class="prelude-val">Ok</span>(WasiError::DeepSleep(work))) =&gt; {
@@ -2140,7 +2214,7 @@
 
     <span class="kw">let </span>(result, exit_code) = wasi_exit_code(result);
     env.cleanup(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">Some</span>(exit_code));
-    <span class="kw">let _ </span>= sender.send(result);
+    sender.send(result).ok();
 }
 
 <span class="doccomment">/// Builder for preopened directories.
@@ -2255,6 +2329,16 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>env_var_errors() {
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>handle = runtime.handle().clone();
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>_guard = handle.enter();
+
         <span class="comment">// `=` in the key is invalid.
         </span><span class="macro">assert!</span>(
             WasiEnv::builder(<span class="string">&quot;test_prog&quot;</span>)

@@ -435,6 +435,16 @@
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -573,9 +583,10 @@
             <span class="kw">match </span>guard.poll(cx) {
                 Poll::Pending =&gt; {}
                 Poll::Ready(e) =&gt; {
-                    <span class="kw">for </span>evt <span class="kw">in </span>e {
+                    <span class="kw">for </span>(evt, readiness) <span class="kw">in </span>e {
                         <span class="macro">tracing::trace!</span>(
                             fd,
+                            readiness = <span class="question-mark">?</span>readiness,
                             userdata = evt.userdata,
                             ty = evt.type_ <span class="kw">as </span>u8,
                             peb,
@@ -593,6 +604,40 @@
 
         Poll::Pending
     }
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>poll_fd_guard(
+    state: <span class="kw-2">&amp;</span>Arc&lt;WasiState&gt;,
+    peb: PollEventSet,
+    fd: WasiFd,
+    s: Subscription,
+) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFilePollGuard, Errno&gt; {
+    <span class="prelude-val">Ok</span>(<span class="kw">match </span>fd {
+        __WASI_STDERR_FILENO =&gt; WasiInodes::stderr(<span class="kw-2">&amp;</span>state.fs.fd_map)
+            .map(|g| g.into_poll_guard(fd, peb, s))
+            .map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>,
+        __WASI_STDOUT_FILENO =&gt; WasiInodes::stdout(<span class="kw-2">&amp;</span>state.fs.fd_map)
+            .map(|g| g.into_poll_guard(fd, peb, s))
+            .map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>,
+        <span class="kw">_ </span>=&gt; {
+            <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
+            <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+            }
+            <span class="kw">let </span>inode = fd_entry.inode;
+
+            {
+                <span class="kw">let </span>guard = inode.read();
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) =
+                    <span class="kw">crate</span>::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
+                {
+                    guard
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf);
+                }
+            }
+        }
+    })
 }
 
 <span class="doccomment">/// ### `poll_oneoff()`
@@ -696,6 +741,7 @@
                         time_to_sleep = Duration::MAX;
                     } <span class="kw">else if </span>clock_info.timeout == <span class="number">1 </span>{
                         time_to_sleep = Duration::ZERO;
+                        clock_subs.push((clock_info, s.userdata));
                     } <span class="kw">else </span>{
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
@@ -705,6 +751,9 @@
                     <span class="macro">error!</span>(<span class="string">&quot;polling not implemented for these clocks yet&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
                 }
+            }
+            Eventtype::Unknown =&gt; {
+                <span class="kw">continue</span>;
             }
         };
     }
@@ -723,36 +772,7 @@
             <span class="attr">#[allow(clippy::significant_drop_in_scrutinee)]
             </span><span class="kw">for </span>(fd, peb, s) <span class="kw">in </span>subs {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd {
-                    <span class="kw">let </span>wasi_file_ref = <span class="kw">match </span>fd {
-                        __WASI_STDERR_FILENO =&gt; {
-                            <span class="macro">wasi_try_ok!</span>(WasiInodes::stderr(<span class="kw-2">&amp;</span>state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        __WASI_STDOUT_FILENO =&gt; {
-                            <span class="macro">wasi_try_ok!</span>(WasiInodes::stdout(<span class="kw-2">&amp;</span>state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        <span class="kw">_ </span>=&gt; {
-                            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
-                            <span class="kw">if </span>!fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
-                            }
-                            <span class="kw">let </span>inode = fd_entry.inode;
-
-                            {
-                                <span class="kw">let </span>guard = inode.read();
-                                <span class="kw">if let </span><span class="prelude-val">Some</span>(guard) =
-                                    <span class="kw">crate</span>::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
-                                {
-                                    guard
-                                } <span class="kw">else </span>{
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Badf);
-                                }
-                            }
-                        }
-                    };
+                    <span class="kw">let </span>wasi_file_ref = <span class="macro">wasi_try_ok!</span>(poll_fd_guard(<span class="kw-2">&amp;</span>state, peb, fd, s));
                     fd_guards.push(wasi_file_ref);
                 }
             }

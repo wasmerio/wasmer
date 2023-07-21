@@ -1371,6 +1371,56 @@
 <a href="#1371" id="1371">1371</a>
 <a href="#1372" id="1372">1372</a>
 <a href="#1373" id="1373">1373</a>
+<a href="#1374" id="1374">1374</a>
+<a href="#1375" id="1375">1375</a>
+<a href="#1376" id="1376">1376</a>
+<a href="#1377" id="1377">1377</a>
+<a href="#1378" id="1378">1378</a>
+<a href="#1379" id="1379">1379</a>
+<a href="#1380" id="1380">1380</a>
+<a href="#1381" id="1381">1381</a>
+<a href="#1382" id="1382">1382</a>
+<a href="#1383" id="1383">1383</a>
+<a href="#1384" id="1384">1384</a>
+<a href="#1385" id="1385">1385</a>
+<a href="#1386" id="1386">1386</a>
+<a href="#1387" id="1387">1387</a>
+<a href="#1388" id="1388">1388</a>
+<a href="#1389" id="1389">1389</a>
+<a href="#1390" id="1390">1390</a>
+<a href="#1391" id="1391">1391</a>
+<a href="#1392" id="1392">1392</a>
+<a href="#1393" id="1393">1393</a>
+<a href="#1394" id="1394">1394</a>
+<a href="#1395" id="1395">1395</a>
+<a href="#1396" id="1396">1396</a>
+<a href="#1397" id="1397">1397</a>
+<a href="#1398" id="1398">1398</a>
+<a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
 </pre><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1389,10 +1439,22 @@
 <span class="kw">use </span>std::time::{SystemTime, UNIX_EPOCH};
 <span class="kw">use </span>tokio::fs <span class="kw">as </span>tfs;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+<span class="kw">use </span>tokio::runtime::Handle;
 
-<span class="attr">#[derive(Debug, Default, Clone)]
+<span class="attr">#[derive(Debug, Clone)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-</span><span class="kw">pub struct </span>FileSystem;
+</span><span class="kw">pub struct </span>FileSystem(Handle);
+
+<span class="kw">impl </span>Default <span class="kw">for </span>FileSystem {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(Handle::current())
+    }
+}
+<span class="kw">impl </span>FileSystem {
+    <span class="kw">pub fn </span>new(handle: Handle) -&gt; <span class="self">Self </span>{
+        FileSystem(handle)
+    }
+}
 
 <span class="kw">impl </span>FileSystem {
     <span class="kw">pub fn </span>canonicalize(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
@@ -1585,8 +1647,14 @@
             .open(path)
             .map_err(Into::into)
             .map(|file| {
-                Box::new(File::new(file, path.to_owned(), read, write, append))
-                    <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;
+                Box::new(File::new(
+                    <span class="self">self</span>.<span class="number">0</span>.clone(),
+                    file,
+                    path.to_owned(),
+                    read,
+                    write,
+                    append,
+                )) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;
             })
     }
 }
@@ -1595,6 +1663,7 @@
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize))]
 </span><span class="kw">pub struct </span>File {
+    handle: Handle,
     <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip_serializing))]
     </span>inner_std: fs::File,
     inner: tfs::File,
@@ -1697,7 +1766,14 @@
     <span class="kw">const </span>APPEND: u16 = <span class="number">4</span>;
 
     <span class="doccomment">/// creates a new host file from a `std::fs::File` and a path
-    </span><span class="kw">pub fn </span>new(file: fs::File, host_path: PathBuf, read: bool, write: bool, append: bool) -&gt; <span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>new(
+        handle: Handle,
+        file: fs::File,
+        host_path: PathBuf,
+        read: bool,
+        write: bool,
+        append: bool,
+    ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>_flags = <span class="number">0</span>;
 
         <span class="kw">if </span>read {
@@ -1714,6 +1790,7 @@
 
         <span class="kw">let </span>async_file = tfs::File::from_std(file.try_clone().unwrap());
         <span class="self">Self </span>{
+            handle,
             inner_std: file,
             inner: async_file,
             host_path,
@@ -1801,6 +1878,7 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
     ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_read(cx, buf)
     }
@@ -1812,16 +1890,19 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         buf: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_write(cx, buf)
     }
 
     <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_flush(cx)
     }
 
     <span class="kw">fn </span>poll_shutdown(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_shutdown(cx)
     }
@@ -1831,6 +1912,7 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -1842,11 +1924,13 @@
 
 <span class="kw">impl </span>AsyncSeek <span class="kw">for </span>File {
     <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, position: io::SeekFrom) -&gt; io::Result&lt;()&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.start_seek(position)
     }
 
     <span class="kw">fn </span>poll_complete(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_complete(cx)
     }
@@ -1856,12 +1940,14 @@
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Stdout {
+    handle: Handle,
     inner: tokio::io::Stdout,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Stdout {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            handle: Handle::current(),
             inner: tokio::io::stdout(),
         }
     }
@@ -1935,16 +2021,19 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         buf: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_write(cx, buf)
     }
 
     <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_flush(cx)
     }
 
     <span class="kw">fn </span>poll_shutdown(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_shutdown(cx)
     }
@@ -1954,6 +2043,7 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -1980,11 +2070,13 @@
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Stderr {
+    handle: Handle,
     inner: tokio::io::Stderr,
 }
 <span class="kw">impl </span>Default <span class="kw">for </span>Stderr {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            handle: Handle::current(),
             inner: tokio::io::stderr(),
         }
     }
@@ -2009,16 +2101,19 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         buf: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_write(cx, buf)
     }
 
     <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_flush(cx)
     }
 
     <span class="kw">fn </span>poll_shutdown(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_shutdown(cx)
     }
@@ -2028,6 +2123,7 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         bufs: <span class="kw-2">&amp;</span>[io::IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;],
     ) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_write_vectored(cx, bufs)
     }
@@ -2095,11 +2191,13 @@
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Stdin {
     read_buffer: Arc&lt;std::sync::Mutex&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;&gt;&gt;,
+    handle: Handle,
     inner: tokio::io::Stdin,
 }
 <span class="kw">impl </span>Default <span class="kw">for </span>Stdin {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
+            handle: Handle::current(),
             read_buffer: Arc::new(std::sync::Mutex::new(<span class="prelude-val">None</span>)),
             inner: tokio::io::stdin(),
         }
@@ -2126,6 +2224,7 @@
             }
         }
 
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
         inner.poll_read(cx, buf)
     }
@@ -2217,6 +2316,7 @@
             }
         }
 
+        <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
         <span class="kw">let </span>inner = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.inner);
 
         <span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">8192</span>];
@@ -2264,8 +2364,8 @@
         </span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_create_dir() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_create_dir() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>fs = FileSystem::default();
 
@@ -2323,8 +2423,8 @@
         </span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_remove_dir() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_remove_dir() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>fs = FileSystem::default();
 
@@ -2679,8 +2779,8 @@
         }
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>test_canonicalize() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_canonicalize() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         std::fs::create_dir_all(temp.path().join(<span class="string">&quot;foo/bar/baz/qux&quot;</span>)).unwrap();
         std::fs::write(temp.path().join(<span class="string">&quot;foo/bar/baz/qux/hello.txt&quot;</span>), <span class="string">b&quot;&quot;</span>).unwrap();

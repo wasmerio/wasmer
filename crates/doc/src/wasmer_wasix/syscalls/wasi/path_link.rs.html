@@ -89,6 +89,7 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -172,7 +173,8 @@
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } =&gt; <span class="kw">return </span>Errno::Notdir,
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Notdir,
         }
     }
     source_inode.stat.write().unwrap().st_nlink += <span class="number">1</span>;

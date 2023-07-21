@@ -152,7 +152,7 @@
         }
     }
 
-    <span class="kw">pub fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime {
+    <span class="kw">pub fn </span>runtime(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync) {
         <span class="self">self</span>.runtime.deref()
     }
 
@@ -215,7 +215,7 @@
 <span class="kw">async fn </span>load_package_from_filesystem(
     fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
     path: <span class="kw-2">&amp;</span>Path,
-    rt: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Runtime,
+    rt: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>f = fs
         .new_open_options()

@@ -50,6 +50,8 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -86,8 +88,10 @@
             <span class="kw">if </span>futex.wakers.is_empty() {
                 guard.futexes.remove(<span class="kw-2">&amp;</span>pointer);
             }
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;wake(hit) on {pointer}&quot;</span>);
             <span class="bool-val">true
         </span>} <span class="kw">else </span>{
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;wake(miss) on {pointer}&quot;</span>);
             <span class="bool-val">true
         </span>}
     };

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["sock_send","`sock_send()`"]]};
+window.SIDEBAR_ITEMS = {"fn":[["sock_send","`sock_send()`"],["sock_send_internal",""]]};

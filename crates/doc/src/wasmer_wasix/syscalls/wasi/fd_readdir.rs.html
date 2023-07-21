@@ -139,6 +139,7 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -238,7 +239,8 @@
             | Kind::Buffer { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } =&gt; <span class="kw">return </span>Errno::Notdir,
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Notdir,
         }
     };
 

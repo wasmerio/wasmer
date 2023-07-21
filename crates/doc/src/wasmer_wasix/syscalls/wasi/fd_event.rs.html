@@ -37,6 +37,7 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{fs::NotificationInner, syscalls::<span class="kw-2">*</span>};
 
@@ -53,8 +54,9 @@
     <span class="kw">let </span>(memory, state, <span class="kw-2">mut </span>inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>is_semaphore = flags &amp; EVENT_FD_FLAGS_SEMAPHORE != <span class="number">0</span>;
-    <span class="kw">let </span>kind =
-        Kind::EventNotifications(Arc::new(NotificationInner::new(initial_val, is_semaphore)));
+    <span class="kw">let </span>kind = Kind::EventNotifications {
+        inner: Arc::new(NotificationInner::new(initial_val, is_semaphore)),
+    };
 
     <span class="kw">let </span>inode = state.fs.create_inode_with_default_stat(
         inodes.deref(),

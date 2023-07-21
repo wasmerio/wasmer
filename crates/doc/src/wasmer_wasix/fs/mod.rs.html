@@ -1996,7 +1996,6 @@
 <a href="#1995" id="1995">1995</a>
 <a href="#1996" id="1996">1996</a>
 <a href="#1997" id="1997">1997</a>
-<a href="#1998" id="1998">1998</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2029,10 +2028,11 @@
     },
 };
 
-<span class="kw">pub use </span><span class="self">self</span>::fd::{Fd, InodeVal, Kind};
+<span class="kw">pub use </span><span class="self">self</span>::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::inode_guard::{
-    InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFileReadGuard,
-    InodeValFileWriteGuard, WasiStateFileGuard,
+    net_error_into_io_err, InodeValFilePollGuard, InodeValFilePollGuardJoin,
+    InodeValFilePollGuardMode, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
+    POLL_GUARD_MAX_RET,
 };
 <span class="kw">pub use </span><span class="self">self</span>::notification::NotificationInner;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::map_io_err;
@@ -2406,7 +2406,6 @@
 </span><span class="kw">pub struct </span>WasiFs {
     <span class="comment">//pub repo: Repo,
     </span><span class="kw">pub </span>preopen_fds: RwLock&lt;Vec&lt;u32&gt;&gt;,
-    <span class="kw">pub </span>name_map: HashMap&lt;String, Inode&gt;,
     <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;HashMap&lt;WasiFd, Fd&gt;&gt;&gt;,
     <span class="kw">pub </span>next_fd: AtomicU32,
     <span class="kw">pub </span>current_dir: Mutex&lt;String&gt;,
@@ -2438,7 +2437,6 @@
         <span class="kw">let </span>fd_map = <span class="self">self</span>.fd_map.read().unwrap().clone();
         <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="self">self</span>.preopen_fds.read().unwrap().clone()),
-            name_map: <span class="self">self</span>.name_map.clone(),
             fd_map: Arc::new(RwLock::new(fd_map)),
             next_fd: AtomicU32::new(<span class="self">self</span>.next_fd.load(Ordering::SeqCst)),
             current_dir: Mutex::new(<span class="self">self</span>.current_dir.lock().unwrap().clone()),
@@ -2714,7 +2712,6 @@
 
         <span class="kw">let </span>wasi_fs = <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="macro">vec!</span>[]),
-            name_map: HashMap::new(),
             fd_map: Arc::new(RwLock::new(HashMap::new())),
             next_fd: AtomicU32::new(<span class="number">3</span>),
             current_dir: Mutex::new(<span class="string">&quot;/&quot;</span>.to_string()),
@@ -3232,7 +3229,8 @@
                     Kind::File { .. }
                     | Kind::Socket { .. }
                     | Kind::Pipe { .. }
-                    | Kind::EventNotifications { .. } =&gt; {
+                    | Kind::EventNotifications { .. }
+                    | Kind::Epoll { .. } =&gt; {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
                     }
                     Kind::Symlink {

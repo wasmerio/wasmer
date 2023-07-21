@@ -235,21 +235,13 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 <span class="kw">use </span>anyhow::Error;
-<span class="kw">use </span>futures::{Future, FutureExt, StreamExt, TryFutureExt};
+<span class="kw">use </span>futures::{Future, FutureExt, StreamExt};
 <span class="kw">use </span>http::{Request, Response};
 <span class="kw">use </span>hyper::{service::Service, Body};
-<span class="kw">use </span>tokio::{
-    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt},
-    runtime::Handle,
-};
+<span class="kw">use </span>tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 <span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>wasmer::Module;
 <span class="kw">use </span>wcgi_host::CgiDialect;
@@ -313,42 +305,47 @@
         <span class="kw">let </span>task_manager = <span class="self">self</span>.runtime.task_manager();
         <span class="kw">let </span>store = <span class="self">self</span>.runtime.new_store();
 
-        <span class="kw">let </span>done = task_manager
-            .runtime()
-            .spawn_blocking(<span class="kw">move </span>|| builder.run_with_store_async(module, store))
-            .map_err(Error::from)
-            .and_then(|r| <span class="kw">async </span>{ r.map_err(Error::from) });
-
-        <span class="kw">let </span>handle = task_manager.runtime().clone();
-        <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.callbacks);
-
-        handle.spawn(
-            <span class="kw">async move </span>{
-                consume_stderr(stderr_receiver, callbacks).<span class="kw">await</span>;
-            }
-            .in_current_span(),
-        );
-
-        task_manager.runtime().spawn(
-            <span class="kw">async move </span>{
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) =
-                    drive_request_to_completion(<span class="kw-2">&amp;</span>handle, done, body, req_body_sender).<span class="kw">await
-                </span>{
-                    <span class="macro">tracing::error!</span>(
-                        error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                        <span class="string">&quot;Unable to drive the request to completion&quot;
-                    </span>);
-                }
-            }
-            .in_current_span(),
-        );
+        <span class="kw">let </span>(run_tx, <span class="kw-2">mut </span>run_rx) = tokio::sync::mpsc::unbounded_channel();
+        task_manager.task_dedicated(Box::new(<span class="kw">move </span>|| {
+            run_tx
+                .send(builder.run_with_store_async(module, store))
+                .ok();
+        }))<span class="question-mark">?</span>;
+        <span class="kw">let </span>done = <span class="kw">async move </span>{ run_rx.recv().<span class="kw">await</span>.unwrap().map_err(Error::from) };
 
         <span class="kw">let </span><span class="kw-2">mut </span>res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
+
+        <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.callbacks);
+        <span class="kw">let </span>work_consume_stderr = <span class="kw">async move </span>{
+            consume_stderr(stderr_receiver, callbacks).<span class="kw">await</span>;
+        }
+        .in_current_span();
+        task_manager
+            .task_shared(Box::new(<span class="kw">move </span>|| {
+                Box::pin(<span class="kw">async move </span>{ work_consume_stderr.<span class="kw">await </span>})
+            }))
+            .ok();
+
+        <span class="kw">let </span>work_drive_io = <span class="kw">async move </span>{
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = drive_request_to_completion(done, body, req_body_sender).<span class="kw">await </span>{
+                <span class="macro">tracing::error!</span>(
+                    error = <span class="kw-2">&amp;*</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    <span class="string">&quot;Unable to drive the request to completion&quot;
+                </span>);
+            }
+        }
+        .in_current_span();
+        task_manager
+            .task_shared(Box::new(<span class="kw">move </span>|| {
+                Box::pin(<span class="kw">async move </span>{ work_drive_io.<span class="kw">await </span>})
+            }))
+            .ok();
 
         <span class="kw">let </span>parts = <span class="self">self
             </span>.dialect
             .extract_response_header(<span class="kw-2">&amp;mut </span>res_body_receiver)
             .<span class="kw">await</span><span class="question-mark">?</span>;
+
         <span class="kw">let </span>chunks = futures::stream::try_unfold(res_body_receiver, |<span class="kw-2">mut </span>r| <span class="kw">async move </span>{
             <span class="kw">match </span>r.fill_buf().<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(chunk) <span class="kw">if </span>chunk.is_empty() =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
@@ -363,7 +360,6 @@
         <span class="kw">let </span>body = hyper::Body::wrap_stream(chunks);
 
         <span class="kw">let </span>response = hyper::Response::from_parts(parts, body);
-
         <span class="prelude-val">Ok</span>(response)
     }
 }
@@ -379,38 +375,32 @@
 <span class="doccomment">/// Drive the request to completion by streaming the request body to the
 /// instance and waiting for it to exit.
 </span><span class="kw">async fn </span>drive_request_to_completion(
-    handle: <span class="kw-2">&amp;</span>Handle,
     done: <span class="kw">impl </span>Future&lt;Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;&gt;,
     <span class="kw-2">mut </span>request_body: hyper::Body,
     <span class="kw-2">mut </span>instance_stdin: <span class="kw">impl </span>AsyncWrite + Send + Unpin + <span class="lifetime">&#39;static</span>,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-    <span class="kw">let </span>request_body_send = handle
-        .spawn(
-            <span class="kw">async move </span>{
-                <span class="comment">// Copy the request into our instance, chunk-by-chunk. If the instance
-                // dies before we finish writing the body, the instance&#39;s side of the
-                // pipe will be automatically closed and we&#39;ll error out.
-                </span><span class="kw">let </span><span class="kw-2">mut </span>request_size = <span class="number">0</span>;
-                <span class="kw">while let </span><span class="prelude-val">Some</span>(res) = request_body.next().<span class="kw">await </span>{
-                    <span class="comment">// FIXME(theduke): figure out how to propagate a body error to the
-                    // CGI instance.
-                    </span><span class="kw">let </span>chunk = res<span class="question-mark">?</span>;
-                    request_size += chunk.len();
-                    instance_stdin.write_all(chunk.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
-                }
+    <span class="kw">let </span>request_body_send = <span class="kw">async move </span>{
+        <span class="comment">// Copy the request into our instance, chunk-by-chunk. If the instance
+        // dies before we finish writing the body, the instance&#39;s side of the
+        // pipe will be automatically closed and we&#39;ll error out.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>request_size = <span class="number">0</span>;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(res) = request_body.next().<span class="kw">await </span>{
+            <span class="comment">// FIXME(theduke): figure out how to propagate a body error to the
+            // CGI instance.
+            </span><span class="kw">let </span>chunk = res<span class="question-mark">?</span>;
+            request_size += chunk.len();
+            instance_stdin.write_all(chunk.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
+        }
 
-                instance_stdin.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="macro">tracing::debug!</span>(
-                    request_size,
-                    <span class="string">&quot;Finished forwarding the request to the WCGI server&quot;
-                </span>);
+        instance_stdin.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="macro">tracing::debug!</span>(
+            request_size,
+            <span class="string">&quot;Finished forwarding the request to the WCGI server&quot;
+        </span>);
 
-                <span class="prelude-val">Ok</span>::&lt;(), Error&gt;(())
-            }
-            .in_current_span(),
-        )
-        .map_err(Error::from)
-        .and_then(|r| <span class="kw">async </span>{ r });
+        <span class="prelude-val">Ok</span>::&lt;(), Error&gt;(())
+    }
+    .in_current_span();
 
     <span class="macro">futures::try_join!</span>(done, request_body_send)<span class="question-mark">?</span>;
 

@@ -43,6 +43,8 @@
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
 <a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
+<a href="#46" id="46">46</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -73,8 +75,10 @@
                     waker.wake();
                 }
             }
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;wake_all (hit) on {pointer}&quot;</span>);
             <span class="bool-val">true
         </span>} <span class="kw">else </span>{
+            <span class="macro">tracing::trace!</span>(<span class="string">&quot;wake_all (miss) on {pointer}&quot;</span>);
             <span class="bool-val">true
         </span>}
     };

@@ -697,6 +697,8 @@
 <a href="#697" id="697">697</a>
 <a href="#698" id="698">698</a>
 <a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
 </pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -739,6 +741,7 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>ops;
 <span class="kw">mod </span>overlay_fs;
 <span class="kw">pub mod </span>pipe;
+<span class="kw">mod </span>static_file;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-fs&quot;</span>)]
 </span><span class="kw">pub mod </span>static_fs;
 <span class="kw">mod </span>trace_fs;
@@ -764,6 +767,7 @@
 <span class="kw">pub use </span>passthru_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pipe::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>special_file::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>static_file::StaticFile;
 <span class="kw">pub use </span>tmp_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>trace_fs::TraceFileSystem;
 <span class="kw">pub use </span>union_fs::<span class="kw-2">*</span>;

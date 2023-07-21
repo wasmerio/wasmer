@@ -372,12 +372,33 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{collections::VecDeque, task::Waker};
 
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, ReadBuf};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use crate</span>::{fs::NotificationInner, syscalls::<span class="kw-2">*</span>};
+<span class="kw">use crate</span>::{fs::NotificationInner, net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `fd_read()`
 /// Read data from file descriptor
@@ -413,28 +434,7 @@
     };
 
     <span class="kw">let </span>res = fd_read_internal::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx, fd, iovs, iovs_len, offset, nread, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
-
-    <span class="kw">let </span><span class="kw-2">mut </span>ret = Errno::Success;
-    <span class="kw">let </span>bytes_read = <span class="kw">match </span>res {
-        <span class="prelude-val">Ok</span>(bytes_read) =&gt; bytes_read,
-        <span class="prelude-val">Err</span>(err) =&gt; {
-            ret = err;
-            <span class="number">0
-        </span>}
-    };
-    Span::current().record(<span class="string">&quot;nread&quot;</span>, bytes_read);
-
-    <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-
-    <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-
-    <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-    <span class="kw">let </span>nread_ref = nread.deref(<span class="kw-2">&amp;</span>memory);
-    <span class="macro">wasi_try_mem_ok!</span>(nread_ref.write(bytes_read));
-
-    <span class="prelude-val">Ok</span>(ret)
+    fd_read_internal_handler(ctx, res, nread)
 }
 
 <span class="doccomment">/// ### `fd_pread()`
@@ -465,7 +465,14 @@
     <span class="kw">let </span>tid = ctx.data().tid();
 
     <span class="kw">let </span>res = fd_read_internal::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx, fd, iovs, iovs_len, offset <span class="kw">as </span>usize, nread, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+    fd_read_internal_handler::&lt;M&gt;(ctx, res, nread)
+}
 
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_read_internal_handler&lt;M: MemorySize&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    res: <span class="prelude-ty">Result</span>&lt;usize, Errno&gt;,
+    nread: WasmPtr&lt;M::Offset, M&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>ret = Errno::Success;
     <span class="kw">let </span>bytes_read = <span class="kw">match </span>res {
         <span class="prelude-val">Ok</span>(bytes_read) =&gt; bytes_read,
@@ -489,7 +496,7 @@
     <span class="prelude-val">Ok</span>(ret)
 }
 
-<span class="kw">fn </span>fd_read_internal&lt;M: MemorySize&gt;(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_read_internal&lt;M: MemorySize&gt;(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     iovs: WasmPtr&lt;__wasi_iovec_t&lt;M&gt;, M&gt;,
@@ -522,9 +529,10 @@
                 Kind::File { handle, .. } =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
                         <span class="kw">let </span>handle = handle.clone();
+
                         drop(guard);
 
-                        <span class="kw">let </span>read = <span class="macro">wasi_try_ok_ok!</span>(__asyncify_light(
+                        <span class="kw">let </span>res = __asyncify_light(
                             env,
                             <span class="kw">if </span>fd_flags.contains(Fdflags::NONBLOCK) {
                                 <span class="prelude-val">Some</span>(Duration::ZERO)
@@ -532,7 +540,10 @@
                                 <span class="prelude-val">None
                             </span>},
                             <span class="kw">async move </span>{
-                                <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
+                                <span class="kw">let </span><span class="kw-2">mut </span>handle = <span class="kw">match </span>handle.write() {
+                                    <span class="prelude-val">Ok</span>(a) =&gt; a,
+                                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Fault),
+                                };
                                 <span class="kw">if </span>!is_stdio {
                                     handle
                                         .seek(std::io::SeekFrom::Start(offset <span class="kw">as </span>u64))
@@ -575,9 +586,9 @@
                                     }
                                 }
                                 <span class="prelude-val">Ok</span>(total_read)
-                            }
-                        )<span class="question-mark">?
-                        </span>.map_err(|err| <span class="kw">match </span>err {
+                            },
+                        );
+                        <span class="kw">let </span>read = <span class="macro">wasi_try_ok_ok!</span>(res<span class="question-mark">?</span>.map_err(|err| <span class="kw">match </span>err {
                             Errno::Timedout =&gt; Errno::Again,
                             a =&gt; a,
                         }));
@@ -591,56 +602,15 @@
 
                     drop(guard);
 
+                    <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+                    <span class="kw">let </span>timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+
                     <span class="kw">let </span>tasks = env.tasks().clone();
                     <span class="kw">let </span>res = __asyncify_light(
-                        env,
-                        <span class="kw">if </span>fd_flags.contains(Fdflags::NONBLOCK) {
-                            <span class="prelude-val">Some</span>(Duration::ZERO)
-                        } <span class="kw">else </span>{
-                            <span class="prelude-val">None
-                        </span>},
-                        <span class="kw">async </span>{
-                            <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0usize</span>;
-
-                            <span class="kw">let </span>iovs_arr =
-                                iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-                            <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-                            <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
-                                <span class="kw">let </span><span class="kw-2">mut </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
-                                    .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi)<span class="question-mark">?
-                                    </span>.access()
-                                    .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-
-                                <span class="kw">let </span>local_read = socket
-                                    .recv(tasks.deref(), buf.as_mut_uninit(), fd_flags)
-                                    .<span class="kw">await</span><span class="question-mark">?</span>;
-                                total_read += local_read;
-                                <span class="kw">if </span>total_read != buf.len() {
-                                    <span class="kw">break</span>;
-                                }
-                            }
-                            <span class="prelude-val">Ok</span>(total_read)
-                        },
-                    )<span class="question-mark">?
-                    </span>.map_err(|err| <span class="kw">match </span>err {
-                        Errno::Timedout =&gt; Errno::Again,
-                        a =&gt; a,
-                    });
-                    <span class="kw">match </span>res {
-                        <span class="prelude-val">Err</span>(Errno::Connaborted) | <span class="prelude-val">Err</span>(Errno::Connreset) =&gt; (<span class="number">0</span>, <span class="bool-val">false</span>),
-                        res =&gt; {
-                            <span class="kw">let </span>bytes_read = <span class="macro">wasi_try_ok_ok!</span>(res);
-                            (bytes_read, <span class="bool-val">false</span>)
-                        }
-                    }
-                }
-                Kind::Pipe { pipe } =&gt; {
-                    <span class="kw">let </span><span class="kw-2">mut </span>pipe = pipe.clone();
-
-                    drop(guard);
-
-                    <span class="kw">let </span>bytes_read = <span class="macro">wasi_try_ok_ok!</span>(__asyncify_light(
                         env,
                         <span class="kw">if </span>fd_flags.contains(Fdflags::NONBLOCK) {
                             <span class="prelude-val">Some</span>(Duration::ZERO)
@@ -660,17 +630,83 @@
                                     </span>.access()
                                     .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-                                <span class="kw">let </span>local_read =
-                                    virtual_fs::AsyncReadExt::read(<span class="kw-2">&amp;mut </span>pipe, buf.as_mut()).<span class="kw">await</span><span class="question-mark">?</span>;
+                                <span class="kw">let </span>local_read = socket
+                                    .recv(
+                                        tasks.deref(),
+                                        buf.as_mut_uninit(),
+                                        <span class="prelude-val">Some</span>(timeout),
+                                        nonblocking,
+                                    )
+                                    .<span class="kw">await</span><span class="question-mark">?</span>;
+                                total_read += local_read;
+                                <span class="kw">if </span>total_read != buf.len() {
+                                    <span class="kw">break</span>;
+                                }
+                            }
+                            <span class="prelude-val">Ok</span>(total_read)
+                        },
+                    );
+                    <span class="kw">let </span>res = res<span class="question-mark">?</span>.map_err(|err| <span class="kw">match </span>err {
+                        Errno::Timedout =&gt; Errno::Again,
+                        a =&gt; a,
+                    });
+                    <span class="kw">match </span>res {
+                        <span class="prelude-val">Err</span>(Errno::Connaborted) | <span class="prelude-val">Err</span>(Errno::Connreset) =&gt; (<span class="number">0</span>, <span class="bool-val">false</span>),
+                        res =&gt; {
+                            <span class="kw">let </span>bytes_read = <span class="macro">wasi_try_ok_ok!</span>(res);
+                            (bytes_read, <span class="bool-val">false</span>)
+                        }
+                    }
+                }
+                Kind::Pipe { pipe } =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>pipe = pipe.clone();
+
+                    drop(guard);
+
+                    <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+
+                    <span class="kw">let </span>res = __asyncify_light(
+                        env,
+                        <span class="kw">if </span>fd_flags.contains(Fdflags::NONBLOCK) {
+                            <span class="prelude-val">Some</span>(Duration::ZERO)
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>},
+                        <span class="kw">async move </span>{
+                            <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0usize</span>;
+
+                            <span class="kw">let </span>iovs_arr =
+                                iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                            <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+                            <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+                                <span class="kw">let </span><span class="kw-2">mut </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+                                    .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+                                    .map_err(mem_error_to_wasi)<span class="question-mark">?
+                                    </span>.access()
+                                    .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+
+                                <span class="kw">let </span>local_read = <span class="kw">match </span>nonblocking {
+                                    <span class="bool-val">true </span>=&gt; <span class="kw">match </span>pipe.try_read(buf.as_mut()) {
+                                        <span class="prelude-val">Some</span>(amt) =&gt; amt,
+                                        <span class="prelude-val">None </span>=&gt; {
+                                            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Again);
+                                        }
+                                    },
+                                    <span class="bool-val">false </span>=&gt; {
+                                        virtual_fs::AsyncReadExt::read(<span class="kw-2">&amp;mut </span>pipe, buf.as_mut())
+                                            .<span class="kw">await</span><span class="question-mark">?
+                                    </span>}
+                                };
                                 total_read += local_read;
                                 <span class="kw">if </span>local_read != buf.len() {
                                     <span class="kw">break</span>;
                                 }
                             }
                             <span class="prelude-val">Ok</span>(total_read)
-                        }
-                    )<span class="question-mark">?
-                    </span>.map_err(|err| <span class="kw">match </span>err {
+                        },
+                    );
+
+                    <span class="kw">let </span>bytes_read = <span class="macro">wasi_try_ok_ok!</span>(res<span class="question-mark">?</span>.map_err(|err| <span class="kw">match </span>err {
                         Errno::Timedout =&gt; Errno::Again,
                         a =&gt; a,
                     }));
@@ -681,7 +717,7 @@
                     <span class="comment">// TODO: verify
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Isdir));
                 }
-                Kind::EventNotifications(inner) =&gt; {
+                Kind::EventNotifications { inner } =&gt; {
                     <span class="comment">// Create a poller
                     </span><span class="kw">struct </span>NotifyPoller {
                         inner: Arc&lt;NotificationInner&gt;,
@@ -709,11 +745,15 @@
 
                     <span class="comment">// Yield until the notifications are triggered
                     </span><span class="kw">let </span>tasks_inner = env.tasks().clone();
-                    <span class="kw">let </span>val = <span class="macro">wasi_try_ok_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async </span>{ poller.<span class="kw">await </span>})<span class="question-mark">?
-                        </span>.map_err(|err| <span class="kw">match </span>err {
-                            Errno::Timedout =&gt; Errno::Again,
-                            a =&gt; a,
-                        }));
+
+                    <span class="kw">let </span>res =
+                        __asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async </span>{ poller.<span class="kw">await </span>})<span class="question-mark">?</span>.map_err(
+                            |err| <span class="kw">match </span>err {
+                                Errno::Timedout =&gt; Errno::Again,
+                                a =&gt; a,
+                            },
+                        );
+                    <span class="kw">let </span>val = <span class="macro">wasi_try_ok_ok!</span>(res);
 
                     <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
                     <span class="kw">let </span>reader = val.to_ne_bytes();
@@ -721,7 +761,9 @@
                     <span class="kw">let </span>ret = <span class="macro">wasi_try_ok_ok!</span>(read_bytes(<span class="kw-2">&amp;</span>reader[..], <span class="kw-2">&amp;</span>memory, iovs_arr));
                     (ret, <span class="bool-val">false</span>)
                 }
-                Kind::Symlink { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Symlinks in wasi::fd_read&quot;</span>),
+                Kind::Symlink { .. } | Kind::Epoll { .. } =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notsup));
+                }
                 Kind::Buffer { buffer } =&gt; {
                     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
                     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok_ok!</span>(iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len));

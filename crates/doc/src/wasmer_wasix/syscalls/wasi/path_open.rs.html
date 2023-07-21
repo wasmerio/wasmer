@@ -329,6 +329,8 @@
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -486,6 +488,7 @@
                 <span class="kw-2">ref mut </span>handle,
                 path,
                 fd,
+                ..
             } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(special_fd) = fd {
                     <span class="comment">// short circuit if we&#39;re dealing with a special file
@@ -548,7 +551,8 @@
             Kind::Dir { .. }
             | Kind::Socket { .. }
             | Kind::Pipe { .. }
-            | Kind::EventNotifications { .. } =&gt; {}
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } =&gt; {}
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,

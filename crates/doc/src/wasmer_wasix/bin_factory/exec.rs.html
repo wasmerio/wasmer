@@ -295,18 +295,6 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -328,44 +316,32 @@
 </span><span class="kw">pub async fn </span>spawn_exec(
     binary: BinaryPackage,
     name: <span class="kw-2">&amp;</span>str,
-    store: Store,
+    _store: Store,
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
-    <span class="kw">let </span>key = binary.hash();
-
-    <span class="kw">let </span>compiled_modules = runtime.module_cache();
-    <span class="kw">let </span>module = compiled_modules.load(key, store.engine()).<span class="kw">await</span>.ok();
-
-    <span class="kw">let </span>module = <span class="kw">match </span>(module, binary.entrypoint_bytes()) {
-        (<span class="prelude-val">Some</span>(a), <span class="kw">_</span>) =&gt; a,
-        (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(entry)) =&gt; {
-            <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, entry).map_err(|err| {
-                <span class="macro">error!</span>(
-                    <span class="string">&quot;failed to compile module [{}, len={}] - {}&quot;</span>,
-                    name,
-                    entry.len(),
-                    err
-                );
-                SpawnError::CompileError
-            });
-            <span class="kw">if </span>module.is_err() {
-                env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
-            }
-            <span class="kw">let </span>module = module<span class="question-mark">?</span>;
-
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = compiled_modules.save(key, store.engine(), <span class="kw-2">&amp;</span>module).<span class="kw">await </span>{
-                <span class="macro">tracing::debug!</span>(
-                    %key,
-                    package_name=%binary.package_name,
-                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                    <span class="string">&quot;Unable to save the compiled module&quot;</span>,
-                );
-            }
-            module
+    <span class="kw">let </span>wasm = <span class="kw">match </span>binary.entrypoint_bytes() {
+        <span class="prelude-val">Some</span>(wasm) =&gt; wasm,
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="macro">tracing::error!</span>(
+              command=name,
+              pkg.name=%binary.package_name,
+              pkg.version=%binary.version,
+              <span class="string">&quot;Unable to spawn a command because its package has no entrypoint&quot;</span>,
+            );
+            env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
+            <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
         }
-        (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
-            <span class="macro">error!</span>(<span class="string">&quot;package has no entry [{}]&quot;</span>, name,);
+    };
+
+    <span class="kw">let </span>module = <span class="kw">match </span>runtime.load_module(wasm).<span class="kw">await </span>{
+        <span class="prelude-val">Ok</span>(module) =&gt; module,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">tracing::error!</span>(
+                command = name,
+                error = <span class="kw-2">&amp;*</span>err,
+                <span class="string">&quot;Failed to compile the module&quot;</span>,
+            );
             env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
             <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
         }

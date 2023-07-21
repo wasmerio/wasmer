@@ -671,6 +671,52 @@
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.
 //!
 //! This API will be superseded by a standard WASI API when/if such a standard is created.
@@ -684,16 +730,19 @@
     types::wasm_byte_vec_t,
 };
 <span class="kw">use </span><span class="kw">crate</span>::error::update_last_error;
-<span class="kw">use </span>lazy_static::__Deref;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::ffi::CStr;
 <span class="kw">use </span>std::os::raw::c_char;
 <span class="kw">use </span>std::slice;
+<span class="kw">use </span>std::sync::Arc;
 <span class="attr">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
 </span><span class="kw">use </span>wasmer_api::{AsStoreMut, Imports, Module};
 <span class="kw">use </span>wasmer_wasix::{
-    default_fs_backing, get_wasi_version, virtual_fs::AsyncReadExt, virtual_fs::VirtualFile, Pipe,
-    VirtualTaskManager, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
+    default_fs_backing, get_wasi_version,
+    runtime::task_manager::{tokio::TokioTaskManager, InlineWaker},
+    virtual_fs::AsyncReadExt,
+    virtual_fs::VirtualFile,
+    Pipe, PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 };
 
 <span class="attr">#[derive(Debug)]
@@ -703,6 +752,7 @@
     inherit_stderr: bool,
     inherit_stdin: bool,
     builder: WasiEnvBuilder,
+    runtime: <span class="prelude-ty">Option</span>&lt;tokio::runtime::Runtime&gt;,
 }
 
 <span class="attr">#[no_mangle]
@@ -714,11 +764,18 @@
     <span class="kw">let </span>name_c_str = CStr::from_ptr(program_name);
     <span class="kw">let </span>prog_name = <span class="macro">c_try!</span>(name_c_str.to_str());
 
+    <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    <span class="kw">let </span>_guard = runtime.enter();
+
     <span class="prelude-val">Some</span>(Box::new(wasi_config_t {
         inherit_stdout: <span class="bool-val">true</span>,
         inherit_stderr: <span class="bool-val">true</span>,
         inherit_stdin: <span class="bool-val">true</span>,
         builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
+        runtime: <span class="prelude-val">Some</span>(runtime),
     }))
 }
 
@@ -895,7 +952,7 @@
     <span class="kw">let </span>module = <span class="kw-2">&amp;</span>module.as_ref()<span class="question-mark">?</span>.inner;
     <span class="kw">let </span>imports = imports<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>(wasi_env, import_object) = prepare_webc_env(
+    <span class="kw">let </span>(wasi_env, import_object, runtime) = prepare_webc_env(
         config,
         <span class="kw-2">&amp;mut </span>store.store_mut(),
         module,
@@ -909,20 +966,36 @@
     <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
         inner: wasi_env,
         store: store.clone(),
+        _runtime: runtime,
     }))
 }
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
 </span><span class="kw">fn </span>prepare_webc_env(
-    config: Box&lt;wasi_config_t&gt;,
+    <span class="kw-2">mut </span>config: Box&lt;wasi_config_t&gt;,
     store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     module: <span class="kw-2">&amp;</span>Module,
     bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>u8,
     len: usize,
     package_name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Option</span>&lt;(WasiFunctionEnv, Imports)&gt; {
+) -&gt; <span class="prelude-ty">Option</span>&lt;(WasiFunctionEnv, Imports, tokio::runtime::Runtime)&gt; {
     <span class="kw">use </span>virtual_fs::static_fs::StaticFileSystem;
     <span class="kw">use </span>webc::v1::{FsEntryType, WebC};
+
+    <span class="kw">let </span>store_mut = store.as_store_mut();
+    <span class="kw">let </span>runtime = config.runtime.take();
+
+    <span class="kw">let </span>runtime = runtime.unwrap_or_else(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    });
+
+    <span class="kw">let </span>handle = runtime.handle().clone();
+    <span class="kw">let </span>_guard = handle.enter();
+    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+    rt.set_engine(<span class="prelude-val">Some</span>(store_mut.engine().clone()));
 
     <span class="kw">let </span>slice = <span class="kw">unsafe </span>{ std::slice::from_raw_parts(bytes, len) };
     <span class="kw">let </span>volumes = WebC::parse_volumes_from_fileblock(slice).ok()<span class="question-mark">?</span>;
@@ -942,7 +1015,7 @@
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
     <span class="kw">let </span>filesystem = Box::new(StaticFileSystem::init(slice, package_name)<span class="question-mark">?</span>);
-    <span class="kw">let </span><span class="kw-2">mut </span>builder = config.builder;
+    <span class="kw">let </span><span class="kw-2">mut </span>builder = config.builder.runtime(Arc::new(rt));
 
     <span class="kw">if </span>!config.inherit_stdout {
         builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
@@ -962,7 +1035,7 @@
     <span class="kw">let </span>env = builder.finalize(store).ok()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>import_object = env.import_object(store, module).ok()<span class="question-mark">?</span>;
-    <span class="prelude-val">Some</span>((env, import_object))
+    <span class="prelude-val">Some</span>((env, import_object, runtime))
 }
 
 <span class="attr">#[allow(non_camel_case_types)]
@@ -970,6 +1043,7 @@
     <span class="doccomment">/// cbindgen:ignore
     </span><span class="kw">pub</span>(<span class="kw">super</span>) inner: WasiFunctionEnv,
     <span class="kw">pub</span>(<span class="kw">super</span>) store: StoreRef,
+    <span class="kw">pub</span>(<span class="kw">super</span>) _runtime: tokio::runtime::Runtime,
 }
 
 <span class="doccomment">/// Create a new WASI environment.
@@ -982,6 +1056,21 @@
 ) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasi_env_t&gt;&gt; {
     <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>store<span class="question-mark">?</span>.inner;
     <span class="kw">let </span><span class="kw-2">mut </span>store_mut = store.store_mut();
+
+    <span class="kw">let </span>runtime = config.runtime.take();
+
+    <span class="kw">let </span>runtime = runtime.unwrap_or_else(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    });
+
+    <span class="kw">let </span>handle = runtime.handle().clone();
+    <span class="kw">let </span>_guard = handle.enter();
+    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+    rt.set_engine(<span class="prelude-val">Some</span>(store_mut.engine().clone()));
+
     <span class="kw">if </span>!config.inherit_stdout {
         config.builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
     }
@@ -992,11 +1081,15 @@
 
     <span class="comment">// TODO: impl capturer for stdin
 
-    </span><span class="kw">let </span>env = <span class="macro">c_try!</span>(config.builder.finalize(<span class="kw-2">&amp;mut </span>store_mut));
+    </span><span class="kw">let </span>env = <span class="macro">c_try!</span>(config
+        .builder
+        .runtime(Arc::new(rt))
+        .finalize(<span class="kw-2">&amp;mut </span>store_mut));
 
     <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
         inner: env,
         store: store.clone(),
+        _runtime: runtime,
     }))
 }
 
@@ -1028,14 +1121,14 @@
     <span class="kw">let </span>inner_buffer = slice::from_raw_parts_mut(buffer <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>, buffer_len);
     <span class="kw">let </span>store = env.store.store();
 
-    <span class="kw">let </span>(stdout, tasks) = {
+    <span class="kw">let </span>stdout = {
         <span class="kw">let </span>data = env.inner.data(<span class="kw-2">&amp;</span>store);
-        (data.stdout(), data.tasks().clone())
+        data.stdout()
     };
 
     <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stdout) = stdout {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(stdout) = stdout.as_mut() {
-            read_inner(tasks.deref(), stdout, inner_buffer)
+            read_inner(stdout, inner_buffer)
         } <span class="kw">else </span>{
             update_last_error(<span class="string">&quot;could not find a file handle for `stdout`&quot;</span>);
             -<span class="number">1
@@ -1054,13 +1147,13 @@
 ) -&gt; isize {
     <span class="kw">let </span>inner_buffer = slice::from_raw_parts_mut(buffer <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>, buffer_len);
     <span class="kw">let </span>store = env.store.store();
-    <span class="kw">let </span>(stderr, tasks) = {
+    <span class="kw">let </span>stderr = {
         <span class="kw">let </span>data = env.inner.data(<span class="kw-2">&amp;</span>store);
-        (data.stderr(), data.tasks().clone())
+        data.stderr()
     };
     <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = stderr {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr) = stderr.as_mut() {
-            read_inner(tasks.deref(), stderr, inner_buffer)
+            read_inner(stderr, inner_buffer)
         } <span class="kw">else </span>{
             update_last_error(<span class="string">&quot;could not find a file handle for `stderr`&quot;</span>);
             -<span class="number">1
@@ -1072,11 +1165,10 @@
 }
 
 <span class="kw">fn </span>read_inner(
-    tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
     wasi_file: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
     inner_buffer: <span class="kw-2">&amp;mut </span>[u8],
 ) -&gt; isize {
-    tasks.block_on(<span class="kw">async </span>{
+    InlineWaker::block_on(<span class="kw">async </span>{
         <span class="kw">match </span>wasi_file.read(inner_buffer).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(a) =&gt; a <span class="kw">as </span>isize,
             <span class="prelude-val">Err</span>(err) =&gt; {

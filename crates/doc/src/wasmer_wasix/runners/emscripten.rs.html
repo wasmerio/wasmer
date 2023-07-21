@@ -186,7 +186,7 @@
         <span class="kw">let </span>Emscripten { main_args, .. } =
             cmd.metadata().annotation(<span class="string">&quot;emscripten&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>module = <span class="kw">crate</span>::runners::compile_module(cmd.atom(), <span class="kw-2">&amp;*</span>runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>module = runtime.load_module_sync(cmd.atom())<span class="question-mark">?</span>;
         module.set_name(command_name);
 
         <span class="kw">let </span><span class="kw-2">mut </span>store = runtime.new_store();

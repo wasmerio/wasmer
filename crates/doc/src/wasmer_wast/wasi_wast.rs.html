@@ -731,6 +731,17 @@
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fs::{read_dir, File, OpenOptions, ReadDir},
     future::Future,
@@ -747,11 +758,11 @@
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 <span class="kw">use </span>wasmer::{FunctionEnv, Imports, Module, Store};
-<span class="kw">use </span>wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager;
+<span class="kw">use </span>wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
 <span class="kw">use </span>wasmer_wasix::types::wasi::{Filesize, Timestamp};
 <span class="kw">use </span>wasmer_wasix::{
-    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, Runtime,
-    VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
+    WasiEnv, WasiEnvBuilder, WasiVersion,
 };
 <span class="kw">use </span>wast::parser::{<span class="self">self</span>, Parse, ParseBuffer, Parser};
 
@@ -829,6 +840,21 @@
         filesystem_kind: WasiFileSystemKind,
     ) -&gt; anyhow::Result&lt;bool&gt; {
         <span class="kw">use </span>anyhow::Context;
+
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()<span class="question-mark">?</span>;
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>handle = runtime.handle().clone();
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>_guard = handle.enter();
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
+        rt.set_engine(<span class="prelude-val">Some</span>(store.engine().clone()));
+
         <span class="kw">let </span><span class="kw-2">mut </span>pb = PathBuf::from(base_path);
         pb.push(<span class="self">self</span>.wasm_path);
         <span class="kw">let </span>wasm_bytes = {
@@ -838,13 +864,9 @@
             out
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::shared()));
-        rt.set_engine(<span class="prelude-val">Some</span>(store.engine().clone()));
-
-        <span class="kw">let </span>tasks = rt.task_manager().runtime().clone();
         <span class="kw">let </span>module = Module::new(store, wasm_bytes)<span class="question-mark">?</span>;
         <span class="kw">let </span>(builder, _tempdirs, <span class="kw-2">mut </span>stdin_tx, stdout_rx, stderr_rx) =
-            { tasks.block_on(<span class="kw">async </span>{ <span class="self">self</span>.create_wasi_env(filesystem_kind).<span class="kw">await </span>}) }<span class="question-mark">?</span>;
+            { InlineWaker::block_on(<span class="kw">async </span>{ <span class="self">self</span>.create_wasi_env(filesystem_kind).<span class="kw">await </span>}) }<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(instance, _wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)<span class="question-mark">?</span>;
 
@@ -854,7 +876,7 @@
             <span class="comment">// let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
             // Then we can write to it!
             </span><span class="kw">let </span>data = stdin.stream.to_string();
-            tasks.block_on(<span class="kw">async move </span>{
+            InlineWaker::block_on(<span class="kw">async move </span>{
                 stdin_tx.write_all(data.as_bytes()).<span class="kw">await</span><span class="question-mark">?</span>;
                 stdin_tx.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
 

@@ -760,6 +760,22 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -807,8 +823,7 @@
 <span class="kw">pub mod </span>fs;
 <span class="kw">pub mod </span>http;
 <span class="kw">mod </span>rewind;
-<span class="attr">#[cfg(feature = <span class="string">&quot;webc_runner&quot;</span>)]
-</span><span class="kw">pub mod </span>runners;
+<span class="kw">pub mod </span>runners;
 <span class="kw">pub mod </span>runtime;
 <span class="kw">mod </span>state;
 <span class="kw">mod </span>syscalls;
@@ -853,10 +868,7 @@
         WasiTtyState,
     },
     rewind::<span class="kw-2">*</span>,
-    runtime::{
-        task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, Runtime,
-    },
+    runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
@@ -883,7 +895,7 @@
 }
 
 <span class="attr">#[deny(unused, dead_code)]
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Error, Debug)]
 </span><span class="kw">pub enum </span>SpawnError {
     <span class="doccomment">/// Failed during serialization
     </span><span class="attr">#[error(<span class="string">&quot;serialization failed&quot;</span>)]
@@ -933,6 +945,20 @@
     <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.
     </span><span class="attr">#[error(<span class="string">&quot;unknown error found&quot;</span>)]
     </span>UnknownError,
+    <span class="attr">#[error(<span class="string">&quot;runtime error&quot;</span>)]
+    </span>Runtime(<span class="attr">#[from] </span>WasiRuntimeError),
+    <span class="attr">#[error(transparent)]
+    </span>Other(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
+}
+
+<span class="kw">impl </span>SpawnError {
+    <span class="doccomment">/// Returns `true` if the spawn error is [`NotFound`].
+    ///
+    /// [`NotFound`]: SpawnError::NotFound
+    </span><span class="attr">#[must_use]
+    </span><span class="kw">pub fn </span>is_not_found(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::NotFound)
+    }
 }
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
@@ -1177,6 +1203,9 @@
         <span class="string">&quot;clock_time_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory32&gt;),
         <span class="string">&quot;environ_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
         <span class="string">&quot;environ_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
+        <span class="string">&quot;epoll_create&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory32&gt;),
+        <span class="string">&quot;epoll_ctl&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_ctl::&lt;Memory32&gt;),
+        <span class="string">&quot;epoll_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_wait::&lt;Memory32&gt;),
         <span class="string">&quot;fd_advise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
         <span class="string">&quot;fd_allocate&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
         <span class="string">&quot;fd_close&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),
@@ -1295,6 +1324,9 @@
         <span class="string">&quot;clock_time_set&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory64&gt;),
         <span class="string">&quot;environ_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory64&gt;),
         <span class="string">&quot;environ_sizes_get&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory64&gt;),
+        <span class="string">&quot;epoll_create&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory64&gt;),
+        <span class="string">&quot;epoll_ctl&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_ctl::&lt;Memory64&gt;),
+        <span class="string">&quot;epoll_wait&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_wait::&lt;Memory64&gt;),
         <span class="string">&quot;fd_advise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_advise),
         <span class="string">&quot;fd_allocate&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_allocate),
         <span class="string">&quot;fd_close&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, fd_close),

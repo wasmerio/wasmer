@@ -141,7 +141,7 @@
     </span><span class="kw">pub fn </span>initialize_logging(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span>fmt_layer = fmt::layer()
             .with_target(<span class="bool-val">true</span>)
-            .with_span_events(fmt::format::FmtSpan::CLOSE)
+            .with_span_events(fmt::format::FmtSpan::CLOSE | fmt::format::FmtSpan::ENTER)
             .with_ansi(<span class="self">self</span>.should_emit_colors())
             .with_thread_ids(<span class="bool-val">true</span>)
             .with_writer(std::io::stderr)

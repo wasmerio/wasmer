@@ -258,6 +258,7 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
 </pre><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,
 //! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
@@ -392,6 +393,7 @@
     <span class="kw">pub </span>clock_offset: Mutex&lt;HashMap&lt;Snapshot0Clockid, i64&gt;&gt;,
     <span class="kw">pub </span>args: Vec&lt;String&gt;,
     <span class="kw">pub </span>envs: Vec&lt;Vec&lt;u8&gt;&gt;,
+
     <span class="comment">// TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
     </span><span class="kw">pub </span>preopen: Vec&lt;String&gt;,

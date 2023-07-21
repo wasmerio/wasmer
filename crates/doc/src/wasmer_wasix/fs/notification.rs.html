@@ -108,6 +108,11 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::VecDeque,
     sync::Mutex,
@@ -215,6 +220,11 @@
             <span class="number">0 </span>=&gt; <span class="prelude-val">None</span>,
             res =&gt; <span class="prelude-val">Some</span>(res),
         }
+    }
+
+    <span class="kw">pub fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.last_poll = u64::MAX;
     }
 }
 </code></pre></div>

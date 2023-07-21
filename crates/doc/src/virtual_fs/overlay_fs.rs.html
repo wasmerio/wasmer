@@ -1623,6 +1623,14 @@
 <a href="#1623" id="1623">1623</a>
 <a href="#1624" id="1624">1624</a>
 <a href="#1625" id="1625">1625</a>
+<a href="#1626" id="1626">1626</a>
+<a href="#1627" id="1627">1627</a>
+<a href="#1628" id="1628">1628</a>
+<a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -1668,7 +1676,14 @@
 ///     host_fs::FileSystem as HostFS,
 ///     OverlayFileSystem,
 /// };
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS]);
+///
+/// let runtime = tokio::runtime::Builder::new_current_thread()
+///     .enable_all()
+///     .build()
+///     .unwrap();
+///     let _guard = runtime.enter();
+///
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::default()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -2768,8 +2783,8 @@
         <span class="macro">assert_ne!</span>(content, <span class="string">&quot;This is shadowed&quot;</span>);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
         <span class="kw">let </span>primary = MemFS::default();
         <span class="kw">let </span>secondary = MemFS::default();
         ops::create_dir_all(<span class="kw-2">&amp;</span>secondary, <span class="string">&quot;/path/to/&quot;</span>).unwrap();
@@ -2830,7 +2845,8 @@
         // (initialized with a set of unix-like folders), but certain folders
         // are first to the host.
         </span><span class="kw">let </span>primary = RootFileSystemBuilder::new().build();
-        <span class="kw">let </span>host_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; = Arc::new(<span class="kw">crate</span>::host_fs::FileSystem);
+        <span class="kw">let </span>host_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
+            Arc::new(<span class="kw">crate</span>::host_fs::FileSystem::default());
         <span class="kw">let </span>first_dirs = [(<span class="kw-2">&amp;</span>first, <span class="string">&quot;/first&quot;</span>), (<span class="kw-2">&amp;</span>second, <span class="string">&quot;/second&quot;</span>)];
         <span class="kw">for </span>(host, guest) <span class="kw">in </span>first_dirs {
             primary
@@ -2940,8 +2956,8 @@
         <span class="macro">assert_eq!</span>(original_entries, candidate_entries);
     }
 
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>absolute_and_relative_paths_are_passed_through() {
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>absolute_and_relative_paths_are_passed_through() {
         <span class="kw">let </span>python = Arc::new(load_webc(PYTHON));
 
         <span class="comment">// The underlying filesystem doesn&#39;t care about absolute/relative paths

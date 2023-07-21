@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["JoinStatusResult",""]],"fn":[["proc_join","`proc_join()`"]]};
+window.SIDEBAR_ITEMS = {"enum":[["JoinStatusResult",""]],"fn":[["proc_join","`proc_join()`"],["proc_join_internal",""]]};

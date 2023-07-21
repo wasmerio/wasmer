@@ -128,12 +128,14 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
 </pre><pre class="rust"><code><span class="kw">use </span>tracing::{field, instrument, trace_span};
 <span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Memory, WasmPtr};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
-    Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
-    Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
-    Whence,
+    Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd, Filesize, Filestat,
+    Filetype, Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence,
+    Subscription, Whence,
 };
 
 <span class="kw">use crate</span>::{
@@ -192,6 +194,7 @@
         Snapshot0Whence::Cur =&gt; Whence::Cur,
         Snapshot0Whence::End =&gt; Whence::End,
         Snapshot0Whence::Set =&gt; Whence::Set,
+        Snapshot0Whence::Unknown =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
     };
     syscalls::fd_seek::&lt;Memory32&gt;(ctx, fd, offset, new_whence, newoffset)
 }
@@ -241,6 +244,7 @@
                         nbytes: <span class="number">0</span>,
                         flags: Eventrwflags::empty(),
                     },
+                    Eventtype::Unknown =&gt; <span class="kw">return </span>Errno::Inval,
                 },
             };
             <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
