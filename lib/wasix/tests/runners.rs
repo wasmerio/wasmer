@@ -8,7 +8,6 @@ use std::{
     time::Duration,
 };
 
-use once_cell::sync::Lazy;
 use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
@@ -208,13 +207,19 @@ async fn download_cached(url: &str) -> bytes::Bytes {
 }
 
 fn client() -> Client {
-    static CLIENT: Lazy<Client> = Lazy::new(|| {
-        Client::builder()
-            .connect_timeout(Duration::from_secs(30))
-            .build()
-            .unwrap()
-    });
-    CLIENT.clone()
+    Client::builder()
+        .connect_timeout(Duration::from_secs(30))
+        .build()
+        .unwrap()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn sanitze_name_for_path(name: &str) -> String {
+    name.into()
+}
+#[cfg(target_os = "windows")]
+fn sanitze_name_for_path(name: &str) -> String {
+    name.replace(":", "_")
 }
 
 fn runtime() -> impl Runtime + Send + Sync {
@@ -226,7 +231,9 @@ fn runtime() -> impl Runtime + Send + Sync {
 
     let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(env!("CARGO_PKG_NAME"))
-        .join(std::thread::current().name().unwrap_or("cache"));
+        .join(sanitze_name_for_path(
+            std::thread::current().name().unwrap_or("cache"),
+        ));
 
     std::fs::create_dir_all(&cache_dir).unwrap();
 

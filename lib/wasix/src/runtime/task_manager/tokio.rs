@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 use futures::{future::BoxFuture, Future};
 use tokio::runtime::Handle;
@@ -16,9 +16,19 @@ pub struct TokioTaskManager {
 
 impl TokioTaskManager {
     pub fn new(rt: Handle) -> Self {
+        let concurrency = std::thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get();
+        let max_threads = 200usize.max(concurrency * 100);
+
         Self {
             handle: rt,
-            pool: Arc::new(rayon::ThreadPoolBuilder::new().build().unwrap()),
+            pool: Arc::new(
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(max_threads)
+                    .build()
+                    .unwrap(),
+            ),
         }
     }
 
@@ -85,6 +95,8 @@ impl VirtualTaskManager for TokioTaskManager {
         // If we have a trigger then we first need to run
         // the poller to completion
         if let Some(trigger) = task.trigger {
+            tracing::trace!("spawning task_wasm trigger in async pool");
+
             let trigger = trigger();
             let pool = self.pool.clone();
             self.handle.spawn(async move {
@@ -100,8 +112,12 @@ impl VirtualTaskManager for TokioTaskManager {
                 });
             });
         } else {
+            tracing::trace!("spawning task_wasm in blocking thread");
+
             // Run the callback on a dedicated thread
             self.pool.spawn(move || {
+                tracing::trace!("task_wasm started in blocking thread");
+
                 // Invoke the callback
                 run(TaskWasmRunProperties {
                     ctx,
