@@ -690,6 +690,7 @@
 <a href="#689" id="689">689</a>
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -743,6 +744,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
             <span class="kw">match </span>cache.lookup_cached_query(package_name) {
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached)) =&gt; {
+                    <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(cached);
                 }
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {}

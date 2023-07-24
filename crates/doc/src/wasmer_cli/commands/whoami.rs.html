@@ -19,6 +19,7 @@
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
 </pre><pre class="rust"><code><span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 
@@ -33,8 +34,9 @@
     <span class="doccomment">/// Execute `wasmer whoami`
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>registry = <span class="self">self</span>.env.registry_endpoint()<span class="question-mark">?</span>;
+        <span class="kw">let </span>token = <span class="self">self</span>.env.token();
         <span class="kw">let </span>(registry, username) =
-            wasmer_registry::whoami(<span class="self">self</span>.env.dir(), <span class="prelude-val">Some</span>(registry.as_str()), <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            wasmer_registry::whoami(<span class="self">self</span>.env.dir(), <span class="prelude-val">Some</span>(registry.as_str()), token.as_deref())<span class="question-mark">?</span>;
         <span class="macro">println!</span>(<span class="string">&quot;logged into registry {registry:?} as user {username:?}&quot;</span>);
         <span class="prelude-val">Ok</span>(())
     }

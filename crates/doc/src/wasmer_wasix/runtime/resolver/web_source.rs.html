@@ -629,7 +629,7 @@
         <span class="comment">// Next we check if we definitely got a cache hit
         </span><span class="kw">let </span>state = <span class="kw">match </span>classify_cache_using_mtime(cache_info, <span class="self">self</span>.retry_period) {
             <span class="prelude-val">Ok</span>(path) =&gt; {
-                <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Cache hit&quot;</span>);
+                <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Cache hit!&quot;</span>);
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(path);
             }
             <span class="prelude-val">Err</span>(s) =&gt; s,

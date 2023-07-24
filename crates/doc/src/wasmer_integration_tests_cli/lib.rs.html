@@ -7,14 +7,12 @@
 <a href="#7" id="7">7</a>
 <a href="#8" id="8">8</a>
 <a href="#9" id="9">9</a>
-<a href="#10" id="10">10</a>
 </pre><pre class="rust"><code><span class="attr">#![forbid(unsafe_code)]
 
-</span><span class="doccomment">//! CLI integration tests
-
-</span><span class="kw">pub mod </span>assets;
+</span><span class="kw">mod </span>assets;
+<span class="kw">pub mod </span>fixtures;
 <span class="kw">pub mod </span>link_code;
-<span class="kw">pub mod </span>util;
+<span class="kw">mod </span>util;
 
 <span class="kw">pub use </span>assets::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>util::<span class="kw-2">*</span>;

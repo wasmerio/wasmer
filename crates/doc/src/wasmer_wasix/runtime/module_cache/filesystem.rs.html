@@ -262,6 +262,7 @@
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     io::{BufWriter, Write},
     path::{Path, PathBuf},
@@ -375,6 +376,7 @@
         }
 
         temp.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
+        <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Saved to disk&quot;</span>);
 
         <span class="prelude-val">Ok</span>(())
     }

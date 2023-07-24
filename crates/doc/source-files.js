@@ -21,7 +21,7 @@ var sourcesIndex = JSON.parse('{\
 "wasmer_compiler_singlepass":["",[],["address_map.rs","arm64_decl.rs","codegen.rs","common_decl.rs","compiler.rs","config.rs","dwarf.rs","emitter_arm64.rs","emitter_x64.rs","lib.rs","location.rs","machine.rs","machine_arm64.rs","machine_x64.rs","unwind.rs","unwind_winx64.rs","x64_decl.rs"]],\
 "wasmer_derive":["",[],["lib.rs","value_type.rs"]],\
 "wasmer_emscripten":["",[["env",[["unix",[],["mod.rs"]]],["mod.rs"]],["io",[],["mod.rs","unix.rs"]],["syscalls",[],["mod.rs","unix.rs"]]],["bitwise.rs","emscripten_target.rs","errno.rs","exception.rs","exec.rs","exit.rs","inet.rs","jmp.rs","lib.rs","libc.rs","linking.rs","lock.rs","macros.rs","math.rs","memory.rs","process.rs","pthread.rs","signal.rs","storage.rs","time.rs","ucontext.rs","unistd.rs","utils.rs","varargs.rs"]],\
-"wasmer_integration_tests_cli":["",[],["assets.rs","lib.rs","link_code.rs","util.rs"]],\
+"wasmer_integration_tests_cli":["",[],["assets.rs","fixtures.rs","lib.rs","link_code.rs","util.rs"]],\
 "wasmer_middlewares":["",[],["lib.rs","metering.rs"]],\
 "wasmer_object":["",[],["error.rs","lib.rs","module.rs"]],\
 "wasmer_registry":["",[["graphql",[],["mod.rs","mutations.rs","proxy.rs","queries.rs"]],["package",[],["builder.rs","mod.rs"]]],["api.rs","client.rs","config.rs","interface.rs","lib.rs","login.rs","publish.rs","types.rs","utils.rs","wasmer_env.rs"]],\

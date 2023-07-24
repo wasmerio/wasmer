@@ -137,54 +137,109 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::env;
-<span class="kw">use </span>std::path::PathBuf;
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::{env, path::Path};
 
-<span class="kw">pub const </span>C_ASSET_PATH: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(
-    <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
-    <span class="string">&quot;/../../../lib/c-api/examples/assets/&quot;
-</span>);
-<span class="kw">pub const </span>ASSET_PATH: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../tests/examples/&quot;</span>);
+<span class="kw">pub fn </span>c_asset_path() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Path {
+    Path::new(<span class="macro">concat!</span>(
+        <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
+        <span class="string">&quot;/../../../lib/c-api/examples/assets/&quot;
+    </span>))
+}
 
-<span class="kw">pub const </span>WASMER_INCLUDE_PATH: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../lib/c-api/&quot;</span>);
+<span class="kw">pub fn </span>asset_path() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Path {
+    Path::new(<span class="macro">concat!</span>(
+        <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
+        <span class="string">&quot;/../../../tests/examples/&quot;
+    </span>))
+}
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
-</span><span class="kw">pub const </span>WASMER_TARGET_PATH: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../target/debug/&quot;</span>);
-<span class="attr">#[cfg(feature = <span class="string">&quot;debug&quot;</span>)]
-</span><span class="kw">pub const </span>WASMER_TARGET_PATH_2: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(
-    <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
-    <span class="string">&quot;/../../../target/&quot;</span>,
-    <span class="macro">env!</span>(<span class="string">&quot;CARGO_BUILD_TARGET&quot;</span>),
-    <span class="string">&quot;/debug/&quot;
-</span>);
+<span class="kw">pub fn </span>wasmer_include_path() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Path {
+    Path::new(<span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../lib/c-api/&quot;</span>))
+}
+
+<span class="kw">pub fn </span>wasmer_target_path() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Path {
+    <span class="kw">let </span>path = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;debug&quot;</span>) {
+        <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../target/debug/&quot;</span>)
+    } <span class="kw">else </span>{
+        <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../target/release/&quot;</span>)
+    };
+    Path::new(path)
+}
+
+<span class="kw">pub fn </span>wasmer_target_path_2() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>Path {
+    <span class="kw">let </span>path = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;debug&quot;</span>) {
+        <span class="macro">concat!</span>(
+            <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
+            <span class="string">&quot;/../../../target/&quot;</span>,
+            <span class="macro">env!</span>(<span class="string">&quot;CARGO_BUILD_TARGET&quot;</span>),
+            <span class="string">&quot;/debug/&quot;
+        </span>)
+    } <span class="kw">else </span>{
+        <span class="macro">concat!</span>(
+            <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
+            <span class="string">&quot;/../../../target/&quot;</span>,
+            <span class="macro">env!</span>(<span class="string">&quot;CARGO_BUILD_TARGET&quot;</span>),
+            <span class="string">&quot;/release/&quot;
+        </span>)
+    };
+    Path::new(path)
+}
 
 <span class="comment">/* env var TARGET is set by tests/integration/cli/build.rs on compile-time */
 
-</span><span class="attr">#[cfg(not(feature = <span class="string">&quot;debug&quot;</span>))]
-</span><span class="kw">pub const </span>WASMER_TARGET_PATH: <span class="kw-2">&amp;</span>str =
-    <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>), <span class="string">&quot;/../../../target/release/&quot;</span>);
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;debug&quot;</span>))]
-</span><span class="kw">pub const </span>WASMER_TARGET_PATH_2: <span class="kw-2">&amp;</span>str = <span class="macro">concat!</span>(
-    <span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>),
-    <span class="string">&quot;/../../../target/&quot;</span>,
-    <span class="macro">env!</span>(<span class="string">&quot;CARGO_BUILD_TARGET&quot;</span>),
-    <span class="string">&quot;/release/&quot;
-</span>);
-
-<span class="attr">#[cfg(not(windows))]
-</span><span class="kw">pub const </span>LIBWASMER_FILENAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;libwasmer.a&quot;</span>;
-
-<span class="attr">#[cfg(windows)]
-</span><span class="kw">pub const </span>LIBWASMER_FILENAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.lib&quot;</span>;
+</span><span class="kw">pub const </span>LIBWASMER_FILENAME: <span class="kw-2">&amp;</span>str = {
+    <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
+        <span class="string">&quot;wasmer.lib&quot;
+    </span>} <span class="kw">else </span>{
+        <span class="string">&quot;libwasmer.a&quot;
+    </span>}
+};
 
 <span class="doccomment">/// Get the path to the `libwasmer.a` static library.
 </span><span class="kw">pub fn </span>get_libwasmer_path() -&gt; PathBuf {
-    <span class="kw">let </span><span class="kw-2">mut </span>ret = PathBuf::from(
-        env::var(<span class="string">&quot;WASMER_TEST_LIBWASMER_PATH&quot;</span>)
-            .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WASMER_TARGET_PATH, LIBWASMER_FILENAME)),
-    );
+    <span class="kw">let </span><span class="kw-2">mut </span>ret = env::var(<span class="string">&quot;WASMER_TEST_LIBWASMER_PATH&quot;</span>)
+        .map(PathBuf::from)
+        .unwrap_or_else(|<span class="kw">_</span>| wasmer_target_path().join(LIBWASMER_FILENAME));
+
     <span class="kw">if </span>!ret.exists() {
-        ret = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, WASMER_TARGET_PATH_2, LIBWASMER_FILENAME));
+        ret = wasmer_target_path_2().join(LIBWASMER_FILENAME);
     }
     <span class="kw">if </span>!ret.exists() {
         <span class="macro">panic!</span>(<span class="string">&quot;Could not find libwasmer path! {:?}&quot;</span>, ret);
@@ -194,23 +249,22 @@
 
 <span class="doccomment">/// Get the path to the `wasmer` executable to be used in this test.
 </span><span class="kw">pub fn </span>get_wasmer_path() -&gt; PathBuf {
-    <span class="kw">let </span><span class="kw-2">mut </span>ret = PathBuf::from(
-        env::var(<span class="string">&quot;WASMER_TEST_WASMER_PATH&quot;</span>)
-            .unwrap_or_else(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">&quot;{}wasmer&quot;</span>, WASMER_TARGET_PATH)),
-    );
+    <span class="kw">let </span><span class="kw-2">mut </span>ret = env::var(<span class="string">&quot;WASMER_TEST_WASMER_PATH&quot;</span>)
+        .map(PathBuf::from)
+        .unwrap_or_else(|<span class="kw">_</span>| wasmer_target_path().join(<span class="string">&quot;wasmer&quot;</span>));
+
     <span class="kw">if </span>!ret.exists() {
-        ret = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;{}wasmer&quot;</span>, WASMER_TARGET_PATH_2));
+        ret = wasmer_target_path_2().join(<span class="string">&quot;wasmer&quot;</span>);
     }
     <span class="kw">if </span>!ret.exists() {
         ret = <span class="kw">match </span>get_repo_root_path() {
             <span class="prelude-val">Some</span>(s) =&gt; {
-                <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-                </span>{
-                    s.join(<span class="string">&quot;target&quot;</span>).join(<span class="string">&quot;release&quot;</span>).join(<span class="string">&quot;wasmer.exe&quot;</span>)
-                }
-                <span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-                </span>{
-                    s.join(<span class="string">&quot;target&quot;</span>).join(<span class="string">&quot;release&quot;</span>).join(<span class="string">&quot;wasmer&quot;</span>)
+                <span class="kw">let </span>release_dir = s.join(<span class="string">&quot;target&quot;</span>).join(<span class="string">&quot;release&quot;</span>);
+
+                <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
+                    release_dir.join(<span class="string">&quot;wasmer.exe&quot;</span>)
+                } <span class="kw">else </span>{
+                    release_dir.join(<span class="string">&quot;wasmer&quot;</span>)
                 }
             }
             <span class="prelude-val">None </span>=&gt; {
@@ -222,20 +276,15 @@
     <span class="kw">if </span>!ret.exists() {
         ret = <span class="kw">match </span>get_repo_root_path() {
             <span class="prelude-val">Some</span>(s) =&gt; {
-                <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-                </span>{
-                    s.join(<span class="string">&quot;target&quot;</span>)
-                        .join(target_lexicon::HOST.to_string())
-                        .join(<span class="string">&quot;release&quot;</span>)
-                        .join(<span class="string">&quot;wasmer.exe&quot;</span>)
-                }
-                <span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-                </span>{
-                    s.join(<span class="string">&quot;target&quot;</span>)
-                        .join(target_lexicon::HOST.to_string())
-                        .join(<span class="string">&quot;release&quot;</span>)
-                        .join(<span class="string">&quot;wasmer&quot;</span>)
-                }
+                <span class="kw">let </span>executable = <span class="kw">if </span><span class="macro">cfg!</span>(windows) {
+                    <span class="string">&quot;wasmer.exe&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="string">&quot;wasmer&quot;
+                </span>};
+                s.join(<span class="string">&quot;target&quot;</span>)
+                    .join(target_lexicon::HOST.to_string())
+                    .join(<span class="string">&quot;release&quot;</span>)
+                    .join(executable)
             }
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">panic!</span>(<span class="string">&quot;Could not find wasmer executable path! {:?}&quot;</span>, ret);
@@ -275,6 +324,29 @@
         }
     }
     result
+}
+
+<span class="kw">pub fn </span>get_wasmer_dir() -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(s) = std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>) {
+        <span class="prelude-val">Ok</span>(Path::new(<span class="kw-2">&amp;</span>s).to_path_buf())
+    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(root_dir) = get_repo_root_path().and_then(|root| {
+        <span class="kw">if </span>root.join(<span class="string">&quot;package&quot;</span>).exists() {
+            <span class="prelude-val">Some</span>(root.join(<span class="string">&quot;package&quot;</span>))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
+    }) {
+        <span class="prelude-val">Ok</span>(root_dir)
+    } <span class="kw">else </span>{
+        <span class="kw">let </span>home_dir = dirs::home_dir()
+            .ok_or(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no home dir&quot;</span>))<span class="question-mark">?
+            </span>.join(<span class="string">&quot;.wasmer&quot;</span>);
+        <span class="kw">if </span>home_dir.exists() {
+            <span class="prelude-val">Ok</span>(home_dir)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;no .wasmer home dir&quot;</span>))
+        }
+    }
 }
 </code></pre></div>
 </section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_integration_tests_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
