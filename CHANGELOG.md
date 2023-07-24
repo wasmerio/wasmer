@@ -9,6 +9,49 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.1.0 - 24/07/2023
+
+## Added
+
+  - [#4081](https://github.com/wasmerio/wasmer/pull/4081) Add WebcHash::parse_hex helper
+  - [#4046](https://github.com/wasmerio/wasmer/pull/4046) Add C API function to create Module from Engine instead of Store
+
+## Changed
+
+  - [#4095](https://github.com/wasmerio/wasmer/pull/4095) Bumped the webc version
+  - [#4038](https://github.com/wasmerio/wasmer/pull/4038) Clean up the integration tests
+  - [#4085](https://github.com/wasmerio/wasmer/pull/4085) Switch to lazily loading a Wasmer package directly from disk
+  - [#4084](https://github.com/wasmerio/wasmer/pull/4084) Remove unused atty dependency
+  - [#4057](https://github.com/wasmerio/wasmer/pull/4057) login with browser using nonce
+  - [#4073](https://github.com/wasmerio/wasmer/pull/4073) deps(wasmer-wasix): Remove two unused dependencies
+  - [#4068](https://github.com/wasmerio/wasmer/pull/4068) Enable tokio's "net" feature in the virtual-net crate
+  - [#4065](https://github.com/wasmerio/wasmer/pull/4065) deps: Upgrade edge CLI version
+  - [#4064](https://github.com/wasmerio/wasmer/pull/4064) Enable the `cfg_doc` feature on docs.rs
+  - [#4052](https://github.com/wasmerio/wasmer/pull/4052) Selenium-style tests for wasmer.sh
+  - [#4061](https://github.com/wasmerio/wasmer/pull/4061) Use is-terminal to check tty
+  - [#4056](https://github.com/wasmerio/wasmer/pull/4056) Update hermit-abi crate, used version was yanked
+  - [#4055](https://github.com/wasmerio/wasmer/pull/4055) Use a no-op package loader by default in PluggableRuntime
+  - [#4011](https://github.com/wasmerio/wasmer/pull/4011) Move Artifact Register FrameInfo
+  - [#4042](https://github.com/wasmerio/wasmer/pull/4042) Disable unused cbindgen feature
+  - [#4044](https://github.com/wasmerio/wasmer/pull/4044) Update tempfile crate
+  - [#4041](https://github.com/wasmerio/wasmer/pull/4041) Canonicalize host folder on mapdir
+  - [#4040](https://github.com/wasmerio/wasmer/pull/4040) Removed error message when a deserializzation error occurs in Artifact
+  - [#4032](https://github.com/wasmerio/wasmer/pull/4032) Make the CLI respect the `--token` flag
+  - [#4030](https://github.com/wasmerio/wasmer/pull/4030) Remove rustup build dependency
+  - [#4031](https://github.com/wasmerio/wasmer/pull/4031) Speed up the module cache 6x by removing LZW compression
+
+## Fixed
+
+  - [#4096](https://github.com/wasmerio/wasmer/pull/4096) Fix benchmark
+  - [#4050](https://github.com/wasmerio/wasmer/pull/4050) `epoll` with fs fixes
+  - [#4074](https://github.com/wasmerio/wasmer/pull/4074) fix(wasix): Expose FileSystemMapping struct
+  - [#4063](https://github.com/wasmerio/wasmer/pull/4063) Fix docstring for MemoryView struct
+  - [#4047](https://github.com/wasmerio/wasmer/pull/4047) Fixed create exe when zig is not present
+  - [#3970](https://github.com/wasmerio/wasmer/pull/3970) Fixes for wasmer.sh
+  - [#4035](https://github.com/wasmerio/wasmer/pull/4035) Fix help text for `use_system_linker` option in `create_exe` CLI command
+
+
+
 ## 4.0.0 - 22/06/2023
 
 Some more behind-the-scene unification and bug fixe since the last beta, mostly on the CLI, but make sure to check all the other changes of the previous beta and alpha release if you came from last stable version.
