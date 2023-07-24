@@ -551,7 +551,7 @@
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="attr">#[allow(unused_imports, dead_code)]
 </span><span class="kw">use </span>tracing::{debug, error, info, trace, warn};
-<span class="kw">use </span>virtual_io::{InterestGuard, InterestHandler, Selector};
+<span class="kw">use </span>virtual_mio::{InterestGuard, InterestHandler, Selector};
 
 <span class="attr">#[derive(Derivative)]
 #[derivative(Debug)]
@@ -849,7 +849,7 @@
 
         <span class="kw">if </span><span class="self">self</span>.first_handler_writeable {
             <span class="self">self</span>.first_handler_writeable = <span class="bool-val">false</span>;
-            handler.interest(virtual_io::InterestType::Writable);
+            handler.interest(virtual_mio::InterestType::Writable);
         }
 
         <span class="kw">let </span>guard = InterestGuard::new(

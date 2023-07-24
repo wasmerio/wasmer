@@ -500,9 +500,9 @@
 
 <span class="kw">pub use </span>bytes::Bytes;
 <span class="kw">pub use </span>bytes::BytesMut;
-<span class="kw">pub use </span>virtual_io::{handler_into_waker, InterestHandler};
+<span class="kw">pub use </span>virtual_mio::{handler_into_waker, InterestHandler};
 <span class="attr">#[cfg(feature = <span class="string">&quot;host-net&quot;</span>)]
-</span><span class="kw">pub use </span>virtual_io::{InterestGuard, InterestHandlerWaker, InterestType};
+</span><span class="kw">pub use </span>virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
 
 <span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, NetworkError&gt;;
 

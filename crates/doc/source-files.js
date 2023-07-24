@@ -3,7 +3,7 @@ var sourcesIndex = JSON.parse('{\
 "macro_wasmer_universal_test":["",[],["lib.rs"]],\
 "test_generator":["",[],["lib.rs","processors.rs"]],\
 "virtual_fs":["",[["mem_fs",[],["file.rs","file_opener.rs","filesystem.rs","mod.rs","stdio.rs"]]],["arc_box_file.rs","arc_file.rs","arc_fs.rs","buffer_file.rs","builder.rs","combine_file.rs","cow_file.rs","dual_write_file.rs","empty_fs.rs","filesystems.rs","host_fs.rs","lib.rs","limiter.rs","null_file.rs","ops.rs","overlay_fs.rs","passthru_fs.rs","pipe.rs","random_file.rs","special_file.rs","static_file.rs","static_fs.rs","tmp_fs.rs","trace_fs.rs","union_fs.rs","webc_fs.rs","webc_volume_fs.rs","zero_file.rs"]],\
-"virtual_io":["",[],["guard.rs","interest.rs","lib.rs","selector.rs"]],\
+"virtual_mio":["",[],["guard.rs","interest.rs","lib.rs","selector.rs"]],\
 "virtual_net":["",[],["host.rs","lib.rs"]],\
 "wai_bindgen_wasmer":["",[],["error.rs","le.rs","lib.rs","region.rs","slab.rs","table.rs"]],\
 "wasi_test_generator":["",[],["main.rs","set_up_toolchain.rs","util.rs","wasi_version.rs","wasitests.rs"]],\

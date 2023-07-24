@@ -241,7 +241,7 @@
 <a href="#240" id="240">240</a>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::sync::{mpsc::UnboundedSender, watch};
-<span class="kw">use </span>virtual_io::{InterestHandler, InterestType};
+<span class="kw">use </span>virtual_mio::{InterestHandler, InterestType};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
     EpollCtl, EpollEvent, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
 };

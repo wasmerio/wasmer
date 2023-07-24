@@ -801,7 +801,7 @@
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>virtual_fs::{FsError, Pipe <span class="kw">as </span>VirtualPipe, VirtualFile};
-<span class="kw">use </span>virtual_io::{InterestType, StatefulHandler};
+<span class="kw">use </span>virtual_mio::{InterestType, StatefulHandler};
 <span class="kw">use </span>virtual_net::NetworkError;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
