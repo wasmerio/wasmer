@@ -76,7 +76,7 @@ impl WebSource {
         // Next we check if we definitely got a cache hit
         let state = match classify_cache_using_mtime(cache_info, self.retry_period) {
             Ok(path) => {
-                tracing::debug!(path=%path.display(), "Cache hit");
+                tracing::debug!(path=%path.display(), "Cache hit!");
                 return Ok(path);
             }
             Err(s) => s,
