@@ -19,10 +19,10 @@ libc = { version = "0.2.139", optional = true }
 mio = { version = "0.8", optional = true }
 socket2 = { version = "0.4", optional = true }
 derivative = { version = "^2" }
-virtual-io  = { path = "../virtual-io", version = "0.1.0", default-features = false }
+virtual-mio  = { path = "../virtual-io", version = "0.1.0", default-features = false }
 
 [features]
-host-net = [ "tokio", "libc", "virtual-io/sys", "tokio/net", "socket2", "mio" ]
+host-net = [ "tokio", "libc", "virtual-mio/sys", "tokio/net", "socket2", "mio" ]
 
 [package.metadata.docs.rs]
 features = ["host-net"]

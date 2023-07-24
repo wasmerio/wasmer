@@ -5043,7 +5043,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "virtual-io"
+name = "virtual-mio"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -5068,7 +5068,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
- "virtual-io",
+ "virtual-mio",
 ]
 
 [[package]]
@@ -6147,7 +6147,7 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
- "virtual-io",
+ "virtual-mio",
  "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",

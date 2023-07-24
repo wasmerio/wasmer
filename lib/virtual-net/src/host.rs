@@ -15,7 +15,7 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-use virtual_io::{InterestGuard, InterestHandler, Selector};
+use virtual_mio::{InterestGuard, InterestHandler, Selector};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -313,7 +313,7 @@ impl VirtualSocket for LocalTcpStream {
 
         if self.first_handler_writeable {
             self.first_handler_writeable = false;
-            handler.interest(virtual_io::InterestType::Writable);
+            handler.interest(virtual_mio::InterestType::Writable);
         }
 
         let guard = InterestGuard::new(

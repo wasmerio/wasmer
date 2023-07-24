@@ -13,9 +13,9 @@ use thiserror::Error;
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
-pub use virtual_io::{handler_into_waker, InterestHandler};
+pub use virtual_mio::{handler_into_waker, InterestHandler};
 #[cfg(feature = "host-net")]
-pub use virtual_io::{InterestGuard, InterestHandlerWaker, InterestType};
+pub use virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
