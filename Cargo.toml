@@ -81,7 +81,7 @@ rust-version = "1.67"
 version = "4.0.0"
 
 [workspace.dependencies]
-webc = { version = "5.1.1", default-features = false, features = ["package"] }
+webc = { version = "5.2.0", default-features = false, features = ["package"] }
 wasmer-toml = "0.6.0"
 
 [build-dependencies]
