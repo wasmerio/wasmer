@@ -1078,6 +1078,16 @@ dependencies = [
 
 [[package]]
 name = "darling"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b750cb3417fd1b327431a470f388520309479ab0bf5e323505daf0290cd3850"
+dependencies = [
+ "darling_core 0.14.4",
+ "darling_macro 0.14.4",
+]
+
+[[package]]
+name = "darling"
 version = "0.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0209d94da627ab5605dcccf08bb18afa5009cfbef48d8a8b7d7bdbc79be25c5e"
@@ -1091,6 +1101,20 @@ name = "darling_core"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "109c1ca6e6b7f82cc233a97004ea8ed7ca123a9af07a8230878fcfda9b158bf0"
 dependencies = [
  "fnv",
  "ident_case",
@@ -1120,6 +1144,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
 dependencies = [
  "darling_core 0.13.4",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4aab4dbc9f7611d8b55048a3a16d2d010c2c8334e46304b40ac1cc14bf3b48e"
+dependencies = [
+ "darling_core 0.14.4",
  "quote",
  "syn 1.0.109",
 ]
@@ -1168,6 +1203,37 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.26",
+]
+
+[[package]]
+name = "derive_builder"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d67778784b508018359cbc8696edb3db78160bab2c2a28ba7f56ef6932997f8"
+dependencies = [
+ "derive_builder_macro",
+]
+
+[[package]]
+name = "derive_builder_core"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c11bdc11a0c47bc7d37d582b5285da6849c96681023680b906673c5707af7b0f"
+dependencies = [
+ "darling 0.14.4",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "derive_builder_macro"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebcda35c7a396850a55ffeac740804b40ffec779b98fffbb1738f4033f0ee79e"
+dependencies = [
+ "derive_builder_core",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -5603,7 +5669,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry 5.2.0",
- "wasmer-toml",
+ "wasmer-toml 0.6.0",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -5750,7 +5816,7 @@ dependencies = [
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
  "wasmer-registry 4.7.0",
- "wasmer-toml",
+ "wasmer-toml 0.6.0",
  "webc",
 ]
 
@@ -5925,7 +5991,7 @@ dependencies = [
  "tokio",
  "toml 0.5.11",
  "url",
- "wasmer-toml",
+ "wasmer-toml 0.6.0",
  "wasmer-wasm-interface 4.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmparser 0.51.4",
  "webc",
@@ -5967,7 +6033,7 @@ dependencies = [
  "tokio",
  "toml 0.5.11",
  "url",
- "wasmer-toml",
+ "wasmer-toml 0.6.0",
  "wasmer-wasm-interface 4.0.0",
  "wasmparser 0.51.4",
  "whoami",
@@ -5994,6 +6060,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4232db0aff83ed6208d541ddcf1bf72730673528be8c4fe13c6369060f6e05a7"
 dependencies = [
  "anyhow",
+ "indexmap 1.9.3",
+ "semver 1.0.18",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_yaml 0.9.24",
+ "thiserror",
+ "toml 0.5.11",
+]
+
+[[package]]
+name = "wasmer-toml"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d79d9e87af8aea672134da379ccef76e659b7bc316a10b7e51d30177515c0199"
+dependencies = [
+ "anyhow",
+ "derive_builder",
  "indexmap 1.9.3",
  "semver 1.0.18",
  "serde",
@@ -6419,9 +6503,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.1.1"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d8b985cecc5a364f746c7fcd6e5396986360a58550072f2f9147a07532f525c"
+checksum = "12c47bf71ed54afd81b2f92ac7cb6f7811b4233b6088e1ee6477794aae4e05ac"
 dependencies = [
  "anyhow",
  "base64",
@@ -6434,6 +6518,7 @@ dependencies = [
  "once_cell",
  "path-clean",
  "rand",
+ "semver 1.0.18",
  "serde",
  "serde_cbor",
  "serde_json",
@@ -6445,7 +6530,7 @@ dependencies = [
  "toml 0.7.6",
  "url",
  "walkdir",
- "wasmer-toml",
+ "wasmer-toml 0.7.0",
 ]
 
 [[package]]
