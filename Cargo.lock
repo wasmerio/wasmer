@@ -3,12 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-
-[[package]]
 name = "addr2line"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -53,12 +47,6 @@ checksum = "43f6cb1bf222025340178f382c426f13757b2960e89779dfcb319c32542a5a41"
 dependencies = [
  "memchr",
 ]
-
-[[package]]
-name = "aliasable"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "250f629c0161ad8107cf89319e990051fae62832fd343083bea452d93e2205fd"
 
 [[package]]
 name = "allocator-api2"
@@ -647,9 +635,9 @@ dependencies = [
 
 [[package]]
 name = "comfy-table"
-version = "7.0.1"
+version = "6.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ab77dbd8adecaf3f0db40581631b995f312a8a5ae3aa9993188bb8f23d83a5b"
+checksum = "7e959d788268e3bf9d35ace83e81b124190378e4c91c9067524675e33394b8ba"
 dependencies = [
  "crossterm",
  "strum",
@@ -1040,12 +1028,11 @@ checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 
 [[package]]
 name = "cynic"
-version = "3.2.2"
+version = "2.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf035d785657f3621eee03fdfeefab48127d8b1643b6f9edf8b3cd66cbd86e9b"
+checksum = "b1afa0591b1021e427e548a1f0f147fe6168f6c7c7f7006bace77f28856051b8"
 dependencies = [
  "cynic-proc-macros",
- "ref-cast",
  "reqwest",
  "serde",
  "serde_json",
@@ -1055,31 +1042,38 @@ dependencies = [
 
 [[package]]
 name = "cynic-codegen"
-version = "3.2.2"
+version = "2.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e8e65b71a8bd2751712ab38326b73a5f98405b6b5f8fd4dae658e58c1576d09"
+checksum = "70a1bb05cc554f46079d0fa72abe995a2d32d0737d410a41da75b31e3f7ef768"
 dependencies = [
  "counter",
- "darling 0.14.4",
+ "darling 0.13.4",
  "graphql-parser",
  "once_cell",
- "ouroboros",
  "proc-macro2",
  "quote",
  "strsim",
  "syn 1.0.109",
- "thiserror",
 ]
 
 [[package]]
 name = "cynic-proc-macros"
-version = "3.2.2"
+version = "2.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a933ea1f357cbd48f2068c59457631696ae58d554f89290e4da272b1f69ebf1"
+checksum = "aa595c4ed7a5374e0e58c5c34f9d93bd6b7d45062790963bd4b4c3c0bf520c4d"
 dependencies = [
  "cynic-codegen",
- "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "darling"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a01d95850c592940db9b8194bc39f4bc0e89dee5c4265e4b1807c34a9aba453c"
+dependencies = [
+ "darling_core 0.13.4",
+ "darling_macro 0.13.4",
 ]
 
 [[package]]
@@ -1100,6 +1094,20 @@ checksum = "0209d94da627ab5605dcccf08bb18afa5009cfbef48d8a8b7d7bdbc79be25c5e"
 dependencies = [
  "darling_core 0.20.3",
  "darling_macro 0.20.3",
+]
+
+[[package]]
+name = "darling_core"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "859d65a907b6852c9361e3185c862aae7fafd2887876799fa55f5f99dc40d610"
+dependencies = [
+ "fnv",
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "strsim",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1127,6 +1135,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.27",
+]
+
+[[package]]
+name = "darling_macro"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c972679f83bdf9c42bd905396b6c3588a843a17f0f16dfcfa3e2c5d57441835"
+dependencies = [
+ "darling_core 0.13.4",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -2869,29 +2888,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ouroboros"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1358bd1558bd2a083fed428ffeda486fbfb323e698cdda7794259d592ca72db"
-dependencies = [
- "aliasable",
- "ouroboros_macro",
-]
-
-[[package]]
-name = "ouroboros_macro"
-version = "0.15.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7d21ccd03305a674437ee1248f3ab5d4b1db095cf1caf49f1713ddf61956b7"
-dependencies = [
- "Inflector",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "overload"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3353,26 +3349,6 @@ dependencies = [
  "getrandom",
  "redox_syscall 0.2.16",
  "thiserror",
-]
-
-[[package]]
-name = "ref-cast"
-version = "1.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61ef7e18e8841942ddb1cf845054f8008410030a3997875d9e49b7a363063df1"
-dependencies = [
- "ref-cast-impl",
-]
-
-[[package]]
-name = "ref-cast-impl"
-version = "1.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dfaf0c85b766276c797f3791f5bc6d5bd116b41d53049af2789666b0c0bc9fa"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.27",
 ]
 
 [[package]]
@@ -5497,9 +5473,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.10"
+version = "0.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b2fa770e7205aec560962d173453c81918ccd0d3d34ab9fed6bf266be505d86f"
+checksum = "e5f22cf70f93c4690d4e82b325634ad973cd3a02d5a6b6565d442b452ea729bf"
 dependencies = [
  "anyhow",
  "cynic",
@@ -5775,14 +5751,13 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.18"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be353eb95dd4f3e20bfebeccc8b48eea5302b4f9f4d041aaaa51afc77a120424"
+checksum = "f27185d77bc941b5e3bd84d548f5e0074ae8b560c3d862eb83af4d04fc4d9df0"
 dependencies = [
  "anyhow",
  "clap 4.3.19",
  "clap-verbosity-flag",
- "colored 2.0.4",
  "comfy-table",
  "dialoguer",
  "futures",
@@ -5805,16 +5780,16 @@ dependencies = [
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
- "wasmer-registry 5.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 4.7.0",
  "wasmer-toml 0.6.0",
  "webc",
 ]
 
 [[package]]
 name = "wasmer-deploy-schema"
-version = "0.0.9"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8d1820862e1a4bde412cb99e67b97532addf40f891c1580e1cd710ada9a25c72"
+checksum = "518852c619a39aebe90bf38f0a1c8669c6b9eaf78ba11b899ec240745df1166d"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -5831,9 +5806,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-util"
-version = "0.0.9"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81074c69a23368443bd20c2a0a0ff33ca661eafd3f0e28d669cd7c25244f6d71"
+checksum = "94cb6c1cc25b066e81a2fdd7cd1774b68fbb733f4618e92f5b2e1e182c7d6894"
 dependencies = [
  "serde",
  "wasmer-deploy-schema",
@@ -5947,6 +5922,49 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
+version = "4.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "abc018188be9bb86e1e548ad3e5eedc33e6a0fca703172b1dd4a605d35e82086"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "fs_extra",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap 1.9.3",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.18",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time 0.3.23",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "url",
+ "wasmer-toml 0.6.0",
+ "wasmer-wasm-interface 4.0.0",
+ "wasmparser 0.51.4",
+ "webc",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
 version = "5.2.0"
 dependencies = [
  "anyhow",
@@ -5982,47 +6000,6 @@ dependencies = [
  "url",
  "wasmer-toml 0.6.0",
  "wasmer-wasm-interface 4.1.0",
- "wasmparser 0.51.4",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
-version = "5.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6da8d2059d24ec5013c4b27bfa3bc67735fc7b1c3430a9d33e18e69d1f37ed5"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.18",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time 0.3.23",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "url",
- "wasmer-toml 0.6.0",
- "wasmer-wasm-interface 4.0.0",
  "wasmparser 0.51.4",
  "whoami",
 ]
