@@ -10,6 +10,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 4.1.0 - 24/07/2023
+This version added some more improvements and fixes, with a faster async execution, a new login flow and muliple bugfix to the `--mapdir` command among other things.
+More detail in the blog post about the 4.1 Release: https://wasmer.io/posts/wasmer-4.1
 
 ## Added
 
