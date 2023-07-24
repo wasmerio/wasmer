@@ -427,12 +427,11 @@ impl RemoteNetworkingServerDriver {
         let mut guard = self.common.sockets.lock().unwrap();
         guard
             .get_mut(&socket_id)
-            .map(|s| {
-                req_id
-                    .map(|req_id| s.send(&self.common, socket_id, data, req_id))
-                    .flatten()
+            .map(|s| s.send(&self.common, socket_id, data, req_id))
+            .unwrap_or_else(|| {
+                tracing::debug!("orphaned socket {:?}", socket_id);
+                None
             })
-            .unwrap_or(None)
     }
 
     fn process_send_to(
@@ -1207,15 +1206,21 @@ impl RemoteAdapterSocket {
         common: &Arc<RemoteAdapterCommon>,
         socket_id: SocketId,
         data: Vec<u8>,
-        req_id: u64,
+        req_id: Option<u64>,
     ) -> BackgroundTask {
         match self {
             Self::TcpSocket(this) => match this.try_send(&data) {
-                Ok(amount) => common.send(MessageResponse::Sent {
-                    socket_id,
-                    req_id,
-                    amount: amount as u64,
-                }),
+                Ok(amount) => {
+                    if let Some(req_id) = req_id {
+                        common.send(MessageResponse::Sent {
+                            socket_id,
+                            req_id,
+                            amount: amount as u64,
+                        })
+                    } else {
+                        None
+                    }
+                }
                 Err(NetworkError::WouldBlock) => {
                     let common = common.clone();
                     Some(Box::pin(async move {
@@ -1228,7 +1233,7 @@ impl RemoteAdapterSocket {
                             common: Arc<RemoteAdapterCommon>,
                             socket_id: SocketId,
                             data: Vec<u8>,
-                            req_id: u64,
+                            req_id: Option<u64>,
                         }
                         impl Future for Poller {
                             type Output = BackgroundTask;
@@ -1251,23 +1256,31 @@ impl RemoteAdapterSocket {
                                     if let RemoteAdapterSocket::TcpSocket(socket) = socket {
                                         match socket.try_send(&self.data) {
                                             Ok(amount) => {
-                                                return Poll::Ready(self.common.send(
-                                                    MessageResponse::Sent {
-                                                        socket_id: self.socket_id,
-                                                        req_id: self.req_id,
-                                                        amount: amount as u64,
-                                                    },
-                                                ))
+                                                if let Some(req_id) = self.req_id {
+                                                    return Poll::Ready(self.common.send(
+                                                        MessageResponse::Sent {
+                                                            socket_id: self.socket_id,
+                                                            req_id,
+                                                            amount: amount as u64,
+                                                        },
+                                                    ));
+                                                } else {
+                                                    return Poll::Ready(None);
+                                                }
                                             }
                                             Err(NetworkError::WouldBlock) => return Poll::Pending,
                                             Err(error) => {
-                                                return Poll::Ready(self.common.send(
-                                                    MessageResponse::SendError {
-                                                        socket_id: self.socket_id,
-                                                        req_id: self.req_id,
-                                                        error,
-                                                    },
-                                                ))
+                                                if let Some(req_id) = self.req_id {
+                                                    return Poll::Ready(self.common.send(
+                                                        MessageResponse::SendError {
+                                                            socket_id: self.socket_id,
+                                                            req_id,
+                                                            error,
+                                                        },
+                                                    ));
+                                                } else {
+                                                    return Poll::Ready(None);
+                                                }
                                             }
                                         }
                                     }
@@ -1291,11 +1304,17 @@ impl RemoteAdapterSocket {
                         }
                     }))
                 }
-                Err(error) => common.send(MessageResponse::SendError {
-                    socket_id,
-                    req_id,
-                    error,
-                }),
+                Err(error) => {
+                    if let Some(req_id) = req_id {
+                        common.send(MessageResponse::SendError {
+                            socket_id,
+                            req_id,
+                            error,
+                        })
+                    } else {
+                        None
+                    }
+                }
             },
             Self::RawSocket(this) => {
                 // when the RAW socket is overloaded we just silently drop the packet
@@ -1303,14 +1322,22 @@ impl RemoteAdapterSocket {
                 // not lossless. In reality most socket drivers under this remote socket
                 // will always succeed on `try_send` with RawSockets as they are always
                 // processed.
-                this.try_send(&data).ok();
+                if let Err(err) = this.try_send(&data) {
+                    tracing::debug!("failed to send raw packet - {}", err);
+                }
                 None
             }
-            _ => common.send(MessageResponse::SendError {
-                socket_id,
-                req_id,
-                error: NetworkError::Unsupported,
-            }),
+            _ => {
+                if let Some(req_id) = req_id {
+                    common.send(MessageResponse::SendError {
+                        socket_id,
+                        req_id,
+                        error: NetworkError::Unsupported,
+                    })
+                } else {
+                    None
+                }
+            }
         }
     }
     pub fn send_to(
@@ -1430,6 +1457,7 @@ impl RemoteAdapterSocket {
                             }) {
                                 ret.push_back(task);
                             }
+                            continue;
                         }
                         Err(_) => {}
                     }
@@ -1450,6 +1478,7 @@ impl RemoteAdapterSocket {
                             }) {
                                 ret.push_back(task);
                             }
+                            continue;
                         }
                         Err(_) => {}
                     }
@@ -1469,6 +1498,7 @@ impl RemoteAdapterSocket {
                             }) {
                                 ret.push_back(task);
                             }
+                            continue;
                         }
                         Err(_) => {}
                     }

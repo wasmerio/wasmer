@@ -1074,7 +1074,7 @@ impl VirtualRawSocket for RemoteSocket {
             if self.rx_buffer.len() > 0 {
                 let amt = self.rx_buffer.len().min(buf.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-                buf.copy_from_slice(&self.rx_buffer[..amt]);
+                buf[..amt].copy_from_slice(&self.rx_buffer[..amt]);
                 self.rx_buffer.advance(amt);
                 return Ok(amt);
             }
