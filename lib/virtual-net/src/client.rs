@@ -601,22 +601,22 @@ impl VirtualNetworking for RemoteNetworkingClient {
         }
     }
 
-    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
+    async fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
         self.common
             .io_iface_fire_and_forget(RequestType::IpAdd { ip, prefix })
     }
 
-    fn ip_remove(&self, ip: IpAddr) -> Result<()> {
+    async fn ip_remove(&self, ip: IpAddr) -> Result<()> {
         self.common
             .io_iface_fire_and_forget(RequestType::IpRemove(ip))
     }
 
-    fn ip_clear(&self) -> Result<()> {
+    async fn ip_clear(&self) -> Result<()> {
         self.common.io_iface_fire_and_forget(RequestType::IpClear)
     }
 
-    fn ip_list(&self) -> Result<Vec<IpCidr>> {
-        match InlineWaker::block_on(self.common.io_iface(RequestType::Unbridge)) {
+    async fn ip_list(&self) -> Result<Vec<IpCidr>> {
+        match self.common.io_iface(RequestType::GetIpList).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::CidrList(routes) => Ok(routes),
             res => {
@@ -626,8 +626,8 @@ impl VirtualNetworking for RemoteNetworkingClient {
         }
     }
 
-    fn mac(&self) -> Result<[u8; 6]> {
-        match InlineWaker::block_on(self.common.io_iface(RequestType::GetMac)) {
+    async fn mac(&self) -> Result<[u8; 6]> {
+        match self.common.io_iface(RequestType::GetMac).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::Mac(mac) => Ok(mac),
             res => {
@@ -637,12 +637,12 @@ impl VirtualNetworking for RemoteNetworkingClient {
         }
     }
 
-    fn gateway_set(&self, ip: IpAddr) -> Result<()> {
+    async fn gateway_set(&self, ip: IpAddr) -> Result<()> {
         self.common
             .io_iface_fire_and_forget(RequestType::GatewaySet(ip))
     }
 
-    fn route_add(
+    async fn route_add(
         &self,
         cidr: IpCidr,
         via_router: IpAddr,
@@ -657,18 +657,18 @@ impl VirtualNetworking for RemoteNetworkingClient {
         })
     }
 
-    fn route_remove(&self, cidr: IpAddr) -> Result<()> {
+    async fn route_remove(&self, cidr: IpAddr) -> Result<()> {
         self.common
             .io_iface_fire_and_forget(RequestType::RouteRemove(cidr))
     }
 
-    fn route_clear(&self) -> Result<()> {
+    async fn route_clear(&self) -> Result<()> {
         self.common
             .io_iface_fire_and_forget(RequestType::RouteClear)
     }
 
-    fn route_list(&self) -> Result<Vec<IpRoute>> {
-        match InlineWaker::block_on(self.common.io_iface(RequestType::GetRouteList)) {
+    async fn route_list(&self) -> Result<Vec<IpRoute>> {
+        match self.common.io_iface(RequestType::GetRouteList).await {
             ResponseType::Err(err) => Err(err),
             ResponseType::RouteList(routes) => Ok(routes),
             res => {

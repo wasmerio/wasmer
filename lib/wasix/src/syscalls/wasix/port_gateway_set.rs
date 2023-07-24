@@ -20,7 +20,7 @@ pub fn port_gateway_set<M: MemorySize>(
 
     let net = env.net().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.gateway_set(ip).map_err(net_error_into_wasi_err)
+        net.gateway_set(ip).await.map_err(net_error_into_wasi_err)
     })?);
     Ok(Errno::Success)
 }

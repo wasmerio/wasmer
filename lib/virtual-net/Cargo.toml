@@ -30,7 +30,7 @@ tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
 tokio-util = { version = "0.6", features = ["codec"], optional = true }
 hyper-tungstenite = { version = "0.10", optional = true }
 hyper = { version = "0.14", optional = true }
-tokio-tungstenite = { version = "0.18", optional = true }
+tokio-tungstenite = { version = "0.19", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", default_features = false, features = [ "macros" ] }

@@ -204,31 +204,31 @@ impl VirtualNetworking for RemoteNetworkingServer {
         self.inner.dhcp_acquire().await
     }
 
-    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<(), NetworkError> {
-        self.inner.ip_add(ip, prefix)
+    async fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<(), NetworkError> {
+        self.inner.ip_add(ip, prefix).await
     }
 
-    fn ip_remove(&self, ip: IpAddr) -> Result<(), NetworkError> {
-        self.inner.ip_remove(ip)
+    async fn ip_remove(&self, ip: IpAddr) -> Result<(), NetworkError> {
+        self.inner.ip_remove(ip).await
     }
 
-    fn ip_clear(&self) -> Result<(), NetworkError> {
-        self.inner.ip_clear()
+    async fn ip_clear(&self) -> Result<(), NetworkError> {
+        self.inner.ip_clear().await
     }
 
-    fn ip_list(&self) -> Result<Vec<IpCidr>, NetworkError> {
-        self.inner.ip_list()
+    async fn ip_list(&self) -> Result<Vec<IpCidr>, NetworkError> {
+        self.inner.ip_list().await
     }
 
-    fn mac(&self) -> Result<[u8; 6], NetworkError> {
-        self.inner.mac()
+    async fn mac(&self) -> Result<[u8; 6], NetworkError> {
+        self.inner.mac().await
     }
 
-    fn gateway_set(&self, ip: IpAddr) -> Result<(), NetworkError> {
-        self.inner.gateway_set(ip)
+    async fn gateway_set(&self, ip: IpAddr) -> Result<(), NetworkError> {
+        self.inner.gateway_set(ip).await
     }
 
-    fn route_add(
+    async fn route_add(
         &self,
         cidr: IpCidr,
         via_router: IpAddr,
@@ -237,18 +237,19 @@ impl VirtualNetworking for RemoteNetworkingServer {
     ) -> Result<(), NetworkError> {
         self.inner
             .route_add(cidr, via_router, preferred_until, expires_at)
+            .await
     }
 
-    fn route_remove(&self, cidr: IpAddr) -> Result<(), NetworkError> {
-        self.inner.route_remove(cidr)
+    async fn route_remove(&self, cidr: IpAddr) -> Result<(), NetworkError> {
+        self.inner.route_remove(cidr).await
     }
 
-    fn route_clear(&self) -> Result<(), NetworkError> {
-        self.inner.route_clear()
+    async fn route_clear(&self) -> Result<(), NetworkError> {
+        self.inner.route_clear().await
     }
 
-    fn route_list(&self) -> Result<Vec<IpRoute>, NetworkError> {
-        self.inner.route_list()
+    async fn route_list(&self) -> Result<Vec<IpRoute>, NetworkError> {
+        self.inner.route_list().await
     }
 
     async fn bind_raw(&self) -> Result<Box<dyn VirtualRawSocket + Sync>, NetworkError> {
@@ -670,47 +671,47 @@ impl RemoteNetworkingServerDriver {
             ),
             RequestType::IpAdd { ip, prefix } => self.process_async_noop(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    inner.ip_add(ip, prefix)
+                    inner.ip_add(ip, prefix).await
                 },
                 req_id,
             ),
             RequestType::IpRemove(ip) => self.process_async_noop(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    inner.ip_remove(ip)
+                    inner.ip_remove(ip).await
                 },
                 req_id,
             ),
-            RequestType::IpClear => {
-                self.process_async_noop(
-                    move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                        inner.ip_clear()
-                    },
-                    req_id,
-                )
-            }
-            RequestType::GetIpList => {
+            RequestType::IpClear => self.process_async_noop(
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                    inner.ip_clear().await
+                },
+                req_id,
+            ),
+            RequestType::GetIpList => self.process_async_inner(
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                    inner.ip_list().await
+                },
+                |ret| match ret {
+                    Ok(cidr) => ResponseType::CidrList(cidr),
+                    Err(err) => ResponseType::Err(err),
+                },
+                req_id,
+            ),
+            RequestType::GetMac => {
                 self.process_async_inner(
                     move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                        inner.ip_list()
+                        inner.mac().await
                     },
                     |ret| match ret {
-                        Ok(cidr) => ResponseType::CidrList(cidr),
+                        Ok(mac) => ResponseType::Mac(mac),
                         Err(err) => ResponseType::Err(err),
                     },
                     req_id,
                 )
             }
-            RequestType::GetMac => self.process_async_inner(
-                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move { inner.mac() },
-                |ret| match ret {
-                    Ok(mac) => ResponseType::Mac(mac),
-                    Err(err) => ResponseType::Err(err),
-                },
-                req_id,
-            ),
             RequestType::GatewaySet(ip) => self.process_async_noop(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    inner.gateway_set(ip)
+                    inner.gateway_set(ip).await
                 },
                 req_id,
             ),
@@ -721,34 +722,34 @@ impl RemoteNetworkingServerDriver {
                 expires_at,
             } => self.process_async_noop(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    inner.route_add(cidr, via_router, preferred_until, expires_at)
+                    inner
+                        .route_add(cidr, via_router, preferred_until, expires_at)
+                        .await
                 },
                 req_id,
             ),
             RequestType::RouteRemove(ip) => self.process_async_noop(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    inner.route_remove(ip)
+                    inner.route_remove(ip).await
                 },
                 req_id,
             ),
             RequestType::RouteClear => self.process_async_noop(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                    inner.route_clear()
+                    inner.route_clear().await
                 },
                 req_id,
             ),
-            RequestType::GetRouteList => {
-                self.process_async_inner(
-                    move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
-                        inner.route_list()
-                    },
-                    |ret| match ret {
-                        Ok(routes) => ResponseType::RouteList(routes),
-                        Err(err) => ResponseType::Err(err),
-                    },
-                    req_id,
-                )
-            }
+            RequestType::GetRouteList => self.process_async_inner(
+                move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
+                    inner.route_list().await
+                },
+                |ret| match ret {
+                    Ok(routes) => ResponseType::RouteList(routes),
+                    Err(err) => ResponseType::Err(err),
+                },
+                req_id,
+            ),
             RequestType::BindRaw(socket_id) => self.process_async_new_socket(
                 move |inner: Arc<dyn VirtualNetworking + Send + Sync>| async move {
                     Ok(RemoteAdapterSocket::RawSocket(inner.bind_raw().await?))
