@@ -1,18 +1,20 @@
-use super::memory_view::MemoryView;
-use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::engine::NativeEngineExt;
-use crate::vm::VMExternMemory;
-use crate::MemoryAccessError;
-use crate::MemoryType;
-use std::convert::TryInto;
-use std::marker::PhantomData;
-use std::mem;
-use std::mem::MaybeUninit;
-use std::slice;
-#[cfg(feature = "tracing")]
+use std::{
+    convert::TryInto,
+    marker::PhantomData,
+    mem::{self, MaybeUninit},
+    slice,
+};
+
 use tracing::warn;
 use wasmer_types::Pages;
 use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
+
+use crate::{
+    store::{AsStoreMut, AsStoreRef},
+    sys::{engine::NativeEngineExt, externals::memory_view::MemoryView},
+    vm::VMExternMemory,
+    MemoryAccessError, MemoryType,
+};
 
 #[derive(Debug, Clone)]
 pub struct Memory {
@@ -125,7 +127,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -149,7 +150,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -171,7 +171,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(data.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),

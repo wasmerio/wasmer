@@ -12,7 +12,6 @@ use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use rusty_jsc::{JSObject, JSString, JSValue};
 use std::path::Path;
-#[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
@@ -154,7 +153,6 @@ impl Module {
                         .unwrap();
                 }
             } else {
-                #[cfg(feature = "tracing")]
                 warn!(
                     "import not found {}:{}",
                     import_type.module(),

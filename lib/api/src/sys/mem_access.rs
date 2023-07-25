@@ -1,6 +1,9 @@
-use crate::access::{RefCow, SliceCow, WasmRefAccess, WasmSliceAccess};
-use crate::{MemoryAccessError, WasmRef, WasmSlice};
 use std::mem;
+
+use crate::{
+    access::{RefCow, SliceCow, WasmRefAccess, WasmSliceAccess},
+    MemoryAccessError, WasmRef, WasmSlice,
+};
 
 impl<'a, T> WasmSliceAccess<'a, T>
 where
@@ -16,7 +19,6 @@ where
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > slice.buffer.0.len as u64 {
-            #[cfg(feature = "tracing")]
             tracing::warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 total_len,
@@ -48,7 +50,6 @@ where
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > ptr.buffer.0.len as u64 {
-            #[cfg(feature = "tracing")]
             tracing::warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 total_len,
