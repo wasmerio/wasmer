@@ -105,7 +105,7 @@ sha2 = "0.10.6"
 object = "0.30.0"
 wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 async-trait = "0.1.68"
 tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
 once_cell = "1.17.1"
