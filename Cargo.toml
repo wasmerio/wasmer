@@ -94,7 +94,7 @@ rustc_version = "0.4"
 [dev-dependencies]
 wasmer = { version = "=4.1.0", path = "lib/api", default-features = false, features = [] }
 anyhow = "1.0"
-criterion = "0.3"
+criterion = { version = "0.5", default-features = false }
 lazy_static = "1.4"
 serial_test = "0.5"
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
@@ -292,4 +292,3 @@ required-features = ["backend"]
 name = "features"
 path = "examples/features.rs"
 required-features = ["cranelift"]
-
