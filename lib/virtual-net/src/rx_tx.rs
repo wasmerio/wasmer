@@ -538,7 +538,7 @@ where
                 RemoteRx::Stream { rx } => match rx.as_mut().poll_next(cx) {
                     Poll::Ready(Some(Ok(msg))) => Poll::Ready(Some(msg)),
                     Poll::Ready(Some(Err(err))) => {
-                        tracing::warn!("failed to read from channel - {}", err);
+                        tracing::debug!("failed to read from channel - {}", err);
                         Poll::Ready(None)
                     }
                     Poll::Ready(None) => Poll::Ready(None),
@@ -567,7 +567,7 @@ where
                         continue;
                     }
                     Poll::Ready(Some(Err(err))) => {
-                        tracing::warn!("failed to read from channel - {}", err);
+                        tracing::debug!("failed to read from channel - {}", err);
                         Poll::Ready(None)
                     }
                     Poll::Ready(None) => Poll::Ready(None),
@@ -596,7 +596,7 @@ where
                         continue;
                     }
                     Poll::Ready(Some(Err(err))) => {
-                        tracing::warn!("failed to read from channel - {}", err);
+                        tracing::debug!("failed to read from channel - {}", err);
                         Poll::Ready(None)
                     }
                     Poll::Ready(None) => Poll::Ready(None),
