@@ -1,5 +1,5 @@
-use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 use std::sync::Mutex;
+use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 use futures::{future::BoxFuture, Future};
 use tokio::runtime::{Handle, Runtime};
@@ -13,24 +13,25 @@ pub enum RuntimeOrHandle {
     Handle(Handle),
     Runtime(Handle, Arc<Mutex<Option<Runtime>>>),
 }
-impl From<Handle>
-for RuntimeOrHandle {
+impl From<Handle> for RuntimeOrHandle {
     fn from(value: Handle) -> Self {
         Self::Handle(value)
     }
 }
-impl From<Runtime>
-for RuntimeOrHandle {
+impl From<Runtime> for RuntimeOrHandle {
     fn from(value: Runtime) -> Self {
         Self::Runtime(value.handle().clone(), Arc::new(Mutex::new(Some(value))))
     }
 }
 
-impl Drop
-for RuntimeOrHandle {
+impl Drop for RuntimeOrHandle {
     fn drop(&mut self) {
         if let Self::Runtime(_, runtime) = self {
-            runtime.lock().unwrap().take().map(|h| h.shutdown_timeout(Duration::from_secs(0)));
+            runtime
+                .lock()
+                .unwrap()
+                .take()
+                .map(|h| h.shutdown_timeout(Duration::from_secs(0)));
         }
     }
 }
@@ -39,7 +40,7 @@ impl RuntimeOrHandle {
     pub fn handle(&self) -> &Handle {
         match self {
             Self::Handle(h) => h,
-            Self::Runtime(h, _) => h
+            Self::Runtime(h, _) => h,
         }
     }
 }
@@ -53,7 +54,9 @@ pub struct TokioTaskManager {
 
 impl TokioTaskManager {
     pub fn new<I>(rt: I) -> Self
-    where I: Into<RuntimeOrHandle> {
+    where
+        I: Into<RuntimeOrHandle>,
+    {
         let concurrency = std::thread::available_parallelism()
             .unwrap_or(NonZeroUsize::new(1).unwrap())
             .get();
