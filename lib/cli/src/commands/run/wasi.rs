@@ -251,9 +251,9 @@ impl Wasi {
         &self,
         engine: Engine,
         env: &WasmerEnv,
-        handle: Handle,
+        runtime: tokio::runtime::Runtime,
     ) -> Result<impl Runtime + Send + Sync> {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());

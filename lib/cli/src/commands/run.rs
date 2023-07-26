@@ -105,9 +105,9 @@ impl Run {
 
         let _guard = handle.enter();
         let (store, _) = self.store.get_store()?;
-        let runtime =
-            self.wasi
-                .prepare_runtime(store.engine().clone(), &self.env, handle.clone())?;
+        let runtime = self
+            .wasi
+            .prepare_runtime(store.engine().clone(), &self.env, runtime)?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress

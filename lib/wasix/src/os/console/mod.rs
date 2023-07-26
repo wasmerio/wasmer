@@ -292,9 +292,10 @@ mod tests {
     #[cfg_attr(not(feature = "host-reqwest"), ignore = "Requires a HTTP client")]
     fn test_console_dash_tty_with_args_and_env() {
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
-        let _guard = tokio_rt.handle().enter();
+        let rt_handle = tokio_rt.handle().clone();
+        let _guard = rt_handle.enter();
 
-        let tm = TokioTaskManager::new(tokio_rt.handle().clone());
+        let tm = TokioTaskManager::new(tokio_rt);
         let mut rt = PluggableRuntime::new(Arc::new(tm));
         rt.set_engine(Some(wasmer::Engine::default()))
             .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
@@ -316,7 +317,7 @@ mod tests {
             .run()
             .unwrap();
 
-        let code = tokio_rt
+        let code = rt_handle
             .block_on(async move {
                 virtual_fs::AsyncWriteExt::write_all(
                     &mut stdin_tx,

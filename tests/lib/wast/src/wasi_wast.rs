@@ -106,7 +106,7 @@ impl<'a> WasiTest<'a> {
         #[cfg(not(target_arch = "wasm32"))]
         let _guard = handle.enter();
         #[cfg(not(target_arch = "wasm32"))]
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
         #[cfg(target_arch = "wasm32")]
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
         rt.set_engine(Some(store.engine().clone()));
