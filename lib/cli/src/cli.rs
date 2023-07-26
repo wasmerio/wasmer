@@ -270,11 +270,6 @@ enum Cmd {
     /// Create a dynamic on the Deploy Edge, and connect to it through SSH.
     Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
 
-    /*
-    /// Connect to the Edge.
-    Connect(wasmer_deploy_cli::cmd::connect::CmdConnect),
-    */
-
     /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]
     Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
