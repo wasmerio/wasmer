@@ -27,11 +27,9 @@ impl From<Runtime> for RuntimeOrHandle {
 impl Drop for RuntimeOrHandle {
     fn drop(&mut self) {
         if let Self::Runtime(_, runtime) = self {
-            runtime
-                .lock()
-                .unwrap()
-                .take()
-                .map(|h| h.shutdown_timeout(Duration::from_secs(0)));
+            if let Some(h) = runtime.lock().unwrap().take() {
+                h.shutdown_timeout(Duration::from_secs(0))
+            }
         }
     }
 }
@@ -80,7 +78,7 @@ impl TokioTaskManager {
 
 impl Default for TokioTaskManager {
     fn default() -> Self {
-        Self::new(Handle::current().clone())
+        Self::new(Handle::current())
     }
 }
 

@@ -233,7 +233,7 @@ unsafe fn wasi_env_with_filesystem_inner(
     let module = &module.as_ref()?.inner;
     let imports = imports?;
 
-    let (wasi_env, import_object, runtime) = prepare_webc_env(
+    let (wasi_env, import_object) = prepare_webc_env(
         config,
         &mut store.store_mut(),
         module,
@@ -247,7 +247,6 @@ unsafe fn wasi_env_with_filesystem_inner(
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
         store: store.clone(),
-        _runtime: runtime,
     }))
 }
 
@@ -259,7 +258,7 @@ fn prepare_webc_env(
     bytes: &'static u8,
     len: usize,
     package_name: &str,
-) -> Option<(WasiFunctionEnv, Imports, tokio::runtime::Runtime)> {
+) -> Option<(WasiFunctionEnv, Imports)> {
     use virtual_fs::static_fs::StaticFileSystem;
     use webc::v1::{FsEntryType, WebC};
 
@@ -316,7 +315,7 @@ fn prepare_webc_env(
     let env = builder.finalize(store).ok()?;
 
     let import_object = env.import_object(store, module).ok()?;
-    Some((env, import_object, runtime))
+    Some((env, import_object))
 }
 
 #[allow(non_camel_case_types)]
