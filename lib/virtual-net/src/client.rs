@@ -38,8 +38,8 @@ use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 use tokio_util::codec::LengthDelimitedCodec;
-use virtual_io::InlineWaker;
-use virtual_io::InterestType;
+use virtual_mio::InlineWaker;
+use virtual_mio::InterestType;
 
 use crate::meta;
 use crate::meta::FrameSerializationFormat;
@@ -518,7 +518,7 @@ struct RemoteCommon {
     recv_with_addr_tx: Mutex<HashMap<SocketId, mpsc::Sender<(Vec<u8>, SocketAddr)>>>,
     accept_tx: Mutex<HashMap<SocketId, mpsc::Sender<(SocketId, SocketAddr)>>>,
     #[derivative(Debug = "ignore")]
-    handlers: Mutex<HashMap<SocketId, Box<dyn virtual_io::InterestHandler + Send + Sync>>>,
+    handlers: Mutex<HashMap<SocketId, Box<dyn virtual_mio::InterestHandler + Send + Sync>>>,
 
     // The stall guard will prevent reads while its held and there are background tasks running
     // (the idea behind this is to create back pressure so that the task list infinitely grow)
@@ -953,7 +953,7 @@ impl VirtualSocket for RemoteSocket {
 
     fn set_handler(
         &mut self,
-        handler: Box<dyn virtual_io::InterestHandler + Send + Sync>,
+        handler: Box<dyn virtual_mio::InterestHandler + Send + Sync>,
     ) -> Result<()> {
         self.common
             .handlers
@@ -1004,7 +1004,7 @@ impl VirtualTcpListener for RemoteSocket {
 
     fn set_handler(
         &mut self,
-        handler: Box<dyn virtual_io::InterestHandler + Send + Sync>,
+        handler: Box<dyn virtual_mio::InterestHandler + Send + Sync>,
     ) -> Result<()> {
         VirtualSocket::set_handler(self, handler)
     }

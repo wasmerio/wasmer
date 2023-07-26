@@ -35,7 +35,7 @@ use tokio_serde::formats::SymmetricalJson;
 use tokio_serde::formats::SymmetricalMessagePack;
 use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
-use virtual_io::InterestHandler;
+use virtual_mio::InterestHandler;
 
 type BackgroundTask = Option<BoxFuture<'static, ()>>;
 
@@ -622,7 +622,7 @@ impl RemoteNetworkingServerDriver {
 
         // Now we attach the handler to the main listening socket
         let mut handler = Box::new(self.common.handler.clone().for_socket(socket_id));
-        handler.interest(virtual_io::InterestType::Readable);
+        handler.interest(virtual_mio::InterestType::Readable);
         self.process_inner_noop(
             move |socket| match socket {
                 RemoteAdapterSocket::TcpListener {
@@ -1553,7 +1553,7 @@ impl RemoteAdapterHandler {
     }
 }
 impl InterestHandler for RemoteAdapterHandler {
-    fn interest(&mut self, interest: virtual_io::InterestType) {
+    fn interest(&mut self, interest: virtual_mio::InterestType) {
         let mut guard = self.state.lock().unwrap();
         guard.driver_wakers.drain(..).for_each(|w| w.wake());
         let socket_id = match self.socket_id.clone() {
@@ -1561,7 +1561,7 @@ impl InterestHandler for RemoteAdapterHandler {
             None => return,
         };
         match interest {
-            virtual_io::InterestType::Readable => {
+            virtual_mio::InterestType::Readable => {
                 guard.readable.insert(socket_id);
             }
             _ => {}

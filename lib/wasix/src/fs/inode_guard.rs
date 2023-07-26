@@ -11,7 +11,7 @@ use std::{
 use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
-use virtual_io::{InterestType, StatefulHandler};
+use virtual_mio::{InterestType, StatefulHandler};
 use virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::{
     types::Eventtype,

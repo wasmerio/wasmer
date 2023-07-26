@@ -16,7 +16,7 @@ use tokio::{
         oneshot,
     },
 };
-use virtual_io::InlineWaker;
+use virtual_mio::InlineWaker;
 
 use crate::{io_err_into_net_error, NetworkError};
 

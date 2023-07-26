@@ -1,7 +1,7 @@
 [package]
-name = "virtual-io"
+name = "virtual-mio"
 version = "0.1.0"
-description = "Wasmer Virtual IO Engine"
+description = "Wasmer Virtual IO Engine powered by mio"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true

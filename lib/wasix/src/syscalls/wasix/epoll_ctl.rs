@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc::UnboundedSender, watch};
-use virtual_io::{InterestHandler, InterestType};
+use virtual_mio::{InterestHandler, InterestType};
 use virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::wasi::{
     EpollCtl, EpollEvent, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,

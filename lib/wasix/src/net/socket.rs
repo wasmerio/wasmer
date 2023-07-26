@@ -10,7 +10,7 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtual_io::{
+use virtual_mio::{
     FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType,
     StatefulHandlerState,
 };

@@ -111,6 +111,7 @@ impl ModuleCache for FileSystemCache {
         }
 
         temp.persist(&path).map_err(CacheError::other)?;
+        tracing::debug!(path=%path.display(), "Saved to disk");
 
         Ok(())
     }
