@@ -18,6 +18,13 @@ pub struct ThreadTaskManager {
     pool: Arc<rayon::ThreadPool>,
 }
 
+impl Drop
+for ThreadTaskManager {
+    fn drop(&mut self) {
+        self.runtime.shutdown_timeout(Duration::from_secs(0));
+    }
+}
+
 impl Default for ThreadTaskManager {
     #[cfg(feature = "sys-thread")]
     fn default() -> Self {
