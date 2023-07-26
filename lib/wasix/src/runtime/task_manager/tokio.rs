@@ -1,28 +1,67 @@
+use std::sync::Mutex;
 use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 use futures::{future::BoxFuture, Future};
-use tokio::runtime::Handle;
+use tokio::runtime::{Handle, Runtime};
 
 use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
 use super::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
+#[derive(Debug, Clone)]
+pub enum RuntimeOrHandle {
+    Handle(Handle),
+    Runtime(Handle, Arc<Mutex<Option<Runtime>>>),
+}
+impl From<Handle> for RuntimeOrHandle {
+    fn from(value: Handle) -> Self {
+        Self::Handle(value)
+    }
+}
+impl From<Runtime> for RuntimeOrHandle {
+    fn from(value: Runtime) -> Self {
+        Self::Runtime(value.handle().clone(), Arc::new(Mutex::new(Some(value))))
+    }
+}
+
+impl Drop for RuntimeOrHandle {
+    fn drop(&mut self) {
+        if let Self::Runtime(_, runtime) = self {
+            if let Some(h) = runtime.lock().unwrap().take() {
+                h.shutdown_timeout(Duration::from_secs(0))
+            }
+        }
+    }
+}
+
+impl RuntimeOrHandle {
+    pub fn handle(&self) -> &Handle {
+        match self {
+            Self::Handle(h) => h,
+            Self::Runtime(h, _) => h,
+        }
+    }
+}
+
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager {
-    handle: Handle,
+    rt: RuntimeOrHandle,
     pool: Arc<rayon::ThreadPool>,
 }
 
 impl TokioTaskManager {
-    pub fn new(rt: Handle) -> Self {
+    pub fn new<I>(rt: I) -> Self
+    where
+        I: Into<RuntimeOrHandle>,
+    {
         let concurrency = std::thread::available_parallelism()
             .unwrap_or(NonZeroUsize::new(1).unwrap())
             .get();
         let max_threads = 200usize.max(concurrency * 100);
 
         Self {
-            handle: rt,
+            rt: rt.into(),
             pool: Arc::new(
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(max_threads)
@@ -33,7 +72,7 @@ impl TokioTaskManager {
     }
 
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
-        self.handle.clone()
+        self.rt.handle().clone()
     }
 }
 
@@ -55,7 +94,7 @@ impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        self.handle.spawn(async move {
+        self.rt.handle().spawn(async move {
             if time == Duration::ZERO {
                 tokio::task::yield_now().await;
             } else {
@@ -73,7 +112,7 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.handle.spawn(async move {
+        self.rt.handle().spawn(async move {
             let fut = task();
             fut.await
         });
@@ -99,7 +138,7 @@ impl VirtualTaskManager for TokioTaskManager {
 
             let trigger = trigger();
             let pool = self.pool.clone();
-            self.handle.spawn(async move {
+            self.rt.handle().spawn(async move {
                 let result = trigger.await;
                 // Build the task that will go on the callback
                 pool.spawn(move || {
