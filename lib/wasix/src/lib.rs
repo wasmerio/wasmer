@@ -74,8 +74,9 @@ pub use virtual_net;
 pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "host-vnet")]
-pub use virtual_net::host::{
-    io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
+pub use virtual_net::{
+    host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
+    io_err_into_net_error,
 };
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 

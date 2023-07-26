@@ -32,9 +32,8 @@ use wasmer_wasix_types::{
 
 pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
-    net_error_into_io_err, InodeValFilePollGuard, InodeValFilePollGuardJoin,
-    InodeValFilePollGuardMode, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
-    POLL_GUARD_MAX_RET,
+    InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
+    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
 };
 pub use self::notification::NotificationInner;
 use crate::syscalls::map_io_err;

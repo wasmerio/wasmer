@@ -28,7 +28,7 @@ pub fn port_route_list<M: MemorySize>(
 
     let net = env.net().clone();
     let routes = wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.route_list().map_err(net_error_into_wasi_err)
+        net.route_list().await.map_err(net_error_into_wasi_err)
     })?);
     Span::current().record("nroutes", routes.len());
 

@@ -1,24 +1,18 @@
-use anyhow::bail;
+#[macro_use]
+extern crate pretty_assertions;
 
-use std::process::{Command, Stdio};
+use assert_cmd::prelude::OutputAssertExt;
+use tempfile::TempDir;
+
+use std::process::Command;
 use wasmer_integration_tests_cli::get_wasmer_path;
-
-macro_rules! check_output {
-    ($output:expr) => {
-        let stdout_output = std::str::from_utf8(&$output.stdout).unwrap();
-        let stderr_output = std::str::from_utf8(&$output.stdout).unwrap();
-        if !$output.status.success() {
-            bail!("wasmer init failed with: stdout: {stdout_output}\n\nstderr: {stderr_output}");
-        }
-    };
-}
 
 // Test that wasmer init without arguments works
 #[test]
 fn wasmer_init_works_1() -> anyhow::Result<()> {
+    let wasmer_dir = TempDir::new()?;
     let tempdir = tempfile::tempdir()?;
-    let path = tempdir.path();
-    let path = path.join("testfirstproject");
+    let path = tempdir.path().join("testfirstproject");
     std::fs::create_dir_all(&path)?;
 
     if std::env::var("GITHUB_TOKEN").is_err() {
@@ -33,36 +27,29 @@ fn wasmer_init_works_1() -> anyhow::Result<()> {
         if token.is_empty() {
             return Ok(());
         }
-        let output = Command::new(get_wasmer_path())
+        Command::new(get_wasmer_path())
             .arg("login")
-            .arg("--registry")
-            .arg("wapm.dev")
+            .arg("--registry=wapm.dev")
             .arg(token)
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .stdin(Stdio::null())
-            .output()?;
-        check_output!(output);
+            .env("WASMER_DIR", wasmer_dir.path())
+            .assert()
+            .success();
     }
 
     println!("wasmer login ok!");
 
-    let output = Command::new(get_wasmer_path())
+    Command::new(get_wasmer_path())
         .arg("init")
         .current_dir(&path)
-        .output()?;
-    check_output!(output);
+        .env("WASMER_DIR", wasmer_dir.path())
+        .assert()
+        .success();
 
-    let read = std::fs::read_to_string(path.join("wasmer.toml"))
-        .unwrap()
-        .lines()
-        .collect::<Vec<_>>()
-        .join("\n");
-    let target = include_str!("./fixtures/init1.toml")
-        .lines()
-        .collect::<Vec<_>>()
-        .join("\n");
-    pretty_assertions::assert_eq!(read.trim(), target.trim());
+    assert_eq!(
+        std::fs::read_to_string(path.join("wasmer.toml")).unwrap(),
+        include_str!("./fixtures/init1.toml"),
+    );
+
     Ok(())
 }
 
@@ -91,45 +78,33 @@ fn wasmer_init_works_2() -> anyhow::Result<()> {
         if token.is_empty() {
             return Ok(());
         }
-        let mut cmd = Command::new(get_wasmer_path());
-        cmd.arg("login");
-        cmd.arg("--registry");
-        cmd.arg("wapm.dev");
-        cmd.arg(token);
-        cmd.stdout(Stdio::inherit());
-        cmd.stderr(Stdio::inherit());
-        cmd.stdin(Stdio::null());
-        let output = cmd.output()?;
-        check_output!(output);
+        Command::new(get_wasmer_path())
+            .arg("login")
+            .arg("--registry=wapm.dev")
+            .arg(token)
+            .assert()
+            .success();
     }
 
     println!("wasmer login ok!");
 
-    let output = Command::new(get_wasmer_path())
+    Command::new(get_wasmer_path())
         .arg("init")
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
         .current_dir(&path)
-        .output()?;
-    check_output!(output);
+        .assert()
+        .success();
 
-    pretty_assertions::assert_eq!(
+    assert_eq!(
         std::fs::read_to_string(path.join("Cargo.toml")).unwrap(),
         include_str!("./fixtures/init2.toml")
     );
 
     println!("ok 1");
 
-    let read = std::fs::read_to_string(path.join("wasmer.toml"))
-        .unwrap()
-        .lines()
-        .collect::<Vec<_>>()
-        .join("\n");
-    let target = include_str!("./fixtures/init4.toml")
-        .lines()
-        .collect::<Vec<_>>()
-        .join("\n");
-    pretty_assertions::assert_eq!(read.trim(), target.trim());
+    assert_eq!(
+        std::fs::read_to_string(path.join("wasmer.toml")).unwrap(),
+        include_str!("./fixtures/init4.toml")
+    );
 
     Ok(())
 }

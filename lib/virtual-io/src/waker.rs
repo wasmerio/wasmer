@@ -11,7 +11,7 @@ pub struct InlineWaker {
     condvar: Condvar,
 }
 impl InlineWaker {
-    fn new() -> Arc<Self> {
+    pub fn new() -> Arc<Self> {
         Arc::new(Self {
             lock: Mutex::new(()),
             condvar: Condvar::new(),
@@ -28,7 +28,7 @@ impl InlineWaker {
         self.condvar.notify_all();
     }
 
-    fn as_waker(self: &Arc<Self>) -> Waker {
+    pub fn as_waker(self: &Arc<Self>) -> Waker {
         let s: *const Self = Arc::into_raw(Arc::clone(self));
         let raw_waker = RawWaker::new(s as *const (), &VTABLE);
         unsafe { Waker::from_raw(raw_waker) }
