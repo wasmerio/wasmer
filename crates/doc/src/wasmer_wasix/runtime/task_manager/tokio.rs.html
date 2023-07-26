@@ -148,31 +148,109 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
+<span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 <span class="kw">use </span>futures::{future::BoxFuture, Future};
-<span class="kw">use </span>tokio::runtime::Handle;
+<span class="kw">use </span>tokio::runtime::{Handle, Runtime};
 
 <span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
 <span class="kw">use super</span>::{TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub enum </span>RuntimeOrHandle {
+    Handle(Handle),
+    Runtime(Handle, Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;Runtime&gt;&gt;&gt;),
+}
+<span class="kw">impl </span>From&lt;Handle&gt; <span class="kw">for </span>RuntimeOrHandle {
+    <span class="kw">fn </span>from(value: Handle) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Handle(value)
+    }
+}
+<span class="kw">impl </span>From&lt;Runtime&gt; <span class="kw">for </span>RuntimeOrHandle {
+    <span class="kw">fn </span>from(value: Runtime) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::Runtime(value.handle().clone(), Arc::new(Mutex::new(<span class="prelude-val">Some</span>(value))))
+    }
+}
+
+<span class="kw">impl </span>Drop <span class="kw">for </span>RuntimeOrHandle {
+    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="kw">if let </span><span class="self">Self</span>::Runtime(<span class="kw">_</span>, runtime) = <span class="self">self </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = runtime.lock().unwrap().take() {
+                h.shutdown_timeout(Duration::from_secs(<span class="number">0</span>))
+            }
+        }
+    }
+}
+
+<span class="kw">impl </span>RuntimeOrHandle {
+    <span class="kw">pub fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Handle {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Handle(h) =&gt; h,
+            <span class="self">Self</span>::Runtime(h, <span class="kw">_</span>) =&gt; h,
+        }
+    }
+}
+
 <span class="doccomment">/// A task manager that uses tokio to spawn tasks.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>TokioTaskManager {
-    handle: Handle,
+    rt: RuntimeOrHandle,
     pool: Arc&lt;rayon::ThreadPool&gt;,
 }
 
 <span class="kw">impl </span>TokioTaskManager {
-    <span class="kw">pub fn </span>new(rt: Handle) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new&lt;I&gt;(rt: I) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>I: Into&lt;RuntimeOrHandle&gt;,
+    {
         <span class="kw">let </span>concurrency = std::thread::available_parallelism()
             .unwrap_or(NonZeroUsize::new(<span class="number">1</span>).unwrap())
             .get();
         <span class="kw">let </span>max_threads = <span class="number">200usize</span>.max(concurrency * <span class="number">100</span>);
 
         <span class="self">Self </span>{
-            handle: rt,
+            rt: rt.into(),
             pool: Arc::new(
                 rayon::ThreadPoolBuilder::new()
                     .num_threads(max_threads)
@@ -183,7 +261,7 @@
     }
 
     <span class="kw">pub fn </span>runtime_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; tokio::runtime::Handle {
-        <span class="self">self</span>.handle.clone()
+        <span class="self">self</span>.rt.handle().clone()
     }
 }
 
@@ -205,7 +283,7 @@
     <span class="doccomment">/// See [`VirtualTaskManager::sleep_now`].
     </span><span class="kw">fn </span>sleep_now(<span class="kw-2">&amp;</span><span class="self">self</span>, time: Duration) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
         <span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tokio::sync::mpsc::unbounded_channel();
-        <span class="self">self</span>.handle.spawn(<span class="kw">async move </span>{
+        <span class="self">self</span>.rt.handle().spawn(<span class="kw">async move </span>{
             <span class="kw">if </span>time == Duration::ZERO {
                 tokio::task::yield_now().<span class="kw">await</span>;
             } <span class="kw">else </span>{
@@ -223,7 +301,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="self">self</span>.handle.spawn(<span class="kw">async move </span>{
+        <span class="self">self</span>.rt.handle().spawn(<span class="kw">async move </span>{
             <span class="kw">let </span>fut = task();
             fut.<span class="kw">await
         </span>});
@@ -249,7 +327,7 @@
 
             <span class="kw">let </span>trigger = trigger();
             <span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
-            <span class="self">self</span>.handle.spawn(<span class="kw">async move </span>{
+            <span class="self">self</span>.rt.handle().spawn(<span class="kw">async move </span>{
                 <span class="kw">let </span>result = trigger.<span class="kw">await</span>;
                 <span class="comment">// Build the task that will go on the callback
                 </span>pool.spawn(<span class="kw">move </span>|| {

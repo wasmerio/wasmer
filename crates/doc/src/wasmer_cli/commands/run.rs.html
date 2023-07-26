@@ -963,9 +963,9 @@
 
         <span class="kw">let </span>_guard = handle.enter();
         <span class="kw">let </span>(store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        <span class="kw">let </span>runtime =
-            <span class="self">self</span>.wasi
-                .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.env, handle.clone())<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = <span class="self">self
+            </span>.wasi
+            .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.env, runtime)<span class="question-mark">?</span>;
 
         <span class="comment">// This is a slow operation, so let&#39;s temporarily wrap the runtime with
         // something that displays progress

@@ -341,6 +341,7 @@
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -635,9 +636,10 @@
     #[cfg_attr(not(feature = <span class="string">&quot;host-reqwest&quot;</span>), ignore = <span class="string">&quot;Requires a HTTP client&quot;</span>)]
     </span><span class="kw">fn </span>test_console_dash_tty_with_args_and_env() {
         <span class="kw">let </span>tokio_rt = tokio::runtime::Runtime::new().unwrap();
-        <span class="kw">let </span>_guard = tokio_rt.handle().enter();
+        <span class="kw">let </span>rt_handle = tokio_rt.handle().clone();
+        <span class="kw">let </span>_guard = rt_handle.enter();
 
-        <span class="kw">let </span>tm = TokioTaskManager::new(tokio_rt.handle().clone());
+        <span class="kw">let </span>tm = TokioTaskManager::new(tokio_rt);
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(tm));
         rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
             .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
@@ -659,7 +661,7 @@
             .run()
             .unwrap();
 
-        <span class="kw">let </span>code = tokio_rt
+        <span class="kw">let </span>code = rt_handle
             .block_on(<span class="kw">async move </span>{
                 virtual_fs::AsyncWriteExt::write_all(
                     <span class="kw-2">&amp;mut </span>stdin_tx,

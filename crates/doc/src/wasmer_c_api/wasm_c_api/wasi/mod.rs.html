@@ -714,9 +714,6 @@
 <a href="#713" id="713">713</a>
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
-<a href="#716" id="716">716</a>
-<a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.
 //!
 //! This API will be superseded by a standard WASI API when/if such a standard is created.
@@ -952,7 +949,7 @@
     <span class="kw">let </span>module = <span class="kw-2">&amp;</span>module.as_ref()<span class="question-mark">?</span>.inner;
     <span class="kw">let </span>imports = imports<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>(wasi_env, import_object, runtime) = prepare_webc_env(
+    <span class="kw">let </span>(wasi_env, import_object) = prepare_webc_env(
         config,
         <span class="kw-2">&amp;mut </span>store.store_mut(),
         module,
@@ -966,7 +963,6 @@
     <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
         inner: wasi_env,
         store: store.clone(),
-        _runtime: runtime,
     }))
 }
 
@@ -978,7 +974,7 @@
     bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>u8,
     len: usize,
     package_name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Option</span>&lt;(WasiFunctionEnv, Imports, tokio::runtime::Runtime)&gt; {
+) -&gt; <span class="prelude-ty">Option</span>&lt;(WasiFunctionEnv, Imports)&gt; {
     <span class="kw">use </span>virtual_fs::static_fs::StaticFileSystem;
     <span class="kw">use </span>webc::v1::{FsEntryType, WebC};
 
@@ -994,7 +990,7 @@
 
     <span class="kw">let </span>handle = runtime.handle().clone();
     <span class="kw">let </span>_guard = handle.enter();
-    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
     rt.set_engine(<span class="prelude-val">Some</span>(store_mut.engine().clone()));
 
     <span class="kw">let </span>slice = <span class="kw">unsafe </span>{ std::slice::from_raw_parts(bytes, len) };
@@ -1035,7 +1031,7 @@
     <span class="kw">let </span>env = builder.finalize(store).ok()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>import_object = env.import_object(store, module).ok()<span class="question-mark">?</span>;
-    <span class="prelude-val">Some</span>((env, import_object, runtime))
+    <span class="prelude-val">Some</span>((env, import_object))
 }
 
 <span class="attr">#[allow(non_camel_case_types)]
@@ -1043,7 +1039,6 @@
     <span class="doccomment">/// cbindgen:ignore
     </span><span class="kw">pub</span>(<span class="kw">super</span>) inner: WasiFunctionEnv,
     <span class="kw">pub</span>(<span class="kw">super</span>) store: StoreRef,
-    <span class="kw">pub</span>(<span class="kw">super</span>) _runtime: tokio::runtime::Runtime,
 }
 
 <span class="doccomment">/// Create a new WASI environment.
@@ -1068,7 +1063,7 @@
 
     <span class="kw">let </span>handle = runtime.handle().clone();
     <span class="kw">let </span>_guard = handle.enter();
-    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
     rt.set_engine(<span class="prelude-val">Some</span>(store_mut.engine().clone()));
 
     <span class="kw">if </span>!config.inherit_stdout {
@@ -1089,7 +1084,6 @@
     <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
         inner: env,
         store: store.clone(),
-        _runtime: runtime,
     }))
 }
 

@@ -378,6 +378,12 @@
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
 <a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -408,7 +414,10 @@
             FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
             WebSource,
         },
-        task_manager::{tokio::TokioTaskManager, VirtualTaskManagerExt},
+        task_manager::{
+            tokio::{RuntimeOrHandle, TokioTaskManager},
+            VirtualTaskManagerExt,
+        },
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
@@ -627,13 +636,16 @@
         caps
     }
 
-    <span class="kw">pub fn </span>prepare_runtime(
+    <span class="kw">pub fn </span>prepare_runtime&lt;I&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         engine: Engine,
         env: <span class="kw-2">&amp;</span>WasmerEnv,
-        handle: Handle,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(handle)));
+        rt_or_handle: I,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync&gt;
+    <span class="kw">where
+        </span>I: Into&lt;RuntimeOrHandle&gt;,
+    {
+        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(rt_or_handle.into())));
 
         <span class="kw">if </span><span class="self">self</span>.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
