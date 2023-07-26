@@ -28,7 +28,10 @@ use wasmer_wasix::{
             FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
             WebSource,
         },
-        task_manager::{tokio::TokioTaskManager, VirtualTaskManagerExt},
+        task_manager::{
+            tokio::{RuntimeOrHandle, TokioTaskManager},
+            VirtualTaskManagerExt,
+        },
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
@@ -247,13 +250,16 @@ impl Wasi {
         caps
     }
 
-    pub fn prepare_runtime(
+    pub fn prepare_runtime<I>(
         &self,
         engine: Engine,
         env: &WasmerEnv,
-        runtime: tokio::runtime::Runtime,
-    ) -> Result<impl Runtime + Send + Sync> {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+        rt_or_handle: I,
+    ) -> Result<impl Runtime + Send + Sync>
+    where
+        I: Into<RuntimeOrHandle>,
+    {
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(rt_or_handle.into())));
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
