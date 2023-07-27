@@ -21,10 +21,10 @@ concurrency:
 env:
   RUST_BACKTRACE: 1
   # Sparse will be enabled by dtolnay/rust-toolchain when installing nightly
-  # Rust, but it's not stable on 1.67 yet. By explicitly setting the protocol we
+  # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.67"
+  MSRV: "1.69"
 
 jobs:
 
