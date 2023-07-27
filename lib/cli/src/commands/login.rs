@@ -251,7 +251,7 @@ impl Login {
                                     .with_prompt(format!(
                                         "{} {} - [y/{}]",
                                         style("?").yellow().bold(),
-                                        style("Do you want to login with another user?")
+                                        style("Do you want to login again?")
                                             .bright()
                                             .bold(),
                                         style("N").green().bold()
