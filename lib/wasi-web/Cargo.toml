@@ -140,16 +140,15 @@ build-deps = "^0.1"
 [lib]
 crate-type = ["cdylib"]
 
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = true
+opt-level = 'z'
+
 [package.metadata.wasm-pack.profile.dev]
-# Should `wasm-opt` be used to further optimize the wasm binary generated after
-# the Rust compiler has finished? Using `wasm-opt` can often further decrease
-# binary size or do clever tricks that haven't made their way into LLVM yet.
-#
-# Configuration is set to `false` by default for the dev profile, but it can
-# be set to an array of strings which are explicit arguments to pass to
-# `wasm-opt`. For example `['-Os']` would optimize for size while `['-O4']`
-# would execute very expensive optimizations passes
-wasm-opt = ['--strip-debug --enable-reference-types']
+wasm-opt = false
 
 [package.metadata.wasm-pack.profile.dev.wasm-bindgen]
 debug-js-glue = true
@@ -157,11 +156,7 @@ demangle-name-section = true
 dwarf-debug-info = true
 
 [package.metadata.wasm-pack.profile.release]
-# The version of wasm-opt that wasm-pack bundles crashes on current wasm-bindgen
-# .wasm files. Current wasm-opt (version 93) crashes on the DWARF info that
-# wasm-bindgen produces. So, we'll just disable wasm-opt for now.
-wasm-opt = false #["-O4"]
-#wasm-opt = ['--strip-debug --enable-reference-types']
+wasm-opt = ['-Oz']
 
 [package.metadata.wasm-pack.profile.release.wasm-bindgen]
 debug-js-glue = false
