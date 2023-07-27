@@ -2698,6 +2698,7 @@ dependencies = [
  "derivative",
  "dummy-waker",
  "fastrand 1.9.0",
+ "form_urlencoded",
  "futures",
  "http",
  "js-sys",
