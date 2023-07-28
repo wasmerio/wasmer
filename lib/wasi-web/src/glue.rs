@@ -61,7 +61,6 @@ impl StartArgs {
         if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "no_welcome").next() {
             match val.as_ref() {
                 "true" | "yes" | "" => self.no_welcome = true,
-                "false" | "no" => self.no_welcome = false,
                 _ => {}
             }
         }
@@ -186,6 +185,8 @@ pub fn start(encoded_args: String) -> Result<(), JsValue> {
     let mut console = Console::new(init.as_str(), runtime.clone())
         .with_no_welcome(args.no_welcome)
         .with_prompt(prompt);
+
+    console = console.with_uses(args.uses);
 
     if let Some(token) = args.token {
         console = console.with_token(token);

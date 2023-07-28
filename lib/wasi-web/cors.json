@@ -2,7 +2,7 @@
     {
       "origin": ["*"],
       "method": ["GET", "OPTIONS"],
-      "responseHeader": ["Content-Type", "user-agent"],
+      "responseHeader": ["*"],
       "maxAgeSeconds": 3600
     }
 ]
