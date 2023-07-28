@@ -1,6 +1,6 @@
 [package]
 name = 'wasmer/wasmer-sh'
-version = '0.2.10'
+version = '0.2.12'
 description = 'Container that holds the wasmer.sh website.'
 
 [dependencies]

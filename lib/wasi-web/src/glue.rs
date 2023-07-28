@@ -207,7 +207,7 @@ pub fn start(encoded_args: String) -> Result<(), JsValue> {
 
     let mut capabilities = Capabilities::default();
     capabilities.threading.max_threads = Some(50);
-    capabilities.threading.enable_asynchronous_threading = true;
+    capabilities.threading.enable_asynchronous_threading = false;
     console = console.with_capabilities(capabilities);
 
     let (tx, mut rx) = mpsc::unbounded_channel();
