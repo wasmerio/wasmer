@@ -517,8 +517,6 @@
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 <span class="kw">use </span>anyhow::Ok;
@@ -772,9 +770,7 @@
                                     .with_prompt(<span class="macro">format!</span>(
                                         <span class="string">&quot;{} {} - [y/{}]&quot;</span>,
                                         style(<span class="string">&quot;?&quot;</span>).yellow().bold(),
-                                        style(<span class="string">&quot;Do you want to login with another user?&quot;</span>)
-                                            .bright()
-                                            .bold(),
+                                        style(<span class="string">&quot;Do you want to login again?&quot;</span>).bright().bold(),
                                         style(<span class="string">&quot;N&quot;</span>).green().bold()
                                     ))
                                     .show_default(<span class="bool-val">false</span>)
