@@ -107,10 +107,15 @@ You can start by running
 embeddable Javascript engine:
 
 ```bash
-$ wasmer run saghul/quickjs --command=qjs
-QuickJS - Type "\h" for help
-qjs > console.log("hello world");
-hello world
+$ wasmer run cowsay "hello world"
+ _____________
+< hello world >
+ -------------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+               ||----w |
+                ||     ||
 ```
 
 > There are many more available packages, such as `wasmer/python` or `syrusakbary/cowsay`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore from the community: https://wasmer.io/explore
