@@ -2229,6 +2229,8 @@ dependencies = [
  "async-trait",
  "bytes",
  "derivative",
+ "futures",
+ "serde",
  "thiserror",
  "tracing",
 ]
@@ -2237,9 +2239,15 @@ dependencies = [
 name = "virtual-net"
 version = "0.4.0"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "base64 0.21.2",
+ "bincode",
  "bytes",
  "derivative",
+ "futures-util",
+ "pin-project-lite",
+ "serde",
  "thiserror",
  "tracing",
  "virtual-mio",

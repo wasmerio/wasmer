@@ -36,6 +36,7 @@ pub fn port_route_add<M: MemorySize>(
     let net = env.net().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async {
         net.route_add(cidr, via_router, preferred_until, expires_at)
+            .await
             .map_err(net_error_into_wasi_err)
     })?);
     Ok(Errno::Success)

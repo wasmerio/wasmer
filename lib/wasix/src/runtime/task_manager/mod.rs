@@ -1,7 +1,6 @@
 // TODO: should be behind a different , tokio specific feature flag.
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
-mod waker;
 
 use std::ops::Deref;
 use std::task::{Context, Poll};
@@ -17,7 +16,7 @@ use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
 use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
-pub use waker::*;
+pub use virtual_mio::waker::*;
 
 #[derive(Debug)]
 pub enum SpawnMemoryType<'a> {

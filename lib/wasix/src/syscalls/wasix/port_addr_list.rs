@@ -27,7 +27,7 @@ pub fn port_addr_list<M: MemorySize>(
 
     let net = env.net().clone();
     let addrs = wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.ip_list().map_err(net_error_into_wasi_err)
+        net.ip_list().await.map_err(net_error_into_wasi_err)
     })?);
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
