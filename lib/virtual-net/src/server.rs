@@ -417,6 +417,7 @@ impl RemoteNetworkingServerDriver {
                 req,
                 req_id,
             } => self.process_socket(socket, req, req_id),
+            MessageRequest::Reconnect => None,
         }
     }
 

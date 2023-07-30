@@ -283,6 +283,7 @@ pub enum MessageRequest {
         addr: SocketAddr,
         req_id: Option<u64>,
     },
+    Reconnect,
 }
 
 /// Message sent by the server back to a client
