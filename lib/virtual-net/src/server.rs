@@ -6,7 +6,9 @@ use crate::{
 };
 use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
 use derivative::Derivative;
-use futures_util::stream::{FuturesOrdered, SplitSink, SplitStream};
+use futures_util::stream::FuturesOrdered;
+#[cfg(any(feature = "hyper", feature = "tokio-tungstenite"))]
+use futures_util::stream::{SplitSink, SplitStream};
 use futures_util::{future::BoxFuture, StreamExt};
 use futures_util::{Sink, Stream};
 use std::collections::HashSet;

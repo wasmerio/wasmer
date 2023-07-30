@@ -12,7 +12,7 @@ pub struct WebSocket {
 }
 
 impl WebSocket {
-    pub fn new(url: &str) -> Result<Self, String> {
+    pub fn new(url: &str) -> Result<Box<Self>, String> {
         // Open the web socket
         let ws_sys = WebSocketSys::new(url).map_err(|err| format!("{:?}", err))?;
 
@@ -38,10 +38,7 @@ impl WebSocket {
         callback.forget();
     }
 
-    fn set_onmessage(
-        &mut self,
-        callback: Box<dyn Fn(Vec<u8>) + Send + 'static>,
-    ) {
+    fn set_onmessage(&mut self, callback: Box<dyn Fn(Vec<u8>) + Send + 'static>) {
         let callback = Arc::new(callback);
 
         let fr = web_sys::FileReader::new().unwrap();

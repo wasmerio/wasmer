@@ -18,6 +18,7 @@ rust-version = "1.67"
 [dependencies]
 wasmer = { path = "../api", default_features = false, features = [ "js-default" ] }
 wasmer-wasix = { path = "../wasix", version = "0.10.0",  default-features = false, features = [ "js-default" ] }
+virtual-net = { path = "../virtual-net", default-features = false, features = [ "remote" ] }
 #wasm-bindgen = { version = "0.2", features = [ "nightly", "serde-serialize" ] }
 wasm-bindgen = { version = "0.2", features = [ "serde-serialize" ] }
 wasm-bindgen-futures = "0.4"

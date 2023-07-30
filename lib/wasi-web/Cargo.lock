@@ -492,6 +492,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea6672d73216c05740850c789368d371ca226dc8104d5f2e30c74252d5d6e5e"
 
 [[package]]
+name = "educe"
+version = "0.4.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "079044df30bb07de7d846d41a184c4b00e66ebdac93ee459253474f3a47e50ae"
+dependencies = [
+ "enum-ordinalize",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "enum-iterator"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -509,6 +521,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "enum-ordinalize"
+version = "3.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4f76552f53cefc9a7f64987c3701b99d982f7690606fd67de1d09712fbf52f1"
+dependencies = [
+ "num-bigint",
+ "num-traits",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.27",
 ]
 
 [[package]]
@@ -1038,6 +1063,27 @@ name = "more-asserts"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7843ec2de400bcbc6a6328c958dc38e5359da6e93e72e37bc5246bf1ae776389"
+
+[[package]]
+name = "num-bigint"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f93ab6289c7b344a8a9f60f88d80aa20032336fe78da341afc91c8a2341fc75f"
+dependencies = [
+ "autocfg",
+ "num-integer",
+ "num-traits",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
+dependencies = [
+ "autocfg",
+ "num-traits",
+]
 
 [[package]]
 name = "num-traits"
@@ -1954,6 +2000,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-serde"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "911a61637386b789af998ee23f50aa30d5fd7edcec8d6d3dedae5e5815205466"
+dependencies = [
+ "bincode",
+ "bytes",
+ "educe",
+ "futures-core",
+ "futures-sink",
+ "pin-project",
+ "serde",
+]
+
+[[package]]
+name = "tokio-util"
+version = "0.6.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36943ee01a6d67977dd3f84a5a1d2efeb4ada3a1ae771cadfaa535d9d9fc6507"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "futures-sink",
+ "log",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
 name = "toml"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2246,9 +2321,13 @@ dependencies = [
  "bytes",
  "derivative",
  "futures-util",
+ "libc",
  "pin-project-lite",
  "serde",
  "thiserror",
+ "tokio",
+ "tokio-serde",
+ "tokio-util",
  "tracing",
  "virtual-mio",
 ]
@@ -2723,6 +2802,7 @@ dependencies = [
  "tracing-subscriber 0.2.25",
  "tracing-wasm",
  "url",
+ "virtual-net",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",

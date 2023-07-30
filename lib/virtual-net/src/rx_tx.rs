@@ -5,12 +5,13 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
-use crate::{meta::FrameSerializationFormat, Result};
+use crate::Result;
 use futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
 use serde::Serialize;
+#[cfg(feature = "tokio-tungstenite")]
+use tokio::net::TcpStream;
 use tokio::{
     io::AsyncWrite,
-    net::TcpStream,
     sync::{
         mpsc::{self, error::TrySendError},
         oneshot,
@@ -71,6 +72,7 @@ where
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
         wakers: RemoteTxWakers,
     },
+    #[cfg(feature = "hyper")]
     HyperWebSocket {
         tx: Arc<
             tokio::sync::Mutex<
@@ -82,8 +84,9 @@ where
         >,
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
         wakers: RemoteTxWakers,
-        format: FrameSerializationFormat,
+        format: crate::meta::FrameSerializationFormat,
     },
+    #[cfg(feature = "tokio-tungstenite")]
     TokioWebSocket {
         tx: Arc<
             tokio::sync::Mutex<
@@ -97,7 +100,7 @@ where
         >,
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
         wakers: RemoteTxWakers,
-        format: FrameSerializationFormat,
+        format: crate::meta::FrameSerializationFormat,
     },
 }
 impl<T> RemoteTx<T>
@@ -126,14 +129,14 @@ where
                     .await
                     .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
             }
+            #[cfg(feature = "hyper")]
             RemoteTx::HyperWebSocket { tx, format, .. } => {
                 let data = match format {
-                    FrameSerializationFormat::Bincode => {
-                        bincode::serialize(&req).map_err(|err| {
+                    crate::meta::FrameSerializationFormat::Bincode => bincode::serialize(&req)
+                        .map_err(|err| {
                             tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
-                        })?
-                    }
+                        })?,
                     format => {
                         tracing::warn!("format not currently supported - {format:?}");
                         return Err(NetworkError::IOError);
@@ -144,14 +147,14 @@ where
                     .await
                     .map_err(|_| NetworkError::ConnectionAborted)
             }
+            #[cfg(feature = "tokio-tungstenite")]
             RemoteTx::TokioWebSocket { tx, format, .. } => {
                 let data = match format {
-                    FrameSerializationFormat::Bincode => {
-                        bincode::serialize(&req).map_err(|err| {
+                    crate::meta::FrameSerializationFormat::Bincode => bincode::serialize(&req)
+                        .map_err(|err| {
                             tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
-                        })?
-                    }
+                        })?,
                     format => {
                         tracing::warn!("format not currently supported - {format:?}");
                         return Err(NetworkError::IOError);
@@ -207,6 +210,7 @@ where
                 })?;
                 Poll::Ready(Ok(()))
             }
+            #[cfg(feature = "hyper")]
             RemoteTx::HyperWebSocket {
                 tx,
                 format,
@@ -231,12 +235,11 @@ where
                 }
 
                 let data = match format {
-                    FrameSerializationFormat::Bincode => {
-                        bincode::serialize(&req).map_err(|err| {
+                    crate::meta::FrameSerializationFormat::Bincode => bincode::serialize(&req)
+                        .map_err(|err| {
                             tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
-                        })?
-                    }
+                        })?,
                     format => {
                         tracing::warn!("format not currently supported - {format:?}");
                         return Poll::Ready(Err(NetworkError::IOError));
@@ -265,6 +268,7 @@ where
                 })?;
                 Poll::Ready(Ok(()))
             }
+            #[cfg(feature = "tokio-tungstenite")]
             RemoteTx::TokioWebSocket {
                 tx,
                 format,
@@ -289,12 +293,11 @@ where
                 }
 
                 let data = match format {
-                    FrameSerializationFormat::Bincode => {
-                        bincode::serialize(&req).map_err(|err| {
+                    crate::meta::FrameSerializationFormat::Bincode => bincode::serialize(&req)
+                        .map_err(|err| {
                             tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
-                        })?
-                    }
+                        })?,
                     format => {
                         tracing::warn!("format not currently supported - {format:?}");
                         return Poll::Ready(Err(NetworkError::IOError));
@@ -377,16 +380,16 @@ where
                 })?;
                 Ok(())
             }
+            #[cfg(feature = "hyper")]
             RemoteTx::HyperWebSocket {
                 tx, format, work, ..
             } => {
                 let data = match format {
-                    FrameSerializationFormat::Bincode => {
-                        bincode::serialize(&req).map_err(|err| {
+                    crate::meta::FrameSerializationFormat::Bincode => bincode::serialize(&req)
+                        .map_err(|err| {
                             tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
-                        })?
-                    }
+                        })?,
                     format => {
                         tracing::warn!("format not currently supported - {format:?}");
                         return Err(NetworkError::IOError);
@@ -435,16 +438,16 @@ where
                 })?;
                 Ok(())
             }
+            #[cfg(feature = "tokio-tungstenite")]
             RemoteTx::TokioWebSocket {
                 tx, format, work, ..
             } => {
                 let data = match format {
-                    FrameSerializationFormat::Bincode => {
-                        bincode::serialize(&req).map_err(|err| {
+                    crate::meta::FrameSerializationFormat::Bincode => bincode::serialize(&req)
+                        .map_err(|err| {
                             tracing::warn!("failed to serialize message - {err}");
                             NetworkError::IOError
-                        })?
-                    }
+                        })?,
                     format => {
                         tracing::warn!("format not currently supported - {format:?}");
                         return Err(NetworkError::IOError);
@@ -508,17 +511,19 @@ where
     Stream {
         rx: Pin<Box<dyn Stream<Item = std::io::Result<T>> + Send + 'static>>,
     },
+    #[cfg(feature = "hyper")]
     HyperWebSocket {
         rx: futures_util::stream::SplitStream<
             hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
         >,
-        format: FrameSerializationFormat,
+        format: crate::meta::FrameSerializationFormat,
     },
+    #[cfg(feature = "tokio-tungstenite")]
     TokioWebSocket {
         rx: futures_util::stream::SplitStream<
             tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<TcpStream>>,
         >,
-        format: FrameSerializationFormat,
+        format: crate::meta::FrameSerializationFormat,
     },
 }
 impl<T> RemoteRx<T>
@@ -544,10 +549,11 @@ where
                     Poll::Ready(None) => Poll::Ready(None),
                     Poll::Pending => Poll::Pending,
                 },
+                #[cfg(feature = "hyper")]
                 RemoteRx::HyperWebSocket { rx, format } => match Pin::new(rx).poll_next(cx) {
                     Poll::Ready(Some(Ok(hyper_tungstenite::tungstenite::Message::Binary(msg)))) => {
                         match format {
-                            FrameSerializationFormat::Bincode => {
+                            crate::meta::FrameSerializationFormat::Bincode => {
                                 return match bincode::deserialize(&msg) {
                                     Ok(msg) => Poll::Ready(Some(msg)),
                                     Err(err) => {
@@ -573,10 +579,11 @@ where
                     Poll::Ready(None) => Poll::Ready(None),
                     Poll::Pending => Poll::Pending,
                 },
+                #[cfg(feature = "tokio-tungstenite")]
                 RemoteRx::TokioWebSocket { rx, format } => match Pin::new(rx).poll_next(cx) {
                     Poll::Ready(Some(Ok(tokio_tungstenite::tungstenite::Message::Binary(msg)))) => {
                         match format {
-                            FrameSerializationFormat::Bincode => {
+                            crate::meta::FrameSerializationFormat::Bincode => {
                                 return match bincode::deserialize(&msg) {
                                     Ok(msg) => Poll::Ready(Some(msg)),
                                     Err(err) => {
