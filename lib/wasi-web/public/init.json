@@ -1,0 +1,9 @@
+{
+    "init": "sharrattj/bash",
+    "uses": [
+        "john-sharratt/catsay",
+        "python/python"
+    ],
+    "prompt": "wasmer.sh",
+    "no_welcome": false
+}
