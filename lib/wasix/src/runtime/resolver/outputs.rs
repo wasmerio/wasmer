@@ -216,5 +216,7 @@ pub struct ResolvedPackage {
     pub commands: BTreeMap<String, ItemLocation>,
     pub entrypoint: Option<String>,
     /// A mapping from paths to the volumes that should be mounted there.
+    /// Note: mappings at the start of the list obscure mappings at the end of the list
+    /// thus this list represents an inheritance tree
     pub filesystem: Vec<ResolvedFileSystemMapping>,
 }

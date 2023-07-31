@@ -381,11 +381,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
         }
     }
 
-    // Note: when resolving filesystem mappings, the first mapping will come
-    // from the root package and its dependencies will be following. However, we
-    // actually want things closer to the root package in the dependency tree to
-    // come later so they override their dependencies.
-    filesystem.reverse();
+    tracing::debug!("resolved filesystem: {:?}", &filesystem);
 
     Ok(ResolvedPackage {
         root_package: dependency_graph.root_info().id(),
