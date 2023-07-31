@@ -54,25 +54,33 @@ impl StartArgs {
     pub fn parse(mut self, args: &str) -> Self {
         let query_pairs = || form_urlencoded::parse(args.as_bytes());
 
-        if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "init").next() {
+        let find = |key| {
+            query_pairs()
+                .filter(|(k, _)| k == key)
+                .map(|a| a.1)
+                .filter(|a| a != "undefined")
+                .next()
+        };
+
+        if let Some(val) = find("init") {
             self.init = Some(val.to_string());
         }
-        if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "uses").next() {
+        if let Some(val) = find("uses") {
             self.uses = val.split(",").map(|v| v.to_string()).collect();
         }
-        if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "prompt").next() {
+        if let Some(val) = find("prompt") {
             self.prompt = Some(val.to_string());
         }
-        if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "connect").next() {
+        if let Some(val) = find("connect") {
             self.connect = Some(val.to_string());
         }
-        if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "no_welcome").next() {
+        if let Some(val) = find("no_welcome") {
             match val.as_ref() {
                 "true" | "yes" | "" => self.no_welcome = true,
                 _ => {}
             }
         }
-        if let Some((_, val)) = query_pairs().filter(|(k, _)| k == "token").next() {
+        if let Some(val) = find("token") {
             self.token = Some(val.to_string());
         }
         self
