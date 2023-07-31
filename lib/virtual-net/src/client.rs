@@ -186,7 +186,7 @@ impl RemoteNetworkingClient {
         let tx = RemoteTx::Stream {
             tx: Arc::new(tokio::sync::Mutex::new(tx)),
             work: tx_work,
-            wakers: tx_wakers.clone(),
+            wakers: tx_wakers,
         };
         let rx = RemoteRx::Stream { rx };
 
@@ -333,12 +333,10 @@ impl Future for RemoteNetworkingClientDriver {
                             self.tasks.push_back(Box::pin(async move {
                                 tx.send(data).await.ok();
 
-                                common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Readable));
+                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.interest(InterestType::Readable)
+                                }
                             }));
                         }
                         MessageResponse::RecvWithAddr {
@@ -355,23 +353,20 @@ impl Future for RemoteNetworkingClientDriver {
                             };
                             let common = self.common.clone();
                             self.tasks.push_back(Box::pin(async move {
-                                tx.send((data, addr)).await.ok();
+                                tx.send(DataWithAddr { data, addr }).await.ok();
 
-                                common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Readable));
+                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.interest(InterestType::Readable)
+                                }
                             }));
                         }
                         MessageResponse::Sent { socket_id, .. } => {
-                            self.common
-                                .handlers
-                                .lock()
-                                .unwrap()
-                                .get_mut(&socket_id)
-                                .map(|h| h.interest(InterestType::Writable));
+                            if let Some(h) =
+                                self.common.handlers.lock().unwrap().get_mut(&socket_id)
+                            {
+                                h.interest(InterestType::Writable)
+                            }
                         }
                         MessageResponse::SendError {
                             socket_id, error, ..
@@ -379,20 +374,18 @@ impl Future for RemoteNetworkingClientDriver {
                             NetworkError::ConnectionAborted
                             | NetworkError::ConnectionReset
                             | NetworkError::BrokenPipe => {
-                                self.common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Closed));
+                                if let Some(h) =
+                                    self.common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.interest(InterestType::Closed)
+                                }
                             }
                             _ => {
-                                self.common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Writable));
+                                if let Some(h) =
+                                    self.common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.interest(InterestType::Writable)
+                                }
                             }
                         },
 
@@ -403,31 +396,28 @@ impl Future for RemoteNetworkingClientDriver {
                         } => {
                             let common = self.common.clone();
                             self.tasks.push_back(Box::pin(async move {
-                                let tx = common
-                                    .accept_tx
-                                    .lock()
-                                    .unwrap()
-                                    .get(&socket_id)
-                                    .map(|tx| tx.clone());
+                                let tx = common.accept_tx.lock().unwrap().get(&socket_id).cloned();
                                 if let Some(tx) = tx {
-                                    tx.send((child_id, addr)).await.ok();
+                                    tx.send(SocketWithAddr {
+                                        socket: child_id,
+                                        addr,
+                                    })
+                                    .await
+                                    .ok();
                                 }
 
-                                common
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get_mut(&socket_id)
-                                    .map(|h| h.interest(InterestType::Readable));
+                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.interest(InterestType::Readable)
+                                }
                             }));
                         }
                         MessageResponse::Closed { socket_id } => {
-                            self.common
-                                .handlers
-                                .lock()
-                                .unwrap()
-                                .get_mut(&socket_id)
-                                .map(|h| h.interest(InterestType::Closed));
+                            if let Some(h) =
+                                self.common.handlers.lock().unwrap().get_mut(&socket_id)
+                            {
+                                h.interest(InterestType::Closed)
+                            }
                         }
                         MessageResponse::ResponseToRequest { req_id, res } => {
                             let mut requests = self.common.requests.lock().unwrap();
@@ -504,6 +494,18 @@ impl RequestTx {
     }
 }
 
+#[derive(Debug)]
+struct DataWithAddr {
+    pub data: Vec<u8>,
+    pub addr: SocketAddr,
+}
+#[derive(Debug)]
+struct SocketWithAddr {
+    pub socket: SocketId,
+    pub addr: SocketAddr,
+}
+type SocketMap<T> = HashMap<SocketId, T>;
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct RemoteCommon {
@@ -514,11 +516,11 @@ struct RemoteCommon {
     request_seed: AtomicU64,
     requests: Mutex<HashMap<u64, RequestTx>>,
     socket_seed: AtomicU64,
-    recv_tx: Mutex<HashMap<SocketId, mpsc::Sender<Vec<u8>>>>,
-    recv_with_addr_tx: Mutex<HashMap<SocketId, mpsc::Sender<(Vec<u8>, SocketAddr)>>>,
-    accept_tx: Mutex<HashMap<SocketId, mpsc::Sender<(SocketId, SocketAddr)>>>,
+    recv_tx: Mutex<SocketMap<mpsc::Sender<Vec<u8>>>>,
+    recv_with_addr_tx: Mutex<SocketMap<mpsc::Sender<DataWithAddr>>>,
+    accept_tx: Mutex<SocketMap<mpsc::Sender<SocketWithAddr>>>,
     #[derivative(Debug = "ignore")]
-    handlers: Mutex<HashMap<SocketId, Box<dyn virtual_mio::InterestHandler + Send + Sync>>>,
+    handlers: Mutex<SocketMap<Box<dyn virtual_mio::InterestHandler + Send + Sync>>>,
 
     // The stall guard will prevent reads while its held and there are background tasks running
     // (the idea behind this is to create back pressure so that the task list infinitely grow)
@@ -844,9 +846,9 @@ struct RemoteSocket {
     common: Arc<RemoteCommon>,
     rx_buffer: BytesMut,
     rx_recv: mpsc::Receiver<Vec<u8>>,
-    rx_recv_with_addr: mpsc::Receiver<(Vec<u8>, SocketAddr)>,
+    rx_recv_with_addr: mpsc::Receiver<DataWithAddr>,
     tx_waker: Waker,
-    rx_accept: mpsc::Receiver<(SocketId, SocketAddr)>,
+    rx_accept: mpsc::Receiver<SocketWithAddr>,
     pending_accept: Option<SocketId>,
 }
 impl Drop for RemoteSocket {
@@ -968,7 +970,7 @@ impl VirtualTcpListener for RemoteSocket {
     fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         self.touch_begin_accept()?;
 
-        let (id, addr) = self.rx_accept.try_recv().map_err(|err| match err {
+        let accepted = self.rx_accept.try_recv().map_err(|err| match err {
             TryRecvError::Empty => NetworkError::WouldBlock,
             TryRecvError::Disconnected => NetworkError::ConnectionAborted,
         })?;
@@ -981,16 +983,28 @@ impl VirtualTcpListener for RemoteSocket {
 
         // Now we construct the child
         let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common.recv_tx.lock().unwrap().insert(id, tx);
+        self.common
+            .recv_tx
+            .lock()
+            .unwrap()
+            .insert(accepted.socket, tx);
 
         let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
-        self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
+        self.common
+            .recv_with_addr_tx
+            .lock()
+            .unwrap()
+            .insert(accepted.socket, tx);
 
         let (tx, rx_accept) = tokio::sync::mpsc::channel(100);
-        self.common.accept_tx.lock().unwrap().insert(id, tx);
+        self.common
+            .accept_tx
+            .lock()
+            .unwrap()
+            .insert(accepted.socket, tx);
 
         let socket = RemoteSocket {
-            socket_id: id,
+            socket_id: accepted.socket,
             common: self.common.clone(),
             rx_buffer: BytesMut::new(),
             rx_recv,
@@ -999,7 +1013,7 @@ impl VirtualTcpListener for RemoteSocket {
             pending_accept: None,
             tx_waker: TxWaker::new(&self.common).as_waker(),
         };
-        Ok((Box::new(socket), addr))
+        Ok((Box::new(socket), accepted.addr))
     }
 
     fn set_handler(
@@ -1071,7 +1085,7 @@ impl VirtualRawSocket for RemoteSocket {
 
     fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>]) -> Result<usize> {
         loop {
-            if self.rx_buffer.len() > 0 {
+            if !self.rx_buffer.is_empty() {
                 let amt = self.rx_buffer.len().min(buf.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(&self.rx_buffer[..amt]);
@@ -1126,11 +1140,11 @@ impl VirtualConnectionlessSocket for RemoteSocket {
         buf: &mut [std::mem::MaybeUninit<u8>],
     ) -> Result<(usize, SocketAddr)> {
         match self.rx_recv_with_addr.try_recv() {
-            Ok((data, addr)) => {
-                let amt = buf.len().min(data.len());
+            Ok(received) => {
+                let amt = buf.len().min(received.data.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-                buf[..amt].copy_from_slice(&data[..amt]);
-                Ok((amt, addr))
+                buf[..amt].copy_from_slice(&received.data[..amt]);
+                Ok((amt, received.addr))
             }
             Err(TryRecvError::Disconnected) => Err(NetworkError::ConnectionAborted),
             Err(TryRecvError::Empty) => Err(NetworkError::WouldBlock),
@@ -1294,7 +1308,7 @@ impl VirtualConnectedSocket for RemoteSocket {
 
     fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>]) -> Result<usize> {
         loop {
-            if self.rx_buffer.len() > 0 {
+            if !self.rx_buffer.is_empty() {
                 let amt = self.rx_buffer.len().min(buf.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(&self.rx_buffer[..amt]);

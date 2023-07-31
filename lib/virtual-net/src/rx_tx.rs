@@ -28,7 +28,7 @@ pub(crate) struct RemoteTxWakers {
 impl RemoteTxWakers {
     pub fn add(&self, waker: &Waker) {
         let mut guard = self.wakers.lock().unwrap();
-        if guard.iter().any(|w| w.will_wake(waker)) == false {
+        if !guard.iter().any(|w| w.will_wake(waker)) {
             guard.push(waker.clone());
         }
     }
@@ -58,6 +58,8 @@ impl AsyncWrite for FailOnWrite {
     }
 }
 
+pub(crate) type StreamSink<T> = Pin<Box<dyn Sink<T, Error = std::io::Error> + Send + 'static>>;
+
 pub(crate) enum RemoteTx<T>
 where
     T: Serialize,
@@ -68,7 +70,7 @@ where
         wakers: RemoteTxWakers,
     },
     Stream {
-        tx: Arc<tokio::sync::Mutex<Pin<Box<dyn Sink<T, Error = std::io::Error> + Send + 'static>>>>,
+        tx: Arc<tokio::sync::Mutex<StreamSink<T>>>,
         work: mpsc::UnboundedSender<BoxFuture<'static, ()>>,
         wakers: RemoteTxWakers,
     },
@@ -127,7 +129,7 @@ where
 
                 rx_done
                     .await
-                    .unwrap_or_else(|_| Err(NetworkError::ConnectionAborted))
+                    .unwrap_or(Err(NetworkError::ConnectionAborted))
             }
             #[cfg(feature = "hyper")]
             RemoteTx::HyperWebSocket { tx, format, .. } => {

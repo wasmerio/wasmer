@@ -322,7 +322,7 @@ impl Future for RemoteNetworkingServerDriver {
         // that it is woken when something is ready to read or write
         let readable = {
             let mut guard = self.common.handler.state.lock().unwrap();
-            if guard.driver_wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+            if !guard.driver_wakers.iter().any(|w| w.will_wake(cx.waker())) {
                 guard.driver_wakers.push(cx.waker().clone());
             }
             guard.readable.drain().collect()
@@ -448,9 +448,7 @@ impl RemoteNetworkingServerDriver {
         guard
             .get_mut(&socket_id)
             .map(|s| {
-                req_id
-                    .map(|req_id| s.send_to(&self.common, socket_id, data, addr, req_id))
-                    .flatten()
+                req_id.and_then(|req_id| s.send_to(&self.common, socket_id, data, addr, req_id))
             })
             .unwrap_or(None)
     }
@@ -483,14 +481,12 @@ impl RemoteNetworkingServerDriver {
         Self::process_async(async move {
             let future = work(inner);
             let ret = future.await;
-            req_id
-                .map(|req_id| {
-                    common.send(MessageResponse::ResponseToRequest {
-                        req_id,
-                        res: transmute(ret),
-                    })
+            req_id.and_then(|req_id| {
+                common.send(MessageResponse::ResponseToRequest {
+                    req_id,
+                    res: transmute(ret),
                 })
-                .flatten()
+            })
         })
     }
 
@@ -569,26 +565,22 @@ impl RemoteNetworkingServerDriver {
             let socket = match guard.get_mut(&socket_id) {
                 Some(s) => s,
                 None => {
-                    return req_id
-                        .map(|req_id| {
-                            self.common.send(MessageResponse::ResponseToRequest {
-                                req_id,
-                                res: ResponseType::Err(NetworkError::InvalidFd),
-                            })
+                    return req_id.and_then(|req_id| {
+                        self.common.send(MessageResponse::ResponseToRequest {
+                            req_id,
+                            res: ResponseType::Err(NetworkError::InvalidFd),
                         })
-                        .flatten()
+                    })
                 }
             };
             work(socket)
         };
-        req_id
-            .map(|req_id| {
-                self.common.send(MessageResponse::ResponseToRequest {
-                    req_id,
-                    res: transmute(ret),
-                })
+        req_id.and_then(|req_id| {
+            self.common.send(MessageResponse::ResponseToRequest {
+                req_id,
+                res: transmute(ret),
             })
-            .flatten()
+        })
     }
 
     fn process_inner_noop<F>(
@@ -827,14 +819,12 @@ impl RemoteNetworkingServerDriver {
                 },
                 req_id,
             ),
-            _ => req_id
-                .map(|req_id| {
-                    self.common.send(MessageResponse::ResponseToRequest {
-                        req_id,
-                        res: ResponseType::Err(NetworkError::Unsupported),
-                    })
+            _ => req_id.and_then(|req_id| {
+                self.common.send(MessageResponse::ResponseToRequest {
+                    req_id,
+                    res: ResponseType::Err(NetworkError::Unsupported),
                 })
-                .flatten(),
+            }),
         }
     }
 
@@ -1180,14 +1170,12 @@ impl RemoteNetworkingServerDriver {
                 socket_id,
                 req_id,
             ),
-            _ => req_id
-                .map(|req_id| {
-                    self.common.send(MessageResponse::ResponseToRequest {
-                        req_id,
-                        res: ResponseType::Err(NetworkError::Unsupported),
-                    })
+            _ => req_id.and_then(|req_id| {
+                self.common.send(MessageResponse::ResponseToRequest {
+                    req_id,
+                    res: ResponseType::Err(NetworkError::Unsupported),
                 })
-                .flatten(),
+            }),
         }
     }
 }
@@ -1247,43 +1235,41 @@ impl RemoteAdapterSocket {
                                 // We make sure the waker is registered with the interest driver which will
                                 // wake up this poller when there is writeability
                                 let mut guard = self.common.handler.state.lock().unwrap();
-                                if guard.driver_wakers.iter().any(|w| w.will_wake(cx.waker()))
-                                    == false
-                                {
+                                if !guard.driver_wakers.iter().any(|w| w.will_wake(cx.waker())) {
                                     guard.driver_wakers.push(cx.waker().clone());
                                 }
                                 drop(guard);
 
                                 let mut guard = self.common.sockets.lock().unwrap();
-                                if let Some(socket) = guard.get_mut(&self.socket_id) {
-                                    if let RemoteAdapterSocket::TcpSocket(socket) = socket {
-                                        match socket.try_send(&self.data) {
-                                            Ok(amount) => {
-                                                if let Some(req_id) = self.req_id {
-                                                    return Poll::Ready(self.common.send(
-                                                        MessageResponse::Sent {
-                                                            socket_id: self.socket_id,
-                                                            req_id,
-                                                            amount: amount as u64,
-                                                        },
-                                                    ));
-                                                } else {
-                                                    return Poll::Ready(None);
-                                                }
+                                if let Some(RemoteAdapterSocket::TcpSocket(socket)) =
+                                    guard.get_mut(&self.socket_id)
+                                {
+                                    match socket.try_send(&self.data) {
+                                        Ok(amount) => {
+                                            if let Some(req_id) = self.req_id {
+                                                return Poll::Ready(self.common.send(
+                                                    MessageResponse::Sent {
+                                                        socket_id: self.socket_id,
+                                                        req_id,
+                                                        amount: amount as u64,
+                                                    },
+                                                ));
+                                            } else {
+                                                return Poll::Ready(None);
                                             }
-                                            Err(NetworkError::WouldBlock) => return Poll::Pending,
-                                            Err(error) => {
-                                                if let Some(req_id) = self.req_id {
-                                                    return Poll::Ready(self.common.send(
-                                                        MessageResponse::SendError {
-                                                            socket_id: self.socket_id,
-                                                            req_id,
-                                                            error,
-                                                        },
-                                                    ));
-                                                } else {
-                                                    return Poll::Ready(None);
-                                                }
+                                        }
+                                        Err(NetworkError::WouldBlock) => return Poll::Pending,
+                                        Err(error) => {
+                                            if let Some(req_id) = self.req_id {
+                                                return Poll::Ready(self.common.send(
+                                                    MessageResponse::SendError {
+                                                        socket_id: self.socket_id,
+                                                        req_id,
+                                                        error,
+                                                    },
+                                                ));
+                                            } else {
+                                                return Poll::Ready(None);
                                             }
                                         }
                                     }
@@ -1534,18 +1520,10 @@ struct RemoteAdapterHandlerState {
     driver_wakers: Vec<Waker>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct RemoteAdapterHandler {
     socket_id: Option<SocketId>,
     state: Arc<Mutex<RemoteAdapterHandlerState>>,
-}
-impl Default for RemoteAdapterHandler {
-    fn default() -> Self {
-        Self {
-            socket_id: None,
-            state: Default::default(),
-        }
-    }
 }
 impl RemoteAdapterHandler {
     pub fn for_socket(self, id: SocketId) -> Self {
@@ -1559,18 +1537,17 @@ impl InterestHandler for RemoteAdapterHandler {
     fn interest(&mut self, interest: virtual_mio::InterestType) {
         let mut guard = self.state.lock().unwrap();
         guard.driver_wakers.drain(..).for_each(|w| w.wake());
-        let socket_id = match self.socket_id.clone() {
+        let socket_id = match self.socket_id {
             Some(s) => s,
             None => return,
         };
-        match interest {
-            virtual_mio::InterestType::Readable => {
-                guard.readable.insert(socket_id);
-            }
-            _ => {}
+        if interest == virtual_mio::InterestType::Readable {
+            guard.readable.insert(socket_id);
         }
     }
 }
+
+type SocketMap<T> = HashMap<SocketId, T>;
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -1580,8 +1557,8 @@ struct RemoteAdapterCommon {
     #[derivative(Debug = "ignore")]
     rx: Mutex<RemoteRx<MessageRequest>>,
     #[derivative(Debug = "ignore")]
-    sockets: Mutex<HashMap<SocketId, RemoteAdapterSocket>>,
-    socket_accept: Mutex<HashMap<SocketId, SocketId>>,
+    sockets: Mutex<SocketMap<RemoteAdapterSocket>>,
+    socket_accept: Mutex<SocketMap<SocketId>>,
     handler: RemoteAdapterHandler,
 
     // The stall guard will prevent reads while its held and there are background tasks running
