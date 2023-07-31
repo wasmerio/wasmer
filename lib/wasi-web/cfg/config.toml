@@ -1,12 +1,12 @@
 [general]
 host = "::"
-port = 80
+port = 8080
 root = "/public"
 log-level = "info"
 cache-control-headers = false
 compression = true
-threads-multiplier = 16
-max-blocking-threads = 32
+threads-multiplier = 8
+max-blocking-threads = 16
 
 [advanced]
 

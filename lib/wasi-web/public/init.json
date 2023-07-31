@@ -1,7 +1,7 @@
 {
     "init": "sharrattj/bash",
     "uses": [
-        "john-sharratt/catsay",
+        "john-sharratt/catsay"
     ],
     "prompt": "wasmer.sh",
     "no_welcome": false
