@@ -2,6 +2,9 @@
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
 
+#[cfg(feature = "js")]
+pub mod web;
+
 use std::ops::Deref;
 use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};

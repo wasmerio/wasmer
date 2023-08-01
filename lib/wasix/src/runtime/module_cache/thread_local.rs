@@ -15,14 +15,25 @@ std::thread_local! {
 pub struct ThreadLocalCache {}
 
 impl ThreadLocalCache {
-    fn lookup(&self, key: ModuleHash, deterministic_id: &str) -> Option<Module> {
+    pub(crate) fn lookup(&self, key: ModuleHash, deterministic_id: &str) -> Option<Module> {
         let key = (key, deterministic_id.to_string());
         CACHED_MODULES.with(|m| m.borrow().get(&key).cloned())
     }
 
-    fn insert(&self, key: ModuleHash, module: &Module, deterministic_id: &str) {
+    /// Add an item to the cache, returning whether that item already exists.
+    pub(crate) fn insert(&self, key: ModuleHash, module: &Module, deterministic_id: &str) -> bool {
         let key = (key, deterministic_id.to_string());
-        CACHED_MODULES.with(|m| m.borrow_mut().insert(key, module.clone()));
+        let previous_value = CACHED_MODULES.with(|m| m.borrow_mut().insert(key, module.clone()));
+        previous_value.is_none()
+    }
+
+    /// An escape hatch to give the web worker module cache direct access to the
+    /// cache.
+    #[cfg(feature = "js")]
+    pub(crate) fn with<T>(
+        func: impl FnOnce(&RefCell<HashMap<(ModuleHash, String), Module>>) -> T,
+    ) -> T {
+        CACHED_MODULES.with(func)
     }
 }
 

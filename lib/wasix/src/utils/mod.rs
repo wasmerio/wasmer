@@ -2,6 +2,9 @@ mod owned_mutex_guard;
 pub mod store;
 mod thread_parker;
 
+#[cfg(feature = "js")]
+pub(crate) mod web;
+
 mod dummy_waker;
 pub use self::dummy_waker::WasiDummyWaker;
 

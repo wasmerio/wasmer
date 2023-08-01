@@ -3,11 +3,10 @@ pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
 
+#[cfg(feature = "js")]
+pub mod web;
+
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
-use self::{
-    module_cache::{CacheError, ModuleHash},
-    task_manager::InlineWaker,
-};
 
 use std::{
     fmt,
@@ -23,9 +22,10 @@ use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
     runtime::{
-        module_cache::{ModuleCache, ThreadLocalCache},
+        module_cache::{CacheError, ModuleCache, ModuleHash, ThreadLocalCache},
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
+        task_manager::InlineWaker,
     },
     WasiTtyState,
 };

@@ -36,6 +36,8 @@ mod filesystem;
 mod shared;
 mod thread_local;
 mod types;
+#[cfg(feature = "js")]
+mod web_worker_module_cache;
 
 pub use self::{
     fallback::FallbackCache,
@@ -44,6 +46,9 @@ pub use self::{
     thread_local::ThreadLocalCache,
     types::{CacheError, ModuleCache, ModuleHash},
 };
+
+#[cfg(feature = "js")]
+pub use self::web_worker_module_cache::WebWorkerModuleCache;
 
 /// Get a [`ModuleCache`] which should be good enough for most in-memory use
 /// cases.
@@ -60,7 +65,7 @@ pub use self::{
 pub fn in_memory() -> impl ModuleCache + Send + Sync {
     cfg_if::cfg_if! {
         if #[cfg(feature = "js")] {
-            ThreadLocalCache::default()
+            WebWorkerModuleCache::default()
         } else {
             SharedCache::default()
         }
