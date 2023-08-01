@@ -120,7 +120,6 @@ where
         let mut white_outs = HashSet::new();
 
         let filesystems = std::iter::once(&self.primary as &(dyn FileSystem + Send))
-            .into_iter()
             .chain(self.secondaries().filesystems());
 
         for fs in filesystems {

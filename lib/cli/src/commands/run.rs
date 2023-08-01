@@ -842,9 +842,7 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         let pkg_id = summary.package_id();
         self.progress.set_message(format!("Downloading {pkg_id}"));
 
-        let result = self.inner.load(summary).await;
-
-        result
+        self.inner.load(summary).await
     }
 
     async fn load_package_tree(

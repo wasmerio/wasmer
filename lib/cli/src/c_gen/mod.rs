@@ -7,9 +7,10 @@ pub mod staticlib_header;
 pub type CIdent = String;
 
 /// A Type in the C language.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum CType {
     /// C `void` type.
+    #[default]
     Void,
     /// A pointer to some other type.
     PointerTo {
@@ -211,12 +212,6 @@ impl CType {
                 w.push_str("[]");
             }
         }
-    }
-}
-
-impl Default for CType {
-    fn default() -> CType {
-        CType::Void
     }
 }
 
