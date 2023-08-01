@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":[["impl_virtualfile_on_std_streams",""]],"struct":[["Stderr","A wrapper type around the standard I/O stream of the same name that implements `VirtualFile`."],["Stdin","A wrapper type around the standard I/O stream of the same name that implements `VirtualFile`."],["Stdout","A wrapper type around the standard I/O stream of the same name that implements `VirtualFile`."]]};
+window.SIDEBAR_ITEMS = {"macro":["impl_virtualfile_on_std_streams"],"struct":["Stderr","Stdin","Stdout"]};

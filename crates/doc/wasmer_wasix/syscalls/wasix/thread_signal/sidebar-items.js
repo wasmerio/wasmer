@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["thread_signal","`thread_signal()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["thread_signal"],"static":["CALLSITE","META"]};

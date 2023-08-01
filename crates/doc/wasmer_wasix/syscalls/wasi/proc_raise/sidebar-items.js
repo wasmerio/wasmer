@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["proc_raise","`proc_raise()`"],["proc_raise_interval","`proc_raise()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["proc_raise","proc_raise_interval"],"static":["CALLSITE","META"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["BaseTunables","Tunable parameters for WebAssembly compilation. This is the reference implementation of the `Tunables` trait, used by default."]],"trait":[["Tunables","An engine delegates the creation of memories, tables, and globals to a foreign implementor of this trait."]]};
+window.SIDEBAR_ITEMS = {"struct":["BaseTunables"],"trait":["Tunables"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["fd_advise","`fd_advise()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["fd_advise"],"static":["CALLSITE","META"]};

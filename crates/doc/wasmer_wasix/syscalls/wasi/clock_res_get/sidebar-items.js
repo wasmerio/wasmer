@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["clock_res_get","`clock_res_get()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["clock_res_get"],"static":["CALLSITE","META"]};

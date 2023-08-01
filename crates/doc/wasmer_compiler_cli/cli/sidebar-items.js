@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["WasmerCLIOptions","The options for the wasmer Command Line Interface"]],"fn":[["wasmer_main","The main function for the Wasmer CLI tool."]]};
+window.SIDEBAR_ITEMS = {"enum":["WasmerCLIOptions"],"fn":["wasmer_main"]};

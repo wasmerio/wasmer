@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":[["primitives",""],["tuples",""]],"struct":[["Le","Helper type representing a 1-byte-aligned little-endian value in memory."]],"trait":[["Endian","Trait used for the implementation of the `Le` type."]]};
+window.SIDEBAR_ITEMS = {"fn":["all_bytes_valid"],"macro":["primitives","tuples"],"struct":["Le"],"trait":["Endian"]};

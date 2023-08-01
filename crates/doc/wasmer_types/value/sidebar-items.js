@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":[["partial_eq",""],["primitives",""]],"trait":[["ValueType","Trait for a Value type. A Value type is a type that is always valid and may be safely copied."]],"union":[["RawValue","Raw representation of a WebAssembly value."]]};
+window.SIDEBAR_ITEMS = {"macro":["partial_eq","primitives"],"trait":["ValueType"],"union":["RawValue"]};

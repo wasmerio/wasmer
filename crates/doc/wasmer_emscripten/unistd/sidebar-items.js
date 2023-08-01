@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["confstr",""]]};
+window.SIDEBAR_ITEMS = {"fn":["confstr"]};

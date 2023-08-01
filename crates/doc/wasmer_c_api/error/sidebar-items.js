@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["update_last_error","Rust function to register a new error."],["wasmer_last_error_length","Gets the length in bytes of the last error if any, zero otherwise. This includes th NUL terminator byte."],["wasmer_last_error_message","Gets the last error message if any into the provided buffer `buffer` up to the given `length`."]]};
+window.SIDEBAR_ITEMS = {"fn":["update_last_error","wasmer_last_error_length","wasmer_last_error_message"]};

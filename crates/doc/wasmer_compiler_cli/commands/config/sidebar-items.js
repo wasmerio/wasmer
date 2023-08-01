@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Config","The options for the `wasmer config` subcommand"]]};
+window.SIDEBAR_ITEMS = {"struct":["Config"]};

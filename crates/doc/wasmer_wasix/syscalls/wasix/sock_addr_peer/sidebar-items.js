@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["sock_addr_peer","`sock_addr_peer()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["sock_addr_peer"],"static":["CALLSITE","META"]};

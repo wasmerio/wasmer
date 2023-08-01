@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["code",""],["intrinsics","Code for dealing with LLVM and VM intrinsics."],["state",""]]};
+window.SIDEBAR_ITEMS = {"mod":["code","intrinsics","state"]};

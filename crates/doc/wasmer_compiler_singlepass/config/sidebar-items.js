@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Singlepass",""]]};
+window.SIDEBAR_ITEMS = {"struct":["Singlepass"]};

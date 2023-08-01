@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["SelfUpdate","The options for the `wasmer self-update` subcommand"]]};
+window.SIDEBAR_ITEMS = {"struct":["SelfUpdate"]};

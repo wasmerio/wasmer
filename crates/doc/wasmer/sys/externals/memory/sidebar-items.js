@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["volatile_memcpy_read",""],["volatile_memcpy_write",""]],"struct":[["Memory",""],["MemoryBuffer","Underlying buffer for a memory."]]};
+window.SIDEBAR_ITEMS = {"fn":["copy_one","volatile_memcpy_read","volatile_memcpy_write"],"struct":["Memory","MemoryBuffer","Unaligned"]};

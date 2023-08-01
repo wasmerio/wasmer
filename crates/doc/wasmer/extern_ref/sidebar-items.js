@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ExternRef","An opaque reference to some data. This reference can be passed through Wasm."]]};
+window.SIDEBAR_ITEMS = {"struct":["ExternRef"]};

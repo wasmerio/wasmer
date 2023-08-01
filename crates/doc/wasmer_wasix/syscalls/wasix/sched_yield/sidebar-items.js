@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["sched_yield","`sched_yield()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["sched_yield"],"static":["CALLSITE","META"]};

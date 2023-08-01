@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["TTY_MOBILE_PAUSE",""]],"enum":[["InputEvent",""]],"mod":[["tty_sys",""]],"struct":[["ConsoleRect",""],["Tty",""],["TtyOptions",""],["TtyOptionsInner",""],["WasiTtyState",""]],"trait":[["TtyBridge","Provides access to a TTY."]]};
+window.SIDEBAR_ITEMS = {"constant":["TTY_MOBILE_PAUSE"],"enum":["InputEvent"],"mod":["tty_sys"],"struct":["ConsoleRect","Tty","TtyOptions","TtyOptionsInner","WasiTtyState"],"trait":["TtyBridge"]};

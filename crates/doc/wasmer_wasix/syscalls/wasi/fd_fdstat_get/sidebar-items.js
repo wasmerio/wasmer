@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["fd_fdstat_get","`fd_fdstat_get()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["fd_fdstat_get"],"static":["CALLSITE","META"]};

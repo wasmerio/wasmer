@@ -1,66 +1,75 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Reads bytes from a source."><meta name="keywords" content="rust, rustlang, rust-lang, AsyncReadExt"><title>AsyncReadExt in virtual_fs - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></div></a><h2></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../virtual_fs/index.html"><div class="logo-container"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></div></a><h2 class="location"><a href="#">AsyncReadExt</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.chain">chain</a></li><li><a href="#method.read">read</a></li><li><a href="#method.read_buf">read_buf</a></li><li><a href="#method.read_exact">read_exact</a></li><li><a href="#method.read_f32">read_f32</a></li><li><a href="#method.read_f32_le">read_f32_le</a></li><li><a href="#method.read_f64">read_f64</a></li><li><a href="#method.read_f64_le">read_f64_le</a></li><li><a href="#method.read_i128">read_i128</a></li><li><a href="#method.read_i128_le">read_i128_le</a></li><li><a href="#method.read_i16">read_i16</a></li><li><a href="#method.read_i16_le">read_i16_le</a></li><li><a href="#method.read_i32">read_i32</a></li><li><a href="#method.read_i32_le">read_i32_le</a></li><li><a href="#method.read_i64">read_i64</a></li><li><a href="#method.read_i64_le">read_i64_le</a></li><li><a href="#method.read_i8">read_i8</a></li><li><a href="#method.read_to_end">read_to_end</a></li><li><a href="#method.read_to_string">read_to_string</a></li><li><a href="#method.read_u128">read_u128</a></li><li><a href="#method.read_u128_le">read_u128_le</a></li><li><a href="#method.read_u16">read_u16</a></li><li><a href="#method.read_u16_le">read_u16_le</a></li><li><a href="#method.read_u32">read_u32</a></li><li><a href="#method.read_u32_le">read_u32_le</a></li><li><a href="#method.read_u64">read_u64</a></li><li><a href="#method.read_u64_le">read_u64_le</a></li><li><a href="#method.read_u8">read_u8</a></li><li><a href="#method.take">take</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In virtual_fs</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn">Trait <a href="index.html">virtual_fs</a>::<wbr><a class="trait" href="#">AsyncReadExt</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><div class="item-decl"><pre class="rust trait"><code>pub trait AsyncReadExt: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a> {
-<details class="rustdoc-toggle type-contents-toggle"><summary class="hideme"><span>Show 29 methods</span></summary>    fn <a href="#method.chain" class="fn">chain</a>&lt;R&gt;(self, next: R) -&gt; Chain&lt;Self, R&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;R: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read" class="fn">read</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; Read&lt;'a, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_buf" class="fn">read_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, buf: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>B) -&gt; ReadBuf&lt;'a, Self, B&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;B: BufMut</span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_exact" class="fn">read_exact</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; ReadExact&lt;'a, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u8" class="fn">read_u8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i8" class="fn">read_i8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u16" class="fn">read_u16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i16" class="fn">read_i16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u32" class="fn">read_u32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i32" class="fn">read_i32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u64" class="fn">read_u64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i64" class="fn">read_i64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u128" class="fn">read_u128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i128" class="fn">read_i128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_f32" class="fn">read_f32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_f64" class="fn">read_f64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u16_le" class="fn">read_u16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i16_le" class="fn">read_i16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u32_le" class="fn">read_u32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i32_le" class="fn">read_i32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u64_le" class="fn">read_u64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i64_le" class="fn">read_i64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_u128_le" class="fn">read_u128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_i128_le" class="fn">read_i128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_f32_le" class="fn">read_f32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_f64_le" class="fn">read_f64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_to_end" class="fn">read_to_end</a>&lt;'a&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;buf: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.67.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/1.67.1/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; ReadToEnd&lt;'a, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.read_to_string" class="fn">read_to_string</a>&lt;'a&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dst: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.67.1/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; ReadToString&lt;'a, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.take" class="fn">take</a>(self, limit: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html">u64</a>) -&gt; Take&lt;Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span>,
-    { ... }
-</details>}</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reads bytes from a source.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Reads bytes from a source."><title>AsyncReadExt in virtual_fs - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" disabled href="../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" disabled href="../static.files/ayu-be46fdc453a55015.css"><script src="../static.files/storage-3891ce972e3a2bf8.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-98a684e84ae5b08b.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../virtual_fs/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../virtual_fs/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">AsyncReadExt</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.chain">chain</a></li><li><a href="#method.read">read</a></li><li><a href="#method.read_buf">read_buf</a></li><li><a href="#method.read_exact">read_exact</a></li><li><a href="#method.read_f32">read_f32</a></li><li><a href="#method.read_f32_le">read_f32_le</a></li><li><a href="#method.read_f64">read_f64</a></li><li><a href="#method.read_f64_le">read_f64_le</a></li><li><a href="#method.read_i128">read_i128</a></li><li><a href="#method.read_i128_le">read_i128_le</a></li><li><a href="#method.read_i16">read_i16</a></li><li><a href="#method.read_i16_le">read_i16_le</a></li><li><a href="#method.read_i32">read_i32</a></li><li><a href="#method.read_i32_le">read_i32_le</a></li><li><a href="#method.read_i64">read_i64</a></li><li><a href="#method.read_i64_le">read_i64_le</a></li><li><a href="#method.read_i8">read_i8</a></li><li><a href="#method.read_to_end">read_to_end</a></li><li><a href="#method.read_to_string">read_to_string</a></li><li><a href="#method.read_u128">read_u128</a></li><li><a href="#method.read_u128_le">read_u128_le</a></li><li><a href="#method.read_u16">read_u16</a></li><li><a href="#method.read_u16_le">read_u16_le</a></li><li><a href="#method.read_u32">read_u32</a></li><li><a href="#method.read_u32_le">read_u32_le</a></li><li><a href="#method.read_u64">read_u64</a></li><li><a href="#method.read_u64_le">read_u64_le</a></li><li><a href="#method.read_u8">read_u8</a></li><li><a href="#method.take">take</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In virtual_fs</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">virtual_fs</a>::<wbr><a class="trait" href="#">AsyncReadExt</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait AsyncReadExt: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a> {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 29 methods</span></summary>    // Provided methods
+    fn <a href="#method.chain" class="fn">chain</a>&lt;R&gt;(self, next: R) -&gt; Chain&lt;Self, R&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+             R: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read" class="fn">read</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; Read&lt;'a, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_buf" class="fn">read_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, buf: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; ReadBuf&lt;'a, Self, B&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+             B: BufMut</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_exact" class="fn">read_exact</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; ReadExact&lt;'a, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u8" class="fn">read_u8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i8" class="fn">read_i8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u16" class="fn">read_u16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i16" class="fn">read_i16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u32" class="fn">read_u32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i32" class="fn">read_i32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u64" class="fn">read_u64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i64" class="fn">read_i64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u128" class="fn">read_u128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i128" class="fn">read_i128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_f32" class="fn">read_f32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_f64" class="fn">read_f64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u16_le" class="fn">read_u16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i16_le" class="fn">read_i16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u32_le" class="fn">read_u32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i32_le" class="fn">read_i32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u64_le" class="fn">read_u64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i64_le" class="fn">read_i64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_u128_le" class="fn">read_u128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_i128_le" class="fn">read_i128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_f32_le" class="fn">read_f32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_f64_le" class="fn">read_f64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_to_end" class="fn">read_to_end</a>&lt;'a&gt;(
+        &amp;'a mut self,
+        buf: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.69.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/1.69.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;
+    ) -&gt; ReadToEnd&lt;'a, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.read_to_string" class="fn">read_to_string</a>&lt;'a&gt;(
+        &amp;'a mut self,
+        dst: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.69.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>
+    ) -&gt; ReadToString&lt;'a, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.take" class="fn">take</a>(self, limit: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u64.html">u64</a>) -&gt; Take&lt;Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span> { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Reads bytes from a source.</p>
 <p>Implemented as an extension trait, adding utility methods to all
-<a href="trait.AsyncRead.html"><code>AsyncRead</code></a> types. Callers will tend to import this trait instead of
-<a href="trait.AsyncRead.html"><code>AsyncRead</code></a>.</p>
+<a href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead"><code>AsyncRead</code></a> types. Callers will tend to import this trait instead of
+<a href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead"><code>AsyncRead</code></a>.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tokio::fs::File;
 <span class="kw">use </span>tokio::io::{<span class="self">self</span>, AsyncReadExt};
@@ -76,7 +85,9 @@
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 <p>See [module][crate::io] documentation for more details.</p>
-</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.chain" class="method has-srclink"><h4 class="code-header">fn <a href="#method.chain" class="fn">chain</a>&lt;R&gt;(self, next: R) -&gt; Chain&lt;Self, R&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;R: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a>,</span></h4></section></summary><div class="docblock"><p>Creates a new <code>AsyncRead</code> instance that chains this stream with
+</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.chain" class="method"><h4 class="code-header">fn <a href="#method.chain" class="fn">chain</a>&lt;R&gt;(self, next: R) -&gt; Chain&lt;Self, R&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
+    R: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a>,</span></h4></section></summary><div class="docblock"><p>Creates a new <code>AsyncRead</code> instance that chains this stream with
 <code>next</code>.</p>
 <p>The returned <code>AsyncRead</code> instance will first read all bytes from this object
 until EOF is encountered. Afterwards the output is equivalent to the
@@ -100,11 +111,12 @@ output of <code>next</code>.</p>
     </span>handle.read_to_string(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read" class="fn">read</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; Read&lt;'a, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Pulls some bytes from this source into the specified buffer,
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read" class="method"><h4 class="code-header">fn <a href="#method.read" class="fn">read</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; Read&lt;'a, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Pulls some bytes from this source into the specified buffer,
 returning how many bytes were read.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>This method does not provide any guarantees about whether it
 completes immediately or asynchronously.</p>
 <h5 id="return"><a href="#return">Return</a></h5>
@@ -153,11 +165,13 @@ completes first, then it is guaranteed that no data was read.</p>
     <span class="macro">println!</span>(<span class="string">&quot;The bytes: {:?}&quot;</span>, <span class="kw-2">&amp;</span>buffer[..n]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_buf" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_buf" class="fn">read_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, buf: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>B) -&gt; ReadBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;B: BufMut,</span></h4></section></summary><div class="docblock"><p>Pulls some bytes from this source into the specified buffer,
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_buf" class="method"><h4 class="code-header">fn <a href="#method.read_buf" class="fn">read_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, buf: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; ReadBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+    B: BufMut,</span></h4></section></summary><div class="docblock"><p>Pulls some bytes from this source into the specified buffer,
 advancing the buffer’s internal cursor.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_buf&lt;B: BufMut&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>B) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_buf&lt;B: BufMut&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>B) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>Usually, only a single <code>read</code> syscall is issued, even if there is
 more space in the supplied buffer.</p>
 <p>This method does not provide any guarantees about whether it
@@ -203,16 +217,17 @@ completes first, then it is guaranteed that no data was read.</p>
     <span class="macro">println!</span>(<span class="string">&quot;The bytes: {:?}&quot;</span>, <span class="kw-2">&amp;</span>buffer[..]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_exact" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_exact" class="fn">read_exact</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; ReadExact&lt;'a, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads the exact number of bytes required to fill <code>buf</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_exact" class="method"><h4 class="code-header">fn <a href="#method.read_exact" class="fn">read_exact</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; ReadExact&lt;'a, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads the exact number of bytes required to fill <code>buf</code>.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_exact(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_exact(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[u8]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>This function reads as many bytes as necessary to completely fill
 the specified buffer <code>buf</code>.</p>
 <h5 id="errors-2"><a href="#errors-2">Errors</a></h5>
 <p>If the operation encounters an “end of file” before completely
 filling the buffer, it returns an error of the kind
-<a href="https://doc.rust-lang.org/1.67.1/std/io/error/enum.ErrorKind.html#variant.UnexpectedEof"><code>ErrorKind::UnexpectedEof</code></a>. The contents of <code>buf</code> are unspecified
+<a href="https://doc.rust-lang.org/1.69.0/std/io/error/enum.ErrorKind.html#variant.UnexpectedEof" title="variant std::io::error::ErrorKind::UnexpectedEof"><code>ErrorKind::UnexpectedEof</code></a>. The contents of <code>buf</code> are unspecified
 in this case.</p>
 <p>If any other read error is encountered then the operation
 immediately returns. The contents of <code>buf</code> are unspecified in this
@@ -240,14 +255,15 @@ read into <code>buf</code>.</p>
     </span>f.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u8" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u8" class="fn">read_u8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 8 bit integer from the underlying reader.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u8" class="method"><h4 class="code-header">fn <a href="#method.read_u8" class="fn">read_u8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 8 bit integer from the underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u8(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u8&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u8(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u8&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-3"><a href="#errors-3">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-4"><a href="#examples-4">Examples</a></h5>
 <p>Read unsigned 8 bit integers from an <code>AsyncRead</code>:</p>
 
@@ -264,14 +280,15 @@ syscalls.</p>
 
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i8" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i8" class="fn">read_i8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 8 bit integer from the underlying reader.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i8" class="method"><h4 class="code-header">fn <a href="#method.read_i8" class="fn">read_i8</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 8 bit integer from the underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i8(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i8&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i8(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i8&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-4"><a href="#errors-4">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-5"><a href="#examples-5">Examples</a></h5>
 <p>Read unsigned 8 bit integers from an <code>AsyncRead</code>:</p>
 
@@ -288,15 +305,16 @@ syscalls.</p>
 
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u16" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u16" class="fn">read_u16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 16-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u16" class="method"><h4 class="code-header">fn <a href="#method.read_u16" class="fn">read_u16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 16-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u16(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u16&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u16(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u16&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-5"><a href="#errors-5">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-6"><a href="#examples-6">Examples</a></h5>
 <p>Read unsigned 16 bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -312,15 +330,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">768</span>, reader.read_u16().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i16" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i16" class="fn">read_i16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 16-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i16" class="method"><h4 class="code-header">fn <a href="#method.read_i16" class="fn">read_i16</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 16-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i16(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i16&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i16(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i16&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-6"><a href="#errors-6">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-7"><a href="#examples-7">Examples</a></h5>
 <p>Read signed 16 bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -336,15 +355,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(-<span class="number">132</span>, reader.read_i16().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u32" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u32" class="fn">read_u32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 32-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u32" class="method"><h4 class="code-header">fn <a href="#method.read_u32" class="fn">read_u32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 32-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u32(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u32&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u32(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u32&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-7"><a href="#errors-7">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-8"><a href="#examples-8">Examples</a></h5>
 <p>Read unsigned 32-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -359,15 +379,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">267</span>, reader.read_u32().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i32" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i32" class="fn">read_i32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 32-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i32" class="method"><h4 class="code-header">fn <a href="#method.read_i32" class="fn">read_i32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 32-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i32(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i32&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i32(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i32&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-8"><a href="#errors-8">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-9"><a href="#examples-9">Examples</a></h5>
 <p>Read signed 32-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -382,15 +403,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(-<span class="number">34253</span>, reader.read_i32().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u64" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u64" class="fn">read_u64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 64-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u64" class="method"><h4 class="code-header">fn <a href="#method.read_u64" class="fn">read_u64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 64-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u64(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u64&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u64(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u64&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-9"><a href="#errors-9">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-10"><a href="#examples-10">Examples</a></h5>
 <p>Read unsigned 64-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -407,15 +429,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">918733457491587</span>, reader.read_u64().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i64" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i64" class="fn">read_i64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 64-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i64" class="method"><h4 class="code-header">fn <a href="#method.read_i64" class="fn">read_i64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 64-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i64(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i64&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i64(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i64&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-10"><a href="#errors-10">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-11"><a href="#examples-11">Examples</a></h5>
 <p>Read signed 64-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -430,15 +453,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(i64::MIN, reader.read_i64().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u128" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u128" class="fn">read_u128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 128-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u128" class="method"><h4 class="code-header">fn <a href="#method.read_u128" class="fn">read_u128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 128-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u128(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u128&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u128(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u128&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-11"><a href="#errors-11">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-12"><a href="#examples-12">Examples</a></h5>
 <p>Read unsigned 128-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -456,15 +480,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">16947640962301618749969007319746179</span>, reader.read_u128().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i128" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i128" class="fn">read_i128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 128-bit integer in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i128" class="method"><h4 class="code-header">fn <a href="#method.read_i128" class="fn">read_i128</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 128-bit integer in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i128(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i128&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i128(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i128&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-12"><a href="#errors-12">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-13"><a href="#examples-13">Examples</a></h5>
 <p>Read signed 128-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -482,15 +507,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(i128::MIN, reader.read_i128().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_f32" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_f32" class="fn">read_f32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 32-bit floating point type in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_f32" class="method"><h4 class="code-header">fn <a href="#method.read_f32" class="fn">read_f32</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 32-bit floating point type in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f32(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f32&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f32(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f32&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-13"><a href="#errors-13">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-14"><a href="#examples-14">Examples</a></h5>
 <p>Read 32-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -505,15 +531,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(f32::MIN, reader.read_f32().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_f64" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_f64" class="fn">read_f64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 64-bit floating point type in big-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_f64" class="method"><h4 class="code-header">fn <a href="#method.read_f64" class="fn">read_f64</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 64-bit floating point type in big-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f64(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f64&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f64(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f64&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-14"><a href="#errors-14">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-15"><a href="#examples-15">Examples</a></h5>
 <p>Read 64-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -530,15 +557,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(f64::MIN, reader.read_f64().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u16_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u16_le" class="fn">read_u16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 16-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u16_le" class="method"><h4 class="code-header">fn <a href="#method.read_u16_le" class="fn">read_u16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 16-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u16&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u16&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-15"><a href="#errors-15">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-16"><a href="#examples-16">Examples</a></h5>
 <p>Read unsigned 16 bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -554,15 +582,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">3</span>, reader.read_u16_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i16_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i16_le" class="fn">read_i16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 16-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i16_le" class="method"><h4 class="code-header">fn <a href="#method.read_i16_le" class="fn">read_i16_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 16-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i16&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i16&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-16"><a href="#errors-16">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-17"><a href="#examples-17">Examples</a></h5>
 <p>Read signed 16 bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -578,15 +607,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">31999</span>, reader.read_i16_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u32_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u32_le" class="fn">read_u32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 32-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u32_le" class="method"><h4 class="code-header">fn <a href="#method.read_u32_le" class="fn">read_u32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 32-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u32&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u32&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-17"><a href="#errors-17">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-18"><a href="#examples-18">Examples</a></h5>
 <p>Read unsigned 32-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -601,15 +631,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">184614912</span>, reader.read_u32_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i32_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i32_le" class="fn">read_i32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 32-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i32_le" class="method"><h4 class="code-header">fn <a href="#method.read_i32_le" class="fn">read_i32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads a signed 32-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i32&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i32&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-18"><a href="#errors-18">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-19"><a href="#examples-19">Examples</a></h5>
 <p>Read signed 32-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -624,15 +655,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">863698943</span>, reader.read_i32_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u64_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u64_le" class="fn">read_u64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 64-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u64_le" class="method"><h4 class="code-header">fn <a href="#method.read_u64_le" class="fn">read_u64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 64-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u64&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u64&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-19"><a href="#errors-19">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-20"><a href="#examples-20">Examples</a></h5>
 <p>Read unsigned 64-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -649,15 +681,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">9477368352180732672</span>, reader.read_u64_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i64_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i64_le" class="fn">read_i64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 64-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i64_le" class="method"><h4 class="code-header">fn <a href="#method.read_i64_le" class="fn">read_i64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 64-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i64&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i64&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-20"><a href="#errors-20">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-21"><a href="#examples-21">Examples</a></h5>
 <p>Read signed 64-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -672,15 +705,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">128</span>, reader.read_i64_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_u128_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_u128_le" class="fn">read_u128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 128-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_u128_le" class="method"><h4 class="code-header">fn <a href="#method.read_u128_le" class="fn">read_u128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an unsigned 128-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u128&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_u128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;u128&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-21"><a href="#errors-21">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-22"><a href="#examples-22">Examples</a></h5>
 <p>Read unsigned 128-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -698,15 +732,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">174826588484952389081207917399662330624</span>, reader.read_u128_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_i128_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_i128_le" class="fn">read_i128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 128-bit integer in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_i128_le" class="method"><h4 class="code-header">fn <a href="#method.read_i128_le" class="fn">read_i128_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an signed 128-bit integer in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i128&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_i128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;i128&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-22"><a href="#errors-22">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-23"><a href="#examples-23">Examples</a></h5>
 <p>Read signed 128-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -724,15 +759,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(<span class="number">128</span>, reader.read_i128_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_f32_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_f32_le" class="fn">read_f32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 32-bit floating point type in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_f32_le" class="method"><h4 class="code-header">fn <a href="#method.read_f32_le" class="fn">read_f32_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 32-bit floating point type in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f32&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f32&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-23"><a href="#errors-23">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-24"><a href="#examples-24">Examples</a></h5>
 <p>Read 32-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -747,15 +783,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(f32::MIN, reader.read_f32_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_f64_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_f64_le" class="fn">read_f64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 64-bit floating point type in little-endian order from the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_f64_le" class="method"><h4 class="code-header">fn <a href="#method.read_f64_le" class="fn">read_f64_le</a>&lt;'a&gt;(&amp;'a mut self) -&gt; ReadF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads an 64-bit floating point type in little-endian order from the
 underlying reader.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f64&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_f64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;f64&gt;;</code></pre></div>
 <p>It is recommended to use a buffered reader to avoid excessive
 syscalls.</p>
 <h5 id="errors-24"><a href="#errors-24">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="examples-25"><a href="#examples-25">Examples</a></h5>
 <p>Read 64-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -772,13 +809,17 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(f64::MIN, reader.read_f64_le().<span class="kw">await</span><span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_to_end" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_to_end" class="fn">read_to_end</a>&lt;'a&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;buf: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.67.1/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/1.67.1/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;<br>) -&gt; ReadToEnd&lt;'a, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads all bytes until EOF in this source, placing them into <code>buf</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_to_end" class="method"><h4 class="code-header">fn <a href="#method.read_to_end" class="fn">read_to_end</a>&lt;'a&gt;(
+    &amp;'a mut self,
+    buf: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.69.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/1.69.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;
+) -&gt; ReadToEnd&lt;'a, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads all bytes until EOF in this source, placing them into <code>buf</code>.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_to_end(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_to_end(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>Vec&lt;u8&gt;) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>All bytes read from this source will be appended to the specified
-buffer <code>buf</code>. This function will continuously call <a href="trait.AsyncReadExt.html#method.read"><code>read()</code></a> to
-append more data to <code>buf</code> until <a href="trait.AsyncReadExt.html#method.read"><code>read()</code></a> returns <code>Ok(0)</code>.</p>
+buffer <code>buf</code>. This function will continuously call <a href="trait.AsyncReadExt.html#method.read" title="method virtual_fs::AsyncReadExt::read"><code>read()</code></a> to
+append more data to <code>buf</code> until <a href="trait.AsyncReadExt.html#method.read" title="method virtual_fs::AsyncReadExt::read"><code>read()</code></a> returns <code>Ok(0)</code>.</p>
 <p>If successful, the total number of bytes read is returned.</p>
 <h5 id="errors-25"><a href="#errors-25">Errors</a></h5>
 <p>If a read error is encountered then the <code>read_to_end</code> operation
@@ -801,16 +842,20 @@ be appended to <code>buf</code>.</p>
 }</code></pre></div>
 <p>(See also the <a href="fn@crate::fs::read"><code>tokio::fs::read</code></a> convenience function for reading from a
 file.)</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.read_to_string" class="method has-srclink"><h4 class="code-header">fn <a href="#method.read_to_string" class="fn">read_to_string</a>&lt;'a&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;dst: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.67.1/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>) -&gt; ReadToString&lt;'a, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads all bytes until EOF in this source, appending them to <code>buf</code>.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.read_to_string" class="method"><h4 class="code-header">fn <a href="#method.read_to_string" class="fn">read_to_string</a>&lt;'a&gt;(
+    &amp;'a mut self,
+    dst: &amp;'a mut <a class="struct" href="https://doc.rust-lang.org/1.69.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>
+) -&gt; ReadToString&lt;'a, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Reads all bytes until EOF in this source, appending them to <code>buf</code>.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_to_string(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>String) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>read_to_string(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>String) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>If successful, the number of bytes which were read and appended to
 <code>buf</code> is returned.</p>
 <h5 id="errors-26"><a href="#errors-26">Errors</a></h5>
 <p>If the data in this stream is <em>not</em> valid UTF-8 then an error is
 returned and <code>buf</code> is unchanged.</p>
-<p>See <a href="trait.AsyncReadExt.html#method.read_to_end" title="AsyncReadExt::read_to_end"><code>read_to_end</code></a> for other error semantics.</p>
+<p>See <a href="trait.AsyncReadExt.html#method.read_to_end" title="method virtual_fs::AsyncReadExt::read_to_end"><code>read_to_end</code></a> for other error semantics.</p>
 <h5 id="examples-27"><a href="#examples-27">Examples</a></h5>
 <p>[<code>File</code>][crate::fs::File]s implement <code>Read</code>:</p>
 
@@ -827,11 +872,12 @@ returned and <code>buf</code> is unchanged.</p>
 }</code></pre></div>
 <p>(See also the <a href="fn@crate::fs::read_to_string"><code>crate::fs::read_to_string</code></a> convenience function for
 reading from a file.)</p>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.take" class="method has-srclink"><h4 class="code-header">fn <a href="#method.take" class="fn">take</a>(self, limit: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html">u64</a>) -&gt; Take&lt;Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h4></section></summary><div class="docblock"><p>Creates an adaptor which reads at most <code>limit</code> bytes from it.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.take" class="method"><h4 class="code-header">fn <a href="#method.take" class="fn">take</a>(self, limit: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u64.html">u64</a>) -&gt; Take&lt;Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h4></section></summary><div class="docblock"><p>Creates an adaptor which reads at most <code>limit</code> bytes from it.</p>
 <p>This function returns a new instance of <code>AsyncRead</code> which will read
 at most <code>limit</code> bytes, after which it will always return EOF
 (<code>Ok(0)</code>). Any read errors will not count towards the number of
-bytes read and future calls to <a href="trait.AsyncReadExt.html#method.read"><code>read()</code></a> may succeed.</p>
+bytes read and future calls to <a href="trait.AsyncReadExt.html#method.read" title="method virtual_fs::AsyncReadExt::read"><code>read()</code></a> may succeed.</p>
 <h5 id="examples-28"><a href="#examples-28">Examples</a></h5>
 <p>[<code>File</code>][crate::fs::File]s implement <code>Read</code>:</p>
 
@@ -849,4 +895,5 @@ bytes read and future calls to <a href="trait.AsyncReadExt.html#method.read"><co
     handle.read(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-AsyncReadExt-for-R" class="impl has-srclink"><a href="#impl-AsyncReadExt-for-R" class="anchor">§</a><h3 class="code-header">impl&lt;R&gt; <a class="trait" href="trait.AsyncReadExt.html" title="trait virtual_fs::AsyncReadExt">AsyncReadExt</a> for R<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;R: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></div><script src="../implementors/tokio/io/util/async_read_ext/trait.AsyncReadExt.js" async></script></section></div></main><div id="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-AsyncReadExt-for-R" class="impl"><a href="#impl-AsyncReadExt-for-R" class="anchor">§</a><h3 class="code-header">impl&lt;R&gt; <a class="trait" href="trait.AsyncReadExt.html" title="trait virtual_fs::AsyncReadExt">AsyncReadExt</a> for R<span class="where fmt-newline">where
+    R: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a> + ?<a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></div><script src="../implementors/tokio/io/util/async_read_ext/trait.AsyncReadExt.js" async></script></section></div></main><div id="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["open_copy_on_write",""],["should_continue",""]],"struct":[["OverlayFileSystem","A primary filesystem and chain of secondary filesystems that are overlayed on top of each other."]]};
+window.SIDEBAR_ITEMS = {"enum":["CowState"],"fn":["open_copy_on_write","should_continue"],"static":["CALLSITE","META"],"struct":["CopyOnWriteFile","IterFilesystems","OverlayFileSystem"]};

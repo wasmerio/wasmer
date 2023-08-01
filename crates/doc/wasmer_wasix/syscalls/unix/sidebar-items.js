@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["platform_clock_res_get",""],["platform_clock_time_get",""]]};
+window.SIDEBAR_ITEMS = {"fn":["platform_clock_res_get","platform_clock_time_get"]};

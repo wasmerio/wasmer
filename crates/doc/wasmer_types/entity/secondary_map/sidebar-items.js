@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ArchivedSecondaryMap","An archived [`SecondaryMap`]"],["SecondaryMap","A mapping `K -> V` for densely indexed entity references."],["SecondaryMapResolver","The resolver for an archived [`SecondaryMap`]"]]};
+window.SIDEBAR_ITEMS = {"struct":["ArchivedSecondaryMap","SecondaryMap","SecondaryMapResolver","SecondaryMapVisitor"]};

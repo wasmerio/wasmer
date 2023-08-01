@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["CombineFile",""]]};
+window.SIDEBAR_ITEMS = {"struct":["CombineFile"]};

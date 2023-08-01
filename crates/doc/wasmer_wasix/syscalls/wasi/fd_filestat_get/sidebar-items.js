@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["fd_filestat_get","`fd_filestat_get()`"],["fd_filestat_get_internal","`fd_filestat_get()`"],["fd_filestat_get_old","`fd_filestat_get_old()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["fd_filestat_get","fd_filestat_get_internal","fd_filestat_get_old"],"static":["CALLSITE","META"]};

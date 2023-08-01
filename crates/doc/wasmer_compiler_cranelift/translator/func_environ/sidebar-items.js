@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["GlobalVariable","The value of a WebAssembly global variable."],["ReturnMode","How to return from functions."]],"trait":[["FuncEnvironment","Environment affecting the translation of a single WebAssembly function."],["TargetEnvironment","Environment affecting the translation of a WebAssembly."]]};
+window.SIDEBAR_ITEMS = {"enum":["GlobalVariable","ReturnMode"],"trait":["FuncEnvironment","TargetEnvironment"]};

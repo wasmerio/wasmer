@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["CacheError","Possible errors that may occur during [`ModuleCache`] operations."]],"struct":[["ModuleHash","The SHA-256 hash of a WebAssembly module."]],"trait":[["ModuleCache","A cache for compiled WebAssembly modules."]]};
+window.SIDEBAR_ITEMS = {"enum":["CacheError"],"struct":["ModuleHash"],"trait":["ModuleCache"]};

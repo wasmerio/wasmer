@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["RuntimeOrHandle",""]],"struct":[["TokioRuntimeGuard",""],["TokioTaskManager","A task manager that uses tokio to spawn tasks."]]};
+window.SIDEBAR_ITEMS = {"enum":["RuntimeOrHandle"],"static":["CALLSITE","META"],"struct":["TokioRuntimeGuard","TokioTaskManager"]};

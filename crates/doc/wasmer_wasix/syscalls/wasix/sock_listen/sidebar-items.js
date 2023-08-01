@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["sock_listen","`sock_listen()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["sock_listen"],"static":["CALLSITE","META"]};

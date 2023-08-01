@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["fd_allocate","`fd_allocate`"]]};
+window.SIDEBAR_ITEMS = {"fn":["fd_allocate"],"static":["CALLSITE","META"]};

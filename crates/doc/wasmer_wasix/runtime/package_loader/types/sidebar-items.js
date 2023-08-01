@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":[["PackageLoader",""]]};
+window.SIDEBAR_ITEMS = {"trait":["PackageLoader"]};

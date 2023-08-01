@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["AllocatedArtifact",""],["Artifact","A compiled wasm module, ready to be instantiated."],["ArtifactId","A unique identifier for an Artifact."]]};
+window.SIDEBAR_ITEMS = {"constant":["WORD_SIZE"],"fn":["to_compile_error"],"static":["NEXT_ID"],"struct":["AllocatedArtifact","Artifact","ArtifactId"]};

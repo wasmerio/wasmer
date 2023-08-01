@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["CompilerType","The compiler used for the store"]],"struct":[["CompilerOptions","The compiler options"],["StoreOptions","The compiler and engine options"],["SubsetTunables","Minimul Subset of Tunable parameters for WebAssembly compilation."]]};
+window.SIDEBAR_ITEMS = {"enum":["CompilerType"],"struct":["CompilerOptions","StoreOptions","SubsetTunables"]};

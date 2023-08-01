@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["get_extern_from_import","Get an `ExternType` given a import index."],["get_extern_type","Get an `ExternType` given an export (and Engine signatures in case is a function)."],["get_runtime_size",""],["resolve_imports","This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by a `Resolver`."]]};
+window.SIDEBAR_ITEMS = {"fn":["get_extern_from_import","get_extern_type","get_runtime_size","resolve_imports"]};

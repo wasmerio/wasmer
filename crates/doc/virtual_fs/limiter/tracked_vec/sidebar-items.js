@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["TrackedVec",""]]};
+window.SIDEBAR_ITEMS = {"struct":["TrackedVec"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["tty_set","`tty_set()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["tty_set"],"static":["CALLSITE","META"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["QueryError",""]],"trait":[["Source","Something that packages can be downloaded from."]]};
+window.SIDEBAR_ITEMS = {"enum":["QueryError"],"trait":["Source"]};

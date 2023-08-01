@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ArcFile",""]]};
+window.SIDEBAR_ITEMS = {"struct":["ArcFile"]};

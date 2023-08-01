@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["TrapCode","A trap code describing the reason for a trap."]],"mod":[["trap",""],["traphandlers","WebAssembly trap handling, which is built on top of the lower-level signalhandling mechanisms."]]};
+window.SIDEBAR_ITEMS = {"enum":["TrapCode"],"mod":["trap","traphandlers"]};

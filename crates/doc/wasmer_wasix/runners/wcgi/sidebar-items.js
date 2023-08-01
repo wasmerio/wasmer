@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["handler",""],["runner",""]],"struct":[["AbortHandle","A handle to an `Abortable` task."],["Config",""],["WcgiRunner",""]],"trait":[["Callbacks","Callbacks that are triggered at various points in the lifecycle of a runner and any WebAssembly instances it may start."]]};
+window.SIDEBAR_ITEMS = {"mod":["handler","runner"],"struct":["AbortHandle","Config","WcgiRunner"],"trait":["Callbacks"]};

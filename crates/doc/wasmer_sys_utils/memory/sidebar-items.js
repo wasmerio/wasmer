@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["fd_memory",""]]};
+window.SIDEBAR_ITEMS = {"mod":["fd_memory"]};

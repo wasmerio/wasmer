@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["VMExternObj","Underlying object referenced by a `VMExternRef`."],["VMExternRef","Represents an opaque reference to any data within WebAssembly."]]};
+window.SIDEBAR_ITEMS = {"struct":["VMExternObj","VMExternRef"]};

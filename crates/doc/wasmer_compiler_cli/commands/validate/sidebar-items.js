@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Validate","The options for the `wasmer validate` subcommand"]]};
+window.SIDEBAR_ITEMS = {"struct":["Validate"]};

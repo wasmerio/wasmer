@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Whoami","The options for the `wasmer whoami` subcommand"]]};
+window.SIDEBAR_ITEMS = {"struct":["Whoami"]};

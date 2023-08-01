@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["MemoryView","A WebAssembly `memory` view."]]};
+window.SIDEBAR_ITEMS = {"struct":["MemoryView"]};

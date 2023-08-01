@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["SinglepassCompiler","A compiler that compiles a WebAssembly module with Singlepass. It does the compilation in one pass"]],"trait":[["IntoParIterIfRayon",""]]};
+window.SIDEBAR_ITEMS = {"struct":["SinglepassCompiler"],"trait":["IntoParIterIfRayon"]};

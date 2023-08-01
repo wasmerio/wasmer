@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["path_open","`path_open()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["path_open"],"static":["CALLSITE","META"]};

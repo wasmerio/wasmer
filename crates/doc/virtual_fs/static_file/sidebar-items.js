@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["StaticFile",""]]};
+window.SIDEBAR_ITEMS = {"struct":["StaticFile"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["environ_get","`environ_get()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["environ_get"],"static":["CALLSITE","META"]};

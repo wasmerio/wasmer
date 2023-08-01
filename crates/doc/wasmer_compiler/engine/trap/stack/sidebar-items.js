@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["get_trace_and_trapcode","Given a `Trap`, this function returns the Wasm trace and the trap code."],["wasm_trace",""]]};
+window.SIDEBAR_ITEMS = {"fn":["get_trace_and_trapcode","wasm_trace"]};

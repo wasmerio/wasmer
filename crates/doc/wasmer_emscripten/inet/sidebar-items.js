@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["addr",""]]};
+window.SIDEBAR_ITEMS = {"fn":["addr"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Imports","Resolved import pointers."]]};
+window.SIDEBAR_ITEMS = {"struct":["Imports"]};

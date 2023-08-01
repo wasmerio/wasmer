@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["PassthruFileSystem",""]]};
+window.SIDEBAR_ITEMS = {"struct":["PassthruFileSystem"]};

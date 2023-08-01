@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["ARM64Register","A machine register under the x86-64 architecture."],["GPR","General-purpose registers."],["NEON","NEON registers."]],"fn":[["new_machine_state","Create a new `MachineState` with default values."]],"struct":[["ArgumentRegisterAllocator","An allocator that allocates registers for function arguments according to the System V ABI."]]};
+window.SIDEBAR_ITEMS = {"constant":["NEONS"],"enum":["ARM64Register","GPR","NEON"],"fn":["new_machine_state"],"static":["GPRS","GPR_SEQ","NEON_SEQ"],"struct":["ArgumentRegisterAllocator"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["WasiEnv","The environment provided to the WASI imports."],["WasiEnvInit","Data required to construct a [`WasiEnv`]."],["WasiInstanceHandles","Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance."]]};
+window.SIDEBAR_ITEMS = {"constant":["BRANCHES","CLEANUP_TIMEOUT"],"static":["CALLSITE","META"],"struct":["WasiEnv","WasiEnvInit","WasiInstanceHandles"]};

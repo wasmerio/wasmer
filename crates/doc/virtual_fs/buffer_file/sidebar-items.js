@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["BufferFile",""]]};
+window.SIDEBAR_ITEMS = {"struct":["BufferFile"]};

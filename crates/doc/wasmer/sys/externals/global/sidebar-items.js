@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Global",""]]};
+window.SIDEBAR_ITEMS = {"struct":["Global"]};

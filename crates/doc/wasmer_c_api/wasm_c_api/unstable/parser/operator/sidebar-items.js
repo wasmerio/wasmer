@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["wasmer_parser_operator_t",""]]};
+window.SIDEBAR_ITEMS = {"enum":["wasmer_parser_operator_t"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["gen_helper_functions","Helper functions to simplify the usage of the static artifact."],["generate_header_file","Generate the header file that goes with the generated object file."]]};
+window.SIDEBAR_ITEMS = {"fn":["gen_helper_functions","generate_header_file"]};

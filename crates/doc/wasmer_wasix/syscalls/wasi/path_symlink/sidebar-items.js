@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["path_symlink","`path_symlink()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["path_symlink"],"static":["CALLSITE","META"]};

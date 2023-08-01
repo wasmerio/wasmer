@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["set_table_item",""],["value_from_table_element",""],["value_to_table_element",""]],"struct":[["Table",""]]};
+window.SIDEBAR_ITEMS = {"fn":["set_table_item","value_from_table_element","value_to_table_element"],"struct":["Table"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["X86_64SystemV","Implementation of the [`Abi`] trait for the AMD64 SystemV ABI."]]};
+window.SIDEBAR_ITEMS = {"struct":["X86_64SystemV"]};

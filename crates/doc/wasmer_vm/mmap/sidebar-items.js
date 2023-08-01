@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["_assert",""],["round_up_to_page_size","Round `size` up to the nearest multiple of `page_size`."]],"struct":[["Mmap","A simple struct consisting of a page-aligned pointer to page-aligned and initially-zeroed memory and a length."]]};
+window.SIDEBAR_ITEMS = {"fn":["_assert","_assert_send_sync","round_up_to_page_size"],"struct":["Mmap"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["operator",""]]};
+window.SIDEBAR_ITEMS = {"mod":["operator"]};

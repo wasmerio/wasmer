@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["EngineInner",""],["Selector",""]]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["EngineInner","Selector"]};

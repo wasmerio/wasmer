@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["tracked_vec",""]],"struct":[["TrackedVec",""]],"trait":[["FsMemoryLimiter","Allows tracking and limiting the memory usage of a memfs [`FileSystem`]."]],"type":[["DynFsMemoryLimiter",""]]};
+window.SIDEBAR_ITEMS = {"mod":["tracked_vec"],"struct":["TrackedVec"],"trait":["FsMemoryLimiter"],"type":["DynFsMemoryLimiter"]};

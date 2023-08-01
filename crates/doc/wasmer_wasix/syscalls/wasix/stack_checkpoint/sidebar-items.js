@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["stack_checkpoint","`stack_checkpoint()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["stack_checkpoint"],"static":["CALLSITE","META"]};

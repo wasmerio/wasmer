@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["sock_set_opt_time","`sock_set_opt_time()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["sock_set_opt_time"],"static":["CALLSITE","META"]};

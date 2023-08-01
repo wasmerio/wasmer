@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Compile","The options for the `wasmer compile` subcommand"]]};
+window.SIDEBAR_ITEMS = {"struct":["Compile"]};

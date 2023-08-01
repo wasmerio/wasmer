@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["create_nonce","Generate a new Nonce"],["generate_deploy_token","Generate a Deploy token for for the given Deploy app version id."],["publish_deploy_app_raw","Publish a Deploy app."]]};
+window.SIDEBAR_ITEMS = {"fn":["create_nonce","generate_deploy_token","publish_deploy_app_raw"]};

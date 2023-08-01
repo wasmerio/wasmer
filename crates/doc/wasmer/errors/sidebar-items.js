@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["InstantiationError","An error while instantiating a module."],["LinkError","The WebAssembly.LinkError object indicates an error during module instantiation (besides traps from the start function)."]],"struct":[["RuntimeError","A struct representing an aborted instruction execution, with a message indicating the cause."],["RuntimeErrorInner",""],["RuntimeStringError",""]]};
+window.SIDEBAR_ITEMS = {"enum":["InstantiationError","LinkError"],"struct":["RuntimeError","RuntimeErrorInner","RuntimeStringError"]};

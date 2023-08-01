@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["spectest_importobject","Return an instance implementing the “spectest” interface used in the spec testsuite."]]};
+window.SIDEBAR_ITEMS = {"fn":["spectest_importobject"]};

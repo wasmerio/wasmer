@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"derive":[["ValueType",""]],"mod":[["value_type",""]]};
+window.SIDEBAR_ITEMS = {"derive":["ValueType"],"mod":["value_type"],"static":["_DECLS"]};

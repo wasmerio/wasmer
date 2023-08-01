@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["DeepSleepWork","Represents the work that will be done when a thread goes to deep sleep and includes the things needed to restore it again"],["RewindState","The rewind state after a deep sleep"]],"trait":[["RewindPostProcess","Trait that will be invoked after the rewind has finished It is possible that the process will be terminated rather than restored at this point"]]};
+window.SIDEBAR_ITEMS = {"struct":["DeepSleepWork","RewindState"],"trait":["RewindPostProcess"]};

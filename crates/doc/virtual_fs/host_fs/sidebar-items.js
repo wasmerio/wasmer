@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["DEFAULT_BUF_SIZE_HINT","Default size for write buffers."]],"struct":[["File","A thin wrapper around `std::fs::File`"],["FileSystem",""],["Stderr","A wrapper type around Stderr that implements `VirtualFile`."],["Stdin","A wrapper type around Stdin that implements `VirtualFile`."],["Stdout","A wrapper type around Stdout that implements `VirtualFile`."]]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_BUF_SIZE_HINT"],"struct":["File","FileSystem","Stderr","Stdin","Stdout"]};

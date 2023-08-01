@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["deserialize",""],["serialize",""]],"type":[["InitialType",""],["SerializedType",""]]};
+window.SIDEBAR_ITEMS = {"fn":["deserialize","serialize"],"type":["InitialType","SerializedType"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["interface","The definition of a WASM interface"],["interface_matcher",""],["parser","Parsers to get a wasm interface from text"],["validate","Validate a wasm module given a interface."]]};
+window.SIDEBAR_ITEMS = {"mod":["interface","interface_matcher","parser","validate"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["CraneliftOptLevel","Possible optimization levels for the Cranelift codegen backend."]],"struct":[["Cranelift","Global configuration options used to create an `wasmer_engine::Engine` and customize its behavior."]]};
+window.SIDEBAR_ITEMS = {"enum":["CraneliftOptLevel"],"struct":["Cranelift"]};

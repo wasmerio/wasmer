@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["fd_pipe","`fd_pipe()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["fd_pipe"],"static":["CALLSITE","META"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["SignalDeliveryError",""],["WasiSignalInterval",""]],"trait":[["SignalHandlerAbi","Signal handles…well…they process signals"]]};
+window.SIDEBAR_ITEMS = {"struct":["SignalDeliveryError","WasiSignalInterval"],"trait":["SignalHandlerAbi"]};

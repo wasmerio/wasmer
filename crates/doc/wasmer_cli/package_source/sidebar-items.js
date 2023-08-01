@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["PackageSource","Source of a package"]]};
+window.SIDEBAR_ITEMS = {"enum":["PackageSource"]};

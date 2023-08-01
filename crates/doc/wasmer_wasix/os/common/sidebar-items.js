@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["is_mobile",""],["is_ssh",""]],"type":[["Pid",""]]};
+window.SIDEBAR_ITEMS = {"fn":["is_mobile","is_ssh"],"type":["Pid"]};

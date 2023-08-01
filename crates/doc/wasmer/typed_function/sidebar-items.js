@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["TypedFunction","A WebAssembly function that can be called natively (using the Native ABI)."]]};
+window.SIDEBAR_ITEMS = {"struct":["TypedFunction"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["CowState",""]],"struct":[["CopyOnWriteFile",""]]};
+window.SIDEBAR_ITEMS = {"enum":["CowState"],"struct":["CopyOnWriteFile"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["proc_signal","`proc_signal()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["proc_signal"],"static":["CALLSITE","META"]};

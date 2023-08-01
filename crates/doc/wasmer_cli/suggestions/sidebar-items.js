@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["suggest_function_exports","Suggest function exports for the module"]]};
+window.SIDEBAR_ITEMS = {"fn":["suggest_function_exports"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["NotificationInner",""],["NotificationState",""]]};
+window.SIDEBAR_ITEMS = {"struct":["NotificationInner","NotificationState"]};

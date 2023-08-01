@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["RegistryClient","API client for the Wasmer registry."]]};
+window.SIDEBAR_ITEMS = {"struct":["RegistryClient"]};

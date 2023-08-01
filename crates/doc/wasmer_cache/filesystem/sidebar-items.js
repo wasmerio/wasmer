@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["FileSystemCache","Representation of a directory that contains compiled wasm artifacts."]]};
+window.SIDEBAR_ITEMS = {"struct":["FileSystemCache"]};

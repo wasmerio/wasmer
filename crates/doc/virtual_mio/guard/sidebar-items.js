@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["HandlerWrapper",""],["InterestGuard",""]]};
+window.SIDEBAR_ITEMS = {"struct":["HandlerWrapper","InterestGuard"]};

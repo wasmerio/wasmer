@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["TrapInformation","Information about trap."],["TrapInformationResolver","The resolver for an archived [`TrapInformation`]"]]};
+window.SIDEBAR_ITEMS = {"struct":["TrapInformation","TrapInformationResolver"]};

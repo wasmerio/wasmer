@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["WaiterError","Error that can occur during wait/notify calls."]],"struct":[["NotifyLocation","A location in memory for a Waiter"],["NotifyMap",""],["NotifyWaiter",""],["ThreadConditions","HashMap of Waiters for the Thread/Notify opcodes"]]};
+window.SIDEBAR_ITEMS = {"enum":["WaiterError"],"struct":["NotifyLocation","NotifyMap","NotifyWaiter","ThreadConditions"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Table","A WebAssembly `table` instance."]]};
+window.SIDEBAR_ITEMS = {"struct":["Table"]};

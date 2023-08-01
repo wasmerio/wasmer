@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ConsoleConst",""]]};
+window.SIDEBAR_ITEMS = {"struct":["ConsoleConst"]};

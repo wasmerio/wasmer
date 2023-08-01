@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["RandomFile",""]]};
+window.SIDEBAR_ITEMS = {"struct":["RandomFile"]};

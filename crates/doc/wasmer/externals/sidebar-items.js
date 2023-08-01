@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["Extern","An `Extern` is the runtime representation of an entity that can be imported or exported."]],"mod":[["function",""],["global",""],["memory",""],["memory_view",""],["table",""]]};
+window.SIDEBAR_ITEMS = {"enum":["Extern"],"mod":["function","global","memory","memory_view","table"]};

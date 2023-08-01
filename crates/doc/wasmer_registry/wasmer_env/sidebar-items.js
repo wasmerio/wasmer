@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["Registry","A registry as specified by the user."],["WASMER_DIR","The default value for `$WASMER_DIR`."],["WasmerEnv","Command-line flags for determining the local “Wasmer Environment”."]]};
+window.SIDEBAR_ITEMS = {"fn":["__stability","__static_ref_initialize"],"static":["LAZY"],"struct":["Registry","WASMER_DIR","WasmerEnv"]};

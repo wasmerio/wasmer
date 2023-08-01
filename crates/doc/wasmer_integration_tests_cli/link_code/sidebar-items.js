@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["LinkCode","Data used to run a linking command for generated artifacts."]]};
+window.SIDEBAR_ITEMS = {"struct":["LinkCode"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":[["impl_native_traits",""]]};
+window.SIDEBAR_ITEMS = {"macro":["impl_native_traits"]};

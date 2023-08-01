@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["FileSystemSource","A [`Source`] that knows how to query files on the filesystem."]]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["FileSystemSource"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["HttpClientCapabilityV1","Defines http client permissions."],["HttpRequest",""],["HttpRequestOptions",""],["HttpResponse",""]],"trait":[["HttpClient",""]],"type":[["DynHttpClient",""]]};
+window.SIDEBAR_ITEMS = {"struct":["HttpClientCapabilityV1","HttpRequest","HttpRequestOptions","HttpResponse"],"trait":["HttpClient"],"type":["DynHttpClient"]};

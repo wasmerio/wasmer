@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":[["impl_host_function",""]],"struct":[["DynamicFunction","Host state for a dynamic function."],["Function",""],["StaticFunction","Represents a low-level Wasm static host function. See [`crate::Function::new_typed`] and [`crate::Function::new_typed_with_env`] to learn more."]]};
+window.SIDEBAR_ITEMS = {"fn":["call_trampoline","func_wrapper"],"macro":["impl_host_function"],"struct":["DynamicFunction","Function","StaticFunction"]};

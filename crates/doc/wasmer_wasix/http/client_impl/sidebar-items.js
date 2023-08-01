@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ClientImpl",""],["WasixHttpClientImpl",""]]};
+window.SIDEBAR_ITEMS = {"struct":["ClientImpl","WasixHttpClientImpl"]};

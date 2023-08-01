@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["frame_info","This module is used for having backtraces in the Wasm runtime. Once the Compiler has compiled the ModuleInfo, and we have a set of compiled functions (addresses and function index) and a module, then we can use this to set a backtrace for that module."],["stack",""]]};
+window.SIDEBAR_ITEMS = {"mod":["frame_info","stack"]};

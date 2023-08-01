@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["wasm_trap_delete","Deletes a trap."],["wasm_trap_message","Gets the message attached to the trap."],["wasm_trap_new","Create a new trap message."],["wasm_trap_origin","Gets the origin frame attached to the trap."],["wasm_trap_trace","Gets the trace (as a list of frames) attached to the trap."]],"struct":[["wasm_trap_t",""]]};
+window.SIDEBAR_ITEMS = {"fn":["wasm_trap_delete","wasm_trap_message","wasm_trap_new","wasm_trap_origin","wasm_trap_trace"],"struct":["wasm_trap_t"]};

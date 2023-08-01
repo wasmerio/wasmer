@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["get_function_name","Compute an `ir::ExternalName` for a given wasm function index."],["type_of_vmtable_definition_current_elements","The type of the `current_elements` field."]],"struct":[["FuncEnvironment","The `FuncEnvironment` implementation for use by the `ModuleEnvironment`."]]};
+window.SIDEBAR_ITEMS = {"fn":["get_function_name","type_of_vmtable_definition_current_elements"],"struct":["FuncEnvironment"]};

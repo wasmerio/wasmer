@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["___lock",""],["___unlock",""],["___wait",""],["_flock",""]]};
+window.SIDEBAR_ITEMS = {"fn":["___lock","___unlock","___wait","_flock"]};

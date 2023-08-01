@@ -1,3 +1,3 @@
 (function() {var implementors = {
-"wasmer_types":[]
+"wasmer_types":[["impl <a class=\"trait\" href=\"wasmer_types/lib/std/iter/trait.FusedIterator.html\" title=\"trait wasmer_types::lib::std::iter::FusedIterator\">FusedIterator</a> for <a class=\"struct\" href=\"wasmer_types/libcalls/struct.LibCallEnumIterator.html\" title=\"struct wasmer_types::libcalls::LibCallEnumIterator\">LibCallEnumIterator</a>"]]
 };if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

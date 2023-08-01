@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["callback_signal","`callback_signal()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["callback_signal"],"static":["CALLSITE","META"]};

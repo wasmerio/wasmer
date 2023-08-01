@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["FUNCTION_SECTION",""]],"struct":[["FuncTrampoline",""]]};
+window.SIDEBAR_ITEMS = {"constant":["FUNCTION_SECTION"],"struct":["FuncTrampoline"]};

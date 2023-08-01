@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":[["memory",""]]};
+window.SIDEBAR_ITEMS = {"mod":["memory"]};

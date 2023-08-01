@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["chroot","chroot"],["getpwuid","getpwuid"],["printf","printf"],["putchar","putchar"]]};
+window.SIDEBAR_ITEMS = {"fn":["chroot","getpwuid","printf","putchar"],"struct":["GuestPasswd"]};

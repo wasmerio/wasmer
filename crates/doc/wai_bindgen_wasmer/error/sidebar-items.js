@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["GuestError",""]]};
+window.SIDEBAR_ITEMS = {"enum":["GuestError"]};

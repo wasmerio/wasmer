@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["ExternRef",""]]};
+window.SIDEBAR_ITEMS = {"struct":["ExternRef"]};

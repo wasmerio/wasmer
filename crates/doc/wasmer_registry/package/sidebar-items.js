@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":[["REGEX_PACKAGE_WITH_VERSION",""]],"mod":[["builder",""]],"struct":[["PACKAGE_WITH_VERSION",""],["Package",""]]};
+window.SIDEBAR_ITEMS = {"constant":["REGEX_PACKAGE_WITH_VERSION"],"fn":["__stability","__static_ref_initialize"],"mod":["builder"],"static":["LAZY"],"struct":["PACKAGE_WITH_VERSION","Package"]};

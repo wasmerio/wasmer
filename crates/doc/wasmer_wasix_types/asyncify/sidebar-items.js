@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["__wasi_asyncify_t",""]]};
+window.SIDEBAR_ITEMS = {"struct":["__wasi_asyncify_t"]};

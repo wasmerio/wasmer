@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":[["LibCall","The name of a runtime library routine."],["LibCallResolver","The resolver for an archived [`LibCall`]"]]};
+window.SIDEBAR_ITEMS = {"enum":["ArchivedTag","LibCall","LibCallResolver","Tag"],"struct":["Discriminant","LibCallEnumIterator"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["thread_exit","`thread_exit()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["thread_exit"],"static":["CALLSITE","META"]};

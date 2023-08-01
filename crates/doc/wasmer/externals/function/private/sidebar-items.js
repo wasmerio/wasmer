@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":[["HostFunctionKindSealed",""]]};
+window.SIDEBAR_ITEMS = {"trait":["HostFunctionKindSealed"]};

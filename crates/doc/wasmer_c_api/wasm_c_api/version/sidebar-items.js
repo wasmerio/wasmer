@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["wasmer_version","Get the version of the Wasmer C API."],["wasmer_version_major","Get the major version of the Wasmer C API."],["wasmer_version_minor","Get the minor version of the Wasmer C API."],["wasmer_version_patch","Get the patch version of the Wasmer C API."],["wasmer_version_pre","Get the minor version of the Wasmer C API."]]};
+window.SIDEBAR_ITEMS = {"fn":["wasmer_version","wasmer_version_major","wasmer_version_minor","wasmer_version_patch","wasmer_version_pre"]};

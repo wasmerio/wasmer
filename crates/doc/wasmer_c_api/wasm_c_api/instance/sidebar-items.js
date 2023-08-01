@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["wasm_instance_delete","Deletes an instance."],["wasm_instance_exports","Gets the exports of the instance."],["wasm_instance_new","Creates a new instance from a WebAssembly module and a set of imports."]],"struct":[["wasm_instance_t","Opaque type representing a WebAssembly instance."]]};
+window.SIDEBAR_ITEMS = {"fn":["wasm_instance_delete","wasm_instance_exports","wasm_instance_new"],"struct":["wasm_instance_t"]};

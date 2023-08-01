@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["DependencyGraph","An acyclic, directed dependency graph."],["Edge","An edge in the [`DependencyGraph`]."],["ItemLocation",""],["Node","A node in the [`DependencyGraph`]."],["PackageId","An identifier for a package within a dependency graph."],["Resolution",""],["ResolvedFileSystemMapping",""],["ResolvedPackage","A package that has been resolved, but is not yet runnable."]]};
+window.SIDEBAR_ITEMS = {"struct":["DependencyGraph","Edge","ItemLocation","Node","PackageId","Resolution","ResolvedFileSystemMapping","ResolvedPackage"]};

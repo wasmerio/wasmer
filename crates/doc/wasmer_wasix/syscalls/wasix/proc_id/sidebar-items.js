@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["proc_id","`proc_id()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["proc_id"],"static":["CALLSITE","META"]};

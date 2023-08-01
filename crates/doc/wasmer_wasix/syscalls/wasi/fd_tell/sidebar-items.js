@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["fd_tell","`fd_tell()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["fd_tell"],"static":["CALLSITE","META"]};

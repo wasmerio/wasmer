@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["file_path_from_url",""],["http_error",""],["url_from_file_path","Polyfill for [`Url::from_file_path()`] that works on `wasm32-unknown-unknown`."],["webc_headers",""]]};
+window.SIDEBAR_ITEMS = {"fn":["file_path_from_url","http_error","url_from_file_path","webc_headers"],"static":["CALLSITE","META"]};

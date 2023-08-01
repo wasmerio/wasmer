@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["MultiSource","A [`Source`] that works by querying multiple [`Source`]s in succession."],["MultiSourceStrategy",""]]};
+window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["MultiSource","MultiSourceStrategy"]};

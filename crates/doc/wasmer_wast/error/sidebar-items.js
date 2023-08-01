@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":[["DirectiveError","A Directive Error"],["DirectiveErrors","A structure holding the list of all executed directives"]]};
+window.SIDEBAR_ITEMS = {"struct":["DirectiveError","DirectiveErrors"]};

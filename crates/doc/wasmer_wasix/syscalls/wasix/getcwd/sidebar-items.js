@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["getcwd","`getcwd()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["getcwd"],"static":["CALLSITE","META"]};

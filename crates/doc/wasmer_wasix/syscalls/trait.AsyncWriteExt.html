@@ -1,64 +1,73 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Writes bytes to a sink."><meta name="keywords" content="rust, rustlang, rust-lang, AsyncWriteExt"><title>AsyncWriteExt in wasmer_wasix::syscalls - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-6827029ac823cab7.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-ebce58d0a40c3431.css"><link rel="stylesheet" disabled href="../../static.files/dark-f23faae4a2daf9a6.css"><link rel="stylesheet" disabled href="../../static.files/ayu-8af5e100b21cd173.css"><script id="default-settings" ></script><script src="../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-c55e1eb52e1886b4.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="sidebar-logo" href="../../wasmer_wasix/index.html"><div class="logo-container"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2></h2></nav><nav class="sidebar"><a class="sidebar-logo" href="../../wasmer_wasix/index.html"><div class="logo-container">
-                    <img src="https://github.com/wasmerio.png?size=200" alt="logo"></div></a><h2 class="location"><a href="#">AsyncWriteExt</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.flush">flush</a></li><li><a href="#method.shutdown">shutdown</a></li><li><a href="#method.write">write</a></li><li><a href="#method.write_all">write_all</a></li><li><a href="#method.write_all_buf">write_all_buf</a></li><li><a href="#method.write_buf">write_buf</a></li><li><a href="#method.write_f32">write_f32</a></li><li><a href="#method.write_f32_le">write_f32_le</a></li><li><a href="#method.write_f64">write_f64</a></li><li><a href="#method.write_f64_le">write_f64_le</a></li><li><a href="#method.write_i128">write_i128</a></li><li><a href="#method.write_i128_le">write_i128_le</a></li><li><a href="#method.write_i16">write_i16</a></li><li><a href="#method.write_i16_le">write_i16_le</a></li><li><a href="#method.write_i32">write_i32</a></li><li><a href="#method.write_i32_le">write_i32_le</a></li><li><a href="#method.write_i64">write_i64</a></li><li><a href="#method.write_i64_le">write_i64_le</a></li><li><a href="#method.write_i8">write_i8</a></li><li><a href="#method.write_u128">write_u128</a></li><li><a href="#method.write_u128_le">write_u128_le</a></li><li><a href="#method.write_u16">write_u16</a></li><li><a href="#method.write_u16_le">write_u16_le</a></li><li><a href="#method.write_u32">write_u32</a></li><li><a href="#method.write_u32_le">write_u32_le</a></li><li><a href="#method.write_u64">write_u64</a></li><li><a href="#method.write_u64_le">write_u64_le</a></li><li><a href="#method.write_u8">write_u8</a></li><li><a href="#method.write_vectored">write_vectored</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In wasmer_wasix::syscalls</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn">Trait <a href="../index.html">wasmer_wasix</a>::<wbr><a href="index.html">syscalls</a>::<wbr><a class="trait" href="#">AsyncWriteExt</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><div class="item-decl"><pre class="rust trait"><code>pub(crate) trait AsyncWriteExt: AsyncWrite {
-<details class="rustdoc-toggle type-contents-toggle"><summary class="hideme"><span>Show 29 methods</span></summary>    fn <a href="#method.write" class="fn">write</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; Write&lt;'a, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_vectored" class="fn">write_vectored</a>&lt;'a, 'b&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;bufs: &amp;'a [<a class="struct" href="io/struct.IoSlice.html" title="struct wasmer_wasix::syscalls::io::IoSlice">IoSlice</a>&lt;'b&gt;]<br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; WriteVectored&lt;'a, 'b, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_buf" class="fn">write_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, src: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>B) -&gt; WriteBuf&lt;'a, Self, B&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;B: Buf</span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_all_buf" class="fn">write_all_buf</a>&lt;B, 'a&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;src: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>B<br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; WriteAllBuf&lt;'a, Self, B&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;B: Buf</span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_all" class="fn">write_all</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; WriteAll&lt;'a, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u8" class="fn">write_u8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>) -&gt; WriteU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i8" class="fn">write_i8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i8.html">i8</a>) -&gt; WriteI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u16" class="fn">write_u16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u16.html">u16</a>) -&gt; WriteU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i16" class="fn">write_i16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i16.html">i16</a>) -&gt; WriteI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u32" class="fn">write_u32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u32.html">u32</a>) -&gt; WriteU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i32" class="fn">write_i32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i32.html">i32</a>) -&gt; WriteI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u64" class="fn">write_u64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html">u64</a>) -&gt; WriteU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i64" class="fn">write_i64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i64.html">i64</a>) -&gt; WriteI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u128" class="fn">write_u128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u128.html">u128</a>) -&gt; WriteU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i128" class="fn">write_i128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i128.html">i128</a>) -&gt; WriteI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_f32" class="fn">write_f32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f32.html">f32</a>) -&gt; WriteF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_f64" class="fn">write_f64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f64.html">f64</a>) -&gt; WriteF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u16_le" class="fn">write_u16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u16.html">u16</a>) -&gt; WriteU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i16_le" class="fn">write_i16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i16.html">i16</a>) -&gt; WriteI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u32_le" class="fn">write_u32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u32.html">u32</a>) -&gt; WriteU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i32_le" class="fn">write_i32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i32.html">i32</a>) -&gt; WriteI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u64_le" class="fn">write_u64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html">u64</a>) -&gt; WriteU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i64_le" class="fn">write_i64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i64.html">i64</a>) -&gt; WriteI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_u128_le" class="fn">write_u128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u128.html">u128</a>) -&gt; WriteU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_i128_le" class="fn">write_i128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i128.html">i128</a>) -&gt; WriteI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_f32_le" class="fn">write_f32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f32.html">f32</a>) -&gt; WriteF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.write_f64_le" class="fn">write_f64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f64.html">f64</a>) -&gt; WriteF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.flush" class="fn">flush</a>(&amp;mut self) -&gt; Flush&lt;'_, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-<span class="item-spacer"></span>    fn <a href="#method.shutdown" class="fn">shutdown</a>(&amp;mut self) -&gt; Shutdown&lt;'_, Self&gt;<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="where">where<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span>,
-    { ... }
-</details>}</code></pre></div><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Writes bytes to a sink.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Writes bytes to a sink."><title>AsyncWriteExt in wasmer_wasix::syscalls - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" disabled href="../../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" disabled href="../../static.files/ayu-be46fdc453a55015.css"><script src="../../static.files/storage-3891ce972e3a2bf8.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../static.files/main-98a684e84ae5b08b.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../wasmer_wasix/index.html">
+                <img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><h2 class="location"><a href="#">AsyncWriteExt</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.flush">flush</a></li><li><a href="#method.shutdown">shutdown</a></li><li><a href="#method.write">write</a></li><li><a href="#method.write_all">write_all</a></li><li><a href="#method.write_all_buf">write_all_buf</a></li><li><a href="#method.write_buf">write_buf</a></li><li><a href="#method.write_f32">write_f32</a></li><li><a href="#method.write_f32_le">write_f32_le</a></li><li><a href="#method.write_f64">write_f64</a></li><li><a href="#method.write_f64_le">write_f64_le</a></li><li><a href="#method.write_i128">write_i128</a></li><li><a href="#method.write_i128_le">write_i128_le</a></li><li><a href="#method.write_i16">write_i16</a></li><li><a href="#method.write_i16_le">write_i16_le</a></li><li><a href="#method.write_i32">write_i32</a></li><li><a href="#method.write_i32_le">write_i32_le</a></li><li><a href="#method.write_i64">write_i64</a></li><li><a href="#method.write_i64_le">write_i64_le</a></li><li><a href="#method.write_i8">write_i8</a></li><li><a href="#method.write_u128">write_u128</a></li><li><a href="#method.write_u128_le">write_u128_le</a></li><li><a href="#method.write_u16">write_u16</a></li><li><a href="#method.write_u16_le">write_u16_le</a></li><li><a href="#method.write_u32">write_u32</a></li><li><a href="#method.write_u32_le">write_u32_le</a></li><li><a href="#method.write_u64">write_u64</a></li><li><a href="#method.write_u64_le">write_u64_le</a></li><li><a href="#method.write_u8">write_u8</a></li><li><a href="#method.write_vectored">write_vectored</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In wasmer_wasix::syscalls</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../index.html">wasmer_wasix</a>::<wbr><a href="index.html">syscalls</a>::<wbr><a class="trait" href="#">AsyncWriteExt</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub(crate) trait AsyncWriteExt: AsyncWrite {
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 29 methods</span></summary>    // Provided methods
+    fn <a href="#method.write" class="fn">write</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; Write&lt;'a, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_vectored" class="fn">write_vectored</a>&lt;'a, 'b&gt;(
+        &amp;'a mut self,
+        bufs: &amp;'a [<a class="struct" href="io/struct.IoSlice.html" title="struct wasmer_wasix::syscalls::io::IoSlice">IoSlice</a>&lt;'b&gt;]
+    ) -&gt; WriteVectored&lt;'a, 'b, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_buf" class="fn">write_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, src: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; WriteBuf&lt;'a, Self, B&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+             B: Buf</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_all_buf" class="fn">write_all_buf</a>&lt;B, 'a&gt;(
+        &amp;'a mut self,
+        src: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut B</a>
+    ) -&gt; WriteAllBuf&lt;'a, Self, B&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+             B: Buf</span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_all" class="fn">write_all</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; WriteAll&lt;'a, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u8" class="fn">write_u8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>) -&gt; WriteU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i8" class="fn">write_i8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i8.html">i8</a>) -&gt; WriteI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u16" class="fn">write_u16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u16.html">u16</a>) -&gt; WriteU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i16" class="fn">write_i16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i16.html">i16</a>) -&gt; WriteI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u32" class="fn">write_u32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u32.html">u32</a>) -&gt; WriteU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i32" class="fn">write_i32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i32.html">i32</a>) -&gt; WriteI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u64" class="fn">write_u64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u64.html">u64</a>) -&gt; WriteU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i64" class="fn">write_i64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i64.html">i64</a>) -&gt; WriteI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u128" class="fn">write_u128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u128.html">u128</a>) -&gt; WriteU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i128" class="fn">write_i128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i128.html">i128</a>) -&gt; WriteI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_f32" class="fn">write_f32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f32.html">f32</a>) -&gt; WriteF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_f64" class="fn">write_f64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f64.html">f64</a>) -&gt; WriteF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u16_le" class="fn">write_u16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u16.html">u16</a>) -&gt; WriteU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i16_le" class="fn">write_i16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i16.html">i16</a>) -&gt; WriteI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u32_le" class="fn">write_u32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u32.html">u32</a>) -&gt; WriteU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i32_le" class="fn">write_i32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i32.html">i32</a>) -&gt; WriteI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u64_le" class="fn">write_u64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u64.html">u64</a>) -&gt; WriteU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i64_le" class="fn">write_i64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i64.html">i64</a>) -&gt; WriteI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_u128_le" class="fn">write_u128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u128.html">u128</a>) -&gt; WriteU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_i128_le" class="fn">write_i128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i128.html">i128</a>) -&gt; WriteI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_f32_le" class="fn">write_f32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f32.html">f32</a>) -&gt; WriteF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.write_f64_le" class="fn">write_f64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f64.html">f64</a>) -&gt; WriteF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.flush" class="fn">flush</a>(&amp;mut self) -&gt; Flush&lt;'_, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.shutdown" class="fn">shutdown</a>(&amp;mut self) -&gt; Shutdown&lt;'_, Self&gt;
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
+</details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Writes bytes to a sink.</p>
 <p>Implemented as an extension trait, adding utility methods to all
 <a href="AsyncWrite"><code>AsyncWrite</code></a> types. Callers will tend to import this trait instead of
 <a href="AsyncWrite"><code>AsyncWrite</code></a>.</p>
@@ -81,11 +90,12 @@
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 <p>See [module][crate::io] documentation for more details.</p>
-</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write" class="fn">write</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; Write&lt;'a, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a buffer into this writer, returning how many bytes were
+</div></details><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.write" class="method"><h4 class="code-header">fn <a href="#method.write" class="fn">write</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; Write&lt;'a, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a buffer into this writer, returning how many bytes were
 written.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>This function will attempt to write the entire contents of <code>buf</code>, but
 the entire write may not succeed, or the write may also generate an
 error. A call to <code>write</code> represents <em>at most one</em> attempt to write to
@@ -118,10 +128,14 @@ written to this <code>AsyncWrite</code>.</p>
     </span>file.write(<span class="string">b&quot;some bytes&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_vectored" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_vectored" class="fn">write_vectored</a>&lt;'a, 'b&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;'a mut self,<br>&nbsp;&nbsp;&nbsp;&nbsp;bufs: &amp;'a [<a class="struct" href="io/struct.IoSlice.html" title="struct wasmer_wasix::syscalls::io::IoSlice">IoSlice</a>&lt;'b&gt;]<br>) -&gt; WriteVectored&lt;'a, 'b, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Like <a href="trait.AsyncWriteExt.html#method.write"><code>write</code></a>, except that it writes from a slice of buffers.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_vectored" class="method"><h4 class="code-header">fn <a href="#method.write_vectored" class="fn">write_vectored</a>&lt;'a, 'b&gt;(
+    &amp;'a mut self,
+    bufs: &amp;'a [<a class="struct" href="io/struct.IoSlice.html" title="struct wasmer_wasix::syscalls::io::IoSlice">IoSlice</a>&lt;'b&gt;]
+) -&gt; WriteVectored&lt;'a, 'b, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Like <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a>, except that it writes from a slice of buffers.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_vectored(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bufs: <span class="kw-2">&amp;</span>[IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_vectored(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bufs: <span class="kw-2">&amp;</span>[IoSlice&lt;<span class="lifetime">&#39;_</span>&gt;]) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>See [<code>AsyncWrite::poll_write_vectored</code>] for more details.</p>
 <h5 id="cancel-safety-1"><a href="#cancel-safety-1">Cancel safety</a></h5>
 <p>This method is cancellation safe in the sense that if it is used as
@@ -147,11 +161,13 @@ written to this <code>AsyncWrite</code>.</p>
 
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_buf" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_buf" class="fn">write_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, src: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>B) -&gt; WriteBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;B: Buf,</span></h4></section></summary><div class="docblock"><p>Writes a buffer into this writer, advancing the buffer’s internal
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_buf" class="method"><h4 class="code-header">fn <a href="#method.write_buf" class="fn">write_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, src: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; WriteBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+    B: Buf,</span></h4></section></summary><div class="docblock"><p>Writes a buffer into this writer, advancing the buffer’s internal
 cursor.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_buf&lt;B: Buf&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>B) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_buf&lt;B: Buf&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>B) -&gt; io::Result&lt;usize&gt;;</code></pre></div>
 <p>This function will attempt to write the entire contents of <code>buf</code>, but
 the entire write may not succeed, or the write may also generate an
 error. After the operation completes, the buffer’s
@@ -177,7 +193,7 @@ the event in a <a href="crate::select"><code>tokio::select!</code></a> statement
 other branch completes first, then it is guaranteed that no data was
 written to this <code>AsyncWrite</code>.</p>
 <h5 id="examples-2"><a href="#examples-2">Examples</a></h5>
-<p><a href="crate::fs::File"><code>File</code></a> implements [<code>AsyncWrite</code>] and <a href="io/struct.Cursor.html"><code>Cursor</code></a><code>&lt;&amp;[u8]&gt;</code> implements <a href="bytes::Buf"><code>Buf</code></a>:</p>
+<p><a href="crate::fs::File"><code>File</code></a> implements [<code>AsyncWrite</code>] and <a href="io/struct.Cursor.html" title="struct wasmer_wasix::syscalls::io::Cursor"><code>Cursor</code></a><code>&lt;&amp;[u8]&gt;</code> implements <a href="bytes::Buf"><code>Buf</code></a>:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tokio::io::{<span class="self">self</span>, AsyncWriteExt};
 <span class="kw">use </span>tokio::fs::File;
@@ -200,16 +216,18 @@ written to this <code>AsyncWrite</code>.</p>
 
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_all_buf" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_all_buf" class="fn">write_all_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, src: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>B) -&gt; WriteAllBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;B: Buf,</span></h4></section></summary><div class="docblock"><p>Attempts to write an entire buffer into this writer.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_all_buf" class="method"><h4 class="code-header">fn <a href="#method.write_all_buf" class="fn">write_all_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, src: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; WriteAllBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+    B: Buf,</span></h4></section></summary><div class="docblock"><p>Attempts to write an entire buffer into this writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_all_buf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw">impl </span>Buf) -&gt; <span class="prelude-ty">Result</span>&lt;(), io::Error&gt; {
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_all_buf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw">impl </span>Buf) -&gt; <span class="prelude-ty">Result</span>&lt;(), io::Error&gt; {
     <span class="kw">while </span>buf.has_remaining() {
         <span class="self">self</span>.write_buf(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span><span class="question-mark">?</span>;
     }
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-<p>This method will continuously call <a href="trait.AsyncWriteExt.html#method.write"><code>write</code></a> until
+<p>This method will continuously call <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> until
 <a href="bytes::Buf::has_remaining"><code>buf.has_remaining()</code></a> returns false. This method will not
 return until the entire buffer has been successfully written or an error occurs. The
 first error generated will be returned.</p>
@@ -223,7 +241,7 @@ partially written. However, it is guaranteed that the provided
 buffer has been <a href="bytes::Buf::advance">advanced</a> by the amount of bytes that have been
 partially written.</p>
 <h5 id="examples-3"><a href="#examples-3">Examples</a></h5>
-<p><a href="crate::fs::File"><code>File</code></a> implements [<code>AsyncWrite</code>] and <a href="io/struct.Cursor.html"><code>Cursor</code></a><code>&lt;&amp;[u8]&gt;</code> implements <a href="bytes::Buf"><code>Buf</code></a>:</p>
+<p><a href="crate::fs::File"><code>File</code></a> implements [<code>AsyncWrite</code>] and <a href="io/struct.Cursor.html" title="struct wasmer_wasix::syscalls::io::Cursor"><code>Cursor</code></a><code>&lt;&amp;[u8]&gt;</code> implements <a href="bytes::Buf"><code>Buf</code></a>:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tokio::io::{<span class="self">self</span>, AsyncWriteExt};
 <span class="kw">use </span>tokio::fs::File;
@@ -238,11 +256,12 @@ partially written.</p>
     file.write_all_buf(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_all" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_all" class="fn">write_all</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>]) -&gt; WriteAll&lt;'a, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Attempts to write an entire buffer into this writer.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_all" class="method"><h4 class="code-header">fn <a href="#method.write_all" class="fn">write_all</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>]) -&gt; WriteAll&lt;'a, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Attempts to write an entire buffer into this writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt;;</code></pre></div>
-<p>This method will continuously call <a href="trait.AsyncWriteExt.html#method.write"><code>write</code></a> until there is no more data
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_all(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>[u8]) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<p>This method will continuously call <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> until there is no more data
 to be written. This method will not return until the entire buffer
 has been successfully written or such an error occurs. The first
 error generated from this method will be returned.</p>
@@ -253,7 +272,7 @@ branch completes first, then the provided buffer may have been
 partially written, but future calls to <code>write_all</code> will start over
 from the beginning of the buffer.</p>
 <h5 id="errors-2"><a href="#errors-2">Errors</a></h5>
-<p>This function will return the first error that <a href="trait.AsyncWriteExt.html#method.write"><code>write</code></a> returns.</p>
+<p>This function will return the first error that <a href="trait.AsyncWriteExt.html#method.write" title="method wasmer_wasix::syscalls::AsyncWriteExt::write"><code>write</code></a> returns.</p>
 <h5 id="examples-4"><a href="#examples-4">Examples</a></h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tokio::io::{<span class="self">self</span>, AsyncWriteExt};
 <span class="kw">use </span>tokio::fs::File;
@@ -265,14 +284,15 @@ from the beginning of the buffer.</p>
     file.write_all(<span class="string">b&quot;some bytes&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u8" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u8" class="fn">write_u8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u8.html">u8</a>) -&gt; WriteU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 8-bit integer to the underlying writer.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u8" class="method"><h4 class="code-header">fn <a href="#method.write_u8" class="fn">write_u8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u8.html">u8</a>) -&gt; WriteU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 8-bit integer to the underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u8(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u8) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u8(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u8) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-3"><a href="#errors-3">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-5"><a href="#examples-5">Examples</a></h5>
 <p>Write unsigned 8 bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -288,14 +308,15 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x02\x05&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i8" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i8" class="fn">write_i8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i8.html">i8</a>) -&gt; WriteI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 8-bit integer to the underlying writer.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i8" class="method"><h4 class="code-header">fn <a href="#method.write_i8" class="fn">write_i8</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i8.html">i8</a>) -&gt; WriteI8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 8-bit integer to the underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i8(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i8) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i8(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i8) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-4"><a href="#errors-4">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-6"><a href="#examples-6">Examples</a></h5>
 <p>Write signed 8 bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -311,15 +332,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\xFE\x7E&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u16" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u16" class="fn">write_u16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u16.html">u16</a>) -&gt; WriteU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 16-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u16" class="method"><h4 class="code-header">fn <a href="#method.write_u16" class="fn">write_u16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u16.html">u16</a>) -&gt; WriteU16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 16-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u16(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u16(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-5"><a href="#errors-5">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-7"><a href="#examples-7">Examples</a></h5>
 <p>Write unsigned 16-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -335,15 +357,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x02\x05\x03\x00&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i16" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i16" class="fn">write_i16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i16.html">i16</a>) -&gt; WriteI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 16-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i16" class="method"><h4 class="code-header">fn <a href="#method.write_i16" class="fn">write_i16</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i16.html">i16</a>) -&gt; WriteI16&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 16-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i16(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i16(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-6"><a href="#errors-6">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-8"><a href="#examples-8">Examples</a></h5>
 <p>Write signed 16-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -359,15 +382,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x00\xc1\xff\x7c&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u32" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u32" class="fn">write_u32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u32.html">u32</a>) -&gt; WriteU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 32-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u32" class="method"><h4 class="code-header">fn <a href="#method.write_u32" class="fn">write_u32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u32.html">u32</a>) -&gt; WriteU32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 32-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-7"><a href="#errors-7">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-9"><a href="#examples-9">Examples</a></h5>
 <p>Write unsigned 32-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -383,15 +407,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x00\x00\x01\x0b\x47\xd9\x3d\x66&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i32" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i32" class="fn">write_i32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i32.html">i32</a>) -&gt; WriteI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 32-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i32" class="method"><h4 class="code-header">fn <a href="#method.write_i32" class="fn">write_i32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i32.html">i32</a>) -&gt; WriteI32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 32-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-8"><a href="#errors-8">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-10"><a href="#examples-10">Examples</a></h5>
 <p>Write signed 32-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -407,15 +432,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x00\x00\x01\x0b\x47\xd9\x3d\x66&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u64" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u64" class="fn">write_u64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html">u64</a>) -&gt; WriteU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 64-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u64" class="method"><h4 class="code-header">fn <a href="#method.write_u64" class="fn">write_u64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u64.html">u64</a>) -&gt; WriteU64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 64-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-9"><a href="#errors-9">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-11"><a href="#examples-11">Examples</a></h5>
 <p>Write unsigned 64-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -431,15 +457,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x00\x03\x43\x95\x4d\x60\x86\x83\x00\x00\x00\x00\x00\x00\x00\x8f&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i64" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i64" class="fn">write_i64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i64.html">i64</a>) -&gt; WriteI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 64-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i64" class="method"><h4 class="code-header">fn <a href="#method.write_i64" class="fn">write_i64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i64.html">i64</a>) -&gt; WriteI64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 64-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-10"><a href="#errors-10">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-12"><a href="#examples-12">Examples</a></h5>
 <p>Write signed 64-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -455,15 +482,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x80\x00\x00\x00\x00\x00\x00\x00\x7f\xff\xff\xff\xff\xff\xff\xff&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u128" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u128" class="fn">write_u128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u128.html">u128</a>) -&gt; WriteU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 128-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u128" class="method"><h4 class="code-header">fn <a href="#method.write_u128" class="fn">write_u128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u128.html">u128</a>) -&gt; WriteU128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 128-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u128(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u128(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-11"><a href="#errors-11">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-13"><a href="#examples-13">Examples</a></h5>
 <p>Write unsigned 128-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -481,15 +509,16 @@ syscalls.</p>
     </span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i128" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i128" class="fn">write_i128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i128.html">i128</a>) -&gt; WriteI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 128-bit integer in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i128" class="method"><h4 class="code-header">fn <a href="#method.write_i128" class="fn">write_i128</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i128.html">i128</a>) -&gt; WriteI128&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 128-bit integer in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i128(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i128(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-12"><a href="#errors-12">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-14"><a href="#examples-14">Examples</a></h5>
 <p>Write signed 128-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -507,15 +536,16 @@ syscalls.</p>
     </span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_f32" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_f32" class="fn">write_f32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f32.html">f32</a>) -&gt; WriteF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 32-bit floating point type in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_f32" class="method"><h4 class="code-header">fn <a href="#method.write_f32" class="fn">write_f32</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f32.html">f32</a>) -&gt; WriteF32&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 32-bit floating point type in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-13"><a href="#errors-13">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-15"><a href="#examples-15">Examples</a></h5>
 <p>Write 32-bit floating point type to a <code>AsyncWrite</code>:</p>
 
@@ -530,15 +560,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="macro">vec!</span>[<span class="number">0xff</span>, <span class="number">0x7f</span>, <span class="number">0xff</span>, <span class="number">0xff</span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_f64" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_f64" class="fn">write_f64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f64.html">f64</a>) -&gt; WriteF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 64-bit floating point type in big-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_f64" class="method"><h4 class="code-header">fn <a href="#method.write_f64" class="fn">write_f64</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f64.html">f64</a>) -&gt; WriteF64&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 64-bit floating point type in big-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-14"><a href="#errors-14">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-16"><a href="#examples-16">Examples</a></h5>
 <p>Write 64-bit floating point type to a <code>AsyncWrite</code>:</p>
 
@@ -555,15 +586,16 @@ syscalls.</p>
     </span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u16_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u16_le" class="fn">write_u16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u16.html">u16</a>) -&gt; WriteU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 16-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u16_le" class="method"><h4 class="code-header">fn <a href="#method.write_u16_le" class="fn">write_u16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u16.html">u16</a>) -&gt; WriteU16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 16-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-15"><a href="#errors-15">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-17"><a href="#examples-17">Examples</a></h5>
 <p>Write unsigned 16-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -579,15 +611,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x05\x02\x00\x03&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i16_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i16_le" class="fn">write_i16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i16.html">i16</a>) -&gt; WriteI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 16-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i16_le" class="method"><h4 class="code-header">fn <a href="#method.write_i16_le" class="fn">write_i16_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i16.html">i16</a>) -&gt; WriteI16Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 16-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i16_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i16) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-16"><a href="#errors-16">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-18"><a href="#examples-18">Examples</a></h5>
 <p>Write signed 16-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -603,15 +636,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\xc1\x00\x7c\xff&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u32_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u32_le" class="fn">write_u32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u32.html">u32</a>) -&gt; WriteU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 32-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u32_le" class="method"><h4 class="code-header">fn <a href="#method.write_u32_le" class="fn">write_u32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u32.html">u32</a>) -&gt; WriteU32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 32-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-17"><a href="#errors-17">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-19"><a href="#examples-19">Examples</a></h5>
 <p>Write unsigned 32-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -627,15 +661,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x0b\x01\x00\x00\x66\x3d\xd9\x47&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i32_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i32_le" class="fn">write_i32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i32.html">i32</a>) -&gt; WriteI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 32-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i32_le" class="method"><h4 class="code-header">fn <a href="#method.write_i32_le" class="fn">write_i32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i32.html">i32</a>) -&gt; WriteI32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes a signed 32-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-18"><a href="#errors-18">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-20"><a href="#examples-20">Examples</a></h5>
 <p>Write signed 32-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -651,15 +686,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x0b\x01\x00\x00\x66\x3d\xd9\x47&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u64_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u64_le" class="fn">write_u64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u64.html">u64</a>) -&gt; WriteU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 64-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u64_le" class="method"><h4 class="code-header">fn <a href="#method.write_u64_le" class="fn">write_u64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u64.html">u64</a>) -&gt; WriteU64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 64-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-19"><a href="#errors-19">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-21"><a href="#examples-21">Examples</a></h5>
 <p>Write unsigned 64-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -675,15 +711,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x83\x86\x60\x4d\x95\x43\x03\x00\x8f\x00\x00\x00\x00\x00\x00\x00&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i64_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i64_le" class="fn">write_i64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i64.html">i64</a>) -&gt; WriteI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 64-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i64_le" class="method"><h4 class="code-header">fn <a href="#method.write_i64_le" class="fn">write_i64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i64.html">i64</a>) -&gt; WriteI64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 64-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-20"><a href="#errors-20">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-22"><a href="#examples-22">Examples</a></h5>
 <p>Write signed 64-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -699,15 +736,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="string">b&quot;\x00\x00\x00\x00\x00\x00\x00\x80\xff\xff\xff\xff\xff\xff\xff\x7f&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_u128_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_u128_le" class="fn">write_u128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.u128.html">u128</a>) -&gt; WriteU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 128-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_u128_le" class="method"><h4 class="code-header">fn <a href="#method.write_u128_le" class="fn">write_u128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.u128.html">u128</a>) -&gt; WriteU128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an unsigned 128-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_u128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: u128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-21"><a href="#errors-21">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-23"><a href="#examples-23">Examples</a></h5>
 <p>Write unsigned 128-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -725,15 +763,16 @@ syscalls.</p>
     ]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_i128_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_i128_le" class="fn">write_i128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.i128.html">i128</a>) -&gt; WriteI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 128-bit integer in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_i128_le" class="method"><h4 class="code-header">fn <a href="#method.write_i128_le" class="fn">write_i128_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.i128.html">i128</a>) -&gt; WriteI128Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an signed 128-bit integer in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_i128_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: i128) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-22"><a href="#errors-22">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-24"><a href="#examples-24">Examples</a></h5>
 <p>Write signed 128-bit integers to a <code>AsyncWrite</code>:</p>
 
@@ -751,15 +790,16 @@ syscalls.</p>
     </span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_f32_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_f32_le" class="fn">write_f32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f32.html">f32</a>) -&gt; WriteF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 32-bit floating point type in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_f32_le" class="method"><h4 class="code-header">fn <a href="#method.write_f32_le" class="fn">write_f32_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f32.html">f32</a>) -&gt; WriteF32Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 32-bit floating point type in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f32_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f32) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-23"><a href="#errors-23">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-25"><a href="#examples-25">Examples</a></h5>
 <p>Write 32-bit floating point type to a <code>AsyncWrite</code>:</p>
 
@@ -774,15 +814,16 @@ syscalls.</p>
     <span class="macro">assert_eq!</span>(writer, <span class="macro">vec!</span>[<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0x7f</span>, <span class="number">0xff</span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.write_f64_le" class="method has-srclink"><h4 class="code-header">fn <a href="#method.write_f64_le" class="fn">write_f64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.f64.html">f64</a>) -&gt; WriteF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.67.1/std/primitive.reference.html">&amp;'a mut </a>Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 64-bit floating point type in little-endian order to the
+</div></details><details class="toggle method-toggle" open><summary><section id="method.write_f64_le" class="method"><h4 class="code-header">fn <a href="#method.write_f64_le" class="fn">write_f64_le</a>&lt;'a&gt;(&amp;'a mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.f64.html">f64</a>) -&gt; WriteF64Le&lt;<a class="primitive" href="https://doc.rust-lang.org/1.69.0/std/primitive.reference.html">&amp;'a mut Self</a>&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Writes an 64-bit floating point type in little-endian order to the
 underlying writer.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>write_f64_le(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: f64) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <p>It is recommended to use a buffered writer to avoid excessive
 syscalls.</p>
 <h5 id="errors-24"><a href="#errors-24">Errors</a></h5>
-<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
+<p>This method returns the same errors as <a href="trait.AsyncWriteExt.html#method.write_all" title="method wasmer_wasix::syscalls::AsyncWriteExt::write_all"><code>AsyncWriteExt::write_all</code></a>.</p>
 <h5 id="examples-26"><a href="#examples-26">Examples</a></h5>
 <p>Write 64-bit floating point type to a <code>AsyncWrite</code>:</p>
 
@@ -799,11 +840,12 @@ syscalls.</p>
     </span>]);
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.flush" class="method has-srclink"><h4 class="code-header">fn <a href="#method.flush" class="fn">flush</a>(&amp;mut self) -&gt; Flush&lt;'_, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Flushes this output stream, ensuring that all intermediately buffered
+</div></details><details class="toggle method-toggle" open><summary><section id="method.flush" class="method"><h4 class="code-header">fn <a href="#method.flush" class="fn">flush</a>(&amp;mut self) -&gt; Flush&lt;'_, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Flushes this output stream, ensuring that all intermediately buffered
 contents reach their destination.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt;;</code></pre></div>
 <h5 id="errors-25"><a href="#errors-25">Errors</a></h5>
 <p>It is considered an error if not all bytes could be written due to
 I/O errors or EOF being reached.</p>
@@ -820,12 +862,13 @@ I/O errors or EOF being reached.</p>
     buffer.flush().<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details><details class="rustdoc-toggle method-toggle" open><summary><section id="method.shutdown" class="method has-srclink"><h4 class="code-header">fn <a href="#method.shutdown" class="fn">shutdown</a>(&amp;mut self) -&gt; Shutdown&lt;'_, Self&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Self: <a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Shuts down the output stream, ensuring that the value can be dropped
+</div></details><details class="toggle method-toggle" open><summary><section id="method.shutdown" class="method"><h4 class="code-header">fn <a href="#method.shutdown" class="fn">shutdown</a>(&amp;mut self) -&gt; Shutdown&lt;'_, Self&gt;<span class="where fmt-newline">where
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,</span></h4></section></summary><div class="docblock"><p>Shuts down the output stream, ensuring that the value can be dropped
 cleanly.</p>
 <p>Equivalent to:</p>
 
-<div class="example-wrap ignore"><div class='tooltip'>ⓘ</div><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt;;</code></pre></div>
-<p>Similar to <a href="trait.AsyncWriteExt.html#method.flush"><code>flush</code></a>, all intermediately buffered is written to the
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">async fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; io::Result&lt;()&gt;;</code></pre></div>
+<p>Similar to <a href="trait.AsyncWriteExt.html#method.flush" title="method wasmer_wasix::syscalls::AsyncWriteExt::flush"><code>flush</code></a>, all intermediately buffered is written to the
 underlying stream. Once the operation completes, the caller should
 no longer attempt to write to the stream. For example, the
 <code>TcpStream</code> implementation will issue a <code>shutdown(Write)</code> sys call.</p>
@@ -842,4 +885,5 @@ no longer attempt to write to the stream. For example, the
     buffer.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
-</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-AsyncWriteExt-for-W" class="impl has-srclink"><a href="#impl-AsyncWriteExt-for-W" class="anchor">§</a><h3 class="code-header">impl&lt;W&gt; <a class="trait" href="trait.AsyncWriteExt.html" title="trait wasmer_wasix::syscalls::AsyncWriteExt">AsyncWriteExt</a> for W<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;W: AsyncWrite + ?<a class="trait" href="https://doc.rust-lang.org/1.67.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></div><script src="../../implementors/tokio/io/util/async_write_ext/trait.AsyncWriteExt.js" async></script></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.67.1 (d5a82bbd2 2023-02-07)" data-search-js="search-444266647c4dba98.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-af96d9e2fc13e081.css" ></div></body></html>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-AsyncWriteExt-for-W" class="impl"><a href="#impl-AsyncWriteExt-for-W" class="anchor">§</a><h3 class="code-header">impl&lt;W&gt; <a class="trait" href="trait.AsyncWriteExt.html" title="trait wasmer_wasix::syscalls::AsyncWriteExt">AsyncWriteExt</a> for W<span class="where fmt-newline">where
+    W: AsyncWrite + ?<a class="trait" href="https://doc.rust-lang.org/1.69.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h3></section></div><script src="../../implementors/tokio/io/util/async_write_ext/trait.AsyncWriteExt.js" async></script></section></div></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

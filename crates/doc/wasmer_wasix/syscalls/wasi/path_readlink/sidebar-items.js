@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["path_readlink","`path_readlink()`"]]};
+window.SIDEBAR_ITEMS = {"fn":["path_readlink"],"static":["CALLSITE","META"]};
