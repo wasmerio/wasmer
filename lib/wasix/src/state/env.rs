@@ -950,14 +950,14 @@ impl WasiEnv {
             let specifier = package_name.parse::<PackageSpecifier>().map_err(|e| {
                 WasiStateCreationError::WasiIncludePackageError(format!(
                     "package_name={package_name}, {}",
-                    e.to_string()
+                    e
                 ))
             })?;
             let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
                 |e| {
                     WasiStateCreationError::WasiIncludePackageError(format!(
                         "package_name={package_name}, {}",
-                        e.to_string()
+                        e
                     ))
                 },
             )?;
