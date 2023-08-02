@@ -1162,10 +1162,10 @@ mod tests {
             pkg.filesystem,
             vec![
                 ResolvedFileSystemMapping {
-                    mount_path: PathBuf::from("/usr/local/lib/first"),
+                    mount_path: PathBuf::from("/root"),
+                    original_path: "/root".to_string(),
                     volume_name: "atom".to_string(),
-                    original_path: "/usr/local/lib/first".to_string(),
-                    package: builder.get("first", "1.0.0").package_id(),
+                    package: builder.get("root", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/second"),
@@ -1174,10 +1174,10 @@ mod tests {
                     package: builder.get("second", "1.0.0").package_id(),
                 },
                 ResolvedFileSystemMapping {
-                    mount_path: PathBuf::from("/root"),
-                    original_path: "/root".to_string(),
+                    mount_path: PathBuf::from("/usr/local/lib/first"),
                     volume_name: "atom".to_string(),
-                    package: builder.get("root", "1.0.0").package_id(),
+                    original_path: "/usr/local/lib/first".to_string(),
+                    package: builder.get("first", "1.0.0").package_id(),
                 }
             ]
         );
