@@ -219,6 +219,8 @@
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::BTreeMap,
     fmt::{<span class="self">self</span>, Display, Formatter},
@@ -437,6 +439,8 @@
     <span class="kw">pub </span>commands: BTreeMap&lt;String, ItemLocation&gt;,
     <span class="kw">pub </span>entrypoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// A mapping from paths to the volumes that should be mounted there.
+    /// Note: mappings at the start of the list obscure mappings at the end of the list
+    /// thus this list represents an inheritance tree
     </span><span class="kw">pub </span>filesystem: Vec&lt;ResolvedFileSystemMapping&gt;,
 }
 </code></pre></div>

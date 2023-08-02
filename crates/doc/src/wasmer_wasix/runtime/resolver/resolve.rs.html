@@ -1212,10 +1212,6 @@
 <a href="#1211" id="1211">1211</a>
 <a href="#1212" id="1212">1212</a>
 <a href="#1213" id="1213">1213</a>
-<a href="#1214" id="1214">1214</a>
-<a href="#1215" id="1215">1215</a>
-<a href="#1216" id="1216">1216</a>
-<a href="#1217" id="1217">1217</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashSet, VecDeque},
     path::PathBuf,
@@ -1599,11 +1595,7 @@
         }
     }
 
-    <span class="comment">// Note: when resolving filesystem mappings, the first mapping will come
-    // from the root package and its dependencies will be following. However, we
-    // actually want things closer to the root package in the dependency tree to
-    // come later so they override their dependencies.
-    </span>filesystem.reverse();
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;resolved filesystem: {:?}&quot;</span>, <span class="kw-2">&amp;</span>filesystem);
 
     <span class="prelude-val">Ok</span>(ResolvedPackage {
         root_package: dependency_graph.root_info().id(),
@@ -2384,10 +2376,10 @@
             pkg.filesystem,
             <span class="macro">vec!</span>[
                 ResolvedFileSystemMapping {
-                    mount_path: PathBuf::from(<span class="string">&quot;/usr/local/lib/first&quot;</span>),
+                    mount_path: PathBuf::from(<span class="string">&quot;/root&quot;</span>),
+                    original_path: <span class="string">&quot;/root&quot;</span>.to_string(),
                     volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                    original_path: <span class="string">&quot;/usr/local/lib/first&quot;</span>.to_string(),
-                    package: builder.get(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                    package: builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from(<span class="string">&quot;/usr/local/lib/second&quot;</span>),
@@ -2396,10 +2388,10 @@
                     package: builder.get(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
                 },
                 ResolvedFileSystemMapping {
-                    mount_path: PathBuf::from(<span class="string">&quot;/root&quot;</span>),
-                    original_path: <span class="string">&quot;/root&quot;</span>.to_string(),
+                    mount_path: PathBuf::from(<span class="string">&quot;/usr/local/lib/first&quot;</span>),
                     volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                    package: builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                    original_path: <span class="string">&quot;/usr/local/lib/first&quot;</span>.to_string(),
+                    package: builder.get(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
                 }
             ]
         );
