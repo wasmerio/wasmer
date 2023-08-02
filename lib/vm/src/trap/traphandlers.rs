@@ -38,7 +38,7 @@ static MAGIC: u8 = 0xc0;
 
 static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
 
-// Current definition of `ucontext_t` in the `libc` crate is incorrect 
+// Current definition of `ucontext_t` in the `libc` crate is incorrect
 // on aarch64-apple-drawin so it's defined here with a more accurate definition.
 #[repr(C)]
 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
