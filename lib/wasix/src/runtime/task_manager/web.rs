@@ -182,14 +182,12 @@ pub(crate) enum WebRunCommand {
 trait AssertSendSync: Send + Sync {}
 impl AssertSendSync for WebThreadPool {}
 
-#[wasm_bindgen]
 #[derive(Debug)]
 struct WebThreadPoolInner {
     pool_reactors: Arc<PoolStateAsync>,
     pool_dedicated: Arc<PoolStateSync>,
 }
 
-#[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct WebThreadPool {
     inner: Arc<WebThreadPoolInner>,
@@ -311,9 +309,9 @@ pub(crate) fn schedule_task(task: JsValue, module: js_sys::WebAssembly::Module, 
     let message: js_sys::Array = [&task, &module, &memory].into_iter().collect();
 
     if let Some(window) = global_scope.dyn_ref::<Window>() {
-        window.post_message(&message, origin);
+        window.post_message(&message, origin).unwrap();
     } else if let Some(worker_global_scope) = global_scope.dyn_ref::<DedicatedWorkerGlobalScope>() {
-        worker_global_scope.post_message(&message);
+        worker_global_scope.post_message(&message).unwrap();
     } else {
         unreachable!("Unable to schedule a task on the main thread");
     }
@@ -449,11 +447,11 @@ impl WebThreadPool {
         Ok(WebThreadPool::new(pool_size))
     }
 
-    fn spawn_shared(&self, task: BoxRunAsync<'static, ()>) {
+    pub fn spawn_shared(&self, task: BoxRunAsync<'static, ()>) {
         self.inner.pool_reactors.spawn(task);
     }
 
-    fn spawn_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
+    pub fn spawn_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
         let run = task.run;
         let env = task.env;
         let module = task.module;
@@ -514,7 +512,7 @@ impl WebThreadPool {
         Ok(())
     }
 
-    fn spawn_dedicated(&self, task: BoxRun<'static>) {
+    pub fn spawn_dedicated(&self, task: BoxRun<'static>) {
         self.inner.pool_dedicated.spawn(task);
     }
 }

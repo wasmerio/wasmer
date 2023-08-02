@@ -7,11 +7,11 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasmer_wasix::{
     capabilities::Capabilities,
     os::{Console, InputEvent, Tty, TtyOptions},
+    runtime::{task_manager::web::WebThreadPool, web::WebRuntime},
     Pipe,
 };
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
@@ -23,11 +23,8 @@ use xterm_js_rs::addons::web_links::WebLinksAddon;
 use xterm_js_rs::addons::webgl::WebglAddon;
 use xterm_js_rs::{LogLevel, OnKeyEvent, Terminal, TerminalOptions, Theme};
 
-use super::{common::*, pool::*};
-use crate::{
-    net::connect_networking,
-    runtime::{TermStdout, TerminalCommandRx, WebRuntime},
-};
+use super::common::*;
+use crate::runtime::{TermStdout, TerminalCommandRx};
 
 #[macro_export]
 #[doc(hidden)]
@@ -183,18 +180,20 @@ pub fn start(encoded_args: String) -> Result<(), JsValue> {
     let stdout = TermStdout::new(term_tx, tty_options.clone());
     let stderr = stdout.clone();
 
-    let mut net: Arc<dyn VirtualNetworking + Send + Sync + 'static> =
-        Arc::new(UnsupportedVirtualNetworking::default());
+    let mut runtime = WebRuntime::new(pool.clone());
+
     if let Some(connect) = args.connect {
-        net = Arc::new(connect_networking(connect))
+        runtime.with_network_gateway(connect);
     }
 
-    let runtime = Arc::new(WebRuntime::new(
-        pool.clone(),
-        tty_options.clone(),
-        webgl2,
-        net,
-    ));
+    let runtime = Arc::new(runtime);
+
+    // let runtime = Arc::new(WebRuntime::new(
+    //     pool.clone(),
+    //     tty_options.clone(),
+    //     webgl2,
+    //     net,
+    // ));
     let mut tty = Tty::new(
         Box::new(stdin_tx),
         Box::new(stdout.clone()),
@@ -333,11 +332,11 @@ pub fn start(encoded_args: String) -> Result<(), JsValue> {
         // See ^1 at file header
         #[allow(unused_unsafe)]
         unsafe {
-            crate::glue::show_terminal()
+            crate::glue::show_terminal();
         };
 
         let (run_tx, mut run_rx) = tokio::sync::mpsc::channel(1);
-        runtime.pool.spawn_dedicated(Box::new(move || {
+        pool.spawn_dedicated(Box::new(move || {
             let (_, process) = console.run().unwrap();
 
             tty.set_signaler(Box::new(process.clone()));

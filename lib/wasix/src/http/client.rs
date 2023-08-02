@@ -70,9 +70,7 @@ impl HttpRequest {
         let http::request::Parts {
             method,
             uri,
-            version,
             headers,
-            extensions,
             ..
         } = parts;
 

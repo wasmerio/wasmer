@@ -1,13 +1,12 @@
 use std::sync::Arc;
 
-use anyhow::Error;
 use virtual_net::VirtualNetworking;
 
 use crate::{
     http::{web::WebHttpClient, HttpClient},
     runtime::{
         module_cache::{ModuleCache, WebWorkerModuleCache},
-        package_loader::{BuiltinPackageLoader, PackageLoader, UnsupportedPackageLoader},
+        package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{PackageSpecifier, PackageSummary, QueryError, Source, WapmSource},
         task_manager::web::{WebTaskManager, WebThreadPool},
     },

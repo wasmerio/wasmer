@@ -21,23 +21,22 @@ use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
     os::{TtyBridge, TtyOptions},
     runtime::{
-        module_cache::ModuleCache,
+        module_cache::{ModuleCache, WebWorkerModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{Source, WapmSource},
-        task_manager::TaskWasm,
+        task_manager::{web::WebThreadPool, TaskWasm},
     },
     VirtualFile, VirtualTaskManager, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
 
+use super::common::*;
 #[cfg(feature = "webgl")]
 use super::webgl::GlContext;
 #[cfg(feature = "webgl")]
 use super::webgl::WebGl;
 #[cfg(feature = "webgl")]
 use super::webgl::WebGlCommand;
-use super::{common::*, pool::WebThreadPool};
-use crate::module_cache::WebWorkerModuleCache;
 
 #[derive(Debug)]
 pub(crate) enum TerminalCommandRx {

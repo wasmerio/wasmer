@@ -18,7 +18,7 @@ impl super::HttpClient for WebHttpClient {
 
         wasm_bindgen_futures::spawn_local(async move {
             let result = fetch(request).await;
-            sender.send(result);
+            let _ = sender.send(result);
         });
 
         Box::pin(async move {
