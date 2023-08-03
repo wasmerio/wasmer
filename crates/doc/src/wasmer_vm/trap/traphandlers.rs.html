@@ -1074,6 +1074,22 @@
 <a href="#1074" id="1074">1074</a>
 <a href="#1075" id="1075">1075</a>
 <a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1113,6 +1129,22 @@
 </span><span class="kw">static </span>MAGIC: u8 = <span class="number">0xc0</span>;
 
 <span class="kw">static </span>DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(<span class="number">1024 </span>* <span class="number">1024</span>);
+
+<span class="comment">// Current definition of `ucontext_t` in the `libc` crate is incorrect
+// on aarch64-apple-drawin so it&#39;s defined here with a more accurate definition.
+</span><span class="attr">#[repr(C)]
+#[cfg(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>))]
+</span><span class="kw">struct </span>ucontext_t {
+    uc_onstack: libc::c_int,
+    uc_sigmask: libc::sigset_t,
+    uc_stack: libc::stack_t,
+    uc_link: <span class="kw-2">*mut </span>libc::ucontext_t,
+    uc_mcsize: usize,
+    uc_mcontext: libc::mcontext_t,
+}
+
+<span class="attr">#[cfg(all(unix, not(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>))))]
+</span><span class="kw">use </span>libc::ucontext_t;
 
 <span class="doccomment">/// Default stack size is 1MB.
 </span><span class="kw">pub fn </span>set_stack_size(size: usize) {
@@ -1292,7 +1324,7 @@
                 }
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
             };
-            <span class="kw">let </span>ucontext = <span class="kw-2">&amp;mut *</span>(context <span class="kw">as </span><span class="kw-2">*mut </span>libc::ucontext_t);
+            <span class="kw">let </span>ucontext = <span class="kw-2">&amp;mut *</span>(context <span class="kw">as </span><span class="kw-2">*mut </span>ucontext_t);
             <span class="kw">let </span>(pc, sp) = get_pc_sp(ucontext);
             <span class="kw">let </span>handled = TrapHandlerContext::handle_trap(
                 pc,
@@ -1332,7 +1364,7 @@
             }
         }
 
-        <span class="kw">unsafe fn </span>get_pc_sp(context: <span class="kw-2">&amp;</span>libc::ucontext_t) -&gt; (usize, usize) {
+        <span class="kw">unsafe fn </span>get_pc_sp(context: <span class="kw-2">&amp;</span>ucontext_t) -&gt; (usize, usize) {
             <span class="kw">let </span>(pc, sp);
             <span class="macro">cfg_if::cfg_if! </span>{
                 <span class="kw">if </span><span class="attr">#[cfg(all(
@@ -1387,7 +1419,7 @@
             (pc, sp)
         }
 
-        <span class="kw">unsafe fn </span>update_context(context: <span class="kw-2">&amp;mut </span>libc::ucontext_t, regs: TrapHandlerRegs) {
+        <span class="kw">unsafe fn </span>update_context(context: <span class="kw-2">&amp;mut </span>ucontext_t, regs: TrapHandlerRegs) {
             <span class="macro">cfg_if::cfg_if! </span>{
                 <span class="kw">if </span><span class="attr">#[cfg(all(
                         any(target_os = <span class="string">&quot;linux&quot;</span>, target_os = <span class="string">&quot;android&quot;</span>),
