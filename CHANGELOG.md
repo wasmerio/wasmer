@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 4.1.1 - 03/08/2023
+Bug-fix release, fixing rename in wasi(x), using newer Rust and some macOS ARM64 speicifc issues, among other things.
 
 ## Added
 
