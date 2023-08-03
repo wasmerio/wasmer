@@ -9,6 +9,30 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.1.1 - 03/08/2023
+Bug-fix release, fixing rename in wasi(x), using newer Rust and some macOS ARM64 speicifc issues, among other things.
+
+## Added
+
+  - [#4120](https://github.com/wasmerio/wasmer/pull/4120) Added proper definition of ucontext for macos/aarch64 to avoid unaligned issue
+  - [#4107](https://github.com/wasmerio/wasmer/pull/4107) Added a forced shutdown on tokio runtimes as the STDIN blocks the shu…
+  - [#4108](https://github.com/wasmerio/wasmer/pull/4108) Add a temporary workaround for nanasess/setup-chromedriver#190
+
+## Changed
+
+  - [#4123](https://github.com/wasmerio/wasmer/pull/4123) Upgrade Edge CLI dependency
+  - [#4109](https://github.com/wasmerio/wasmer/pull/4109) Update MSRV to 1.69
+  - [#4111](https://github.com/wasmerio/wasmer/pull/4111) Update login.rs
+  - [#4102](https://github.com/wasmerio/wasmer/pull/4102) Update to criterion 0.5
+
+## Fixed
+
+  - [#4121](https://github.com/wasmerio/wasmer/pull/4121) Fix path_rename syscall failing
+  - [#4117](https://github.com/wasmerio/wasmer/pull/4117) Fixed an issue where inheritance was inverted
+  - [#4096](https://github.com/wasmerio/wasmer/pull/4096) Fix benchmark
+
+
+
 ## 4.1.0 - 24/07/2023
 This version added some more improvements and fixes, with a faster async execution, a new login flow and muliple bugfix to the `--mapdir` command among other things.
 More detail in the blog post about the 4.1 Release: https://wasmer.io/posts/wasmer-4.1
