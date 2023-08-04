@@ -15,7 +15,7 @@ version.workspace = true
 wasmer = { version = "=4.1.0", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.1.0", path = "lib/compiler", features = [
     "compiler",
-], optional=true }
+], optional = true }
 wasmer-compiler-cranelift = { version = "=4.1.0", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=4.1.0", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=4.1.0", path = "lib/compiler-llvm", optional = true }
@@ -27,7 +27,11 @@ wasmer-cache = { version = "=4.1.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "=4.1.0", path = "lib/types" }
 wasmer-middlewares = { version = "=4.1.0", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
-tokio = { version = "1", features = [ "rt", "rt-multi-thread", "macros" ], optional = true }
+tokio = { version = "1", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+], optional = true }
 
 [workspace]
 members = [
@@ -64,11 +68,10 @@ members = [
     "tests/integration/ios",
     "tests/lib/compiler-test-derive",
     "tests/lib/wast",
+    "tests/rust-wasi-tests",
     "tests/wasi-wast",
 ]
-exclude = [
-    "lib/wasi-web",
-]
+exclude = ["lib/wasi-web"]
 resolver = "2"
 
 [workspace.package]
@@ -92,7 +95,8 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=4.1.0", path = "lib/api", default-features = false, features = [] }
+wasmer = { version = "=4.1.0", path = "lib/api", default-features = false, features = [
+] }
 anyhow = "1.0"
 criterion = { version = "0.5", default-features = false }
 lazy_static = "1.4"
