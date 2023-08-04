@@ -50,10 +50,6 @@ jobs:
     - name: Show Rust version
       run: rustc --version --verbose
 
-    - name: Check formatting
-      shell: bash
-      run: cargo fmt --check
-
     - name: Check
       run: cargo check --verbose --locked
 
@@ -69,3 +65,61 @@ jobs:
 
         cd ../../tests/wasmer-web
         cargo test --verbose --locked -- --test-threads=1
+
+  wasix:
+    name: Build and Test (wasix)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+          working-directory: lib/wasix
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: nightly-2023-05-25
+
+    - name: Install wasm-pack
+      uses: taiki-e/install-action@v2
+      with:
+        tool: wasm-pack
+
+    - name: Show Rust version
+      run: rustc --version --verbose
+
+    - name: Check
+      run: cargo check --verbose --locked --features=wasmer/js,wasmer/std,js --no-default-features
+
+    - name: Integration Tests
+      run: wasm-pack test --chrome --headless --features=wasmer/js,wasmer/std,js --no-default-features
+
+  lints:
+    name: Lints and Formatting
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+          working-directory: lib/wasi-web
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: nightly-2023-05-25
+
+    - name: Check formatting
+      shell: bash
+      run: cargo fmt --check
+
+    - name: Check clippy
+      shell: bash
+      run: cargo clippy -- -Dwarnings
