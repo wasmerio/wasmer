@@ -9,6 +9,7 @@ use std::{
     },
 };
 
+use anyhow::Context;
 use bytes::Bytes;
 use derivative::*;
 use js_sys::{Array, Promise, Uint8Array};
@@ -450,8 +451,9 @@ async fn _compile_module(bytes: &[u8]) -> Result<js_sys::WebAssembly::Module, an
 
 impl PoolStateAsync {
     fn spawn(&self, task: BoxRunAsync<'static, ()>) {
-        for _ in 0..10 {
+        for i in 0..10 {
             if let Ok(mut guard) = self.idle_rx.try_lock() {
+                tracing::trace!(iteration = i, "Trying to push onto the idle queue");
                 if let Ok(thread) = guard.try_recv() {
                     thread.consume(task);
                     return;
@@ -514,34 +516,26 @@ impl PoolStateSync {
     }
 }
 
-fn start_worker_now(
-    idx: usize,
-    state: Arc<ThreadState>,
-    type_: PoolType,
-    /* should_warn_on_error: Option<Terminal>, */
-) {
+fn start_worker_now(idx: usize, state: Arc<ThreadState>, type_: PoolType) {
     let mut opts = WorkerOptions::new();
     opts.type_(WorkerType::Module);
-    opts.name(&format!("Worker-{:?}-{}", type_, idx));
+    let name = format!("Worker-{:?}-{}", type_, idx);
+    opts.name(&name);
 
     let ptr = Arc::into_raw(state);
 
+    tracing::debug!(%name, "Spawning a new worker");
+
     let result = start_worker(
-        wasm_bindgen::module()
-            .dyn_into::<js_sys::WebAssembly::Module>()
-            .unwrap(),
+        current_module(),
         wasm_bindgen::memory(),
         JsValue::from(ptr as u32),
         opts,
     );
-    _process_worker_result(result);
-}
 
-fn _process_worker_result(result: Result<(), JsValue>) {
     if let Err(err) = result {
-        let err = js_error(err);
         tracing::error!(error = &*err, "failed to start worker thread");
-    }
+    };
 }
 
 impl ThreadStateSync {
@@ -898,7 +892,7 @@ async fn schedule_wasm_task(
     task_ptr: u32,
     wasm_module: js_sys::WebAssembly::Module,
     wasm_memory: JsValue,
-) {
+) -> Result<(), anyhow::Error> {
     // Grab the run wrapper that passes us the rust variables
     let task = task_ptr as *mut WebRunCommand;
     let task = unsafe { Box::from_raw(task) };
@@ -906,6 +900,7 @@ async fn schedule_wasm_task(
         WebRunCommand::ExecModule { run, module_bytes } => {
             let module: Module = (wasm_module, module_bytes).into();
             run(module);
+            Ok(())
         }
         WebRunCommand::SpawnWasm {
             run,
@@ -962,7 +957,8 @@ async fn schedule_wasm_task(
                 pool,
             });
             let task = Box::into_raw(task);
-            let result = start_wasm(
+
+            start_wasm(
                 wasm_bindgen::module()
                     .dyn_into::<js_sys::WebAssembly::Module>()
                     .unwrap(),
@@ -972,65 +968,36 @@ async fn schedule_wasm_task(
                 wasm_module,
                 wasm_memory,
                 wasm_cache,
-            );
-            _process_worker_result(result /* , None */);
+            )
         }
     }
 }
 
-fn new_worker(opts: &WorkerOptions) -> Result<Worker, JsValue> {
-    static WORKER_URL: OnceCell<Box<str>> = OnceCell::new();
-    fn init_worker_url() -> Result<Box<str>, JsValue> {
+fn new_worker(opts: &WorkerOptions) -> Result<Worker, anyhow::Error> {
+    static WORKER_URL: OnceCell<String> = OnceCell::new();
+
+    fn init_worker_url() -> Result<String, JsValue> {
         #[wasm_bindgen]
         extern "C" {
             #[wasm_bindgen(js_namespace = ["import", "meta"], js_name = url)]
             static IMPORT_META_URL: String;
         }
-        Ok(Url::create_object_url_with_blob(
-            &web_sys::Blob::new_with_u8_array_sequence_and_options(
-                Array::from_iter([Uint8Array::from(format!(
-r#"Error.stackTraceLimit=50;globalThis.onmessage=async ev=>{{
-    if(ev.data.length==4){{
-        let[module,memory,state]=ev.data;
-        const{{default:init,worker_entry_point}}=await import({0});
-        await init(module,memory);
-        worker_entry_point(state);
-    }}else{{
-        var is_returned=false;
-        try{{
-            globalThis.onmessage=ev=>{{console.error("wasm threads can only run a single process then exit",ev)}}
-            let[id,module,memory,ctx,wasm_module,wasm_memory,wasm_cache]=ev.data;
-            const{{default:init,wasm_entry_point}}=await import({0});
-            await init(module,memory);
-            wasm_entry_point(ctx,wasm_module,wasm_memory,wasm_cache);
-            // Return the web worker to the thread pool
-            postMessage([id]);
-            is_returned=true;
-        }}finally{{//Terminate the worker
-            if(is_returned==false){{close();}}
-        }}
-    }}
-}}"#
-                , IMPORT_META_URL.clone()).as_bytes())]).as_ref(),
-                web_sys::BlobPropertyBag::new().type_("application/javascript"),
-            )?,
-        )?
-        .into_boxed_str())
+
+        let script = include_str!("worker.js").replace("$IMPORT_META_URL", &IMPORT_META_URL);
+
+        let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(
+            Array::from_iter([Uint8Array::from(script.as_bytes())]).as_ref(),
+            web_sys::BlobPropertyBag::new().type_("application/javascript"),
+        );
+
+        Ok(Url::create_object_url_with_blob(&blob?)?)
     }
-    match WORKER_URL.get() {
-        Some(script_url) => Worker::new_with_options(script_url, opts),
-        None => {
-            if let Err(e) = WORKER_URL.set(init_worker_url()?) {
-                let _ = Url::revoke_object_url(&e);
-            };
-            Worker::new_with_options(
-                WORKER_URL
-                    .get()
-                    .ok_or_else(|| JsValue::from_str("Worker Blob could not be obtained"))?,
-                opts,
-            )
-        }
-    }
+
+    let script_url = WORKER_URL
+        .get_or_try_init(init_worker_url)
+        .map_err(js_error)?;
+
+    Worker::new_with_options(script_url, opts).map_err(js_error)
 }
 
 fn start_worker(
@@ -1038,25 +1005,53 @@ fn start_worker(
     memory: JsValue,
     shared_data: JsValue,
     opts: WorkerOptions,
-) -> Result<(), JsValue> {
+) -> Result<(), anyhow::Error> {
     fn onmessage(event: MessageEvent) -> Promise {
+        if let Ok(payload) = js_sys::JSON::stringify(&event.data()) {
+            let payload = String::from(payload);
+            tracing::debug!(%payload, "Received a message from the worker");
+        }
+
         let data = event.data().unchecked_into::<Array>();
         let task = data.get(0).unchecked_into_f64() as u32;
         let module = data.get(1).dyn_into().unwrap();
         let memory = data.get(2);
         wasm_bindgen_futures::future_to_promise(async move {
-            schedule_wasm_task(task, module, memory).await;
+            if let Err(e) = schedule_wasm_task(task, module, memory).await {
+                tracing::error!(error = &*e, "Unable to schedule a task");
+                let error_msg = e.to_string();
+                return Err(js_sys::Error::new(&error_msg).into());
+            }
+
             Ok(JsValue::UNDEFINED)
         })
     }
     let worker = new_worker(&opts)?;
-    worker.set_onmessage(Some(
-        Closure::<dyn Fn(MessageEvent) -> Promise + 'static>::new(onmessage)
-            .as_ref()
-            .unchecked_ref(),
-    ));
-    worker.post_message(Array::from_iter([JsValue::from(module), memory, shared_data]).as_ref())
+
+    let on_message: Closure<dyn Fn(MessageEvent) -> Promise + 'static> = Closure::new(onmessage);
+    worker.set_onmessage(Some(on_message.into_js_value().as_ref().unchecked_ref()));
+
+    let on_error: Closure<dyn Fn(MessageEvent) -> Promise + 'static> =
+        Closure::new(|msg: MessageEvent| {
+            web_sys::console::error_3(&JsValue::from_str("Worker error"), &msg, &msg.data());
+            let err = js_error(msg.into());
+            tracing::error!(error = &*err, "Worker error");
+            Promise::resolve(&JsValue::UNDEFINED)
+        });
+    worker.set_onerror(Some(on_error.into_js_value().as_ref().unchecked_ref()));
+
+    // Note: a WebAssembly.Memory can't be sent to a worker, but we *can*
+    // send the underlying ArrayBuffer.
+    let memory = match memory.dyn_into::<js_sys::WebAssembly::Memory>() {
+        Ok(m) => m.buffer(),
+        Err(other) => other,
+    };
+
+    worker
+        .post_message(Array::from_iter([JsValue::from(module), memory, shared_data]).as_ref())
+        .map_err(js_error)
 }
+
 fn start_wasm(
     module: js_sys::WebAssembly::Module,
     memory: JsValue,
@@ -1065,15 +1060,25 @@ fn start_wasm(
     wasm_module: js_sys::WebAssembly::Module,
     wasm_memory: JsValue,
     wasm_cache: JsValue,
-) -> Result<(), JsValue> {
+) -> Result<(), anyhow::Error> {
     fn onmessage(event: MessageEvent) -> Promise {
+        if let Ok(stringified) = js_sys::JSON::stringify(&event) {
+            let event = String::from(stringified);
+            tracing::debug!(%event, "Received a message from the main thread");
+        }
+
         let data = event.data().unchecked_into::<Array>();
         if data.length() == 3 {
             let task = data.get(0).unchecked_into_f64() as u32;
             let module = data.get(1).dyn_into().unwrap();
             let memory = data.get(2);
             wasm_bindgen_futures::future_to_promise(async move {
-                schedule_wasm_task(task, module, memory).await;
+                if let Err(e) = schedule_wasm_task(task, module, memory).await {
+                    tracing::error!(error = &*e, "Unable to schedule a task");
+                    let error_msg = e.to_string();
+                    return Err(js_sys::Error::new(&error_msg).into());
+                }
+
                 Ok(JsValue::UNDEFINED)
             })
         } else {
@@ -1082,41 +1087,83 @@ fn start_wasm(
             Promise::resolve(&JsValue::UNDEFINED)
         }
     }
-    let worker;
-    let worker_id;
-    if let Some(id) = claim_web_worker() {
-        worker_id = id;
-        worker = get_web_worker(worker_id)
-            .ok_or_else(|| JsError::new("failed to retrieve worker from worker pool"))?;
+    let (worker, worker_id) = if let Some(id) = claim_web_worker() {
+        let worker = get_web_worker(id).context("failed to retrieve worker from worker pool")?;
+        (worker, id)
     } else {
-        worker = new_worker(&opts)?;
-        worker_id = register_web_worker(worker.clone());
-    }
+        let worker = new_worker(&opts)?;
+        let worker_id = register_web_worker(worker.clone());
+        (worker, worker_id)
+    };
+
+    tracing::trace!(worker_id, "Retrieved worker from the pool");
+
     worker.set_onmessage(Some(
         Closure::<dyn Fn(MessageEvent) -> Promise + 'static>::new(onmessage)
             .as_ref()
             .unchecked_ref(),
     ));
-    worker.post_message(
-        Array::from_iter([
-            JsValue::from(worker_id),
-            JsValue::from(module),
-            memory,
-            ctx,
-            JsValue::from(wasm_module),
-            wasm_memory,
-            wasm_cache,
-        ])
-        .as_ref(),
-    )
+    worker
+        .post_message(
+            Array::from_iter([
+                JsValue::from(worker_id),
+                JsValue::from(module),
+                memory,
+                ctx,
+                JsValue::from(wasm_module),
+                wasm_memory,
+                wasm_cache,
+            ])
+            .as_ref(),
+        )
+        .map_err(js_error)
 }
 
 pub(crate) fn schedule_task(task: JsValue, module: js_sys::WebAssembly::Module, memory: JsValue) {
-    if let Err(err) = js_sys::global()
-        .unchecked_into::<DedicatedWorkerGlobalScope>()
-        .post_message(Array::from_iter([task, module.into(), memory]).as_ref())
+    let buffer = if let Some(memory) = memory.dyn_ref::<js_sys::WebAssembly::Memory>() {
+        memory.buffer()
+    } else if memory.has_type::<js_sys::ArrayBuffer>() {
+        memory
+    } else {
+        let ty = memory.js_typeof().as_string();
+        tracing::debug!(
+            js_type = ty.as_deref(),
+            "Trying to pass a non-ArrayBuffer to the worker",
+        );
+        memory
+    };
+
+    let worker_scope = match js_sys::global().dyn_into::<DedicatedWorkerGlobalScope>() {
+        Ok(s) => s,
+        Err(_) => {
+            tracing::error!("Trying to schedule a task from outside a Worker");
+            return;
+        }
+    };
+
+    if let Err(err) =
+        worker_scope.post_message(Array::from_iter([task, module.into(), buffer]).as_ref())
     {
         let err = js_error(err);
         tracing::error!(error = &*err, "failed to schedule task from worker thread");
     };
+}
+
+/// Get a reference to the currently running module.
+fn current_module() -> js_sys::WebAssembly::Module {
+    // FIXME: Switch this to something stable and portable
+    //
+    // We use an undocumented API to get a reference to the
+    // WebAssembly module that is being executed right now so start
+    // a new thread by transferring the WebAssembly linear memory and
+    // module to a worker and beginning execution.
+    //
+    // This can only be used in the browser. Trying to build
+    // wasmer-wasix for NodeJS will probably result in the following:
+    //
+    // Error: executing `wasm-bindgen` over the wasm file
+    //   Caused by:
+    //   0: failed to generate bindings for import of `__wbindgen_placeholder__::__wbindgen_module`
+    //   1: `wasm_bindgen::module` is currently only supported with `--target no-modules` and `--tar get web`
+    wasm_bindgen::module().dyn_into().unwrap()
 }

@@ -6275,6 +6275,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "chrono",
+ "console_error_panic_hook",
  "cooked-waker",
  "dashmap",
  "derivative",

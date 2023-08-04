@@ -16,25 +16,41 @@ use wasmer_wasix::{
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
+fn init_logging() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+
+    ONCE.call_once(|| {
+        let _ = tracing_wasm::set_as_global_default();
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    });
+}
+
 #[wasm_bindgen_test::wasm_bindgen_test]
 async fn use_the_task_manager() {
+    init_logging();
     let pool = WebThreadPool::new(2);
     let task_manager = WebTaskManager::new(pool);
     let (sender, receiver) = oneshot::channel();
 
     task_manager
         .task_shared(Box::new(move || {
+            wasm_bindgen_test::console_log!("In shared task");
             Box::pin(async move {
+                wasm_bindgen_test::console_log!("Doing stuff");
                 sender.send(42_u32).unwrap();
             })
         }))
         .unwrap();
 
-    assert_eq!(receiver.await.unwrap(), 42);
+    tracing::info!("Waiting for result");
+    let result = receiver.await.unwrap();
+    tracing::info!("Received {result}");
+    assert_eq!(result, 42);
 }
 
 #[wasm_bindgen_test::wasm_bindgen_test]
 async fn query_the_wasmer_registry_graphql_endpoint() {
+    init_logging();
     let http_client = wasmer_wasix::http::web_http_client::WebHttpClient::default();
     let query = r#"{
         "query": "{ info { defaultFrontend } }"

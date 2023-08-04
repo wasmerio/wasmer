@@ -63,12 +63,8 @@ impl VirtualTaskManager for WebTaskManager {
             dyn FnOnce() -> Pin<Box<dyn Future<Output = ()> + Send + 'static>> + Send + 'static,
         >,
     ) -> Result<(), WasiThreadError> {
-        self.pool.spawn_shared(Box::new(move || {
-            Box::pin(async move {
-                let fut = task();
-                fut.await
-            })
-        }));
+        self.pool
+            .spawn_shared(Box::new(move || Box::pin(async move { task().await })));
         Ok(())
     }
 

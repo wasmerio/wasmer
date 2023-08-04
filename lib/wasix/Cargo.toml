@@ -73,6 +73,7 @@ web-sys = { version = "0.3", optional = true, features = [
     "BinaryType",
     "Blob",
     "BlobPropertyBag",
+    "console",
     "DedicatedWorkerGlobalScope",
     "FileReader",
     "Headers",
@@ -124,6 +125,7 @@ pretty_assertions = "1.3.0"
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
 tracing-wasm = "0.2"
+console_error_panic_hook = "0.1.7"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.2" }
