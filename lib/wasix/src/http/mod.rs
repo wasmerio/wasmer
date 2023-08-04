@@ -2,7 +2,7 @@ mod client;
 pub mod client_impl;
 
 #[cfg(feature = "js")]
-pub mod web;
+pub mod web_http_client;
 
 #[cfg(feature = "host-reqwest")]
 pub mod reqwest;
@@ -17,7 +17,7 @@ pub fn default_http_client() -> Option<impl HttpClient + Send + Sync + 'static> 
         if #[cfg(feature = "host-reqwest")] {
             Some(self::reqwest::ReqwestHttpClient::default())
         } else if #[cfg(feature = "js")] {
-            Some(self::web::WebHttpClient::default())
+            Some(self::web_http_client::WebHttpClient::default())
         } else {
             // Note: We need something to use with turbofish otherwise returning
             // a plain None will complain about not being able to infer the "T"

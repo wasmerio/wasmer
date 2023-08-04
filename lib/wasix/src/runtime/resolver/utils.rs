@@ -86,6 +86,7 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[test]

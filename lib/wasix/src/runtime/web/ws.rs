@@ -85,4 +85,3 @@ impl WebSocket {
             .map_err(|err| format!("{:?}", err))
     }
 }
-

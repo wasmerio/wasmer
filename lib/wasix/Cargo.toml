@@ -72,6 +72,7 @@ js-sys = { version = "0.3", optional = true }
 web-sys = { version = "0.3", optional = true, features = [
     "BinaryType",
     "Blob",
+    "BlobPropertyBag",
     "DedicatedWorkerGlobalScope",
     "FileReader",
     "Headers",
@@ -82,6 +83,7 @@ web-sys = { version = "0.3", optional = true, features = [
     "RequestInit",
     "RequestMode",
     "Response",
+    "Url",
     "WebSocket",
     "Window",
     "Worker",

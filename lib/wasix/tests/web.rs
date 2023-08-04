@@ -7,13 +7,10 @@
 
 use futures::channel::oneshot;
 use wasmer_wasix::{
-    http::default_http_client,
+    http::HttpClient,
     runtime::{
-        resolver::WapmSource::WASMER_PROD_ENDPOINT,
-        task_manager::{
-            web::{WebTaskManager, WebThreadPool},
-            VirtualTaskManager,
-        },
+        resolver::WapmSource,
+        task_manager::{VirtualTaskManager, WebTaskManager, WebThreadPool},
     },
 };
 
@@ -21,7 +18,7 @@ wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test::wasm_bindgen_test]
 async fn use_the_task_manager() {
-    let pool = WebThreadPool::new(1).unwrap();
+    let pool = WebThreadPool::new(2);
     let task_manager = WebTaskManager::new(pool);
     let (sender, receiver) = oneshot::channel();
 
@@ -37,16 +34,34 @@ async fn use_the_task_manager() {
 }
 
 #[wasm_bindgen_test::wasm_bindgen_test]
-async fn send_a_post_request() {
-    let http_client = wasmer_wasix::http::web::WebHttpClient::default();
+async fn query_the_wasmer_registry_graphql_endpoint() {
+    let http_client = wasmer_wasix::http::web_http_client::WebHttpClient::default();
     let query = r#"{
         "query": "{ info { defaultFrontend } }"
     }"#;
-    let request = http::Request::post(WASMER_PROD_ENDPOINT)
+    let request = http::Request::post(WapmSource::WASMER_PROD_ENDPOINT)
         .header(http::header::CONTENT_TYPE, "application/json")
-        .body(query);
+        .body(query)
+        .unwrap();
 
     let response = http_client.request(request.into()).await.unwrap();
 
-    panic!("{response:?}");
+    assert_eq!(
+        response
+            .headers
+            .get(http::header::CONTENT_TYPE)
+            .unwrap()
+            .to_str()
+            .unwrap(),
+        "application/json",
+    );
+    let body: serde_json::Value =
+        serde_json::from_slice(response.body.as_deref().unwrap()).unwrap();
+    assert_eq!(
+        body.pointer("/data/info/defaultFrontend")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+        "https://wasmer.io",
+    );
 }

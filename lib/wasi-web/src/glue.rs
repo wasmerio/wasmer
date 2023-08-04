@@ -257,29 +257,6 @@ pub fn start(encoded_args: String) -> Result<(), JsValue> {
     terminal.on_data(callback.as_ref().unchecked_ref());
     callback.forget();
 
-    /*
-    {
-        let addon = FitAddon::new();
-        terminal.load_addon(addon.clone().dyn_into::<FitAddon>()?.into());
-        addon.fit();
-    }
-    */
-
-    /*
-    {
-        let addon = WebLinksAddon::new();
-        terminal.load_addon(addon.clone().dyn_into::<WebLinksAddon>()?.into());
-        addon.fit();
-    }
-    */
-
-    /*
-    {
-        let addon = WebglAddon::new(None);
-        terminal.load_addon(addon.clone().dyn_into::<WebglAddon>()?.into());
-    }
-    */
-
     {
         let front_buffer: HtmlCanvasElement = front_buffer.clone().dyn_into().unwrap();
         let terminal: Terminal = terminal.clone().dyn_into().unwrap();

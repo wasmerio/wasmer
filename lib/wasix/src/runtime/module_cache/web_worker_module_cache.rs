@@ -5,7 +5,7 @@ use wasmer::{Engine, Module};
 
 use crate::runtime::{
     module_cache::{CacheError, ModuleCache, ModuleHash, ThreadLocalCache},
-    task_manager::web::WebRunCommand,
+    task_manager::web_thread_pool::WebRunCommand,
 };
 
 /// A thin wrapper around [`ThreadLocalCache`] that will automatically share
@@ -19,7 +19,6 @@ pub struct WebWorkerModuleCache {
 impl WebWorkerModuleCache {
     fn cache_in_main(&self, key: ModuleHash, module: &Module, deterministic_id: &str) {
         let deterministic_id = deterministic_id.to_string();
-        let inner = self.inner.clone();
         let task = Box::new(WebRunCommand::ExecModule {
             run: Box::new(move |module| {
                 let key = (key, deterministic_id);
@@ -32,7 +31,7 @@ impl WebWorkerModuleCache {
         let module = JsValue::from(module.clone())
             .dyn_into::<js_sys::WebAssembly::Module>()
             .unwrap();
-        crate::runtime::task_manager::web::schedule_task(
+        crate::runtime::task_manager::web_thread_pool::schedule_task(
             JsValue::from(task as u32),
             module,
             JsValue::NULL,
@@ -90,7 +89,7 @@ impl WebWorkerModuleCache {
             // Annotation is here to prevent spurious IDE warnings.
             #[allow(unused_unsafe)]
             unsafe {
-                let entries = JsValue::from(cache).dyn_into::<js_sys::Array>().unwrap();
+                let entries = cache.dyn_into::<js_sys::Array>().unwrap();
 
                 for i in 0..entries.length() {
                     let entry = entries.get(i);

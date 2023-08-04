@@ -105,10 +105,79 @@ async fn fetch(request: HttpRequest) -> Result<HttpResponse, Error> {
                 .with_context(|| format!("Could not fetch '{url}'"))?
         }
     };
-    assert!(resp_value.is_instance_of::<web_sys::Response>());
-    let resp: web_sys::Response = resp_value.dyn_into().unwrap();
 
-    todo!()
+    let response = resp_value.dyn_ref().unwrap();
+    read_response(response).await
+}
+
+async fn read_response(response: &web_sys::Response) -> Result<HttpResponse, anyhow::Error> {
+    let status = http::StatusCode::from_u16(response.status())?;
+    let headers = headers(response.headers()).context("Unable to read the headers")?;
+    let body = get_response_data(response).await?;
+
+    Ok(HttpResponse {
+        body: Some(body),
+        redirected: response.redirected(),
+        status,
+        headers,
+    })
+}
+
+fn headers(headers: web_sys::Headers) -> Result<http::HeaderMap, anyhow::Error> {
+    let iter = js_sys::try_iter(&headers)
+        .map_err(js_error)?
+        .context("Not an iterator")?;
+    let mut header_map = http::HeaderMap::new();
+
+    for pair in iter {
+        let pair = pair.map_err(js_error)?;
+        let [key, value]: [js_sys::JsString; 2] =
+            js_array(&pair).context("Unable to unpack the header's key-value pairs")?;
+
+        let key = String::from(key);
+        let key: http::HeaderName = key.parse()?;
+        let value = String::from(value);
+        let value = http::HeaderValue::from_str(&value)
+            .with_context(|| format!("Invalid header value: {value}"))?;
+
+        header_map.insert(key, value);
+    }
+
+    Ok(header_map)
+}
+
+fn js_array<T, const N: usize>(value: &JsValue) -> Result<[T; N], anyhow::Error>
+where
+    T: JsCast,
+{
+    let array: &js_sys::Array = value.dyn_ref().context("Not an array")?;
+
+    let mut items = Vec::new();
+
+    for value in array.iter() {
+        let item = value
+            .dyn_into()
+            .map_err(|_| anyhow::anyhow!("Unable to cast to a {}", std::any::type_name::<T>()))?;
+        items.push(item);
+    }
+
+    <[T; N]>::try_from(items).map_err(|original| {
+        anyhow::anyhow!(
+            "Unable to turn a list of {} items into an array of {N} items",
+            original.len()
+        )
+    })
+}
+
+pub async fn get_response_data(resp: &web_sys::Response) -> Result<Vec<u8>, anyhow::Error> {
+    let buffer = JsFuture::from(resp.array_buffer().unwrap())
+        .await
+        .map_err(js_error)
+        .with_context(|| "Could not retrieve response body".to_string())?;
+
+    let buffer = js_sys::Uint8Array::new(&buffer);
+
+    Ok(buffer.to_vec())
 }
 
 fn call_fetch(request: &web_sys::Request) -> JsFuture {

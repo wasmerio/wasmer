@@ -3,7 +3,12 @@
 pub mod tokio;
 
 #[cfg(feature = "js")]
-pub mod web;
+pub(crate) mod web;
+#[cfg(feature = "js")]
+pub(crate) mod web_thread_pool;
+
+#[cfg(feature = "js")]
+pub use self::{web::WebTaskManager, web_thread_pool::WebThreadPool};
 
 use std::ops::Deref;
 use std::task::{Context, Poll};

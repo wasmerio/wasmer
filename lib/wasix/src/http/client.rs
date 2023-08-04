@@ -118,6 +118,19 @@ impl From<http::Request<Vec<u8>>> for HttpRequest {
     }
 }
 
+impl From<http::Request<&str>> for HttpRequest {
+    fn from(value: http::Request<&str>) -> Self {
+        value.map(|body| body.to_string()).into()
+    }
+}
+
+impl From<http::Request<String>> for HttpRequest {
+    fn from(value: http::Request<String>) -> Self {
+        let (parts, body) = value.into_parts();
+        HttpRequest::from_http_parts(parts, body.into_bytes())
+    }
+}
+
 impl From<http::Request<()>> for HttpRequest {
     fn from(value: http::Request<()>) -> Self {
         let (parts, _) = value.into_parts();

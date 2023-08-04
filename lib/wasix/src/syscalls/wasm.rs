@@ -27,5 +27,5 @@ pub fn platform_clock_time_get(
     precision: Timestamp,
 ) -> Result<i64, Errno> {
     let new_time: DateTime<Local> = Local::now();
-    Ok(new_time.timestamp_nanos() as i64)
+    Ok(new_time.timestamp_nanos())
 }

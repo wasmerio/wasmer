@@ -3,12 +3,12 @@ use std::sync::Arc;
 use virtual_net::VirtualNetworking;
 
 use crate::{
-    http::{web::WebHttpClient, HttpClient},
+    http::{web_http_client::WebHttpClient, HttpClient},
     runtime::{
         module_cache::{ModuleCache, WebWorkerModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{PackageSpecifier, PackageSummary, QueryError, Source, WapmSource},
-        task_manager::web::{WebTaskManager, WebThreadPool},
+        task_manager::{web::WebTaskManager, web_thread_pool::WebThreadPool},
     },
     Runtime, VirtualTaskManager,
 };
