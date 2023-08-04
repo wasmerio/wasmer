@@ -27,10 +27,10 @@
 Wasmer is a _blazing fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables incredibly
 _lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and even the browser.
 
-- Secure by default. No file, network, or environment access, unless explicitly enabled.
-- Supports [WASIX](https://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
-- Fast. Run WebAssembly at near-native speeds.
-- Embeddable [anywhere via Wasmer SDKs](https://github.com/wasmerio/wasmer/#wasmer-sdk)
+- **Secure** by default. No file, network, or environment access, unless explicitly enabled.
+- **Pluggable**. supports [**WASIX**](https://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
+- **Incredibly Fast**. Run WebAssembly at near-native speeds.
+- **Embeddable** [anywhere via Wasmer SDKs](https://github.com/wasmerio/wasmer/#wasmer-sdk)
 
 ### Install Wasmer
 
@@ -88,6 +88,8 @@ curl https://get.wasmer.io -sSfL | sh
 
 </details>
 
+> Note: You can also try Wasmer online in [wasmer.sh](https://wasmer.sh/)
+> 
 ### Quickstart
 
 You can start by running
@@ -106,7 +108,7 @@ $ wasmer run cowsay "hello world"
                 ||     ||
 ```
 
-> There are many more available packages, such as `wasmer/python` or `quickjs`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore from the community: https://wasmer.io/explore
+> There are many more available packages, such as `wasmer/python` or `quickjs`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore packages from the community: https://wasmer.io/explore
 
 #### Here is what you can do next:
 
