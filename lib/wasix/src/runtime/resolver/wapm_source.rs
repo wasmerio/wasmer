@@ -115,7 +115,6 @@ impl WapmSource {
             %response.status,
             %response.redirected,
             ?response.headers,
-            response.body=String::from_utf8_lossy(&body).as_ref(),
             "Received a response from GraphQL",
         );
 
@@ -146,8 +145,6 @@ impl Source for WapmSource {
         let mut archived_versions = Vec::new();
 
         for pkg_version in versions {
-            tracing::trace!(?pkg_version, "Checking a package version");
-
             let version = match Version::parse(&pkg_version.version) {
                 Ok(v) => v,
                 Err(e) => {

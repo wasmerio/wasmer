@@ -1,45 +1,28 @@
-#[cfg(not(test))]
+#[cfg(proc_macro)]
 extern crate proc_macro;
-#[cfg(not(test))]
-use proc_macro::TokenStream;
-#[cfg(test)]
+
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::path::Path;
-#[cfg(not(test))]
-use syn::parse;
-#[cfg(test)]
-use syn::parse2 as parse;
 use syn::*;
 
 mod ignores;
 
-// Reimplement parse_macro_input to use the imported `parse`
-// function. This way parse_macro_input will parse a TokenStream2 when
-// unit-testing.
-macro_rules! parse_macro_input {
-    (
-        $token_stream:ident as $T:ty
-    ) => {
-        match parse::<$T>($token_stream) {
-            Ok(data) => data,
-            Err(err) => {
-                return TokenStream::from(err.to_compile_error());
-            }
-        }
-    };
-
-    (
-        $token_stream:ident
-    ) => {
-        parse_macro_input!($token_stream as _)
-    };
+#[cfg(proc_macro)]
+#[proc_macro_attribute]
+pub fn compiler_test(
+    attrs: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    compiler_test_impl(attrs.into(), input.into()).into()
 }
 
-#[proc_macro_attribute]
-pub fn compiler_test(attrs: TokenStream, input: TokenStream) -> TokenStream {
-    let path: Option<ExprPath> = parse::<ExprPath>(attrs).ok();
-    let mut my_fn: ItemFn = parse_macro_input!(input as ItemFn);
+fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
+    let path: Option<ExprPath> = parse2::<ExprPath>(attrs).ok();
+    let mut my_fn: ItemFn = match syn::parse2(input) {
+        Ok(f) => f,
+        Err(e) => return e.into_compile_error(),
+    };
     let fn_name = my_fn.sig.ident.clone();
 
     // Let's build the ignores to append an `#[ignore]` macro to the

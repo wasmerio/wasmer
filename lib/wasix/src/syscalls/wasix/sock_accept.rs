@@ -29,7 +29,7 @@ pub fn sock_accept<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags, nonblocking));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
 
@@ -64,7 +64,7 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal::<M>(env, sock, fd_flags, nonblocking));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
@@ -77,7 +77,7 @@ pub fn sock_accept_v2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub fn sock_accept_internal<M: MemorySize>(
+pub fn sock_accept_internal(
     env: &WasiEnv,
     sock: WasiFd,
     mut fd_flags: Fdflags,

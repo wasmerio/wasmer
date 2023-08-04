@@ -13,7 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=4.1.0", default-features = false }
+wasmer = { path = "../api", version = "=4.1.1", default-features = false }
 hex = "0.4"
 thiserror = "1"
 blake3 = "1.0"
@@ -22,8 +22,8 @@ blake3 = "1.0"
 criterion = { version = "0.5", default-features = false }
 tempfile = "3.6.0"
 rand = "0.8.3"
-wasmer = { path = "../api", version = "=4.1.0", default-features = false, features = ["sys", "cranelift"] }
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=4.1.0" }
+wasmer = { path = "../api", version = "=4.1.1", default-features = false, features = ["sys", "cranelift"] }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=4.1.1" }
 
 [features]
 default = ["filesystem"]
