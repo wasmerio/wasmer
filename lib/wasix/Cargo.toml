@@ -104,7 +104,7 @@ wasm-bindgen-test = "0.3.0"
 tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber = { version = "^0.2" }
+tracing-subscriber = { version = "^0.3" }
 wasmer = { path = "../api", version = "=4.1.1", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
 
 [features]
