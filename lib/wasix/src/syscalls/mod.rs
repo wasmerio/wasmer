@@ -574,7 +574,7 @@ where
 /// Performs mutable work on a socket under an asynchronous runtime with
 /// built in signal processing
 pub(crate) fn __sock_asyncify_mut<T, F, Fut>(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -613,7 +613,7 @@ where
 /// Performs an immutable operation on the socket while running in an asynchronous runtime
 /// This has built in signal support
 pub(crate) fn __sock_actor<T, F>(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -650,7 +650,7 @@ where
 /// Performs mutable work on a socket under an asynchronous runtime with
 /// built in signal processing
 pub(crate) fn __sock_actor_mut<T, F>(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,
@@ -686,7 +686,7 @@ where
 /// This is used for opening sockets or connecting sockets which changes
 /// the fundamental state of the socket to another state machine
 pub(crate) fn __sock_upgrade<'a, F, Fut>(
-    ctx: &'a FunctionEnvMut<'_, WasiEnv>,
+    ctx: &'a mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     rights: Rights,
     actor: F,

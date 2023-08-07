@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = instance.exports.get_function("_start")?;
     start.call(&mut store, &[])?;
 
-    wasi_env.cleanup(&mut store, None);
+    wasi_env.cleanup(&store, None);
 
     Ok(())
 }

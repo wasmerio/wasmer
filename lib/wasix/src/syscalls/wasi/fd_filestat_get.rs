@@ -35,7 +35,7 @@ pub fn fd_filestat_get<M: MemorySize>(
 /// - `__wasi_filestat_t *buf`
 ///     Where the metadata from `fd` will be written
 pub(crate) fn fd_filestat_get_internal(
-    ctx: &FunctionEnvMut<'_, WasiEnv>,
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
 ) -> Result<Filestat, Errno> {
     let env = ctx.data();
