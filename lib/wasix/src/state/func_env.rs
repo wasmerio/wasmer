@@ -206,7 +206,7 @@ impl WasiFunctionEnv {
     /// This function should only be called from within a syscall
     /// as it can potentially execute local thread variable cleanup
     /// code
-    pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
+    pub fn cleanup(&self, store: &impl AsStoreRef, exit_code: Option<ExitCode>) {
         trace!(
             "wasi[{}:{}]::cleanup",
             self.data(store).pid(),

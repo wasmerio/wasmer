@@ -330,7 +330,7 @@ impl WasiProcess {
                 })
             }
         }
-        futures::future::join_all(waits.into_iter())
+        futures::future::join_all(waits)
             .await
             .into_iter()
             .next()

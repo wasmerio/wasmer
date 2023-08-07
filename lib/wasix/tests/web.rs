@@ -20,7 +20,7 @@ fn init_logging() {
     static ONCE: std::sync::Once = std::sync::Once::new();
 
     ONCE.call_once(|| {
-        let _ = tracing_wasm::set_as_global_default();
+        tracing_wasm::set_as_global_default();
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     });
 }

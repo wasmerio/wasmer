@@ -21,7 +21,7 @@ impl WebSocket {
 }
 
 impl WebSocket {
-    pub fn set_onopen(&mut self, mut callback: Box<dyn FnMut()>) {
+    pub fn set_onopen(&mut self, mut callback: Box<dyn FnMut() + Send + Sync>) {
         let callback = Closure::wrap(Box::new(move |_e: web_sys::ProgressEvent| {
             callback.deref_mut()();
         }) as Box<dyn FnMut(web_sys::ProgressEvent)>);
@@ -29,7 +29,7 @@ impl WebSocket {
         callback.forget();
     }
 
-    pub fn set_onclose(&mut self, callback: Box<dyn Fn() + Send + 'static>) {
+    pub fn set_onclose(&mut self, callback: Box<dyn Fn() + Send + Sync>) {
         let callback = Closure::wrap(Box::new(move |_e: web_sys::ProgressEvent| {
             callback.deref()();
         }) as Box<dyn FnMut(web_sys::ProgressEvent)>);
@@ -38,7 +38,7 @@ impl WebSocket {
         callback.forget();
     }
 
-    pub fn set_onmessage(&mut self, callback: Box<dyn Fn(Vec<u8>) + Send + 'static>) {
+    pub fn set_onmessage(&mut self, callback: Box<dyn Fn(Vec<u8>) + Send + Sync>) {
         let callback = Arc::new(callback);
 
         let fr = web_sys::FileReader::new().unwrap();

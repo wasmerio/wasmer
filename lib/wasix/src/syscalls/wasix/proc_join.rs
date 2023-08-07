@@ -114,7 +114,6 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     let pid = match option_pid {
         None => {
             let mut process = ctx.data_mut().process.clone();
-            let pid_ptr = pid_ptr;
             let status_ptr = status_ptr;
 
             // We wait for any process to exit (if it takes too long

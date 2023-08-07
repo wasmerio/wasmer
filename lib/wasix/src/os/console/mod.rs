@@ -219,7 +219,7 @@ impl Console {
         }
 
         let builder = crate::runners::wasi::WasiRunner::new()
-            .with_envs(self.env.clone().into_iter())
+            .with_envs(self.env.clone())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
             .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))

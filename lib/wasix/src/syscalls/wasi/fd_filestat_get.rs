@@ -35,11 +35,11 @@ pub fn fd_filestat_get<M: MemorySize>(
 /// - `__wasi_filestat_t *buf`
 ///     Where the metadata from `fd` will be written
 pub(crate) fn fd_filestat_get_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
 ) -> Result<Filestat, Errno> {
     let env = ctx.data();
-    let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (_, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
     if !fd_entry.rights.contains(Rights::FD_FILESTAT_GET) {
         return Err(Errno::Access);

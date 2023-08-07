@@ -45,8 +45,7 @@ impl WebWorkerModuleCache {
             unsafe {
                 let entries = js_sys::Array::new_with_length(m.borrow().len() as u32);
 
-                let mut i = 0;
-                for ((key, deterministic_id), module) in m.borrow().iter() {
+                for (i, ((key, deterministic_id), module)) in m.borrow().iter().enumerate() {
                     let entry = js_sys::Object::new();
 
                     js_sys::Reflect::set(
@@ -75,8 +74,7 @@ impl WebWorkerModuleCache {
                     )
                     .unwrap();
 
-                    entries.set(i, JsValue::from(entry));
-                    i += 1;
+                    entries.set(i as u32, JsValue::from(entry));
                 }
 
                 JsValue::from(entries)

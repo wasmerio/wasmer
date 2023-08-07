@@ -622,7 +622,7 @@ impl ThreadStateSync {
                 idx: thread_index,
                 work: work_tx.clone(),
             };
-            if let Err(_) = state.pool.idle_tx.send(idle) {
+            if  state.pool.idle_tx.send(idle).is_err() {
                 tracing::info!("pool is closed");
                 break;
             }
@@ -741,7 +741,7 @@ impl ThreadStateAsync {
                     idx: thread_index,
                     work: work_tx.clone(),
                 };
-                if let Err(_) = state.pool.idle_tx.send(idle) {
+                if  state.pool.idle_tx.send(idle).is_err() {
                     tracing::info!("pool is closed");
                     break;
                 }
@@ -991,7 +991,7 @@ fn new_worker(opts: &WorkerOptions) -> Result<Worker, anyhow::Error> {
             web_sys::BlobPropertyBag::new().type_("application/javascript"),
         );
 
-        Ok(Url::create_object_url_with_blob(&blob?)?)
+        Url::create_object_url_with_blob(&blob?)
     }
 
     let script_url = WORKER_URL

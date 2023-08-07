@@ -352,7 +352,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     let tasks_inner = env.tasks().clone();
 
                     let res =
-                        __asyncify_light(env, None, async { poller.await })?.map_err(
+                        __asyncify_light(env, None, poller)?.map_err(
                             |err| match err {
                                 Errno::Timedout => Errno::Again,
                                 a => a,

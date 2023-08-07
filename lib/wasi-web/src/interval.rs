@@ -36,5 +36,3 @@ impl Drop for LeakyInterval {
         }
     }
 }
-
-
