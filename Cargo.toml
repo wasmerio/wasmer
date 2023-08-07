@@ -68,7 +68,6 @@ members = [
     "tests/integration/ios",
     "tests/lib/compiler-test-derive",
     "tests/lib/wast",
-    "tests/rust-wasi-tests",
     "tests/wasi-wast",
 ]
 exclude = ["lib/wasi-web"]

@@ -3572,13 +3572,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-wasi-tests"
-version = "0.1.0"
-dependencies = [
- "wasi",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
