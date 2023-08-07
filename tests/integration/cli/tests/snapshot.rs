@@ -1268,3 +1268,12 @@ fn test_snapshot_quickjs() {
         .run_wasm(include_bytes!("./wasm/qjs.wasm"));
     assert_json_snapshot!(snapshot);
 }
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_fs_rename() {
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .run_wasm(include_bytes!("./wasm/fs-rename.wasm"));
+    assert_json_snapshot!(snapshot);
+}
