@@ -5,10 +5,7 @@
 //! API.
 #![cfg(all(target_arch = "wasm32", feature = "js"))]
 
-use std::{
-    sync::{Condvar, Mutex},
-    time::Duration,
-};
+use std::sync::{Condvar, Mutex};
 
 use futures::channel::oneshot;
 use wasmer_wasix::{
