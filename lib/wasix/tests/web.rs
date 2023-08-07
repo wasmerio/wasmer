@@ -5,6 +5,11 @@
 //! API.
 #![cfg(all(target_arch = "wasm32", feature = "js"))]
 
+use std::{
+    sync::{Condvar, Mutex},
+    time::Duration,
+};
+
 use futures::channel::oneshot;
 use wasmer_wasix::{
     http::HttpClient,
@@ -21,13 +26,30 @@ fn init_logging() {
 
     ONCE.call_once(|| {
         let _ = tracing_wasm::set_as_global_default();
-        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     });
 }
 
 #[wasm_bindgen_test::wasm_bindgen_test]
+fn atomics_are_enabled() {
+    assert!(cfg!(target_feature = "atomics"));
+}
+
+#[wasm_bindgen_test::wasm_bindgen_test]
+fn condvar_works() {
+    let mutex = Mutex::new("asdf");
+    let condvar = Condvar::new();
+
+    let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
+}
+
+// #[wasm_bindgen_test::wasm_bindgen_test]
 async fn use_the_task_manager() {
     init_logging();
+    tracing::info!(
+        is_wasm = cfg!(target_arch = "wasm32"),
+        atomics_enabled = cfg!(target_feature = "atomics"),
+    );
     let pool = WebThreadPool::new(2);
     let task_manager = WebTaskManager::new(pool);
     let (sender, receiver) = oneshot::channel();

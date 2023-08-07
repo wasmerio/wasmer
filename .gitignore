@@ -3,7 +3,6 @@
 .DS_Store
 .idea
 .gdb_history
-/.cargo/
 **/.vscode
 api-docs-repo/
 /.cargo_home/

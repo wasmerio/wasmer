@@ -1,0 +1,12 @@
+[build]
+# This is needed so the module is compiled with atomics support (shared memory)
+rustflags = '-Ctarget-feature=+atomics,+bulk-memory'
+
+[target.wasm32-unknown-unknown]
+# Use "wasmer" for running tests when compiled to WebAssembly
+runner = ["wasmer", "run"]
+
+[unstable]
+# We want to make sure std gets built with atomics, too
+build-std = ['std', 'panic_abort']
+
