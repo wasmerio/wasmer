@@ -978,6 +978,7 @@ fn new_worker(opts: &WorkerOptions) -> Result<Worker, anyhow::Error> {
 
     fn init_worker_url() -> Result<String, JsValue> {
         #[wasm_bindgen]
+        #[allow(non_snake_case)]
         extern "C" {
             #[wasm_bindgen(js_namespace = ["import", "meta"], js_name = url)]
             static IMPORT_META_URL: String;
@@ -1039,13 +1040,6 @@ fn start_worker(
             Promise::resolve(&JsValue::UNDEFINED)
         });
     worker.set_onerror(Some(on_error.into_js_value().as_ref().unchecked_ref()));
-
-    // Note: a WebAssembly.Memory can't be sent to a worker, but we *can*
-    // send the underlying ArrayBuffer.
-    let memory = match memory.dyn_into::<js_sys::WebAssembly::Memory>() {
-        Ok(m) => m.buffer(),
-        Err(other) => other,
-    };
 
     worker
         .post_message(Array::from_iter([JsValue::from(module), memory, shared_data]).as_ref())
@@ -1120,19 +1114,6 @@ fn start_wasm(
 }
 
 pub(crate) fn schedule_task(task: JsValue, module: js_sys::WebAssembly::Module, memory: JsValue) {
-    let buffer = if let Some(memory) = memory.dyn_ref::<js_sys::WebAssembly::Memory>() {
-        memory.buffer()
-    } else if memory.has_type::<js_sys::ArrayBuffer>() {
-        memory
-    } else {
-        let ty = memory.js_typeof().as_string();
-        tracing::debug!(
-            js_type = ty.as_deref(),
-            "Trying to pass a non-ArrayBuffer to the worker",
-        );
-        memory
-    };
-
     let worker_scope = match js_sys::global().dyn_into::<DedicatedWorkerGlobalScope>() {
         Ok(s) => s,
         Err(_) => {
@@ -1142,7 +1123,7 @@ pub(crate) fn schedule_task(task: JsValue, module: js_sys::WebAssembly::Module, 
     };
 
     if let Err(err) =
-        worker_scope.post_message(Array::from_iter([task, module.into(), buffer]).as_ref())
+        worker_scope.post_message(Array::from_iter([task, module.into(), memory]).as_ref())
     {
         let err = js_error(err);
         tracing::error!(error = &*err, "failed to schedule task from worker thread");

@@ -5,8 +5,6 @@
 //! API.
 #![cfg(all(target_arch = "wasm32", feature = "js"))]
 
-use std::sync::{Condvar, Mutex};
-
 use futures::channel::oneshot;
 use wasmer_wasix::{
     http::HttpClient,
@@ -23,7 +21,7 @@ fn init_logging() {
 
     ONCE.call_once(|| {
         let _ = tracing_wasm::set_as_global_default();
-        // std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+        std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     });
 }
 
@@ -33,14 +31,6 @@ fn atomics_are_enabled() {
 }
 
 #[wasm_bindgen_test::wasm_bindgen_test]
-fn condvar_works() {
-    let mutex = Mutex::new("asdf");
-    let condvar = Condvar::new();
-
-    let _guard = condvar.wait(mutex.lock().unwrap()).unwrap();
-}
-
-// #[wasm_bindgen_test::wasm_bindgen_test]
 async fn use_the_task_manager() {
     init_logging();
     tracing::info!(
@@ -53,9 +43,7 @@ async fn use_the_task_manager() {
 
     task_manager
         .task_shared(Box::new(move || {
-            wasm_bindgen_test::console_log!("In shared task");
             Box::pin(async move {
-                wasm_bindgen_test::console_log!("Doing stuff");
                 sender.send(42_u32).unwrap();
             })
         }))
@@ -92,11 +80,10 @@ async fn query_the_wasmer_registry_graphql_endpoint() {
     );
     let body: serde_json::Value =
         serde_json::from_slice(response.body.as_deref().unwrap()).unwrap();
-    assert_eq!(
-        body.pointer("/data/info/defaultFrontend")
-            .unwrap()
-            .as_str()
-            .unwrap(),
-        "https://wasmer.io",
-    );
+    let frontend_url = body
+        .pointer("/data/info/defaultFrontend")
+        .unwrap()
+        .as_str()
+        .unwrap();
+    assert_eq!(frontend_url, "https://wasmer.io");
 }

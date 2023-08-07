@@ -12,6 +12,9 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 cfg-if = "1.0"
 thiserror = "1"
