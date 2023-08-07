@@ -16,6 +16,8 @@ concurrency:
 
 env:
   CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  # Required because of https://github.com/wasmerio/wasmer/issues/4132
+  RUSTC_VERSION: "nightly-2023-05-25"
 
 jobs:
   web:
@@ -34,7 +36,7 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: nightly-2023-05-25
+        toolchain: ${{ env.RUSTC_VERSION }}
 
     - name: Install wasm-pack
       uses: taiki-e/install-action@v2
@@ -82,21 +84,18 @@ jobs:
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: nightly-2023-05-25
+        toolchain: ${{ env.RUSTC_VERSION }}
 
     - name: Install wasm-pack
       uses: taiki-e/install-action@v2
       with:
         tool: wasm-pack
 
-    - name: Show Rust version
-      run: rustc --version --verbose
-
     - name: Check
-      run: cargo check --verbose --locked --features=wasmer/js,wasmer/std,js --no-default-features
+      run: cargo +nightly check --verbose --locked --features=wasmer/js,wasmer/std,js --no-default-features --target=wasm32-unknown-unknown
 
     - name: Integration Tests
-      run: wasm-pack test --chrome --headless --features=wasmer/js,wasmer/std,js --no-default-features
+      run: rustup run nightly wasm-pack test --chrome --headless --features=wasmer/js,wasmer/std,js --no-default-features
 
   lints:
     name: Lints and Formatting
@@ -118,8 +117,8 @@ jobs:
 
     - name: Check formatting
       shell: bash
-      run: cargo fmt --check
+      run: cargo +nightly fmt --check
 
     - name: Check clippy
       shell: bash
-      run: cargo clippy -- -Dwarnings
+      run: cargo +nightly clippy --features=wasmer/js,wasmer/std,js --no-default-features --target=wasm32-unknown-unknown -- -Dwarnings
