@@ -463,6 +463,11 @@
 <a href="#462" id="462">462</a>
 <a href="#463" id="463">463</a>
 <a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::utils::{copy_cstr_into_wasm, write_to_buf};
 <span class="kw">use crate</span>::{allocate_on_stack, lazy_static, EmEnv};
 <span class="kw">use </span>libc::{c_char, c_int};
@@ -712,7 +717,7 @@
     <span class="kw">let </span>timespec = <span class="kw">unsafe </span>{
         <span class="kw">let </span>time_p_addr = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time_p) <span class="kw">as </span><span class="kw-2">*mut </span>i64;
         <span class="kw">let </span>seconds = <span class="kw-2">*</span>time_p_addr;
-        time::OffsetDateTime::from_unix_timestamp(seconds)
+        time::OffsetDateTime::from_unix_timestamp(seconds).unwrap()
     };
 
     <span class="kw">unsafe </span>{
@@ -750,7 +755,7 @@
     </span><span class="kw">let </span>memory = ctx.data().memory(<span class="number">0</span>);
     <span class="kw">unsafe </span>{
         <span class="kw">let </span>seconds = <span class="macro">emscripten_memory_pointer!</span>(memory.view(<span class="kw-2">&amp;</span>ctx), time_p) <span class="kw">as </span><span class="kw-2">*const </span>i32;
-        <span class="kw">let </span>timespec = time::OffsetDateTime::from_unix_timestamp_nanos(<span class="kw-2">*</span>seconds <span class="kw">as _</span>);
+        <span class="kw">let </span>timespec = time::OffsetDateTime::from_unix_timestamp_nanos(<span class="kw-2">*</span>seconds <span class="kw">as _</span>).unwrap();
 
         <span class="comment">// debug!(
         //     &quot;&gt;&gt;&gt;&gt;&gt;&gt;&gt; time = {}, {}, {}, {}, {}, {}, {}, {}&quot;,
@@ -884,18 +889,23 @@
 
     <span class="kw">let </span>tm = <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span>tm };
 
-    <span class="kw">let </span>rust_date = time::Date::try_from_ymd(tm.tm_year, tm.tm_mon <span class="kw">as </span>u8, tm.tm_mday <span class="kw">as </span>u8);
-    <span class="kw">if </span>rust_date.is_err() {
+    <span class="kw">let </span><span class="prelude-val">Ok</span>(rust_date) = time::Date::from_calendar_date(
+        tm.tm_year,
+        time::Month::try_from(tm.tm_mon <span class="kw">as </span>u8).unwrap(),
+        tm.tm_mday <span class="kw">as </span>u8,
+    ) <span class="kw">else </span>{
         <span class="kw">return </span><span class="number">0</span>;
-    }
-    <span class="kw">let </span>rust_time = time::Time::try_from_hms(tm.tm_hour <span class="kw">as </span>u8, tm.tm_min <span class="kw">as </span>u8, tm.tm_sec <span class="kw">as </span>u8);
-    <span class="kw">if </span>rust_time.is_err() {
+    };
+    <span class="kw">let </span><span class="prelude-val">Ok</span>(rust_time) = time::Time::from_hms(tm.tm_hour <span class="kw">as </span>u8, tm.tm_min <span class="kw">as </span>u8, tm.tm_sec <span class="kw">as </span>u8) <span class="kw">else </span>{
         <span class="kw">return </span><span class="number">0</span>;
-    }
-    <span class="kw">let </span>rust_datetime = time::PrimitiveDateTime::new(rust_date.unwrap(), rust_time.unwrap());
-    <span class="kw">let </span>rust_odt = rust_datetime.assume_offset(time::UtcOffset::seconds(tm.tm_gmtoff));
+    };
+    <span class="kw">let </span>rust_datetime = time::PrimitiveDateTime::new(rust_date, rust_time);
+    <span class="kw">let </span>rust_odt =
+        rust_datetime.assume_offset(time::UtcOffset::from_whole_seconds(tm.tm_gmtoff).unwrap());
 
-    <span class="kw">let </span>result_str = rust_odt.format(format_string);
+    <span class="kw">let </span>result_str = rust_odt
+        .format(<span class="kw-2">&amp;</span>time::format_description::parse(format_string).unwrap())
+        .unwrap();
 
     <span class="comment">// pad for null?
     </span><span class="kw">let </span>bytes = result_str.chars().count();
