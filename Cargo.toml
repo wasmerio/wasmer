@@ -106,7 +106,7 @@ wasmer = { version = "=4.2.5", path = "lib/api", features = [
 anyhow = "1.0"
 criterion = { version = "0.5", default-features = false }
 lazy_static = "1.4"
-serial_test = "0.5"
+serial_test = { version = "2.0", default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.6.0"
 # For logging tests using the `RUST_LOG=debug` when testing
