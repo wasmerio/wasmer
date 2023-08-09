@@ -386,7 +386,13 @@ impl Artifact {
             }),
         };
 
-        artifact.internal_register_frame_info();
+        // The error scenario could be improved here. We're deserializing frame info
+        // as part of registration, so that's returning a DeserializeError, but
+        // this function returns a CompileError that's then wrapped in a
+        // DeserializeError anyway.
+        artifact
+            .internal_register_frame_info()
+            .map_err(|e| CompileError::Validate(format!("{:?}", e)))?;
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
@@ -610,18 +616,18 @@ impl Artifact {
         since = "4.0.0",
         note = "done automaticaly by Artifact::from_parts, use 'take_frame_info_registration' if you use this method"
     )]
-    pub fn register_frame_info(&mut self) {
+    pub fn register_frame_info(&mut self) -> Result<(), DeserializeError> {
         self.internal_register_frame_info()
     }
 
-    fn internal_register_frame_info(&mut self) {
+    fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
         if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
             .frame_info_registered
         {
-            return; // already done
+            return Ok(()); // already done
         }
 
         let finished_function_extents = self
@@ -654,7 +660,7 @@ impl Artifact {
             &finished_function_extents,
             match &self.artifact {
                 ArtifactBuildVariant::Plain(p) => p.get_frame_info_ref().clone(),
-                ArtifactBuildVariant::Archived(a) => a.get_frame_info_ref().clone(),
+                ArtifactBuildVariant::Archived(a) => a.deserialize_frame_info_ref()?,
             },
         );
 
@@ -662,6 +668,8 @@ impl Artifact {
             .as_mut()
             .expect("It must be allocated")
             .frame_info_registered = true;
+
+        Ok(())
     }
 
     /// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if

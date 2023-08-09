@@ -293,12 +293,6 @@ pub struct ArtifactBuildFromArchive {
 
     /// Compilation informations
     compile_info: CompileModuleInfo,
-
-    // The frame information is added into the singleton GlobalFrameInfo.
-    // It always needs to be deserialized to enable that scenario. Instead
-    // of deserializing this data when needed, we deserialize at creation
-    // time to avoid duplicate deserialization.
-    function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
 }
 
 impl ArtifactBuildFromArchive {
@@ -309,7 +303,6 @@ impl ArtifactBuildFromArchive {
         ) -> Result<&ArchivedSerializableModule, DeserializeError>,
     ) -> Result<Self, DeserializeError> {
         let mut compile_info = MaybeUninit::uninit();
-        let mut function_frame_info = MaybeUninit::uninit();
 
         let cell = ArtifactBuildFromArchiveCell::try_new(buffer, |buffer| {
             let module = module_builder(buffer)?;
@@ -318,13 +311,6 @@ impl ArtifactBuildFromArchive {
                 rkyv::Deserialize::deserialize(&module.compile_info, &mut deserializer)
                     .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?,
             );
-            function_frame_info = MaybeUninit::new(
-                rkyv::Deserialize::deserialize(
-                    &module.compilation.function_frame_info,
-                    &mut deserializer,
-                )
-                .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?,
-            );
             ModuleFromArchive::from_serializable_module(module)
         })?;
 
@@ -332,7 +318,6 @@ impl ArtifactBuildFromArchive {
         Ok(Self {
             cell,
             compile_info: unsafe { compile_info.assume_init() },
-            function_frame_info: unsafe { function_frame_info.assume_init() },
         })
     }
 
@@ -412,8 +397,15 @@ impl ArtifactBuildFromArchive {
     }
 
     /// Get Function Relocations ref
-    pub fn get_frame_info_ref(&self) -> &PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
-        &self.function_frame_info
+    pub fn deserialize_frame_info_ref(
+        &self,
+    ) -> Result<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>, DeserializeError> {
+        let mut deserializer = SharedDeserializeMap::new();
+        rkyv::Deserialize::deserialize(
+            &self.cell.borrow_dependent().compilation.function_frame_info,
+            &mut deserializer,
+        )
+        .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
     }
 }
 
