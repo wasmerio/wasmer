@@ -93,8 +93,7 @@ curl https://get.wasmer.io -sSfL | sh
 ### Quickstart
 
 You can start by running
-[QuickJS](https://wasmer.io/saghul/quickjs), a small and
-embeddable Javascript engine:
+[Cowsay](https://wasmer.io/syrusakbary/cowsay):
 
 ```bash
 $ wasmer run cowsay "hello world"
@@ -108,7 +107,7 @@ $ wasmer run cowsay "hello world"
                 ||     ||
 ```
 
-> There are many more available packages, such as `wasmer/python` or `quickjs`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore packages from the community: https://wasmer.io/explore
+> There are many more available packages, such as [`wasmer/python`](https://wasmer.io/wasmer/python) or [`quickjs`](https://wasmer.io/saghul/quickjs). [Create your own package](https://docs.wasmer.io/registry/get-started), or explore packages from the community: https://wasmer.io/explore
 
 #### Here is what you can do next:
 
