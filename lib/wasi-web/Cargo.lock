@@ -2586,6 +2586,7 @@ dependencies = [
  "petgraph",
  "pin-project",
  "rand",
+ "rustc_version",
  "semver",
  "serde",
  "serde_cbor",

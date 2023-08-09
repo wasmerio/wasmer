@@ -1,6 +1,6 @@
 mod common;
 mod glue;
 mod interval;
-mod runtime;
+mod term;
 
 pub use glue::start;

@@ -622,7 +622,7 @@ impl ThreadStateSync {
                 idx: thread_index,
                 work: work_tx.clone(),
             };
-            if  state.pool.idle_tx.send(idle).is_err() {
+            if state.pool.idle_tx.send(idle).is_err() {
                 tracing::info!("pool is closed");
                 break;
             }
@@ -741,7 +741,7 @@ impl ThreadStateAsync {
                     idx: thread_index,
                     work: work_tx.clone(),
                 };
-                if  state.pool.idle_tx.send(idle).is_err() {
+                if state.pool.idle_tx.send(idle).is_err() {
                     tracing::info!("pool is closed");
                     break;
                 }
@@ -984,6 +984,8 @@ fn new_worker(opts: &WorkerOptions) -> Result<Worker, anyhow::Error> {
             static IMPORT_META_URL: String;
         }
 
+        tracing::debug!(import_url = IMPORT_META_URL.as_str());
+
         let script = include_str!("worker.js").replace("$IMPORT_META_URL", &IMPORT_META_URL);
 
         let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(
@@ -997,6 +999,7 @@ fn new_worker(opts: &WorkerOptions) -> Result<Worker, anyhow::Error> {
     let script_url = WORKER_URL
         .get_or_try_init(init_worker_url)
         .map_err(js_error)?;
+    let script_url = "worker.js";
 
     Worker::new_with_options(script_url, opts).map_err(js_error)
 }

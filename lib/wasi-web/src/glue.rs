@@ -11,7 +11,7 @@ use wasm_bindgen::{prelude::*, JsCast};
 use wasmer_wasix::{
     capabilities::Capabilities,
     os::{Console, InputEvent, Tty, TtyOptions},
-    runtime::{task_manager::web::WebThreadPool, web::WebRuntime},
+    runtime::{task_manager::WebThreadPool, web::WebRuntime},
     Pipe,
 };
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext};
@@ -23,8 +23,10 @@ use xterm_js_rs::addons::web_links::WebLinksAddon;
 use xterm_js_rs::addons::webgl::WebglAddon;
 use xterm_js_rs::{LogLevel, OnKeyEvent, Terminal, TerminalOptions, Theme};
 
-use super::common::*;
-use crate::runtime::{TermStdout, TerminalCommandRx};
+use crate::{
+    common::*,
+    term::{TermStdout, TerminalCommandRx},
+};
 
 #[macro_export]
 #[doc(hidden)]
@@ -92,7 +94,6 @@ pub fn start(encoded_args: String) -> Result<(), JsValue> {
         static USER_AGENT: String;
     }
 
-    //ate::log_init(0i32, false);
     tracing_wasm::set_as_global_default_with_config(
         tracing_wasm::WASMLayerConfigBuilder::new()
             .set_report_logs_in_timings(false)
