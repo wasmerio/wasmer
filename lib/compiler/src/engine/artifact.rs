@@ -97,6 +97,9 @@ pub struct Artifact {
     allocated: Option<AllocatedArtifact>,
 }
 
+/// Artifacts may be created as the result of the compilation of a wasm
+/// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
+/// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
 pub enum ArtifactBuildVariant {
     Plain(ArtifactBuild),
     Archived(ArtifactBuildFromArchive),
