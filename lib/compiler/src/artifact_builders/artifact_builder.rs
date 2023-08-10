@@ -244,14 +244,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let serialized_data = self.serializable.serialize()?;
-        assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
-
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(Self::MAGIC_HEADER);
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-        metadata_binary.extend(serialized_data);
-        Ok(metadata_binary)
+        serialize_module(&self.serializable)
     }
 }
 
@@ -468,13 +461,17 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
         )
         .map_err(|e| SerializeError::Generic(e.to_string()))?;
         module.compile_info = self.compile_info.clone();
-        let serialized_data = module.serialize()?;
-        assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
-
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(ArtifactBuild::MAGIC_HEADER);
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-        metadata_binary.extend(serialized_data);
-        Ok(metadata_binary)
+        serialize_module(&module)
     }
+}
+
+fn serialize_module(module: &SerializableModule) -> Result<Vec<u8>, SerializeError> {
+    let serialized_data = module.serialize()?;
+    assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
+
+    let mut metadata_binary = vec![];
+    metadata_binary.extend(ArtifactBuild::MAGIC_HEADER);
+    metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
+    metadata_binary.extend(serialized_data);
+    Ok(metadata_binary)
 }
