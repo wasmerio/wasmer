@@ -7,7 +7,10 @@ pub mod reqwest;
 #[cfg(feature = "js")]
 mod web_http_client;
 
-pub use self::{client::*, web_http_client::WebHttpClient};
+#[cfg(feature = "js")]
+pub use self::web_http_client::WebHttpClient;
+
+pub use self::client::*;
 
 pub(crate) const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "-", env!("CARGO_PKG_VERSION"));
 
