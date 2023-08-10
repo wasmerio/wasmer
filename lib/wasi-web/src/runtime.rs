@@ -26,7 +26,7 @@ use wasmer_wasix::{
         resolver::{Source, WapmSource},
         task_manager::TaskWasm,
     },
-    VirtualFile, VirtualNetworking, VirtualTaskManager, WasiThreadError, WasiTtyState,
+    VirtualFile, VirtualTaskManager, WasiThreadError, WasiTtyState,
 };
 use web_sys::WebGl2RenderingContext;
 
@@ -67,6 +67,7 @@ impl WebRuntime {
         pool: WebThreadPool,
         tty_options: TtyOptions,
         webgl2: WebGl2RenderingContext,
+        net: wasmer_wasix::virtual_net::DynVirtualNetworking,
     ) -> WebRuntime {
         #[cfg(feature = "webgl")]
         let webgl_tx = GlContext::init(webgl2);
@@ -95,18 +96,13 @@ impl WebRuntime {
             #[cfg(feature = "webgl")]
             webgl_tx,
             http_client,
-            net: Arc::new(WebVirtualNetworking),
+            net,
             module_cache: Arc::new(module_cache),
             package_loader: Arc::new(package_loader),
             source: Arc::new(source),
         }
     }
 }
-
-#[derive(Clone, Debug)]
-struct WebVirtualNetworking;
-
-impl VirtualNetworking for WebVirtualNetworking {}
 
 #[derive(Debug, Clone)]
 pub(crate) struct WebTaskManager {

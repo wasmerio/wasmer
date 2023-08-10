@@ -20,7 +20,7 @@ pub fn port_addr_remove<M: MemorySize>(
 
     let net = env.net().clone();
     wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.ip_remove(ip).map_err(net_error_into_wasi_err)
+        net.ip_remove(ip).await.map_err(net_error_into_wasi_err)
     })?);
     Ok(Errno::Success)
 }

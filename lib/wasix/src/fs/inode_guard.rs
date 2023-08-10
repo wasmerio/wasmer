@@ -12,7 +12,7 @@ use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
 use virtual_mio::{InterestType, StatefulHandler};
-use virtual_net::NetworkError;
+use virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::{
     types::Eventtype,
     wasi::{self, EpollType},
@@ -747,43 +747,4 @@ fn is_err_closed(err: &std::io::Error) -> bool {
         || err.kind() == std::io::ErrorKind::BrokenPipe
         || err.kind() == std::io::ErrorKind::NotConnected
         || err.kind() == std::io::ErrorKind::UnexpectedEof
-}
-
-pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
-    use std::io::ErrorKind;
-    match net_error {
-        NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
-        NetworkError::AlreadyExists => ErrorKind::AlreadyExists.into(),
-        NetworkError::Lock => ErrorKind::BrokenPipe.into(),
-        NetworkError::IOError => ErrorKind::BrokenPipe.into(),
-        NetworkError::AddressInUse => ErrorKind::AddrInUse.into(),
-        NetworkError::AddressNotAvailable => ErrorKind::AddrNotAvailable.into(),
-        NetworkError::BrokenPipe => ErrorKind::BrokenPipe.into(),
-        NetworkError::ConnectionAborted => ErrorKind::ConnectionAborted.into(),
-        NetworkError::ConnectionRefused => ErrorKind::ConnectionRefused.into(),
-        NetworkError::ConnectionReset => ErrorKind::ConnectionReset.into(),
-        NetworkError::Interrupted => ErrorKind::Interrupted.into(),
-        NetworkError::InvalidData => ErrorKind::InvalidData.into(),
-        NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
-        NetworkError::NotConnected => ErrorKind::NotConnected.into(),
-        NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
-        NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),
-        NetworkError::TimedOut => ErrorKind::TimedOut.into(),
-        NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
-        NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
-        NetworkError::WriteZero => ErrorKind::WriteZero.into(),
-        NetworkError::Unsupported => ErrorKind::Unsupported.into(),
-        NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
-        NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
-        NetworkError::TooManyOpenFiles => {
-            #[cfg(target_family = "unix")]
-            {
-                std::io::Error::from_raw_os_error(libc::EMFILE)
-            }
-            #[cfg(not(target_family = "unix"))]
-            {
-                ErrorKind::Other.into()
-            }
-        }
-    }
 }
