@@ -148,6 +148,11 @@ impl ArtifactBuild {
         ))
     }
 
+    /// Create a new ArtifactBuild from a SerializableModule
+    pub fn from_serializable(serializable: SerializableModule) -> Self {
+        Self { serializable }
+    }
+
     /// Get Functions Bodies ref
     pub fn get_function_bodies_ref(&self) -> &PrimaryMap<LocalFunctionIndex, FunctionBody> {
         &self.serializable.compilation.function_bodies

@@ -17,6 +17,8 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{Engine, EngineInner};
 use enumset::EnumSet;
 use shared_buffer::OwnedBuffer;
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
+use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 #[cfg(feature = "static-artifact-create")]
@@ -1059,114 +1061,116 @@ impl Artifact {
         engine: &Engine,
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
-        todo!()
-        // let metadata_len = MetadataHeader::parse(bytes)?;
-        // let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-        // let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
-        // let metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
+        use wasmer_types::SerializableCompilation;
 
-        // const WORD_SIZE: usize = mem::size_of::<usize>();
-        // let mut byte_buffer = [0u8; WORD_SIZE];
+        let bytes = bytes.as_slice();
+        let metadata_len = MetadataHeader::parse(bytes)?;
+        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
+        let metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)?;
 
-        // let mut cur_offset = MetadataHeader::LEN + metadata_len;
+        const WORD_SIZE: usize = mem::size_of::<usize>();
+        let mut byte_buffer = [0u8; WORD_SIZE];
 
-        // let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-        // byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-        // cur_offset += WORD_SIZE;
+        let mut cur_offset = MetadataHeader::LEN + metadata_len;
 
-        // let num_finished_functions = usize::from_ne_bytes(byte_buffer);
-        // let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
-        //     PrimaryMap::new();
+        let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+        byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+        cur_offset += WORD_SIZE;
 
-        // let engine_inner = engine.inner();
-        // let signature_registry = engine_inner.signatures();
+        let num_finished_functions = usize::from_ne_bytes(byte_buffer);
+        let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
+            PrimaryMap::new();
 
-        // // read finished functions in order now...
-        // for _i in 0..num_finished_functions {
-        //     let byte_buffer_slice =
-        //         Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-        //     byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-        //     let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
-        //     cur_offset += WORD_SIZE;
+        let engine_inner = engine.inner();
+        let signature_registry = engine_inner.signatures();
 
-        //     // TODO: we can read back the length here if we serialize it. This will improve debug output.
-        //     finished_functions.push(fp);
-        // }
+        // read finished functions in order now...
+        for _i in 0..num_finished_functions {
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
+            cur_offset += WORD_SIZE;
 
-        // // We register all the signatures
-        // let signatures = {
-        //     metadata
-        //         .compile_info
-        //         .module
-        //         .signatures
-        //         .values()
-        //         .map(|sig| signature_registry.register(sig))
-        //         .collect::<PrimaryMap<_, _>>()
-        // };
+            // TODO: we can read back the length here if we serialize it. This will improve debug output.
+            finished_functions.push(fp);
+        }
 
-        // // read trampolines in order
-        // let mut finished_function_call_trampolines = PrimaryMap::new();
+        // We register all the signatures
+        let signatures = {
+            metadata
+                .compile_info
+                .module
+                .signatures
+                .values()
+                .map(|sig| signature_registry.register(sig))
+                .collect::<PrimaryMap<_, _>>()
+        };
 
-        // let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-        // byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-        // cur_offset += WORD_SIZE;
-        // let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
-        // for _ in 0..num_function_trampolines {
-        //     let byte_buffer_slice =
-        //         Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-        //     byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-        //     cur_offset += WORD_SIZE;
-        //     let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
-        //     let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
-        //     finished_function_call_trampolines.push(trampoline);
-        //     // TODO: we can read back the length here if we serialize it. This will improve debug output.
-        // }
+        // read trampolines in order
+        let mut finished_function_call_trampolines = PrimaryMap::new();
 
-        // // read dynamic function trampolines in order now...
-        // let mut finished_dynamic_function_trampolines = PrimaryMap::new();
-        // let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-        // byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-        // cur_offset += WORD_SIZE;
-        // let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
-        // for _i in 0..num_dynamic_trampoline_functions {
-        //     let byte_buffer_slice =
-        //         Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
-        //     byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-        //     let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
-        //     cur_offset += WORD_SIZE;
+        let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+        byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+        cur_offset += WORD_SIZE;
+        let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
+        for _ in 0..num_function_trampolines {
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+            cur_offset += WORD_SIZE;
+            let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
+            let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
+            finished_function_call_trampolines.push(trampoline);
+            // TODO: we can read back the length here if we serialize it. This will improve debug output.
+        }
 
-        //     // TODO: we can read back the length here if we serialize it. This will improve debug output.
+        // read dynamic function trampolines in order now...
+        let mut finished_dynamic_function_trampolines = PrimaryMap::new();
+        let byte_buffer_slice = Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+        byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+        cur_offset += WORD_SIZE;
+        let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
+        for _i in 0..num_dynamic_trampoline_functions {
+            let byte_buffer_slice =
+                Self::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)?;
+            byte_buffer[0..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
+            cur_offset += WORD_SIZE;
 
-        //     finished_dynamic_function_trampolines.push(fp);
-        // }
+            // TODO: we can read back the length here if we serialize it. This will improve debug output.
 
-        // let artifact = ArtifactBuild::from_serializable(SerializableModule {
-        //     compilation: SerializableCompilation::default(),
-        //     compile_info: metadata.compile_info,
-        //     data_initializers: metadata.data_initializers,
-        //     cpu_features: metadata.cpu_features,
-        // });
+            finished_dynamic_function_trampolines.push(fp);
+        }
 
-        // let finished_function_lengths = finished_functions
-        //     .values()
-        //     .map(|_| 0)
-        //     .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
-        //     .into_boxed_slice();
+        let artifact = ArtifactBuild::from_serializable(SerializableModule {
+            compilation: SerializableCompilation::default(),
+            compile_info: metadata.compile_info,
+            data_initializers: metadata.data_initializers,
+            cpu_features: metadata.cpu_features,
+        });
 
-        // Ok(Self {
-        //     id: Default::default(),
-        //     artifact,
-        //     allocated: Some(AllocatedArtifact {
-        //         frame_info_registered: false,
-        //         frame_info_registration: None,
-        //         finished_functions: finished_functions.into_boxed_slice(),
-        //         finished_function_call_trampolines: finished_function_call_trampolines
-        //             .into_boxed_slice(),
-        //         finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-        //             .into_boxed_slice(),
-        //         signatures: signatures.into_boxed_slice(),
-        //         finished_function_lengths,
-        //     }),
-        // })
+        let finished_function_lengths = finished_functions
+            .values()
+            .map(|_| 0)
+            .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
+            .into_boxed_slice();
+
+        Ok(Self {
+            id: Default::default(),
+            artifact: ArtifactBuildVariant::Plain(artifact),
+            allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
+                finished_functions: finished_functions.into_boxed_slice(),
+                finished_function_call_trampolines: finished_function_call_trampolines
+                    .into_boxed_slice(),
+                finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                    .into_boxed_slice(),
+                signatures: signatures.into_boxed_slice(),
+                finished_function_lengths,
+            }),
+        })
     }
 }
