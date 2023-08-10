@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix-types"
-version = "0.10.0"
+version = "0.11.0"
 description = "WASI and WASIX types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -15,9 +15,9 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=4.1.0" }
-wasmer-types = { path = "../types", version = "=4.1.0" }
-wasmer-derive = { path = "../derive", version = "=4.1.0" }
+wasmer = { default-features = false, path = "../api", version = "=4.1.1" }
+wasmer-types = { path = "../types", version = "=4.1.1" }
+wasmer-derive = { path = "../derive", version = "=4.1.1" }
 wai-bindgen-gen-rust = "0.2.1"
 wai-bindgen-rust = { version = "0.2.1", default-features = false, features = ["macros"] }
 wai-bindgen-gen-rust-wasm = "0.2.1"
@@ -29,7 +29,7 @@ bitflags = "1.3.0"
 cfg-if = "1.0.0"
 anyhow = "1.0.66"
 byteorder = "1.3"
-time = "0.2"
+time = { version = "0.3", features = ["formatting"] }
 tracing = { version = "0.1.37" }
 
 [dev-dependencies.pretty_assertions]

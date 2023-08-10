@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-web"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["John Sharratt <johnathan.sharratt@gmail.com>"]
 edition = "2021"
 publish = false
@@ -17,7 +17,7 @@ rust-version = "1.67"
 
 [dependencies]
 wasmer = { path = "../api", default_features = false, features = [ "js-default" ] }
-wasmer-wasix = { path = "../wasix", version = "0.10.0",  default-features = false, features = [ "js-default" ] }
+wasmer-wasix = { path = "../wasix", version = "0.11.0",  default-features = false, features = [ "js-default" ] }
 virtual-net = { path = "../virtual-net", default-features = false, features = [ "remote" ] }
 #wasm-bindgen = { version = "0.2", features = [ "nightly", "serde-serialize" ] }
 wasm-bindgen = { version = "0.2", features = [ "serde-serialize" ] }
@@ -28,7 +28,7 @@ js-sys = "0.3"
 tracing = { version = "^0.1", features = [ "log", "release_max_level_info" ] }
 #tracing = { version = "^0.1", features = [ "log" ] }
 tracing-futures = { version = "^0.2" }
-tracing-subscriber = { version = "^0.2" }
+tracing-subscriber = { version = "^0.3" }
 tracing-wasm = { version = "^0.2" }
 bytes = "^1"
 once_cell = "^1"
