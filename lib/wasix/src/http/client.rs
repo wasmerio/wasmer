@@ -138,7 +138,6 @@ impl From<http::Request<()>> for HttpRequest {
     }
 }
 
-
 // TODO: use types from http crate?
 pub struct HttpResponse {
     pub body: Option<Vec<u8>>,
