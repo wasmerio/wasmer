@@ -102,41 +102,6 @@ impl Engine {
         let bytes = std::fs::read(file_ref)?;
         Ok(Arc::new(Artifact::deserialize(&self.0, bytes.into())?))
     }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
-    ///
-    /// NOTE: you should almost always prefer [`Self::deserialize_from_mmapped_file`].
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize_unchecked`].
-    pub unsafe fn deserialize_from_mmapped_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        let bytes = std::fs::read(file_ref)?;
-        Ok(Arc::new(Artifact::deserialize_unchecked(
-            &self.0,
-            bytes.into(),
-        )?))
-    }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize`].
-    pub unsafe fn deserialize_from_mmapped_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        Ok(Arc::new(Artifact::deserialize(
-            &self.0,
-            OwnedBuffer::from_file(&file)
-                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
-        )?))
-    }
 }
 
 impl AsEngineRef for Engine {
