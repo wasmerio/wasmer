@@ -313,9 +313,10 @@ impl ArtifactBuildFromArchive {
         })?;
 
         // Safety: we know the lambda will execute before getting here and assign both values
+        let compile_info = unsafe { compile_info.assume_init() };
         Ok(Self {
             cell,
-            compile_info: unsafe { compile_info.assume_init() },
+            compile_info,
         })
     }
 
