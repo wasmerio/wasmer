@@ -86,7 +86,7 @@
 
     <span class="kw">let </span>net = env.net().clone();
     <span class="kw">let </span>routes = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
-        net.route_list().map_err(net_error_into_wasi_err)
+        net.route_list().<span class="kw">await</span>.map_err(net_error_into_wasi_err)
     })<span class="question-mark">?</span>);
     Span::current().record(<span class="string">&quot;nroutes&quot;</span>, routes.len());
 

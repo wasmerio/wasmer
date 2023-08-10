@@ -192,7 +192,9 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
-</pre><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#195" id="195">195</a>
+</pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     sync::{Arc, Mutex},
     task::{Context, RawWaker, RawWakerVTable, Waker},
@@ -200,7 +202,7 @@
 
 <span class="kw">use </span>derivative::Derivative;
 
-<span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+<span class="attr">#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 </span><span class="kw">pub enum </span>InterestType {
     Readable,
     Writable,

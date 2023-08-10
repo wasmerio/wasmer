@@ -320,11 +320,9 @@
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
-<span class="kw">mod </span>waker;
 
 <span class="kw">use </span>std::ops::Deref;
 <span class="kw">use </span>std::task::{Context, Poll};
@@ -340,7 +338,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::AsyncifyFuture;
 <span class="kw">use crate</span>::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
-<span class="kw">pub use </span>waker::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>virtual_mio::waker::<span class="kw-2">*</span>;
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt; {

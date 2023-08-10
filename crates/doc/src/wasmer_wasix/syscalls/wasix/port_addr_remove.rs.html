@@ -47,7 +47,7 @@
 
     <span class="kw">let </span>net = env.net().clone();
     <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
-        net.ip_remove(ip).map_err(net_error_into_wasi_err)
+        net.ip_remove(ip).<span class="kw">await</span>.map_err(net_error_into_wasi_err)
     })<span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(Errno::Success)
 }

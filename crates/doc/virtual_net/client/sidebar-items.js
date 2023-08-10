@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["VTABLE"],"fn":["__assert_not_repr_packed","tx_waker_clone","tx_waker_wake"],"static":["CALLSITE","META"],"struct":["DataWithAddr","RemoteCommon","RemoteNetworkingClient","RemoteNetworkingClientDriver","RemoteSocket","RequestTx","SocketWithAddr","TxWaker","__Origin"],"trait":["MustNotImplDrop"],"type":["SocketMap"]};

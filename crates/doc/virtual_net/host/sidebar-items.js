@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["io_err_into_net_error"],"static":["CALLSITE","META"],"struct":["LocalNetworking","LocalTcpListener","LocalTcpStream","LocalUdpSocket"]};
+window.SIDEBAR_ITEMS = {"struct":["LocalNetworking","LocalTcpListener","LocalTcpStream","LocalUdpSocket"]};

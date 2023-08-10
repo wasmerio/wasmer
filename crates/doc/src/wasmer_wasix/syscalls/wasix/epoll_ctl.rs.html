@@ -239,9 +239,11 @@
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
 <a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::sync::{mpsc::UnboundedSender, watch};
 <span class="kw">use </span>virtual_mio::{InterestHandler, InterestType};
+<span class="kw">use </span>virtual_net::net_error_into_io_err;
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
     EpollCtl, EpollEvent, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
 };
@@ -253,8 +255,8 @@
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     fs::{
-        net_error_into_io_err, EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard,
-        InodeValFilePollGuardJoin, InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
+        EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin,
+        InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
     },
     state::PollEventSet,
     syscalls::<span class="kw-2">*</span>,

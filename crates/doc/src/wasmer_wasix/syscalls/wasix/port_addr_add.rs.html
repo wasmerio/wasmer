@@ -26,6 +26,7 @@
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -49,7 +50,8 @@
     <span class="kw">let </span>net = env.net().clone();
     <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
         net.ip_add(cidr.ip, cidr.prefix)
-            .map_err(net_error_into_wasi_err)
+            .<span class="kw">await
+            </span>.map_err(net_error_into_wasi_err)
     })<span class="question-mark">?</span>);
     <span class="prelude-val">Ok</span>(Errno::Success)
 }

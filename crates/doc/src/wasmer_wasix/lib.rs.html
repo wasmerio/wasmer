@@ -776,6 +776,7 @@
 <a href="#775" id="775">775</a>
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -852,8 +853,9 @@
 <span class="kw">pub use </span>virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;host-vnet&quot;</span>)]
-</span><span class="kw">pub use </span>virtual_net::host::{
-    io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
+</span><span class="kw">pub use </span>virtual_net::{
+    host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
+    io_err_into_net_error,
 };
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, ExitCode};
 

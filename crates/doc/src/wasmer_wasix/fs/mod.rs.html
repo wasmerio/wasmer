@@ -1995,7 +1995,6 @@
 <a href="#1994" id="1994">1994</a>
 <a href="#1995" id="1995">1995</a>
 <a href="#1996" id="1996">1996</a>
-<a href="#1997" id="1997">1997</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2030,9 +2029,8 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::inode_guard::{
-    net_error_into_io_err, InodeValFilePollGuard, InodeValFilePollGuardJoin,
-    InodeValFilePollGuardMode, InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
-    POLL_GUARD_MAX_RET,
+    InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
+    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
 };
 <span class="kw">pub use </span><span class="self">self</span>::notification::NotificationInner;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::map_io_err;

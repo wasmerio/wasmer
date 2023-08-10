@@ -749,45 +749,6 @@
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
 <a href="#750" id="750">750</a>
-<a href="#751" id="751">751</a>
-<a href="#752" id="752">752</a>
-<a href="#753" id="753">753</a>
-<a href="#754" id="754">754</a>
-<a href="#755" id="755">755</a>
-<a href="#756" id="756">756</a>
-<a href="#757" id="757">757</a>
-<a href="#758" id="758">758</a>
-<a href="#759" id="759">759</a>
-<a href="#760" id="760">760</a>
-<a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a>
-<a href="#763" id="763">763</a>
-<a href="#764" id="764">764</a>
-<a href="#765" id="765">765</a>
-<a href="#766" id="766">766</a>
-<a href="#767" id="767">767</a>
-<a href="#768" id="768">768</a>
-<a href="#769" id="769">769</a>
-<a href="#770" id="770">770</a>
-<a href="#771" id="771">771</a>
-<a href="#772" id="772">772</a>
-<a href="#773" id="773">773</a>
-<a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -802,7 +763,7 @@
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>virtual_fs::{FsError, Pipe <span class="kw">as </span>VirtualPipe, VirtualFile};
 <span class="kw">use </span>virtual_mio::{InterestType, StatefulHandler};
-<span class="kw">use </span>virtual_net::NetworkError;
+<span class="kw">use </span>virtual_net::net_error_into_io_err;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::Eventtype,
     wasi::{<span class="self">self</span>, EpollType},
@@ -1537,45 +1498,6 @@
         || err.kind() == std::io::ErrorKind::BrokenPipe
         || err.kind() == std::io::ErrorKind::NotConnected
         || err.kind() == std::io::ErrorKind::UnexpectedEof
-}
-
-<span class="kw">pub fn </span>net_error_into_io_err(net_error: NetworkError) -&gt; std::io::Error {
-    <span class="kw">use </span>std::io::ErrorKind;
-    <span class="kw">match </span>net_error {
-        NetworkError::InvalidFd =&gt; ErrorKind::BrokenPipe.into(),
-        NetworkError::AlreadyExists =&gt; ErrorKind::AlreadyExists.into(),
-        NetworkError::Lock =&gt; ErrorKind::BrokenPipe.into(),
-        NetworkError::IOError =&gt; ErrorKind::BrokenPipe.into(),
-        NetworkError::AddressInUse =&gt; ErrorKind::AddrInUse.into(),
-        NetworkError::AddressNotAvailable =&gt; ErrorKind::AddrNotAvailable.into(),
-        NetworkError::BrokenPipe =&gt; ErrorKind::BrokenPipe.into(),
-        NetworkError::ConnectionAborted =&gt; ErrorKind::ConnectionAborted.into(),
-        NetworkError::ConnectionRefused =&gt; ErrorKind::ConnectionRefused.into(),
-        NetworkError::ConnectionReset =&gt; ErrorKind::ConnectionReset.into(),
-        NetworkError::Interrupted =&gt; ErrorKind::Interrupted.into(),
-        NetworkError::InvalidData =&gt; ErrorKind::InvalidData.into(),
-        NetworkError::InvalidInput =&gt; ErrorKind::InvalidInput.into(),
-        NetworkError::NotConnected =&gt; ErrorKind::NotConnected.into(),
-        NetworkError::NoDevice =&gt; ErrorKind::BrokenPipe.into(),
-        NetworkError::PermissionDenied =&gt; ErrorKind::PermissionDenied.into(),
-        NetworkError::TimedOut =&gt; ErrorKind::TimedOut.into(),
-        NetworkError::UnexpectedEof =&gt; ErrorKind::UnexpectedEof.into(),
-        NetworkError::WouldBlock =&gt; ErrorKind::WouldBlock.into(),
-        NetworkError::WriteZero =&gt; ErrorKind::WriteZero.into(),
-        NetworkError::Unsupported =&gt; ErrorKind::Unsupported.into(),
-        NetworkError::UnknownError =&gt; ErrorKind::BrokenPipe.into(),
-        NetworkError::InsufficientMemory =&gt; ErrorKind::OutOfMemory.into(),
-        NetworkError::TooManyOpenFiles =&gt; {
-            <span class="attr">#[cfg(target_family = <span class="string">&quot;unix&quot;</span>)]
-            </span>{
-                std::io::Error::from_raw_os_error(libc::EMFILE)
-            }
-            <span class="attr">#[cfg(not(target_family = <span class="string">&quot;unix&quot;</span>))]
-            </span>{
-                ErrorKind::Other.into()
-            }
-        }
-    }
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

@@ -9,16 +9,20 @@
 <a href="#9" id="9">9</a>
 <a href="#10" id="10">10</a>
 <a href="#11" id="11">11</a>
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
 </pre><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">mod </span>guard;
 <span class="kw">mod </span>interest;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">mod </span>selector;
+<span class="kw">pub mod </span>waker;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">pub use </span>guard::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>interest::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">pub use </span>selector::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>waker::<span class="kw-2">*</span>;
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_mio" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>
