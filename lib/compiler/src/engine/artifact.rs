@@ -141,6 +141,19 @@ impl Artifact {
             ArtifactBuildVariant::Plain(artifact),
             engine.target(),
         )
+        .map_err(|e| match e {
+            DeserializeError::Compiler(c) => c,
+
+            // `from_parts` only ever returns `CompileError`s when an
+            // `ArtifactBuildVariant::Plain` is passed in. Other cases
+            // of `DeserializeError` can only happen when an
+            // `ArtifactBuildVariant::Archived` is passed in. We don't
+            // wish to change the return type of this method because
+            // a. it makes no sense and b. it would be a breaking change,
+            // hence this match block and the other cases being
+            // unreachable.
+            _ => unreachable!(),
+        })
     }
 
     /// This indicates if the Artifact is allocated and can be run by the current
@@ -210,7 +223,6 @@ impl Artifact {
             ArtifactBuildVariant::Archived(artifact),
             engine.target(),
         )
-        .map_err(DeserializeError::Compiler)
     }
 
     /// Deserialize a serialized artifact.
@@ -256,7 +268,6 @@ impl Artifact {
             ArtifactBuildVariant::Archived(artifact),
             engine.target(),
         )
-        .map_err(DeserializeError::Compiler)
     }
 
     /// Construct a `ArtifactBuild` from component parts.
@@ -264,7 +275,7 @@ impl Artifact {
         engine_inner: &mut EngineInner,
         artifact: ArtifactBuildVariant,
         target: &Target,
-    ) -> Result<Self, CompileError> {
+    ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
             return Ok(Self {
                 id: Default::default(),
@@ -391,13 +402,9 @@ impl Artifact {
             }),
         };
 
-        // The error scenario could be improved here. We're deserializing frame info
-        // as part of registration, so that's returning a DeserializeError, but
-        // this function returns a CompileError that's then wrapped in a
-        // DeserializeError anyway.
         artifact
             .internal_register_frame_info()
-            .map_err(|e| CompileError::Validate(format!("{:?}", e)))?;
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
