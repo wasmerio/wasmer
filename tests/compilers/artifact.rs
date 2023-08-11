@@ -18,3 +18,17 @@ fn artifact_serialization_roundtrip() {
         assert_eq!(serialized_bytes, reserialized_bytes);
     }
 }
+
+#[test]
+fn artifact_deserialization_roundtrip() {
+    let file_names = ["bash.wasmu", "cowsay.wasmu", "python-3.11.3.wasmu"];
+
+    for file_name in file_names {
+        let path = PathBuf::from("tests/compilers/wasmu").join(file_name);
+        let wasm_module_bytes = fs::read(path).unwrap();
+        let engine = Engine::default();
+        let module = unsafe { Module::deserialize(&engine, wasm_module_bytes.clone()) }.unwrap();
+        let reserialized_bytes = module.serialize().unwrap();
+        assert_eq!(wasm_module_bytes.to_vec(), reserialized_bytes);
+    }
+}
