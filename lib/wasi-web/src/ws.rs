@@ -16,12 +16,12 @@ impl WebSocket {
         // Open the web socket
         let ws_sys = WebSocketSys::new(url).map_err(|err| format!("{:?}", err))?;
 
-        Ok(Box::new(Self { sys: ws_sys }))
+        Ok(Self { sys: ws_sys })
     }
 }
 
 impl WebSocket {
-    fn set_onopen(&mut self, mut callback: Box<dyn FnMut()>) {
+    pub fn set_onopen(&mut self, mut callback: Box<dyn FnMut()>) {
         let callback = Closure::wrap(Box::new(move |_e: web_sys::ProgressEvent| {
             callback.deref_mut()();
         }) as Box<dyn FnMut(web_sys::ProgressEvent)>);
@@ -29,7 +29,7 @@ impl WebSocket {
         callback.forget();
     }
 
-    fn set_onclose(&mut self, callback: Box<dyn Fn() + Send + 'static>) {
+    pub fn set_onclose(&mut self, callback: Box<dyn Fn() + Send + 'static>) {
         let callback = Closure::wrap(Box::new(move |_e: web_sys::ProgressEvent| {
             callback.deref()();
         }) as Box<dyn FnMut(web_sys::ProgressEvent)>);
@@ -38,10 +38,7 @@ impl WebSocket {
         callback.forget();
     }
 
-    fn set_onmessage(
-        &mut self,
-        callback: Box<dyn Fn(Vec<u8>) + Send + 'static>,
-    ) {
+    pub fn set_onmessage(&mut self, callback: Box<dyn Fn(Vec<u8>) + Send + 'static>) {
         let callback = Arc::new(callback);
 
         let fr = web_sys::FileReader::new().unwrap();
@@ -79,7 +76,7 @@ impl WebSocket {
         onmessage_callback.forget();
     }
 
-    fn send(&mut self, data: Vec<u8>) -> Result<(), String> {
+    pub fn send(&mut self, data: Vec<u8>) -> Result<(), String> {
         let data_len = data.len();
         let array = js_sys::Uint8Array::new_with_length(data_len as u32);
         array.copy_from(&data[..]);

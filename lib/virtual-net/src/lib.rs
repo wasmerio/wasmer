@@ -1,18 +1,44 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+#[cfg(any(feature = "remote"))]
+pub mod client;
+#[cfg(feature = "host-net")]
+pub mod host;
+pub mod meta;
+#[cfg(any(feature = "remote"))]
+pub mod rx_tx;
+#[cfg(any(feature = "remote"))]
+pub mod server;
+#[cfg(feature = "tokio")]
+#[cfg(test)]
+mod tests;
+
+#[cfg(any(feature = "remote"))]
+pub use client::{RemoteNetworkingClient, RemoteNetworkingClientDriver};
+use pin_project_lite::pin_project;
+#[cfg(any(feature = "remote"))]
+pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
 use std::mem::MaybeUninit;
-use std::net::IpAddr;
-use std::net::Ipv4Addr;
-use std::net::Ipv6Addr;
+pub use std::net::IpAddr;
+pub use std::net::Ipv4Addr;
+pub use std::net::Ipv6Addr;
 use std::net::Shutdown;
-use std::net::SocketAddr;
+pub use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
+use std::task::Context;
+use std::task::Poll;
+pub use std::time::Duration;
 use thiserror::Error;
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncRead;
+#[cfg(feature = "tokio")]
+use tokio::io::AsyncWrite;
 
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
+use serde::{Deserialize, Serialize};
 pub use virtual_mio::{handler_into_waker, InterestHandler};
 #[cfg(feature = "host-net")]
 pub use virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
@@ -20,14 +46,14 @@ pub use virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
 /// Represents an IP address and its netmask
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct IpCidr {
     pub ip: IpAddr,
     pub prefix: u8,
 }
 
 /// Represents a routing entry in the routing table of the interface
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IpRoute {
     pub cidr: IpCidr,
     pub via_router: IpAddr,
@@ -67,37 +93,37 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Adds a static IP address to the interface with a netmask prefix
-    fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
+    async fn ip_add(&self, ip: IpAddr, prefix: u8) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Removes a static (or dynamic) IP address from the interface
-    fn ip_remove(&self, ip: IpAddr) -> Result<()> {
+    async fn ip_remove(&self, ip: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Clears all the assigned IP addresses for this interface
-    fn ip_clear(&self) -> Result<()> {
+    async fn ip_clear(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Lists all the IP addresses currently assigned to this interface
-    fn ip_list(&self) -> Result<Vec<IpCidr>> {
+    async fn ip_list(&self) -> Result<Vec<IpCidr>> {
         Err(NetworkError::Unsupported)
     }
 
     /// Returns the hardware MAC address for this interface
-    fn mac(&self) -> Result<[u8; 6]> {
+    async fn mac(&self) -> Result<[u8; 6]> {
         Err(NetworkError::Unsupported)
     }
 
     /// Adds a default gateway to the routing table
-    fn gateway_set(&self, ip: IpAddr) -> Result<()> {
+    async fn gateway_set(&self, ip: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Adds a specific route to the routing table
-    fn route_add(
+    async fn route_add(
         &self,
         cidr: IpCidr,
         via_router: IpAddr,
@@ -108,17 +134,17 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
     }
 
     /// Removes a routing rule from the routing table
-    fn route_remove(&self, cidr: IpAddr) -> Result<()> {
+    async fn route_remove(&self, cidr: IpAddr) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Clears the routing table for this interface
-    fn route_clear(&self) -> Result<()> {
+    async fn route_clear(&self) -> Result<()> {
         Err(NetworkError::Unsupported)
     }
 
     /// Lists all the routes defined in the routing table for this interface
-    fn route_list(&self) -> Result<Vec<IpRoute>> {
+    async fn route_list(&self) -> Result<Vec<IpRoute>> {
         Err(NetworkError::Unsupported)
     }
 
@@ -199,6 +225,42 @@ pub trait VirtualTcpListener: VirtualIoSource + fmt::Debug + Send + Sync + 'stat
     fn ttl(&self) -> Result<u8>;
 }
 
+#[async_trait::async_trait]
+pub trait VirtualTcpListenerExt: VirtualTcpListener {
+    /// Accepts a new connection from the TCP listener
+    async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
+}
+
+#[async_trait::async_trait]
+impl<R: VirtualTcpListener + ?Sized> VirtualTcpListenerExt for R {
+    async fn accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
+        struct Poller<'a, R>
+        where
+            R: VirtualTcpListener + ?Sized,
+        {
+            listener: &'a mut R,
+        }
+        impl<'a, R> std::future::Future for Poller<'a, R>
+        where
+            R: VirtualTcpListener + ?Sized,
+        {
+            type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>;
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = self.listener.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match self.listener.try_accept() {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { listener: self }.await
+    }
+}
+
 pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     /// Sets how many network hops the packets are permitted for new connections
     fn set_ttl(&mut self, ttl: u32) -> Result<()>;
@@ -218,7 +280,7 @@ pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()>;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SocketStatus {
     Opening,
     Opened,
@@ -226,7 +288,7 @@ pub enum SocketStatus {
     Failed,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StreamSecurity {
     Unencrypted,
     AnyEncyption,
@@ -259,6 +321,109 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
 }
 
+#[async_trait::async_trait]
+pub trait VirtualConnectedSocketExt: VirtualConnectedSocket {
+    async fn send(&mut self, data: &[u8]) -> Result<usize>;
+
+    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+
+    async fn flush(&mut self) -> Result<()>;
+}
+
+#[async_trait::async_trait]
+impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
+    async fn send(&mut self, data: &[u8]) -> Result<usize> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectedSocket,
+            {
+                socket: &'a mut R,
+                data: &'b [u8],
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            type Output = Result<usize>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_send(this.data) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self, data }.await
+    }
+
+    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectedSocket,
+            {
+                socket: &'a mut R,
+                buf: &'b mut [MaybeUninit<u8>],
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            type Output = Result<usize>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_recv(this.buf) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self, buf }.await
+    }
+
+    async fn flush(&mut self) -> Result<()> {
+        struct Poller<'a, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            socket: &'a mut R,
+        }
+        impl<'a, R> std::future::Future for Poller<'a, R>
+        where
+            R: VirtualConnectedSocket + ?Sized,
+        {
+            type Output = Result<()>;
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = self.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match self.socket.try_flush() {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self }.await
+    }
+}
+
 /// Connectionless sockets are able to send and receive datagrams and stream
 /// bytes to multiple addresses at the same time (peer-to-peer)
 pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
@@ -270,6 +435,86 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
     fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
 }
 
+#[async_trait::async_trait]
+pub trait VirtualConnectionlessSocketExt: VirtualConnectionlessSocket {
+    async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
+
+    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+}
+
+#[async_trait::async_trait]
+impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for R {
+    async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectionlessSocket,
+            {
+                socket: &'a mut R,
+                data: &'b [u8],
+                addr: SocketAddr,
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectionlessSocket + ?Sized,
+        {
+            type Output = Result<usize>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_send_to(this.data, *this.addr) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller {
+            socket: self,
+            data,
+            addr,
+        }
+        .await
+    }
+
+    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+        pin_project! {
+            struct Poller<'a, 'b, R: ?Sized>
+            where
+                R: VirtualConnectionlessSocket,
+            {
+                socket: &'a mut R,
+                buf: &'b mut [MaybeUninit<u8>],
+            }
+        }
+        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        where
+            R: VirtualConnectionlessSocket + ?Sized,
+        {
+            type Output = Result<(usize, SocketAddr)>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let this = self.project();
+
+                let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+                if let Err(err) = this.socket.set_handler(handler) {
+                    return Poll::Ready(Err(err));
+                }
+                match this.socket.try_recv_from(this.buf) {
+                    Ok(ret) => Poll::Ready(Ok(ret)),
+                    Err(NetworkError::WouldBlock) => Poll::Pending,
+                    Err(err) => Poll::Ready(Err(err)),
+                }
+            }
+        }
+        Poller { socket: self, buf }.await
+    }
+}
+
 /// ICMP sockets are low level devices bound to a specific address
 /// that can send and receive ICMP packets
 pub trait VirtualIcmpSocket:
@@ -277,6 +522,7 @@ pub trait VirtualIcmpSocket:
 {
 }
 
+#[async_trait::async_trait]
 pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
     fn try_send(&mut self, data: &[u8]) -> Result<usize>;
@@ -337,6 +583,71 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
 
     /// Return true if the socket is closed
     fn is_closed(&self) -> bool;
+}
+
+#[cfg(feature = "tokio")]
+impl<'a> AsyncRead for Box<dyn VirtualTcpSocket + Sync + 'a> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> Poll<std::io::Result<()>> {
+        let this = self.get_mut();
+        let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+        if let Err(err) = this.set_handler(handler) {
+            return Poll::Ready(Err(net_error_into_io_err(err)));
+        }
+        let buf_unsafe = unsafe { buf.unfilled_mut() };
+        match this.try_recv(buf_unsafe) {
+            Ok(ret) => {
+                unsafe { buf.assume_init(ret) };
+                buf.set_filled(ret);
+                Poll::Ready(Ok(()))
+            }
+            Err(NetworkError::WouldBlock) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(net_error_into_io_err(err))),
+        }
+    }
+}
+
+#[cfg(feature = "tokio")]
+impl<'a> AsyncWrite for Box<dyn VirtualTcpSocket + Sync + 'a> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<std::io::Result<usize>> {
+        let this = self.get_mut();
+        let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+        if let Err(err) = this.set_handler(handler) {
+            return Poll::Ready(Err(net_error_into_io_err(err)));
+        }
+        match this.try_send(buf) {
+            Ok(ret) => Poll::Ready(Ok(ret)),
+            Err(NetworkError::WouldBlock) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(net_error_into_io_err(err))),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        let this = self.get_mut();
+        let handler: Box<dyn InterestHandler + Send + Sync> = cx.waker().into();
+        if let Err(err) = this.set_handler(handler) {
+            return Poll::Ready(Err(net_error_into_io_err(err)));
+        }
+        match this.try_flush() {
+            Ok(()) => Poll::Ready(Ok(())),
+            Err(NetworkError::WouldBlock) => Poll::Pending,
+            Err(err) => Poll::Ready(Err(net_error_into_io_err(err))),
+        }
+    }
+
+    fn poll_shutdown(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+        Poll::Ready(
+            self.shutdown(Shutdown::Write)
+                .map_err(net_error_into_io_err),
+        )
+    }
 }
 
 pub trait VirtualUdpSocket:
@@ -406,7 +717,7 @@ pub struct UnsupportedVirtualNetworking {}
 #[async_trait::async_trait]
 impl VirtualNetworking for UnsupportedVirtualNetworking {}
 
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NetworkError {
     /// The handle given was not usable
     #[error("invalid fd")]
@@ -483,5 +794,93 @@ pub enum NetworkError {
     UnknownError,
 }
 
-#[cfg(feature = "host-net")]
-pub mod host;
+pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
+    use std::io::ErrorKind;
+    match net_error.kind() {
+        ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
+        ErrorKind::AlreadyExists => NetworkError::AlreadyExists,
+        ErrorKind::AddrInUse => NetworkError::AddressInUse,
+        ErrorKind::AddrNotAvailable => NetworkError::AddressNotAvailable,
+        ErrorKind::ConnectionAborted => NetworkError::ConnectionAborted,
+        ErrorKind::ConnectionRefused => NetworkError::ConnectionRefused,
+        ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
+        ErrorKind::Interrupted => NetworkError::Interrupted,
+        ErrorKind::InvalidData => NetworkError::InvalidData,
+        ErrorKind::InvalidInput => NetworkError::InvalidInput,
+        ErrorKind::NotConnected => NetworkError::NotConnected,
+        ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
+        ErrorKind::TimedOut => NetworkError::TimedOut,
+        ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
+        ErrorKind::WouldBlock => NetworkError::WouldBlock,
+        ErrorKind::WriteZero => NetworkError::WriteZero,
+        ErrorKind::Unsupported => NetworkError::Unsupported,
+
+        #[cfg(all(target_family = "unix", feature = "libc"))]
+        _ => {
+            if let Some(code) = net_error.raw_os_error() {
+                match code {
+                    libc::EPERM => NetworkError::PermissionDenied,
+                    libc::EBADF => NetworkError::InvalidFd,
+                    libc::ECHILD => NetworkError::InvalidFd,
+                    libc::EMFILE => NetworkError::TooManyOpenFiles,
+                    libc::EINTR => NetworkError::Interrupted,
+                    libc::EIO => NetworkError::IOError,
+                    libc::ENXIO => NetworkError::IOError,
+                    libc::EAGAIN => NetworkError::WouldBlock,
+                    libc::ENOMEM => NetworkError::InsufficientMemory,
+                    libc::EACCES => NetworkError::PermissionDenied,
+                    libc::ENODEV => NetworkError::NoDevice,
+                    libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EPIPE => NetworkError::BrokenPipe,
+                    err => {
+                        tracing::trace!("unknown os error {}", err);
+                        NetworkError::UnknownError
+                    }
+                }
+            } else {
+                NetworkError::UnknownError
+            }
+        }
+        #[cfg(not(all(target_family = "unix", feature = "libc")))]
+        _ => NetworkError::UnknownError,
+    }
+}
+
+pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
+    use std::io::ErrorKind;
+    match net_error {
+        NetworkError::InvalidFd => ErrorKind::BrokenPipe.into(),
+        NetworkError::AlreadyExists => ErrorKind::AlreadyExists.into(),
+        NetworkError::Lock => ErrorKind::BrokenPipe.into(),
+        NetworkError::IOError => ErrorKind::BrokenPipe.into(),
+        NetworkError::AddressInUse => ErrorKind::AddrInUse.into(),
+        NetworkError::AddressNotAvailable => ErrorKind::AddrNotAvailable.into(),
+        NetworkError::BrokenPipe => ErrorKind::BrokenPipe.into(),
+        NetworkError::ConnectionAborted => ErrorKind::ConnectionAborted.into(),
+        NetworkError::ConnectionRefused => ErrorKind::ConnectionRefused.into(),
+        NetworkError::ConnectionReset => ErrorKind::ConnectionReset.into(),
+        NetworkError::Interrupted => ErrorKind::Interrupted.into(),
+        NetworkError::InvalidData => ErrorKind::InvalidData.into(),
+        NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
+        NetworkError::NotConnected => ErrorKind::NotConnected.into(),
+        NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
+        NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),
+        NetworkError::TimedOut => ErrorKind::TimedOut.into(),
+        NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
+        NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
+        NetworkError::WriteZero => ErrorKind::WriteZero.into(),
+        NetworkError::Unsupported => ErrorKind::Unsupported.into(),
+        NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
+        NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
+        NetworkError::TooManyOpenFiles => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            {
+                std::io::Error::from_raw_os_error(libc::EMFILE)
+            }
+            #[cfg(not(all(target_family = "unix", feature = "libc")))]
+            {
+                ErrorKind::Other.into()
+            }
+        }
+    }
+}

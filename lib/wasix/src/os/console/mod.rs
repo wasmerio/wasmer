@@ -4,10 +4,11 @@
 pub mod cconst;
 
 use std::{
+    borrow::Cow,
     collections::HashMap,
     io::Write,
     ops::{Deref, DerefMut},
-    path::Path,
+    path::{Path, PathBuf},
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
@@ -18,7 +19,7 @@ use tokio::sync::{mpsc, RwLock};
 use tracing::{debug, error, info, trace, warn};
 use virtual_fs::{
     ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
-    PipeRx, PipeTx, RootFileSystemBuilder, VirtualFile,
+    PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 };
 #[cfg(feature = "sys")]
 use wasmer::Engine;
@@ -51,6 +52,7 @@ pub struct Console {
     stdout: ArcBoxFile,
     stderr: ArcBoxFile,
     capabilities: Capabilities,
+    ro_files: HashMap<String, Cow<'static, [u8]>>,
     memfs_memory_limiter: Option<virtual_fs::limiter::DynFsMemoryLimiter>,
 }
 
@@ -73,6 +75,7 @@ impl Console {
             stderr: ArcBoxFile::new(Box::new(Pipe::channel().0)),
             capabilities: Default::default(),
             memfs_memory_limiter: None,
+            ro_files: Default::default(),
         }
     }
 
@@ -132,6 +135,11 @@ impl Console {
 
     pub fn with_stderr(mut self, stderr: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
         self.stderr = ArcBoxFile::new(stderr);
+        self
+    }
+
+    pub fn with_ro_files(mut self, ro_files: HashMap<String, Cow<'static, [u8]>>) -> Self {
+        self.ro_files = ro_files;
         self
     }
 
@@ -243,6 +251,23 @@ impl Console {
             });
             tracing::debug!("failed to load used dependency - {}", err);
             return Err(SpawnError::BadRequest);
+        }
+
+        // The custom readonly files have to be added after the uses packages
+        // otherwise they will be overriden by their attached file systems
+        for (path, data) in self.ro_files.clone() {
+            let path = PathBuf::from(path);
+            env.fs_root().remove_file(&path).ok();
+            let mut file = env
+                .fs_root()
+                .new_open_options()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&path)
+                .map_err(|err| SpawnError::Other(err.into()))?;
+            InlineWaker::block_on(file.copy_reference(Box::new(StaticFile::new(data))))
+                .map_err(|err| SpawnError::Other(err.into()))?;
         }
 
         // Build the config

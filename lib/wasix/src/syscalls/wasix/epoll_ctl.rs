@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc::UnboundedSender, watch};
 use virtual_mio::{InterestHandler, InterestType};
+use virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::wasi::{
     EpollCtl, EpollEvent, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
 };
@@ -12,8 +13,8 @@ use futures::Future;
 use super::*;
 use crate::{
     fs::{
-        net_error_into_io_err, EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard,
-        InodeValFilePollGuardJoin, InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
+        EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin,
+        InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
     },
     state::PollEventSet,
     syscalls::*,

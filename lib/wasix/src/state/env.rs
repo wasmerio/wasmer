@@ -947,11 +947,20 @@ impl WasiEnv {
         let rt = self.runtime();
 
         for package_name in uses {
-            let specifier = package_name
-                .parse::<PackageSpecifier>()
-                .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
-            let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt))
-                .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
+            let specifier = package_name.parse::<PackageSpecifier>().map_err(|e| {
+                WasiStateCreationError::WasiIncludePackageError(format!(
+                    "package_name={package_name}, {}",
+                    e
+                ))
+            })?;
+            let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
+                |e| {
+                    WasiStateCreationError::WasiIncludePackageError(format!(
+                        "package_name={package_name}, {}",
+                        e
+                    ))
+                },
+            )?;
             self.use_package(&pkg)?;
         }
 

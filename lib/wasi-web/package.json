@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "webpack",
-    "dev": "webpack serve"
+    "dev": "webpack serve --mode development"
   },
   "dependencies": {
     "comlink": "^4",
