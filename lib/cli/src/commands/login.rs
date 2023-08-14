@@ -290,11 +290,21 @@ impl Login {
 
         match auth_state {
             AuthorizationState::TokenSuccess(token) => {
-                match wasmer_registry::login::login_and_save_token(
-                    env.dir(),
-                    registry.as_str(),
-                    &token,
-                )? {
+                let res = std::thread::spawn({
+                    let dir = env.dir().to_owned();
+                    let registry = registry.clone();
+                    move || {
+                        wasmer_registry::login::login_and_save_token(
+                            &dir,
+                            registry.as_str(),
+                            &token,
+                        )
+                    }
+                })
+                .join()
+                .map_err(|err| anyhow::format_err!("handler thread died: {err:?}"))??;
+
+                match res {
                     Some(s) => {
                         print!("Done!");
                         println!("\n✅ Login for Wasmer user {:?} saved", s)
@@ -514,5 +524,21 @@ mod tests {
             .unwrap()
             .to_string();
         assert_eq!(wasmer_env_token_help, login_token_help);
+    }
+
+    /// Regression test for panics on API errors.
+    /// See https://github.com/wasmerio/wasmer/issues/4147.
+    #[test]
+    fn login_with_invalid_token_does_not_panic() {
+        let cmd = Login {
+            no_browser: true,
+            wasmer_dir: WASMER_DIR.clone(),
+            registry: Some("http://localhost:11".to_string().into()),
+            token: Some("invalid".to_string()),
+            cache_dir: None,
+        };
+
+        let res = cmd.execute();
+        assert!(res.is_err());
     }
 }
