@@ -517,6 +517,32 @@
 <a href="#516" id="516">516</a>
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 <span class="kw">use </span>anyhow::Ok;
@@ -809,11 +835,21 @@
 
         <span class="kw">match </span>auth_state {
             AuthorizationState::TokenSuccess(token) =&gt; {
-                <span class="kw">match </span>wasmer_registry::login::login_and_save_token(
-                    env.dir(),
-                    registry.as_str(),
-                    <span class="kw-2">&amp;</span>token,
-                )<span class="question-mark">? </span>{
+                <span class="kw">let </span>res = std::thread::spawn({
+                    <span class="kw">let </span>dir = env.dir().to_owned();
+                    <span class="kw">let </span>registry = registry.clone();
+                    <span class="kw">move </span>|| {
+                        wasmer_registry::login::login_and_save_token(
+                            <span class="kw-2">&amp;</span>dir,
+                            registry.as_str(),
+                            <span class="kw-2">&amp;</span>token,
+                        )
+                    }
+                })
+                .join()
+                .map_err(|err| <span class="macro">anyhow::format_err!</span>(<span class="string">&quot;handler thread died: {err:?}&quot;</span>))<span class="question-mark">??</span>;
+
+                <span class="kw">match </span>res {
                     <span class="prelude-val">Some</span>(s) =&gt; {
                         <span class="macro">print!</span>(<span class="string">&quot;Done!&quot;</span>);
                         <span class="macro">println!</span>(<span class="string">&quot;\n✅ Login for Wasmer user {:?} saved&quot;</span>, s)
@@ -1033,6 +1069,22 @@
             .unwrap()
             .to_string();
         <span class="macro">assert_eq!</span>(wasmer_env_token_help, login_token_help);
+    }
+
+    <span class="doccomment">/// Regression test for panics on API errors.
+    /// See https://github.com/wasmerio/wasmer/issues/4147.
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>login_with_invalid_token_does_not_panic() {
+        <span class="kw">let </span>cmd = Login {
+            no_browser: <span class="bool-val">true</span>,
+            wasmer_dir: WASMER_DIR.clone(),
+            registry: <span class="prelude-val">Some</span>(<span class="string">&quot;http://localhost:11&quot;</span>.to_string().into()),
+            token: <span class="prelude-val">Some</span>(<span class="string">&quot;invalid&quot;</span>.to_string()),
+            cache_dir: <span class="prelude-val">None</span>,
+        };
+
+        <span class="kw">let </span>res = cmd.execute();
+        <span class="macro">assert!</span>(res.is_err());
     }
 }
 </code></pre></div>
