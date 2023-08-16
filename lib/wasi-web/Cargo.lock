@@ -2434,7 +2434,6 @@ dependencies = [
  "wasmer-vm",
  "wasmparser 0.83.0",
  "wasmparser 0.95.0",
- "wat",
  "winapi",
 ]
 
