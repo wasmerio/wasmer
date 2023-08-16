@@ -125,6 +125,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 }
 
 #[cfg(feature = "remote")]
+#[cfg(target_os = "linux")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_mpsc() {
@@ -133,6 +134,7 @@ async fn test_tcp_with_mpsc() {
 }
 
 #[cfg(feature = "remote")]
+#[cfg(target_os = "linux")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_small_pipe_using_bincode() {
@@ -141,6 +143,7 @@ async fn test_tcp_with_small_pipe_using_bincode() {
 }
 
 #[cfg(feature = "remote")]
+#[cfg(target_os = "linux")]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_large_pipe_using_bincode() {
