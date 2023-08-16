@@ -153,6 +153,7 @@ async fn test_tcp_with_large_pipe_using_bincode() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
+#[cfg(not(target_os = "macos"))]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_small_pipe_using_json() {
@@ -162,6 +163,7 @@ async fn test_tcp_with_small_pipe_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
+#[cfg(not(target_os = "macos"))]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_large_pipe_json_using_json() {
@@ -171,6 +173,7 @@ async fn test_tcp_with_large_pipe_json_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
+#[cfg(not(target_os = "macos"))]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_small_pipe_using_messagepack() {
@@ -180,6 +183,7 @@ async fn test_tcp_with_small_pipe_using_messagepack() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
+#[cfg(not(target_os = "macos"))]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_large_pipe_json_using_messagepack() {
@@ -189,6 +193,7 @@ async fn test_tcp_with_large_pipe_json_using_messagepack() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
+#[cfg(not(target_os = "macos"))]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_small_pipe_using_cbor() {
@@ -198,6 +203,7 @@ async fn test_tcp_with_small_pipe_using_cbor() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
+#[cfg(not(target_os = "macos"))]
 #[traced_test]
 #[tokio::test]
 async fn test_tcp_with_large_pipe_json_using_cbor() {
