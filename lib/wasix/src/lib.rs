@@ -297,6 +297,7 @@ pub fn generate_import_object_from_env(
             generate_import_object_snapshot1(store, ctx)
         }
         WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, ctx),
+        #[cfg(not(feature = "js"))]
         WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, ctx),
     }
 }
@@ -540,6 +541,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
+#[cfg(not(feature = "js"))]
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     use syscalls::*;
     let namespace = namespace! {
@@ -686,23 +688,20 @@ fn import_object_for_all_wasi_versions(
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     let exports_wasix_32v1 = wasix_exports_32(store, env);
-    let exports_wasix_64v1 = wasix_exports_64(store, env);
-
-    // Allowed due to JS feature flag complications.
-    #[allow(unused_mut)]
-    let mut imports = imports! {
-        "wasi" => exports_wasi_generic,
-        "wasi_unstable" => exports_wasi_unstable,
-        "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
-        "wasix_32v1" => exports_wasix_32v1,
-        "wasix_64v1" => exports_wasix_64v1,
-    };
 
     // TODO: clean this up!
     cfg_if::cfg_if! {
         if #[cfg(feature = "sys")] {
-            // Check if the module needs http.
+            let exports_wasix_64v1 = wasix_exports_64(store, env);
+            let mut imports = imports! {
+                "wasi" => exports_wasi_generic,
+                "wasi_unstable" => exports_wasi_unstable,
+                "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
+                "wasix_32v1" => exports_wasix_32v1,
+                "wasix_64v1" => exports_wasix_64v1,
+            };
 
+            // Check if the module needs http.
             let has_canonical_realloc = module.exports().any(|t| t.name() == "canonical_abi_realloc");
             let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
 
@@ -720,6 +719,13 @@ fn import_object_for_all_wasi_versions(
 
             let init = init;
         } else {
+            let imports = imports! {
+                "wasi" => exports_wasi_generic,
+                "wasi_unstable" => exports_wasi_unstable,
+                "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
+                "wasix_32v1" => exports_wasix_32v1,
+            };
+
             // Prevents unused warning.
             let _ = module;
             let init = Box::new(stub_initializer) as ModuleInitializer;
@@ -761,6 +767,7 @@ fn generate_import_object_wasix32_v1(
     }
 }
 
+#[cfg(not(feature = "js"))]
 fn generate_import_object_wasix64_v1(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
