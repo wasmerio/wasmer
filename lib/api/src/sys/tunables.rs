@@ -279,7 +279,13 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "singlepass", not(target_os = "windows")))]
+    #[cfg(all(
+        feature = "singlepass",
+        not(any(
+            target_os = "windows",
+            all(target_os = "macos", target_arch = "aarch64")
+        ))
+    ))]
     fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
         use wasmer_compiler_singlepass::Singlepass;
