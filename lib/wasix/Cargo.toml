@@ -19,7 +19,7 @@ tracing = { version = "0.1.37" }
 getrandom = "0.2"
 wasmer-wasix-types = { path = "../wasi-types", version = "0.11.0", features = [ "enable-serde" ] }
 wasmer-types = { path = "../types", version = "=4.1.1", default-features = false }
-wasmer = { path = "../api", version = "=4.1.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer = { path = "../api", version = "=4.1.1", default-features = false, features = ["js-serializable-module"] }
 virtual-mio  = { path = "../virtual-io", version = "0.1.0", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.8.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../virtual-net", version = "0.4.0", default-features = false }
@@ -115,7 +115,7 @@ time = ["tokio/time"]
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
-sys = ["webc/mmap", "time", "virtual-mio/sys"]
+sys = ["webc/mmap", "time", "virtual-mio/sys", "wasmer/wat"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest"]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rayon"]
