@@ -27,16 +27,8 @@ pub fn is_wasi_module(module: &Module) -> bool {
 pub fn is_wasix_module(module: &Module) -> bool {
     match get_wasi_versions(module, false).ok_or(false) {
         Ok(wasi_versions) => {
-            cfg_if::cfg_if!(
-                if #[cfg(not(feature = "js"))] {
-                    #[allow(clippy::needless_return)]
-                    return wasi_versions.contains(&WasiVersion::Wasix32v1)
-                        || wasi_versions.contains(&WasiVersion::Wasix64v1);
-                } else {
-                    #[allow(clippy::needless_return)]
-                    return wasi_versions.contains(&WasiVersion::Wasix32v1);
-                }
-            );
+            wasi_versions.contains(&WasiVersion::Wasix32v1)
+                || wasi_versions.contains(&WasiVersion::Wasix64v1)
         }
         Err(_) => false,
     }
@@ -60,7 +52,6 @@ pub enum WasiVersion {
     Wasix32v1,
 
     /// `wasix_64v1`.
-    #[cfg(not(feature = "js"))]
     Wasix64v1,
 
     /// Latest version.
@@ -83,7 +74,6 @@ impl WasiVersion {
             WasiVersion::Snapshot0 => SNAPSHOT0_NAMESPACE,
             WasiVersion::Snapshot1 => SNAPSHOT1_NAMESPACE,
             WasiVersion::Wasix32v1 => WASIX_32V1_NAMESPACE,
-            #[cfg(not(feature = "js"))]
             WasiVersion::Wasix64v1 => WASIX_64V1_NAMESPACE,
             WasiVersion::Latest => SNAPSHOT1_NAMESPACE,
         }
@@ -92,32 +82,16 @@ impl WasiVersion {
 
 impl PartialEq<WasiVersion> for WasiVersion {
     fn eq(&self, other: &Self) -> bool {
-        cfg_if::cfg_if!(
-            if #[cfg(not(feature = "js"))] {
-                #[allow(clippy::needless_return)]
-                return matches!(
-                    (*self, *other),
-                    (Self::Snapshot1, Self::Latest)
-                        | (Self::Latest, Self::Snapshot1)
-                        | (Self::Latest, Self::Latest)
-                        | (Self::Snapshot0, Self::Snapshot0)
-                        | (Self::Snapshot1, Self::Snapshot1)
-                        | (Self::Wasix32v1, Self::Wasix32v1)
-                        | (Self::Wasix64v1, Self::Wasix64v1)
-                );
-            } else {
-                #[allow(clippy::needless_return)]
-                return matches!(
-                    (*self, *other),
-                    (Self::Snapshot1, Self::Latest)
-                        | (Self::Latest, Self::Snapshot1)
-                        | (Self::Latest, Self::Latest)
-                        | (Self::Snapshot0, Self::Snapshot0)
-                        | (Self::Snapshot1, Self::Snapshot1)
-                        | (Self::Wasix32v1, Self::Wasix32v1)
-                );
-            }
-        );
+        matches!(
+            (*self, *other),
+            (Self::Snapshot1, Self::Latest)
+                | (Self::Latest, Self::Snapshot1)
+                | (Self::Latest, Self::Latest)
+                | (Self::Snapshot0, Self::Snapshot0)
+                | (Self::Snapshot1, Self::Snapshot1)
+                | (Self::Wasix32v1, Self::Wasix32v1)
+                | (Self::Wasix64v1, Self::Wasix64v1)
+        )
     }
 }
 
@@ -137,13 +111,11 @@ impl Ord for WasiVersion {
             (Self::Wasix32v1, Self::Snapshot1) | (Self::Wasix32v1, Self::Snapshot0) => {
                 std::cmp::Ordering::Greater
             }
-            #[cfg(not(feature = "js"))]
             (Self::Wasix64v1, Self::Wasix32v1)
             | (Self::Wasix64v1, Self::Snapshot1)
             | (Self::Wasix64v1, Self::Snapshot0) => std::cmp::Ordering::Greater,
-            #[cfg(not(feature = "js"))]
-            (Self::Latest, Self::Wasix64v1) => std::cmp::Ordering::Greater,
-            (Self::Latest, Self::Wasix32v1)
+            (Self::Latest, Self::Wasix64v1)
+            | (Self::Latest, Self::Wasix32v1)
             | (Self::Latest, Self::Snapshot1)
             | (Self::Latest, Self::Snapshot0) => std::cmp::Ordering::Greater,
             // they are not equal and not greater so they must be less
@@ -162,11 +134,9 @@ const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
 const WASIX_32V1_NAMESPACE: &str = "wasix_32v1";
 
 /// Namespace for the `wasix` version.
-#[cfg(not(feature = "js"))]
 const WASIX_64V1_NAMESPACE: &str = "wasix_64v1";
 
 /// Namespace for the `wasix` version.
-#[cfg(not(feature = "js"))]
 const WASIX_HTTP_V1_NAMESPACE: &str = "wasix_http_client_v1";
 
 /// Detect the version of WASI being used based on the import
@@ -186,7 +156,6 @@ pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
                 SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
                 SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
                 WASIX_32V1_NAMESPACE => Some(WasiVersion::Wasix32v1),
-                #[cfg(not(feature = "js"))]
                 WASIX_64V1_NAMESPACE => Some(WasiVersion::Wasix64v1),
                 _ => None,
             }
@@ -200,7 +169,6 @@ pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
             SNAPSHOT0_NAMESPACE => Some(WasiVersion::Snapshot0),
             SNAPSHOT1_NAMESPACE => Some(WasiVersion::Snapshot1),
             WASIX_32V1_NAMESPACE => Some(WasiVersion::Wasix32v1),
-            #[cfg(not(feature = "js"))]
             WASIX_64V1_NAMESPACE => Some(WasiVersion::Wasix64v1),
             _ => None,
         })
@@ -227,11 +195,9 @@ pub fn get_wasi_versions(module: &Module, strict: bool) -> Option<BTreeSet<WasiV
             WASIX_32V1_NAMESPACE => {
                 out.insert(WasiVersion::Wasix32v1);
             }
-            #[cfg(not(feature = "js"))]
             WASIX_64V1_NAMESPACE => {
                 out.insert(WasiVersion::Wasix64v1);
             }
-            #[cfg(not(feature = "js"))]
             WASIX_HTTP_V1_NAMESPACE => {
                 out.insert(WasiVersion::Wasix64v1);
             }
