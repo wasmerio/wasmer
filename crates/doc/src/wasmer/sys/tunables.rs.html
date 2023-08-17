@@ -446,6 +446,12 @@
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
 </pre><pre class="rust"><code><span class="kw">pub use </span>wasmer_compiler::BaseTunables;
 
 <span class="comment">// All BaseTunable definition now is in wasmer_compile crate
@@ -727,7 +733,13 @@
     }
 
     <span class="attr">#[test]
-    #[cfg(all(feature = <span class="string">&quot;singlepass&quot;</span>, not(target_os = <span class="string">&quot;windows&quot;</span>)))]
+    #[cfg(all(
+        feature = <span class="string">&quot;singlepass&quot;</span>,
+        not(any(
+            target_os = <span class="string">&quot;windows&quot;</span>,
+            all(target_os = <span class="string">&quot;macos&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)
+        ))
+    ))]
     </span><span class="kw">fn </span>check_small_stack() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
         <span class="kw">use crate</span>::{imports, wat2wasm, Engine, Instance, Module, Store};
         <span class="kw">use </span>wasmer_compiler_singlepass::Singlepass;
