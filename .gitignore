@@ -4,8 +4,7 @@
 .idea
 .gdb_history
 /.cargo/
-**/.vscode/*
-!/.vscode/settings.json
+**/.vscode
 api-docs-repo/
 /.cargo_home/
 /package/
