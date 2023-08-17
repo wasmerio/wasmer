@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_cache_dir","normalize_path"],"struct":["WasmFeatures"]};
+window.SIDEBAR_ITEMS = {"fn":["normalize_path"],"struct":["WasmFeatures"]};
