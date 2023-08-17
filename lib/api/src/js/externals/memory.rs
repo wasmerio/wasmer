@@ -53,20 +53,7 @@ pub struct Memory {
     pub(crate) handle: VMMemory,
 }
 
-// Only SharedMemories can be Send in js, becuase they support `structuredClone`.
-// Normal memories will fail while doing structuredClone.
-// In this case, we implement Send just in case as it can be a shared memory.
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// ```js
-// const memory = new WebAssembly.Memory({
-//   initial: 10,
-//   maximum: 100,
-//   shared: true // <--- It must be shared, otherwise structuredClone will fail
-// });
-// structuredClone(memory)
-// ```
-unsafe impl Send for Memory {}
-unsafe impl Sync for Memory {}
+assert_not_implemented!(Memory: !Send + !Sync);
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {

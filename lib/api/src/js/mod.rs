@@ -23,6 +23,9 @@ mod lib {
     }
 }
 
+#[macro_use]
+mod macros;
+
 mod as_js;
 pub(crate) mod engine;
 pub(crate) mod errors;

@@ -13,9 +13,7 @@ pub struct Global {
     pub(crate) handle: VMGlobal,
 }
 
-// Global can't be Send in js because it dosen't support `structuredClone`
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// unsafe impl Send for Global {}
+assert_not_implemented!(Global: !Send + !Sync);
 
 impl Global {
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

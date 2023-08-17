@@ -45,16 +45,7 @@ pub struct Module {
     raw_bytes: Option<Bytes>,
 }
 
-// Module implements `structuredClone` in js, so it's safe it to make it Send.
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// ```js
-// const module = new WebAssembly.Module(new Uint8Array([
-//   0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00
-// ]));
-// structuredClone(module)
-// ```
-unsafe impl Send for Module {}
-unsafe impl Sync for Module {}
+assert_not_implemented!(Module: !Send + !Sync);
 
 impl From<Module> for JsValue {
     fn from(val: Module) -> Self {
@@ -81,12 +72,13 @@ impl Module {
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
-    ///
     pub(crate) unsafe fn from_js_module(
         module: WebAssembly::Module,
         binary: impl IntoBytes,
     ) -> Self {
+        #[allow(unused_variables)]
         let binary = binary.into_bytes();
+
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {

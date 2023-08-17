@@ -18,8 +18,7 @@ pub struct Trap {
     inner: InnerTrap,
 }
 
-unsafe impl Send for Trap {}
-unsafe impl Sync for Trap {}
+assert_not_implemented!(Trap: !Send + !Sync);
 
 impl Trap {
     pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {

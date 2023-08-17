@@ -26,8 +26,7 @@ pub struct VMMemory {
     pub(crate) ty: MemoryType,
 }
 
-unsafe impl Send for VMMemory {}
-unsafe impl Sync for VMMemory {}
+assert_not_implemented!(VMMemory: !Send + !Sync);
 
 #[derive(Serialize, Deserialize)]
 struct DummyBuffer {
@@ -140,8 +139,7 @@ impl VMGlobal {
     }
 }
 
-unsafe impl Send for VMGlobal {}
-unsafe impl Sync for VMGlobal {}
+assert_not_implemented!(VMGlobal: !Send + !Sync);
 
 /// The VM Table type
 #[derive(Clone, Debug, PartialEq)]
@@ -150,8 +148,7 @@ pub struct VMTable {
     pub(crate) ty: TableType,
 }
 
-unsafe impl Send for VMTable {}
-unsafe impl Sync for VMTable {}
+assert_not_implemented!(VMTable: !Send + !Sync);
 
 impl VMTable {
     pub(crate) fn new(table: JsTable, ty: TableType) -> Self {
@@ -171,8 +168,7 @@ pub struct VMFunction {
     pub(crate) ty: FunctionType,
 }
 
-unsafe impl Send for VMFunction {}
-unsafe impl Sync for VMFunction {}
+assert_not_implemented!(VMFunction: !Send + !Sync);
 
 impl VMFunction {
     pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {

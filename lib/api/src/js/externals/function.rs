@@ -43,9 +43,7 @@ pub struct Function {
     pub(crate) handle: VMFunction,
 }
 
-// Function can't be Send in js because it dosen't support `structuredClone`
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// unsafe impl Send for Function {}
+assert_not_implemented!(Function: !Send + !Sync);
 
 impl From<VMFunction> for Function {
     fn from(handle: VMFunction) -> Self {
