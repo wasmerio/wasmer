@@ -1,14 +1,17 @@
-use crate::RuntimeError;
-use std::error::Error;
-use std::fmt;
+use std::{
+    error::Error,
+    fmt::{self, Display},
+};
 
 use wasm_bindgen::{prelude::*, JsValue};
 use wasm_bindgen_downcast::DowncastJS;
 
+use crate::RuntimeError;
+
 #[derive(Debug)]
 enum InnerTrap {
     User(Box<dyn Error + Send + Sync>),
-    Js(JsValue),
+    Js(JsTrap),
 }
 
 /// A struct representing a Trap
@@ -17,8 +20,6 @@ enum InnerTrap {
 pub struct Trap {
     inner: InnerTrap,
 }
-
-assert_not_implemented!(Trap: !Send + !Sync);
 
 impl Trap {
     pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {
@@ -66,8 +67,8 @@ impl std::error::Error for Trap {
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "user: {}", e),
-            InnerTrap::Js(value) => write!(f, "js: {:?}", value.as_string()),
+            InnerTrap::User(e) => write!(f, "user: {e}"),
+            InnerTrap::Js(value) => write!(f, "js: {value}"),
         }
     }
 }
@@ -77,9 +78,51 @@ impl From<JsValue> for RuntimeError {
         // We try to downcast the error and see if it's
         // an instance of RuntimeError instead, so we don't need
         // to re-wrap it.
-        let trap = Trap::downcast_js(original).unwrap_or_else(|o| Trap {
-            inner: InnerTrap::Js(o),
-        });
+        let trap: Trap = match Trap::downcast_js(original) {
+            Ok(trap) => trap,
+            Err(other) => Trap {
+                inner: InnerTrap::Js(JsTrap::from(other)),
+            },
+        };
+
         trap.into()
+    }
+}
+
+/// A `Send+Sync` version of a JavaScript error.
+#[derive(Debug)]
+enum JsTrap {
+    /// An error message.
+    Message(String),
+    /// Unable to determine the underlying error.
+    Unknown,
+}
+
+impl From<JsValue> for JsTrap {
+    fn from(value: JsValue) -> Self {
+        // Let's try some easy special cases first
+        if let Some(error) = value.dyn_ref::<js_sys::Error>() {
+            return JsTrap::Message(error.message().into());
+        }
+
+        if let Some(s) = value.as_string() {
+            return JsTrap::Message(s);
+        }
+
+        // Otherwise, we'll try to stringify the error and hope for the best
+        if let Some(obj) = value.dyn_ref::<js_sys::Object>() {
+            return JsTrap::Message(obj.to_string().into());
+        }
+
+        JsTrap::Unknown
+    }
+}
+
+impl Display for JsTrap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            JsTrap::Message(m) => write!(f, "{m}"),
+            JsTrap::Unknown => write!(f, "unknown"),
+        }
     }
 }
