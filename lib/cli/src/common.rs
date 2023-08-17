@@ -1,9 +1,7 @@
 //! Common module with common used structures across different
 //! commands.
-use crate::VERSION;
+
 use clap::Parser;
-use std::env;
-use std::path::PathBuf;
 
 #[derive(Debug, Parser, Clone, Default)]
 /// The WebAssembly features that can be passed through the
@@ -36,24 +34,6 @@ pub struct WasmFeatures {
     /// Enable support for all pre-standard proposals.
     #[clap(long = "enable-all")]
     pub all: bool,
-}
-
-/// Get the cache dir
-pub fn get_cache_dir() -> PathBuf {
-    match env::var("WASMER_CACHE_DIR") {
-        Ok(dir) => {
-            let mut path = PathBuf::from(dir);
-            path.push(VERSION);
-            path
-        }
-        Err(_) => {
-            // We use a temporal directory for saving cache files
-            let mut temp_dir = env::temp_dir();
-            temp_dir.push("wasmer");
-            temp_dir.push(VERSION);
-            temp_dir
-        }
-    }
 }
 
 pub(crate) fn normalize_path(s: &str) -> String {
