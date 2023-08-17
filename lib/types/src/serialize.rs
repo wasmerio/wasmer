@@ -117,7 +117,7 @@ impl SerializableModule {
     ///
     /// This method is unsafe.
     /// Please check `SerializableModule::deserialize` for more details.
-    pub unsafe fn archive_from_slice(
+    unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
         if metadata_slice.len() < 8 {
@@ -138,7 +138,7 @@ impl SerializableModule {
     ///
     /// In contrast to [`Self::deserialize`], this method performs validation
     /// and is not unsafe.
-    pub fn archive_from_slice_checked(
+    fn archive_from_slice_checked(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
         if metadata_slice.len() < 8 {

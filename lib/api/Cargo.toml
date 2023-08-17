@@ -34,7 +34,6 @@ bytes = "1"
 wat = { version = "1.0", optional = true }
 tracing = { version = "0.1", optional = true }
 rustc-demangle = "0.1"
-shared-buffer = "0.1"
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -68,9 +67,7 @@ macro-wasmer-universal-test = { version = "4.1.1", path = "./macro-wasmer-univer
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=4.1.1", default-features = false, features = [
-  "std",
-] }
+wasmer-types = { path = "../types", version = "=4.1.1", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 wasm-bindgen-downcast = { version = "0.1.1" }
 js-sys = "0.3.51"
@@ -106,10 +103,16 @@ std = []
 core = ["hashbrown"]
 
 # Features for `sys`.
-sys = ["wasmer-compiler/translator", "wasmer-compiler/compiler", "std"]
+sys = [
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
+  "std",
+]
 sys-default = ["sys", "wat", "cranelift"]
 # - Compilers.
-compiler = ["sys"]
+compiler = [
+    "sys",
+]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
@@ -124,7 +127,11 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["wasmparser"]
 
-jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
+jsc = [
+  "rusty_jsc",
+  "wasm-types-polyfill",
+  "wasmparser",
+]
 
 js-serializable-module = []
 
@@ -142,17 +149,17 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [package.metadata.docs.rs]
 features = [
-  "compiler",
-  "core",
-  "cranelift",
-  "engine",
-  "jit",
-  "singlepass",
-  "static-artifact-create",
-  "static-artifact-load",
-  "sys",
-  "sys-default",
-  "wasmer-artifact-create",
-  "wasmer-artifact-load",
+    "compiler",
+    "core",
+    "cranelift",
+    "engine",
+    "jit",
+    "singlepass",
+    "static-artifact-create",
+    "static-artifact-load",
+    "sys",
+    "sys-default",
+    "wasmer-artifact-create",
+    "wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]

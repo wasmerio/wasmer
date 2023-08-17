@@ -3883,12 +3883,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "self_cell"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c309e515543e67811222dbc9e3dd7e1056279b782e1dacffe4242b718734fb6"
-
-[[package]]
 name = "semver"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5465,7 +5459,6 @@ dependencies = [
  "rusty_jsc",
  "serde",
  "serde-wasm-bindgen",
- "shared-buffer",
  "target-lexicon 0.12.11",
  "tempfile",
  "thiserror",
@@ -5664,7 +5657,6 @@ name = "wasmer-compiler"
 version = "4.1.1"
 dependencies = [
  "backtrace",
- "bytes",
  "cfg-if",
  "enum-iterator",
  "enumset",
@@ -5674,11 +5666,8 @@ dependencies = [
  "memmap2 0.5.10",
  "more-asserts",
  "region",
- "rkyv",
- "self_cell",
  "serde",
  "serde_bytes",
- "shared-buffer",
  "smallvec",
  "thiserror",
  "wasmer-object",
