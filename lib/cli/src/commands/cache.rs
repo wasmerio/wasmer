@@ -42,9 +42,9 @@ enum Cmd {
 
 fn clean(cache_dir: &Path) -> Result<()> {
     if cache_dir.exists() {
-        fs::remove_dir_all(&cache_dir)?;
+        fs::remove_dir_all(cache_dir)?;
     }
-    fs::create_dir_all(&cache_dir)?;
+    fs::create_dir_all(cache_dir)?;
     eprintln!("Wasmer cache cleaned successfully.");
 
     Ok(())
