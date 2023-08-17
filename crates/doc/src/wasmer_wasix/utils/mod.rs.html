@@ -281,22 +281,26 @@
 <a href="#280" id="280">280</a>
 <a href="#281" id="281">281</a>
 <a href="#282" id="282">282</a>
-</pre><pre class="rust"><code><span class="kw">mod </span>owned_mutex_guard;
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+</pre><pre class="rust"><code><span class="kw">mod </span>dummy_waker;
+<span class="kw">mod </span>owned_mutex_guard;
 <span class="kw">pub mod </span>store;
 <span class="kw">mod </span>thread_parker;
 
-<span class="kw">mod </span>dummy_waker;
-<span class="kw">pub use </span><span class="self">self</span>::dummy_waker::WasiDummyWaker;
+<span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>web;
+
+<span class="kw">pub use </span><span class="self">self</span>::{dummy_waker::WasiDummyWaker, thread_parker::WasiParkingLot};
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>owned_mutex_guard::{
+    read_owned, write_owned, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
+};
 
 <span class="kw">use </span>std::collections::BTreeSet;
 
 <span class="kw">use </span>wasmer::Module;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
-
-<span class="kw">pub use </span><span class="self">self</span>::thread_parker::WasiParkingLot;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>owned_mutex_guard::{
-    read_owned, write_owned, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
-};
 
 <span class="doccomment">/// Check if a provided module is compiled for some version of WASI.
 /// Use [`get_wasi_version`] to find out which version of WASI the module is.

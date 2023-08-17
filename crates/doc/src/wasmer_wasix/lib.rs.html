@@ -777,6 +777,9 @@
 <a href="#776" id="776">776</a>
 <a href="#777" id="777">777</a>
 <a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
 </pre><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -808,6 +811,9 @@
 </span><span class="macro">compile_error!</span>(
     <span class="string">&quot;The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`).&quot;
 </span>);
+
+<span class="attr">#[cfg(all(test, target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+</span><span class="macro">wasm_bindgen_test::wasm_bindgen_test_configure!</span>(run_in_browser);
 
 <span class="attr">#[cfg(test)]
 #[macro_use]

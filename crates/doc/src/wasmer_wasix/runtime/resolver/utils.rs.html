@@ -121,6 +121,7 @@
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
 <a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use </span>anyhow::Error;
@@ -209,7 +210,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+    <span class="attr">#[allow(unused_imports)]
+    </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
     #[cfg(unix)]
