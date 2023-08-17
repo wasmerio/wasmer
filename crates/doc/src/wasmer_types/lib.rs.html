@@ -221,6 +221,15 @@
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre><pre class="rust"><code><span class="doccomment">//! This are the common types and utility tools for using WebAssembly
 //! in a Rust environment.
 //!
@@ -299,7 +308,10 @@
     Aarch64Architecture, Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness,
     Environment, OperatingSystem, PointerWidth, Target, Triple, Vendor,
 };
-<span class="kw">pub use </span><span class="kw">crate</span>::serialize::{MetadataHeader, SerializableCompilation, SerializableModule};
+<span class="kw">pub use </span><span class="kw">crate</span>::serialize::{
+    ArchivedSerializableCompilation, ArchivedSerializableModule, MetadataHeader,
+    SerializableCompilation, SerializableModule,
+};
 <span class="kw">pub use </span>error::{
     CompileError, DeserializeError, ImportError, MemoryError, MiddlewareError,
     ParseCpuFeatureError, PreInstantiationError, SerializeError, WasmError, WasmResult,
@@ -314,7 +326,9 @@
     SignatureIndex, TableIndex,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::initializers::{
-    DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
+    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, DataInitializer,
+    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike,
+    OwnedDataInitializer, TableInitializer,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::memory::{Memory32, Memory64, MemorySize};
 <span class="kw">pub use </span><span class="kw">crate</span>::module::{ExportsIterator, ImportKey, ImportsIterator, ModuleInfo};
@@ -337,20 +351,24 @@
 <span class="kw">pub use </span><span class="kw">crate</span>::utils::is_wasm;
 
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::relocation::{
-    Relocation, RelocationKind, RelocationTarget, Relocations,
+    ArchivedRelocation, Relocation, RelocationKind, RelocationLike, RelocationTarget, Relocations,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::section::{
-    CustomSection, CustomSectionProtection, SectionBody, SectionIndex,
+    ArchivedCustomSection, CustomSection, CustomSectionLike, CustomSectionProtection, SectionBody,
+    SectionIndex,
 };
 
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::address_map::{FunctionAddressMap, InstructionAddressMap};
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::function::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
-    Functions,
+    ArchivedFunctionBody, Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections,
+    Dwarf, FunctionBody, FunctionBodyLike, Functions,
 };
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::module::CompileModuleInfo;
 <span class="kw">pub use </span><span class="kw">crate</span>::compilation::symbols::{Symbol, SymbolRegistry};
-<span class="kw">pub use </span><span class="kw">crate</span>::compilation::unwind::CompiledFunctionUnwindInfo;
+<span class="kw">pub use </span><span class="kw">crate</span>::compilation::unwind::{
+    ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo, CompiledFunctionUnwindInfoLike,
+    CompiledFunctionUnwindInfoReference,
+};
 
 <span class="kw">pub use </span><span class="kw">crate</span>::stack::{FrameInfo, SourceLoc, TrapInformation};
 <span class="kw">pub use </span><span class="kw">crate</span>::store_id::StoreId;

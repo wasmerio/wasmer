@@ -108,12 +108,61 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
-</pre><pre class="rust"><code><span class="kw">pub use </span>wasmer_compiler::{
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+</pre><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
+
+<span class="kw">use </span>shared_buffer::OwnedBuffer;
+<span class="kw">pub use </span>wasmer_compiler::{
     Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_types::Features;
-<span class="kw">use </span>wasmer_types::Target;
+<span class="kw">use </span>wasmer_types::{DeserializeError, Target};
 
 <span class="doccomment">/// Returns the default engine for the Sys engine
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>default_engine() -&gt; Engine {
@@ -193,6 +242,26 @@
 
     <span class="doccomment">/// Get a reference to attached Tunable of this engine
     </span><span class="kw">fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables;
+
+    <span class="doccomment">/// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
+    ///
+    /// NOTE: you should almost always prefer [`Self::deserialize_from_mmapped_file`].
+    ///
+    /// # Safety
+    /// See [`Artifact::deserialize_unchecked`].
+    </span><span class="kw">unsafe fn </span>deserialize_from_mmapped_file_unchecked(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_ref: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt;;
+
+    <span class="doccomment">/// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
+    ///
+    /// # Safety
+    /// See [`Artifact::deserialize`].
+    </span><span class="kw">unsafe fn </span>deserialize_from_mmapped_file(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_ref: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt;;
 }
 
 <span class="kw">impl </span>NativeEngineExt <span class="kw">for </span><span class="kw">crate</span>::engine::Engine {
@@ -215,6 +284,29 @@
 
     <span class="kw">fn </span>tunables(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables {
         <span class="self">self</span>.<span class="number">0</span>.tunables()
+    }
+
+    <span class="kw">unsafe fn </span>deserialize_from_mmapped_file_unchecked(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_ref: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="kw">let </span>bytes = std::fs::read(file_ref)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
+            bytes.into(),
+        )<span class="question-mark">?</span>))
+    }
+
+    <span class="kw">unsafe fn </span>deserialize_from_mmapped_file(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        file_ref: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
+            OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
+                .map_err(|e| DeserializeError::Generic(<span class="macro">format!</span>(<span class="string">&quot;{e:?}&quot;</span>)))<span class="question-mark">?</span>,
+        )<span class="question-mark">?</span>))
     }
 }
 </code></pre></div>

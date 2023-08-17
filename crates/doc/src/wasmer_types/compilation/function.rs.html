@@ -142,6 +142,45 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -150,14 +189,17 @@
 
 </span><span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
-<span class="kw">use </span><span class="kw">crate</span>::TrapInformation;
+<span class="kw">use crate</span>::{ArchivedCompiledFunctionUnwindInfo, TrapInformation};
 <span class="kw">use crate</span>::{CompiledFunctionUnwindInfo, FunctionAddressMap};
 <span class="kw">use crate</span>::{
     CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
 };
+<span class="kw">use </span>rkyv::option::ArchivedOption;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
+
+<span class="kw">use </span><span class="kw">super</span>::unwind::CompiledFunctionUnwindInfoLike;
 
 <span class="doccomment">/// The frame info for a Compiled function.
 ///
@@ -187,6 +229,42 @@
 
     <span class="doccomment">/// The function unwind info
     </span><span class="kw">pub </span>unwind_info: <span class="prelude-ty">Option</span>&lt;CompiledFunctionUnwindInfo&gt;,
+}
+
+<span class="doccomment">/// Any struct that acts like a `FunctionBody`.
+</span><span class="attr">#[allow(missing_docs)]
+</span><span class="kw">pub trait </span>FunctionBodyLike&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">type </span>UnwindInfo: CompiledFunctionUnwindInfoLike&lt;<span class="lifetime">&#39;a</span>&gt;;
+
+    <span class="kw">fn </span>body(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8];
+    <span class="kw">fn </span>unwind_info(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>::UnwindInfo&gt;;
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FunctionBodyLike&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>FunctionBody {
+    <span class="kw">type </span>UnwindInfo = CompiledFunctionUnwindInfo;
+
+    <span class="kw">fn </span>body(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8] {
+        <span class="self">self</span>.body.as_ref()
+    }
+
+    <span class="kw">fn </span>unwind_info(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>::UnwindInfo&gt; {
+        <span class="self">self</span>.unwind_info.as_ref()
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; FunctionBodyLike&lt;<span class="lifetime">&#39;a</span>&gt; <span class="kw">for </span>ArchivedFunctionBody {
+    <span class="kw">type </span>UnwindInfo = ArchivedCompiledFunctionUnwindInfo;
+
+    <span class="kw">fn </span>body(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8] {
+        <span class="self">self</span>.body.as_ref()
+    }
+
+    <span class="kw">fn </span>unwind_info(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="self">Self</span>::UnwindInfo&gt; {
+        <span class="kw">match </span><span class="self">self</span>.unwind_info {
+            ArchivedOption::Some(<span class="kw-2">ref </span>x) =&gt; <span class="prelude-val">Some</span>(x),
+            ArchivedOption::None =&gt; <span class="prelude-val">None</span>,
+        }
+    }
 }
 
 <span class="doccomment">/// The result of compiling a WebAssembly function.

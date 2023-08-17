@@ -84,6 +84,13 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Generic Artifact abstraction for Wasmer Engines.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::Features;
@@ -93,7 +100,7 @@
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <span class="kw">use </span>wasmer_types::SerializeError;
 <span class="kw">use </span>wasmer_types::{
-    CpuFeature, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, TableIndex, TableStyle,
+    CpuFeature, DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
 };
 
 <span class="doccomment">/// An `Artifact` is the product that the `Engine`
@@ -102,33 +109,38 @@
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-</span><span class="kw">pub trait </span>ArtifactCreate: Send + Sync + Upcastable {
+</span><span class="kw">pub trait </span>ArtifactCreate&lt;<span class="lifetime">&#39;a</span>&gt;: Send + Sync + Upcastable {
+    <span class="doccomment">/// Type of `OwnedDataInitializer` returned by the `data_initializers` method
+    </span><span class="kw">type </span>OwnedDataInitializer: DataInitializerLike&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;a</span>;
+    <span class="doccomment">/// Type of iterator returned by the `data_initializers` method
+    </span><span class="kw">type </span>OwnedDataInitializerIterator: Iterator&lt;Item = <span class="self">Self</span>::OwnedDataInitializer&gt;;
+
     <span class="doccomment">/// Create a `ModuleInfo` for instantiation
-    </span><span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt;;
+    </span><span class="kw">fn </span>create_module_info(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; Arc&lt;ModuleInfo&gt;;
 
     <span class="doccomment">/// Sets the `ModuleInfo` name
-    </span><span class="kw">fn </span>set_module_info_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: String) -&gt; bool;
+    </span><span class="kw">fn </span>set_module_info_name(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>, name: String) -&gt; bool;
 
     <span class="doccomment">/// Returns the `ModuleInfo` for instantiation
-    </span><span class="kw">fn </span>module_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo;
+    </span><span class="kw">fn </span>module_info(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo;
 
     <span class="doccomment">/// Returns the features for this Artifact
-    </span><span class="kw">fn </span>features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features;
+    </span><span class="kw">fn </span>features(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Features;
 
     <span class="doccomment">/// Returns the CPU features for this Artifact
-    </span><span class="kw">fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; EnumSet&lt;CpuFeature&gt;;
+    </span><span class="kw">fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; EnumSet&lt;CpuFeature&gt;;
 
     <span class="doccomment">/// Returns the memory styles associated with this `Artifact`.
-    </span><span class="kw">fn </span>memory_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;;
+    </span><span class="kw">fn </span>memory_styles(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;;
 
     <span class="doccomment">/// Returns the table plans associated with this `Artifact`.
-    </span><span class="kw">fn </span>table_styles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt;;
+    </span><span class="kw">fn </span>table_styles(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt;;
 
     <span class="doccomment">/// Returns data initializers to pass to `VMInstance::initialize`
-    </span><span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[OwnedDataInitializer];
+    </span><span class="kw">fn </span>data_initializers(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="self">Self</span>::OwnedDataInitializerIterator;
 
     <span class="doccomment">/// Serializes an artifact into bytes
-    </span><span class="kw">fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt;;
+    </span><span class="kw">fn </span>serialize(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, SerializeError&gt;;
 }
 
 <span class="comment">// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
@@ -157,16 +169,18 @@
     </span>}
 }
 
-<span class="kw">impl dyn </span>ArtifactCreate + <span class="lifetime">&#39;static </span>{
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, O, I&gt;
+    <span class="kw">dyn </span>ArtifactCreate&lt;<span class="lifetime">&#39;a</span>, OwnedDataInitializer = O, OwnedDataInitializerIterator = I&gt; + <span class="lifetime">&#39;static
+</span>{
     <span class="doccomment">/// Try to downcast the artifact into a given type.
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>downcast_ref&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>T&gt; {
+    </span><span class="kw">pub fn </span>downcast_ref&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>T&gt; {
         <span class="self">self</span>.upcast_any_ref().downcast_ref::&lt;T&gt;()
     }
 
     <span class="doccomment">/// Try to downcast the artifact into a given type mutably.
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>downcast_mut&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span><span class="kw-2">mut </span>T&gt; {
+    </span><span class="kw">pub fn </span>downcast_mut&lt;T: <span class="lifetime">&#39;static</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>T&gt; {
         <span class="self">self</span>.upcast_any_mut().downcast_mut::&lt;T&gt;()
     }
 }

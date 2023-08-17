@@ -162,6 +162,12 @@
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
 </pre><pre class="rust"><code><span class="kw">use </span>core::ops::Deref;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -169,7 +175,9 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::sys::engine::default_engine;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-</span><span class="kw">use </span>std::io::Read;
+</span><span class="kw">use </span><span class="kw">crate</span>::IntoBytes;
+<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span>std::path::Path;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -209,9 +217,12 @@
     /// See [`Artifact::deserialize_unchecked`].
     </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        bytes: <span class="kw-2">&amp;</span>[u8],
+        bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes)<span class="question-mark">?</span>))
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
+            bytes.into_bytes().into(),
+        )<span class="question-mark">?</span>))
     }
 
     <span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
@@ -220,8 +231,14 @@
     ///
     /// # Safety
     /// See [`Artifact::deserialize`].
-    </span><span class="kw">pub unsafe fn </span>deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes)<span class="question-mark">?</span>))
+    </span><span class="kw">pub unsafe fn </span>deserialize(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        bytes: <span class="kw">impl </span>IntoBytes,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
+            bytes.into_bytes().into(),
+        )<span class="question-mark">?</span>))
     }
 
     <span class="attr">#[cfg(all(feature = <span class="string">&quot;sys&quot;</span>, not(target_arch = <span class="string">&quot;wasm32&quot;</span>)))]
@@ -235,13 +252,11 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
-        <span class="comment">// read the whole file
-        </span>file.read_to_end(<span class="kw-2">&amp;mut </span>buffer)<span class="question-mark">?</span>;
+        <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
-            buffer.as_slice(),
+            OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
+                .map_err(|e| DeserializeError::Generic(<span class="macro">format!</span>(<span class="string">&quot;{e:?}&quot;</span>)))<span class="question-mark">?</span>,
         )<span class="question-mark">?</span>))
     }
 
@@ -254,11 +269,8 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
-        <span class="comment">// read the whole file
-        </span>file.read_to_end(<span class="kw-2">&amp;mut </span>buffer)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, buffer.as_slice())<span class="question-mark">?</span>))
+        <span class="kw">let </span>bytes = std::fs::read(file_ref)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes.into())<span class="question-mark">?</span>))
     }
 }
 

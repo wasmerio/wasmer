@@ -170,6 +170,17 @@
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
 <a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Linking for Universal-compiled code.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::get_libcall_trampoline;
@@ -177,26 +188,27 @@
 <span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::ptr::{read_unaligned, write_unaligned};
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
+<span class="kw">use </span>wasmer_types::RelocationLike;
 <span class="kw">use </span>wasmer_types::{LocalFunctionIndex, ModuleInfo};
-<span class="kw">use </span>wasmer_types::{Relocation, RelocationKind, RelocationTarget, Relocations, SectionIndex};
+<span class="kw">use </span>wasmer_types::{RelocationKind, RelocationTarget, SectionIndex};
 <span class="kw">use </span>wasmer_vm::libcalls::function_pointer;
 <span class="kw">use </span>wasmer_vm::SectionBodyPtr;
 
 <span class="kw">fn </span>apply_relocation(
     body: usize,
-    r: <span class="kw-2">&amp;</span>Relocation,
+    r: <span class="kw-2">&amp;</span><span class="kw">impl </span>RelocationLike,
     allocated_functions: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
     allocated_sections: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
     libcall_trampolines: SectionIndex,
     libcall_trampoline_len: usize,
     riscv_pcrel_hi20s: <span class="kw-2">&amp;mut </span>HashMap&lt;usize, u32&gt;,
 ) {
-    <span class="kw">let </span>target_func_address: usize = <span class="kw">match </span>r.reloc_target {
+    <span class="kw">let </span>target_func_address: usize = <span class="kw">match </span>r.reloc_target() {
         RelocationTarget::LocalFunc(index) =&gt; <span class="kw-2">*</span>allocated_functions[index].ptr <span class="kw">as </span>usize,
         RelocationTarget::LibCall(libcall) =&gt; {
             <span class="comment">// Use the direct target of the libcall if the relocation supports
             // a full 64-bit address. Otherwise use a trampoline.
-            </span><span class="kw">if </span>r.kind == RelocationKind::Abs8 || r.kind == RelocationKind::X86PCRel8 {
+            </span><span class="kw">if </span>r.kind() == RelocationKind::Abs8 || r.kind() == RelocationKind::X86PCRel8 {
                 function_pointer(libcall)
             } <span class="kw">else </span>{
                 get_libcall_trampoline(
@@ -211,7 +223,7 @@
         }
     };
 
-    <span class="kw">match </span>r.kind {
+    <span class="kw">match </span>r.kind() {
         RelocationKind::Abs8 =&gt; <span class="kw">unsafe </span>{
             <span class="kw">let </span>(reloc_address, reloc_delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
             write_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u64, reloc_delta);
@@ -233,8 +245,8 @@
             <span class="kw">if </span>(reloc_delta <span class="kw">as </span>i64).abs() &gt;= <span class="number">0x1000_0000 </span>{
                 <span class="macro">panic!</span>(
                     <span class="string">&quot;Relocation to big for {:?} for {:?} with {:x}, current val {:x}&quot;</span>,
-                    r.kind,
-                    r.reloc_target,
+                    r.kind(),
+                    r.reloc_target(),
                     reloc_delta,
                     read_unaligned(reloc_address <span class="kw">as </span><span class="kw-2">*mut </span>u32)
                 )
@@ -302,18 +314,28 @@
 
 <span class="doccomment">/// Links a module, patching the allocated functions with the
 /// required relocations and jump tables.
-</span><span class="kw">pub fn </span>link_module(
+</span><span class="kw">pub fn </span>link_module&lt;<span class="lifetime">&#39;a</span>&gt;(
     _module: <span class="kw-2">&amp;</span>ModuleInfo,
     allocated_functions: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
-    function_relocations: Relocations,
+    function_relocations: <span class="kw">impl </span>Iterator&lt;
+        Item = (
+            LocalFunctionIndex,
+            <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>RelocationLike + <span class="lifetime">&#39;a</span>)&gt;,
+        ),
+    &gt;,
     allocated_sections: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
-    section_relocations: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, Vec&lt;Relocation&gt;&gt;,
+    section_relocations: <span class="kw">impl </span>Iterator&lt;
+        Item = (
+            SectionIndex,
+            <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>(<span class="kw">impl </span>RelocationLike + <span class="lifetime">&#39;a</span>)&gt;,
+        ),
+    &gt;,
     libcall_trampolines: SectionIndex,
     trampoline_len: usize,
 ) {
     <span class="kw">let </span><span class="kw-2">mut </span>riscv_pcrel_hi20s: HashMap&lt;usize, u32&gt; = HashMap::new();
 
-    <span class="kw">for </span>(i, section_relocs) <span class="kw">in </span>section_relocations.iter() {
+    <span class="kw">for </span>(i, section_relocs) <span class="kw">in </span>section_relocations {
         <span class="kw">let </span>body = <span class="kw-2">*</span>allocated_sections[i] <span class="kw">as </span>usize;
         <span class="kw">for </span>r <span class="kw">in </span>section_relocs {
             apply_relocation(
@@ -327,7 +349,7 @@
             );
         }
     }
-    <span class="kw">for </span>(i, function_relocs) <span class="kw">in </span>function_relocations.iter() {
+    <span class="kw">for </span>(i, function_relocs) <span class="kw">in </span>function_relocations {
         <span class="kw">let </span>body = <span class="kw-2">*</span>allocated_functions[i].ptr <span class="kw">as </span>usize;
         <span class="kw">for </span>r <span class="kw">in </span>function_relocs {
             apply_relocation(

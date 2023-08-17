@@ -502,6 +502,17 @@
 <a href="#502" id="502">502</a>
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
@@ -518,19 +529,19 @@
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use crate</span>::{FunctionExtent, Tunables};
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">use </span>memmap2::Mmap;
+</span><span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::{Arc, Mutex};
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
+    entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
     LocalFunctionIndex, SignatureIndex,
 };
 <span class="kw">use </span>wasmer_types::{CompileError, Features, ModuleInfo, Target};
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-</span><span class="kw">use </span>wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
+</span><span class="kw">use </span>wasmer_types::{CustomSectionLike, CustomSectionProtection, SectionIndex};
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -705,7 +716,7 @@
     /// See [`Artifact::deserialize_unchecked`].
     </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        bytes: <span class="kw-2">&amp;</span>[u8],
+        bytes: OwnedBuffer,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
         <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(<span class="self">self</span>, bytes)<span class="question-mark">?</span>))
     }
@@ -717,7 +728,10 @@
     ///
     /// See [`Artifact::deserialize`].
     </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    </span><span class="kw">pub unsafe fn </span>deserialize(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+    </span><span class="kw">pub unsafe fn </span>deserialize(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        bytes: OwnedBuffer,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
         <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(<span class="self">self</span>, bytes)<span class="question-mark">?</span>))
     }
 
@@ -730,8 +744,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
-        <span class="kw">let </span>contents = std::fs::read(file_ref)<span class="question-mark">?</span>;
-        <span class="self">self</span>.deserialize(<span class="kw-2">&amp;</span>contents)
+        <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
+        <span class="self">self</span>.deserialize(
+            OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file).map_err(|e| DeserializeError::Generic(e.to_string()))<span class="question-mark">?</span>,
+        )
     }
 
     <span class="doccomment">/// Deserialize from a file path.
@@ -745,8 +761,9 @@
         file_ref: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
         <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
-        <span class="kw">let </span>mmap = Mmap::map(<span class="kw-2">&amp;</span>file)<span class="question-mark">?</span>;
-        <span class="self">self</span>.deserialize_unchecked(<span class="kw-2">&amp;</span>mmap)
+        <span class="self">self</span>.deserialize_unchecked(
+            OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file).map_err(|e| DeserializeError::Generic(e.to_string()))<span class="question-mark">?</span>,
+        )
     }
 
     <span class="doccomment">/// A unique identifier for this object.
@@ -832,13 +849,13 @@
     <span class="doccomment">/// Allocate compiled functions into memory
     </span><span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
     #[allow(clippy::type_complexity)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>allocate&lt;<span class="lifetime">&#39;a</span>, FunctionBody, CustomSection&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span><span class="self">self</span>,
         _module: <span class="kw-2">&amp;</span>ModuleInfo,
-        functions: <span class="kw-2">&amp;</span>PrimaryMap&lt;LocalFunctionIndex, FunctionBody&gt;,
-        function_call_trampolines: <span class="kw-2">&amp;</span>PrimaryMap&lt;SignatureIndex, FunctionBody&gt;,
-        dynamic_function_trampolines: <span class="kw-2">&amp;</span>PrimaryMap&lt;FunctionIndex, FunctionBody&gt;,
-        custom_sections: <span class="kw-2">&amp;</span>PrimaryMap&lt;SectionIndex, CustomSection&gt;,
+        functions: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionBody&gt; + <span class="lifetime">&#39;a</span>,
+        function_call_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionBody&gt; + <span class="lifetime">&#39;a</span>,
+        dynamic_function_trampolines: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>FunctionBody&gt; + <span class="lifetime">&#39;a</span>,
+        custom_sections: <span class="kw">impl </span>ExactSizeIterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>CustomSection&gt; + Clone + <span class="lifetime">&#39;a</span>,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;
         (
             PrimaryMap&lt;LocalFunctionIndex, FunctionExtent&gt;,
@@ -847,15 +864,21 @@
             PrimaryMap&lt;SectionIndex, SectionBodyPtr&gt;,
         ),
         CompileError,
-    &gt; {
+    &gt;
+    <span class="kw">where
+        </span>FunctionBody: FunctionBodyLike&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;a</span>,
+        CustomSection: CustomSectionLike&lt;<span class="lifetime">&#39;a</span>&gt; + <span class="lifetime">&#39;a</span>,
+    {
+        <span class="kw">let </span>functions_len = functions.len();
+        <span class="kw">let </span>function_call_trampolines_len = function_call_trampolines.len();
+
         <span class="kw">let </span>function_bodies = functions
-            .values()
-            .chain(function_call_trampolines.values())
-            .chain(dynamic_function_trampolines.values())
+            .chain(function_call_trampolines)
+            .chain(dynamic_function_trampolines)
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
         <span class="kw">let </span>(executable_sections, data_sections): (Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>) = custom_sections
-            .values()
-            .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
+            .clone()
+            .partition(|section| <span class="kw-2">*</span>section.protection() == CustomSectionProtection::ReadExecute);
         <span class="self">self</span>.code_memory.push(CodeMemory::new());
 
         <span class="kw">let </span>(<span class="kw-2">mut </span>allocated_functions, allocated_executable_sections, allocated_data_sections) =
@@ -875,7 +898,7 @@
                 })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>allocated_functions_result = allocated_functions
-            .drain(<span class="number">0</span>..functions.len())
+            .drain(<span class="number">0</span>..functions_len)
             .map(|slice| FunctionExtent {
                 ptr: FunctionBodyPtr(slice.as_ptr()),
                 length: slice.len(),
@@ -885,7 +908,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>allocated_function_call_trampolines: PrimaryMap&lt;SignatureIndex, VMTrampoline&gt; =
             PrimaryMap::new();
         <span class="kw">for </span>ptr <span class="kw">in </span>allocated_functions
-            .drain(<span class="number">0</span>..function_call_trampolines.len())
+            .drain(<span class="number">0</span>..function_call_trampolines_len)
             .map(|slice| slice.as_ptr())
         {
             <span class="kw">let </span>trampoline =
@@ -901,10 +924,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>exec_iter = allocated_executable_sections.iter();
         <span class="kw">let </span><span class="kw-2">mut </span>data_iter = allocated_data_sections.iter();
         <span class="kw">let </span>allocated_custom_sections = custom_sections
-            .iter()
-            .map(|(<span class="kw">_</span>, section)| {
+            .map(|section| {
                 SectionBodyPtr(
-                    <span class="kw">if </span>section.protection == CustomSectionProtection::ReadExecute {
+                    <span class="kw">if </span><span class="kw-2">*</span>section.protection() == CustomSectionProtection::ReadExecute {
                         exec_iter.next()
                     } <span class="kw">else </span>{
                         data_iter.next()
