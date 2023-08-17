@@ -79,7 +79,7 @@ impl Module {
             .as_engine_ref()
             .engine()
             .0
-            .deserialize_unchecked(bytes.into())?;
+            .deserialize_unchecked(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 
@@ -88,11 +88,7 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .0
-            .deserialize(bytes.into())?;
+        let artifact = engine.as_engine_ref().engine().0.deserialize(&bytes)?;
         Ok(Self::from_artifact(artifact))
     }
 

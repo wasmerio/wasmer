@@ -14,19 +14,19 @@ use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{FunctionExtent, Tunables};
 #[cfg(not(target_arch = "wasm32"))]
-use shared_buffer::OwnedBuffer;
+use memmap2::Mmap;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
+    entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
     LocalFunctionIndex, SignatureIndex,
 };
 use wasmer_types::{CompileError, Features, ModuleInfo, Target};
 #[cfg(not(target_arch = "wasm32"))]
-use wasmer_types::{CustomSectionLike, CustomSectionProtection, SectionIndex};
+use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -201,7 +201,7 @@ impl Engine {
     /// See [`Artifact::deserialize_unchecked`].
     pub unsafe fn deserialize_unchecked(
         &self,
-        bytes: OwnedBuffer,
+        bytes: &[u8],
     ) -> Result<Arc<Artifact>, DeserializeError> {
         Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?))
     }
@@ -213,10 +213,7 @@ impl Engine {
     ///
     /// See [`Artifact::deserialize`].
     #[cfg(not(target_arch = "wasm32"))]
-    pub unsafe fn deserialize(
-        &self,
-        bytes: OwnedBuffer,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
+    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
@@ -229,10 +226,8 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        self.deserialize(
-            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        )
+        let contents = std::fs::read(file_ref)?;
+        self.deserialize(&contents)
     }
 
     /// Deserialize from a file path.
@@ -246,9 +241,8 @@ impl Engine {
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
-        self.deserialize_unchecked(
-            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        )
+        let mmap = Mmap::map(&file)?;
+        self.deserialize_unchecked(&mmap)
     }
 
     /// A unique identifier for this object.
@@ -334,13 +328,13 @@ impl EngineInner {
     /// Allocate compiled functions into memory
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::type_complexity)]
-    pub(crate) fn allocate<'a, FunctionBody, CustomSection>(
-        &'a mut self,
+    pub(crate) fn allocate(
+        &mut self,
         _module: &ModuleInfo,
-        functions: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
-        function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
-        dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
-        custom_sections: impl ExactSizeIterator<Item = &'a CustomSection> + Clone + 'a,
+        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
+        function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
+        dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
+        custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, FunctionExtent>,
@@ -349,21 +343,15 @@ impl EngineInner {
             PrimaryMap<SectionIndex, SectionBodyPtr>,
         ),
         CompileError,
-    >
-    where
-        FunctionBody: FunctionBodyLike<'a> + 'a,
-        CustomSection: CustomSectionLike<'a> + 'a,
-    {
-        let functions_len = functions.len();
-        let function_call_trampolines_len = function_call_trampolines.len();
-
+    > {
         let function_bodies = functions
-            .chain(function_call_trampolines)
-            .chain(dynamic_function_trampolines)
+            .values()
+            .chain(function_call_trampolines.values())
+            .chain(dynamic_function_trampolines.values())
             .collect::<Vec<_>>();
         let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
-            .clone()
-            .partition(|section| *section.protection() == CustomSectionProtection::ReadExecute);
+            .values()
+            .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
         self.code_memory.push(CodeMemory::new());
 
         let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
@@ -383,7 +371,7 @@ impl EngineInner {
                 })?;
 
         let allocated_functions_result = allocated_functions
-            .drain(0..functions_len)
+            .drain(0..functions.len())
             .map(|slice| FunctionExtent {
                 ptr: FunctionBodyPtr(slice.as_ptr()),
                 length: slice.len(),
@@ -393,7 +381,7 @@ impl EngineInner {
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
             PrimaryMap::new();
         for ptr in allocated_functions
-            .drain(0..function_call_trampolines_len)
+            .drain(0..function_call_trampolines.len())
             .map(|slice| slice.as_ptr())
         {
             let trampoline =
@@ -409,9 +397,10 @@ impl EngineInner {
         let mut exec_iter = allocated_executable_sections.iter();
         let mut data_iter = allocated_data_sections.iter();
         let allocated_custom_sections = custom_sections
-            .map(|section| {
+            .iter()
+            .map(|(_, section)| {
                 SectionBodyPtr(
-                    if *section.protection() == CustomSectionProtection::ReadExecute {
+                    if section.protection == CustomSectionProtection::ReadExecute {
                         exec_iter.next()
                     } else {
                         data_iter.next()

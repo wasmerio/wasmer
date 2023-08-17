@@ -1,12 +1,9 @@
-use std::{path::Path, sync::Arc};
-
-use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{
     Artifact, BaseTunables, CompilerConfig, Engine, EngineBuilder, Tunables,
 };
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{DeserializeError, Target};
+use wasmer_types::Target;
 
 /// Returns the default engine for the Sys engine
 pub(crate) fn default_engine() -> Engine {
@@ -86,26 +83,6 @@ pub trait NativeEngineExt {
 
     /// Get a reference to attached Tunable of this engine
     fn tunables(&self) -> &dyn Tunables;
-
-    /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
-    ///
-    /// NOTE: you should almost always prefer [`Self::deserialize_from_mmapped_file`].
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize_unchecked`].
-    unsafe fn deserialize_from_mmapped_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError>;
-
-    /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize`].
-    unsafe fn deserialize_from_mmapped_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError>;
 }
 
 impl NativeEngineExt for crate::engine::Engine {
@@ -128,28 +105,5 @@ impl NativeEngineExt for crate::engine::Engine {
 
     fn tunables(&self) -> &dyn Tunables {
         self.0.tunables()
-    }
-
-    unsafe fn deserialize_from_mmapped_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        let bytes = std::fs::read(file_ref)?;
-        Ok(Arc::new(Artifact::deserialize_unchecked(
-            &self.0,
-            bytes.into(),
-        )?))
-    }
-
-    unsafe fn deserialize_from_mmapped_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        Ok(Arc::new(Artifact::deserialize(
-            &self.0,
-            OwnedBuffer::from_file(&file)
-                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
-        )?))
     }
 }
