@@ -145,7 +145,6 @@ enum Cmd {
     Publish(Publish),
 
     /// Wasmer cache
-    #[clap(subcommand)]
     Cache(Cache),
 
     /// Validate a WebAssembly binary
