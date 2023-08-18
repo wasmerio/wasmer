@@ -1343,37 +1343,14 @@ impl File {
 
 impl File {
     pub fn write(&mut self, buf: &[u8], cursor: &mut u64) -> io::Result<usize> {
-        match *cursor {
-            // The cursor is at the end of the buffer: happy path!
-            position if position == self.buffer.len() as u64 => {
-                self.buffer.extend_from_slice(buf)?;
-            }
+        let position = *cursor as usize;
 
-            // The cursor is at the beginning of the buffer (and the
-            // buffer is not empty, otherwise it would have been
-            // caught by the previous arm): almost a happy path!
-            0 => {
-                // FIXME(perf,theduke): make this faster, it's horrible!
-                let mut new_buffer = TrackedVec::with_capacity(
-                    self.buffer.len() + buf.len(),
-                    self.buffer.limiter().cloned(),
-                )?;
-                new_buffer.extend_from_slice(buf)?;
-                new_buffer.append(&mut self.buffer)?;
-
-                self.buffer = new_buffer;
-            }
-
-            // The cursor is somewhere in the buffer: not the happy path.
-            position => {
-                self.buffer.reserve_exact(buf.len())?;
-
-                // FIXME(perf,theduke): make this faster, it's horrible!
-                let mut remainder = self.buffer.split_off(position as usize)?;
-                self.buffer.extend_from_slice(buf)?;
-                self.buffer.append(&mut remainder)?;
-            }
+        if position + buf.len() > self.buffer.len() {
+            // Writing past the end of the current buffer, must reallocate
+            self.buffer.resize(position + buf.len(), 0)?;
         }
+
+        self.buffer[position..position + buf.len()].copy_from_slice(buf);
 
         *cursor += buf.len() as u64;
 
@@ -1436,5 +1413,53 @@ impl ReadOnlyFile {
 
     pub fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::File;
+
+    #[test]
+    pub fn test_write() {
+        fn assert_contents(file: &File, expected: &[u8]) {
+            let mut buf = vec![0; expected.len() + 1];
+            let mut cursor = 0;
+            let read = file.read(buf.as_mut(), &mut cursor).unwrap();
+            assert_eq!(read, expected.len(), "Must have the same amount of data");
+            assert_eq!(buf[0..expected.len()], *expected);
+        }
+
+        let mut file = File::new(None);
+
+        let mut cursor = 0;
+
+        // Write to empty file
+        file.write(b"hello, world.", &mut cursor).unwrap();
+        assert_eq!(cursor, 13);
+        assert_contents(&file, b"hello, world.");
+
+        // Write to end of file
+        file.write(b"goodbye!", &mut cursor).unwrap();
+        assert_eq!(cursor, 21);
+        assert_contents(&file, b"hello, world.goodbye!");
+
+        // Write to middle of file
+        cursor = 5;
+        file.write(b"BOOM", &mut cursor).unwrap();
+        assert_eq!(cursor, 9);
+        assert_contents(&file, b"helloBOOMrld.goodbye!");
+
+        // Write to middle of file until last byte
+        cursor = 17;
+        file.write(b"BANG", &mut cursor).unwrap();
+        assert_eq!(cursor, 21);
+        assert_contents(&file, b"helloBOOMrld.goodBANG");
+
+        // Write to middle past end of file
+        cursor = 17;
+        file.write(b"OUCH!", &mut cursor).unwrap();
+        assert_eq!(cursor, 22);
+        assert_contents(&file, b"helloBOOMrld.goodOUCH!");
     }
 }
