@@ -20,7 +20,7 @@ getrandom = "0.2"
 wasmer-wasix-types = { path = "../wasi-types", version = "0.11.0", features = [ "enable-serde" ] }
 wasmer-types = { path = "../types", version = "=4.1.1", default-features = false }
 wasmer = { path = "../api", version = "=4.1.1", default-features = false, features = ["wat", "js-serializable-module"] }
-virtual-mio  = { path = "../virtual-io", version = "0.1.0", default-features = false }
+virtual-mio  = { path = "../virtual-io", version = "0.2.0", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.8.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../virtual-net", version = "0.5.0", default-features = false }
 wasmer-emscripten = { path = "../emscripten", version = "=4.1.1", optional = true }
