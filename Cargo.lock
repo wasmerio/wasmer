@@ -1870,6 +1870,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eabb4a44450da02c90444cf74558da904edde8fb4e9035a9a6a4e15445af0bd7"
 
 [[package]]
+name = "harsh"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a6fce2283849822530a18d7d8eeb1719ac65a27cfb6649c0dc8dfd2d2cc5edfb"
+
+[[package]]
 name = "hash32"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5052,6 +5058,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "virtual-mio"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc63af761ebc294142a24d62795518b8ed4f722ae9a6666b9f93569a4df6447e"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "derivative",
+ "futures",
+ "mio",
+ "serde",
+ "socket2 0.4.9",
+ "thiserror",
+ "tracing",
+]
+
+[[package]]
 name = "virtual-net"
 version = "0.5.0"
 dependencies = [
@@ -5076,7 +5099,36 @@ dependencies = [
  "tokio-util 0.6.10",
  "tracing",
  "tracing-test",
- "virtual-mio",
+ "virtual-mio 0.2.0",
+]
+
+[[package]]
+name = "virtual-net"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "306bb6ff6ed62c44f50a72c7c89f95439bb0f56cce7c3963cd3ae6d292a04af5"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "bincode",
+ "bytes",
+ "derivative",
+ "futures-util",
+ "hyper",
+ "hyper-tungstenite",
+ "libc",
+ "mio",
+ "pin-project-lite",
+ "serde",
+ "socket2 0.4.9",
+ "thiserror",
+ "tokio",
+ "tokio-serde",
+ "tokio-tungstenite",
+ "tokio-util 0.6.10",
+ "tracing",
+ "virtual-mio 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5481,13 +5533,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.12"
+version = "0.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce5c528b93fa430da1d4960759ded4f905bd7a82c68857f9eb01202a62650224"
+checksum = "96d1be747dfe4eeb732a54b276f2f558645cbc05b512313e720ffb228a03cd26"
 dependencies = [
  "anyhow",
  "cynic",
  "futures",
+ "harsh",
  "pin-project-lite",
  "reqwest",
  "serde",
@@ -5630,7 +5683,7 @@ dependencies = [
  "unix_mode",
  "url",
  "virtual-fs",
- "virtual-net",
+ "virtual-net 0.5.0",
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
@@ -5760,9 +5813,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.19"
+version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "622926606a0ec3d5d474485e2770e661445665e8e7a9e144c3e3732ebbf2c772"
+checksum = "f989e378b2c5c95e860fc38dc9ebe2bdc7a00f6b1ee8057ecac18fcfb0dcf378"
 dependencies = [
  "anyhow",
  "clap",
@@ -5787,6 +5840,8 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
+ "virtual-mio 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "virtual-net 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
@@ -5797,9 +5852,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-schema"
-version = "0.0.10"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f8c1b8e8c2e49f3c1a54bce561dbb79e81ced47818deddde8b32280e33ca2a6"
+checksum = "f384b57354773374b4a357962181949edc0dd8ad13e671f7bbc469654c54dba4"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -5816,9 +5871,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-util"
-version = "0.0.10"
+version = "0.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27a1a67c2146f62b3e336f131404235f54e12fa80f0d8278b77fff56cdbe548f"
+checksum = "3524055bdb935d731684c98c9066a568d4586755d17663a2574aef7d29466bc2"
 dependencies = [
  "http",
  "serde",
@@ -6157,8 +6212,8 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
- "virtual-mio",
- "virtual-net",
+ "virtual-mio 0.2.0",
+ "virtual-net 0.5.0",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",
