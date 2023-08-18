@@ -194,7 +194,7 @@ pub(crate) fn write_ip_port<M: MemorySize>(
     ip: IpAddr,
     port: u16,
 ) -> Result<(), Errno> {
-    let p = port.to_be_bytes();
+    let p = port.to_ne_bytes();
     let ipport = match ip {
         IpAddr::V4(ip) => {
             let o = ip.octets();
