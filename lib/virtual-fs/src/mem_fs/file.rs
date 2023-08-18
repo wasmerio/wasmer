@@ -1347,10 +1347,13 @@ impl File {
 
         if position + buf.len() > self.buffer.len() {
             // Writing past the end of the current buffer, must reallocate
-            self.buffer.resize(position + buf.len(), 0)?;
+            let len_after_end = (position + buf.len()) - self.buffer.len();
+            let let_to_end = buf.len() - len_after_end;
+            self.buffer[position..position + let_to_end].copy_from_slice(&buf[0..let_to_end]);
+            self.buffer.extend_from_slice(&buf[let_to_end..buf.len()])?;
+        } else {
+            self.buffer[position..position + buf.len()].copy_from_slice(buf);
         }
-
-        self.buffer[position..position + buf.len()].copy_from_slice(buf);
 
         *cursor += buf.len() as u64;
 
