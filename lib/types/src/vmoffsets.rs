@@ -12,6 +12,7 @@ use crate::{
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
+use std::mem::size_of;
 
 /// An index type for builtin functions.
 #[derive(Copy, Clone, Debug)]
@@ -280,9 +281,11 @@ impl VMOffsets {
 
     fn precompute(&mut self) {
         /// Offset base by num_items items of size item_size, panicking on overflow
+        /// Also, will align the value on pointer size boundary,
+        /// to avoid misalignement issue
         fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
-            base.checked_add(num_items.checked_mul(item_size).unwrap())
-                .unwrap()
+            align(base.checked_add(num_items.checked_mul(item_size).unwrap())
+                .unwrap(), size_of::<&u32>() as u32)
         }
 
         self.vmctx_signature_ids_begin = 0;
