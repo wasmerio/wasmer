@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 4.1.2 - 21/08/2023
+Another maintenance release, bringging some network improvement, and centralising all wasmer cache under the same folder.
 
 ## Added
 
@@ -19,8 +20,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
   - [#4164](https://github.com/wasmerio/wasmer/pull/4164) deps: Bump Edge client CLI to 0.1.22
   - [#4163](https://github.com/wasmerio/wasmer/pull/4163) Bumped virtual-net crate to 0.5.0
-  - [#4139](https://github.com/wasmerio/wasmer/pull/4139) 0-copy module deserialization
-  - [#4162](https://github.com/wasmerio/wasmer/pull/4162) Revert "0-copy module deserialization"
   - [#4156](https://github.com/wasmerio/wasmer/pull/4156) Disable auto-format of toml files in VS Code
   - [#4141](https://github.com/wasmerio/wasmer/pull/4141) Web http client
   - [#4152](https://github.com/wasmerio/wasmer/pull/4152) Test virtual-net bincode and mpsc only on linux
