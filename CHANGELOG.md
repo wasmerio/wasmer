@@ -10,7 +10,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 4.1.2 - 21/08/2023
-Another maintenance release, bringging some network improvement, and centralising all wasmer cache under the same folder.
+Another maintenance release, bringing some networking improvements, and centralising all wasmer caches under the same folder.
+
 
 ## Added
 
