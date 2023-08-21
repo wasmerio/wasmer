@@ -284,8 +284,11 @@ impl VMOffsets {
         /// Also, will align the value on pointer size boundary,
         /// to avoid misalignement issue
         fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
-            align(base.checked_add(num_items.checked_mul(item_size).unwrap())
-                .unwrap(), size_of::<&u32>() as u32)
+            align(
+                base.checked_add(num_items.checked_mul(item_size).unwrap())
+                    .unwrap(),
+                size_of::<&u32>() as u32,
+            )
         }
 
         self.vmctx_signature_ids_begin = 0;
