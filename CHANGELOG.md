@@ -9,6 +9,34 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.1.2 - 21/08/2023
+Another maintenance release, bringing some networking improvements, and centralising all wasmer caches under the same folder.
+
+
+## Added
+
+  - [#4127](https://github.com/wasmerio/wasmer/pull/4127) Add regression test for path_rename
+
+## Changed
+
+  - [#4164](https://github.com/wasmerio/wasmer/pull/4164) deps: Bump Edge client CLI to 0.1.22
+  - [#4163](https://github.com/wasmerio/wasmer/pull/4163) Bumped virtual-net crate to 0.5.0
+  - [#4156](https://github.com/wasmerio/wasmer/pull/4156) Disable auto-format of toml files in VS Code
+  - [#4141](https://github.com/wasmerio/wasmer/pull/4141) Web http client
+  - [#4152](https://github.com/wasmerio/wasmer/pull/4152) Test virtual-net bincode and mpsc only on linux
+  - [#4115](https://github.com/wasmerio/wasmer/pull/4115) Browser cfg, smaller WASM, VPN and HTTPS redirect
+  - [#4138](https://github.com/wasmerio/wasmer/pull/4138) Upgrade wasmer-wasix to the newest version of wasm-bindgen
+  - [#4135](https://github.com/wasmerio/wasmer/pull/4135) Update to time 0.3
+  - [#4109](https://github.com/wasmerio/wasmer/pull/4109) Update MSRV to 1.69
+  - [#4130](https://github.com/wasmerio/wasmer/pull/4130) Update to tracing-subscriber 0.3
+
+## Fixed
+
+  - [#4160](https://github.com/wasmerio/wasmer/pull/4160) fix: Make the "wasmer cache" command use the same cache directory as the rest of the CLI
+  - [#4148](https://github.com/wasmerio/wasmer/pull/4148) fix(cli): Prevent panics in "wasmer login" after API failures
+
+
+
 ## 4.1.1 - 03/08/2023
 Bug-fix release, fixing rename in wasi(x), using newer Rust and some macOS ARM64 speicifc issues, among other things.
 
