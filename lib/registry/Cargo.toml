@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "5.4.0"
+version = "5.5.0"
 description = "Crate to interact with the wasmer registry, download packages, etc."
 authors.workspace = true
 edition.workspace = true

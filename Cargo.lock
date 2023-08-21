@@ -5204,7 +5204,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5695,7 +5695,7 @@ dependencies = [
  "wasmer-deploy-cli",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 5.4.0",
+ "wasmer-registry 5.5.0",
  "wasmer-toml 0.6.0",
  "wasmer-types",
  "wasmer-vm",
@@ -5845,7 +5845,7 @@ dependencies = [
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
- "wasmer-registry 5.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 5.4.0",
  "wasmer-toml 0.6.0",
  "webc",
 ]
@@ -5961,7 +5961,7 @@ dependencies = [
  "target-lexicon 0.12.11",
  "tempfile",
  "tokio",
- "wasmer-registry 5.4.0",
+ "wasmer-registry 5.5.0",
 ]
 
 [[package]]
@@ -5984,47 +5984,6 @@ dependencies = [
  "object 0.28.4",
  "thiserror",
  "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-registry"
-version = "5.4.0"
-dependencies = [
- "anyhow",
- "clap",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "pretty_assertions",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.18",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "url",
- "wasmer-toml 0.6.0",
- "wasmer-wasm-interface 4.1.2",
- "wasmparser 0.51.4",
- "whoami",
 ]
 
 [[package]]
@@ -6069,8 +6028,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-registry"
+version = "5.5.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap 1.9.3",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "pretty_assertions",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.18",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "url",
+ "wasmer-toml 0.6.0",
+ "wasmer-wasm-interface 4.1.2",
+ "wasmparser 0.51.4",
+ "whoami",
+]
+
+[[package]]
 name = "wasmer-sys-utils"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "libc",
  "region",
@@ -6163,7 +6163,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6233,7 +6233,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -6248,7 +6248,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",
