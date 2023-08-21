@@ -208,10 +208,13 @@ completes first, then it is guaranteed that no data was read.</p>
     <span class="kw">let </span><span class="kw-2">mut </span>buffer = BytesMut::with_capacity(<span class="number">10</span>);
 
     <span class="macro">assert!</span>(buffer.is_empty());
+    <span class="macro">assert!</span>(buffer.capacity() &gt;= <span class="number">10</span>);
 
-    <span class="comment">// read up to 10 bytes, note that the return value is not needed
-    // to access the data that was read as `buffer`&#39;s internal
-    // cursor is updated.
+    <span class="comment">// note that the return value is not needed to access the data
+    // that was read as `buffer`&#39;s internal cursor is updated.
+    //
+    // this might read more than 10 bytes if the capacity of `buffer`
+    // is larger than 10.
     </span>f.read_buf(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="macro">println!</span>(<span class="string">&quot;The bytes: {:?}&quot;</span>, <span class="kw-2">&amp;</span>buffer[..]);
