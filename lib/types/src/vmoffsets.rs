@@ -281,9 +281,14 @@ impl VMOffsets {
 
     fn precompute(&mut self) {
         /// Offset base by num_items items of size item_size, panicking on overflow
+        fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
+            base.checked_add(num_items.checked_mul(item_size).unwrap())
+                .unwrap()
+        }
+        /// Offset base by num_items items of size item_size, panicking on overflow
         /// Also, will align the value on pointer size boundary,
         /// to avoid misalignement issue
-        fn offset_by(base: u32, num_items: u32, item_size: u32) -> u32 {
+        fn offset_by_aligned(base: u32, num_items: u32, item_size: u32) -> u32 {
             align(
                 base.checked_add(num_items.checked_mul(item_size).unwrap())
                     .unwrap(),
@@ -292,32 +297,32 @@ impl VMOffsets {
         }
 
         self.vmctx_signature_ids_begin = 0;
-        self.vmctx_imported_functions_begin = offset_by(
+        self.vmctx_imported_functions_begin = offset_by_aligned(
             self.vmctx_signature_ids_begin,
             self.num_signature_ids,
             u32::from(self.size_of_vmshared_signature_index()),
         );
-        self.vmctx_imported_tables_begin = offset_by(
+        self.vmctx_imported_tables_begin = offset_by_aligned(
             self.vmctx_imported_functions_begin,
             self.num_imported_functions,
             u32::from(self.size_of_vmfunction_import()),
         );
-        self.vmctx_imported_memories_begin = offset_by(
+        self.vmctx_imported_memories_begin = offset_by_aligned(
             self.vmctx_imported_tables_begin,
             self.num_imported_tables,
             u32::from(self.size_of_vmtable_import()),
         );
-        self.vmctx_imported_globals_begin = offset_by(
+        self.vmctx_imported_globals_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
         );
-        self.vmctx_tables_begin = offset_by(
+        self.vmctx_tables_begin = offset_by_aligned(
             self.vmctx_imported_globals_begin,
             self.num_imported_globals,
             u32::from(self.size_of_vmglobal_import()),
         );
-        self.vmctx_memories_begin = offset_by(
+        self.vmctx_memories_begin = offset_by_aligned(
             self.vmctx_tables_begin,
             self.num_local_tables,
             u32::from(self.size_of_vmtable_definition()),
