@@ -1142,9 +1142,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "5.5.0"
+version = "5.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6943ae99c34386c84a470c499d3414f66502a41340aa895406e0d2e4a207b91d"
+checksum = "edd72493923899c6f10c641bdbdeddc7183d6396641d99c1a0d1597f37f92e28"
 dependencies = [
  "cfg-if",
  "hashbrown 0.14.0",
@@ -1846,9 +1846,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.20"
+version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97ec8491ebaf99c8eaa73058b045fe58073cd6be7f596ac993ced0b0a0c01049"
+checksum = "91fc23aa11be92976ef4729127f1a74adf36d8436f7816b185d18df956790833"
 dependencies = [
  "bytes",
  "fnv",
@@ -3576,9 +3576,9 @@ checksum = "e3a8614ee435691de62bcffcf4a66d91b3594bf1428a5722e79103249a095690"
 
 [[package]]
 name = "reqwest"
-version = "0.11.18"
+version = "0.11.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cde824a14b7c14f85caff81225f411faacc04a2013f41670f41443742b1c1c55"
+checksum = "20b9b67e2ca7dd9e9f9285b759de30ff538aab981abaaf7bc9bd90b84a0126c3"
 dependencies = [
  "async-compression",
  "base64",
@@ -4980,9 +4980,9 @@ checksum = "ed646292ffc8188ef8ea4d1e0e0150fb15a5c2e12ad9b8fc191ae7a8a7f3c4b9"
 
 [[package]]
 name = "unicase"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50f37be617794602aabbeee0be4f259dc1778fabe05e2d67ee8f79326d5cb4f6"
+checksum = "f7d2d4dafb69621809a81864c9c1b864479e1235c0dd4e199924b9742439ed89"
 dependencies = [
  "version_check",
 ]
@@ -5585,9 +5585,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-streams"
-version = "0.2.3"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bbae3363c08332cadccd13b67db371814cd214c2524020932f0804b8cf7c078"
+checksum = "b4609d447824375f43e1ffbc051b50ad8f4b3ae8219680c94452ea05eb240ac7"
 dependencies = [
  "futures-util",
  "js-sys",
@@ -5948,7 +5948,7 @@ dependencies = [
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
- "wasmer-registry 5.4.0",
+ "wasmer-registry 5.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-toml 0.6.0",
  "webc",
 ]
@@ -6095,47 +6095,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d843168f099071b078c39f89b34030cc31876f300889fe932c4c8baff06c14d6"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.18",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "url",
- "wasmer-toml 0.6.0",
- "wasmer-wasm-interface 4.1.1",
- "wasmparser 0.51.4",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
 version = "5.5.0"
 dependencies = [
  "anyhow",
@@ -6171,6 +6130,47 @@ dependencies = [
  "url",
  "wasmer-toml 0.6.0",
  "wasmer-wasm-interface 4.1.2",
+ "wasmparser 0.51.4",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "685cfaf52f6914dc53f511190b2fe846165e88e554b95963db187a9dfe35fab2"
+dependencies = [
+ "anyhow",
+ "console",
+ "dirs",
+ "filetime",
+ "flate2",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap 1.9.3",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.18",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "url",
+ "wasmer-toml 0.6.0",
+ "wasmer-wasm-interface 4.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmparser 0.51.4",
  "whoami",
 ]
@@ -6378,18 +6378,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasm-interface"
-version = "4.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88903f75b88a541cc4d2f38c38c9cf2786262c14fa2cf2002808c92f9f84049f"
-dependencies = [
- "either",
- "nom 5.1.3",
- "serde",
- "wasmparser 0.51.4",
-]
-
-[[package]]
-name = "wasmer-wasm-interface"
 version = "4.1.2"
 dependencies = [
  "bincode",
@@ -6398,6 +6386,18 @@ dependencies = [
  "serde",
  "wasmparser 0.51.4",
  "wat",
+]
+
+[[package]]
+name = "wasmer-wasm-interface"
+version = "4.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c015cccd0e0e958326720eb92d6f2bb580abd01ba4c05ced2673da6daac77b58"
+dependencies = [
+ "either",
+ "nom 5.1.3",
+ "serde",
+ "wasmparser 0.51.4",
 ]
 
 [[package]]
@@ -6673,23 +6673,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "webpki"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f095d78192e208183081cc07bc5515ef55216397af48b873e5edcd72637fa1bd"
-dependencies = [
- "ring",
- "untrusted",
-]
-
-[[package]]
 name = "webpki-roots"
-version = "0.22.6"
+version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6c71e40d7d2c34a5106301fb632274ca37242cd0c9d3e64dbece371a40a2d87"
-dependencies = [
- "webpki",
-]
+checksum = "14247bb57be4f377dfb94c72830b8ce8fc6beac03cf4bf7b9732eadd414123fc"
 
 [[package]]
 name = "weezl"
@@ -6933,11 +6920,12 @@ dependencies = [
 
 [[package]]
 name = "winreg"
-version = "0.10.1"
+version = "0.50.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
+checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
 dependencies = [
- "winapi",
+ "cfg-if",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
