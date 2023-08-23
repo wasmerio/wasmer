@@ -184,6 +184,49 @@
 <a href="#184" id="184">184</a>
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
@@ -291,6 +334,110 @@
     </span><span class="kw">pub </span>addend: Addend,
 }
 
+<span class="doccomment">/// Any struct that acts like a `Relocation`.
+</span><span class="attr">#[allow(missing_docs)]
+</span><span class="kw">pub trait </span>RelocationLike {
+    <span class="kw">fn </span>kind(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationKind;
+    <span class="kw">fn </span>reloc_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationTarget;
+    <span class="kw">fn </span>offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CodeOffset;
+    <span class="kw">fn </span>addend(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Addend;
+
+    <span class="doccomment">/// Given a function start address, provide the relocation relative
+    /// to that address.
+    ///
+    /// The function returns the relocation address and the delta.
+    </span><span class="kw">fn </span>for_address(<span class="kw-2">&amp;</span><span class="self">self</span>, start: usize, target_func_address: u64) -&gt; (usize, u64) {
+        <span class="kw">match </span><span class="self">self</span>.kind() {
+            RelocationKind::Abs8
+            | RelocationKind::Arm64Movw0
+            | RelocationKind::Arm64Movw1
+            | RelocationKind::Arm64Movw2
+            | RelocationKind::Arm64Movw3
+            | RelocationKind::RiscvPCRelLo12I =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_abs = target_func_address
+                    .checked_add(reloc_addend <span class="kw">as </span>u64)
+                    .unwrap();
+                (reloc_address, reloc_abs)
+            }
+            RelocationKind::X86PCRel4 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta_u32 = (target_func_address <span class="kw">as </span>u32)
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u32)
+                    .checked_add(reloc_addend <span class="kw">as </span>u32)
+                    .unwrap();
+                (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
+            }
+            RelocationKind::X86PCRel8 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta = target_func_address
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u64)
+                    .checked_add(reloc_addend <span class="kw">as </span>u64)
+                    .unwrap();
+                (reloc_address, reloc_delta)
+            }
+            RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta_u32 = (target_func_address <span class="kw">as </span>u32)
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u32)
+                    .wrapping_add(reloc_addend <span class="kw">as </span>u32);
+                (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
+            }
+            RelocationKind::Arm64Call
+            | RelocationKind::RiscvCall
+            | RelocationKind::RiscvPCRelHi20 =&gt; {
+                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset() <span class="kw">as </span>usize;
+                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend() <span class="kw">as </span>isize;
+                <span class="kw">let </span>reloc_delta_u32 = target_func_address
+                    .wrapping_sub(reloc_address <span class="kw">as </span>u64)
+                    .wrapping_add(reloc_addend <span class="kw">as </span>u64);
+                (reloc_address, reloc_delta_u32)
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Relocation kind unsupported&quot;</span>),
+        }
+    }
+}
+
+<span class="kw">impl </span>RelocationLike <span class="kw">for </span>Relocation {
+    <span class="kw">fn </span>kind(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationKind {
+        <span class="self">self</span>.kind
+    }
+
+    <span class="kw">fn </span>reloc_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationTarget {
+        <span class="self">self</span>.reloc_target
+    }
+
+    <span class="kw">fn </span>offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CodeOffset {
+        <span class="self">self</span>.offset
+    }
+
+    <span class="kw">fn </span>addend(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Addend {
+        <span class="self">self</span>.addend
+    }
+}
+
+<span class="kw">impl </span>RelocationLike <span class="kw">for </span>ArchivedRelocation {
+    <span class="kw">fn </span>kind(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationKind {
+        <span class="self">self</span>.kind
+    }
+
+    <span class="kw">fn </span>reloc_target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RelocationTarget {
+        <span class="self">self</span>.reloc_target
+    }
+
+    <span class="kw">fn </span>offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; CodeOffset {
+        <span class="self">self</span>.offset
+    }
+
+    <span class="kw">fn </span>addend(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Addend {
+        <span class="self">self</span>.addend
+    }
+}
+
 <span class="doccomment">/// Destination function. Can be either user function or some special one, like `memory.grow`.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(
@@ -305,67 +452,6 @@
     </span>LibCall(LibCall),
     <span class="doccomment">/// Custom sections generated by the compiler
     </span>CustomSection(SectionIndex),
-}
-
-<span class="kw">impl </span>Relocation {
-    <span class="doccomment">/// Given a function start address, provide the relocation relative
-    /// to that address.
-    ///
-    /// The function returns the relocation address and the delta.
-    </span><span class="kw">pub fn </span>for_address(<span class="kw-2">&amp;</span><span class="self">self</span>, start: usize, target_func_address: u64) -&gt; (usize, u64) {
-        <span class="kw">match </span><span class="self">self</span>.kind {
-            RelocationKind::Abs8
-            | RelocationKind::Arm64Movw0
-            | RelocationKind::Arm64Movw1
-            | RelocationKind::Arm64Movw2
-            | RelocationKind::Arm64Movw3
-            | RelocationKind::RiscvPCRelLo12I =&gt; {
-                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
-                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
-                <span class="kw">let </span>reloc_abs = target_func_address
-                    .checked_add(reloc_addend <span class="kw">as </span>u64)
-                    .unwrap();
-                (reloc_address, reloc_abs)
-            }
-            RelocationKind::X86PCRel4 =&gt; {
-                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
-                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
-                <span class="kw">let </span>reloc_delta_u32 = (target_func_address <span class="kw">as </span>u32)
-                    .wrapping_sub(reloc_address <span class="kw">as </span>u32)
-                    .checked_add(reloc_addend <span class="kw">as </span>u32)
-                    .unwrap();
-                (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
-            }
-            RelocationKind::X86PCRel8 =&gt; {
-                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
-                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
-                <span class="kw">let </span>reloc_delta = target_func_address
-                    .wrapping_sub(reloc_address <span class="kw">as </span>u64)
-                    .checked_add(reloc_addend <span class="kw">as </span>u64)
-                    .unwrap();
-                (reloc_address, reloc_delta)
-            }
-            RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 =&gt; {
-                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
-                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
-                <span class="kw">let </span>reloc_delta_u32 = (target_func_address <span class="kw">as </span>u32)
-                    .wrapping_sub(reloc_address <span class="kw">as </span>u32)
-                    .wrapping_add(reloc_addend <span class="kw">as </span>u32);
-                (reloc_address, reloc_delta_u32 <span class="kw">as </span>u64)
-            }
-            RelocationKind::Arm64Call
-            | RelocationKind::RiscvCall
-            | RelocationKind::RiscvPCRelHi20 =&gt; {
-                <span class="kw">let </span>reloc_address = start + <span class="self">self</span>.offset <span class="kw">as </span>usize;
-                <span class="kw">let </span>reloc_addend = <span class="self">self</span>.addend <span class="kw">as </span>isize;
-                <span class="kw">let </span>reloc_delta_u32 = target_func_address
-                    .wrapping_sub(reloc_address <span class="kw">as </span>u64)
-                    .wrapping_add(reloc_addend <span class="kw">as </span>u64);
-                (reloc_address, reloc_delta_u32)
-            }
-            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Relocation kind unsupported&quot;</span>),
-        }
-    }
 }
 
 <span class="doccomment">/// Relocations to apply to function bodies.

@@ -384,7 +384,7 @@
     ///
     /// This method is unsafe.
     /// Please check `SerializableModule::deserialize` for more details.
-    </span><span class="kw">unsafe fn </span>archive_from_slice(
+    </span><span class="kw">pub unsafe fn </span>archive_from_slice(
         metadata_slice: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedSerializableModule, DeserializeError&gt; {
         <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{
@@ -405,7 +405,7 @@
     ///
     /// In contrast to [`Self::deserialize`], this method performs validation
     /// and is not unsafe.
-    </span><span class="kw">fn </span>archive_from_slice_checked(
+    </span><span class="kw">pub fn </span>archive_from_slice_checked(
         metadata_slice: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>ArchivedSerializableModule, DeserializeError&gt; {
         <span class="kw">if </span>metadata_slice.len() &lt; <span class="number">8 </span>{

@@ -193,6 +193,10 @@
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::AsEngineRef;
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::path::Path;
@@ -274,7 +278,7 @@
             .as_engine_ref()
             .engine()
             .<span class="number">0
-            </span>.deserialize_unchecked(<span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
+            </span>.deserialize_unchecked(bytes.into())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
     }
 
@@ -283,7 +287,11 @@
         bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
         <span class="kw">let </span>bytes = bytes.into_bytes();
-        <span class="kw">let </span>artifact = engine.as_engine_ref().engine().<span class="number">0</span>.deserialize(<span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
+        <span class="kw">let </span>artifact = engine
+            .as_engine_ref()
+            .engine()
+            .<span class="number">0
+            </span>.deserialize(bytes.into())<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
     }
 

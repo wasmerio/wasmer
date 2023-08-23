@@ -427,6 +427,36 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -441,7 +471,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::ops::{Index, IndexMut};
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::slice;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
-<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="kw">use </span>rkyv::{Archive, Archived, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
@@ -665,6 +695,36 @@
             elems: Vec::from_iter(iter),
             unused: PhantomData,
         }
+    }
+}
+
+<span class="kw">impl</span>&lt;K, V&gt; ArchivedPrimaryMap&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
+    V: Archive,
+{
+    <span class="doccomment">/// Iterator over all values in the `ArchivedPrimaryMap`
+    </span><span class="kw">pub fn </span>values(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; slice::Iter&lt;Archived&lt;V&gt;&gt; {
+        <span class="self">self</span>.elems.iter()
+    }
+
+    <span class="doccomment">/// Iterate over all the keys and values in this map.
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;K, Archived&lt;V&gt;&gt; {
+        Iter::new(<span class="self">self</span>.elems.iter())
+    }
+}
+
+<span class="doccomment">/// Immutable indexing into an `ArchivedPrimaryMap`.
+/// The indexed value must be in the map.
+</span><span class="kw">impl</span>&lt;K, V&gt; Index&lt;K&gt; <span class="kw">for </span>ArchivedPrimaryMap&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
+    V: Archive,
+{
+    <span class="kw">type </span>Output = Archived&lt;V&gt;;
+
+    <span class="kw">fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>, k: K) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Output {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.elems[k.index()]
     }
 }
 

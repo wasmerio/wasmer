@@ -127,7 +127,7 @@
 
 </span><span class="doccomment">//! Module for System V ABI unwind registry.
 
-</span><span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfo;
+</span><span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfoReference;
 
 <span class="doccomment">/// Represents a registry of function unwind information for System V ABI.
 </span><span class="kw">pub struct </span>UnwindRegistry {
@@ -156,10 +156,10 @@
         _base_address: usize,
         _func_start: u32,
         _func_len: u32,
-        info: <span class="kw-2">&amp;</span>CompiledFunctionUnwindInfo,
+        info: <span class="kw-2">&amp;</span>CompiledFunctionUnwindInfoReference,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
         <span class="kw">match </span>info {
-            CompiledFunctionUnwindInfo::Dwarf =&gt; {}
+            CompiledFunctionUnwindInfoReference::Dwarf =&gt; {}
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;unsupported unwind information {info:?}&quot;</span>)),
         };
         <span class="prelude-val">Ok</span>(())

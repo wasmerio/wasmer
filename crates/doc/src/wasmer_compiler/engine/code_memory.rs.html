@@ -231,13 +231,31 @@
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Memory management for executable code.
 </span><span class="kw">use </span><span class="kw">super</span>::unwind::UnwindRegistry;
 <span class="kw">use </span><span class="kw">crate</span>::GlobalFrameInfoRegistration;
-<span class="kw">use </span>wasmer_types::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
+<span class="kw">use </span>wasmer_types::{
+    compilation::unwind::CompiledFunctionUnwindInfoLike, CompiledFunctionUnwindInfoReference,
+    CustomSectionLike, FunctionBodyLike,
+};
 <span class="kw">use </span>wasmer_vm::{Mmap, VMFunctionBody};
 
 <span class="doccomment">/// The optimal alignment for functions.
@@ -278,12 +296,23 @@
 
     <span class="doccomment">/// Allocate a single contiguous block of memory at a fixed virtual address for the functions and custom sections, and copy the data in place.
     </span><span class="attr">#[allow(clippy::type_complexity)]
-    </span><span class="kw">pub fn </span>allocate(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        functions: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>FunctionBody],
-        executable_sections: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>CustomSection],
-        data_sections: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>CustomSection],
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;<span class="kw-2">&amp;mut </span>[VMFunctionBody]&gt;, Vec&lt;<span class="kw-2">&amp;mut </span>[u8]&gt;, Vec&lt;<span class="kw-2">&amp;mut </span>[u8]&gt;), String&gt; {
+    </span><span class="kw">pub fn </span>allocate&lt;<span class="lifetime">&#39;module</span>, <span class="lifetime">&#39;memory</span>, FunctionBody, CustomSection&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span><span class="kw-2">mut </span><span class="self">self</span>,
+        functions: <span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;module </span>FunctionBody],
+        executable_sections: <span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;module </span>CustomSection],
+        data_sections: <span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span>[<span class="kw-2">&amp;</span><span class="lifetime">&#39;module </span>CustomSection],
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+        (
+            Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span><span class="kw-2">mut </span>[VMFunctionBody]&gt;,
+            Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span><span class="kw-2">mut </span>[u8]&gt;,
+            Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span><span class="kw-2">mut </span>[u8]&gt;,
+        ),
+        String,
+    &gt;
+    <span class="kw">where
+        </span>FunctionBody: FunctionBodyLike&lt;<span class="lifetime">&#39;module</span>&gt; + <span class="lifetime">&#39;module</span>,
+        CustomSection: CustomSectionLike&lt;<span class="lifetime">&#39;module</span>&gt; + <span class="lifetime">&#39;module</span>,
+    {
         <span class="kw">let </span><span class="kw-2">mut </span>function_result = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>data_section_result = <span class="macro">vec!</span>[];
         <span class="kw">let </span><span class="kw-2">mut </span>executable_section_result = <span class="macro">vec!</span>[];
@@ -303,15 +332,15 @@
         </span><span class="kw">let </span>total_len = round_up(
             functions.iter().fold(<span class="number">0</span>, |acc, func| {
                 round_up(
-                    acc + <span class="self">Self</span>::function_allocation_size(func),
+                    acc + <span class="self">Self</span>::function_allocation_size(<span class="kw-2">*</span>func),
                     ARCH_FUNCTION_ALIGNMENT,
                 )
             }) + executable_sections.iter().fold(<span class="number">0</span>, |acc, exec| {
-                round_up(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)
+                round_up(acc + exec.bytes().len(), ARCH_FUNCTION_ALIGNMENT)
             }),
             page_size,
         ) + data_sections.iter().fold(<span class="number">0</span>, |acc, data| {
-            round_up(acc + data.bytes.len(), DATA_SECTION_ALIGNMENT)
+            round_up(acc + data.bytes().len(), DATA_SECTION_ALIGNMENT)
         });
 
         <span class="comment">// 2. Allocate the pages. Mark them all read-write.
@@ -325,25 +354,25 @@
         <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="self">self</span>.mmap.as_mut_slice();
         <span class="kw">for </span>func <span class="kw">in </span>functions {
             <span class="kw">let </span>len = round_up(
-                <span class="self">Self</span>::function_allocation_size(func),
+                <span class="self">Self</span>::function_allocation_size(<span class="kw-2">*</span>func),
                 ARCH_FUNCTION_ALIGNMENT,
             );
             <span class="kw">let </span>(func_buf, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
             bytes += len;
 
-            <span class="kw">let </span>vmfunc = <span class="self">Self</span>::copy_function(<span class="kw-2">&amp;mut </span><span class="self">self</span>.unwind_registry, func, func_buf);
+            <span class="kw">let </span>vmfunc = <span class="self">Self</span>::copy_function(<span class="kw-2">&amp;mut </span><span class="self">self</span>.unwind_registry, <span class="kw-2">*</span>func, func_buf);
             <span class="macro">assert_eq!</span>(vmfunc.as_ptr() <span class="kw">as </span>usize % ARCH_FUNCTION_ALIGNMENT, <span class="number">0</span>);
             function_result.push(vmfunc);
         }
         <span class="kw">for </span>section <span class="kw">in </span>executable_sections {
-            <span class="kw">let </span>section = <span class="kw-2">&amp;</span>section.bytes;
+            <span class="kw">let </span>section = section.bytes();
             <span class="macro">assert_eq!</span>(buf.as_mut_ptr() <span class="kw">as </span>usize % ARCH_FUNCTION_ALIGNMENT, <span class="number">0</span>);
             <span class="kw">let </span>len = round_up(section.len(), ARCH_FUNCTION_ALIGNMENT);
             <span class="kw">let </span>(s, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
             bytes += len;
-            s[..section.len()].copy_from_slice(section.as_slice());
+            s[..section.len()].copy_from_slice(section);
             executable_section_result.push(s);
         }
 
@@ -356,12 +385,12 @@
             buf = buf.split_at_mut(padding).<span class="number">1</span>;
 
             <span class="kw">for </span>section <span class="kw">in </span>data_sections {
-                <span class="kw">let </span>section = <span class="kw-2">&amp;</span>section.bytes;
+                <span class="kw">let </span>section = section.bytes();
                 <span class="macro">assert_eq!</span>(buf.as_mut_ptr() <span class="kw">as </span>usize % DATA_SECTION_ALIGNMENT, <span class="number">0</span>);
                 <span class="kw">let </span>len = round_up(section.len(), DATA_SECTION_ALIGNMENT);
                 <span class="kw">let </span>(s, next_buf) = buf.split_at_mut(len);
                 buf = next_buf;
-                s[..section.len()].copy_from_slice(section.as_slice());
+                s[..section.len()].copy_from_slice(section);
                 data_section_result.push(s);
             }
         }
@@ -390,35 +419,36 @@
     }
 
     <span class="doccomment">/// Calculates the allocation size of the given compiled function.
-    </span><span class="kw">fn </span>function_allocation_size(func: <span class="kw-2">&amp;</span>FunctionBody) -&gt; usize {
-        <span class="kw">match </span><span class="kw-2">&amp;</span>func.unwind_info {
-            <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(info)) =&gt; {
+    </span><span class="kw">fn </span>function_allocation_size&lt;<span class="lifetime">&#39;a</span>&gt;(func: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">impl </span>FunctionBodyLike&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; usize {
+        <span class="kw">match </span><span class="kw-2">&amp;</span>func.unwind_info().map(|o| o.get()) {
+            <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfoReference::WindowsX64(info)) =&gt; {
                 <span class="comment">// Windows unwind information is required to be emitted into code memory
                 // This is because it must be a positive relative offset from the start of the memory
                 // Account for necessary unwind information alignment padding (32-bit alignment)
-                </span>((func.body.len() + <span class="number">3</span>) &amp; !<span class="number">3</span>) + info.len()
+                </span>((func.body().len() + <span class="number">3</span>) &amp; !<span class="number">3</span>) + info.len()
             }
-            <span class="kw">_ </span>=&gt; func.body.len(),
+            <span class="kw">_ </span>=&gt; func.body().len(),
         }
     }
 
     <span class="doccomment">/// Copies the data of the compiled function to the given buffer.
     ///
     /// This will also add the function to the current function table.
-    </span><span class="kw">fn </span>copy_function&lt;<span class="lifetime">&#39;a</span>&gt;(
+    </span><span class="kw">fn </span>copy_function&lt;<span class="lifetime">&#39;module</span>, <span class="lifetime">&#39;memory</span>&gt;(
         registry: <span class="kw-2">&amp;mut </span>UnwindRegistry,
-        func: <span class="kw-2">&amp;</span>FunctionBody,
-        buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[u8],
-    ) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>[VMFunctionBody] {
+        func: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module </span><span class="kw">impl </span>FunctionBodyLike&lt;<span class="lifetime">&#39;module</span>&gt;,
+        buf: <span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span><span class="kw-2">mut </span>[u8],
+    ) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">&#39;memory </span><span class="kw-2">mut </span>[VMFunctionBody] {
         <span class="macro">assert_eq!</span>(buf.as_ptr() <span class="kw">as </span>usize % ARCH_FUNCTION_ALIGNMENT, <span class="number">0</span>);
 
-        <span class="kw">let </span>func_len = func.body.len();
+        <span class="kw">let </span>func_len = func.body().len();
 
         <span class="kw">let </span>(body, remainder) = buf.split_at_mut(func_len);
-        body.copy_from_slice(<span class="kw-2">&amp;</span>func.body);
+        body.copy_from_slice(func.body());
         <span class="kw">let </span>vmfunc = <span class="self">Self</span>::view_as_mut_vmfunc_slice(body);
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(info)) = <span class="kw-2">&amp;</span>func.unwind_info {
+        <span class="kw">let </span>unwind_info = func.unwind_info().map(|o| o.get());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(CompiledFunctionUnwindInfoReference::WindowsX64(info)) = unwind_info {
             <span class="comment">// Windows unwind information is written following the function body
             // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
             </span><span class="kw">let </span>unwind_start = (func_len + <span class="number">3</span>) &amp; !<span class="number">3</span>;
@@ -429,7 +459,7 @@
             slice[padding..].copy_from_slice(info);
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(info) = <span class="kw-2">&amp;</span>func.unwind_info {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>info) = unwind_info {
             registry
                 .register(vmfunc.as_ptr() <span class="kw">as </span>usize, <span class="number">0</span>, func_len <span class="kw">as </span>u32, info)
                 .expect(<span class="string">&quot;failed to register unwind information&quot;</span>);
