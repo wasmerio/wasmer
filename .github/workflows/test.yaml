@@ -156,13 +156,13 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: "nightly-2023-05-25"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
-      - name: make test-build-docs-rs
-        run: make test-build-docs-rs
+      - name: make test-build-docs-rs-ci
+        run: make test-build-docs-rs-ci
 
   build_linux_aarch64:
     name: ${{ matrix.build-what.name }} on linux-aarch64
