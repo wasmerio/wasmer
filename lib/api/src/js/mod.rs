@@ -38,6 +38,7 @@ pub(crate) mod trap;
 pub(crate) mod typed_function;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
+mod js_handle;
 
 pub use crate::js::as_js::AsJs;
 pub use crate::js::module::ModuleTypeHints;
