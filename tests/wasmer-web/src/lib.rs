@@ -405,24 +405,39 @@ impl ClientExt for Client {
         prompt: &str,
         timeout: Duration,
     ) -> String {
-        let previous_output = self.read_terminal().await.unwrap();
+        let previous_output = self
+            .read_terminal()
+            .await
+            .expect("Unable to read the terminal");
 
         let stdin = self
             .find(fantoccini::Locator::Css("textarea.xterm-helper-textarea"))
             .await
-            .unwrap();
+            .expect("Unable to find the xterm textarea");
 
-        stdin.send_keys(cmd).await.unwrap();
-        stdin.send_keys("\n").await.unwrap();
+        stdin
+            .send_keys(cmd)
+            .await
+            .expect("Unable to send the command");
+        stdin
+            .send_keys("\n")
+            .await
+            .expect("Unable to send a newline");
 
         let terminal_contents = self
             .wait_for_xterm_with_timeout(
                 timeout,
                 predicates::function::function(|s: &str| {
                     // First, trim away anything before/including the previous output
-                    let (_, new_content) = s.split_once(&previous_output).unwrap();
+                    let Some((_, new_content)) = s.split_once(&previous_output) else {
+                        return false;
+                    };
+
                     // Now, we want to get the content after the command
-                    let (_before, after) = new_content.split_once(cmd).unwrap();
+                    let Some((_before, after)) = new_content.split_once(cmd) else {
+                        return false;
+                    };
+
                     after.trim_start_matches('\n').contains(prompt)
                 }),
             )
@@ -450,7 +465,7 @@ fn extract_command_output<'a>(terminal: &'a str, prompt: &str) -> &'a str {
             Some(first_newline) => &output[first_newline + 1..],
             _ => output,
         },
-        _ => todo!(),
+        _ => panic!("Terminal output wasn't in the expected format"),
     }
 }
 
