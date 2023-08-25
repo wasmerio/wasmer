@@ -153,6 +153,22 @@ impl VirtualNetworking for LocalNetworking {
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
             .map_err(io_err_into_net_error)
     }
+
+    /// Lists all the IP addresses currently assigned to this interface
+    async fn ip_list(&self) -> Result<Vec<IpCidr>> {
+        let mut ret = Vec::new();
+        for interface in interfaces::Interface::get_all().map_err(|_| NetworkError::Unsupported)? {
+            for ip in interface.addresses.iter() {
+                if let Some(ip) = ip.addr {
+                    ret.push(IpCidr {
+                        ip: ip.ip(),
+                        prefix: 0,
+                    });
+                }
+            }
+        }
+        Ok(ret)
+    }
 }
 
 #[derive(Derivative)]

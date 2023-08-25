@@ -109,18 +109,7 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
 
     /// Lists all the IP addresses currently assigned to this interface
     async fn ip_list(&self) -> Result<Vec<IpCidr>> {
-        let mut ret = Vec::new();
-        for interface in interfaces::Interface::get_all().map_err(|_| NetworkError::Unsupported)? {
-            for ip in interface.addresses.iter() {
-                if let Some(ip) = ip.addr {
-                    ret.push(IpCidr {
-                        ip: ip.ip(),
-                        prefix: 0,
-                    });
-                }
-            }
-        }
-        Ok(ret)
+        Err(NetworkError::Unsupported)
     }
 
     /// Returns the hardware MAC address for this interface
