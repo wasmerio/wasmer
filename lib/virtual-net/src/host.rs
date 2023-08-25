@@ -36,7 +36,7 @@ impl LocalNetworking {
     async fn print_listener(&self, addr: SocketAddr) {
         if !self.print_socket_listeners {
             return;
-        }        
+        }
         if addr.ip().is_unspecified() {
             if let Ok(ip_list) = self.ip_list().await {
                 for ip in ip_list {
