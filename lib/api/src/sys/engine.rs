@@ -96,7 +96,7 @@ pub trait NativeEngineExt {
     unsafe fn deserialize_from_mmapped_file_unchecked(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError>;
+    ) -> Result<crate::Module, DeserializeError>;
 
     /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
     ///
@@ -105,7 +105,7 @@ pub trait NativeEngineExt {
     unsafe fn deserialize_from_mmapped_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError>;
+    ) -> Result<crate::Module, DeserializeError>;
 }
 
 impl NativeEngineExt for crate::engine::Engine {
@@ -133,23 +133,26 @@ impl NativeEngineExt for crate::engine::Engine {
     unsafe fn deserialize_from_mmapped_file_unchecked(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
+    ) -> Result<crate::Module, DeserializeError> {
         let bytes = std::fs::read(file_ref)?;
-        Ok(Arc::new(Artifact::deserialize_unchecked(
-            &self.0,
-            bytes.into(),
-        )?))
+        let artifact = Arc::new(Artifact::deserialize_unchecked(&self.0, bytes.into())?);
+        Ok(crate::Module(super::module::Module::from_artifact(
+            artifact,
+        )))
     }
 
     unsafe fn deserialize_from_mmapped_file(
         &self,
         file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
+    ) -> Result<crate::Module, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
-        Ok(Arc::new(Artifact::deserialize(
+        let artifact = Arc::new(Artifact::deserialize(
             &self.0,
             OwnedBuffer::from_file(&file)
                 .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
-        )?))
+        )?);
+        Ok(crate::Module(super::module::Module::from_artifact(
+            artifact,
+        )))
     }
 }
