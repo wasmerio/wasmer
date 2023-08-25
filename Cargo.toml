@@ -160,6 +160,22 @@ coverage = []
 #[profile.release]
 #debug = true
 
+# Enable optimizations for a few crates, even for debug builds.
+# This greatly speeds up using debug builds, because these crates are extremely
+# slow without optimizations.
+[profile.dev.package.cranelift-codegen]
+opt-level = 3
+[profile.dev.package.regalloc2]
+opt-level = 3
+[profile.dev.package.wasmparser]
+opt-level = 3
+[profile.dev.package.rkyv]
+opt-level = 3
+[profile.dev.package.wasmer-types]
+opt-level = 3
+[profile.dev.package.weezl]
+opt-level = 3
+
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false
