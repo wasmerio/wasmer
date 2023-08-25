@@ -99,7 +99,12 @@ pub struct Wasi {
 
     /// Whenever a listening socket is opened it will be printed to the console
     ///
+    /// (deprecated: this should be done inside your WASM app instead however
+    ///              for a short time this will provide a stop-gap. DO NOT RELY
+    ///              on this being there in the future)
+    ///
     /// This is useful for determining what IP address and ports a process are listening on
+    #[deprecated = "this needs to be ported to a fork of `interfaces` rather than implemented in `Wasmer`"]
     #[clap(long = "print-listeners")]
     pub print_socket_listeners: bool,
 
@@ -267,6 +272,7 @@ impl Wasi {
     {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(rt_or_handle.into())));
 
+        #[allow(deprecated)]
         if self.networking {
             let mut local_networking = virtual_net::host::LocalNetworking::default();
             local_networking.print_socket_listeners = self.print_socket_listeners;

@@ -22,18 +22,26 @@ use virtual_mio::{InterestGuard, InterestHandler, Selector};
 pub struct LocalNetworking {
     selector: Arc<Selector>,
     handle: Handle,
+
+    #[deprecated = "this needs to be ported to a fork of `interfaces` rather than implemented in `Wasmer`"]
     pub print_socket_listeners: bool,
 }
 
 impl LocalNetworking {
     pub fn new() -> Self {
+        #[allow(deprecated)]
         Self {
             selector: Selector::new(),
             handle: Handle::current(),
             print_socket_listeners: false,
         }
     }
+
+    // TODO: this should be deleted when a fork of `interfaces` is implemented that allows
+    //       WASIX to print the current IP addresses
+    #[deprecated = "this needs to be ported to a fork of `interfaces` rather than implemented in `Wasmer`"]
     async fn print_listener(&self, addr: SocketAddr) {
+        #[allow(deprecated)]
         if !self.print_socket_listeners {
             return;
         }
@@ -71,7 +79,11 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
+        // TODO: this should be deleted when a fork of `interfaces` is implemented that allows
+        //       WASIX to print the current IP addresses
+        #[allow(deprecated)]
         self.print_listener(addr).await;
+
         let listener = std::net::TcpListener::bind(addr)
             .map(|sock| {
                 sock.set_nonblocking(true).ok();
@@ -91,7 +103,11 @@ impl VirtualNetworking for LocalNetworking {
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        // TODO: this should be deleted when a fork of `interfaces` is implemented that allows
+        //       WASIX to print the current IP addresses
+        #[allow(deprecated)]
         self.print_listener(addr).await;
+
         let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
         socket2::SockRef::from(&socket).set_nonblocking(true).ok();
         Ok(Box::new(LocalUdpSocket {
