@@ -97,6 +97,12 @@ pub struct Wasi {
     #[clap(long = "net")]
     pub networking: bool,
 
+    /// Whenever a listening socket is opened it will be printed to the console
+    ///
+    /// This is useful for determining what IP address and ports a process are listening on
+    #[clap(long = "print-listeners")]
+    pub print_socket_listeners: bool,
+
     /// Disables the TTY bridge
     #[clap(long = "no-tty")]
     pub no_tty: bool,
@@ -262,7 +268,9 @@ impl Wasi {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(rt_or_handle.into())));
 
         if self.networking {
-            rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
+            let mut local_networking = virtual_net::host::LocalNetworking::default();
+            local_networking.print_socket_listeners = self.print_socket_listeners;
+            rt.set_networking_implementation(local_networking);
         } else {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }

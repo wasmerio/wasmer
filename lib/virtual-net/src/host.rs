@@ -22,6 +22,7 @@ use virtual_mio::{InterestGuard, InterestHandler, Selector};
 pub struct LocalNetworking {
     selector: Arc<Selector>,
     handle: Handle,
+    pub print_socket_listeners: bool,
 }
 
 impl LocalNetworking {
@@ -29,6 +30,21 @@ impl LocalNetworking {
         Self {
             selector: Selector::new(),
             handle: Handle::current(),
+            print_socket_listeners: false,
+        }
+    }
+    async fn print_listener(&self, addr: SocketAddr) {
+        if !self.print_socket_listeners {
+            return;
+        }        
+        if addr.ip().is_unspecified() {
+            if let Ok(ip_list) = self.ip_list().await {
+                for ip in ip_list {
+                    println!("Listening on: {}", SocketAddr::new(ip.ip, addr.port()));
+                }
+            }
+        } else {
+            println!("Listening on: {addr}");
         }
     }
 }
@@ -55,6 +71,7 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
+        self.print_listener(addr).await;
         let listener = std::net::TcpListener::bind(addr)
             .map(|sock| {
                 sock.set_nonblocking(true).ok();
@@ -74,6 +91,7 @@ impl VirtualNetworking for LocalNetworking {
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        self.print_listener(addr).await;
         let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
         socket2::SockRef::from(&socket).set_nonblocking(true).ok();
         Ok(Box::new(LocalUdpSocket {

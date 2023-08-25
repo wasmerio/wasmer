@@ -31,6 +31,7 @@ tokio-util = { version = "0.6", features = ["codec"], optional = true }
 hyper-tungstenite = { version = "0.10", optional = true }
 hyper = { version = "0.14", optional = true }
 tokio-tungstenite = { version = "0.19", optional = true }
+interfaces = { version = "0.0.9", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", default_features = false, features = [ "macros" ] }
@@ -38,7 +39,7 @@ tracing-test = { version = "0.2" }
 
 [features]
 default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]
-host-net = [ "tokio", "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
+host-net = [ "tokio", "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio", "interfaces" ]
 remote = [ "tokio", "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
 json = [ "tokio-serde/json" ]
 messagepack = [ "tokio-serde/messagepack" ]
