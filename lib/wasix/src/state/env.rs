@@ -10,7 +10,7 @@ use derivative::Derivative;
 use futures::future::BoxFuture;
 use rand::Rng;
 use tracing::{trace, warn};
-use virtual_fs::{AsyncWriteExt, FileSystem, FsError, VirtualFile};
+use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
@@ -31,7 +31,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{resolver::PackageSpecifier, SpawnMemoryType},
+    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -531,7 +531,7 @@ impl WasiEnv {
     }
 
     /// Returns a copy of the current runtime implementation for this environment
-    pub fn runtime(&self) -> &(dyn Runtime) {
+    pub fn runtime(&self) -> &(dyn Runtime + Send + Sync) {
         self.runtime.deref()
     }
 
@@ -569,20 +569,21 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         if !inner.signal_set {
             let signals = env.thread.pop_signals();
-            let signal_cnt = signals.len();
-            for sig in signals {
-                if sig == Signal::Sigint
-                    || sig == Signal::Sigquit
-                    || sig == Signal::Sigkill
-                    || sig == Signal::Sigabrt
-                {
-                    let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
-                    return Err(WasiError::Exit(exit_code));
-                } else {
-                    trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+            if !signals.is_empty() {
+                for sig in signals {
+                    if sig == Signal::Sigint
+                        || sig == Signal::Sigquit
+                        || sig == Signal::Sigkill
+                        || sig == Signal::Sigabrt
+                    {
+                        let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
+                        return Err(WasiError::Exit(exit_code));
+                    } else {
+                        trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+                    }
                 }
+                return Ok(Ok(true));
             }
-            return Ok(Ok(signal_cnt > 0));
         }
 
         // Check for forced exit
@@ -609,12 +610,14 @@ impl WasiEnv {
 
         // Check for any signals that we need to trigger
         // (but only if a signal handler is registered)
-        if inner.signal.as_ref().is_some() {
+        let ret = if inner.signal.as_ref().is_some() {
             let signals = env.thread.pop_signals();
-            Ok(Ok(Self::process_signals_internal(ctx, signals)?))
+            Self::process_signals_internal(ctx, signals)?
         } else {
-            Ok(Ok(false))
-        }
+            false
+        };
+
+        Ok(Ok(ret))
     }
 
     pub(crate) fn process_signals_internal(
@@ -864,7 +867,7 @@ impl WasiEnv {
 
         // We first need to copy any files in the package over to the
         // main file system
-        if let Err(e) = self.tasks().block_on(root_fs.merge(&pkg.webc_fs)) {
+        if let Err(e) = InlineWaker::block_on(root_fs.merge(&pkg.webc_fs)) {
             warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
@@ -880,26 +883,25 @@ impl WasiEnv {
                 let path = format!("/bin/{}", command.name());
                 let path = Path::new(path.as_str());
 
+                // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                // We should be using some sort of reference-counted
+                // pointer to some bytes that are either on the heap
+                // or from a memory-mapped file. However, that's not
+                // possible here because things like memfs and
+                // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                // too hard to refactor those at the moment, and we
+                // were pulling the same trick before by storing an
+                // "ownership" object in the BinaryPackageCommand,
+                // so as long as packages aren't removed from the
+                // module cache it should be fine.
+                // See https://github.com/wasmerio/wasmer/issues/3875
+                let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
+
                 match root_fs {
                     WasiFsRoot::Sandbox(root_fs) => {
                         // As a short-cut, when we are using a TmpFileSystem
                         // we can (unsafely) add the file to the filesystem
                         // without any copying.
-
-                        // FIXME(Michael-F-Bryan): This is pretty sketchy.
-                        // We should be using some sort of reference-counted
-                        // pointer to some bytes that are either on the heap
-                        // or from a memory-mapped file. However, that's not
-                        // possible here because things like memfs and
-                        // WasiEnv are expecting a Cow<'static, [u8]>. It's
-                        // too hard to refactor those at the moment, and we
-                        // were pulling the same trick before by storing an
-                        // "ownership" object in the BinaryPackageCommand,
-                        // so as long as packages aren't removed from the
-                        // module cache it should be fine.
-                        // See https://github.com/wasmerio/wasmer/issues/3875
-                        let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
-
                         if let Err(err) = root_fs
                             .new_open_options_ext()
                             .insert_ro_file(path, atom.into())
@@ -914,17 +916,8 @@ impl WasiEnv {
                         }
                     }
                     WasiFsRoot::Backing(fs) => {
-                        // Looks like we need to make the copy
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        self.tasks()
-                            .block_on(f.write_all(command.atom()))
-                            .map_err(|e| {
-                                WasiStateCreationError::WasiIncludePackageError(format!(
-                                    "Unable to save \"{}\" to \"{}\": {e}",
-                                    command.name(),
-                                    path.display()
-                                ))
-                            })?;
+                        f.copy_reference(Box::new(StaticFile::new(atom.into())));
                     }
                 }
 
@@ -954,13 +947,20 @@ impl WasiEnv {
         let rt = self.runtime();
 
         for package_name in uses {
-            let specifier = package_name
-                .parse::<PackageSpecifier>()
-                .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
-            let pkg = rt
-                .task_manager()
-                .block_on(BinaryPackage::from_registry(&specifier, rt))
-                .map_err(|e| WasiStateCreationError::WasiIncludePackageError(e.to_string()))?;
+            let specifier = package_name.parse::<PackageSpecifier>().map_err(|e| {
+                WasiStateCreationError::WasiIncludePackageError(format!(
+                    "package_name={package_name}, {}",
+                    e
+                ))
+            })?;
+            let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
+                |e| {
+                    WasiStateCreationError::WasiIncludePackageError(format!(
+                        "package_name={package_name}, {}",
+                        e
+                    ))
+                },
+            )?;
             self.use_package(&pkg)?;
         }
 
@@ -1012,18 +1012,7 @@ impl WasiEnv {
     #[allow(clippy::await_holding_lock)]
     pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
         let cleanup = self.cleanup(exit_code);
-
-        #[cfg(feature = "js")]
-        self.tasks()
-            .task_shared(Box::new(|| {
-                Box::pin(async move {
-                    cleanup.await;
-                })
-            }))
-            .ok();
-
-        #[cfg(feature = "sys")]
-        self.tasks().block_on(cleanup);
+        InlineWaker::block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)

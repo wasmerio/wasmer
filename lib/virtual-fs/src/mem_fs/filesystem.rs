@@ -1054,8 +1054,8 @@ mod test_filesystem {
         };
     }
 
-    #[test]
-    fn test_new_filesystem() {
+    #[tokio::test]
+    async fn test_new_filesystem() {
         let fs = FileSystem::default();
         let fs_inner = fs.inner.read().unwrap();
 
@@ -1074,8 +1074,8 @@ mod test_filesystem {
         );
     }
 
-    #[test]
-    fn test_create_dir() {
+    #[tokio::test]
+    async fn test_create_dir() {
         let fs = FileSystem::default();
 
         assert_eq!(
@@ -1171,8 +1171,8 @@ mod test_filesystem {
         }
     }
 
-    #[test]
-    fn test_remove_dir() {
+    #[tokio::test]
+    async fn test_remove_dir() {
         let fs = FileSystem::default();
 
         assert_eq!(
@@ -1528,8 +1528,8 @@ mod test_filesystem {
         );
     }
 
-    #[test]
-    fn test_remove_file() {
+    #[tokio::test]
+    async fn test_remove_file() {
         let fs = FileSystem::default();
 
         assert!(
@@ -1603,8 +1603,8 @@ mod test_filesystem {
         );
     }
 
-    #[test]
-    fn test_readdir() {
+    #[tokio::test]
+    async fn test_readdir() {
         let fs = FileSystem::default();
 
         assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating `foo`");
@@ -1696,8 +1696,8 @@ mod test_filesystem {
         assert!(matches!(readdir.next(), None), "no more entries");
     }
 
-    #[test]
-    fn test_canonicalize() {
+    #[tokio::test]
+    async fn test_canonicalize() {
         let fs = FileSystem::default();
 
         assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating `foo`");
@@ -1792,9 +1792,9 @@ mod test_filesystem {
         );
     }
 
-    #[test]
+    #[tokio::test]
     #[ignore = "Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678"]
-    fn mount_to_overlapping_directories() {
+    async fn mount_to_overlapping_directories() {
         let top_level = FileSystem::default();
         ops::touch(&top_level, "/file.txt").unwrap();
         let nested = FileSystem::default();

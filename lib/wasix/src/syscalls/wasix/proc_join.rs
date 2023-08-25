@@ -1,3 +1,5 @@
+use std::task::Waker;
+
 use serde::{Deserialize, Serialize};
 use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
@@ -20,6 +22,15 @@ enum JoinStatusResult {
 /// * `pid` - Handle of the child process to wait on
 //#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
 pub fn proc_join<M: MemorySize + 'static>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    pid_ptr: WasmPtr<OptionPid, M>,
+    flags: JoinFlags,
+    status_ptr: WasmPtr<JoinStatus, M>,
+) -> Result<Errno, WasiError> {
+    proc_join_internal(ctx, pid_ptr, flags, status_ptr)
+}
+
+pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
     _flags: JoinFlags,

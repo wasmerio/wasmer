@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.6.0"
+version = "0.8.0"
 description = "Wasmer Virtual FileSystem"
 authors.workspace = true
 edition.workspace = true
@@ -42,7 +42,7 @@ tokio = { version = "1", features = ["io-util", "rt"], default_features = false 
 
 [features]
 default = ["host-fs", "webc-fs", "static-fs"]
-host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std"]
+host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std", "tokio/rt"]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
 enable-serde = ["typetag"]

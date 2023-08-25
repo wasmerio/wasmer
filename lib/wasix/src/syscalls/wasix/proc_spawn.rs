@@ -227,7 +227,7 @@ pub fn proc_spawn_internal(
         match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
             Ok(a) => a,
             Err(err) => {
-                if err != SpawnError::NotFound {
+                if !err.is_not_found() {
                     error!("builtin failed - {}", err);
                 }
                 // Now we actually spawn the process
@@ -238,7 +238,7 @@ pub fn proc_spawn_internal(
                     .map_err(|err| Errno::Unknown)
                 {
                     Ok(Ok(a)) => a,
-                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(err))),
+                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
                     Err(err) => return Ok(Err(err)),
                 }
             }

@@ -40,6 +40,7 @@ mod filesystems;
 pub(crate) mod ops;
 mod overlay_fs;
 pub mod pipe;
+mod static_file;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 mod trace_fs;
@@ -65,6 +66,7 @@ pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
 pub use pipe::*;
 pub use special_file::*;
+pub use static_file::StaticFile;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
 pub use union_fs::*;

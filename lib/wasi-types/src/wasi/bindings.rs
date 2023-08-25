@@ -47,6 +47,8 @@ pub enum Snapshot0Clockid {
     ProcessCputimeId,
     #[doc = " The CPU-time clock associated with the current thread."]
     ThreadCputimeId,
+    #[doc = " The clock type is not known."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Snapshot0Clockid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -59,6 +61,7 @@ impl core::fmt::Debug for Snapshot0Clockid {
             Snapshot0Clockid::ThreadCputimeId => {
                 f.debug_tuple("Snapshot0Clockid::ThreadCputimeId").finish()
             }
+            Snapshot0Clockid::Unknown => f.debug_tuple("Snapshot0Clockid::Unknown").finish(),
         }
     }
 }
@@ -78,6 +81,8 @@ pub enum Clockid {
     ProcessCputimeId,
     #[doc = " The CPU-time clock associated with the current thread."]
     ThreadCputimeId,
+    #[doc = " The clock type is unknown."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Clockid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -86,6 +91,7 @@ impl core::fmt::Debug for Clockid {
             Clockid::Monotonic => f.debug_tuple("Clockid::Monotonic").finish(),
             Clockid::ProcessCputimeId => f.debug_tuple("Clockid::ProcessCputimeId").finish(),
             Clockid::ThreadCputimeId => f.debug_tuple("Clockid::ThreadCputimeId").finish(),
+            Clockid::Unknown => f.debug_tuple("Clockid::Unknown").finish(),
         }
     }
 }
@@ -647,6 +653,8 @@ pub enum Advice {
     Dontneed,
     #[doc = " The application expects to access the specified data once and then not reuse it thereafter."]
     Noreuse,
+    #[doc = " The application expectations are unknown."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Advice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -657,6 +665,7 @@ impl core::fmt::Debug for Advice {
             Advice::Willneed => f.debug_tuple("Advice::Willneed").finish(),
             Advice::Dontneed => f.debug_tuple("Advice::Dontneed").finish(),
             Advice::Noreuse => f.debug_tuple("Advice::Noreuse").finish(),
+            Advice::Unknown => f.debug_tuple("Advice::Unknown").finish(),
         }
     }
 }
@@ -785,6 +794,8 @@ pub enum Eventtype {
     #[doc = " File descriptor `subscription_fd_readwrite::fd` has capacity"]
     #[doc = " available for writing. This event always triggers for regular files."]
     FdWrite,
+    #[doc = " Event type is unknown"]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Eventtype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -792,6 +803,7 @@ impl core::fmt::Debug for Eventtype {
             Eventtype::Clock => f.debug_tuple("Eventtype::Clock").finish(),
             Eventtype::FdRead => f.debug_tuple("Eventtype::FdRead").finish(),
             Eventtype::FdWrite => f.debug_tuple("Eventtype::FdWrite").finish(),
+            Eventtype::Unknown => f.debug_tuple("Eventtype::Unknown").finish(),
         }
     }
 }
@@ -871,11 +883,14 @@ impl core::fmt::Debug for SubscriptionClock {
 pub enum Preopentype {
     #[doc = " A pre-opened directory."]
     Dir,
+    #[doc = " Unknown."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Preopentype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Preopentype::Dir => f.debug_tuple("Preopentype::Dir").finish(),
+            Preopentype::Unknown => f.debug_tuple("Preopentype::Unknown").finish(),
         }
     }
 }
@@ -934,7 +949,7 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
             .finish()
     }
 }
-#[repr(u16)]
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Socktype {
     Unknown,
@@ -961,6 +976,7 @@ pub enum Sockstatus {
     Opened,
     Closed,
     Failed,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Sockstatus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -969,6 +985,7 @@ impl core::fmt::Debug for Sockstatus {
             Sockstatus::Opened => f.debug_tuple("Sockstatus::Opened").finish(),
             Sockstatus::Closed => f.debug_tuple("Sockstatus::Closed").finish(),
             Sockstatus::Failed => f.debug_tuple("Sockstatus::Failed").finish(),
+            Sockstatus::Unknown => f.debug_tuple("Sockstatus::Unknown").finish(),
         }
     }
 }
@@ -1043,6 +1060,7 @@ pub enum Streamsecurity {
     AnyEncryption,
     ClassicEncryption,
     DoubleEncryption,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Streamsecurity {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1057,6 +1075,7 @@ impl core::fmt::Debug for Streamsecurity {
             Streamsecurity::DoubleEncryption => {
                 f.debug_tuple("Streamsecurity::DoubleEncryption").finish()
             }
+            Streamsecurity::Unknown => f.debug_tuple("Streamsecurity::Unknown").finish(),
         }
     }
 }
@@ -1136,6 +1155,7 @@ pub enum Snapshot0Whence {
     Cur,
     End,
     Set,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Snapshot0Whence {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1143,6 +1163,7 @@ impl core::fmt::Debug for Snapshot0Whence {
             Snapshot0Whence::Cur => f.debug_tuple("Snapshot0Whence::Cur").finish(),
             Snapshot0Whence::End => f.debug_tuple("Snapshot0Whence::End").finish(),
             Snapshot0Whence::Set => f.debug_tuple("Snapshot0Whence::Set").finish(),
+            Snapshot0Whence::Unknown => f.debug_tuple("Snapshot0Whence::Unknown").finish(),
         }
     }
 }
@@ -1152,6 +1173,7 @@ pub enum Whence {
     Set,
     Cur,
     End,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Whence {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1159,6 +1181,7 @@ impl core::fmt::Debug for Whence {
             Whence::Set => f.debug_tuple("Whence::Set").finish(),
             Whence::Cur => f.debug_tuple("Whence::Cur").finish(),
             Whence::End => f.debug_tuple("Whence::End").finish(),
+            Whence::Unknown => f.debug_tuple("Whence::Unknown").finish(),
         }
     }
 }
@@ -2361,6 +2384,7 @@ pub enum Timeout {
     Write,
     Connect,
     Accept,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Timeout {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -2369,6 +2393,7 @@ impl core::fmt::Debug for Timeout {
             Timeout::Write => f.debug_tuple("Timeout::Write").finish(),
             Timeout::Connect => f.debug_tuple("Timeout::Connect").finish(),
             Timeout::Accept => f.debug_tuple("Timeout::Accept").finish(),
+            Timeout::Unknown => f.debug_tuple("Timeout::Unknown").finish(),
         }
     }
 }
@@ -2464,7 +2489,10 @@ unsafe impl wasmer::FromToNativeWasmType for Snapshot0Clockid {
             2 => Self::ProcessCputimeId,
             3 => Self::ThreadCputimeId,
 
-            q => todo!("could not serialize number {q} to enum Snapshot0Clockid"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Snapshot0Clockid");
+                Self::Unknown
+            }
         }
     }
 
@@ -2493,7 +2521,10 @@ unsafe impl wasmer::FromToNativeWasmType for Clockid {
             2 => Self::ProcessCputimeId,
             3 => Self::ThreadCputimeId,
 
-            q => todo!("could not serialize number {q} to enum Clockid"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Clockid");
+                Self::Unknown
+            }
         }
     }
 
@@ -2639,7 +2670,10 @@ unsafe impl wasmer::FromToNativeWasmType for Filetype {
             8 => Self::SocketRaw,
             9 => Self::SocketSeqpacket,
 
-            q => todo!("could not serialize number {q} to enum Filetype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Filetype");
+                Self::Unknown
+            }
         }
     }
 
@@ -2682,7 +2716,10 @@ unsafe impl wasmer::FromToNativeWasmType for Advice {
             4 => Self::Dontneed,
             5 => Self::Noreuse,
 
-            q => todo!("could not serialize number {q} to enum Advice"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Advice");
+                Self::Unknown
+            }
         }
     }
 
@@ -2740,7 +2777,10 @@ unsafe impl wasmer::FromToNativeWasmType for Eventtype {
             1 => Self::FdRead,
             2 => Self::FdWrite,
 
-            q => todo!("could not serialize number {q} to enum Eventtype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Eventtype");
+                Self::Unknown
+            }
         }
     }
 
@@ -2784,7 +2824,10 @@ unsafe impl wasmer::FromToNativeWasmType for Preopentype {
         match n {
             0 => Self::Dir,
 
-            q => todo!("could not serialize number {q} to enum Preopentype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Preopentype");
+                Self::Unknown
+            }
         }
     }
 
@@ -2826,12 +2869,16 @@ unsafe impl wasmer::FromToNativeWasmType for Socktype {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Dgram,
+            0 => Self::Unknown,
             1 => Self::Stream,
-            2 => Self::Raw,
-            3 => Self::Seqpacket,
+            2 => Self::Dgram,
+            3 => Self::Raw,
+            4 => Self::Seqpacket,
 
-            q => todo!("could not serialize number {q} to enum Socktype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Socktype");
+                Self::Unknown
+            }
         }
     }
 
@@ -2860,7 +2907,10 @@ unsafe impl wasmer::FromToNativeWasmType for Sockstatus {
             2 => Self::Closed,
             3 => Self::Failed,
 
-            q => todo!("could not serialize number {q} to enum Sockstatus"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Sockstatus");
+                Self::Unknown
+            }
         }
     }
 
@@ -2912,7 +2962,10 @@ unsafe impl wasmer::FromToNativeWasmType for Sockoption {
             25 => Self::Type,
             26 => Self::Proto,
 
-            q => todo!("could not serialize number {q} to enum Sockoption"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Sockoption");
+                Self::Noop
+            }
         }
     }
 
@@ -2941,7 +2994,10 @@ unsafe impl wasmer::FromToNativeWasmType for Streamsecurity {
             2 => Self::ClassicEncryption,
             3 => Self::DoubleEncryption,
 
-            q => todo!("could not serialize number {q} to enum Streamsecurity"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Streamsecurity");
+                Self::Unknown
+            }
         }
     }
 
@@ -2970,7 +3026,10 @@ unsafe impl wasmer::FromToNativeWasmType for Addressfamily {
             2 => Self::Inet6,
             3 => Self::Unix,
 
-            q => todo!("could not serialize number {q} to enum Addressfamily"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Addressfamily");
+                Self::Unspec
+            }
         }
     }
 
@@ -3010,7 +3069,10 @@ unsafe impl wasmer::FromToNativeWasmType for Snapshot0Whence {
             1 => Self::End,
             2 => Self::Set,
 
-            q => todo!("could not serialize number {q} to enum Snapshot0Whence"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Snapshot0Whence");
+                Self::Unknown
+            }
         }
     }
 
@@ -3038,7 +3100,10 @@ unsafe impl wasmer::FromToNativeWasmType for Whence {
             1 => Self::Cur,
             2 => Self::End,
 
-            q => todo!("could not serialize number {q} to enum Whence"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Whence");
+                Self::Unknown
+            }
         }
     }
 
@@ -3071,7 +3136,10 @@ unsafe impl wasmer::FromToNativeWasmType for OptionTag {
             0 => Self::None,
             1 => Self::Some,
 
-            q => todo!("could not serialize number {q} to enum OptionTag"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum OptionTag");
+                Self::None
+            }
         }
     }
 
@@ -3137,7 +3205,10 @@ unsafe impl wasmer::FromToNativeWasmType for StdioMode {
             3 => Self::Null,
             4 => Self::Log,
 
-            q => todo!("could not serialize number {q} to enum StdioMode"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum StdioMode");
+                Self::Null
+            }
         }
     }
 
@@ -3426,7 +3497,10 @@ unsafe impl wasmer::FromToNativeWasmType for SockProto {
             262 => Self::Mptcp,
             263 => Self::Max,
 
-            q => todo!("could not serialize number {q} to enum SockProto"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum SockProto");
+                Self::None
+            }
         }
     }
 
@@ -3453,7 +3527,10 @@ unsafe impl wasmer::FromToNativeWasmType for Bool {
             0 => Self::False,
             1 => Self::True,
 
-            q => todo!("could not serialize number {q} to enum Bool"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Bool");
+                Self::False
+            }
         }
     }
 
@@ -3575,7 +3652,10 @@ unsafe impl wasmer::FromToNativeWasmType for Timeout {
             2 => Self::Connect,
             3 => Self::Accept,
 
-            q => todo!("could not serialize number {q} to enum Timeout"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Timeout");
+                Self::Unknown
+            }
         }
     }
 
@@ -3610,7 +3690,10 @@ unsafe impl wasmer::FromToNativeWasmType for JoinStatusType {
             2 => Self::ExitSignal,
             3 => Self::Stopped,
 
-            q => todo!("could not serialize number {q} to enum JoinStatusType"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum JoinStatusType");
+                Self::Nothing
+            }
         }
     }
 

@@ -9,6 +9,103 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.1.2 - 21/08/2023
+Another maintenance release, bringing some networking improvements, and centralising all wasmer caches under the same folder.
+
+
+## Added
+
+  - [#4127](https://github.com/wasmerio/wasmer/pull/4127) Add regression test for path_rename
+
+## Changed
+
+  - [#4164](https://github.com/wasmerio/wasmer/pull/4164) deps: Bump Edge client CLI to 0.1.22
+  - [#4163](https://github.com/wasmerio/wasmer/pull/4163) Bumped virtual-net crate to 0.5.0
+  - [#4156](https://github.com/wasmerio/wasmer/pull/4156) Disable auto-format of toml files in VS Code
+  - [#4141](https://github.com/wasmerio/wasmer/pull/4141) Web http client
+  - [#4152](https://github.com/wasmerio/wasmer/pull/4152) Test virtual-net bincode and mpsc only on linux
+  - [#4115](https://github.com/wasmerio/wasmer/pull/4115) Browser cfg, smaller WASM, VPN and HTTPS redirect
+  - [#4138](https://github.com/wasmerio/wasmer/pull/4138) Upgrade wasmer-wasix to the newest version of wasm-bindgen
+  - [#4135](https://github.com/wasmerio/wasmer/pull/4135) Update to time 0.3
+  - [#4109](https://github.com/wasmerio/wasmer/pull/4109) Update MSRV to 1.69
+  - [#4130](https://github.com/wasmerio/wasmer/pull/4130) Update to tracing-subscriber 0.3
+
+## Fixed
+
+  - [#4160](https://github.com/wasmerio/wasmer/pull/4160) fix: Make the "wasmer cache" command use the same cache directory as the rest of the CLI
+  - [#4148](https://github.com/wasmerio/wasmer/pull/4148) fix(cli): Prevent panics in "wasmer login" after API failures
+
+
+
+## 4.1.1 - 03/08/2023
+Bug-fix release, fixing rename in wasi(x), using newer Rust and some macOS ARM64 speicifc issues, among other things.
+
+## Added
+
+  - [#4120](https://github.com/wasmerio/wasmer/pull/4120) Added proper definition of ucontext for macos/aarch64 to avoid unaligned issue
+  - [#4107](https://github.com/wasmerio/wasmer/pull/4107) Added a forced shutdown on tokio runtimes as the STDIN blocks the shu…
+  - [#4108](https://github.com/wasmerio/wasmer/pull/4108) Add a temporary workaround for nanasess/setup-chromedriver#190
+
+## Changed
+
+  - [#4123](https://github.com/wasmerio/wasmer/pull/4123) Upgrade Edge CLI dependency
+  - [#4109](https://github.com/wasmerio/wasmer/pull/4109) Update MSRV to 1.69
+  - [#4111](https://github.com/wasmerio/wasmer/pull/4111) Update login.rs
+  - [#4102](https://github.com/wasmerio/wasmer/pull/4102) Update to criterion 0.5
+
+## Fixed
+
+  - [#4121](https://github.com/wasmerio/wasmer/pull/4121) Fix path_rename syscall failing
+  - [#4117](https://github.com/wasmerio/wasmer/pull/4117) Fixed an issue where inheritance was inverted
+  - [#4096](https://github.com/wasmerio/wasmer/pull/4096) Fix benchmark
+
+
+
+## 4.1.0 - 24/07/2023
+This version added some more improvements and fixes, with a faster async execution, a new login flow and muliple bugfix to the `--mapdir` command among other things.
+More detail in the blog post about the 4.1 Release: https://wasmer.io/posts/wasmer-4.1
+
+## Added
+
+  - [#4081](https://github.com/wasmerio/wasmer/pull/4081) Add WebcHash::parse_hex helper
+  - [#4046](https://github.com/wasmerio/wasmer/pull/4046) Add C API function to create Module from Engine instead of Store
+
+## Changed
+
+  - [#4095](https://github.com/wasmerio/wasmer/pull/4095) Bumped the webc version
+  - [#4038](https://github.com/wasmerio/wasmer/pull/4038) Clean up the integration tests
+  - [#4085](https://github.com/wasmerio/wasmer/pull/4085) Switch to lazily loading a Wasmer package directly from disk
+  - [#4084](https://github.com/wasmerio/wasmer/pull/4084) Remove unused atty dependency
+  - [#4057](https://github.com/wasmerio/wasmer/pull/4057) login with browser using nonce
+  - [#4073](https://github.com/wasmerio/wasmer/pull/4073) deps(wasmer-wasix): Remove two unused dependencies
+  - [#4068](https://github.com/wasmerio/wasmer/pull/4068) Enable tokio's "net" feature in the virtual-net crate
+  - [#4065](https://github.com/wasmerio/wasmer/pull/4065) deps: Upgrade edge CLI version
+  - [#4064](https://github.com/wasmerio/wasmer/pull/4064) Enable the `cfg_doc` feature on docs.rs
+  - [#4052](https://github.com/wasmerio/wasmer/pull/4052) Selenium-style tests for wasmer.sh
+  - [#4061](https://github.com/wasmerio/wasmer/pull/4061) Use is-terminal to check tty
+  - [#4056](https://github.com/wasmerio/wasmer/pull/4056) Update hermit-abi crate, used version was yanked
+  - [#4055](https://github.com/wasmerio/wasmer/pull/4055) Use a no-op package loader by default in PluggableRuntime
+  - [#4011](https://github.com/wasmerio/wasmer/pull/4011) Move Artifact Register FrameInfo
+  - [#4042](https://github.com/wasmerio/wasmer/pull/4042) Disable unused cbindgen feature
+  - [#4044](https://github.com/wasmerio/wasmer/pull/4044) Update tempfile crate
+  - [#4041](https://github.com/wasmerio/wasmer/pull/4041) Canonicalize host folder on mapdir
+  - [#4040](https://github.com/wasmerio/wasmer/pull/4040) Removed error message when a deserializzation error occurs in Artifact
+  - [#4032](https://github.com/wasmerio/wasmer/pull/4032) Make the CLI respect the `--token` flag
+  - [#4030](https://github.com/wasmerio/wasmer/pull/4030) Remove rustup build dependency
+  - [#4031](https://github.com/wasmerio/wasmer/pull/4031) Speed up the module cache 6x by removing LZW compression
+
+## Fixed
+
+  - [#4096](https://github.com/wasmerio/wasmer/pull/4096) Fix benchmark
+  - [#4050](https://github.com/wasmerio/wasmer/pull/4050) `epoll` with fs fixes
+  - [#4074](https://github.com/wasmerio/wasmer/pull/4074) fix(wasix): Expose FileSystemMapping struct
+  - [#4063](https://github.com/wasmerio/wasmer/pull/4063) Fix docstring for MemoryView struct
+  - [#4047](https://github.com/wasmerio/wasmer/pull/4047) Fixed create exe when zig is not present
+  - [#3970](https://github.com/wasmerio/wasmer/pull/3970) Fixes for wasmer.sh
+  - [#4035](https://github.com/wasmerio/wasmer/pull/4035) Fix help text for `use_system_linker` option in `create_exe` CLI command
+
+
+
 ## 4.0.0 - 22/06/2023
 
 Some more behind-the-scene unification and bug fixe since the last beta, mostly on the CLI, but make sure to check all the other changes of the previous beta and alpha release if you came from last stable version.

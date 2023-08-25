@@ -1,32 +1,41 @@
 #![allow(unused_variables)]
+use crate::{io_err_into_net_error, VirtualIoSource};
 #[allow(unused_imports)]
 use crate::{
     IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
     VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
-use std::future::Future;
+use derivative::Derivative;
+use std::io::{Read, Write};
 use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
-use std::pin::Pin;
-use std::ptr;
-use std::sync::Mutex;
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
+use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
+use virtual_mio::{InterestGuard, InterestHandler, Selector};
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct LocalNetworking {
-    // Make struct internals private.
-    // Can be removed once some fields are added (like permissions).
-    _private: (),
+    selector: Arc<Selector>,
+    handle: Handle,
 }
 
 impl LocalNetworking {
     pub fn new() -> Self {
-        Self { _private: () }
+        Self {
+            selector: Selector::new(),
+            handle: Handle::current(),
+        }
+    }
+}
+
+impl Drop for LocalNetworking {
+    fn drop(&mut self) {
+        self.selector.shutdown();
     }
 }
 
@@ -46,12 +55,13 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
-        let listener = tokio::net::TcpListener::bind(addr)
-            .await
+        let listener = std::net::TcpListener::bind(addr)
             .map(|sock| {
+                sock.set_nonblocking(true).ok();
                 Box::new(LocalTcpListener {
-                    stream: sock,
-                    backlog: Mutex::new(Vec::new()),
+                    stream: mio::net::TcpListener::from_std(sock),
+                    selector: self.selector.clone(),
+                    handler_guard: None,
                 })
             })
             .map_err(io_err_into_net_error)?;
@@ -64,26 +74,31 @@ impl VirtualNetworking for LocalNetworking {
         _reuse_port: bool,
         _reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
-        let socket = tokio::net::UdpSocket::bind(addr)
-            .await
-            .map_err(io_err_into_net_error)?;
+        let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
+        socket2::SockRef::from(&socket).set_nonblocking(true).ok();
         Ok(Box::new(LocalUdpSocket {
+            selector: self.selector.clone(),
             socket,
             addr,
-            nonblocking: false,
+            handler_guard: None,
         }))
     }
 
     async fn connect_tcp(
         &self,
         _addr: SocketAddr,
-        peer: SocketAddr,
+        mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
-        let stream = tokio::net::TcpStream::connect(peer)
-            .await
-            .map_err(io_err_into_net_error)?;
-        let peer = stream.peer_addr().map_err(io_err_into_net_error)?;
-        Ok(Box::new(LocalTcpStream::new(stream, peer)))
+        let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        socket2::SockRef::from(&stream).set_nonblocking(true).ok();
+        if let Ok(p) = stream.peer_addr() {
+            peer = p;
+        }
+        Ok(Box::new(LocalTcpStream::new(
+            self.selector.clone(),
+            stream,
+            peer,
+        )))
     }
 
     async fn resolve(
@@ -97,83 +112,55 @@ impl VirtualNetworking for LocalNetworking {
         } else {
             format!("{}:{}", host, port.unwrap_or(0))
         };
-        tokio::net::lookup_host(host_to_lookup)
+        self.handle
+            .spawn(tokio::net::lookup_host(host_to_lookup))
             .await
+            .map_err(|_| NetworkError::IOError)?
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
             .map_err(io_err_into_net_error)
     }
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct LocalTcpListener {
-    stream: tokio::net::TcpListener,
-    backlog: Mutex<Vec<(Box<LocalTcpStream>, SocketAddr)>>,
+    stream: mio::net::TcpListener,
+    selector: Arc<Selector>,
+    handler_guard: Option<InterestGuard>,
 }
 
-#[async_trait::async_trait]
 impl VirtualTcpListener for LocalTcpListener {
-    fn try_accept(&mut self) -> Option<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
-        {
-            let mut backlog = self.backlog.lock().unwrap();
-            if let Some((sock, addr)) = backlog.pop() {
-                return Some(Ok((sock, addr)));
+    fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
+        match self.stream.accept().map_err(io_err_into_net_error) {
+            Ok((stream, addr)) => {
+                socket2::SockRef::from(&self.stream)
+                    .set_nonblocking(true)
+                    .ok();
+                let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
+                socket.set_first_handler_writeable();
+                Ok((Box::new(socket), addr))
             }
-        }
-
-        let waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
-        let mut cx = Context::from_waker(&waker);
-        match self
-            .stream
-            .poll_accept(&mut cx)
-            .map_err(io_err_into_net_error)
-        {
-            Poll::Ready(Ok((stream, addr))) => {
-                Some(Ok((Box::new(LocalTcpStream::new(stream, addr)), addr)))
-            }
-            Poll::Ready(Err(NetworkError::WouldBlock)) => None,
-            Poll::Ready(Err(err)) => Some(Err(err)),
-            Poll::Pending => None,
+            Err(NetworkError::WouldBlock) => Err(NetworkError::WouldBlock),
+            Err(err) => Err(err),
         }
     }
 
-    fn poll_accept(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>> {
-        {
-            let mut backlog = self.backlog.lock().unwrap();
-            if let Some((sock, addr)) = backlog.pop() {
-                return Poll::Ready(Ok((sock, addr)));
-            }
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
         }
 
-        // We poll the socket
-        let (sock, addr) = match self.stream.poll_accept(cx).map_err(io_err_into_net_error) {
-            Poll::Ready(Ok((sock, addr))) => (Box::new(LocalTcpStream::new(sock, addr)), addr),
-            Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
-            Poll::Pending => return Poll::Pending,
-        };
-        Poll::Ready(Ok((sock, addr)))
-    }
+        let guard = InterestGuard::new(
+            &self.selector,
+            handler,
+            &mut self.stream,
+            mio::Interest::READABLE,
+        )
+        .map_err(io_err_into_net_error)?;
 
-    fn poll_accept_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>> {
-        {
-            let backlog = self.backlog.lock().unwrap();
-            if backlog.len() > 10 {
-                return Poll::Ready(Ok(backlog.len()));
-            }
-        }
-        self.stream
-            .poll_accept(cx)
-            .map_err(io_err_into_net_error)
-            .map_ok(|(sock, addr)| {
-                let mut backlog = self.backlog.lock().unwrap();
-                backlog.push((Box::new(LocalTcpStream::new(sock, addr)), addr));
-                backlog.len()
-            })
+        self.handler_guard.replace(guard);
+
+        Ok(())
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
@@ -194,34 +181,40 @@ impl VirtualTcpListener for LocalTcpListener {
     }
 }
 
-#[derive(Debug)]
-pub struct LocalTcpStream {
-    stream: tokio::net::TcpStream,
-    addr: SocketAddr,
-    shutdown: Option<Shutdown>,
-    tx_write_ready: mpsc::Sender<()>,
-    rx_write_ready: mpsc::Receiver<()>,
-    tx_write_poll_ready: mpsc::Sender<()>,
-    rx_write_poll_ready: mpsc::Receiver<()>,
-}
-
-impl LocalTcpStream {
-    pub fn new(stream: tokio::net::TcpStream, addr: SocketAddr) -> Self {
-        let (tx_write_ready, rx_write_ready) = mpsc::channel(1);
-        let (tx_write_poll_ready, rx_write_poll_ready) = mpsc::channel(1);
-        Self {
-            stream,
-            addr,
-            shutdown: None,
-            tx_write_ready,
-            rx_write_ready,
-            tx_write_poll_ready,
-            rx_write_poll_ready,
+impl VirtualIoSource for LocalTcpListener {
+    fn remove_handler(&mut self) {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
         }
     }
 }
 
-#[async_trait::async_trait]
+#[derive(Debug)]
+pub struct LocalTcpStream {
+    stream: mio::net::TcpStream,
+    addr: SocketAddr,
+    shutdown: Option<Shutdown>,
+    selector: Arc<Selector>,
+    handler_guard: Option<InterestGuard>,
+    first_handler_writeable: bool,
+}
+
+impl LocalTcpStream {
+    fn new(selector: Arc<Selector>, stream: mio::net::TcpStream, addr: SocketAddr) -> Self {
+        Self {
+            stream,
+            addr,
+            shutdown: None,
+            selector,
+            handler_guard: None,
+            first_handler_writeable: false,
+        }
+    }
+    fn set_first_handler_writeable(&mut self) {
+        self.first_handler_writeable = true;
+    }
+}
+
 impl VirtualTcpSocket for LocalTcpStream {
     fn set_recv_buf_size(&mut self, size: usize) -> Result<()> {
         Ok(())
@@ -254,6 +247,7 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn shutdown(&mut self, how: Shutdown) -> Result<()> {
+        self.stream.shutdown(how).map_err(io_err_into_net_error)?;
         self.shutdown = Some(how);
         Ok(())
     }
@@ -265,68 +259,36 @@ impl VirtualTcpSocket for LocalTcpStream {
 
 impl VirtualConnectedSocket for LocalTcpStream {
     fn set_linger(&mut self, linger: Option<Duration>) -> Result<()> {
-        self.stream
+        socket2::SockRef::from(&self.stream)
             .set_linger(linger)
             .map_err(io_err_into_net_error)?;
         Ok(())
     }
 
     fn linger(&self) -> Result<Option<Duration>> {
-        self.stream.linger().map_err(io_err_into_net_error)
+        socket2::SockRef::from(&self.stream)
+            .linger()
+            .map_err(io_err_into_net_error)
     }
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
-        self.stream.try_write(data).map_err(io_err_into_net_error)
+        self.stream.write(data).map_err(io_err_into_net_error)
     }
 
-    fn poll_send(&mut self, cx: &mut Context<'_>, data: &[u8]) -> Poll<Result<usize>> {
-        use tokio::io::AsyncWrite;
-        Pin::new(&mut self.stream)
-            .poll_write(cx, data)
-            .map_err(io_err_into_net_error)
-    }
-
-    fn poll_flush(&mut self, cx: &mut Context<'_>) -> Poll<Result<()>> {
-        while self.rx_write_ready.try_recv().is_ok() {}
-        self.tx_write_poll_ready.try_send(()).ok();
-        use tokio::io::AsyncWrite;
-        Pin::new(&mut self.stream)
-            .poll_flush(cx)
-            .map_err(io_err_into_net_error)
+    fn try_flush(&mut self) -> Result<()> {
+        self.stream.flush().map_err(io_err_into_net_error)
     }
 
     fn close(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn poll_recv(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut [MaybeUninit<u8>],
-    ) -> Poll<Result<usize>> {
-        use tokio::io::AsyncRead;
-        let mut read_buf = tokio::io::ReadBuf::uninit(buf);
-        let res = Pin::new(&mut self.stream)
-            .poll_read(cx, &mut read_buf)
-            .map_err(io_err_into_net_error);
-        match res {
-            Poll::Ready(Ok(_)) => {
-                let amt = read_buf.filled().len();
-                let data: &[u8] = unsafe { std::mem::transmute(&buf[..amt]) };
-                Poll::Ready(Ok(amt))
-            }
-            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
-            Poll::Pending => Poll::Pending,
-        }
-    }
-
     fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        self.stream.try_read(buf).map_err(io_err_into_net_error)
+        self.stream.read(buf).map_err(io_err_into_net_error)
     }
 }
 
-#[async_trait::async_trait]
 impl VirtualSocket for LocalTcpStream {
     fn set_ttl(&mut self, ttl: u32) -> Result<()> {
         self.stream.set_ttl(ttl).map_err(io_err_into_net_error)
@@ -344,83 +306,47 @@ impl VirtualSocket for LocalTcpStream {
         Ok(SocketStatus::Opened)
     }
 
-    fn poll_read_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>> {
-        self.stream
-            .poll_read_ready(cx)
-            .map_ok(|_| 1)
-            .map_err(io_err_into_net_error)
-    }
-
-    fn poll_write_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>> {
-        loop {
-            // this wakes this polling ready call whenever the `rx_write_poll_ready` is triggerd
-            // (which is triggered whenever a send operation is transmitted)
-            let mut rx = Pin::new(&mut self.rx_write_poll_ready);
-            if rx.poll_recv(cx).is_pending() {
-                break;
-            }
+    fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
         }
-        match self
-            .stream
-            .poll_write_ready(cx)
-            .map_err(io_err_into_net_error)
-        {
-            Poll::Ready(Ok(())) => {
-                if self.tx_write_ready.try_send(()).is_ok() {
-                    Poll::Ready(Ok(1))
-                } else {
-                    Poll::Pending
-                }
-            }
-            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
-            Poll::Pending => Poll::Pending,
+
+        if self.first_handler_writeable {
+            self.first_handler_writeable = false;
+            handler.interest(virtual_mio::InterestType::Writable);
         }
+
+        let guard = InterestGuard::new(
+            &self.selector,
+            handler,
+            &mut self.stream,
+            mio::Interest::READABLE.add(mio::Interest::WRITABLE),
+        )
+        .map_err(io_err_into_net_error)?;
+
+        self.handler_guard.replace(guard);
+
+        Ok(())
     }
 }
 
-struct LocalTcpStreamReadReady<'a> {
-    inner: &'a mut LocalTcpStream,
-}
-impl<'a> Future for LocalTcpStreamReadReady<'a> {
-    type Output = Result<usize>;
-
-    fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        self.inner.poll_read_ready(cx)
-    }
-}
-
-struct LocalTcpStreamWriteReady<'a> {
-    inner: &'a mut LocalTcpStream,
-}
-impl<'a> Future for LocalTcpStreamWriteReady<'a> {
-    type Output = Result<usize>;
-
-    fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        self.inner.poll_write_ready(cx)
+impl VirtualIoSource for LocalTcpStream {
+    fn remove_handler(&mut self) {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct LocalUdpSocket {
-    socket: tokio::net::UdpSocket,
+    socket: mio::net::UdpSocket,
     #[allow(dead_code)]
     addr: SocketAddr,
-    nonblocking: bool,
+    selector: Arc<Selector>,
+    handler_guard: Option<InterestGuard>,
 }
 
-#[async_trait::async_trait]
 impl VirtualUdpSocket for LocalUdpSocket {
     fn set_broadcast(&mut self, broadcast: bool) -> Result<()> {
         self.socket
@@ -469,14 +395,14 @@ impl VirtualUdpSocket for LocalUdpSocket {
     }
 
     fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
-        self.socket
-            .join_multicast_v4(multiaddr, iface)
+        socket2::SockRef::from(&self.socket)
+            .join_multicast_v4(&multiaddr, &iface)
             .map_err(io_err_into_net_error)
     }
 
     fn leave_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
-        self.socket
-            .leave_multicast_v4(multiaddr, iface)
+        socket2::SockRef::from(&self.socket)
+            .leave_multicast_v4(&multiaddr, &iface)
             .map_err(io_err_into_net_error)
     }
 
@@ -501,49 +427,15 @@ impl VirtualUdpSocket for LocalUdpSocket {
 }
 
 impl VirtualConnectionlessSocket for LocalUdpSocket {
-    fn poll_send_to(
-        &mut self,
-        cx: &mut Context<'_>,
-        data: &[u8],
-        addr: SocketAddr,
-    ) -> Poll<Result<usize>> {
-        self.socket
-            .poll_send_to(cx, data, addr)
-            .map_err(io_err_into_net_error)
-    }
-
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
         self.socket
-            .try_send_to(data, addr)
+            .send_to(data, addr)
             .map_err(io_err_into_net_error)
-    }
-
-    fn poll_recv_from(
-        &mut self,
-        cx: &mut Context<'_>,
-        buf: &mut [MaybeUninit<u8>],
-    ) -> Poll<Result<(usize, SocketAddr)>> {
-        let mut read_buf = tokio::io::ReadBuf::uninit(buf);
-        let res = self
-            .socket
-            .poll_recv_from(cx, &mut read_buf)
-            .map_err(io_err_into_net_error);
-        match res {
-            Poll::Ready(Ok(addr)) => {
-                let amt = read_buf.filled().len();
-                Poll::Ready(Ok((amt, addr)))
-            }
-            Poll::Ready(Err(err)) => Poll::Ready(Err(err)),
-            Poll::Pending if self.nonblocking => Poll::Ready(Err(NetworkError::WouldBlock)),
-            Poll::Pending => Poll::Pending,
-        }
     }
 
     fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        self.socket
-            .try_recv_from(buf)
-            .map_err(io_err_into_net_error)
+        self.socket.recv_from(buf).map_err(io_err_into_net_error)
     }
 }
 
@@ -564,115 +456,29 @@ impl VirtualSocket for LocalUdpSocket {
         Ok(SocketStatus::Opened)
     }
 
-    fn poll_read_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>> {
-        self.socket
-            .poll_recv_ready(cx)
-            .map_ok(|()| 8192usize)
-            .map_err(io_err_into_net_error)
-    }
-
-    fn poll_write_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<usize>> {
-        self.socket
-            .poll_send_ready(cx)
-            .map_ok(|()| 8192usize)
-            .map_err(io_err_into_net_error)
-    }
-}
-
-struct LocalUdpSocketReadReady<'a> {
-    socket: &'a mut tokio::net::UdpSocket,
-}
-impl<'a> Future for LocalUdpSocketReadReady<'a> {
-    type Output = Result<usize>;
-
-    fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        self.socket
-            .poll_recv_ready(cx)
-            .map_err(io_err_into_net_error)
-            .map_ok(|_| 1usize)
-    }
-}
-
-struct LocalUdpSocketWriteReady<'a> {
-    socket: &'a mut tokio::net::UdpSocket,
-}
-impl<'a> Future for LocalUdpSocketWriteReady<'a> {
-    type Output = Result<usize>;
-
-    fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        self.socket
-            .poll_send_ready(cx)
-            .map_err(io_err_into_net_error)
-            .map_ok(|_| 1usize)
-    }
-}
-
-const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(noop_clone, noop, noop, noop);
-unsafe fn noop_clone(_data: *const ()) -> RawWaker {
-    RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)
-}
-unsafe fn noop(_data: *const ()) {}
-
-pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
-    use std::io::ErrorKind;
-    match net_error.kind() {
-        ErrorKind::BrokenPipe => NetworkError::BrokenPipe,
-        ErrorKind::AlreadyExists => NetworkError::AlreadyExists,
-        ErrorKind::AddrInUse => NetworkError::AddressInUse,
-        ErrorKind::AddrNotAvailable => NetworkError::AddressNotAvailable,
-        ErrorKind::ConnectionAborted => NetworkError::ConnectionAborted,
-        ErrorKind::ConnectionRefused => NetworkError::ConnectionRefused,
-        ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
-        ErrorKind::Interrupted => NetworkError::Interrupted,
-        ErrorKind::InvalidData => NetworkError::InvalidData,
-        ErrorKind::InvalidInput => NetworkError::InvalidInput,
-        ErrorKind::NotConnected => NetworkError::NotConnected,
-        ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
-        ErrorKind::TimedOut => NetworkError::TimedOut,
-        ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
-        ErrorKind::WouldBlock => NetworkError::WouldBlock,
-        ErrorKind::WriteZero => NetworkError::WriteZero,
-        ErrorKind::Unsupported => NetworkError::Unsupported,
-
-        #[cfg(target_family = "unix")]
-        _ => {
-            if let Some(code) = net_error.raw_os_error() {
-                match code {
-                    libc::EPERM => NetworkError::PermissionDenied,
-                    libc::EBADF => NetworkError::InvalidFd,
-                    libc::ECHILD => NetworkError::InvalidFd,
-                    libc::EMFILE => NetworkError::TooManyOpenFiles,
-                    libc::EINTR => NetworkError::Interrupted,
-                    libc::EIO => NetworkError::IOError,
-                    libc::ENXIO => NetworkError::IOError,
-                    libc::EAGAIN => NetworkError::WouldBlock,
-                    libc::ENOMEM => NetworkError::InsufficientMemory,
-                    libc::EACCES => NetworkError::PermissionDenied,
-                    libc::ENODEV => NetworkError::NoDevice,
-                    libc::EINVAL => NetworkError::InvalidInput,
-                    libc::EPIPE => NetworkError::BrokenPipe,
-                    err => {
-                        tracing::trace!("unknown os error {}", err);
-                        NetworkError::UnknownError
-                    }
-                }
-            } else {
-                NetworkError::UnknownError
-            }
+    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.socket);
         }
-        #[cfg(not(target_family = "unix"))]
-        _ => NetworkError::UnknownError,
+
+        let guard = InterestGuard::new(
+            &self.selector,
+            handler,
+            &mut self.socket,
+            mio::Interest::READABLE.add(mio::Interest::WRITABLE),
+        )
+        .map_err(io_err_into_net_error)?;
+
+        self.handler_guard.replace(guard);
+
+        Ok(())
+    }
+}
+
+impl VirtualIoSource for LocalUdpSocket {
+    fn remove_handler(&mut self) {
+        if let Some(guard) = self.handler_guard.take() {
+            InterestGuard::unregister(guard, &self.selector, &mut self.socket);
+        }
     }
 }

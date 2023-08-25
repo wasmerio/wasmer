@@ -32,8 +32,8 @@ use wasmer_wasix::{
     capture_snapshot,
     runtime::{
         task_manager::{
-            TaskExecModule, TaskWasm, TaskWasmRun, TaskWasmRunProperties, WasmResumeTask,
-            WasmResumeTrigger,
+            InlineWaker, TaskExecModule, TaskWasm, TaskWasmRun, TaskWasmRunProperties,
+            WasmResumeTask, WasmResumeTrigger,
         },
         SpawnMemoryType,
     },
@@ -97,8 +97,8 @@ impl AssertSendSync for WebThreadPool {}
 #[wasm_bindgen]
 #[derive(Debug)]
 pub struct WebThreadPoolInner {
-    pool_reactors: Arc<PoolState>,
-    pool_dedicated: Arc<PoolState>,
+    pool_reactors: Arc<PoolStateAsync>,
+    pool_dedicated: Arc<PoolStateSync>,
 }
 
 #[wasm_bindgen]
@@ -115,62 +115,91 @@ impl Deref for WebThreadPool {
     }
 }
 
-enum Message {
-    Run(BoxRun<'static>),
-    RunAsync(BoxRunAsync<'static, ()>),
-}
-
-impl Debug for Message {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Message::Run(_) => write!(f, "run"),
-            Message::RunAsync(_) => write!(f, "run-async"),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum PoolType {
+pub enum PoolType {
     Shared,
     Dedicated,
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-struct IdleThread {
+struct IdleThreadAsync {
     idx: usize,
     #[derivative(Debug = "ignore")]
-    work: mpsc::UnboundedSender<Message>,
+    work: mpsc::UnboundedSender<BoxRunAsync<'static, ()>>,
 }
 
-impl IdleThread {
+impl IdleThreadAsync {
     #[allow(dead_code)]
-    fn consume(self, msg: Message) {
-        let _ = self.work.send(msg);
+    fn consume(self, task: BoxRunAsync<'static, ()>) {
+        self.work.send(task).unwrap();
     }
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
-pub struct PoolState {
+struct IdleThreadSync {
+    idx: usize,
     #[derivative(Debug = "ignore")]
-    idle_rx: Mutex<mpsc::UnboundedReceiver<IdleThread>>,
-    idle_tx: mpsc::UnboundedSender<IdleThread>,
+    work: std::sync::mpsc::Sender<BoxRun<'static>>,
+}
+
+impl IdleThreadSync {
+    #[allow(dead_code)]
+    fn consume(self, task: BoxRun<'static>) {
+        self.work.send(task).unwrap();
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct PoolStateSync {
+    #[derivative(Debug = "ignore")]
+    idle_rx: Mutex<mpsc::UnboundedReceiver<IdleThreadSync>>,
+    idle_tx: mpsc::UnboundedSender<IdleThreadSync>,
     idx_seed: AtomicUsize,
     idle_size: usize,
     blocking: bool,
-    spawn: mpsc::UnboundedSender<Message>,
+    spawn: mpsc::UnboundedSender<BoxRun<'static>>,
     #[allow(dead_code)]
     type_: PoolType,
 }
 
-pub struct ThreadState {
-    pool: Arc<PoolState>,
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct PoolStateAsync {
+    #[derivative(Debug = "ignore")]
+    idle_rx: Mutex<mpsc::UnboundedReceiver<IdleThreadAsync>>,
+    idle_tx: mpsc::UnboundedSender<IdleThreadAsync>,
+    idx_seed: AtomicUsize,
+    idle_size: usize,
+    blocking: bool,
+    spawn: mpsc::UnboundedSender<BoxRunAsync<'static, ()>>,
+    #[allow(dead_code)]
+    type_: PoolType,
+}
+
+pub enum ThreadState {
+    Sync(Arc<ThreadStateSync>),
+    Async(Arc<ThreadStateAsync>),
+}
+
+pub struct ThreadStateSync {
+    pool: Arc<PoolStateSync>,
     #[allow(dead_code)]
     idx: usize,
-    tx: mpsc::UnboundedSender<Message>,
-    rx: Mutex<Option<mpsc::UnboundedReceiver<Message>>>,
-    init: Mutex<Option<Message>>,
+    tx: std::sync::mpsc::Sender<BoxRun<'static>>,
+    rx: Mutex<Option<std::sync::mpsc::Receiver<BoxRun<'static>>>>,
+    init: Mutex<Option<BoxRun<'static>>>,
+}
+
+pub struct ThreadStateAsync {
+    pool: Arc<PoolStateAsync>,
+    #[allow(dead_code)]
+    idx: usize,
+    tx: mpsc::UnboundedSender<BoxRunAsync<'static, ()>>,
+    rx: Mutex<Option<mpsc::UnboundedReceiver<BoxRunAsync<'static, ()>>>>,
+    init: Mutex<Option<BoxRunAsync<'static, ()>>>,
 }
 
 #[wasm_bindgen(module = "/public/core.js")]
@@ -265,30 +294,30 @@ impl WebThreadPool {
     pub fn new(size: usize) -> Result<WebThreadPool, JsValue> {
         info!("pool::create(size={})", size);
 
-        let (idle_tx1, idle_rx1) = mpsc::unbounded_channel();
-        let (idle_tx3, idle_rx3) = mpsc::unbounded_channel();
+        let (idle_tx_shared, idle_rx_shared) = mpsc::unbounded_channel();
+        let (idle_tx_dedicated, idle_rx_dedicated) = mpsc::unbounded_channel();
 
-        let (spawn_tx1, mut spawn_rx1) = mpsc::unbounded_channel();
-        let (spawn_tx3, mut spawn_rx3) = mpsc::unbounded_channel();
+        let (spawn_tx_shared, mut spawn_rx_shared) = mpsc::unbounded_channel();
+        let (spawn_tx_dedicated, mut spawn_rx_dedicated) = mpsc::unbounded_channel();
 
-        let pool_reactors = PoolState {
-            idle_rx: Mutex::new(idle_rx1),
-            idle_tx: idle_tx1,
+        let pool_reactors = PoolStateAsync {
+            idle_rx: Mutex::new(idle_rx_shared),
+            idle_tx: idle_tx_shared,
             idx_seed: AtomicUsize::new(0),
             blocking: false,
             idle_size: 2usize.max(size),
             type_: PoolType::Shared,
-            spawn: spawn_tx1,
+            spawn: spawn_tx_shared,
         };
 
-        let pool_dedicated = PoolState {
-            idle_rx: Mutex::new(idle_rx3),
-            idle_tx: idle_tx3,
+        let pool_dedicated = PoolStateSync {
+            idle_rx: Mutex::new(idle_rx_dedicated),
+            idle_tx: idle_tx_dedicated,
             idx_seed: AtomicUsize::new(0),
             blocking: true,
             idle_size: 1usize.max(size),
             type_: PoolType::Dedicated,
-            spawn: spawn_tx3,
+            spawn: spawn_tx_dedicated,
         };
 
         let inner = Arc::new(WebThreadPoolInner {
@@ -304,10 +333,10 @@ impl WebThreadPool {
         wasm_bindgen_futures::spawn_local(async move {
             loop {
                 select! {
-                    spawn = spawn_rx1.recv() => {
+                    spawn = spawn_rx_shared.recv() => {
                         if let Some(spawn) = spawn { inner1.pool_reactors.expand(spawn); } else { break; }
                     }
-                    spawn = spawn_rx3.recv() => {
+                    spawn = spawn_rx_dedicated.recv() => {
                         if let Some(spawn) = spawn { inner3.pool_dedicated.expand(spawn); } else { break; }
                     }
                 }
@@ -331,7 +360,7 @@ impl WebThreadPool {
     }
 
     pub fn spawn_shared(&self, task: BoxRunAsync<'static, ()>) {
-        self.inner.pool_reactors.spawn(Message::RunAsync(task));
+        self.inner.pool_reactors.spawn(task);
     }
 
     pub fn spawn_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
@@ -396,11 +425,7 @@ impl WebThreadPool {
     }
 
     pub fn spawn_dedicated(&self, task: BoxRun<'static>) {
-        self.inner.pool_dedicated.spawn(Message::Run(task));
-    }
-
-    pub fn spawn_dedicated_async(&self, task: BoxRunAsync<'static, ()>) {
-        self.inner.pool_dedicated.spawn(Message::RunAsync(task));
+        self.inner.pool_dedicated.spawn(task);
     }
 }
 
@@ -470,12 +495,12 @@ async fn _compile_module(bytes: &[u8]) -> Result<js_sys::WebAssembly::Module, an
     )
 }
 
-impl PoolState {
-    fn spawn(&self, msg: Message) {
+impl PoolStateAsync {
+    fn spawn(&self, task: BoxRunAsync<'static, ()>) {
         for _ in 0..10 {
             if let Ok(mut guard) = self.idle_rx.try_lock() {
                 if let Ok(thread) = guard.try_recv() {
-                    thread.consume(msg);
+                    thread.consume(task);
                     return;
                 }
                 break;
@@ -483,46 +508,83 @@ impl PoolState {
             std::thread::yield_now();
         }
 
-        self.spawn.send(msg).unwrap();
+        self.spawn.send(task).unwrap();
     }
 
-    fn expand(self: &Arc<Self>, init: Message) {
-        let (tx, rx) = mpsc::unbounded_channel();
+    fn expand(self: &Arc<Self>, init: BoxRunAsync<'static, ()>) {
         let idx = self.idx_seed.fetch_add(1usize, Ordering::Release);
-        let state = Arc::new(ThreadState {
+
+        let (tx, rx) = mpsc::unbounded_channel();
+
+        let state_inner = Arc::new(ThreadStateAsync {
             pool: Arc::clone(self),
             idx,
             tx,
             rx: Mutex::new(Some(rx)),
             init: Mutex::new(Some(init)),
         });
-        Self::start_worker_now(idx, state, None);
+        let state = Arc::new(ThreadState::Async(state_inner.clone()));
+        start_worker_now(idx, state, state_inner.pool.type_, None);
+    }
+}
+
+impl PoolStateSync {
+    fn spawn(&self, task: BoxRun<'static>) {
+        for _ in 0..10 {
+            if let Ok(mut guard) = self.idle_rx.try_lock() {
+                if let Ok(thread) = guard.try_recv() {
+                    thread.consume(task);
+                    return;
+                }
+                break;
+            }
+            std::thread::yield_now();
+        }
+
+        self.spawn.send(task).unwrap();
     }
 
-    pub fn start_worker_now(
-        idx: usize,
-        state: Arc<ThreadState>,
-        should_warn_on_error: Option<Terminal>,
-    ) {
-        let mut opts = WorkerOptions::new();
-        opts.type_(WorkerType::Module);
-        opts.name(&*format!("Worker-{:?}-{}", state.pool.type_, idx));
+    fn expand(self: &Arc<Self>, init: BoxRun<'static>) {
+        let idx = self.idx_seed.fetch_add(1usize, Ordering::Release);
 
-        let ptr = Arc::into_raw(state);
+        let (tx, rx) = std::sync::mpsc::channel();
 
-        let result = wasm_bindgen_futures::JsFuture::from(start_worker(
-            wasm_bindgen::module()
-                .dyn_into::<js_sys::WebAssembly::Module>()
-                .unwrap(),
-            wasm_bindgen::memory(),
-            JsValue::from(ptr as u32),
-            opts,
-        ));
-
-        wasm_bindgen_futures::spawn_local(async move {
-            _process_worker_result(result, should_warn_on_error).await;
+        let state_inner = Arc::new(ThreadStateSync {
+            pool: Arc::clone(self),
+            idx,
+            tx,
+            rx: Mutex::new(Some(rx)),
+            init: Mutex::new(Some(init)),
         });
+        let state = Arc::new(ThreadState::Sync(state_inner.clone()));
+        start_worker_now(idx, state, state_inner.pool.type_, None);
     }
+}
+
+pub fn start_worker_now(
+    idx: usize,
+    state: Arc<ThreadState>,
+    type_: PoolType,
+    should_warn_on_error: Option<Terminal>,
+) {
+    let mut opts = WorkerOptions::new();
+    opts.type_(WorkerType::Module);
+    opts.name(&*format!("Worker-{:?}-{}", type_, idx));
+
+    let ptr = Arc::into_raw(state);
+
+    let result = wasm_bindgen_futures::JsFuture::from(start_worker(
+        wasm_bindgen::module()
+            .dyn_into::<js_sys::WebAssembly::Module>()
+            .unwrap(),
+        wasm_bindgen::memory(),
+        JsValue::from(ptr as u32),
+        opts,
+    ));
+
+    wasm_bindgen_futures::spawn_local(async move {
+        _process_worker_result(result, should_warn_on_error).await;
+    });
 }
 
 async fn _process_worker_result(result: JsFuture, should_warn_on_error: Option<Terminal>) {
@@ -545,11 +607,121 @@ async fn _process_worker_result(result: JsFuture, should_warn_on_error: Option<T
     }
 }
 
-impl ThreadState {
-    fn work(state: Arc<ThreadState>) {
+impl ThreadStateSync {
+    fn work(state: Arc<ThreadStateSync>) {
         let thread_index = state.idx;
         info!(
-            "worker started (index={}, type={:?})",
+            "worker dedicated started (index={}, type={:?})",
+            thread_index, state.pool.type_
+        );
+
+        // Load the work queue receiver where other people will
+        // send us the work that needs to be done
+        let work_rx = {
+            let mut lock = state.rx.lock().unwrap();
+            lock.take().unwrap()
+        };
+
+        // Load the initial work
+        let mut work = {
+            let mut lock = state.init.lock().unwrap();
+            lock.take()
+        };
+
+        // The work is done in an asynchronous engine (that supports Javascript)
+        let work_tx = state.tx.clone();
+        let pool = Arc::clone(&state.pool);
+        let global = js_sys::global().unchecked_into::<DedicatedWorkerGlobalScope>();
+
+        loop {
+            // Process work until we need to go idle
+            while let Some(task) = work {
+                task();
+
+                // Grab the next work
+                work = work_rx.try_recv().ok();
+            }
+
+            // If there iss already an idle thread thats older then
+            // keep that one (otherwise ditch it) - this creates negative
+            // pressure on the pool size.
+            // The reason we keep older threads is to maximize cache hits such
+            // as module compile caches.
+            if let Ok(mut lock) = state.pool.idle_rx.try_lock() {
+                let mut others = Vec::new();
+                while let Ok(other) = lock.try_recv() {
+                    others.push(other);
+                }
+
+                // Sort them in the order of index (so older ones come first)
+                others.sort_by_key(|k| k.idx);
+
+                // If the number of others (plus us) exceeds the maximum then
+                // we either drop ourselves or one of the others
+                if others.len() + 1 > pool.idle_size {
+                    // How many are there already there that have a lower index - are we the one without a chair?
+                    let existing = others
+                        .iter()
+                        .map(|a| a.idx)
+                        .filter(|a| *a < thread_index)
+                        .count();
+                    if existing >= pool.idle_size {
+                        for other in others {
+                            state.pool.idle_tx.send(other).unwrap();
+                        }
+                        info!(
+                            "worker closed (index={}, type={:?})",
+                            thread_index, pool.type_
+                        );
+                        break;
+                    } else {
+                        // Someone else is the one (the last one)
+                        let leftover_chairs = others.len() - 1;
+                        for other in others.into_iter().take(leftover_chairs) {
+                            state.pool.idle_tx.send(other).unwrap();
+                        }
+                    }
+                } else {
+                    // Add them all back in again (but in the right order)
+                    for other in others {
+                        state.pool.idle_tx.send(other).unwrap();
+                    }
+                }
+            }
+            let idle = IdleThreadSync {
+                idx: thread_index,
+                work: work_tx.clone(),
+            };
+            if let Err(_) = state.pool.idle_tx.send(idle) {
+                info!(
+                    "pool is closed (thread_index={}, type={:?})",
+                    thread_index, pool.type_
+                );
+                break;
+            }
+
+            // Do a blocking recv (if this fails the thread is closed)
+            work = match work_rx.recv() {
+                Ok(a) => Some(a),
+                Err(err) => {
+                    info!(
+                        "worker closed (index={}, type={:?}) - {}",
+                        thread_index, pool.type_, err
+                    );
+                    break;
+                }
+            };
+        }
+
+        global.close();
+    }
+}
+
+impl ThreadStateAsync {
+    fn work(state: Arc<ThreadStateAsync>) {
+        let thread_index = state.idx;
+        info!(
+            "worker shared started (index={}, type={:?})",
             thread_index, state.pool.type_
         );
 
@@ -575,20 +747,13 @@ impl ThreadState {
             loop {
                 // Process work until we need to go idle
                 while let Some(task) = work {
-                    match task {
-                        Message::Run(task) => {
-                            task();
-                        }
-                        Message::RunAsync(task) => {
-                            let future = task();
-                            if pool.blocking {
-                                future.await;
-                            } else {
-                                wasm_bindgen_futures::spawn_local(async move {
-                                    future.await;
-                                });
-                            }
-                        }
+                    let future = task();
+                    if pool.blocking {
+                        future.await;
+                    } else {
+                        wasm_bindgen_futures::spawn_local(async move {
+                            future.await;
+                        });
                     }
 
                     // Grab the next work
@@ -650,7 +815,7 @@ impl ThreadState {
                     pool.type_
                 );
                 */
-                let idle = IdleThread {
+                let idle = IdleThreadAsync {
                     idx: thread_index,
                     work: work_tx.clone(),
                 };
@@ -689,7 +854,15 @@ pub fn worker_entry_point(state_ptr: u32) {
         .unchecked_into::<DedicatedWorkerGlobalScope>()
         .name();
     debug!("{}: Entry", name);
-    ThreadState::work(state);
+
+    match state.as_ref() {
+        ThreadState::Async(state) => {
+            ThreadStateAsync::work(state.clone());
+        }
+        ThreadState::Sync(state) => {
+            ThreadStateSync::work(state.clone());
+        }
+    }
 }
 
 #[wasm_bindgen(skip_typescript)]
@@ -725,8 +898,7 @@ pub fn wasm_entry_point(
             let trigger = trigger.take();
             if let Some(trigger) = trigger {
                 let trigger_run = trigger.run;
-                let tasks = env.tasks();
-                result = Some(tasks.block_on(trigger_run()));
+                result = Some(InlineWaker::block_on(trigger_run()));
             }
 
             // Invoke the callback which will run the web assembly module

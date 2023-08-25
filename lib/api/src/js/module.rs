@@ -1,4 +1,3 @@
-use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
 use crate::js::AsJs;
@@ -6,6 +5,7 @@ use crate::store::AsStoreMut;
 use crate::vm::VMInstance;
 use crate::Extern;
 use crate::IntoBytes;
+use crate::{errors::InstantiationError, js::js_handle::JsHandle};
 use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
@@ -37,7 +37,7 @@ pub struct ModuleTypeHints {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Module {
-    module: WebAssembly::Module,
+    module: JsHandle<WebAssembly::Module>,
     name: Option<String>,
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
@@ -81,12 +81,12 @@ impl Module {
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
-    ///
     pub(crate) unsafe fn from_js_module(
         module: WebAssembly::Module,
         binary: impl IntoBytes,
     ) -> Self {
         let binary = binary.into_bytes();
+
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
@@ -112,11 +112,11 @@ impl Module {
         let (type_hints, name) = (None, None);
 
         Self {
-            module,
+            module: JsHandle::new(module),
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.into_bytes()),
+            raw_bytes: Some(binary),
         }
     }
 
@@ -451,9 +451,10 @@ impl Module {
 }
 
 impl From<WebAssembly::Module> for Module {
+    #[track_caller]
     fn from(module: WebAssembly::Module) -> Module {
         Module {
-            module,
+            module: JsHandle::new(module),
             name: None,
             type_hints: None,
             #[cfg(feature = "js-serializable-module")]

@@ -65,6 +65,25 @@ pub struct HttpRequest {
     pub options: HttpRequestOptions,
 }
 
+impl HttpRequest {
+    fn from_http_parts(parts: http::request::Parts, body: impl Into<Option<Vec<u8>>>) -> Self {
+        let http::request::Parts {
+            method,
+            uri,
+            headers,
+            ..
+        } = parts;
+
+        HttpRequest {
+            url: uri.to_string().parse().unwrap(),
+            method,
+            headers,
+            body: body.into(),
+            options: HttpRequestOptions::default(),
+        }
+    }
+}
+
 impl std::fmt::Debug for HttpRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let HttpRequest {
@@ -82,6 +101,40 @@ impl std::fmt::Debug for HttpRequest {
             .field("body", &body.as_deref().map(String::from_utf8_lossy))
             .field("options", &options)
             .finish()
+    }
+}
+
+impl From<http::Request<Option<Vec<u8>>>> for HttpRequest {
+    fn from(value: http::Request<Option<Vec<u8>>>) -> Self {
+        let (parts, body) = value.into_parts();
+        HttpRequest::from_http_parts(parts, body)
+    }
+}
+
+impl From<http::Request<Vec<u8>>> for HttpRequest {
+    fn from(value: http::Request<Vec<u8>>) -> Self {
+        let (parts, body) = value.into_parts();
+        HttpRequest::from_http_parts(parts, body)
+    }
+}
+
+impl From<http::Request<&str>> for HttpRequest {
+    fn from(value: http::Request<&str>) -> Self {
+        value.map(|body| body.to_string()).into()
+    }
+}
+
+impl From<http::Request<String>> for HttpRequest {
+    fn from(value: http::Request<String>) -> Self {
+        let (parts, body) = value.into_parts();
+        HttpRequest::from_http_parts(parts, body.into_bytes())
+    }
+}
+
+impl From<http::Request<()>> for HttpRequest {
+    fn from(value: http::Request<()>) -> Self {
+        let (parts, _) = value.into_parts();
+        HttpRequest::from_http_parts(parts, None)
     }
 }
 

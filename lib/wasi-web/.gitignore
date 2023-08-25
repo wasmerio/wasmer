@@ -3,6 +3,8 @@ dist
 .parcel-cache
 .cache
 .vscode
+.cargo
 target
 pkg
 wapm/*.wasm
+vendor

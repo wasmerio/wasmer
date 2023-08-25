@@ -7,6 +7,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::mpsc;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
+use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasmer_wasix::{
     capabilities::Capabilities,
@@ -23,7 +24,10 @@ use xterm_js_rs::addons::webgl::WebglAddon;
 use xterm_js_rs::{LogLevel, OnKeyEvent, Terminal, TerminalOptions, Theme};
 
 use super::{common::*, pool::*};
-use crate::runtime::{TermStdout, TerminalCommandRx, WebRuntime};
+use crate::{
+    net::connect_networking,
+    runtime::{TermStdout, TerminalCommandRx, WebRuntime},
+};
 
 #[macro_export]
 #[doc(hidden)]
@@ -37,11 +41,54 @@ pub fn main() {
     set_panic_hook();
 }
 
-pub const DEFAULT_BOOT_WEBC: &str = "sharrattj/bash";
-pub const DEFAULT_BOOT_USES: [&str; 1] = ["sharrattj/coreutils"];
+#[derive(Debug, Clone, Default)]
+pub struct StartArgs {
+    init: Option<String>,
+    uses: Vec<String>,
+    prompt: Option<String>,
+    no_welcome: bool,
+    connect: Option<String>,
+    token: Option<String>,
+}
+impl StartArgs {
+    pub fn parse(mut self, args: &str) -> Self {
+        let query_pairs = || form_urlencoded::parse(args.as_bytes());
+
+        let find = |key| {
+            query_pairs()
+                .filter(|(k, _)| k == key)
+                .map(|a| a.1)
+                .filter(|a| a != "undefined")
+                .next()
+        };
+
+        if let Some(val) = find("init") {
+            self.init = Some(val.to_string());
+        }
+        if let Some(val) = find("uses") {
+            self.uses = val.split(",").map(|v| v.to_string()).collect();
+        }
+        if let Some(val) = find("prompt") {
+            self.prompt = Some(val.to_string());
+        }
+        if let Some(val) = find("connect") {
+            self.connect = Some(val.to_string());
+        }
+        if let Some(val) = find("no_welcome") {
+            match val.as_ref() {
+                "true" | "yes" | "" => self.no_welcome = true,
+                _ => {}
+            }
+        }
+        if let Some(val) = find("token") {
+            self.token = Some(val.to_string());
+        }
+        self
+    }
+}
 
 #[wasm_bindgen]
-pub fn start() -> Result<(), JsValue> {
+pub fn start(encoded_args: String) -> Result<(), JsValue> {
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(js_namespace = navigator, js_name = userAgent)]
@@ -81,6 +128,13 @@ pub fn start() -> Result<(), JsValue> {
     let user_agent = USER_AGENT.clone();
     let is_mobile = wasmer_wasix::os::common::is_mobile(&user_agent);
     debug!("user_agent: {}", user_agent);
+
+    // Compute the configuration
+    let mut args = StartArgs::default().parse(&encoded_args);
+    let location = url::Url::parse(location.as_str()).unwrap();
+    if let Some(query) = location.query() {
+        args = args.parse(query);
+    }
 
     let elem = window
         .document()
@@ -129,7 +183,18 @@ pub fn start() -> Result<(), JsValue> {
     let stdout = TermStdout::new(term_tx, tty_options.clone());
     let stderr = stdout.clone();
 
-    let runtime = Arc::new(WebRuntime::new(pool.clone(), tty_options.clone(), webgl2));
+    let mut net: Arc<dyn VirtualNetworking + Send + Sync + 'static> =
+        Arc::new(UnsupportedVirtualNetworking::default());
+    if let Some(connect) = args.connect {
+        net = Arc::new(connect_networking(connect))
+    }
+
+    let runtime = Arc::new(WebRuntime::new(
+        pool.clone(),
+        tty_options.clone(),
+        webgl2,
+        net,
+    ));
     let mut tty = Tty::new(
         Box::new(stdin_tx),
         Box::new(stdout.clone()),
@@ -137,52 +202,28 @@ pub fn start() -> Result<(), JsValue> {
         tty_options,
     );
 
-    let location = url::Url::parse(location.as_str()).unwrap();
-    let mut console = if let Some(init) = location
-        .query_pairs()
-        .filter(|(key, _)| key == "init")
-        .next()
-        .map(|(_, val)| val.to_string())
-    {
-        let mut console = Console::new(init.as_str(), runtime.clone());
-        console = console.with_no_welcome(true);
-        console
-    } else {
-        let mut console = Console::new(DEFAULT_BOOT_WEBC, runtime.clone());
-        console = console.with_uses(DEFAULT_BOOT_USES.iter().map(|a| a.to_string()).collect());
-        console
-    };
+    let init = args.init.ok_or(JsValue::from_str(
+        "no initialization package has been specified",
+    ))?;
+    let prompt = args
+        .prompt
+        .ok_or(JsValue::from_str("no prompt has been specified"))?;
+
+    let mut console = Console::new(init.as_str(), runtime.clone())
+        .with_no_welcome(args.no_welcome)
+        .with_prompt(prompt);
+
+    console = console.with_uses(args.uses);
+
+    if let Some(token) = args.token {
+        console = console.with_token(token);
+    }
 
     let mut env = HashMap::new();
     if let Some(origin) = location.domain().clone() {
         env.insert("ORIGIN".to_string(), origin.to_string());
     }
     env.insert("LOCATION".to_string(), location.to_string());
-
-    if let Some(prompt) = location
-        .query_pairs()
-        .filter(|(key, _)| key == "prompt")
-        .next()
-        .map(|(_, val)| val.to_string())
-    {
-        console = console.with_prompt(prompt);
-    }
-
-    if location
-        .query_pairs()
-        .any(|(key, _)| key == "no_welcome" || key == "no-welcome")
-    {
-        console = console.with_no_welcome(true);
-    }
-
-    if let Some(token) = location
-        .query_pairs()
-        .filter(|(key, _)| key == "token")
-        .next()
-        .map(|(_, val)| val.to_string())
-    {
-        console = console.with_token(token);
-    }
 
     console = console
         .with_user_agent(user_agent.as_str())
@@ -193,7 +234,7 @@ pub fn start() -> Result<(), JsValue> {
 
     let mut capabilities = Capabilities::default();
     capabilities.threading.max_threads = Some(50);
-    capabilities.threading.enable_asynchronous_threading = true;
+    capabilities.threading.enable_asynchronous_threading = false;
     console = console.with_capabilities(capabilities);
 
     let (tx, mut rx) = mpsc::unbounded_channel();

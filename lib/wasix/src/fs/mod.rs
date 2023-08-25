@@ -30,10 +30,10 @@ use wasmer_wasix_types::{
     },
 };
 
-pub use self::fd::{Fd, InodeVal, Kind};
+pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
-    InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFileReadGuard,
-    InodeValFileWriteGuard, WasiStateFileGuard,
+    InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
+    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
 };
 pub use self::notification::NotificationInner;
 use crate::syscalls::map_io_err;
@@ -407,7 +407,6 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::Fs
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
-    pub name_map: HashMap<String, Inode>,
     pub fd_map: Arc<RwLock<HashMap<WasiFd, Fd>>>,
     pub next_fd: AtomicU32,
     pub current_dir: Mutex<String>,
@@ -439,7 +438,6 @@ impl WasiFs {
         let fd_map = self.fd_map.read().unwrap().clone();
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
-            name_map: self.name_map.clone(),
             fd_map: Arc::new(RwLock::new(fd_map)),
             next_fd: AtomicU32::new(self.next_fd.load(Ordering::SeqCst)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
@@ -715,7 +713,6 @@ impl WasiFs {
 
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
-            name_map: HashMap::new(),
             fd_map: Arc::new(RwLock::new(HashMap::new())),
             next_fd: AtomicU32::new(3),
             current_dir: Mutex::new("/".to_string()),
@@ -1233,7 +1230,8 @@ impl WasiFs {
                     Kind::File { .. }
                     | Kind::Socket { .. }
                     | Kind::Pipe { .. }
-                    | Kind::EventNotifications { .. } => {
+                    | Kind::EventNotifications { .. }
+                    | Kind::Epoll { .. } => {
                         return Err(Errno::Notdir);
                     }
                     Kind::Symlink {

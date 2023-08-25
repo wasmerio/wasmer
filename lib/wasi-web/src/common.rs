@@ -1,5 +1,6 @@
 use std::cell::Cell;
 
+use anyhow::Context;
 use js_sys::Function;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
@@ -157,22 +158,24 @@ pub async fn fetch(
     }
 
     let request = {
-        let request = Request::new_with_str_and_init(&url, &opts)
-            .map_err(|_| anyhow::anyhow!("Could not construct request object"))?;
+        let request = Request::new_with_str_and_init(url, &opts)
+            .map_err(js_error)
+            .context("Could not construct request object")?;
 
         let set_headers = request.headers();
         for (name, val) in headers.iter() {
             let val = String::from_utf8_lossy(val.as_bytes());
-            set_headers.set(name.as_str(), &val).map_err(|_| {
-                anyhow::anyhow!("could not apply request header: '{name}': '{val}'")
-            })?;
+            set_headers
+                .set(name.as_str(), &val)
+                .map_err(js_error)
+                .with_context(|| format!("could not apply request header: '{name}': '{val}'"))?;
         }
         request
     };
 
-    let resp_value = match fetch_internal(&request).await.ok() {
-        Some(a) => a,
-        None => {
+    let resp_value = match fetch_internal(&request).await {
+        Ok(a) => a,
+        Err(e) => {
             // If the request failed it may be because of CORS so if a cors proxy
             // is configured then try again with the cors proxy
             let url_store;
@@ -180,25 +183,28 @@ pub async fn fetch(
                 url_store = format!("https://{}/{}", cors_proxy, url);
                 url_store.as_str()
             } else {
-                // TODO: more descriptive error.
-                return Err(anyhow::anyhow!("Could not fetch '{url}'"));
+                return Err(js_error(e).context(format!("Could not fetch '{url}'")));
             };
 
             let request = Request::new_with_str_and_init(url, &opts)
-                .map_err(|_| anyhow::anyhow!("Could not construct request for url '{url}'"))?;
+                .map_err(js_error)
+                .with_context(|| format!("Could not construct request for url '{url}'"))?;
 
             let set_headers = request.headers();
             for (name, val) in headers.iter() {
                 let value = String::from_utf8_lossy(val.as_bytes());
-                set_headers.set(name.as_str(), &value).map_err(|_| {
-                    anyhow::anyhow!("Could not apply request header: '{name}': '{value}'")
-                })?;
+                set_headers
+                    .set(name.as_str(), &value)
+                    .map_err(js_error)
+                    .with_context(|| {
+                        anyhow::anyhow!("Could not apply request header: '{name}': '{value}'")
+                    })?;
             }
 
-            fetch_internal(&request).await.map_err(|_| {
-                // TODO: more descriptive error.
-                anyhow::anyhow!("Could not fetch '{url}'")
-            })?
+            fetch_internal(&request)
+                .await
+                .map_err(js_error)
+                .with_context(|| anyhow::anyhow!("Could not fetch '{url}'"))?
         }
     };
     assert!(resp_value.is_instance_of::<Response>());
@@ -213,6 +219,20 @@ pub async fn fetch(
     }
 
     Ok(resp)
+}
+
+/// Try to extract the most appropriate error message from a [`JsValue`],
+/// falling back to a generic error message.
+fn js_error(value: JsValue) -> anyhow::Error {
+    if let Some(e) = value.dyn_ref::<js_sys::Error>() {
+        anyhow::Error::msg(String::from(e.message()))
+    } else if let Some(obj) = value.dyn_ref::<js_sys::Object>() {
+        return anyhow::Error::msg(String::from(obj.to_string()));
+    } else if let Some(s) = value.dyn_ref::<js_sys::JsString>() {
+        return anyhow::Error::msg(String::from(s));
+    } else {
+        anyhow::Error::msg("An unknown error occurred")
+    }
 }
 
 /*
@@ -231,10 +251,10 @@ pub async fn fetch_data(
 pub async fn get_response_data(resp: Response) -> Result<Vec<u8>, anyhow::Error> {
     let resp = { JsFuture::from(resp.array_buffer().unwrap()) };
 
-    let arrbuff_value = resp.await.map_err(|_| {
-        // TODO: forward error message
-        anyhow::anyhow!("Could not retrieve response body")
-    })?;
+    let arrbuff_value = resp
+        .await
+        .map_err(js_error)
+        .with_context(|| format!("Could not retrieve response body"))?;
     assert!(arrbuff_value.is_instance_of::<js_sys::ArrayBuffer>());
     //let arrbuff: js_sys::ArrayBuffer = arrbuff_value.dyn_into().unwrap();
 

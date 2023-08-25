@@ -81,9 +81,10 @@ pub fn path_rename<M: MemorySize>(
                 out_path
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
-                return Ok(Errno::Inval)
-            }
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Ok(Errno::Inval),
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
                 debug!("fatal internal logic error: parent of inode is not a directory");
                 return Ok(Errno::Inval);
@@ -98,7 +99,10 @@ pub fn path_rename<M: MemorySize>(
                 wasi_try_ok!(entries.remove(&source_entry_name).ok_or(Errno::Noent))
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
-            Kind::Socket { .. } | Kind::Pipe { .. } | Kind::EventNotifications { .. } => {
+            Kind::Socket { .. }
+            | Kind::Pipe { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => {
                 return Ok(Errno::Inval);
             }
             Kind::Symlink { .. } | Kind::File { .. } | Kind::Buffer { .. } => {
@@ -111,43 +115,17 @@ pub fn path_rename<M: MemorySize>(
     {
         let mut guard = source_entry.write();
         match guard.deref_mut() {
-            Kind::File {
-                handle, ref path, ..
-            } => {
-                // TODO: investigate why handle is not always there, it probably should be.
-                // My best guess is the fact that a handle means currently open and a path
-                // just means reference to host file on disk. But ideally those concepts
-                // could just be unified even if there's a `Box<dyn VirtualFile>` which just
-                // implements the logic of "I'm not actually a file, I'll try to be as needed".
-                let result = if let Some(h) = handle {
-                    drop(guard);
-                    let state = state;
-                    __asyncify_light(env, None, async move {
-                        state
-                            .fs_rename(source_path, &host_adjusted_target_path)
-                            .await
-                    })?
-                } else {
+            Kind::File { ref path, .. } => {
+                let result = {
                     let path_clone = path.clone();
                     drop(guard);
-                    let out = {
-                        let state = state;
-                        let host_adjusted_target_path = host_adjusted_target_path.clone();
-                        __asyncify_light(env, None, async move {
-                            state
-                                .fs_rename(path_clone, &host_adjusted_target_path)
-                                .await
-                        })?
-                    };
-                    {
-                        let mut guard = source_entry.write();
-                        if let Kind::File { ref mut path, .. } = guard.deref_mut() {
-                            *path = host_adjusted_target_path;
-                        } else {
-                            unreachable!()
-                        }
-                    }
-                    out
+                    let state = state;
+                    let host_adjusted_target_path = host_adjusted_target_path.clone();
+                    __asyncify_light(env, None, async move {
+                        state
+                            .fs_rename(path_clone, &host_adjusted_target_path)
+                            .await
+                    })?
                 };
                 // if the above operation failed we have to revert the previous change and then fail
                 if let Err(e) = result {
@@ -155,6 +133,15 @@ pub fn path_rename<M: MemorySize>(
                     if let Kind::Dir { entries, .. } = guard.deref_mut() {
                         entries.insert(source_entry_name, source_entry);
                         return Ok(e);
+                    }
+                } else {
+                    {
+                        let mut guard = source_entry.write();
+                        if let Kind::File { ref mut path, .. } = guard.deref_mut() {
+                            *path = host_adjusted_target_path;
+                        } else {
+                            unreachable!()
+                        }
                     }
                 }
             }
@@ -184,6 +171,7 @@ pub fn path_rename<M: MemorySize>(
             Kind::Symlink { .. } => {}
             Kind::Socket { .. } => {}
             Kind::Pipe { .. } => {}
+            Kind::Epoll { .. } => {}
             Kind::EventNotifications { .. } => {}
             Kind::Root { .. } => unreachable!("The root can not be moved"),
         }

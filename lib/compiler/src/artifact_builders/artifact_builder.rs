@@ -7,11 +7,20 @@ use crate::ArtifactCreate;
 use crate::EngineInner;
 use crate::Features;
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
+use core::mem::MaybeUninit;
 use enumset::EnumSet;
+use rkyv::de::deserializers::SharedDeserializeMap;
+use rkyv::option::ArchivedOption;
+use self_cell::self_cell;
+use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
-use wasmer_types::entity::PrimaryMap;
+use wasmer_types::entity::{ArchivedPrimaryMap, PrimaryMap};
+use wasmer_types::ArchivedOwnedDataInitializer;
+use wasmer_types::ArchivedSerializableCompilation;
+use wasmer_types::ArchivedSerializableModule;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
+use wasmer_types::DeserializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
@@ -165,8 +174,8 @@ impl ArtifactBuild {
     }
 
     /// Get Function Relocations
-    pub fn get_function_relocations(&self) -> PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
-        self.serializable.compilation.function_relocations.clone()
+    pub fn get_function_relocations(&self) -> &PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
+        &self.serializable.compilation.function_relocations
     }
 
     /// Get Function Relocations ref
@@ -185,8 +194,8 @@ impl ArtifactBuild {
     }
 
     /// Get Debug optional Dwarf ref
-    pub fn get_debug_ref(&self) -> &Option<Dwarf> {
-        &self.serializable.compilation.debug
+    pub fn get_debug_ref(&self) -> Option<&Dwarf> {
+        self.serializable.compilation.debug.as_ref()
     }
 
     /// Get Function Relocations ref
@@ -195,7 +204,10 @@ impl ArtifactBuild {
     }
 }
 
-impl ArtifactCreate for ArtifactBuild {
+impl<'a> ArtifactCreate<'a> for ArtifactBuild {
+    type OwnedDataInitializer = &'a OwnedDataInitializer;
+    type OwnedDataInitializerIterator = core::slice::Iter<'a, OwnedDataInitializer>;
+
     fn create_module_info(&self) -> Arc<ModuleInfo> {
         self.serializable.compile_info.module.clone()
     }
@@ -219,8 +231,8 @@ impl ArtifactCreate for ArtifactBuild {
         EnumSet::from_u64(self.serializable.cpu_features)
     }
 
-    fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &self.serializable.data_initializers
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        self.serializable.data_initializers.iter()
     }
 
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
@@ -232,13 +244,232 @@ impl ArtifactCreate for ArtifactBuild {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let serialized_data = self.serializable.serialize()?;
-        assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
-
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(Self::MAGIC_HEADER);
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-        metadata_binary.extend(serialized_data);
-        Ok(metadata_binary)
+        serialize_module(&self.serializable)
     }
+}
+
+/// Module loaded from an archive. Since `CompileModuleInfo` is part of the public
+/// interface of this crate and has to be mutable, it has to be deserialized completely.
+pub struct ModuleFromArchive<'a> {
+    /// The main serializable compilation object
+    pub compilation: &'a ArchivedSerializableCompilation,
+    /// Datas initializers
+    pub data_initializers: &'a rkyv::Archived<Box<[OwnedDataInitializer]>>,
+    /// CPU Feature flags for this compilation
+    pub cpu_features: u64,
+
+    // Keep the original module around for re-serialization
+    original_module: &'a ArchivedSerializableModule,
+}
+
+impl<'a> ModuleFromArchive<'a> {
+    /// Create a new `ModuleFromArchive` from the archived version of a `SerializableModule`
+    pub fn from_serializable_module(
+        module: &'a ArchivedSerializableModule,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self {
+            compilation: &module.compilation,
+            data_initializers: &module.data_initializers,
+            cpu_features: module.cpu_features,
+            original_module: module,
+        })
+    }
+}
+
+self_cell!(
+    struct ArtifactBuildFromArchiveCell {
+        owner: OwnedBuffer,
+
+        #[covariant]
+        dependent: ModuleFromArchive,
+    }
+);
+
+/// A compiled wasm module that was loaded from a serialized archive.
+pub struct ArtifactBuildFromArchive {
+    cell: ArtifactBuildFromArchiveCell,
+
+    /// Compilation informations
+    compile_info: CompileModuleInfo,
+}
+
+impl ArtifactBuildFromArchive {
+    pub(crate) fn try_new(
+        buffer: OwnedBuffer,
+        module_builder: impl FnOnce(
+            &OwnedBuffer,
+        ) -> Result<&ArchivedSerializableModule, DeserializeError>,
+    ) -> Result<Self, DeserializeError> {
+        let mut compile_info = MaybeUninit::uninit();
+
+        let cell = ArtifactBuildFromArchiveCell::try_new(buffer, |buffer| {
+            let module = module_builder(buffer)?;
+            let mut deserializer = SharedDeserializeMap::new();
+            compile_info = MaybeUninit::new(
+                rkyv::Deserialize::deserialize(&module.compile_info, &mut deserializer)
+                    .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?,
+            );
+            ModuleFromArchive::from_serializable_module(module)
+        })?;
+
+        // Safety: we know the lambda will execute before getting here and assign both values
+        let compile_info = unsafe { compile_info.assume_init() };
+        Ok(Self { cell, compile_info })
+    }
+
+    /// Get Functions Bodies ref
+    pub fn get_function_bodies_ref(&self) -> &ArchivedPrimaryMap<LocalFunctionIndex, FunctionBody> {
+        &self.cell.borrow_dependent().compilation.function_bodies
+    }
+
+    /// Get Functions Call Trampolines ref
+    pub fn get_function_call_trampolines_ref(
+        &self,
+    ) -> &ArchivedPrimaryMap<SignatureIndex, FunctionBody> {
+        &self
+            .cell
+            .borrow_dependent()
+            .compilation
+            .function_call_trampolines
+    }
+
+    /// Get Dynamic Functions Call Trampolines ref
+    pub fn get_dynamic_function_trampolines_ref(
+        &self,
+    ) -> &ArchivedPrimaryMap<FunctionIndex, FunctionBody> {
+        &self
+            .cell
+            .borrow_dependent()
+            .compilation
+            .dynamic_function_trampolines
+    }
+
+    /// Get Custom Sections ref
+    pub fn get_custom_sections_ref(&self) -> &ArchivedPrimaryMap<SectionIndex, CustomSection> {
+        &self.cell.borrow_dependent().compilation.custom_sections
+    }
+
+    /// Get Function Relocations
+    pub fn get_function_relocations(
+        &self,
+    ) -> &ArchivedPrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
+        &self
+            .cell
+            .borrow_dependent()
+            .compilation
+            .function_relocations
+    }
+
+    /// Get Function Relocations ref
+    pub fn get_custom_section_relocations_ref(
+        &self,
+    ) -> &ArchivedPrimaryMap<SectionIndex, Vec<Relocation>> {
+        &self
+            .cell
+            .borrow_dependent()
+            .compilation
+            .custom_section_relocations
+    }
+
+    /// Get LibCall Trampoline Section Index
+    pub fn get_libcall_trampolines(&self) -> SectionIndex {
+        self.cell.borrow_dependent().compilation.libcall_trampolines
+    }
+
+    /// Get LibCall Trampoline Length
+    pub fn get_libcall_trampoline_len(&self) -> usize {
+        self.cell
+            .borrow_dependent()
+            .compilation
+            .libcall_trampoline_len as usize
+    }
+
+    /// Get Debug optional Dwarf ref
+    pub fn get_debug_ref(&self) -> Option<&Dwarf> {
+        match self.cell.borrow_dependent().compilation.debug {
+            ArchivedOption::Some(ref x) => Some(x),
+            ArchivedOption::None => None,
+        }
+    }
+
+    /// Get Function Relocations ref
+    pub fn deserialize_frame_info_ref(
+        &self,
+    ) -> Result<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>, DeserializeError> {
+        let mut deserializer = SharedDeserializeMap::new();
+        rkyv::Deserialize::deserialize(
+            &self.cell.borrow_dependent().compilation.function_frame_info,
+            &mut deserializer,
+        )
+        .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
+    }
+}
+
+impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
+    type OwnedDataInitializer = &'a ArchivedOwnedDataInitializer;
+    type OwnedDataInitializerIterator = core::slice::Iter<'a, ArchivedOwnedDataInitializer>;
+
+    fn create_module_info(&self) -> Arc<ModuleInfo> {
+        self.compile_info.module.clone()
+    }
+
+    fn set_module_info_name(&mut self, name: String) -> bool {
+        Arc::get_mut(&mut self.compile_info.module).map_or(false, |mut module_info| {
+            module_info.name = Some(name.to_string());
+            true
+        })
+    }
+
+    fn module_info(&self) -> &ModuleInfo {
+        &self.compile_info.module
+    }
+
+    fn features(&self) -> &Features {
+        &self.compile_info.features
+    }
+
+    fn cpu_features(&self) -> EnumSet<CpuFeature> {
+        EnumSet::from_u64(self.cell.borrow_dependent().cpu_features)
+    }
+
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        self.cell.borrow_dependent().data_initializers.iter()
+    }
+
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.compile_info.memory_styles
+    }
+
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.compile_info.table_styles
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        // We could have stored the original bytes, but since the module info name
+        // is mutable, we have to assume the data may have changed and serialize
+        // everything all over again. Also, to be able to serialize, first we have
+        // to deserialize completely. Luckily, serializing a module that was already
+        // deserialized from a file makes little sense, so hopefully, this is not a
+        // common use-case.
+
+        let mut deserializer = SharedDeserializeMap::new();
+        let mut module: SerializableModule = rkyv::Deserialize::deserialize(
+            self.cell.borrow_dependent().original_module,
+            &mut deserializer,
+        )
+        .map_err(|e| SerializeError::Generic(e.to_string()))?;
+        module.compile_info = self.compile_info.clone();
+        serialize_module(&module)
+    }
+}
+
+fn serialize_module(module: &SerializableModule) -> Result<Vec<u8>, SerializeError> {
+    let serialized_data = module.serialize()?;
+    assert!(std::mem::align_of::<SerializableModule>() <= MetadataHeader::ALIGN);
+
+    let mut metadata_binary = vec![];
+    metadata_binary.extend(ArtifactBuild::MAGIC_HEADER);
+    metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
+    metadata_binary.extend(serialized_data);
+    Ok(metadata_binary)
 }

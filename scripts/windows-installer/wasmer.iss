@@ -1,6 +1,6 @@
 [Setup]
 AppName=Wasmer
-AppVersion=4.0.0
+AppVersion=4.1.2
 DefaultDirName={pf}\Wasmer
 DefaultGroupName=Wasmer
 Compression=lzma2

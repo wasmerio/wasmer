@@ -51,6 +51,7 @@ impl WapmSource {
         if let Some(cache) = &self.cache {
             match cache.lookup_cached_query(package_name) {
                 Ok(Some(cached)) => {
+                    tracing::debug!("Cache hit!");
                     return Ok(cached);
                 }
                 Ok(None) => {}
@@ -114,7 +115,6 @@ impl WapmSource {
             %response.status,
             %response.redirected,
             ?response.headers,
-            response.body=String::from_utf8_lossy(&body).as_ref(),
             "Received a response from GraphQL",
         );
 
@@ -145,8 +145,6 @@ impl Source for WapmSource {
         let mut archived_versions = Vec::new();
 
         for pkg_version in versions {
-            tracing::trace!(?pkg_version, "Checking a package version");
-
             let version = match Version::parse(&pkg_version.version) {
                 Ok(v) => v,
                 Err(e) => {
@@ -215,9 +213,7 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
     let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context("Unable to deserialize the manifest")?;
 
-    let mut webc_sha256 = [0_u8; 32];
-    hex::decode_to_slice(&hash, &mut webc_sha256)?;
-    let webc_sha256 = WebcHash::from_bytes(webc_sha256);
+    let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(&manifest)?,

@@ -1,11 +1,11 @@
 [package]
-name = 'wasmer/wasmer-sh-async'
-version = '1.0.3'
-description = 'Container that holds the wasmer.sh website.'
+name = "wasmer/wasmer-sh"
+version = "0.2.26"
+description = "Container that holds the wasmer.sh website."
 
 [dependencies]
-"wasmer/static-web-server-async" = '1'
+"wasmer/static-web-server" = "1"
 
 [fs]
-public = 'dist'
-cfg = 'cfg'
+public = "dist"
+cfg = "cfg"

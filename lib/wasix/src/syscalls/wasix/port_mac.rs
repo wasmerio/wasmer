@@ -13,7 +13,7 @@ pub fn port_mac<M: MemorySize>(
 
     let net = env.net().clone();
     let mac = wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.mac().map_err(net_error_into_wasi_err)
+        net.mac().await.map_err(net_error_into_wasi_err)
     })?);
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

@@ -1,5 +1,7 @@
+use std::task::Waker;
+
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -75,7 +77,7 @@ pub fn fd_pwrite<M: MemorySize>(
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
-fn fd_write_internal<M: MemorySize>(
+pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
@@ -112,7 +114,7 @@ fn fd_write_internal<M: MemorySize>(
                         let handle = handle.clone();
                         drop(guard);
 
-                        let written = wasi_try_ok!(__asyncify_light(
+                        let res = __asyncify_light(
                             env,
                             if fd_entry.flags.contains(Fdflags::NONBLOCK) {
                                 Some(Duration::ZERO)
@@ -149,9 +151,9 @@ fn fd_write_internal<M: MemorySize>(
                                     handle.flush().await.map_err(map_io_err)?;
                                 }
                                 Ok(written)
-                            }
-                        )?
-                        .map_err(|err| match err {
+                            },
+                        );
+                        let written = wasi_try_ok!(res?.map_err(|err| match err {
                             Errno::Timedout => Errno::Again,
                             a => a,
                         }));
@@ -165,8 +167,16 @@ fn fd_write_internal<M: MemorySize>(
                     let socket = socket.clone();
                     drop(guard);
 
+                    let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::WriteTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
+
                     let tasks = env.tasks().clone();
-                    let written = wasi_try_ok!(__asyncify_light(env, None, async move {
+
+                    let res = __asyncify_light(env, None, async move {
                         let mut sent = 0usize;
                         for iovs in iovs_arr.iter() {
                             let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -174,15 +184,17 @@ fn fd_write_internal<M: MemorySize>(
                                 .map_err(mem_error_to_wasi)?
                                 .access()
                                 .map_err(mem_error_to_wasi)?;
-                            let local_sent =
-                                socket.send(tasks.deref(), buf.as_ref(), fd_flags).await?;
+                            let local_sent = socket
+                                .send(tasks.deref(), buf.as_ref(), Some(timeout), nonblocking)
+                                .await?;
                             sent += local_sent;
                             if local_sent != buf.len() {
                                 break;
                             }
                         }
                         Ok(sent)
-                    })?);
+                    });
+                    let written = wasi_try_ok!(res?);
                     (written, false)
                 }
                 Kind::Pipe { pipe } => {
@@ -206,7 +218,7 @@ fn fd_write_internal<M: MemorySize>(
                     // TODO: verify
                     return Ok(Errno::Isdir);
                 }
-                Kind::EventNotifications(inner) => {
+                Kind::EventNotifications { inner } => {
                     let mut written = 0usize;
                     for iovs in iovs_arr.iter() {
                         let buf_len: usize =
@@ -229,7 +241,7 @@ fn fd_write_internal<M: MemorySize>(
                     }
                     (written, false)
                 }
-                Kind::Symlink { .. } => return Ok(Errno::Inval),
+                Kind::Symlink { .. } | Kind::Epoll { .. } => return Ok(Errno::Inval),
                 Kind::Buffer { buffer } => {
                     let mut written = 0usize;
                     for iovs in iovs_arr.iter() {
