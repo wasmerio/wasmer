@@ -89,23 +89,25 @@ impl Selector {
                     return;
                 }
 
-                let interest = if event.is_readable() {
-                    InterestType::Readable
-                } else if event.is_writable() {
-                    InterestType::Writable
-                } else if event.is_read_closed() || event.is_write_closed() {
-                    InterestType::Closed
-                } else if event.is_error() {
-                    InterestType::Error
-                } else {
-                    continue;
-                };
-                tracing::trace!(token = ?token, interest = ?interest, "host epoll");
-
                 // Otherwise this is a waker we need to wake
                 let s = event.token().0 as *mut HandlerWrapper;
                 let mut handler = ManuallyDrop::new(unsafe { Box::from_raw(s) });
-                handler.0.interest(interest);
+                if event.is_readable() {
+                    tracing::trace!(token = ?token, interest = ?InterestType::Readable, "host epoll");
+                    handler.0.interest(InterestType::Readable);
+                }
+                if event.is_writable() {
+                    tracing::trace!(token = ?token, interest = ?InterestType::Writable, "host epoll");
+                    handler.0.interest(InterestType::Writable);
+                }
+                if event.is_read_closed() || event.is_write_closed() {
+                    tracing::trace!(token = ?token, interest = ?InterestType::Closed, "host epoll");
+                    handler.0.interest(InterestType::Closed);
+                }
+                if event.is_error() {
+                    tracing::trace!(token = ?token, interest = ?InterestType::Error, "host epoll");
+                    handler.0.interest(InterestType::Error);
+                }
             }
         }
     }

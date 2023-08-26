@@ -172,6 +172,20 @@ pub enum RequestType {
     /// is immediately sent to the peer without waiting. This reduces
     /// latency but increases encapsulation overhead.
     GetNoDelay,
+    /// When KEEP_ALIVE is set the connection will periodically send
+    /// an empty data packet to the server to make sure the connection
+    /// stays alive.
+    SetKeepAlive(bool),
+    /// Indicates if the KEEP_ALIVE flag is set which means that the
+    /// socket will periodically send an empty data packet to keep
+    /// the connection alive.
+    GetKeepAlive,
+    /// When DONT_ROUTE is set the packet will be sent directly
+    /// to the interface without passing through the routing logic.
+    SetDontRoute(bool),
+    /// Indicates if the packet will pass straight through to
+    /// the interface bypassing the routing logic.
+    GetDontRoute,
     /// Shuts down either the READER or WRITER sides of the socket
     /// connection.
     Shutdown(Shutdown),

@@ -573,6 +573,24 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     /// latency but increases encapsulation overhead.
     fn nodelay(&self) -> Result<bool>;
 
+    /// When KEEP_ALIVE is set the connection will periodically send
+    /// an empty data packet to the server to make sure the connection
+    /// stays alive.
+    fn set_keepalive(&mut self, keepalive: bool) -> Result<()>;
+
+    /// Indicates if the KEEP_ALIVE flag is set which means that the
+    /// socket will periodically send an empty data packet to keep
+    /// the connection alive.
+    fn keepalive(&self) -> Result<bool>;
+
+    /// When DONT_ROUTE is set the packet will be sent directly
+    /// to the interface without passing through the routing logic.
+    fn set_dontroute(&mut self, keepalive: bool) -> Result<()>;
+
+    /// Indicates if the packet will pass straight through to
+    /// the interface bypassing the routing logic.
+    fn dontroute(&self) -> Result<bool>;
+
     /// Returns the address (IP and Port) of the peer socket that this
     /// is conencted to
     fn addr_peer(&self) -> Result<SocketAddr>;

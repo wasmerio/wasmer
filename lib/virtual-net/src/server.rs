@@ -1034,6 +1034,46 @@ impl RemoteNetworkingServerDriver {
                 socket_id,
                 req_id,
             ),
+            RequestType::SetKeepAlive(val) => self.process_inner_noop(
+                move |socket| match socket {
+                    RemoteAdapterSocket::TcpSocket(s) => s.set_keepalive(val),
+                    _ => Err(NetworkError::Unsupported),
+                },
+                socket_id,
+                req_id,
+            ),
+            RequestType::GetKeepAlive => self.process_inner(
+                move |socket| match socket {
+                    RemoteAdapterSocket::TcpSocket(s) => s.keepalive(),
+                    _ => Err(NetworkError::Unsupported),
+                },
+                |ret| match ret {
+                    Ok(flag) => ResponseType::Flag(flag),
+                    Err(err) => ResponseType::Err(err),
+                },
+                socket_id,
+                req_id,
+            ),
+            RequestType::SetDontRoute(val) => self.process_inner_noop(
+                move |socket| match socket {
+                    RemoteAdapterSocket::TcpSocket(s) => s.set_dontroute(val),
+                    _ => Err(NetworkError::Unsupported),
+                },
+                socket_id,
+                req_id,
+            ),
+            RequestType::GetDontRoute => self.process_inner(
+                move |socket| match socket {
+                    RemoteAdapterSocket::TcpSocket(s) => s.dontroute(),
+                    _ => Err(NetworkError::Unsupported),
+                },
+                |ret| match ret {
+                    Ok(flag) => ResponseType::Flag(flag),
+                    Err(err) => ResponseType::Err(err),
+                },
+                socket_id,
+                req_id,
+            ),
             RequestType::Shutdown(shutdown) => self.process_inner_noop(
                 move |socket| match socket {
                     RemoteAdapterSocket::TcpSocket(s) => s.shutdown(match shutdown {
