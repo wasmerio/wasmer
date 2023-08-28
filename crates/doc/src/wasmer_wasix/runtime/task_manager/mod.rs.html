@@ -320,6 +320,63 @@
 <a href="#319" id="319">319</a>
 <a href="#320" id="320">320</a>
 <a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
 </pre><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -414,7 +471,21 @@
     </span>}
 }
 
-<span class="doccomment">/// An implementation of task management
+<span class="doccomment">/// A task executor backed by a thread pool.
+///
+/// ## Thread Safety
+///
+/// Due to [#4158], it is possible to pass non-thread safe objects across
+/// threads by capturing them in the task passed to
+/// [`VirtualTaskManager::task_shared()`] or
+/// [`VirtualTaskManager::task_dedicated()`].
+///
+/// If your task needs access to a [`wasmer::Module`], [`wasmer::Memory`], or
+/// [`wasmer::Instance`], it should explicitly transfer the objects using
+/// either [`VirtualTaskManager::task_wasm()`] when in syscall context or
+/// [`VirtualTaskManager::spawn_with_module()`] for higher level code.
+///
+/// [#4158]: https://github.com/wasmerio/wasmer/issues/4158
 </span><span class="attr">#[allow(unused_variables)]
 </span><span class="kw">pub trait </span>VirtualTaskManager: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
     <span class="doccomment">/// Build a new Webassembly memory.
@@ -452,35 +523,70 @@
         }
     }
 
-    <span class="doccomment">/// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
-    /// execution environments) they will need to do asynchronous work whenever the main
-    /// thread goes idle and this is the place to hook for that.
+    <span class="doccomment">/// Pause the current thread of execution.
+    ///
+    /// This is typically invoked whenever a WASM thread goes idle. Besides
+    /// acting as a platform-agnostic [`std::thread::sleep()`], this also gives
+    /// the runtime a chance to do asynchronous work like pumping an event
+    /// loop.
     </span><span class="kw">fn </span>sleep_now(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         time: Duration,
     ) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt;;
 
-    <span class="doccomment">/// Starts an asynchronous task that will run on a shared worker pool
-    /// This task must not block the execution or it could cause a deadlock
+    <span class="doccomment">/// Run an asynchronous operation on the thread pool.
+    ///
+    /// This task must not block execution or it could cause deadlocks.
+    ///
+    /// See the &quot;Thread Safety&quot; documentation on [`VirtualTaskManager`] for
+    /// limitations on what a `task` can and can&#39;t contain.
     </span><span class="kw">fn </span>task_shared(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;<span class="kw">dyn </span>FnOnce() -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, ()&gt; + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt;;
 
-    <span class="doccomment">/// Starts an WebAssembly task will will run on a dedicated thread
-    /// pulled from the worker pool that has a stateful thread local variable
+    <span class="doccomment">/// Run a blocking WebAssembly operation on the thread pool.
+    ///
+    /// This is primarily used inside the context of a syscall and allows
+    /// the transfer of things like [`wasmer::Module`] across threads.
     </span><span class="kw">fn </span>task_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>, task: TaskWasm) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt;;
 
-    <span class="doccomment">/// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool. It is ok for this task to block execution
-    /// and any async futures within its scope
+    <span class="doccomment">/// Run a blocking operation on the thread pool.
+    ///
+    /// It is okay for this task to block execution and any async futures within
+    /// its scope.
     </span><span class="kw">fn </span>task_dedicated(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt;;
 
-    <span class="doccomment">/// Returns the amount of parallelism that is possible on this platform
+    <span class="doccomment">/// Returns the amount of parallelism that is possible on this platform.
     </span><span class="kw">fn </span>thread_parallelism(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, WasiThreadError&gt;;
+
+    <span class="doccomment">/// Schedule a blocking task to run on the threadpool, explicitly
+    /// transferring a [`Module`] to the task.
+    ///
+    /// This should be preferred over [`VirtualTaskManager::task_dedicated()`]
+    /// where possible because [`wasmer::Module`] is actually `!Send` in the
+    /// browser and can only be transferred to background threads via
+    /// an explicit `postMessage()`. See [#4158] for more details.
+    ///
+    /// This is very similar to [`VirtualTaskManager::task_wasm()`], but
+    /// intended for use outside of a syscall context. For example, when you are
+    /// running in the browser and want to run a WebAssembly module in the
+    /// background.
+    ///
+    /// [#4158]: https://github.com/wasmerio/wasmer/issues/4158
+    </span><span class="kw">fn </span>spawn_with_module(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        module: Module,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">&#39;static</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
+        <span class="comment">// Note: Ideally, this function and task_wasm() would be superseded by
+        // a more general mechanism for transferring non-thread safe values
+        // to the thread pool.
+        </span><span class="self">self</span>.task_dedicated(Box::new(<span class="kw">move </span>|| task(module)))
+    }
 }
 
 <span class="kw">impl</span>&lt;D, T&gt; VirtualTaskManager <span class="kw">for </span>D
@@ -523,6 +629,14 @@
 
     <span class="kw">fn </span>thread_parallelism(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, WasiThreadError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).thread_parallelism()
+    }
+
+    <span class="kw">fn </span>spawn_with_module(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        module: Module,
+        task: Box&lt;<span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">&#39;static</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).spawn_with_module(module, task)
     }
 }
 
