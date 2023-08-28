@@ -159,6 +159,23 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
 
     /// Returns the amount of parallelism that is possible on this platform
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
+
+    /// Schedule a blocking task to run on the threadpool, explicitly
+    /// transferring a [`Module`] to the task.
+    ///
+    /// This should be preferred over [`VirtualTaskManager::task_dedicated()`]
+    /// where possible because [`wasmer::Module`] is actually `!Send` in the
+    /// browser and can only be transferred to background threads via
+    /// an explicit `postMessage()`. See [#4158] for more.
+    ///
+    /// [#4158]: https://github.com/wasmerio/wasmer/issues/4158
+    fn spawn_with_module(
+        &self,
+        module: Module,
+        task: Box<dyn FnOnce(Module) + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
+        self.task_dedicated(Box::new(move || task(module)))
+    }
 }
 
 impl<D, T> VirtualTaskManager for D
