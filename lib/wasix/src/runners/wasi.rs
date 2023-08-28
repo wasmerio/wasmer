@@ -186,11 +186,22 @@ impl crate::runners::Runner for WasiRunner {
             .unwrap_or_else(|| Wasi::new(command_name));
 
         let module = runtime.load_module_sync(cmd.atom())?;
-        let store = runtime.new_store();
+        let mut store = runtime.new_store();
 
-        self.prepare_webc_env(command_name, &wasi, pkg, runtime, None)
-            .context("Unable to prepare the WASI environment")?
-            .run_with_store_async(module, store)?;
+        let env = self
+            .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
+            .context("Unable to prepare the WASI environment")?;
+
+        if self
+            .wasi
+            .capabilities
+            .threading
+            .enable_asynchronous_threading
+        {
+            env.run_with_store_async(module, store)?;
+        } else {
+            env.run_with_store(module, &mut store)?;
+        }
 
         Ok(())
     }
