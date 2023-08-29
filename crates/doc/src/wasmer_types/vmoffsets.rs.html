@@ -782,6 +782,17 @@
 <a href="#782" id="782">782</a>
 <a href="#783" id="783">783</a>
 <a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -796,6 +807,7 @@
 };
 <span class="kw">use </span>more_asserts::assert_lt;
 <span class="kw">use </span>std::convert::TryFrom;
+<span class="kw">use </span>std::mem::size_of;
 
 <span class="doccomment">/// An index type for builtin functions.
 </span><span class="attr">#[derive(Copy, Clone, Debug)]
@@ -1068,34 +1080,44 @@
             base.checked_add(num_items.checked_mul(item_size).unwrap())
                 .unwrap()
         }
+        <span class="doccomment">/// Offset base by num_items items of size item_size, panicking on overflow
+        /// Also, will align the value on pointer size boundary,
+        /// to avoid misalignement issue
+        </span><span class="kw">fn </span>offset_by_aligned(base: u32, num_items: u32, item_size: u32) -&gt; u32 {
+            align(
+                base.checked_add(num_items.checked_mul(item_size).unwrap())
+                    .unwrap(),
+                size_of::&lt;<span class="kw-2">&amp;</span>u32&gt;() <span class="kw">as </span>u32,
+            )
+        }
 
         <span class="self">self</span>.vmctx_signature_ids_begin = <span class="number">0</span>;
-        <span class="self">self</span>.vmctx_imported_functions_begin = offset_by(
+        <span class="self">self</span>.vmctx_imported_functions_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_signature_ids_begin,
             <span class="self">self</span>.num_signature_ids,
             u32::from(<span class="self">self</span>.size_of_vmshared_signature_index()),
         );
-        <span class="self">self</span>.vmctx_imported_tables_begin = offset_by(
+        <span class="self">self</span>.vmctx_imported_tables_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_functions_begin,
             <span class="self">self</span>.num_imported_functions,
             u32::from(<span class="self">self</span>.size_of_vmfunction_import()),
         );
-        <span class="self">self</span>.vmctx_imported_memories_begin = offset_by(
+        <span class="self">self</span>.vmctx_imported_memories_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_tables_begin,
             <span class="self">self</span>.num_imported_tables,
             u32::from(<span class="self">self</span>.size_of_vmtable_import()),
         );
-        <span class="self">self</span>.vmctx_imported_globals_begin = offset_by(
+        <span class="self">self</span>.vmctx_imported_globals_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_memories_begin,
             <span class="self">self</span>.num_imported_memories,
             u32::from(<span class="self">self</span>.size_of_vmmemory_import()),
         );
-        <span class="self">self</span>.vmctx_tables_begin = offset_by(
+        <span class="self">self</span>.vmctx_tables_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_globals_begin,
             <span class="self">self</span>.num_imported_globals,
             u32::from(<span class="self">self</span>.size_of_vmglobal_import()),
         );
-        <span class="self">self</span>.vmctx_memories_begin = offset_by(
+        <span class="self">self</span>.vmctx_memories_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_tables_begin,
             <span class="self">self</span>.num_local_tables,
             u32::from(<span class="self">self</span>.size_of_vmtable_definition()),
