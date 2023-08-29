@@ -34,19 +34,20 @@ bytes = "1"
 wat = { version = "1.0", optional = true }
 tracing = { version = "0.1", optional = true }
 rustc-demangle = "0.1"
+shared-buffer = "0.1"
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=4.1.1" }
-wasmer-compiler = { path = "../compiler", version = "=4.1.1" }
-wasmer-derive = { path = "../derive", version = "=4.1.1" }
-wasmer-types = { path = "../types", version = "=4.1.1" }
+wasmer-vm = { path = "../vm", version = "=4.1.2" }
+wasmer-compiler = { path = "../compiler", version = "=4.1.2" }
+wasmer-derive = { path = "../derive", version = "=4.1.2" }
+wasmer-types = { path = "../types", version = "=4.1.2" }
 target-lexicon = { version = "0.12.2", default-features = false }
 # - Optional dependencies for `sys`.
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=4.1.1", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=4.1.1", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=4.1.1", optional = true }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=4.1.2", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=4.1.2", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=4.1.2", optional = true }
 
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
@@ -62,17 +63,17 @@ winapi = "0.3"
 wat = "1.0"
 tempfile = "3.6.0"
 anyhow = "1.0"
-macro-wasmer-universal-test = { version = "4.1.1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "4.1.2", path = "./macro-wasmer-universal-test" }
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
-wasmer-types = { path = "../types", version = "=4.1.1", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "=4.1.2", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
 wasm-bindgen-downcast = { version = "0.1.1" }
 js-sys = "0.3.51"
 #web-sys = { version = "0.3.51", features = [ "console" ] }
-wasmer-derive = { path = "../derive", version = "=4.1.1" }
+wasmer-derive = { path = "../derive", version = "=4.1.2" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.95", default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
@@ -84,7 +85,7 @@ serde = { version = "1.0", features = ["derive"] }
 wat = "1.0"
 anyhow = "1.0"
 wasm-bindgen-test = "0.3.0"
-macro-wasmer-universal-test = { version = "4.1.1", path = "./macro-wasmer-universal-test" }
+macro-wasmer-universal-test = { version = "4.1.2", path = "./macro-wasmer-universal-test" }
 
 # Specific to `js`.
 #
@@ -103,16 +104,10 @@ std = []
 core = ["hashbrown"]
 
 # Features for `sys`.
-sys = [
-  "wasmer-compiler/translator",
-  "wasmer-compiler/compiler",
-  "std",
-]
+sys = ["wasmer-compiler/translator", "wasmer-compiler/compiler", "std"]
 sys-default = ["sys", "wat", "cranelift"]
 # - Compilers.
-compiler = [
-    "sys",
-]
+compiler = ["sys"]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
@@ -127,11 +122,7 @@ js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["wasmparser"]
 
-jsc = [
-  "rusty_jsc",
-  "wasm-types-polyfill",
-  "wasmparser",
-]
+jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
 
 js-serializable-module = []
 
@@ -149,17 +140,17 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [package.metadata.docs.rs]
 features = [
-    "compiler",
-    "core",
-    "cranelift",
-    "engine",
-    "jit",
-    "singlepass",
-    "static-artifact-create",
-    "static-artifact-load",
-    "sys",
-    "sys-default",
-    "wasmer-artifact-create",
-    "wasmer-artifact-load",
+  "compiler",
+  "core",
+  "cranelift",
+  "engine",
+  "jit",
+  "singlepass",
+  "static-artifact-create",
+  "static-artifact-load",
+  "sys",
+  "sys-default",
+  "wasmer-artifact-create",
+  "wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]

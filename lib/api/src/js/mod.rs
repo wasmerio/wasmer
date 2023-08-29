@@ -29,6 +29,7 @@ pub(crate) mod errors;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
 pub(crate) mod instance;
+mod js_handle;
 pub(crate) mod mem_access;
 pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]

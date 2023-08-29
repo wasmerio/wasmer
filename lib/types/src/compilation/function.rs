@@ -6,14 +6,17 @@
 
 use crate::entity::PrimaryMap;
 use crate::lib::std::vec::Vec;
-use crate::TrapInformation;
+use crate::{ArchivedCompiledFunctionUnwindInfo, TrapInformation};
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap};
 use crate::{
     CustomSection, FunctionIndex, LocalFunctionIndex, Relocation, SectionIndex, SignatureIndex,
 };
+use rkyv::option::ArchivedOption;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+
+use super::unwind::CompiledFunctionUnwindInfoLike;
 
 /// The frame info for a Compiled function.
 ///
@@ -43,6 +46,42 @@ pub struct FunctionBody {
 
     /// The function unwind info
     pub unwind_info: Option<CompiledFunctionUnwindInfo>,
+}
+
+/// Any struct that acts like a `FunctionBody`.
+#[allow(missing_docs)]
+pub trait FunctionBodyLike<'a> {
+    type UnwindInfo: CompiledFunctionUnwindInfoLike<'a>;
+
+    fn body(&'a self) -> &'a [u8];
+    fn unwind_info(&'a self) -> Option<&Self::UnwindInfo>;
+}
+
+impl<'a> FunctionBodyLike<'a> for FunctionBody {
+    type UnwindInfo = CompiledFunctionUnwindInfo;
+
+    fn body(&'a self) -> &'a [u8] {
+        self.body.as_ref()
+    }
+
+    fn unwind_info(&'a self) -> Option<&Self::UnwindInfo> {
+        self.unwind_info.as_ref()
+    }
+}
+
+impl<'a> FunctionBodyLike<'a> for ArchivedFunctionBody {
+    type UnwindInfo = ArchivedCompiledFunctionUnwindInfo;
+
+    fn body(&'a self) -> &'a [u8] {
+        self.body.as_ref()
+    }
+
+    fn unwind_info(&'a self) -> Option<&Self::UnwindInfo> {
+        match self.unwind_info {
+            ArchivedOption::Some(ref x) => Some(x),
+            ArchivedOption::None => None,
+        }
+    }
 }
 
 /// The result of compiling a WebAssembly function.

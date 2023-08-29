@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Error};
-use virtual_fs::TmpFileSystem;
+use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
@@ -16,6 +16,9 @@ use crate::{
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
     wasi: CommonWasiOptions,
+    stdin: Option<ArcBoxFile>,
+    stdout: Option<ArcBoxFile>,
+    stderr: Option<ArcBoxFile>,
 }
 
 impl WasiRunner {
@@ -143,6 +146,36 @@ impl WasiRunner {
         self.wasi.capabilities = capabilities;
     }
 
+    pub fn with_stdin(mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> Self {
+        self.set_stdin(stdin);
+        self
+    }
+
+    pub fn set_stdin(&mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
+        self.stdin = Some(ArcBoxFile::new(stdin));
+        self
+    }
+
+    pub fn with_stdout(mut self, stdout: Box<dyn VirtualFile + Send + Sync>) -> Self {
+        self.set_stdout(stdout);
+        self
+    }
+
+    pub fn set_stdout(&mut self, stdout: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
+        self.stdout = Some(ArcBoxFile::new(stdout));
+        self
+    }
+
+    pub fn with_stderr(mut self, stderr: Box<dyn VirtualFile + Send + Sync>) -> Self {
+        self.set_stderr(stderr);
+        self
+    }
+
+    pub fn set_stderr(&mut self, stderr: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
+        self.stderr = Some(ArcBoxFile::new(stderr));
+        self
+    }
+
     pub(crate) fn prepare_webc_env(
         &self,
         program_name: &str,
@@ -155,6 +188,16 @@ impl WasiRunner {
         let container_fs = Arc::clone(&pkg.webc_fs);
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
+
+        if let Some(stdin) = &self.stdin {
+            builder.set_stdin(Box::new(stdin.clone()));
+        }
+        if let Some(stdout) = &self.stdout {
+            builder.set_stdout(Box::new(stdout.clone()));
+        }
+        if let Some(stderr) = &self.stderr {
+            builder.set_stderr(Box::new(stderr.clone()));
+        }
 
         builder.add_webc(pkg.clone());
         builder.set_runtime(runtime);
@@ -186,11 +229,22 @@ impl crate::runners::Runner for WasiRunner {
             .unwrap_or_else(|| Wasi::new(command_name));
 
         let module = runtime.load_module_sync(cmd.atom())?;
-        let store = runtime.new_store();
+        let mut store = runtime.new_store();
 
-        self.prepare_webc_env(command_name, &wasi, pkg, runtime, None)
-            .context("Unable to prepare the WASI environment")?
-            .run_with_store_async(module, store)?;
+        let env = self
+            .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
+            .context("Unable to prepare the WASI environment")?;
+
+        if self
+            .wasi
+            .capabilities
+            .threading
+            .enable_asynchronous_threading
+        {
+            env.run_with_store_async(module, store)?;
+        } else {
+            env.run_with_store(module, &mut store)?;
+        }
 
         Ok(())
     }

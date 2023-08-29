@@ -4,7 +4,7 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
+use crate::js::{js_handle::JsHandle, wasm_bindgen_polyfill::Global as JsGlobal};
 use js_sys::Function as JsFunction;
 use js_sys::WebAssembly;
 use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
@@ -22,7 +22,7 @@ use wasmer_types::{
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
-    pub(crate) memory: JsMemory,
+    pub(crate) memory: JsHandle<JsMemory>,
     pub(crate) ty: MemoryType,
 }
 
@@ -38,7 +38,10 @@ struct DummyBuffer {
 impl VMMemory {
     /// Creates a new memory directly from a WebAssembly javascript object
     pub fn new(memory: JsMemory, ty: MemoryType) -> Self {
-        Self { memory, ty }
+        Self {
+            memory: JsHandle::new(memory),
+            ty,
+        }
     }
 
     /// Returns the size of the memory buffer in pages
@@ -106,7 +109,7 @@ impl VMMemory {
         trace!("memory copy finished (size={})", dst.size().bytes().0);
 
         Ok(Self {
-            memory: new_memory,
+            memory: JsHandle::new(new_memory),
             ty: self.ty.clone(),
         })
     }
@@ -167,7 +170,7 @@ impl VMTable {
 /// The VM Function type
 #[derive(Clone)]
 pub struct VMFunction {
-    pub(crate) function: JsFunction,
+    pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
 }
 
@@ -176,7 +179,10 @@ unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
-        Self { function, ty }
+        Self {
+            function: JsHandle::new(function),
+            ty,
+        }
     }
 }
 

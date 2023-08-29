@@ -2,10 +2,12 @@ pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
 mod objects {
+    use std::{fmt, marker::PhantomData, num::NonZeroUsize};
+
     use wasm_bindgen::JsValue;
 
     use crate::js::vm::{VMFunctionEnvironment, VMGlobal};
-    use std::{fmt, marker::PhantomData, num::NonZeroUsize};
+
     pub use wasmer_types::StoreId;
 
     /// Trait to represent an object managed by a context. This is implemented on
