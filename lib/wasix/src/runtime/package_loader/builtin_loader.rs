@@ -239,7 +239,7 @@ impl FileSystemCache {
     async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         let path = self.path(hash);
 
-        match Container::from_disk(&path) {
+        match tokio::task::block_in_place(|| Container::from_disk(&path)) {
             Ok(c) => Ok(Some(c)),
             Err(ContainerError::Open { error, .. })
             | Err(ContainerError::Read { error, .. })

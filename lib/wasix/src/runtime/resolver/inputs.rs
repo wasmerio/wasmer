@@ -1,9 +1,7 @@
 use std::{
     fmt::{self, Display, Formatter},
-    fs::File,
-    io::{BufRead, BufReader},
     path::{Path, PathBuf},
-    str::FromStr,
+    str::FromStr, fs::File, io::{BufReader, BufRead, Read},
 };
 
 use anyhow::{Context, Error};
@@ -344,7 +342,19 @@ impl WebcHash {
         Ok(Self(hash))
     }
 
-    pub fn for_file(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
+    pub fn for_file(path: &PathBuf) -> Result<Self, std::io::Error> {
+        // check for a hash at the file location
+        let path_hash = path.join(".sha256");
+        if let Ok(mut file) = File::open(&path_hash) {
+            let mut hash = Vec::new();
+            if let Ok(amt) = file.read_to_end(&mut hash) {
+                if amt == 32 {
+                    return Ok(WebcHash::from_bytes(hash[0..32].try_into().unwrap()));
+                }
+            }
+        }
+
+        // compute the hash
         let mut hasher = Sha256::default();
         let mut reader = BufReader::new(File::open(path)?);
 
@@ -359,7 +369,12 @@ impl WebcHash {
         }
 
         let hash = hasher.finalize().into();
-        Ok(WebcHash::from_bytes(hash))
+
+        // write the cache of the hash to the file system
+        std::fs::write(path_hash, hash).ok();
+        let hash = WebcHash::from_bytes(hash);
+
+        Ok(hash)
     }
 
     /// Generate a new [`WebcHash`] based on the SHA-256 hash of some bytes.

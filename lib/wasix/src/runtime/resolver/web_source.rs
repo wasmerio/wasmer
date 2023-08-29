@@ -240,13 +240,12 @@ impl Source for WebSource {
             .await
             .context("Unable to get the locally cached file")?;
 
-        // FIXME: this will block
-        let webc_sha256 = WebcHash::for_file(&local_path)
+        let webc_sha256 = tokio::task::block_in_place(|| WebcHash::for_file(&local_path))
             .with_context(|| format!("Unable to hash \"{}\"", local_path.display()))?;
 
         // Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
-        let container = Container::from_disk(&local_path)
+        let container = tokio::task::block_in_place(|| Container::from_disk(&local_path))
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
         let pkg = PackageInfo::from_manifest(container.manifest())
             .context("Unable to determine the package's metadata")?;
