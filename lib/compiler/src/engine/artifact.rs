@@ -282,6 +282,16 @@ impl Artifact {
                 artifact,
                 allocated: None,
             });
+        } else {
+            // check if cpu features are compatible before anything else
+            let cpu_features = artifact.cpu_features();
+            for feature in cpu_features {
+                if !target.cpu_features().contains(feature) {
+                    return Err(DeserializeError::Incompatible(
+                        "Some CPU Features needed for the artifact are missing".to_owned(),
+                    ));
+                }
+            }
         }
         let module_info = artifact.module_info();
         let (
