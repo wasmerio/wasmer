@@ -248,7 +248,7 @@ impl InodeSocket {
 
                     match *ty {
                         Socktype::Stream => {
-                            // we already set the socket address - next we need a bind or connect so nothing
+                            // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);
                         }
