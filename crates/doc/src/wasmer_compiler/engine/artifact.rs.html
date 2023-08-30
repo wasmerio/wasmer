@@ -1184,6 +1184,15 @@
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
 <a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1468,6 +1477,15 @@
                 artifact,
                 allocated: <span class="prelude-val">None</span>,
             });
+        } <span class="kw">else </span>{
+            <span class="comment">// check if cpu features are compatible before anything else
+            </span><span class="kw">let </span>cpu_features = artifact.cpu_features();
+            <span class="kw">if </span>!target.cpu_features().is_superset(cpu_features) {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Incompatible(<span class="macro">format!</span>(
+                    <span class="string">&quot;Some CPU Features needed for the artifact are missing: {:?}&quot;</span>,
+                    cpu_features.difference(<span class="kw-2">*</span>target.cpu_features())
+                )));
+            }
         }
         <span class="kw">let </span>module_info = artifact.module_info();
         <span class="kw">let </span>(
