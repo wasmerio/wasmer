@@ -145,8 +145,7 @@ pub fn proc_spawn_internal(
 
     // Replace the STDIO
     let (stdin, stdout, stderr) = {
-        let (_, child_state, child_inodes) =
-            unsafe { child_env.get_memory_and_wasi_state_and_inodes(&new_store, 0) };
+        let (child_state, child_inodes) = child_env.get_wasi_state_and_inodes();
         let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, Errno> {
             match mode {
                 WasiStdioMode::Piped => {
