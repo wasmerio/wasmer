@@ -285,12 +285,11 @@ impl Artifact {
         } else {
             // check if cpu features are compatible before anything else
             let cpu_features = artifact.cpu_features();
-            for feature in cpu_features {
-                if !target.cpu_features().contains(feature) {
-                    return Err(DeserializeError::Incompatible(
-                        "Some CPU Features needed for the artifact are missing".to_owned(),
-                    ));
-                }
+            if !target.cpu_features().is_superset(cpu_features) {
+                return Err(DeserializeError::Incompatible(format!(
+                    "Some CPU Features needed for the artifact are missing: {:?}",
+                    cpu_features.difference(target.cpu_features().clone())
+                )));
             }
         }
         let module_info = artifact.module_info();
