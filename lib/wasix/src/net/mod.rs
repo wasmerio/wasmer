@@ -174,15 +174,9 @@ pub(crate) fn read_ip_port<M: MemorySize>(
             (IpAddr::V4(Ipv4Addr::new(o[2], o[3], o[4], o[5])), port)
         }
         Addressfamily::Inet6 => {
-            let [a, b, c, d, e, f, g, h] = {
-                let o = [
-                    o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10], o[11], o[12], o[13],
-                    o[14], o[15], o[16], o[17],
-                ];
-                unsafe { transmute::<_, [u16; 8]>(o) }
-            };
+            let octets: [u8; 16] = o[2..18].try_into().unwrap();
             (
-                IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                IpAddr::V6(Ipv6Addr::from(octets)),
                 u16::from_ne_bytes([o[0], o[1]]),
             )
         }
