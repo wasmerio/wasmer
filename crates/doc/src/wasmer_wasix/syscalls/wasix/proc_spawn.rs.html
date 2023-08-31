@@ -260,7 +260,6 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
 </pre><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ProcessHandles;
 
@@ -408,8 +407,7 @@
 
     <span class="comment">// Replace the STDIO
     </span><span class="kw">let </span>(stdin, stdout, stderr) = {
-        <span class="kw">let </span>(<span class="kw">_</span>, child_state, child_inodes) =
-            <span class="kw">unsafe </span>{ child_env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>new_store, <span class="number">0</span>) };
+        <span class="kw">let </span>(child_state, child_inodes) = child_env.get_wasi_state_and_inodes();
         <span class="kw">let </span><span class="kw-2">mut </span>conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -&gt; <span class="prelude-ty">Result</span>&lt;OptionFd, Errno&gt; {
             <span class="kw">match </span>mode {
                 WasiStdioMode::Piped =&gt; {
