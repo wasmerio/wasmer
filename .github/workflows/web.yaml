@@ -43,9 +43,6 @@ jobs:
 
     - name: Setup Chromedriver
       uses: nanasess/setup-chromedriver@v2
-      # Temporary workaround for https://github.com/nanasess/setup-chromedriver/issues/190
-      with:
-        chromedriver-version: '114.0.5735.90'
 
     - name: Show Rust version
       run: rustc --version --verbose
