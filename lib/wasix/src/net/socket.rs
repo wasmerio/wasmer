@@ -1140,7 +1140,10 @@ impl InodeSocket {
                                     Err(err) => Err(err),
                                 }
                             } else {
-                                Err(NetworkError::NotConnected)
+                                match socket.try_recv_from(self.data) {
+                                    Ok((amt, _)) => Ok(amt),
+                                    Err(err) => Err(err),
+                                }
                             }
                         }
                         InodeSocketKind::PreSocket { .. } => {
