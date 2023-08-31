@@ -120,7 +120,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
-    fn from_artifact(artifact: Arc<Artifact>) -> Self {
+    pub(super) fn from_artifact(artifact: Arc<Artifact>) -> Self {
         Self { artifact }
     }
 
