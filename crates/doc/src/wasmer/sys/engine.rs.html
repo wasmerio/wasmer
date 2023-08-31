@@ -154,6 +154,9 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
@@ -252,7 +255,7 @@
     </span><span class="kw">unsafe fn </span>deserialize_from_mmapped_file_unchecked(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Module, DeserializeError&gt;;
 
     <span class="doccomment">/// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
     ///
@@ -261,7 +264,7 @@
     </span><span class="kw">unsafe fn </span>deserialize_from_mmapped_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Module, DeserializeError&gt;;
 }
 
 <span class="kw">impl </span>NativeEngineExt <span class="kw">for </span><span class="kw">crate</span>::engine::Engine {
@@ -289,24 +292,27 @@
     <span class="kw">unsafe fn </span>deserialize_from_mmapped_file_unchecked(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Module, DeserializeError&gt; {
         <span class="kw">let </span>bytes = std::fs::read(file_ref)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize_unchecked(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
-            bytes.into(),
-        )<span class="question-mark">?</span>))
+        <span class="kw">let </span>artifact = Arc::new(Artifact::deserialize_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes.into())<span class="question-mark">?</span>);
+        <span class="prelude-val">Ok</span>(<span class="kw">crate</span>::Module(<span class="kw">super</span>::module::Module::from_artifact(
+            artifact,
+        )))
     }
 
     <span class="kw">unsafe fn </span>deserialize_from_mmapped_file(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;Arc&lt;Artifact&gt;, DeserializeError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Module, DeserializeError&gt; {
         <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(Arc::new(Artifact::deserialize(
+        <span class="kw">let </span>artifact = Arc::new(Artifact::deserialize(
             <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
             OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
                 .map_err(|e| DeserializeError::Generic(<span class="macro">format!</span>(<span class="string">&quot;{e:?}&quot;</span>)))<span class="question-mark">?</span>,
-        )<span class="question-mark">?</span>))
+        )<span class="question-mark">?</span>);
+        <span class="prelude-val">Ok</span>(<span class="kw">crate</span>::Module(<span class="kw">super</span>::module::Module::from_artifact(
+            artifact,
+        )))
     }
 }
 </code></pre></div>

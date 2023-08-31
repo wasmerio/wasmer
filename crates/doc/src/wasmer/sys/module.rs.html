@@ -319,7 +319,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
     }
 
-    <span class="kw">fn </span>from_artifact(artifact: Arc&lt;Artifact&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>from_artifact(artifact: Arc&lt;Artifact&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ artifact }
     }
 
