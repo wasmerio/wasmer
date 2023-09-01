@@ -1089,7 +1089,6 @@
 <a href="#1089" id="1089">1089</a>
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
 </pre><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1113,7 +1112,7 @@
 </span><span class="kw">use </span>std::mem::MaybeUninit;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
 <span class="kw">use </span>std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
-<span class="kw">use </span>std::sync::{Mutex, Once};
+<span class="kw">use </span>std::sync::Once;
 <span class="kw">use </span>wasmer_types::TrapCode;
 
 <span class="doccomment">/// Configuration for the the runtime VM
@@ -1134,6 +1133,7 @@
 // on aarch64-apple-drawin so it&#39;s defined here with a more accurate definition.
 </span><span class="attr">#[repr(C)]
 #[cfg(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>))]
+#[allow(non_camel_case_types)]
 </span><span class="kw">struct </span>ucontext_t {
     uc_onstack: libc::c_int,
     uc_sigmask: libc::sigset_t,
@@ -1986,14 +1986,12 @@
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
     </span><span class="macro">lazy_static::lazy_static! </span>{
-        <span class="kw">static </span><span class="kw-2">ref </span>STACK_POOL: Mutex&lt;Vec&lt;DefaultStack&gt;&gt; = Mutex::new(<span class="macro">vec!</span>[]);
+        <span class="kw">static </span><span class="kw-2">ref </span>STACK_POOL: crossbeam_queue::SegQueue&lt;DefaultStack&gt; = crossbeam_queue::SegQueue::new();
     }
     <span class="kw">let </span>stack = STACK_POOL
-        .lock()
-        .unwrap()
         .pop()
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    <span class="kw">let </span><span class="kw-2">mut </span>stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
+    <span class="kw">let </span><span class="kw-2">mut </span>stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     <span class="comment">// Create a coroutine with a new stack to run the function on.
     </span><span class="kw">let </span><span class="kw-2">mut </span>coro = ScopedCoroutine::with_stack(<span class="kw-2">&amp;mut *</span>stack, <span class="kw">move </span>|yielder, ()| {
