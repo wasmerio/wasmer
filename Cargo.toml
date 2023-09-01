@@ -32,6 +32,7 @@ tokio = { version = "1", features = [
     "rt-multi-thread",
     "macros",
 ], optional = true }
+crossbeam-queue = "0.3.8"
 
 [workspace]
 members = [
@@ -116,15 +117,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = [
-    "wat",
-    "wast",
-    "cache",
-    "wasi",
-    "engine",
-    "emscripten",
-    "middlewares",
-]
+default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []

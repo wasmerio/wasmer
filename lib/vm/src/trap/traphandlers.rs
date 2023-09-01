@@ -21,7 +21,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
-use std::sync::{Mutex, Once};
+use std::sync::Once;
 use wasmer_types::TrapCode;
 
 /// Configuration for the the runtime VM
@@ -42,6 +42,7 @@ static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
 // on aarch64-apple-drawin so it's defined here with a more accurate definition.
 #[repr(C)]
 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+#[allow(non_camel_case_types)]
 struct ucontext_t {
     uc_onstack: libc::c_int,
     uc_sigmask: libc::sigset_t,
@@ -894,14 +895,12 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
     lazy_static::lazy_static! {
-        static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
+        static ref STACK_POOL: crossbeam_queue::SegQueue<DefaultStack> = crossbeam_queue::SegQueue::new();
     }
     let stack = STACK_POOL
-        .lock()
-        .unwrap()
         .pop()
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
+    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     // Create a coroutine with a new stack to run the function on.
     let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {

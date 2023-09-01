@@ -32,6 +32,7 @@ dashmap = { version = "5.4" }
 fnv = "1.0.3"
 # - Optional shared dependencies.
 tracing = { version = "0.1", optional = true }
+crossbeam-queue = "0.3.8"
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 mach = "0.3.2"
