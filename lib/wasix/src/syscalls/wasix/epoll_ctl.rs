@@ -26,7 +26,7 @@ use crate::{
 /// Output:
 /// - `Fd fd`
 ///   The new file handle that is used to modify or wait on the interest list
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty, fd), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty, fd), ret)]
 pub fn epoll_ctl<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     epfd: WasiFd,

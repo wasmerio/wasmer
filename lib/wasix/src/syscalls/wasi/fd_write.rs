@@ -17,7 +17,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 ///     Number of bytes written
 /// Errors:
 ///
-#[instrument(level = "trace", skip_all, fields(%fd, nwritten = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%fd, nwritten = field::Empty), ret)]
 pub fn fd_write<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -51,7 +51,7 @@ pub fn fd_write<M: MemorySize>(
 /// Output:
 /// - `u32 *nwritten`
 ///     Number of bytes written
-#[instrument(level = "trace", skip_all, fields(%fd, %offset, nwritten = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%fd, %offset, nwritten = field::Empty), ret)]
 pub fn fd_pwrite<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

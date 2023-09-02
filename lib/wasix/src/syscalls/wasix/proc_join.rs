@@ -20,7 +20,7 @@ enum JoinStatusResult {
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
-//#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
+//#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_join<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,

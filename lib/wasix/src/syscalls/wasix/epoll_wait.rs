@@ -15,7 +15,7 @@ const TIMEOUT_FOREVER: u64 = u64::MAX;
 
 /// ### `epoll_wait()`
 /// Wait for an I/O event on an epoll file descriptor
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn epoll_wait<'a, M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     epfd: WasiFd,

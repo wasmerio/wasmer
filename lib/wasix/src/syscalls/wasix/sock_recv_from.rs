@@ -16,7 +16,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret)]
 pub fn sock_recv_from<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
