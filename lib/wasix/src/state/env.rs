@@ -1037,7 +1037,7 @@ impl WasiEnv {
                 // Perform the clean operation using the asynchronous runtime
                 tokio::select! {
                     _ = timeout => {
-                        tracing::warn!(
+                        tracing::debug!(
                             "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
                         );
                     },
