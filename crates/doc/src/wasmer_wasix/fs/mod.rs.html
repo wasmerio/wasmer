@@ -1995,6 +1995,21 @@
 <a href="#1994" id="1994">1994</a>
 <a href="#1995" id="1995">1995</a>
 <a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2012,7 +2027,10 @@
     task::{Context, Poll},
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::state::{Stderr, Stdin, Stdout};
+<span class="kw">use crate</span>::{
+    net::socket::InodeSocketKind,
+    state::{Stderr, Stdin, Stdout},
+};
 <span class="kw">use </span>futures::{future::BoxFuture, Future, TryStreamExt};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
@@ -2023,7 +2041,7 @@
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
         Errno, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdstat, Filesize, Filestat, Filetype, Preopentype, Prestat,
-        PrestatEnum, Rights,
+        PrestatEnum, Rights, Socktype,
     },
 };
 
@@ -3487,6 +3505,18 @@
                 Kind::File { .. } =&gt; Filetype::RegularFile,
                 Kind::Dir { .. } =&gt; Filetype::Directory,
                 Kind::Symlink { .. } =&gt; Filetype::SymbolicLink,
+                Kind::Socket { socket } =&gt; <span class="kw">match </span>socket.inner.protected.read().unwrap().kind {
+                    InodeSocketKind::TcpStream { .. } =&gt; Filetype::SocketStream,
+                    InodeSocketKind::Raw { .. } =&gt; Filetype::SocketRaw,
+                    InodeSocketKind::PreSocket { ty, .. } =&gt; <span class="kw">match </span>ty {
+                        Socktype::Stream =&gt; Filetype::SocketStream,
+                        Socktype::Dgram =&gt; Filetype::SocketDgram,
+                        Socktype::Raw =&gt; Filetype::SocketRaw,
+                        Socktype::Seqpacket =&gt; Filetype::SocketSeqpacket,
+                        <span class="kw">_ </span>=&gt; Filetype::Unknown,
+                    },
+                    <span class="kw">_ </span>=&gt; Filetype::Unknown,
+                },
                 <span class="kw">_ </span>=&gt; Filetype::Unknown,
             },
             fs_flags: fd.flags,
