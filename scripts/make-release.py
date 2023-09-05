@@ -11,7 +11,7 @@ import re
 
 RELEASE_VERSION=""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
-SIGNOFF_REVIEWER = "syrusakbary"
+SIGNOFF_REVIEWER = "ptitSeb"
 TAG = "master"
 
 if len(sys.argv) > 1:

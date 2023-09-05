@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-capi-examples-runner"
-version = "4.1.2"
+version = "4.2.0"
 edition = "2021"
 license = "MIT"
 description = "wasmer-capi-examples-runner"
