@@ -364,4 +364,32 @@ mod tests {
 
         assert_eq!(out, "hello VAL1\n");
     }
+
+    /// Regression test to ensure merging of multiple packages works correctly.
+    #[test]
+    fn test_console_python_merge() {
+        std::env::set_var("RUST_LOG", "wasmer_wasix=trace");
+        tracing_subscriber::fmt::init();
+        let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+        let rt_handle = tokio_rt.handle().clone();
+        let _guard = rt_handle.enter();
+
+        let tm = TokioTaskManager::new(tokio_rt);
+        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        rt.set_engine(Some(wasmer::Engine::default()))
+            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+
+        let cmd = "wasmer-tests/python-env-dump --help";
+
+        let (mut handle, _proc) = Console::new(cmd, Arc::new(rt)).run().unwrap();
+
+        let code = rt_handle
+            .block_on(async move {
+                let res = handle.wait_finished().await?;
+                Ok::<_, anyhow::Error>(res)
+            })
+            .unwrap();
+
+        assert_eq!(code.raw(), 0);
+    }
 }
