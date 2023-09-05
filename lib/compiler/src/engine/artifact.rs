@@ -282,6 +282,15 @@ impl Artifact {
                 artifact,
                 allocated: None,
             });
+        } else {
+            // check if cpu features are compatible before anything else
+            let cpu_features = artifact.cpu_features();
+            if !target.cpu_features().is_superset(cpu_features) {
+                return Err(DeserializeError::Incompatible(format!(
+                    "Some CPU Features needed for the artifact are missing: {:?}",
+                    cpu_features.difference(*target.cpu_features())
+                )));
+            }
         }
         let module_info = artifact.module_info();
         let (

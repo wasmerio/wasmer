@@ -187,7 +187,7 @@ hello 3
 
 **我们欢迎任何形式的贡献，尤其是来自社区新成员的贡献** 💜
 
-你可以在[我们的出色文档](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) 中学习如何构建 Wasmer 运行时!
+你可以在[我们的出色文档](https://docs.wasmer.io/developers/build-from-source) 中学习如何构建 Wasmer 运行时!
 
 ### 测试
 

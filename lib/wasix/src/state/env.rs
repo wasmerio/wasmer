@@ -851,6 +851,12 @@ impl WasiEnv {
         (memory, state, inodes)
     }
 
+    pub(crate) fn get_wasi_state_and_inodes(&self) -> (&WasiState, &WasiInodes) {
+        let state = self.state.deref();
+        let inodes = &state.inodes;
+        (state, inodes)
+    }
+
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
     /// instance.
     ///

@@ -947,6 +947,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-queue"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1cfb3ea8a53f37c40dea2c7bedcbd88bdfae54f5e2175d6ecaff1c988353add"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1142,9 +1152,9 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "5.5.1"
+version = "5.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edd72493923899c6f10c641bdbdeddc7183d6396641d99c1a0d1597f37f92e28"
+checksum = "9b101bb8960ab42ada6ae98eb82afcea4452294294c45b681295af26610d6d28"
 dependencies = [
  "cfg-if",
  "hashbrown 0.14.0",
@@ -5549,9 +5559,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.15"
+version = "0.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c692f81bce9580250a57b20025175a5db99f4792ff8725a4fde0c5910c7ba81"
+checksum = "c9e8e1c4dcacb5055cd584994bb04a43e107b1c23651b24ab4da8befc24793f6"
 dependencies = [
  "anyhow",
  "cynic",
@@ -5833,9 +5843,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.24"
+version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fd8eabd19ea7799654bd5ad30af7220e34b02458a0a5627fafe6c5780f4335c"
+checksum = "22d9ccd93f117915eadf90c2f24213ad5f1725f5d3470cbd2ba8d58f79bd0b53"
 dependencies = [
  "anyhow",
  "clap",
@@ -5872,9 +5882,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-schema"
-version = "0.0.13"
+version = "0.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8308664a51c1f56c27c9d11c545c8d1faa0c5b644dc9f71f98d5990a93c9bad9"
+checksum = "d0cef86a0ed94dfc32acb1c6f7938e6f2c0b63f35af0a112df8052ea10140612"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -5895,9 +5905,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-util"
-version = "0.0.13"
+version = "0.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8189d29c1ecaaeabd64b4e85c7d66b1cf42f355aae40612c20d5c5da83cf35"
+checksum = "7595515fb1163de1f6ab6d4d070d59fe7f75176af99e3ec12beaed7169dc3e88"
 dependencies = [
  "http",
  "serde",
@@ -6166,6 +6176,7 @@ dependencies = [
  "cc",
  "cfg-if",
  "corosensei",
+ "crossbeam-queue",
  "dashmap",
  "derivative",
  "enum-iterator",
@@ -6342,6 +6353,7 @@ dependencies = [
  "cfg-if",
  "compiler-test-derive",
  "criterion",
+ "crossbeam-queue",
  "glob",
  "lazy_static",
  "rustc_version 0.4.0",
