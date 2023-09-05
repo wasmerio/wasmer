@@ -64,7 +64,7 @@ virtual-net = { version = "0.5.0", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
 webc = { workspace = true }
-wasmer-deploy-cli = { version = "=0.1.24", default-features = false }
+wasmer-deploy-cli = { version = "=0.1.25", default-features = false }
 
 # Third-party dependencies.
 
