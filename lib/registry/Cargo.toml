@@ -44,7 +44,7 @@ tokio = "1.24.0"
 toml = "0.5.9"
 url = "2.3.1"
 wasmer-toml = "0.6.0"
-wasmer-wasm-interface = { version = "4.1.2", path = "../wasm-interface", optional = true }
+wasmer-wasm-interface = { version = "4.2.0", path = "../wasm-interface", optional = true }
 wasmparser = { version = "0.51.4", optional = true }
 whoami = "1.2.3"
 
