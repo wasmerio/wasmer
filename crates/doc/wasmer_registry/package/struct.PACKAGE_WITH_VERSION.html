@@ -647,14 +647,14 @@ surrounding context into account.</p>
 capture group match into the locations given.</p>
 <p>A [<code>CaptureLocations</code>] stores the same byte offsets as a [<code>Captures</code>],
 but does <em>not</em> store a reference to the haystack. This makes its API
-a bit lower level and less convenience. But in exchange, callers
+a bit lower level and less convenient. But in exchange, callers
 may allocate their own <code>CaptureLocations</code> and reuse it for multiple
 searches. This may be helpful if allocating a <code>Captures</code> shows up in a
 profile as too costly.</p>
 <p>To create a <code>CaptureLocations</code> value, use the
 [<code>Regex::capture_locations</code>] method.</p>
-<p>This also the overall match if one was found. When a match is found,
-its offsets are also always stored in <code>locs</code> at index <code>0</code>.</p>
+<p>This also returns the overall match if one was found. When a match is
+found, its offsets are also always stored in <code>locs</code> at index <code>0</code>.</p>
 <h5 id="panics-4"><a href="#panics-4">Panics</a></h5>
 <p>This routine may panic if the given <code>CaptureLocations</code> was not created
 by this regex.</p>
