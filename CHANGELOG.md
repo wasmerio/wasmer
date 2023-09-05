@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 4.2.0 - 05/09/2023
+New release of wasmer, with a new 0-copy module deserialization for shorter startup time, some fixes to avoid misaligned pointer acces, and faster internal stack handling, among some other fixes.
 
 ## Added
 
