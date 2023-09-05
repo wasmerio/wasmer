@@ -13,7 +13,14 @@ pub struct EmptyFileSystem {}
 #[allow(unused_variables)]
 impl FileSystem for EmptyFileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        Err(FsError::EntryNotFound)
+        // Special-case the root path by returning an empty iterator.
+        // An empty file system should still be readable, just not contain
+        // any entries.
+        if path == Path::new("/") {
+            Ok(ReadDir::new(Vec::new()))
+        } else {
+            Err(FsError::EntryNotFound)
+        }
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
@@ -29,7 +36,20 @@ impl FileSystem for EmptyFileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        Err(FsError::EntryNotFound)
+        // Special-case the root path by returning an stub value.
+        // An empty file system should still be readable, just not contain
+        // any entries.
+        if path == Path::new("/") {
+            Ok(Metadata {
+                ft: FileType::new_dir(),
+                accessed: 0,
+                created: 0,
+                modified: 0,
+                len: 0,
+            })
+        } else {
+            Err(FsError::EntryNotFound)
+        }
     }
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
