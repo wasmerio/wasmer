@@ -363,7 +363,13 @@ async fn merge_filesystems(
     to_check.push_back(PathBuf::from("/"));
 
     while let Some(path) = to_check.pop_front() {
-        let metadata = source.metadata(&path)?;
+        let metadata = match source.metadata(&path) {
+            Ok(m) => m,
+            Err(err) => {
+                tracing::debug!(path=%path.display(), source_fs=?source, ?err, "failed to get metadata for path while merging file systems");
+                return Err(err);
+            }
+        };
 
         if metadata.is_dir() {
             create_dir_all(destination, &path)?;

@@ -222,15 +222,14 @@ impl Console {
             .with_envs(self.env.clone().into_iter())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
+            .with_stdin(Box::new(self.stdin.clone()))
+            .with_stdout(Box::new(self.stdout.clone()))
+            .with_stderr(Box::new(self.stderr.clone()))
             .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
 
-        let env = builder
-            .stdin(Box::new(self.stdin.clone()))
-            .stdout(Box::new(self.stdout.clone()))
-            .stderr(Box::new(self.stderr.clone()))
-            .build()?;
+        let env = builder.build()?;
 
         // Display the welcome message
         if !self.whitelabel && !self.no_welcome {
