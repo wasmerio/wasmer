@@ -9,6 +9,35 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.0 - 05/09/2023
+New release of wasmer, with a new 0-copy module deserialization for shorter startup time, some fixes to avoid misaligned pointer acces, and faster internal stack handling, among some other fixes.
+
+## Added
+
+  - [#4199](https://github.com/wasmerio/wasmer/pull/4199) Added some Socket filtype return for fdstat syscall
+  - [#4186](https://github.com/wasmerio/wasmer/pull/4186) Add stdin/stdout/stderr streams to `WasiRunner` and only use async threading when requested
+
+## Changed
+
+  - [#4170](https://github.com/wasmerio/wasmer/pull/4170) deps: Bump Edge client CLI to 0.1.25
+  - [#4179](https://github.com/wasmerio/wasmer/pull/4179) Faster compiles for debug by using release version of cranelift
+  - [#4196](https://github.com/wasmerio/wasmer/pull/4196) Replace stack pool mutex with lock-free queue
+  - [#4180](https://github.com/wasmerio/wasmer/pull/4180) NativeEngineExt::deserialize now returns Module
+  - [#4190](https://github.com/wasmerio/wasmer/pull/4190) Early check that a cached artifact is compatible with current CPU Features
+  - [#4167](https://github.com/wasmerio/wasmer/pull/4167) Make sure vmoffset are aligned to pointer size (for #4059)
+  - [#4184](https://github.com/wasmerio/wasmer/pull/4184) Allow `VirtualTaskManager` to explicitly transfer a module to a blocking task on the threadpool
+  - [#4176](https://github.com/wasmerio/wasmer/pull/4176) Js integrity checks
+  - [#4171](https://github.com/wasmerio/wasmer/pull/4171) Revive "0-copy module deserialization"
+  - [#4173](https://github.com/wasmerio/wasmer/pull/4173) deps: Bump Edge CLI version
+
+## Fixed
+
+  - [#4198](https://github.com/wasmerio/wasmer/pull/4198) chore: fix unavailable document url
+  - [#4191](https://github.com/wasmerio/wasmer/pull/4191) Fix invalid access to wasi instance handles in wasix proc_spawn
+  - [#4165](https://github.com/wasmerio/wasmer/pull/4165) Fix writing to middle of files and improve performance
+
+
+
 ## 4.1.2 - 21/08/2023
 Another maintenance release, bringing some networking improvements, and centralising all wasmer caches under the same folder.
 
