@@ -182,13 +182,13 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
             }
         ));
 
-        if flags & JoinFlags::NON_BLOCKING != JoinFlags::from_bits_preserve(0) {
-            return if let Some(status) = process.try_join() {
+        if flags.contains(JoinFlags::NON_BLOCKING) {
+            if let Some(status) = process.try_join() {
                 let exit_code = status.unwrap_or_else(|_| Errno::Child.into());
                 ret_result(ctx, JoinStatusResult::ExitNormal(pid, exit_code))
             } else {
                 ret_result(ctx, JoinStatusResult::Nothing)
-            };
+            }
         } else {
             // Wait for the process to finish
             let process2 = process.clone();
@@ -201,13 +201,13 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
                     JoinStatusResult::ExitNormal(pid, exit_code)
                 },
             )?;
-            return match res {
+            match res {
                 AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
                 AsyncifyAction::Unwind => Ok(Errno::Success),
-            };
+            }
         }
+    } else {
+        trace!(ret_id = pid.raw(), "status=nothing");
+        ret_result(ctx, JoinStatusResult::Nothing)
     }
-
-    trace!(ret_id = pid.raw(), "status=nothing");
-    ret_result(ctx, JoinStatusResult::Nothing)
 }
