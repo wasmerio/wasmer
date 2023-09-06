@@ -200,6 +200,18 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -235,7 +247,7 @@
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>proc_join_internal&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     pid_ptr: WasmPtr&lt;OptionPid, M&gt;,
-    _flags: JoinFlags,
+    flags: JoinFlags,
     status_ptr: WasmPtr&lt;JoinStatus, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
@@ -384,22 +396,34 @@
             }
         ));
 
-        <span class="comment">// Wait for the process to finish
-        </span><span class="kw">let </span>process2 = process.clone();
-        <span class="kw">let </span>res =
-            __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, Duration::from_millis(<span class="number">50</span>), <span class="kw">async move </span>{
-                <span class="kw">let </span>exit_code = process.join().<span class="kw">await</span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
-                <span class="macro">tracing::trace!</span>(%exit_code, <span class="string">&quot;triggered child join&quot;</span>);
-                JoinStatusResult::ExitNormal(pid, exit_code)
-            })<span class="question-mark">?</span>;
-        <span class="kw">return match </span>res {
-            AsyncifyAction::Finish(ctx, result) =&gt; ret_result(ctx, result),
-            AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
-        };
+        <span class="kw">if </span>flags.contains(JoinFlags::NON_BLOCKING) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(status) = process.try_join() {
+                <span class="kw">let </span>exit_code = status.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
+                ret_result(ctx, JoinStatusResult::ExitNormal(pid, exit_code))
+            } <span class="kw">else </span>{
+                ret_result(ctx, JoinStatusResult::Nothing)
+            }
+        } <span class="kw">else </span>{
+            <span class="comment">// Wait for the process to finish
+            </span><span class="kw">let </span>process2 = process.clone();
+            <span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
+                ctx,
+                Duration::from_millis(<span class="number">50</span>),
+                <span class="kw">async move </span>{
+                    <span class="kw">let </span>exit_code = process.join().<span class="kw">await</span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
+                    <span class="macro">tracing::trace!</span>(%exit_code, <span class="string">&quot;triggered child join&quot;</span>);
+                    JoinStatusResult::ExitNormal(pid, exit_code)
+                },
+            )<span class="question-mark">?</span>;
+            <span class="kw">match </span>res {
+                AsyncifyAction::Finish(ctx, result) =&gt; ret_result(ctx, result),
+                AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
+            }
+        }
+    } <span class="kw">else </span>{
+        <span class="macro">trace!</span>(ret_id = pid.raw(), <span class="string">&quot;status=nothing&quot;</span>);
+        ret_result(ctx, JoinStatusResult::Nothing)
     }
-
-    <span class="macro">trace!</span>(ret_id = pid.raw(), <span class="string">&quot;status=nothing&quot;</span>);
-    ret_result(ctx, JoinStatusResult::Nothing)
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>
