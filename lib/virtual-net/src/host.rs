@@ -10,6 +10,7 @@ use derivative::Derivative;
 use std::io::{Read, Write};
 use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
+#[cfg(not(target_os = "windows"))]
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::time::Duration;
@@ -264,6 +265,7 @@ impl VirtualTcpSocket for LocalTcpStream {
         Ok(ret)
     }
 
+    #[cfg(not(target_os = "windows"))]
     fn set_dontroute(&mut self, val: bool) -> Result<()> {
         let val = val as libc::c_int;
         let payload = &val as *const libc::c_int as *const libc::c_void;
@@ -281,7 +283,12 @@ impl VirtualTcpSocket for LocalTcpStream {
         }
         Ok(())
     }
+    #[cfg(target_os = "windows")]
+    fn set_dontroute(&mut self, val: bool) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
 
+    #[cfg(not(target_os = "windows"))]
     fn dontroute(&self) -> Result<bool> {
         let mut payload: MaybeUninit<libc::c_int> = MaybeUninit::uninit();
         let mut len = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
@@ -298,6 +305,10 @@ impl VirtualTcpSocket for LocalTcpStream {
             return Err(io_err_into_net_error(std::io::Error::last_os_error()));
         }
         Ok(unsafe { payload.assume_init() != 0 })
+    }
+    #[cfg(target_os = "windows")]
+    fn dontroute(&self) -> Result<bool> {
+        Err(NetworkError::Unsupported)
     }
 
     fn addr_peer(&self) -> Result<SocketAddr> {
