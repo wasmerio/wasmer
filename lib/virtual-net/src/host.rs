@@ -97,11 +97,7 @@ impl VirtualNetworking for LocalNetworking {
         if let Ok(p) = stream.peer_addr() {
             peer = p;
         }
-        let socket = Box::new(LocalTcpStream::new(
-            self.selector.clone(),
-            stream,
-            peer,
-        ));
+        let socket = Box::new(LocalTcpStream::new(self.selector.clone(), stream, peer));
         Ok(socket)
     }
 
@@ -272,10 +268,13 @@ impl VirtualTcpSocket for LocalTcpStream {
         let val = val as libc::c_int;
         let payload = &val as *const libc::c_int as *const libc::c_void;
         let err = unsafe {
-            libc::setsockopt(self.stream.as_raw_fd(), libc::SOL_SOCKET,
-            libc::SO_DONTROUTE,
-            payload,
-            std::mem::size_of::<libc::c_int>() as libc::socklen_t)
+            libc::setsockopt(
+                self.stream.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_DONTROUTE,
+                payload,
+                std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+            )
         };
         if err == -1 {
             return Err(io_err_into_net_error(std::io::Error::last_os_error()));
@@ -287,10 +286,13 @@ impl VirtualTcpSocket for LocalTcpStream {
         let mut payload: MaybeUninit<libc::c_int> = MaybeUninit::uninit();
         let mut len = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
         let err = unsafe {
-            libc::getsockopt(self.stream.as_raw_fd(), libc::SOL_SOCKET,
-            libc::SO_DONTROUTE,
-            payload.as_mut_ptr().cast(),
-            &mut len)
+            libc::getsockopt(
+                self.stream.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_DONTROUTE,
+                payload.as_mut_ptr().cast(),
+                &mut len,
+            )
         };
         if err == -1 {
             return Err(io_err_into_net_error(std::io::Error::last_os_error()));

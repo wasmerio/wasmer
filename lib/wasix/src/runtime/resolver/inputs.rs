@@ -1,7 +1,9 @@
 use std::{
     fmt::{self, Display, Formatter},
+    fs::File,
+    io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
-    str::FromStr, fs::File, io::{BufReader, BufRead, Read},
+    str::FromStr,
 };
 
 use anyhow::{Context, Error};

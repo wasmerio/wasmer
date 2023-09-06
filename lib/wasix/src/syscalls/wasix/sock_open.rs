@@ -37,13 +37,13 @@ pub fn sock_open<M: MemorySize>(
             if ty != Socktype::Stream {
                 return Errno::Notsup;
             }
-        },
+        }
         SockProto::Udp => {
             if ty != Socktype::Dgram {
                 return Errno::Notsup;
             }
-        },
-        _ => { }
+        }
+        _ => {}
     }
 
     let kind = match ty {

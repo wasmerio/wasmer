@@ -386,15 +386,9 @@ where
                 Ok(evts) => {
                     // If its a timeout then return an event for it
                     if evts.len() == 1 {
-                        Span::current().record("seen", &format!(
-                            "{:?}",
-                            evts.iter().next().unwrap()
-                        ));
+                        Span::current().record("seen", &format!("{:?}", evts.first().unwrap()));
                     } else {
-                        Span::current().record("seen", &format!(
-                            "trigger_cnt=({})",
-                            evts.len()
-                        ));
+                        Span::current().record("seen", &format!("trigger_cnt=({})", evts.len()));
                     }
 
                     // Process the events

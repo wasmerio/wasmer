@@ -619,9 +619,7 @@ impl InodeSocket {
                 }
                 _ => return Err(Errno::Inval),
             },
-            InodeSocketKind::TcpListener { .. } => match option {
-                _ => return Err(Errno::Inval),
-            },
+            InodeSocketKind::TcpListener { .. } => return Err(Errno::Inval),
             InodeSocketKind::UdpSocket { socket, .. } => match option {
                 WasiSocketOption::Broadcast => {
                     socket.set_broadcast(val).map_err(net_error_into_wasi_err)?
@@ -665,8 +663,12 @@ impl InodeSocket {
             },
             InodeSocketKind::TcpStream { socket, .. } => match option {
                 WasiSocketOption::NoDelay => socket.nodelay().map_err(net_error_into_wasi_err)?,
-                WasiSocketOption::KeepAlive => socket.keepalive().map_err(net_error_into_wasi_err)?,
-                WasiSocketOption::DontRoute => socket.dontroute().map_err(net_error_into_wasi_err)?,
+                WasiSocketOption::KeepAlive => {
+                    socket.keepalive().map_err(net_error_into_wasi_err)?
+                }
+                WasiSocketOption::DontRoute => {
+                    socket.dontroute().map_err(net_error_into_wasi_err)?
+                }
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::UdpSocket { socket, .. } => match option {
