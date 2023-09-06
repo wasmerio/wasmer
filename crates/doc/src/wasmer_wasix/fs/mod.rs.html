@@ -2010,6 +2010,12 @@
 <a href="#2009" id="2009">2009</a>
 <a href="#2010" id="2010">2010</a>
 <a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2375,7 +2381,13 @@
     to_check.push_back(PathBuf::from(<span class="string">&quot;/&quot;</span>));
 
     <span class="kw">while let </span><span class="prelude-val">Some</span>(path) = to_check.pop_front() {
-        <span class="kw">let </span>metadata = source.metadata(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>metadata = <span class="kw">match </span>source.metadata(<span class="kw-2">&amp;</span>path) {
+            <span class="prelude-val">Ok</span>(m) =&gt; m,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">tracing::debug!</span>(path=%path.display(), source_fs=<span class="question-mark">?</span>source, <span class="question-mark">?</span>err, <span class="string">&quot;failed to get metadata for path while merging file systems&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(err);
+            }
+        };
 
         <span class="kw">if </span>metadata.is_dir() {
             create_dir_all(destination, <span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;

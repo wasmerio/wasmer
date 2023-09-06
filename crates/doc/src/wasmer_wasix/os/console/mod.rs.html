@@ -367,6 +367,33 @@
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
 <a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
 </pre><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -591,15 +618,14 @@
             .with_envs(<span class="self">self</span>.env.clone().into_iter())
             .with_args(args)
             .with_capabilities(<span class="self">self</span>.capabilities.clone())
+            .with_stdin(Box::new(<span class="self">self</span>.stdin.clone()))
+            .with_stdout(Box::new(<span class="self">self</span>.stdout.clone()))
+            .with_stderr(Box::new(<span class="self">self</span>.stderr.clone()))
             .prepare_webc_env(prog, <span class="kw-2">&amp;</span>wasi_opts, <span class="kw-2">&amp;</span>pkg, <span class="self">self</span>.runtime.clone(), <span class="prelude-val">Some</span>(root_fs))
             <span class="comment">// TODO: better error conversion
             </span>.map_err(|err| SpawnError::Other(err.into()))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>env = builder
-            .stdin(Box::new(<span class="self">self</span>.stdin.clone()))
-            .stdout(Box::new(<span class="self">self</span>.stdout.clone()))
-            .stderr(Box::new(<span class="self">self</span>.stderr.clone()))
-            .build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
 
         <span class="comment">// Display the welcome message
         </span><span class="kw">if </span>!<span class="self">self</span>.whitelabel &amp;&amp; !<span class="self">self</span>.no_welcome {
@@ -733,6 +759,34 @@
         stdout_rx.read_to_string(<span class="kw-2">&amp;mut </span>out).unwrap();
 
         <span class="macro">assert_eq!</span>(out, <span class="string">&quot;hello VAL1\n&quot;</span>);
+    }
+
+    <span class="doccomment">/// Regression test to ensure merging of multiple packages works correctly.
+    </span><span class="attr">#[test]
+    </span><span class="kw">fn </span>test_console_python_merge() {
+        std::env::set_var(<span class="string">&quot;RUST_LOG&quot;</span>, <span class="string">&quot;wasmer_wasix=trace&quot;</span>);
+        tracing_subscriber::fmt::init();
+        <span class="kw">let </span>tokio_rt = tokio::runtime::Runtime::new().unwrap();
+        <span class="kw">let </span>rt_handle = tokio_rt.handle().clone();
+        <span class="kw">let </span>_guard = rt_handle.enter();
+
+        <span class="kw">let </span>tm = TokioTaskManager::new(tokio_rt);
+        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(tm));
+        rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
+            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+
+        <span class="kw">let </span>cmd = <span class="string">&quot;wasmer-tests/python-env-dump --help&quot;</span>;
+
+        <span class="kw">let </span>(<span class="kw-2">mut </span>handle, _proc) = Console::new(cmd, Arc::new(rt)).run().unwrap();
+
+        <span class="kw">let </span>code = rt_handle
+            .block_on(<span class="kw">async move </span>{
+                <span class="kw">let </span>res = handle.wait_finished().<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, anyhow::Error&gt;(res)
+            })
+            .unwrap();
+
+        <span class="macro">assert_eq!</span>(code.raw(), <span class="number">0</span>);
     }
 }
 </code></pre></div>

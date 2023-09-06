@@ -55,6 +55,26 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
 </pre><pre class="rust"><code><span class="doccomment">//! When no file system is used by a WebC then this is used as a placeholder -
 //! as the name suggests it always returns file not found.
 
@@ -70,7 +90,14 @@
 <span class="attr">#[allow(unused_variables)]
 </span><span class="kw">impl </span>FileSystem <span class="kw">for </span>EmptyFileSystem {
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
-        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+        <span class="comment">// Special-case the root path by returning an empty iterator.
+        // An empty file system should still be readable, just not contain
+        // any entries.
+        </span><span class="kw">if </span>path == Path::new(<span class="string">&quot;/&quot;</span>) {
+            <span class="prelude-val">Ok</span>(ReadDir::new(Vec::new()))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+        }
     }
 
     <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -86,7 +113,20 @@
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
-        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+        <span class="comment">// Special-case the root path by returning an stub value.
+        // An empty file system should still be readable, just not contain
+        // any entries.
+        </span><span class="kw">if </span>path == Path::new(<span class="string">&quot;/&quot;</span>) {
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: FileType::new_dir(),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: <span class="number">0</span>,
+            })
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+        }
     }
 
     <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {

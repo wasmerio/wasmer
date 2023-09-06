@@ -699,6 +699,13 @@
 <a href="#699" id="699">699</a>
 <a href="#700" id="700">700</a>
 <a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
 </pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -1366,6 +1373,13 @@
 }
 
 <span class="kw">impl </span>FileType {
+    <span class="kw">pub fn </span>new_dir() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            dir: <span class="bool-val">true</span>,
+            ..Default::default()
+        }
+    }
+
     <span class="kw">pub fn </span>is_dir(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.dir
     }
