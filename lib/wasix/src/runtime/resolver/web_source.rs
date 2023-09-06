@@ -454,7 +454,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn empty_cache_does_a_full_download() {
         let dummy_etag = "This is an etag";
         let temp = TempDir::new().unwrap();
@@ -480,7 +480,7 @@ mod tests {
         assert_eq!(std::fs::read(path).unwrap(), PYTHON);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn cache_hit() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([]));
@@ -498,7 +498,7 @@ mod tests {
         assert_eq!(client.requests.lock().unwrap().len(), 0);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn fall_back_to_stale_cache_if_request_fails() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
@@ -521,7 +521,7 @@ mod tests {
         assert!(!python_path.with_extension("etag").exists());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn download_again_if_etag_is_different() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([

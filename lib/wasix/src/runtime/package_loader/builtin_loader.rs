@@ -375,7 +375,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn cache_misses_will_trigger_a_download() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([HttpResponse {
