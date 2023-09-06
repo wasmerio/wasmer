@@ -54,7 +54,7 @@
 /// ### Parameters
 ///
 /// * `name` - Name of the function that will be invoked
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret)]
 </span><span class="kw">pub fn </span>callback_signal&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     name: WasmPtr&lt;u8, M&gt;,

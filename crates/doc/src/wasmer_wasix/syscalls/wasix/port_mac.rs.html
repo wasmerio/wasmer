@@ -30,7 +30,7 @@
 
 <span class="doccomment">/// ### `port_mac()`
 /// Returns the MAC address of the local port
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(max = field::Empty), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(max = field::Empty), ret)]
 </span><span class="kw">pub fn </span>port_mac&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     ret_mac: WasmPtr&lt;__wasi_hardwareaddress_t, M&gt;,

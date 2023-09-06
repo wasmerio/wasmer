@@ -234,7 +234,7 @@
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
-</span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
+</span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 </span><span class="kw">pub fn </span>proc_join&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     pid_ptr: WasmPtr&lt;OptionPid, M&gt;,

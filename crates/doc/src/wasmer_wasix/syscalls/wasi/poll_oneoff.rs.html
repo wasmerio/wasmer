@@ -445,6 +445,10 @@
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -501,7 +505,7 @@
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 </span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     in_: WasmPtr&lt;Subscription, M&gt;,
@@ -832,13 +836,17 @@
             </span><span class="kw">match </span>events {
                 <span class="prelude-val">Ok</span>(evts) =&gt; {
                     <span class="comment">// If its a timeout then return an event for it
-                    </span>Span::current().record(<span class="string">&quot;seen&quot;</span>, evts.len());
+                    </span><span class="kw">if </span>evts.len() == <span class="number">1 </span>{
+                        Span::current().record(<span class="string">&quot;seen&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, evts.first().unwrap()));
+                    } <span class="kw">else </span>{
+                        Span::current().record(<span class="string">&quot;seen&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;trigger_cnt=({})&quot;</span>, evts.len()));
+                    }
 
                     <span class="comment">// Process the events
                     </span>process_events(ctx, evts)
                 }
                 <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; {
-                    <span class="comment">// The timeout has triggerred so lets add that event
+                    <span class="comment">// The timeout has triggered so lets add that event
                     </span><span class="kw">if </span>clock_subs.is_empty() {
                         <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
                     }

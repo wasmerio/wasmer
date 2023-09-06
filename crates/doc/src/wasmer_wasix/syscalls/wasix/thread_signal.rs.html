@@ -34,7 +34,7 @@
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%tid, <span class="question-mark">?</span>sig), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%tid, <span class="question-mark">?</span>sig), ret)]
 </span><span class="kw">pub fn </span>thread_signal(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     tid: Tid,

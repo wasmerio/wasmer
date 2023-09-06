@@ -1397,6 +1397,36 @@
 <a href="#1397" id="1397">1397</a>
 <a href="#1398" id="1398">1398</a>
 <a href="#1399" id="1399">1399</a>
+<a href="#1400" id="1400">1400</a>
+<a href="#1401" id="1401">1401</a>
+<a href="#1402" id="1402">1402</a>
+<a href="#1403" id="1403">1403</a>
+<a href="#1404" id="1404">1404</a>
+<a href="#1405" id="1405">1405</a>
+<a href="#1406" id="1406">1406</a>
+<a href="#1407" id="1407">1407</a>
+<a href="#1408" id="1408">1408</a>
+<a href="#1409" id="1409">1409</a>
+<a href="#1410" id="1410">1410</a>
+<a href="#1411" id="1411">1411</a>
+<a href="#1412" id="1412">1412</a>
+<a href="#1413" id="1413">1413</a>
+<a href="#1414" id="1414">1414</a>
+<a href="#1415" id="1415">1415</a>
+<a href="#1416" id="1416">1416</a>
+<a href="#1417" id="1417">1417</a>
+<a href="#1418" id="1418">1418</a>
+<a href="#1419" id="1419">1419</a>
+<a href="#1420" id="1420">1420</a>
+<a href="#1421" id="1421">1421</a>
+<a href="#1422" id="1422">1422</a>
+<a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::future::Future;
 <span class="kw">use </span>std::net::IpAddr;
@@ -2760,6 +2790,36 @@
 
     <span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
         <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetNoDelay)) {
+            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
+            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
+            res =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;invalid response to get nodelay request - {res:?}&quot;</span>);
+                <span class="prelude-val">Err</span>(NetworkError::IOError)
+            }
+        }
+    }
+
+    <span class="kw">fn </span>set_keepalive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, keep_alive: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.io_socket_fire_and_forget(RequestType::SetKeepAlive(keep_alive))
+    }
+
+    <span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetKeepAlive)) {
+            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
+            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
+            res =&gt; {
+                <span class="macro">tracing::debug!</span>(<span class="string">&quot;invalid response to get nodelay request - {res:?}&quot;</span>);
+                <span class="prelude-val">Err</span>(NetworkError::IOError)
+            }
+        }
+    }
+
+    <span class="kw">fn </span>set_dontroute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dont_route: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="self">self</span>.io_socket_fire_and_forget(RequestType::SetDontRoute(dont_route))
+    }
+
+    <span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetDontRoute)) {
             ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
             ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
             res =&gt; {

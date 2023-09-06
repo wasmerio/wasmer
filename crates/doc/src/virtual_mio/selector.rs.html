@@ -110,6 +110,8 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     mem::ManuallyDrop,
@@ -201,23 +203,25 @@
                     <span class="kw">return</span>;
                 }
 
-                <span class="kw">let </span>interest = <span class="kw">if </span>event.is_readable() {
-                    InterestType::Readable
-                } <span class="kw">else if </span>event.is_writable() {
-                    InterestType::Writable
-                } <span class="kw">else if </span>event.is_read_closed() || event.is_write_closed() {
-                    InterestType::Closed
-                } <span class="kw">else if </span>event.is_error() {
-                    InterestType::Error
-                } <span class="kw">else </span>{
-                    <span class="kw">continue</span>;
-                };
-                <span class="macro">tracing::trace!</span>(token = <span class="question-mark">?</span>token, interest = <span class="question-mark">?</span>interest, <span class="string">&quot;host epoll&quot;</span>);
-
                 <span class="comment">// Otherwise this is a waker we need to wake
                 </span><span class="kw">let </span>s = event.token().<span class="number">0 </span><span class="kw">as </span><span class="kw-2">*mut </span>HandlerWrapper;
                 <span class="kw">let </span><span class="kw-2">mut </span>handler = ManuallyDrop::new(<span class="kw">unsafe </span>{ Box::from_raw(s) });
-                handler.<span class="number">0</span>.interest(interest);
+                <span class="kw">if </span>event.is_readable() {
+                    <span class="macro">tracing::trace!</span>(token = <span class="question-mark">?</span>token, interest = <span class="question-mark">?</span>InterestType::Readable, <span class="string">&quot;host epoll&quot;</span>);
+                    handler.<span class="number">0</span>.interest(InterestType::Readable);
+                }
+                <span class="kw">if </span>event.is_writable() {
+                    <span class="macro">tracing::trace!</span>(token = <span class="question-mark">?</span>token, interest = <span class="question-mark">?</span>InterestType::Writable, <span class="string">&quot;host epoll&quot;</span>);
+                    handler.<span class="number">0</span>.interest(InterestType::Writable);
+                }
+                <span class="kw">if </span>event.is_read_closed() || event.is_write_closed() {
+                    <span class="macro">tracing::trace!</span>(token = <span class="question-mark">?</span>token, interest = <span class="question-mark">?</span>InterestType::Closed, <span class="string">&quot;host epoll&quot;</span>);
+                    handler.<span class="number">0</span>.interest(InterestType::Closed);
+                }
+                <span class="kw">if </span>event.is_error() {
+                    <span class="macro">tracing::trace!</span>(token = <span class="question-mark">?</span>token, interest = <span class="question-mark">?</span>InterestType::Error, <span class="string">&quot;host epoll&quot;</span>);
+                    handler.<span class="number">0</span>.interest(InterestType::Error);
+                }
             }
         }
     }

@@ -321,6 +321,20 @@
 <a href="#321" id="321">321</a>
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="kw">pub use </span><span class="kw">super</span>::Duration;
@@ -495,6 +509,20 @@
     /// is immediately sent to the peer without waiting. This reduces
     /// latency but increases encapsulation overhead.
     </span>GetNoDelay,
+    <span class="doccomment">/// When KEEP_ALIVE is set the connection will periodically send
+    /// an empty data packet to the server to make sure the connection
+    /// stays alive.
+    </span>SetKeepAlive(bool),
+    <span class="doccomment">/// Indicates if the KEEP_ALIVE flag is set which means that the
+    /// socket will periodically send an empty data packet to keep
+    /// the connection alive.
+    </span>GetKeepAlive,
+    <span class="doccomment">/// When DONT_ROUTE is set the packet will be sent directly
+    /// to the interface without passing through the routing logic.
+    </span>SetDontRoute(bool),
+    <span class="doccomment">/// Indicates if the packet will pass straight through to
+    /// the interface bypassing the routing logic.
+    </span>GetDontRoute,
     <span class="doccomment">/// Shuts down either the READER or WRITER sides of the socket
     /// connection.
     </span>Shutdown(Shutdown),

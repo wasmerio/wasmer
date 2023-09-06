@@ -423,6 +423,21 @@
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -664,7 +679,11 @@
     <span class="kw">async fn </span>lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>WebcHash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Container&gt;, Error&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(hash);
 
-        <span class="kw">match </span>Container::from_disk(<span class="kw-2">&amp;</span>path) {
+        <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+        </span><span class="kw">let </span>container = Container::from_disk(<span class="kw-2">&amp;</span>path);
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>container = tokio::task::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>path));
+        <span class="kw">match </span>container {
             <span class="prelude-val">Ok</span>(c) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(c)),
             <span class="prelude-val">Err</span>(ContainerError::Open { error, .. })
             | <span class="prelude-val">Err</span>(ContainerError::Read { error, .. })
@@ -796,8 +815,7 @@
         }
     }
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
+    <span class="kw">async fn </span>cache_misses_will_trigger_a_download_internal() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([HttpResponse {
             body: <span class="prelude-val">Some</span>(PYTHON.to_vec()),
@@ -846,6 +864,18 @@
         </span><span class="kw">let </span>in_memory = loader.in_memory.<span class="number">0</span>.read().unwrap();
         <span class="macro">assert!</span>(in_memory.contains_key(<span class="kw-2">&amp;</span>summary.dist.webc_sha256));
     }
+
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
+        cache_misses_will_trigger_a_download_internal().<span class="kw">await
+    </span>}
+
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    #[tokio::test()]
+    </span><span class="kw">async fn </span>cache_misses_will_trigger_a_download() {
+        cache_misses_will_trigger_a_download_internal().<span class="kw">await
+    </span>}
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

@@ -884,6 +884,24 @@
 <a href="#884" id="884">884</a>
 <a href="#885" id="885">885</a>
 <a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
 </pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(any(feature = <span class="string">&quot;remote&quot;</span>))]
@@ -1458,6 +1476,24 @@
     /// is immediately sent to the peer without waiting. This reduces
     /// latency but increases encapsulation overhead.
     </span><span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
+
+    <span class="doccomment">/// When KEEP_ALIVE is set the connection will periodically send
+    /// an empty data packet to the server to make sure the connection
+    /// stays alive.
+    </span><span class="kw">fn </span>set_keepalive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, keepalive: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+
+    <span class="doccomment">/// Indicates if the KEEP_ALIVE flag is set which means that the
+    /// socket will periodically send an empty data packet to keep
+    /// the connection alive.
+    </span><span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
+
+    <span class="doccomment">/// When DONT_ROUTE is set the packet will be sent directly
+    /// to the interface without passing through the routing logic.
+    </span><span class="kw">fn </span>set_dontroute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, keepalive: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
+
+    <span class="doccomment">/// Indicates if the packet will pass straight through to
+    /// the interface bypassing the routing logic.
+    </span><span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 
     <span class="doccomment">/// Returns the address (IP and Port) of the peer socket that this
     /// is conencted to

@@ -1322,6 +1322,50 @@
 <a href="#1321" id="1321">1321</a>
 <a href="#1322" id="1322">1322</a>
 <a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
+<a href="#1363" id="1363">1363</a>
+<a href="#1364" id="1364">1364</a>
+<a href="#1365" id="1365">1365</a>
+<a href="#1366" id="1366">1366</a>
+<a href="#1367" id="1367">1367</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     mem::MaybeUninit,
@@ -1369,6 +1413,9 @@
         only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
+        no_delay: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        keep_alive: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        dont_route: <span class="prelude-ty">Option</span>&lt;bool&gt;,
         send_buf_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
         recv_buf_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
         write_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
@@ -1761,12 +1808,18 @@
                     addr,
                     write_timeout,
                     read_timeout,
+                    no_delay,
+                    keep_alive,
+                    dont_route,
                     ..
                 } =&gt; {
                     new_write_timeout = <span class="kw-2">*</span>write_timeout;
                     new_read_timeout = <span class="kw-2">*</span>read_timeout;
                     <span class="kw">match </span><span class="kw-2">*</span>ty {
                         Socktype::Stream =&gt; {
+                            <span class="kw">let </span>no_delay = <span class="kw-2">*</span>no_delay;
+                            <span class="kw">let </span>keep_alive = <span class="kw-2">*</span>keep_alive;
+                            <span class="kw">let </span>dont_route = <span class="kw-2">*</span>dont_route;
                             <span class="kw">let </span>addr = <span class="kw">match </span>addr {
                                 <span class="prelude-val">Some</span>(a) =&gt; <span class="kw-2">*</span>a,
                                 <span class="prelude-val">None </span>=&gt; {
@@ -1777,7 +1830,19 @@
                                     SocketAddr::new(ip, <span class="number">0</span>)
                                 }
                             };
-                            net.connect_tcp(addr, peer)
+                            Box::pin(<span class="kw">async move </span>{
+                                <span class="kw">let </span><span class="kw-2">mut </span>ret = net.connect_tcp(addr, peer).<span class="kw">await</span><span class="question-mark">?</span>;
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(no_delay) = no_delay {
+                                    ret.set_nodelay(no_delay).ok();
+                                }
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(keep_alive) = keep_alive {
+                                    ret.set_keepalive(keep_alive).ok();
+                                }
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(dont_route) = dont_route {
+                                    ret.set_dontroute(dont_route).ok();
+                                }
+                                <span class="prelude-val">Ok</span>(ret)
+                            })
                         }
                         Socktype::Dgram =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
@@ -1889,12 +1954,18 @@
                 only_v6,
                 reuse_port,
                 reuse_addr,
+                no_delay,
+                keep_alive,
+                dont_route,
                 ..
             } =&gt; {
                 <span class="kw">match </span>option {
                     WasiSocketOption::OnlyV6 =&gt; <span class="kw-2">*</span>only_v6 = val,
                     WasiSocketOption::ReusePort =&gt; <span class="kw-2">*</span>reuse_port = val,
                     WasiSocketOption::ReuseAddr =&gt; <span class="kw-2">*</span>reuse_addr = val,
+                    WasiSocketOption::NoDelay =&gt; <span class="kw-2">*</span>no_delay = <span class="prelude-val">Some</span>(val),
+                    WasiSocketOption::KeepAlive =&gt; <span class="kw-2">*</span>keep_alive = <span class="prelude-val">Some</span>(val),
+                    WasiSocketOption::DontRoute =&gt; <span class="kw-2">*</span>dont_route = <span class="prelude-val">Some</span>(val),
                     <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
                 };
             }
@@ -1908,8 +1979,15 @@
                 WasiSocketOption::NoDelay =&gt; {
                     socket.set_nodelay(val).map_err(net_error_into_wasi_err)<span class="question-mark">?
                 </span>}
+                WasiSocketOption::KeepAlive =&gt; {
+                    socket.set_keepalive(val).map_err(net_error_into_wasi_err)<span class="question-mark">?
+                </span>}
+                WasiSocketOption::DontRoute =&gt; {
+                    socket.set_dontroute(val).map_err(net_error_into_wasi_err)<span class="question-mark">?
+                </span>}
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             },
+            InodeSocketKind::TcpListener { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             InodeSocketKind::UdpSocket { socket, .. } =&gt; <span class="kw">match </span>option {
                 WasiSocketOption::Broadcast =&gt; {
                     socket.set_broadcast(val).map_err(net_error_into_wasi_err)<span class="question-mark">?
@@ -1934,11 +2012,15 @@
                 only_v6,
                 reuse_port,
                 reuse_addr,
+                no_delay,
+                keep_alive,
                 ..
             } =&gt; <span class="kw">match </span>option {
                 WasiSocketOption::OnlyV6 =&gt; <span class="kw-2">*</span>only_v6,
                 WasiSocketOption::ReusePort =&gt; <span class="kw-2">*</span>reuse_port,
                 WasiSocketOption::ReuseAddr =&gt; <span class="kw-2">*</span>reuse_addr,
+                WasiSocketOption::NoDelay =&gt; no_delay.unwrap_or_default(),
+                WasiSocketOption::KeepAlive =&gt; keep_alive.unwrap_or_default(),
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             },
             InodeSocketKind::Raw(sock) =&gt; <span class="kw">match </span>option {
@@ -1949,6 +2031,12 @@
             },
             InodeSocketKind::TcpStream { socket, .. } =&gt; <span class="kw">match </span>option {
                 WasiSocketOption::NoDelay =&gt; socket.nodelay().map_err(net_error_into_wasi_err)<span class="question-mark">?</span>,
+                WasiSocketOption::KeepAlive =&gt; {
+                    socket.keepalive().map_err(net_error_into_wasi_err)<span class="question-mark">?
+                </span>}
+                WasiSocketOption::DontRoute =&gt; {
+                    socket.dontroute().map_err(net_error_into_wasi_err)<span class="question-mark">?
+                </span>}
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             },
             InodeSocketKind::UdpSocket { socket, .. } =&gt; <span class="kw">match </span>option {

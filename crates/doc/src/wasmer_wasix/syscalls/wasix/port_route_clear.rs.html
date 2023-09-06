@@ -18,7 +18,7 @@
 
 <span class="doccomment">/// ### `port_route_clear()`
 /// Clears all the routes in the local port
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>port_route_clear(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>net = env.net().clone();

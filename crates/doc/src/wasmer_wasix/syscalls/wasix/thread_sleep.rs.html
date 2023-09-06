@@ -56,7 +56,7 @@
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%duration), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%duration), ret)]
 </span><span class="kw">pub fn </span>thread_sleep&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     duration: Timestamp,

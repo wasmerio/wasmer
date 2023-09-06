@@ -228,7 +228,7 @@
 
 <span class="doccomment">/// ### `epoll_wait()`
 /// Wait for an I/O event on an epoll file descriptor
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 </span><span class="kw">pub fn </span>epoll_wait&lt;<span class="lifetime">&#39;a</span>, M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;,
     epfd: WasiFd,

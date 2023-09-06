@@ -155,7 +155,7 @@
 <span class="doccomment">/// ### `stack_checkpoint()`
 /// Creates a snapshot of the current stack which allows it to be restored
 /// later using its stack hash.
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>stack_checkpoint&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     snapshot_ptr: WasmPtr&lt;StackSnapshot, M&gt;,

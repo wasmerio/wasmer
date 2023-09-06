@@ -551,6 +551,49 @@
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Write <span class="kw">as _</span>,
     io::Write,
@@ -793,13 +836,20 @@
             .<span class="kw">await
             </span>.context(<span class="string">&quot;Unable to get the locally cached file&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="comment">// FIXME: this will block
+        <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
         </span><span class="kw">let </span>webc_sha256 = WebcHash::for_file(<span class="kw-2">&amp;</span>local_path)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to hash \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>webc_sha256 = tokio::task::block_in_place(|| WebcHash::for_file(<span class="kw-2">&amp;</span>local_path))
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to hash \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
 
         <span class="comment">// Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
+        </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
         </span><span class="kw">let </span>container = Container::from_disk(<span class="kw-2">&amp;</span>local_path)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
+        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+        </span><span class="kw">let </span>container = tokio::task::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>local_path))
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = PackageInfo::from_manifest(container.manifest())
             .context(<span class="string">&quot;Unable to determine the package&#39;s metadata&quot;</span>)<span class="question-mark">?</span>;
@@ -1000,8 +1050,7 @@
         </span>}
     }
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
+    <span class="kw">async fn </span>empty_cache_does_a_full_download_internal() {
         <span class="kw">let </span>dummy_etag = <span class="string">&quot;This is an etag&quot;</span>;
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = DummyClient::with_responses([ResponseBuilder::new()
@@ -1025,9 +1074,18 @@
         </span><span class="macro">assert_eq!</span>(std::fs::read_to_string(etag_path).unwrap(), dummy_etag);
         <span class="macro">assert_eq!</span>(std::fs::read(path).unwrap(), PYTHON);
     }
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
+        empty_cache_does_a_full_download_internal().<span class="kw">await
+    </span>}
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    #[tokio::test()]
+    </span><span class="kw">async fn </span>empty_cache_does_a_full_download() {
+        empty_cache_does_a_full_download_internal().<span class="kw">await
+    </span>}
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>cache_hit() {
+    <span class="kw">async fn </span>cache_hit_internal() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([]));
         <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone());
@@ -1043,9 +1101,18 @@
         <span class="comment">// And no requests were sent
         </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">0</span>);
     }
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    </span><span class="kw">async fn </span>cache_hit() {
+        cache_hit_internal().<span class="kw">await
+    </span>}
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    #[tokio::test()]
+    </span><span class="kw">async fn </span>cache_hit() {
+        cache_hit_internal().<span class="kw">await
+    </span>}
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
+    <span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails_internal() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
             .with_status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -1066,9 +1133,18 @@
         <span class="comment">// The etag file wasn&#39;t written
         </span><span class="macro">assert!</span>(!python_path.with_extension(<span class="string">&quot;etag&quot;</span>).exists());
     }
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
+        fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
+    </span>}
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    #[tokio::test()]
+    </span><span class="kw">async fn </span>fall_back_to_stale_cache_if_request_fails() {
+        fall_back_to_stale_cache_if_request_fails_internal().<span class="kw">await
+    </span>}
 
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+    <span class="kw">async fn </span>download_again_if_etag_is_different_internal() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([
             ResponseBuilder::new().with_etag(<span class="string">&quot;coreutils&quot;</span>).build(),
@@ -1102,6 +1178,16 @@
             <span class="string">&quot;coreutils&quot;
         </span>);
     }
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    #[tokio::test(flavor = <span class="string">&quot;multi_thread&quot;</span>)]
+    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+        download_again_if_etag_is_different_internal().<span class="kw">await
+    </span>}
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    #[tokio::test()]
+    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+        download_again_if_etag_is_different_internal().<span class="kw">await
+    </span>}
 }
 </code></pre></div>
 </section></main><div id="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.69.0 (84c898d65 2023-04-16)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

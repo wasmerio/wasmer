@@ -2016,6 +2016,9 @@
 <a href="#2015" id="2015">2015</a>
 <a href="#2016" id="2016">2016</a>
 <a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
+<a href="#2019" id="2019">2019</a>
+<a href="#2020" id="2020">2020</a>
 </pre><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2480,9 +2483,9 @@
     </span><span class="kw">pub async fn </span>close_all(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// TODO: this should close all uniquely owned files instead of just flushing.
 
-        // Make sure the STDOUT and STDERR are explicitely flushed
-        </span><span class="self">self</span>.flush(__WASI_STDOUT_FILENO).<span class="kw">await</span>.ok();
-        <span class="self">self</span>.flush(__WASI_STDERR_FILENO).<span class="kw">await</span>.ok();
+        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>map) = <span class="self">self</span>.fd_map.write() {
+            map.clear();
+        }
 
         <span class="kw">let </span>to_close = {
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(map) = <span class="self">self</span>.fd_map.read() {
@@ -2492,14 +2495,17 @@
             }
         };
 
-        <span class="kw">for </span>fd <span class="kw">in </span>to_close {
-            <span class="self">self</span>.flush(fd).<span class="kw">await</span>.ok();
-            <span class="self">self</span>.close_fd(fd).ok();
-        }
-
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>map) = <span class="self">self</span>.fd_map.write() {
-            map.clear();
-        }
+        <span class="kw">let _ </span>= <span class="macro">tokio::join!</span>(
+            <span class="comment">// Make sure the STDOUT and STDERR are explicitely flushed
+            </span><span class="self">self</span>.flush(__WASI_STDOUT_FILENO),
+            <span class="self">self</span>.flush(__WASI_STDERR_FILENO),
+            <span class="kw">async </span>{
+                <span class="kw">for </span>fd <span class="kw">in </span>to_close {
+                    <span class="self">self</span>.flush(fd).<span class="kw">await</span>.ok();
+                    <span class="self">self</span>.close_fd(fd).ok();
+                }
+            }
+        );
     }
 
     <span class="doccomment">/// Will conditionally union the binary file system with this one

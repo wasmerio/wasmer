@@ -68,7 +68,7 @@
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret)]
 </span><span class="kw">pub fn </span>port_route_list&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     routes_ptr: WasmPtr&lt;Route, M&gt;,

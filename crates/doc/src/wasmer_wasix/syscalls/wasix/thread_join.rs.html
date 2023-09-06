@@ -61,7 +61,7 @@
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-</span><span class="comment">//#[instrument(level = &quot;debug&quot;, skip_all, fields(%join_tid), ret, err)]
+</span><span class="comment">//#[instrument(level = &quot;debug&quot;, skip_all, fields(%join_tid), ret)]
 </span><span class="kw">pub fn </span>thread_join&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     join_tid: Tid,

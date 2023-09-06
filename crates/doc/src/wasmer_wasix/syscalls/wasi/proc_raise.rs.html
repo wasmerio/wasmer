@@ -51,7 +51,7 @@
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sig), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(sig), ret)]
 </span><span class="kw">pub fn </span>proc_raise(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, sig: Signal) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     env.process.signal_process(sig);

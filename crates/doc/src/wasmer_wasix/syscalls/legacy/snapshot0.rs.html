@@ -201,7 +201,7 @@
 
 <span class="doccomment">/// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 </span><span class="kw">pub fn </span>poll_oneoff&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     in_: WasmPtr&lt;Snapshot0Subscription, Memory32&gt;,

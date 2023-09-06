@@ -16,7 +16,7 @@
 
 <span class="doccomment">/// ### `sched_yield()`
 /// Yields execution of the thread
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret, err)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>sched_yield&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {

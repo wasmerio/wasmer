@@ -292,6 +292,9 @@
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
 <a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
 </pre><pre class="rust"><code><span class="attr">#![deny(unused_mut)]
 #![allow(non_camel_case_types, clippy::identity_op)]
 
@@ -527,7 +530,8 @@
     #[repr(C)]
     </span><span class="kw">pub struct </span>__wasi_addr_t {
         <span class="kw">pub </span>tag: Addressfamily,
-        <span class="kw">pub </span>_padding: u8,
+        <span class="comment">// C will add a padding byte here which must be set to zero otherwise the tag will corrupt
+        </span><span class="kw">pub </span>_padding: u8,
         <span class="kw">pub </span>u: __wasi_addr_u,
     }
 
@@ -541,7 +545,8 @@
     #[repr(C)]
     </span><span class="kw">pub struct </span>__wasi_addr_port_t {
         <span class="kw">pub </span>tag: Addressfamily,
-        <span class="kw">pub </span>_padding: u8,
+        <span class="comment">// C will add a padding byte here which must be set to zero otherwise the tag will corrupt
+        </span><span class="kw">pub </span>_padding: u8,
         <span class="kw">pub </span>u: __wasi_addr_port_u,
     }
 
@@ -555,7 +560,8 @@
     #[repr(C)]
     </span><span class="kw">pub struct </span>__wasi_cidr_t {
         <span class="kw">pub </span>tag: Addressfamily,
-        <span class="kw">pub </span>_padding: u8,
+        <span class="comment">// C will add a padding byte here which must be set to zero otherwise the tag will corrupt
+        </span><span class="kw">pub </span>_padding: u8,
         <span class="kw">pub </span>u: __wasi_cidr_u,
     }
 
