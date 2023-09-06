@@ -45,6 +45,9 @@ pub enum InodeSocketKind {
         only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
+        no_delay: Option<bool>,
+        keep_alive: Option<bool>,
+        dont_route: Option<bool>,
         send_buf_size: Option<usize>,
         recv_buf_size: Option<usize>,
         write_timeout: Option<Duration>,
@@ -437,12 +440,18 @@ impl InodeSocket {
                     addr,
                     write_timeout,
                     read_timeout,
+                    no_delay,
+                    keep_alive,
+                    dont_route,
                     ..
                 } => {
                     new_write_timeout = *write_timeout;
                     new_read_timeout = *read_timeout;
                     match *ty {
                         Socktype::Stream => {
+                            let no_delay = *no_delay;
+                            let keep_alive = *keep_alive;
+                            let dont_route = *dont_route;
                             let addr = match addr {
                                 Some(a) => *a,
                                 None => {
@@ -453,7 +462,19 @@ impl InodeSocket {
                                     SocketAddr::new(ip, 0)
                                 }
                             };
-                            net.connect_tcp(addr, peer)
+                            Box::pin(async move {
+                                let mut ret = net.connect_tcp(addr, peer).await?;
+                                if let Some(no_delay) = no_delay {
+                                    ret.set_nodelay(no_delay).ok();
+                                }
+                                if let Some(keep_alive) = keep_alive {
+                                    ret.set_keepalive(keep_alive).ok();
+                                }
+                                if let Some(dont_route) = dont_route {
+                                    ret.set_dontroute(dont_route).ok();
+                                }
+                                Ok(ret)
+                            })
                         }
                         Socktype::Dgram => return Err(Errno::Inval),
                         _ => return Err(Errno::Notsup),
@@ -565,12 +586,18 @@ impl InodeSocket {
                 only_v6,
                 reuse_port,
                 reuse_addr,
+                no_delay,
+                keep_alive,
+                dont_route,
                 ..
             } => {
                 match option {
                     WasiSocketOption::OnlyV6 => *only_v6 = val,
                     WasiSocketOption::ReusePort => *reuse_port = val,
                     WasiSocketOption::ReuseAddr => *reuse_addr = val,
+                    WasiSocketOption::NoDelay => *no_delay = Some(val),
+                    WasiSocketOption::KeepAlive => *keep_alive = Some(val),
+                    WasiSocketOption::DontRoute => *dont_route = Some(val),
                     _ => return Err(Errno::Inval),
                 };
             }
@@ -584,8 +611,15 @@ impl InodeSocket {
                 WasiSocketOption::NoDelay => {
                     socket.set_nodelay(val).map_err(net_error_into_wasi_err)?
                 }
+                WasiSocketOption::KeepAlive => {
+                    socket.set_keepalive(val).map_err(net_error_into_wasi_err)?
+                }
+                WasiSocketOption::DontRoute => {
+                    socket.set_dontroute(val).map_err(net_error_into_wasi_err)?
+                }
                 _ => return Err(Errno::Inval),
             },
+            InodeSocketKind::TcpListener { .. } => return Err(Errno::Inval),
             InodeSocketKind::UdpSocket { socket, .. } => match option {
                 WasiSocketOption::Broadcast => {
                     socket.set_broadcast(val).map_err(net_error_into_wasi_err)?
@@ -610,11 +644,15 @@ impl InodeSocket {
                 only_v6,
                 reuse_port,
                 reuse_addr,
+                no_delay,
+                keep_alive,
                 ..
             } => match option {
                 WasiSocketOption::OnlyV6 => *only_v6,
                 WasiSocketOption::ReusePort => *reuse_port,
                 WasiSocketOption::ReuseAddr => *reuse_addr,
+                WasiSocketOption::NoDelay => no_delay.unwrap_or_default(),
+                WasiSocketOption::KeepAlive => keep_alive.unwrap_or_default(),
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::Raw(sock) => match option {
@@ -625,6 +663,12 @@ impl InodeSocket {
             },
             InodeSocketKind::TcpStream { socket, .. } => match option {
                 WasiSocketOption::NoDelay => socket.nodelay().map_err(net_error_into_wasi_err)?,
+                WasiSocketOption::KeepAlive => {
+                    socket.keepalive().map_err(net_error_into_wasi_err)?
+                }
+                WasiSocketOption::DontRoute => {
+                    socket.dontroute().map_err(net_error_into_wasi_err)?
+                }
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::UdpSocket { socket, .. } => match option {

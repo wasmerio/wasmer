@@ -13,7 +13,7 @@ use tokio::sync::Mutex as AsyncMutex;
 
 /// ### `epoll_create()`
 /// Create an epoll interest list
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn epoll_create<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_fd: WasmPtr<WasiFd, M>,

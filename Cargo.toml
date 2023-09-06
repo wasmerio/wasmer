@@ -168,6 +168,10 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.weezl]
 opt-level = 3
+[profile.dev.package.sha256]
+opt-level = 3
+[profile.dev.package.digest]
+opt-level = 3
 
 [[bench]]
 name = "static_and_dynamic_functions"

@@ -23,7 +23,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-#[instrument(level = "debug", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret)]
 pub fn proc_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,

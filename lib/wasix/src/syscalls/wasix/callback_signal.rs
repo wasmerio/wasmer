@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// ### Parameters
 ///
 /// * `name` - Name of the function that will be invoked
-#[instrument(level = "trace", skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(name = field::Empty, funct_is_some = field::Empty), ret)]
 pub fn callback_signal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,

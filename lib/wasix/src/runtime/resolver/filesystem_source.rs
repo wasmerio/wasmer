@@ -23,10 +23,17 @@ impl Source for FileSystemSource {
             _ => return Err(QueryError::Unsupported),
         };
 
-        // FIXME: These two operations will block
+        #[cfg(target_arch = "wasm32")]
         let webc_sha256 = WebcHash::for_file(&path)
             .with_context(|| format!("Unable to hash \"{}\"", path.display()))?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let webc_sha256 = tokio::task::block_in_place(|| WebcHash::for_file(&path))
+            .with_context(|| format!("Unable to hash \"{}\"", path.display()))?;
+        #[cfg(target_arch = "wasm32")]
         let container = Container::from_disk(&path)
+            .with_context(|| format!("Unable to parse \"{}\"", path.display()))?;
+        #[cfg(not(target_arch = "wasm32"))]
+        let container = tokio::task::block_in_place(|| Container::from_disk(&path))
             .with_context(|| format!("Unable to parse \"{}\"", path.display()))?;
 
         let url = crate::runtime::resolver::utils::url_from_file_path(&path)

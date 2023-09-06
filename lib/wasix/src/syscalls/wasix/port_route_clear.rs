@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_route_clear()`
 /// Clears all the routes in the local port
-#[instrument(level = "debug", skip_all, ret, err)]
+#[instrument(level = "debug", skip_all, ret)]
 pub fn port_route_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let net = env.net().clone();

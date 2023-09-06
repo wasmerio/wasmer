@@ -54,7 +54,7 @@ impl EventResult {
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     in_: WasmPtr<Subscription, M>,
@@ -385,13 +385,17 @@ where
             match events {
                 Ok(evts) => {
                     // If its a timeout then return an event for it
-                    Span::current().record("seen", evts.len());
+                    if evts.len() == 1 {
+                        Span::current().record("seen", &format!("{:?}", evts.first().unwrap()));
+                    } else {
+                        Span::current().record("seen", &format!("trigger_cnt=({})", evts.len()));
+                    }
 
                     // Process the events
                     process_events(ctx, evts)
                 }
                 Err(Errno::Timedout) => {
-                    // The timeout has triggerred so lets add that event
+                    // The timeout has triggered so lets add that event
                     if clock_subs.is_empty() {
                         tracing::warn!("triggered_timeout (without any clock subscriptions)",);
                     }

@@ -1370,6 +1370,36 @@ impl VirtualTcpSocket for RemoteSocket {
         }
     }
 
+    fn set_keepalive(&mut self, keep_alive: bool) -> Result<()> {
+        self.io_socket_fire_and_forget(RequestType::SetKeepAlive(keep_alive))
+    }
+
+    fn keepalive(&self) -> Result<bool> {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetKeepAlive)) {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::Flag(val) => Ok(val),
+            res => {
+                tracing::debug!("invalid response to get nodelay request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
+    fn set_dontroute(&mut self, dont_route: bool) -> Result<()> {
+        self.io_socket_fire_and_forget(RequestType::SetDontRoute(dont_route))
+    }
+
+    fn dontroute(&self) -> Result<bool> {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetDontRoute)) {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::Flag(val) => Ok(val),
+            res => {
+                tracing::debug!("invalid response to get nodelay request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
     fn addr_peer(&self) -> Result<SocketAddr> {
         match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),

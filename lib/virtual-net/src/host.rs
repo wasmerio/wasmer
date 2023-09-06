@@ -10,6 +10,8 @@ use derivative::Derivative;
 use std::io::{Read, Write};
 use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
+#[cfg(not(target_os = "windows"))]
+use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::runtime::Handle;
@@ -62,6 +64,8 @@ impl VirtualNetworking for LocalNetworking {
                     stream: mio::net::TcpListener::from_std(sock),
                     selector: self.selector.clone(),
                     handler_guard: None,
+                    no_delay: None,
+                    keep_alive: None,
                 })
             })
             .map_err(io_err_into_net_error)?;
@@ -94,11 +98,8 @@ impl VirtualNetworking for LocalNetworking {
         if let Ok(p) = stream.peer_addr() {
             peer = p;
         }
-        Ok(Box::new(LocalTcpStream::new(
-            self.selector.clone(),
-            stream,
-            peer,
-        )))
+        let socket = Box::new(LocalTcpStream::new(self.selector.clone(), stream, peer));
+        Ok(socket)
     }
 
     async fn resolve(
@@ -127,6 +128,8 @@ pub struct LocalTcpListener {
     stream: mio::net::TcpListener,
     selector: Arc<Selector>,
     handler_guard: Option<InterestGuard>,
+    no_delay: Option<bool>,
+    keep_alive: Option<bool>,
 }
 
 impl VirtualTcpListener for LocalTcpListener {
@@ -138,6 +141,12 @@ impl VirtualTcpListener for LocalTcpListener {
                     .ok();
                 let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
                 socket.set_first_handler_writeable();
+                if let Some(no_delay) = self.no_delay {
+                    socket.set_nodelay(no_delay).ok();
+                }
+                if let Some(keep_alive) = self.keep_alive {
+                    socket.set_keepalive(keep_alive).ok();
+                }
                 Ok((Box::new(socket), addr))
             }
             Err(NetworkError::WouldBlock) => Err(NetworkError::WouldBlock),
@@ -240,6 +249,66 @@ impl VirtualTcpSocket for LocalTcpStream {
 
     fn nodelay(&self) -> Result<bool> {
         self.stream.nodelay().map_err(io_err_into_net_error)
+    }
+
+    fn set_keepalive(&mut self, keepalive: bool) -> Result<()> {
+        socket2::SockRef::from(&self.stream)
+            .set_keepalive(true)
+            .map_err(io_err_into_net_error)?;
+        Ok(())
+    }
+
+    fn keepalive(&self) -> Result<bool> {
+        let ret = socket2::SockRef::from(&self.stream)
+            .keepalive()
+            .map_err(io_err_into_net_error)?;
+        Ok(ret)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn set_dontroute(&mut self, val: bool) -> Result<()> {
+        let val = val as libc::c_int;
+        let payload = &val as *const libc::c_int as *const libc::c_void;
+        let err = unsafe {
+            libc::setsockopt(
+                self.stream.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_DONTROUTE,
+                payload,
+                std::mem::size_of::<libc::c_int>() as libc::socklen_t,
+            )
+        };
+        if err == -1 {
+            return Err(io_err_into_net_error(std::io::Error::last_os_error()));
+        }
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    fn set_dontroute(&mut self, val: bool) -> Result<()> {
+        Err(NetworkError::Unsupported)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn dontroute(&self) -> Result<bool> {
+        let mut payload: MaybeUninit<libc::c_int> = MaybeUninit::uninit();
+        let mut len = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+        let err = unsafe {
+            libc::getsockopt(
+                self.stream.as_raw_fd(),
+                libc::SOL_SOCKET,
+                libc::SO_DONTROUTE,
+                payload.as_mut_ptr().cast(),
+                &mut len,
+            )
+        };
+        if err == -1 {
+            return Err(io_err_into_net_error(std::io::Error::last_os_error()));
+        }
+        Ok(unsafe { payload.assume_init() != 0 })
+    }
+    #[cfg(target_os = "windows")]
+    fn dontroute(&self) -> Result<bool> {
+        Err(NetworkError::Unsupported)
     }
 
     fn addr_peer(&self) -> Result<SocketAddr> {

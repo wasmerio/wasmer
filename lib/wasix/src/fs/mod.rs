@@ -462,9 +462,9 @@ impl WasiFs {
     pub async fn close_all(&self) {
         // TODO: this should close all uniquely owned files instead of just flushing.
 
-        // Make sure the STDOUT and STDERR are explicitely flushed
-        self.flush(__WASI_STDOUT_FILENO).await.ok();
-        self.flush(__WASI_STDERR_FILENO).await.ok();
+        if let Ok(mut map) = self.fd_map.write() {
+            map.clear();
+        }
 
         let to_close = {
             if let Ok(map) = self.fd_map.read() {
@@ -474,14 +474,17 @@ impl WasiFs {
             }
         };
 
-        for fd in to_close {
-            self.flush(fd).await.ok();
-            self.close_fd(fd).ok();
-        }
-
-        if let Ok(mut map) = self.fd_map.write() {
-            map.clear();
-        }
+        let _ = tokio::join!(
+            // Make sure the STDOUT and STDERR are explicitely flushed
+            self.flush(__WASI_STDOUT_FILENO),
+            self.flush(__WASI_STDERR_FILENO),
+            async {
+                for fd in to_close {
+                    self.flush(fd).await.ok();
+                    self.close_fd(fd).ok();
+                }
+            }
+        );
     }
 
     /// Will conditionally union the binary file system with this one
