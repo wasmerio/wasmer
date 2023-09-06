@@ -375,8 +375,7 @@ mod tests {
         }
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn cache_misses_will_trigger_a_download() {
+    async fn cache_misses_will_trigger_a_download_internal() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([HttpResponse {
             body: Some(PYTHON.to_vec()),
@@ -424,5 +423,17 @@ mod tests {
         // and cached in memory for next time
         let in_memory = loader.in_memory.0.read().unwrap();
         assert!(in_memory.contains_key(&summary.dist.webc_sha256));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cache_misses_will_trigger_a_download() {
+        cache_misses_will_trigger_a_download_internal().await
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test()]
+    async fn cache_misses_will_trigger_a_download() {
+        cache_misses_will_trigger_a_download_internal().await
     }
 }

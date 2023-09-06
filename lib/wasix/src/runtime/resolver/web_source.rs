@@ -454,8 +454,7 @@ mod tests {
         }
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn empty_cache_does_a_full_download() {
+    async fn empty_cache_does_a_full_download_internal() {
         let dummy_etag = "This is an etag";
         let temp = TempDir::new().unwrap();
         let client = DummyClient::with_responses([ResponseBuilder::new()
@@ -479,9 +478,18 @@ mod tests {
         assert_eq!(std::fs::read_to_string(etag_path).unwrap(), dummy_etag);
         assert_eq!(std::fs::read(path).unwrap(), PYTHON);
     }
-
+    #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test(flavor = "multi_thread")]
-    async fn cache_hit() {
+    async fn empty_cache_does_a_full_download() {
+        empty_cache_does_a_full_download_internal().await
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test()]
+    async fn empty_cache_does_a_full_download() {
+        empty_cache_does_a_full_download_internal().await
+    }
+
+    async fn cache_hit_internal() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([]));
         let source = WebSource::new(temp.path(), client.clone());
@@ -497,9 +505,18 @@ mod tests {
         // And no requests were sent
         assert_eq!(client.requests.lock().unwrap().len(), 0);
     }
-
+    #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test(flavor = "multi_thread")]
-    async fn fall_back_to_stale_cache_if_request_fails() {
+    async fn cache_hit() {
+        cache_hit_internal().await
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test()]
+    async fn cache_hit() {
+        cache_hit_internal().await
+    }
+
+    async fn fall_back_to_stale_cache_if_request_fails_internal() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([ResponseBuilder::new()
             .with_status(StatusCode::INTERNAL_SERVER_ERROR)
@@ -520,9 +537,18 @@ mod tests {
         // The etag file wasn't written
         assert!(!python_path.with_extension("etag").exists());
     }
-
+    #[cfg(not(target_arch = "wasm32"))]
     #[tokio::test(flavor = "multi_thread")]
-    async fn download_again_if_etag_is_different() {
+    async fn fall_back_to_stale_cache_if_request_fails() {
+        fall_back_to_stale_cache_if_request_fails_internal().await
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test()]
+    async fn fall_back_to_stale_cache_if_request_fails() {
+        fall_back_to_stale_cache_if_request_fails_internal().await
+    }
+
+    async fn download_again_if_etag_is_different_internal() {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([
             ResponseBuilder::new().with_etag("coreutils").build(),
@@ -555,5 +581,15 @@ mod tests {
             std::fs::read_to_string(path.with_extension("etag")).unwrap(),
             "coreutils"
         );
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test(flavor = "multi_thread")]
+    async fn download_again_if_etag_is_different() {
+        download_again_if_etag_is_different_internal().await
+    }
+    #[cfg(target_arch = "wasm32")]
+    #[tokio::test()]
+    async fn download_again_if_etag_is_different() {
+        download_again_if_etag_is_different_internal().await
     }
 }
