@@ -399,12 +399,6 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     intrinsics::transmute,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
@@ -581,15 +575,9 @@
             (IpAddr::V4(Ipv4Addr::new(o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>])), port)
         }
         Addressfamily::Inet6 =&gt; {
-            <span class="kw">let </span>[a, b, c, d, e, f, g, h] = {
-                <span class="kw">let </span>o = [
-                    o[<span class="number">2</span>], o[<span class="number">3</span>], o[<span class="number">4</span>], o[<span class="number">5</span>], o[<span class="number">6</span>], o[<span class="number">7</span>], o[<span class="number">8</span>], o[<span class="number">9</span>], o[<span class="number">10</span>], o[<span class="number">11</span>], o[<span class="number">12</span>], o[<span class="number">13</span>],
-                    o[<span class="number">14</span>], o[<span class="number">15</span>], o[<span class="number">16</span>], o[<span class="number">17</span>],
-                ];
-                <span class="kw">unsafe </span>{ transmute::&lt;<span class="kw">_</span>, [u16; <span class="number">8</span>]&gt;(o) }
-            };
+            <span class="kw">let </span>octets: [u8; <span class="number">16</span>] = o[<span class="number">2</span>..<span class="number">18</span>].try_into().unwrap();
             (
-                IpAddr::V6(Ipv6Addr::new(a, b, c, d, e, f, g, h)),
+                IpAddr::V6(Ipv6Addr::from(octets)),
                 u16::from_ne_bytes([o[<span class="number">0</span>], o[<span class="number">1</span>]]),
             )
         }

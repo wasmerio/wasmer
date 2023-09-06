@@ -1366,6 +1366,9 @@
 <a href="#1365" id="1365">1365</a>
 <a href="#1366" id="1366">1366</a>
 <a href="#1367" id="1367">1367</a>
+<a href="#1368" id="1368">1368</a>
+<a href="#1369" id="1369">1369</a>
+<a href="#1370" id="1370">1370</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     mem::MaybeUninit,
@@ -1619,7 +1622,7 @@
 
                     <span class="kw">match </span><span class="kw-2">*</span>ty {
                         Socktype::Stream =&gt; {
-                            <span class="comment">// we already set the socket address - next we need a bind or connect so nothing
+                            <span class="comment">// we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
                         }
@@ -2508,7 +2511,10 @@
                                     <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
                                 }
                             } <span class="kw">else </span>{
-                                <span class="prelude-val">Err</span>(NetworkError::NotConnected)
+                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data) {
+                                    <span class="prelude-val">Ok</span>((amt, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(amt),
+                                    <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
+                                }
                             }
                         }
                         InodeSocketKind::PreSocket { .. } =&gt; {
