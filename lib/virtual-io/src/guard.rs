@@ -5,13 +5,13 @@ use std::{
 
 use mio::Token;
 
-use crate::{InterestHandler, Selector};
+use crate::{InterestHandler, InterestType, Selector};
 
 #[derive(Debug)]
 #[must_use = "Leaking token guards will break the IO subsystem"]
 pub struct InterestGuard {
     selector: Weak<Selector>,
-    pub(crate) token: Option<Token>,
+    pub(crate) token: Token,
 }
 impl Drop for InterestGuard {
     fn drop(&mut self) {
@@ -28,15 +28,13 @@ impl InterestGuard {
         let token = selector.add(handler, source, interest)?;
         Ok(Self {
             selector: Arc::downgrade(selector),
-            token: Some(token),
+            token,
         })
     }
 
     pub fn unregister(&mut self, source: &mut dyn mio::event::Source) -> io::Result<()> {
         if let Some(selector) = self.selector.upgrade() {
-            if let Some(token) = self.token.take() {
-                selector.remove(token, Some(source))?;
-            }
+            selector.remove(self.token, Some(source))?;
         }
         Ok(())
     }
@@ -46,22 +44,22 @@ impl InterestGuard {
         handler: Box<dyn InterestHandler + Send + Sync>,
     ) -> Result<(), Box<dyn InterestHandler + Send + Sync>> {
         if let Some(selector) = self.selector.upgrade() {
-            if let Some(token) = self.token.take() {
-                selector.replace(token, handler);
-                Ok(())
-            } else {
-                Err(handler)
-            }
+            selector.replace(self.token, handler);
+            Ok(())
         } else {
             Err(handler)
         }
     }
 
+    pub fn interest(&mut self, interest: InterestType) {
+        if let Some(selector) = self.selector.upgrade() {
+            selector.handle(self.token, |h| h.interest(interest));
+        }
+    }
+
     fn drop_internal(&mut self) {
-        if let Some(token) = self.token.take() {
-            if let Some(selector) = self.selector.upgrade() {
-                selector.remove(token, None).ok();
-            }
+        if let Some(selector) = self.selector.upgrade() {
+            selector.remove(self.token, None).ok();
         }
     }
 }

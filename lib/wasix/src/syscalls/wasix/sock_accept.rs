@@ -113,7 +113,8 @@ pub fn sock_accept_internal(
             socket: child,
             write_timeout: None,
             read_timeout: None,
-        }),
+        })
+        .map_err(net_error_into_wasi_err)?,
     };
     let inode = state
         .fs

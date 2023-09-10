@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-use virtual_mio::{InterestGuard, InterestHandler, Selector};
+use virtual_mio::{InterestGuard, InterestHandler, InterestType, Selector};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -94,6 +94,8 @@ impl VirtualNetworking for LocalNetworking {
         mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        //let stream = std::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        //let stream = mio::net::TcpStream::from_std(stream);
         socket2::SockRef::from(&stream).set_nonblocking(true).ok();
         if let Ok(p) = stream.peer_addr() {
             peer = p;
@@ -349,7 +351,15 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
-        self.stream.write(data).map_err(io_err_into_net_error)
+        let ret = self.stream.write(data).map_err(io_err_into_net_error);
+        if let Ok(amt) = &ret {
+            if *amt > 0 {
+                if let Some(handler) = self.handler_guard.as_mut() {
+                    handler.interest(InterestType::Writable);
+                }
+            }
+        }
+        ret
     }
 
     fn try_flush(&mut self) -> Result<()> {
@@ -543,7 +553,9 @@ impl VirtualSocket for LocalUdpSocket {
 
     fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
         if let Some(mut guard) = self.handler_guard.take() {
-            guard.unregister(&mut self.socket).map_err(io_err_into_net_error)?;
+            guard
+                .unregister(&mut self.socket)
+                .map_err(io_err_into_net_error)?;
         }
 
         let guard = InterestGuard::new(

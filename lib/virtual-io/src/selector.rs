@@ -103,6 +103,16 @@ impl Selector {
         Ok(())
     }
 
+    pub fn handle<F>(&self, token: Token, f: F)
+    where
+        F: Fn(&mut Box<dyn InterestHandler + Send + Sync>),
+    {
+        let mut guard = self.inner.lock().unwrap();
+        if let Some(handler) = guard.lookup.get_mut(&token) {
+            f(handler)
+        }
+    }
+
     pub fn replace(&self, token: Token, handler: Box<dyn InterestHandler + Send + Sync>) {
         let mut guard = self.inner.lock().unwrap();
         guard.lookup.insert(token, handler);

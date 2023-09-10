@@ -95,12 +95,20 @@ const VTABLE: RawWakerVTable = unsafe {
     )
 };
 
-#[derive(Derivative, Default)]
+#[derive(Derivative)]
 #[derivative(Debug)]
 struct FilteredHandlerSubscriptionsInner {
     #[derivative(Debug = "ignore")]
     mappings: HashMap<InterestType, Box<dyn InterestHandler + Send + Sync>>,
     triggered: HashSet<InterestType>,
+}
+impl Default for FilteredHandlerSubscriptionsInner {
+    fn default() -> Self {
+        Self {
+            mappings: Default::default(),
+            triggered: Default::default(),
+        }
+    }
 }
 
 #[derive(Derivative, Default, Clone)]
@@ -120,6 +128,24 @@ impl FilteredHandlerSubscriptions {
             handler.interest(interest)
         }
         inner.mappings.insert(interest, handler);
+    }
+
+    pub fn remove_interests(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.mappings.clear();
+    }
+
+    pub fn interest(&mut self, interest: InterestType) {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(handler) = inner.mappings.get_mut(&interest) {
+            handler.interest(interest);
+        } else {
+            inner.triggered.insert(interest);
+        }
+    }
+
+    pub fn to_handler(&self) -> FilteredHandler {
+        FilteredHandler { subs: self.clone() }
     }
 }
 
@@ -148,12 +174,7 @@ impl FilteredHandler {
 
 impl InterestHandler for FilteredHandler {
     fn interest(&mut self, interest: InterestType) {
-        let mut inner = self.subs.inner.lock().unwrap();
-        if let Some(handler) = inner.mappings.get_mut(&interest) {
-            handler.interest(interest);
-        } else {
-            inner.triggered.insert(interest);
-        }
+        self.subs.interest(interest);
     }
 }
 

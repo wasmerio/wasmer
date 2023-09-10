@@ -8,11 +8,11 @@ use std::{
     time::Duration,
 };
 
+use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use virtual_mio::{
-    FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType,
-    StatefulHandlerState,
+    FilteredHandlerSubscriptions, InterestHandler, InterestType, StatefulHandlerState,
 };
 use virtual_net::{
     NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
@@ -34,7 +34,8 @@ pub enum InodeHttpSocketType {
     Headers,
 }
 
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
     PreSocket {
@@ -54,6 +55,8 @@ pub enum InodeSocketKind {
         read_timeout: Option<Duration>,
         accept_timeout: Option<Duration>,
         connect_timeout: Option<Duration>,
+        #[derivative(Debug = "ignore")]
+        handler: Option<Box<dyn InterestHandler + Send + Sync>>,
     },
     Icmp(Box<dyn VirtualIcmpSocket + Sync>),
     Raw(Box<dyn VirtualRawSocket + Sync>),
@@ -159,16 +162,13 @@ pub enum TimeType {
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketProtected {
     pub kind: InodeSocketKind,
-    pub notifications: InodeSocketNotifications,
-    pub aggregate_handler: Option<FilteredHandlerSubscriptions>,
+    pub aggregate_handler: FilteredHandlerSubscriptions,
     pub handler_state: StatefulHandlerState,
 }
-
-#[derive(Debug, Default)]
-//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub(crate) struct InodeSocketNotifications {
-    pub closed: bool,
-    pub failed: bool,
+impl Drop for InodeSocketProtected {
+    fn drop(&mut self) {
+        self.aggregate_handler.remove_interests();
+    }
 }
 
 #[derive(Debug)]
@@ -184,21 +184,37 @@ pub struct InodeSocket {
 }
 
 impl InodeSocket {
-    pub fn new(kind: InodeSocketKind) -> Self {
+    pub fn new(kind: InodeSocketKind) -> virtual_net::Result<Self> {
         let handler_state: StatefulHandlerState = Default::default();
         if let InodeSocketKind::TcpStream { .. } = &kind {
             handler_state.set(InterestType::Writable);
         }
-        Self {
+        let aggregate_handler: FilteredHandlerSubscriptions = Default::default();
+        let mut protected = InodeSocketProtected {
+            kind,
+            aggregate_handler: aggregate_handler.clone(),
+            handler_state,
+        };
+        protected.set_handler(Box::new(aggregate_handler.to_handler()))?;
+
+        Ok(Self {
             inner: Arc::new(InodeSocketInner {
-                protected: RwLock::new(InodeSocketProtected {
-                    kind,
-                    notifications: Default::default(),
-                    aggregate_handler: None,
-                    handler_state,
-                }),
+                protected: RwLock::new(protected),
             }),
+        })
+    }
+
+    pub(crate) fn replace_handler(
+        &mut self,
+        aggregate_handler: FilteredHandlerSubscriptions,
+        handler: Option<Box<dyn InterestHandler + Send + Sync>>,
+    ) -> virtual_net::Result<()> {
+        let mut guard = self.inner.protected.write().unwrap();
+        guard.aggregate_handler = aggregate_handler;
+        if let Some(handler) = handler {
+            guard.set_handler(handler)?;
         }
+        Ok(())
     }
 
     pub async fn bind(
@@ -272,7 +288,7 @@ impl InodeSocket {
         tokio::select! {
             socket = socket => {
                 let socket = socket.map_err(net_error_into_wasi_err)?;
-                Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: None })))
+                Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: None }).map_err(net_error_into_wasi_err)?))
             },
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
@@ -332,7 +348,7 @@ impl InodeSocket {
                 Ok(Some(InodeSocket::new(InodeSocketKind::TcpListener {
                     socket,
                     accept_timeout: Some(timeout),
-                })))
+                }).map_err(net_error_into_wasi_err)?))
             },
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
@@ -432,8 +448,11 @@ impl InodeSocket {
 
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
 
+        let aggregate_handler;
+        let handler;
         let connect = {
             let mut inner = self.inner.protected.write().unwrap();
+            aggregate_handler = inner.aggregate_handler.clone();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket {
                     ty,
@@ -443,8 +462,10 @@ impl InodeSocket {
                     no_delay,
                     keep_alive,
                     dont_route,
+                    handler: h,
                     ..
                 } => {
+                    handler = h.take();
                     new_write_timeout = *write_timeout;
                     new_read_timeout = *read_timeout;
                     match *ty {
@@ -494,11 +515,19 @@ impl InodeSocket {
             res = connect => res.map_err(net_error_into_wasi_err)?,
             _ = tasks.sleep_now(timeout) => return Err(Errno::Timedout)
         };
-        Ok(Some(InodeSocket::new(InodeSocketKind::TcpStream {
+
+        let mut socket = InodeSocket::new(InodeSocketKind::TcpStream {
             socket,
             write_timeout: new_write_timeout,
             read_timeout: new_read_timeout,
-        })))
+        })
+        .map_err(net_error_into_wasi_err)?;
+
+        socket
+            .replace_handler(aggregate_handler, handler)
+            .map_err(net_error_into_wasi_err)?;
+
+        Ok(Some(socket))
     }
 
     pub fn status(&self) -> Result<WasiSocketStatus, Errno> {
@@ -990,10 +1019,9 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if !self.handler_registered => {
-                            let res = inner.set_handler(cx.waker().into());
-                            if let Err(err) = res {
-                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
-                            }
+                            inner
+                                .set_handler(cx.waker().into())
+                                .map_err(net_error_into_wasi_err)?;
                             drop(inner);
                             self.handler_registered = true;
                             continue;
@@ -1068,10 +1096,9 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if !self.handler_registered => {
-                            let res = inner.set_handler(cx.waker().into());
-                            if let Err(err) = res {
-                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
-                            }
+                            inner
+                                .set_handler(cx.waker().into())
+                                .map_err(net_error_into_wasi_err)?;
                             self.handler_registered = true;
                             drop(inner);
                             continue;
@@ -1157,10 +1184,9 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if !self.handler_registered => {
-                            let res = inner.set_handler(cx.waker().into());
-                            if let Err(err) = res {
-                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
-                            }
+                            inner
+                                .set_handler(cx.waker().into())
+                                .map_err(net_error_into_wasi_err)?;
                             self.handler_registered = true;
                             drop(inner);
                             continue;
@@ -1234,10 +1260,9 @@ impl InodeSocket {
                             Poll::Ready(Err(Errno::Again))
                         }
                         Err(NetworkError::WouldBlock) if !self.handler_registered => {
-                            let res = inner.set_handler(cx.waker().into());
-                            if let Err(err) = res {
-                                return Poll::Ready(Err(net_error_into_wasi_err(err)));
-                            }
+                            inner
+                                .set_handler(cx.waker().into())
+                                .map_err(net_error_into_wasi_err)?;
                             self.handler_registered = true;
                             continue;
                         }
@@ -1299,7 +1324,9 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.remove_handler(),
             InodeSocketKind::Raw(socket) => socket.remove_handler(),
             InodeSocketKind::Icmp(socket) => socket.remove_handler(),
-            InodeSocketKind::PreSocket { .. } => {}
+            InodeSocketKind::PreSocket { handler, .. } => {
+                handler.take();
+            }
         }
     }
 
@@ -1313,7 +1340,10 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.set_handler(handler),
             InodeSocketKind::Raw(socket) => socket.set_handler(handler),
             InodeSocketKind::Icmp(socket) => socket.set_handler(handler),
-            InodeSocketKind::PreSocket { .. } => Err(virtual_net::NetworkError::NotConnected),
+            InodeSocketKind::PreSocket { handler: h, .. } => {
+                h.replace(handler);
+                Ok(())
+            }
         }
     }
 
@@ -1322,16 +1352,8 @@ impl InodeSocketProtected {
         handler: Box<dyn InterestHandler + Send + Sync>,
         interest: InterestType,
     ) -> virtual_net::Result<()> {
-        if self.aggregate_handler.is_none() {
-            let upper = FilteredHandler::new();
-            let subs = upper.subscriptions().clone();
-
-            self.set_handler(upper)?;
-            self.aggregate_handler.replace(subs);
-        }
-        let upper = self.aggregate_handler.as_mut().unwrap();
-        upper.add_interest(interest, handler);
-        Ok(())
+        self.aggregate_handler.add_interest(interest, handler);
+        self.set_handler(Box::new(self.aggregate_handler.to_handler()))
     }
 }
 
