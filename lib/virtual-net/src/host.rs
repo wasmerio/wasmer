@@ -351,15 +351,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
     }
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
-        let ret = self.stream.write(data).map_err(io_err_into_net_error);
-        if let Ok(amt) = &ret {
-            if *amt > 0 {
-                if let Some(handler) = self.handler_guard.as_mut() {
-                    handler.interest(InterestType::Writable);
-                }
-            }
-        }
-        ret
+        self.stream.write(data).map_err(io_err_into_net_error)
     }
 
     fn try_flush(&mut self) -> Result<()> {
