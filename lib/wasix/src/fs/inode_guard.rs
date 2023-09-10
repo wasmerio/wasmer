@@ -10,7 +10,6 @@ use std::{
 use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
-use virtual_mio::{InterestType, StatefulHandler};
 use wasmer_wasix_types::{
     types::Eventtype,
     wasi::{self, EpollType},
@@ -156,17 +155,6 @@ impl InodeValFilePollGuardJoin {
         self.spent = false;
     }
 }
-impl Drop for InodeValFilePollGuardJoin {
-    fn drop(&mut self) {
-        match &mut self.mode {
-            InodeValFilePollGuardMode::Socket { ref inner } => {
-                let guard = inner.protected.read().unwrap();
-                guard.aggregate_handler.remove_interests();
-            }
-            _ => {}
-        }
-    }
-}
 
 pub const POLL_GUARD_MAX_RET: usize = 4;
 
@@ -211,14 +199,7 @@ impl Future for InodeValFilePollGuardJoin {
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
-                    if guard.handler_state.take(InterestType::Readable) {
-                        Poll::Ready(Ok(8192))
-                    } else {
-                        let handler =
-                            StatefulHandler::new(cx.waker().into(), guard.handler_state.clone());
-                        guard.add_handler(handler, InterestType::Readable).ok();
-                        Poll::Pending
-                    }
+                    guard.poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::Pipe { pipe } => {
                     let mut guard = pipe.write().unwrap();
@@ -308,15 +289,7 @@ impl Future for InodeValFilePollGuardJoin {
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { ref inner } => {
                     let mut guard = inner.protected.write().unwrap();
-                    if guard.handler_state.take(InterestType::Writable) {
-                        Poll::Ready(Ok(8192))
-                    } else {
-                        let handler =
-                            StatefulHandler::new(cx.waker().into(), guard.handler_state.clone());
-
-                        guard.add_handler(handler, InterestType::Writable).ok();
-                        Poll::Pending
-                    }
+                    guard.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::Pipe { pipe } => {
                     let mut guard = pipe.write().unwrap();

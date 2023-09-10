@@ -5,7 +5,7 @@ use std::{
 
 use mio::Token;
 
-use crate::{InterestHandler, InterestType, Selector};
+use crate::{InterestHandler, InterestType, InterestWakerMap, Selector};
 
 #[derive(Debug)]
 #[must_use = "Leaking token guards will break the IO subsystem"]
@@ -62,4 +62,34 @@ impl InterestGuard {
             selector.remove(self.token, None).ok();
         }
     }
+}
+
+#[derive(Debug)]
+pub enum HandlerGuardState {
+    None,
+    ExternalHandler(InterestGuard),
+    WakerMap(InterestGuard, InterestWakerMap),
+}
+
+pub fn state_as_waker_map<'a>(
+    state: &'a mut HandlerGuardState,
+    selector: &'_ Arc<Selector>,
+    source: &'_ mut dyn mio::event::Source,
+) -> io::Result<&'a mut InterestWakerMap> {
+    if !matches!(state, HandlerGuardState::WakerMap(_, _)) {
+        let waker_map = InterestWakerMap::default();
+        *state = HandlerGuardState::WakerMap(
+            InterestGuard::new(
+                selector,
+                Box::new(waker_map.clone()),
+                source,
+                mio::Interest::READABLE | mio::Interest::WRITABLE,
+            )?,
+            waker_map,
+        );
+    }
+    Ok(match state {
+        HandlerGuardState::WakerMap(_, map) => map,
+        _ => unreachable!(),
+    })
 }

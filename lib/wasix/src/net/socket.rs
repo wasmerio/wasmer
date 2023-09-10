@@ -1,22 +1,21 @@
 use std::{
     future::Future,
+    io,
     mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
     sync::{Arc, RwLock},
-    task::Poll,
+    task::{Context, Poll},
     time::Duration,
 };
 
 use derivative::Derivative;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtual_mio::{
-    FilteredHandlerSubscriptions, InterestHandler, InterestType, StatefulHandlerState,
-};
+use virtual_mio::InterestHandler;
 use virtual_net::{
-    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket,
+    net_error_into_io_err, NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
@@ -162,13 +161,6 @@ pub enum TimeType {
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketProtected {
     pub kind: InodeSocketKind,
-    pub aggregate_handler: FilteredHandlerSubscriptions,
-    pub handler_state: StatefulHandlerState,
-}
-impl Drop for InodeSocketProtected {
-    fn drop(&mut self) {
-        self.aggregate_handler.remove_interests();
-    }
 }
 
 #[derive(Debug)]
@@ -185,18 +177,7 @@ pub struct InodeSocket {
 
 impl InodeSocket {
     pub fn new(kind: InodeSocketKind) -> virtual_net::Result<Self> {
-        let handler_state: StatefulHandlerState = Default::default();
-        if let InodeSocketKind::TcpStream { .. } = &kind {
-            handler_state.set(InterestType::Writable);
-        }
-        let aggregate_handler: FilteredHandlerSubscriptions = Default::default();
-        let mut protected = InodeSocketProtected {
-            kind,
-            aggregate_handler: aggregate_handler.clone(),
-            handler_state,
-        };
-        protected.set_handler(Box::new(aggregate_handler.to_handler()))?;
-
+        let protected = InodeSocketProtected { kind };
         Ok(Self {
             inner: Arc::new(InodeSocketInner {
                 protected: RwLock::new(protected),
@@ -204,17 +185,14 @@ impl InodeSocket {
         })
     }
 
-    pub(crate) fn replace_handler(
-        &mut self,
-        aggregate_handler: FilteredHandlerSubscriptions,
-        handler: Option<Box<dyn InterestHandler + Send + Sync>>,
-    ) -> virtual_net::Result<()> {
-        let mut guard = self.inner.protected.write().unwrap();
-        guard.aggregate_handler = aggregate_handler;
-        if let Some(handler) = handler {
-            guard.set_handler(handler)?;
-        }
-        Ok(())
+    pub fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let mut inner = self.inner.protected.write().unwrap();
+        inner.poll_read_ready(cx)
+    }
+
+    pub fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        let mut inner = self.inner.protected.write().unwrap();
+        inner.poll_read_ready(cx)
     }
 
     pub async fn bind(
@@ -448,11 +426,9 @@ impl InodeSocket {
 
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
 
-        let aggregate_handler;
         let handler;
         let connect = {
             let mut inner = self.inner.protected.write().unwrap();
-            aggregate_handler = inner.aggregate_handler.clone();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket {
                     ty,
@@ -511,21 +487,23 @@ impl InodeSocket {
             }
         };
 
-        let socket = tokio::select! {
+        let mut socket = tokio::select! {
             res = connect => res.map_err(net_error_into_wasi_err)?,
             _ = tasks.sleep_now(timeout) => return Err(Errno::Timedout)
         };
 
-        let mut socket = InodeSocket::new(InodeSocketKind::TcpStream {
+        if let Some(handler) = handler {
+            socket
+                .set_handler(handler)
+                .map_err(net_error_into_wasi_err)?;
+        }
+
+        let socket = InodeSocket::new(InodeSocketKind::TcpStream {
             socket,
             write_timeout: new_write_timeout,
             read_timeout: new_read_timeout,
         })
         .map_err(net_error_into_wasi_err)?;
-
-        socket
-            .replace_handler(aggregate_handler, handler)
-            .map_err(net_error_into_wasi_err)?;
 
         Ok(Some(socket))
     }
@@ -1330,6 +1308,30 @@ impl InodeSocketProtected {
         }
     }
 
+    pub fn poll_read_ready(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        match &mut self.kind {
+            InodeSocketKind::TcpListener { socket, .. } => socket.poll_read_ready(cx),
+            InodeSocketKind::TcpStream { socket, .. } => socket.poll_read_ready(cx),
+            InodeSocketKind::UdpSocket { socket, .. } => socket.poll_read_ready(cx),
+            InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
+            InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
+            InodeSocketKind::PreSocket { .. } => Poll::Pending,
+        }
+        .map_err(net_error_into_io_err)
+    }
+
+    pub fn poll_write_ready(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        match &mut self.kind {
+            InodeSocketKind::TcpListener { socket, .. } => socket.poll_write_ready(cx),
+            InodeSocketKind::TcpStream { socket, .. } => socket.poll_write_ready(cx),
+            InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
+            InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
+            InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
+            InodeSocketKind::PreSocket { .. } => Poll::Pending,
+        }
+        .map_err(net_error_into_io_err)
+    }
+
     pub fn set_handler(
         &mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
@@ -1345,15 +1347,6 @@ impl InodeSocketProtected {
                 Ok(())
             }
         }
-    }
-
-    pub fn add_handler(
-        &mut self,
-        handler: Box<dyn InterestHandler + Send + Sync>,
-        interest: InterestType,
-    ) -> virtual_net::Result<()> {
-        self.aggregate_handler.add_interest(interest, handler);
-        self.set_handler(Box::new(self.aggregate_handler.to_handler()))
     }
 }
 
