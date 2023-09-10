@@ -101,8 +101,6 @@ impl VirtualNetworking for LocalNetworking {
         mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
-        //let stream = std::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
-        //let stream = mio::net::TcpStream::from_std(stream);
         socket2::SockRef::from(&stream).set_nonblocking(true).ok();
         if let Ok(p) = stream.peer_addr() {
             peer = p;
