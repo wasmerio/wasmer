@@ -154,9 +154,17 @@ impl VirtualTcpListener for LocalTcpListener {
         }
     }
 
-    fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
-        if let Some(guard) = self.handler_guard.take() {
-            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+    fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
+        if let Some(guard) = self.handler_guard.as_mut() {
+            match guard.replace_handler(handler) {
+                Ok(()) => return Ok(()),
+                Err(h) => handler = h,
+            }
+
+            // the handler could not be replaced so we need to build a new handler instead
+            if let Err(err) = guard.unregister(&mut self.stream) {
+                tracing::debug!("failed to unregister previous token - {}", err);
+            }
         }
 
         let guard = InterestGuard::new(
@@ -192,8 +200,8 @@ impl VirtualTcpListener for LocalTcpListener {
 
 impl VirtualIoSource for LocalTcpListener {
     fn remove_handler(&mut self) {
-        if let Some(guard) = self.handler_guard.take() {
-            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        if let Some(mut guard) = self.handler_guard.take() {
+            guard.unregister(&mut self.stream).ok();
         }
     }
 }
@@ -376,8 +384,16 @@ impl VirtualSocket for LocalTcpStream {
     }
 
     fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
-        if let Some(guard) = self.handler_guard.take() {
-            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        if let Some(guard) = self.handler_guard.as_mut() {
+            match guard.replace_handler(handler) {
+                Ok(()) => return Ok(()),
+                Err(h) => handler = h,
+            }
+
+            // the handler could not be replaced so we need to build a new handler instead
+            if let Err(err) = guard.unregister(&mut self.stream) {
+                tracing::debug!("failed to unregister previous token - {}", err);
+            }
         }
 
         if self.first_handler_writeable {
@@ -401,8 +417,8 @@ impl VirtualSocket for LocalTcpStream {
 
 impl VirtualIoSource for LocalTcpStream {
     fn remove_handler(&mut self) {
-        if let Some(guard) = self.handler_guard.take() {
-            InterestGuard::unregister(guard, &self.selector, &mut self.stream);
+        if let Some(mut guard) = self.handler_guard.take() {
+            guard.unregister(&mut self.stream).ok();
         }
     }
 }
@@ -526,8 +542,8 @@ impl VirtualSocket for LocalUdpSocket {
     }
 
     fn set_handler(&mut self, handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
-        if let Some(guard) = self.handler_guard.take() {
-            InterestGuard::unregister(guard, &self.selector, &mut self.socket);
+        if let Some(mut guard) = self.handler_guard.take() {
+            guard.unregister(&mut self.socket).map_err(io_err_into_net_error)?;
         }
 
         let guard = InterestGuard::new(
@@ -546,8 +562,8 @@ impl VirtualSocket for LocalUdpSocket {
 
 impl VirtualIoSource for LocalUdpSocket {
     fn remove_handler(&mut self) {
-        if let Some(guard) = self.handler_guard.take() {
-            InterestGuard::unregister(guard, &self.selector, &mut self.socket);
+        if let Some(mut guard) = self.handler_guard.take() {
+            guard.unregister(&mut self.socket).ok();
         }
     }
 }

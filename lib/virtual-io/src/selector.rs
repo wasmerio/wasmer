@@ -1,51 +1,62 @@
 use std::{
-    collections::HashSet,
-    mem::ManuallyDrop,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Arc, Mutex,
-    },
+    collections::HashMap,
+    io,
+    sync::{Arc, Mutex},
 };
 
 use derivative::Derivative;
-use mio::Token;
+use mio::{Registry, Token};
 
-use crate::{HandlerWrapper, InterestType};
+use crate::{InterestHandler, InterestType};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub(crate) struct EngineInner {
+    seed: usize,
+    registry: Registry,
     #[derivative(Debug = "ignore")]
-    selector: mio::Poll,
-    rx_drop: Receiver<Token>,
+    lookup: HashMap<Token, Box<dyn InterestHandler + Send + Sync>>,
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Selector {
+    token_close: Token,
     inner: Mutex<EngineInner>,
-    #[derivative(Debug = "ignore")]
-    pub(crate) registry: mio::Registry,
-    pub(crate) tx_drop: Mutex<Sender<Token>>,
     closer: mio::Waker,
+}
+
+use lazy_static::lazy_static;
+lazy_static! {
+    static ref GLOBAL_SELECTOR: Arc<Selector> = Selector::new_internal();
 }
 
 impl Selector {
     pub fn new() -> Arc<Self> {
-        let (tx_drop, rx_drop) = std::sync::mpsc::channel();
+        GLOBAL_SELECTOR.clone()
+    }
 
-        let selector = mio::Poll::new().unwrap();
+    pub fn new_internal() -> Arc<Self> {
+        let poll = mio::Poll::new().unwrap();
+        let registry = poll
+            .registry()
+            .try_clone()
+            .expect("the selector registry failed to clone");
+
         let engine = Arc::new(Selector {
-            closer: mio::Waker::new(selector.registry(), Token(0)).unwrap(),
-            registry: selector.registry().try_clone().unwrap(),
-            inner: Mutex::new(EngineInner { selector, rx_drop }),
-            tx_drop: Mutex::new(tx_drop),
+            closer: mio::Waker::new(poll.registry(), Token(0)).unwrap(),
+            token_close: Token(1),
+            inner: Mutex::new(EngineInner {
+                seed: 10,
+                lookup: Default::default(),
+                registry,
+            }),
         });
 
         {
             let engine = engine.clone();
             std::thread::spawn(move || {
-                Self::run(engine);
+                Self::run(engine, poll);
             });
         }
 
@@ -56,57 +67,91 @@ impl Selector {
         self.closer.wake().ok();
     }
 
-    fn run(engine: Arc<Selector>) {
+    #[must_use = "the token must be consumed"]
+    pub fn add(
+        &self,
+        handler: Box<dyn InterestHandler + Send + Sync>,
+        source: &mut dyn mio::event::Source,
+        interests: mio::Interest,
+    ) -> io::Result<Token> {
+        let mut guard = self.inner.lock().unwrap();
+
+        guard.seed = guard
+            .seed
+            .checked_add(1)
+            .expect("selector has ran out of token seeds");
+        let token = guard.seed;
+        let token = Token(token);
+        guard.lookup.insert(token, handler);
+
+        source.register(&guard.registry, token.clone(), interests)?;
+
+        Ok(token)
+    }
+
+    pub fn remove(
+        &self,
+        token: Token,
+        source: Option<&mut dyn mio::event::Source>,
+    ) -> io::Result<()> {
+        let mut guard = self.inner.lock().unwrap();
+        guard.lookup.remove(&token);
+
+        if let Some(source) = source {
+            guard.registry.deregister(source)?;
+        }
+        Ok(())
+    }
+
+    pub fn replace(&self, token: Token, handler: Box<dyn InterestHandler + Send + Sync>) {
+        let mut guard = self.inner.lock().unwrap();
+        guard.lookup.insert(token, handler);
+    }
+
+    fn run(engine: Arc<Selector>, mut poll: mio::Poll) {
         // The outer loop is used to release the scope of the
         // read lock whenever it needs to do so
         let mut events = mio::Events::with_capacity(128);
         loop {
-            let mut dropped = HashSet::new();
+            // Wait for an event to trigger
+            poll.poll(&mut events, None).unwrap();
 
-            {
-                // Wait for an event to trigger
-                let mut guard = engine.inner.lock().unwrap();
-                guard.selector.poll(&mut events, None).unwrap();
-
-                // Read all the tokens that have been destroyed
-                while let Ok(token) = guard.rx_drop.try_recv() {
-                    let s = token.0 as *mut HandlerWrapper;
-                    drop(unsafe { Box::from_raw(s) });
-                    dropped.insert(token);
-                }
-            }
-
-            // Loop through all the events
+            // Loop through all the events while under a guard lock
+            let mut guard = engine.inner.lock().unwrap();
             for event in events.iter() {
                 // If the event is already dropped then ignore it
                 let token = event.token();
-                if dropped.contains(&token) {
-                    continue;
-                }
 
                 // If its the close event then exit
-                if token.0 == 0 {
+                if token == engine.token_close {
                     return;
                 }
 
+                // Get the handler
+                let handler = match guard.lookup.get_mut(&token) {
+                    Some(h) => h,
+                    None => {
+                        tracing::debug!(token = token.0, "orphaned event");
+                        continue;
+                    }
+                };
+
                 // Otherwise this is a waker we need to wake
-                let s = event.token().0 as *mut HandlerWrapper;
-                let mut handler = ManuallyDrop::new(unsafe { Box::from_raw(s) });
                 if event.is_readable() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Readable, "host epoll");
-                    handler.0.interest(InterestType::Readable);
+                    handler.interest(InterestType::Readable);
                 }
                 if event.is_writable() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Writable, "host epoll");
-                    handler.0.interest(InterestType::Writable);
+                    handler.interest(InterestType::Writable);
                 }
                 if event.is_read_closed() || event.is_write_closed() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Closed, "host epoll");
-                    handler.0.interest(InterestType::Closed);
+                    handler.interest(InterestType::Closed);
                 }
                 if event.is_error() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Error, "host epoll");
-                    handler.0.interest(InterestType::Error);
+                    handler.interest(InterestType::Error);
                 }
             }
         }
