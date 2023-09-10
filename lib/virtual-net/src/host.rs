@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
-use virtual_mio::{InterestGuard, InterestHandler, InterestType, Selector};
+use virtual_mio::{InterestGuard, InterestHandler, Selector};
 
 #[derive(Derivative)]
 #[derivative(Debug)]
