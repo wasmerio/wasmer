@@ -84,7 +84,14 @@ impl Selector {
         let token = Token(token);
         guard.lookup.insert(token, handler);
 
-        source.register(&guard.registry, token.clone(), interests)?;
+        match source.register(&guard.registry, token.clone(), interests) {
+            Ok(()) => {}
+            Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
+                source.deregister(&guard.registry).ok();
+                source.register(&guard.registry, token.clone(), interests)?;
+            }
+            Err(err) => return Err(err),
+        };
 
         Ok(token)
     }

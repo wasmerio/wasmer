@@ -14,6 +14,7 @@ use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
 #[cfg(not(target_os = "windows"))]
 use std::os::fd::AsRawFd;
+use std::os::fd::RawFd;
 use std::sync::Arc;
 use std::task::Poll;
 use std::time::Duration;
@@ -274,7 +275,8 @@ impl VirtualIoSource for LocalTcpListener {
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         let (state, selector, source) = self.split_borrow();
         let map = state_as_waker_map(state, selector, source).map_err(io_err_into_net_error)?;
-        map.add(InterestType::Readable, cx.waker());
+        map.add(InterestType::Writable, cx.waker());
+
         if map.has(InterestType::Writable) {
             match self.try_accept_internal() {
                 Ok(child) => {
@@ -354,6 +356,13 @@ impl VirtualTcpSocket for LocalTcpStream {
 
     #[cfg(not(target_os = "windows"))]
     fn set_dontroute(&mut self, val: bool) -> Result<()> {
+        // TODO:
+        // Don't route is being set by WASIX which breaks networking
+        // Why this is being set is unknown but we need to disable
+        // the functionality for now as it breaks everything
+        return Err(NetworkError::Unsupported);
+
+        /*
         let val = val as libc::c_int;
         let payload = &val as *const libc::c_int as *const libc::c_void;
         let err = unsafe {
@@ -369,6 +378,7 @@ impl VirtualTcpSocket for LocalTcpStream {
             return Err(io_err_into_net_error(std::io::Error::last_os_error()));
         }
         Ok(())
+        */
     }
     #[cfg(target_os = "windows")]
     fn set_dontroute(&mut self, val: bool) -> Result<()> {
@@ -547,15 +557,15 @@ impl VirtualIoSource for LocalTcpStream {
 
         let (state, selector, stream, buffer) = self.split_borrow();
         let map = state_as_waker_map(state, selector, stream).map_err(io_err_into_net_error)?;
-        map.add(InterestType::Readable, cx.waker());
         map.pop(InterestType::Readable);
+        map.add(InterestType::Readable, cx.waker());
 
         buffer.reserve(buffer.len() + 10240);
         let uninit: &mut [MaybeUninit<u8>] = buffer.spare_capacity_mut();
         let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
 
         match stream.read(uninit_unsafe) {
-            Ok(0) => Poll::Pending,
+            Ok(0) => Poll::Ready(Err(NetworkError::ConnectionReset)),
             Ok(amt) => {
                 unsafe {
                     buffer.set_len(buffer.len() + amt);
@@ -570,11 +580,36 @@ impl VirtualIoSource for LocalTcpStream {
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         let (state, selector, stream, _) = self.split_borrow();
         let map = state_as_waker_map(state, selector, stream).map_err(io_err_into_net_error)?;
-        map.add(InterestType::Readable, cx.waker());
-        if map.has(InterestType::Writable) {
-            return Poll::Ready(Ok(10240));
+        map.pop(InterestType::Writable);
+        map.add(InterestType::Writable, cx.waker());
+        map.add(InterestType::Closed, cx.waker());
+        if map.has(InterestType::Closed) {
+            return Poll::Ready(Err(NetworkError::ConnectionReset));
         }
+
+        match libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP) {
+            Some(val) if (val & libc::POLLHUP) != 0 => {
+                return Poll::Ready(Err(NetworkError::ConnectionReset))
+            }
+            Some(val) if (val & libc::POLLOUT) != 0 => return Poll::Ready(Ok(10240)),
+            _ => {}
+        }
+
         Poll::Pending
+    }
+}
+
+fn libc_poll(fd: RawFd, events: libc::c_short) -> Option<libc::c_short> {
+    let mut fds: [libc::pollfd; 1] = [libc::pollfd {
+        fd,
+        events,
+        revents: 0,
+    }];
+    let fds_mut = &mut fds[..];
+    let ret = unsafe { libc::poll(fds_mut.as_mut_ptr(), 1, 0) };
+    match ret == 1 {
+        true => Some(fds[0].revents),
+        false => None,
     }
 }
 
@@ -772,8 +807,8 @@ impl VirtualIoSource for LocalUdpSocket {
 
         let (state, selector, socket) = self.split_borrow();
         let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
-        map.add(InterestType::Readable, cx.waker());
         map.pop(InterestType::Readable);
+        map.add(InterestType::Readable, cx.waker());
 
         let mut buffer = BytesMut::default();
         buffer.reserve(10240);
@@ -781,7 +816,7 @@ impl VirtualIoSource for LocalUdpSocket {
         let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
 
         match self.socket.recv_from(uninit_unsafe) {
-            Ok((0, _)) => Poll::Pending,
+            Ok((0, _)) => Poll::Ready(Err(NetworkError::ConnectionReset)),
             Ok((amt, peer)) => {
                 unsafe {
                     buffer.set_len(amt);
@@ -797,10 +832,13 @@ impl VirtualIoSource for LocalUdpSocket {
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         let (state, selector, socket) = self.split_borrow();
         let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
-        map.add(InterestType::Readable, cx.waker());
-        if map.has(InterestType::Writable) {
+        map.pop(InterestType::Writable);
+        map.add(InterestType::Writable, cx.waker());
+
+        if libc_poll(socket.as_raw_fd(), libc::POLLOUT).is_some() {
             return Poll::Ready(Ok(10240));
         }
+
         Poll::Pending
     }
 }
