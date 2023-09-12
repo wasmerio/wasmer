@@ -2161,7 +2161,6 @@ dependencies = [
  "bytes",
  "derivative",
  "futures",
- "lazy_static",
  "serde",
  "thiserror",
  "tracing",
