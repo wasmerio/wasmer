@@ -344,7 +344,7 @@ impl Future for RemoteNetworkingClientDriver {
 
                                 if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Readable)
+                                    h.push_interest(InterestType::Readable)
                                 }
                             }));
                         }
@@ -366,7 +366,7 @@ impl Future for RemoteNetworkingClientDriver {
 
                                 if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Readable)
+                                    h.push_interest(InterestType::Readable)
                                 }
                             }));
                         }
@@ -386,7 +386,7 @@ impl Future for RemoteNetworkingClientDriver {
                             if let Some(h) =
                                 self.common.handlers.lock().unwrap().get_mut(&socket_id)
                             {
-                                h.interest(InterestType::Writable)
+                                h.push_interest(InterestType::Writable)
                             }
                         }
                         MessageResponse::SendError {
@@ -398,14 +398,14 @@ impl Future for RemoteNetworkingClientDriver {
                                 if let Some(h) =
                                     self.common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Closed)
+                                    h.push_interest(InterestType::Closed)
                                 }
                             }
                             _ => {
                                 if let Some(h) =
                                     self.common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Writable)
+                                    h.push_interest(InterestType::Writable)
                                 }
                             }
                         },
@@ -429,7 +429,7 @@ impl Future for RemoteNetworkingClientDriver {
 
                                 if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Readable)
+                                    h.push_interest(InterestType::Readable)
                                 }
                             }));
                         }
@@ -437,7 +437,7 @@ impl Future for RemoteNetworkingClientDriver {
                             if let Some(h) =
                                 self.common.handlers.lock().unwrap().get_mut(&socket_id)
                             {
-                                h.interest(InterestType::Closed)
+                                h.push_interest(InterestType::Closed)
                             }
                         }
                         MessageResponse::ResponseToRequest { req_id, res } => {
@@ -470,7 +470,7 @@ impl TxWaker {
     fn wake_now(&self) {
         let mut guard = self.common.handlers.lock().unwrap();
         for (_, handler) in guard.iter_mut() {
-            handler.interest(InterestType::Writable);
+            handler.push_interest(InterestType::Writable);
         }
     }
 

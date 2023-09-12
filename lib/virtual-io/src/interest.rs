@@ -15,23 +15,73 @@ pub enum InterestType {
     Error,
 }
 
+#[derive(Debug)]
+pub struct WakerInterestHandler {
+    set: HashSet<InterestType>,
+    waker: Waker,
+}
+impl WakerInterestHandler {
+    pub fn new(waker: &Waker) -> Box<Self> {
+        Box::new(WakerInterestHandler {
+            set: Default::default(),
+            waker: waker.clone(),
+        })
+    }
+}
+impl InterestHandler for WakerInterestHandler {
+    fn push_interest(&mut self, interest: InterestType) {
+        self.set.insert(interest);
+        self.waker.wake_by_ref();
+    }
+
+    fn pop_interest(&mut self, interest: InterestType) -> bool {
+        self.set.remove(&interest)
+    }
+
+    fn has_interest(&self, interest: InterestType) -> bool {
+        self.set.contains(&interest)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SharedWakerInterestHandler {
+    inner: Arc<Mutex<Box<WakerInterestHandler>>>,
+}
+impl SharedWakerInterestHandler {
+    pub fn new(waker: &Waker) -> Box<Self> {
+        Box::new(Self {
+            inner: Arc::new(Mutex::new(WakerInterestHandler::new(waker))),
+        })
+    }
+}
+impl InterestHandler for SharedWakerInterestHandler {
+    fn push_interest(&mut self, interest: InterestType) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.push_interest(interest);
+    }
+
+    fn pop_interest(&mut self, interest: InterestType) -> bool {
+        let mut inner = self.inner.lock().unwrap();
+        inner.pop_interest(interest)
+    }
+
+    fn has_interest(&self, interest: InterestType) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.has_interest(interest)
+    }
+}
+
 pub trait InterestHandler: Send + Sync {
-    fn interest(&mut self, interest: InterestType);
+    fn push_interest(&mut self, interest: InterestType);
+
+    fn pop_interest(&mut self, interest: InterestType) -> bool;
+
+    fn has_interest(&self, interest: InterestType) -> bool;
 }
 
 impl From<&Waker> for Box<dyn InterestHandler + Send + Sync> {
     fn from(waker: &Waker) -> Self {
-        struct WakerHandler {
-            waker: Waker,
-        }
-        impl InterestHandler for WakerHandler {
-            fn interest(&mut self, _interest: InterestType) {
-                self.waker.wake_by_ref();
-            }
-        }
-        Box::new(WakerHandler {
-            waker: waker.clone(),
-        })
+        WakerInterestHandler::new(waker)
     }
 }
 
@@ -61,7 +111,7 @@ pub struct InterestHandlerWaker {
 impl InterestHandlerWaker {
     pub fn wake_now(&self) {
         let mut handler = self.handler.lock().unwrap();
-        handler.interest(self.interest);
+        handler.push_interest(self.interest);
     }
     pub fn set_interest(self: &Arc<Self>, interest: InterestType) -> Arc<Self> {
         let mut next = self.as_ref().clone();
@@ -110,7 +160,7 @@ impl InterestWakerMap {
     pub fn add(&self, interest: InterestType, waker: &Waker) {
         let mut state = self.state.lock().unwrap();
         let entries = state.wakers.entry(interest).or_default();
-        if entries.iter().any(|w| w.will_wake(waker)) == false {
+        if !entries.iter().any(|w| w.will_wake(waker)) {
             entries.push(waker.clone());
         }
     }
@@ -120,14 +170,14 @@ impl InterestWakerMap {
         state.triggered.remove(&interest)
     }
 
-    pub fn has(&self, interest: InterestType) -> bool {
-        let state = self.state.lock().unwrap();
-        state.triggered.contains(&interest)
+    pub fn push(&self, interest: InterestType) -> bool {
+        let mut state = self.state.lock().unwrap();
+        state.triggered.insert(interest)
     }
 }
 
 impl InterestHandler for InterestWakerMap {
-    fn interest(&mut self, interest: InterestType) {
+    fn push_interest(&mut self, interest: InterestType) {
         let mut state = self.state.lock().unwrap();
         if let Some(wakers) = state.wakers.remove(&interest) {
             for waker in wakers {
@@ -136,5 +186,15 @@ impl InterestHandler for InterestWakerMap {
         } else {
             state.triggered.insert(interest);
         }
+    }
+
+    fn pop_interest(&mut self, interest: InterestType) -> bool {
+        let mut state = self.state.lock().unwrap();
+        state.triggered.remove(&interest)
+    }
+
+    fn has_interest(&self, interest: InterestType) -> bool {
+        let state = self.state.lock().unwrap();
+        state.triggered.contains(&interest)
     }
 }

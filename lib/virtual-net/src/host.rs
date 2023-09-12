@@ -87,13 +87,28 @@ impl VirtualNetworking for LocalNetworking {
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
         let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
         socket2::SockRef::from(&socket).set_nonblocking(true).ok();
-        Ok(Box::new(LocalUdpSocket {
+
+        #[allow(unused_mut)]
+        let mut ret = LocalUdpSocket {
             selector: self.selector.clone(),
             socket,
             addr,
             handler_guard: HandlerGuardState::None,
             backlog: Default::default(),
-        }))
+        };
+
+        // In windows we can not poll the socket as it is not supported and hence
+        // what we do is immediately set the writable flag and relay on `mio` to
+        // refresh that flag when the state changes. In Linux what we do is actually
+        // make a non-blocking `poll` call to determine this state
+        #[cfg(target_os = "windows")]
+        {
+            let (state, selector, socket) = ret.split_borrow();
+            let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
+            map.push(InterestType::Writable);
+        }
+
+        Ok(Box::new(ret))
     }
 
     async fn connect_tcp(
@@ -260,7 +275,7 @@ impl VirtualIoSource for LocalTcpListener {
         let map = state_as_waker_map(state, selector, source).map_err(io_err_into_net_error)?;
         map.add(InterestType::Readable, cx.waker());
 
-        if map.has(InterestType::Readable) {
+        if map.has_interest(InterestType::Readable) {
             match self.try_accept_internal() {
                 Ok(child) => {
                     self.backlog.push_back(child);
@@ -277,7 +292,7 @@ impl VirtualIoSource for LocalTcpListener {
         let map = state_as_waker_map(state, selector, source).map_err(io_err_into_net_error)?;
         map.add(InterestType::Writable, cx.waker());
 
-        if map.has(InterestType::Writable) {
+        if map.has_interest(InterestType::Writable) {
             match self.try_accept_internal() {
                 Ok(child) => {
                     self.backlog.push_back(child);
@@ -302,14 +317,28 @@ pub struct LocalTcpStream {
 
 impl LocalTcpStream {
     fn new(selector: Arc<Selector>, stream: mio::net::TcpStream, addr: SocketAddr) -> Self {
-        Self {
+        #[allow(unused_mut)]
+        let mut ret = Self {
             stream,
             addr,
             shutdown: None,
             selector,
             handler_guard: HandlerGuardState::None,
             buffer: BytesMut::new(),
+        };
+
+        // In windows we can not poll the socket as it is not supported and hence
+        // what we do is immediately set the writable flag and relay on `mio` to
+        // refresh that flag when the state changes. In Linux what we do is actually
+        // make a non-blocking `poll` call to determine this state
+        #[cfg(target_os = "windows")]
+        {
+            let (state, selector, socket, _) = ret.split_borrow();
+            let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
+            map.push(InterestType::Writable);
         }
+
+        ret
     }
 }
 
@@ -466,6 +495,7 @@ impl VirtualConnectedSocket for LocalTcpStream {
             self.buffer.advance(amt);
             return Ok(amt);
         }
+
         self.stream.read(buf).map_err(io_err_into_net_error)
     }
 }
@@ -580,13 +610,15 @@ impl VirtualIoSource for LocalTcpStream {
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         let (state, selector, stream, _) = self.split_borrow();
         let map = state_as_waker_map(state, selector, stream).map_err(io_err_into_net_error)?;
+        #[cfg(not(target_os = "windows"))]
         map.pop(InterestType::Writable);
         map.add(InterestType::Writable, cx.waker());
         map.add(InterestType::Closed, cx.waker());
-        if map.has(InterestType::Closed) {
+        if map.has_interest(InterestType::Closed) {
             return Poll::Ready(Err(NetworkError::ConnectionReset));
         }
 
+        #[cfg(not(target_os = "windows"))]
         match libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP) {
             Some(val) if (val & libc::POLLHUP) != 0 => {
                 return Poll::Ready(Err(NetworkError::ConnectionReset))
@@ -595,10 +627,20 @@ impl VirtualIoSource for LocalTcpStream {
             _ => {}
         }
 
+        // In windows we can not poll the socket as it is not supported and hence
+        // what we do is immediately set the writable flag and relay on `mio` to
+        // refresh that flag when the state changes. In Linux what we do is actually
+        // make a non-blocking `poll` call to determine this state
+        #[cfg(target_os = "windows")]
+        if map.has(InterestType::Writable) {
+            return Poll::Ready(Ok(10240));
+        }
+
         Poll::Pending
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn libc_poll(fd: RawFd, events: libc::c_short) -> Option<libc::c_short> {
     let mut fds: [libc::pollfd; 1] = [libc::pollfd {
         fd,
@@ -746,7 +788,9 @@ impl VirtualSocket for LocalUdpSocket {
         match &mut self.handler_guard {
             HandlerGuardState::ExternalHandler(guard) => {
                 match guard.replace_handler(handler) {
-                    Ok(()) => return Ok(()),
+                    Ok(()) => {
+                        return Ok(());
+                    }
                     Err(h) => handler = h,
                 }
 
@@ -832,10 +876,21 @@ impl VirtualIoSource for LocalUdpSocket {
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         let (state, selector, socket) = self.split_borrow();
         let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
+        #[cfg(not(target_os = "windows"))]
         map.pop(InterestType::Writable);
         map.add(InterestType::Writable, cx.waker());
 
+        #[cfg(not(target_os = "windows"))]
         if libc_poll(socket.as_raw_fd(), libc::POLLOUT).is_some() {
+            return Poll::Ready(Ok(10240));
+        }
+
+        // In windows we can not poll the socket as it is not supported and hence
+        // what we do is immediately set the writable flag and relay on `mio` to
+        // refresh that flag when the state changes. In Linux what we do is actually
+        // make a non-blocking `poll` call to determine this state
+        #[cfg(target_os = "windows")]
+        if map.has(InterestType::Writable) {
             return Poll::Ready(Ok(10240));
         }
 

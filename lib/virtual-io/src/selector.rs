@@ -84,11 +84,11 @@ impl Selector {
         let token = Token(token);
         guard.lookup.insert(token, handler);
 
-        match source.register(&guard.registry, token.clone(), interests) {
+        match source.register(&guard.registry, token, interests) {
             Ok(()) => {}
             Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
                 source.deregister(&guard.registry).ok();
-                source.register(&guard.registry, token.clone(), interests)?;
+                source.register(&guard.registry, token, interests)?;
             }
             Err(err) => return Err(err),
         };
@@ -120,8 +120,24 @@ impl Selector {
         }
     }
 
-    pub fn replace(&self, token: Token, handler: Box<dyn InterestHandler + Send + Sync>) {
+    pub fn replace(&self, token: Token, mut handler: Box<dyn InterestHandler + Send + Sync>) {
         let mut guard = self.inner.lock().unwrap();
+
+        let last = guard.lookup.remove(&token);
+        if let Some(last) = last {
+            let interests = vec![
+                InterestType::Readable,
+                InterestType::Writable,
+                InterestType::Closed,
+                InterestType::Error,
+            ];
+            for interest in interests {
+                if last.has_interest(interest) && !handler.has_interest(interest) {
+                    handler.push_interest(interest);
+                }
+            }
+        }
+
         guard.lookup.insert(token, handler);
     }
 
@@ -156,19 +172,19 @@ impl Selector {
                 // Otherwise this is a waker we need to wake
                 if event.is_readable() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Readable, "host epoll");
-                    handler.interest(InterestType::Readable);
+                    handler.push_interest(InterestType::Readable);
                 }
                 if event.is_writable() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Writable, "host epoll");
-                    handler.interest(InterestType::Writable);
+                    handler.push_interest(InterestType::Writable);
                 }
                 if event.is_read_closed() || event.is_write_closed() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Closed, "host epoll");
-                    handler.interest(InterestType::Closed);
+                    handler.push_interest(InterestType::Closed);
                 }
                 if event.is_error() {
                     tracing::trace!(token = ?token, interest = ?InterestType::Error, "host epoll");
-                    handler.interest(InterestType::Error);
+                    handler.push_interest(InterestType::Error);
                 }
             }
         }
