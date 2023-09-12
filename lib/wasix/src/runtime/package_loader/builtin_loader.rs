@@ -73,6 +73,11 @@ impl BuiltinPackageLoader {
         ))
     }
 
+    /// Insert a container into the in-memory hash.
+    pub fn insert_cached(&self, hash: WebcHash, container: &Container) {
+        self.in_memory.save(container, hash);
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(pkg.hash=%hash))]
     async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         if let Some(cached) = self.in_memory.lookup(hash) {
