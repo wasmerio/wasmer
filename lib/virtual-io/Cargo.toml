@@ -14,7 +14,6 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-lazy_static = "1.4"
 mio = { version = "0.8", features = [ "os-poll" ], optional = true }
 socket2 = { version = "0.4", optional = true }
 derivative = { version = "^2" }

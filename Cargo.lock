@@ -5076,7 +5076,6 @@ dependencies = [
  "bytes",
  "derivative",
  "futures",
- "lazy_static",
  "mio",
  "serde",
  "socket2 0.4.9",

@@ -26,17 +26,8 @@ pub struct Selector {
     closer: mio::Waker,
 }
 
-use lazy_static::lazy_static;
-lazy_static! {
-    static ref GLOBAL_SELECTOR: Arc<Selector> = Selector::new_internal();
-}
-
 impl Selector {
     pub fn new() -> Arc<Self> {
-        GLOBAL_SELECTOR.clone()
-    }
-
-    pub fn new_internal() -> Arc<Self> {
         let poll = mio::Poll::new().unwrap();
         let registry = poll
             .registry()
