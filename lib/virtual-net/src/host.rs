@@ -14,6 +14,7 @@ use std::mem::MaybeUninit;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr};
 #[cfg(not(target_os = "windows"))]
 use std::os::fd::AsRawFd;
+#[cfg(not(target_os = "windows"))]
 use std::os::fd::RawFd;
 use std::sync::Arc;
 use std::task::Poll;
@@ -193,19 +194,16 @@ impl VirtualTcpListener for LocalTcpListener {
     }
 
     fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
-        match &mut self.handler_guard {
-            HandlerGuardState::ExternalHandler(guard) => {
-                match guard.replace_handler(handler) {
-                    Ok(()) => return Ok(()),
-                    Err(h) => handler = h,
-                }
-
-                // the handler could not be replaced so we need to build a new handler instead
-                if let Err(err) = guard.unregister(&mut self.stream) {
-                    tracing::debug!("failed to unregister previous token - {}", err);
-                }
+        if let HandlerGuardState::ExternalHandler(guard) = &mut self.handler_guard {
+            match guard.replace_handler(handler) {
+                Ok(()) => return Ok(()),
+                Err(h) => handler = h,
             }
-            _ => {}
+
+            // the handler could not be replaced so we need to build a new handler instead
+            if let Err(err) = guard.unregister(&mut self.stream) {
+                tracing::debug!("failed to unregister previous token - {}", err);
+            }
         }
 
         let guard = InterestGuard::new(
@@ -276,13 +274,10 @@ impl VirtualIoSource for LocalTcpListener {
         map.add(InterestType::Readable, cx.waker());
 
         if map.has_interest(InterestType::Readable) {
-            match self.try_accept_internal() {
-                Ok(child) => {
-                    self.backlog.push_back(child);
-                    return Poll::Ready(Ok(1));
-                }
-                _ => {}
-            };
+            if let Ok(child) = self.try_accept_internal() {
+                self.backlog.push_back(child);
+                return Poll::Ready(Ok(1));
+            }
         }
         Poll::Pending
     }
@@ -293,13 +288,10 @@ impl VirtualIoSource for LocalTcpListener {
         map.add(InterestType::Writable, cx.waker());
 
         if map.has_interest(InterestType::Writable) {
-            match self.try_accept_internal() {
-                Ok(child) => {
-                    self.backlog.push_back(child);
-                    return Poll::Ready(Ok(1));
-                }
-                _ => {}
-            };
+            if let Ok(child) = self.try_accept_internal() {
+                self.backlog.push_back(child);
+                return Poll::Ready(Ok(1));
+            }
         }
         Poll::Pending
     }
@@ -334,8 +326,9 @@ impl LocalTcpStream {
         #[cfg(target_os = "windows")]
         {
             let (state, selector, socket, _) = ret.split_borrow();
-            let map = state_as_waker_map(state, selector, socket).map_err(io_err_into_net_error)?;
-            map.push(InterestType::Writable);
+            if let Ok(map) = state_as_waker_map(state, selector, socket) {
+                map.push(InterestType::Writable);
+            }
         }
 
         ret
@@ -389,7 +382,7 @@ impl VirtualTcpSocket for LocalTcpStream {
         // Don't route is being set by WASIX which breaks networking
         // Why this is being set is unknown but we need to disable
         // the functionality for now as it breaks everything
-        return Err(NetworkError::Unsupported);
+        Err(NetworkError::Unsupported)
 
         /*
         let val = val as libc::c_int;
@@ -518,19 +511,16 @@ impl VirtualSocket for LocalTcpStream {
     }
 
     fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
-        match &mut self.handler_guard {
-            HandlerGuardState::ExternalHandler(guard) => {
-                match guard.replace_handler(handler) {
-                    Ok(()) => return Ok(()),
-                    Err(h) => handler = h,
-                }
-
-                // the handler could not be replaced so we need to build a new handler instead
-                if let Err(err) = guard.unregister(&mut self.stream) {
-                    tracing::debug!("failed to unregister previous token - {}", err);
-                }
+        if let HandlerGuardState::ExternalHandler(guard) = &mut self.handler_guard {
+            match guard.replace_handler(handler) {
+                Ok(()) => return Ok(()),
+                Err(h) => handler = h,
             }
-            _ => {}
+
+            // the handler could not be replaced so we need to build a new handler instead
+            if let Err(err) = guard.unregister(&mut self.stream) {
+                tracing::debug!("failed to unregister previous token - {}", err);
+            }
         }
 
         let guard = InterestGuard::new(
@@ -632,7 +622,7 @@ impl VirtualIoSource for LocalTcpStream {
         // refresh that flag when the state changes. In Linux what we do is actually
         // make a non-blocking `poll` call to determine this state
         #[cfg(target_os = "windows")]
-        if map.has(InterestType::Writable) {
+        if map.has_interest(InterestType::Writable) {
             return Poll::Ready(Ok(10240));
         }
 
@@ -785,21 +775,18 @@ impl VirtualSocket for LocalUdpSocket {
     }
 
     fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
-        match &mut self.handler_guard {
-            HandlerGuardState::ExternalHandler(guard) => {
-                match guard.replace_handler(handler) {
-                    Ok(()) => {
-                        return Ok(());
-                    }
-                    Err(h) => handler = h,
+        if let HandlerGuardState::ExternalHandler(guard) = &mut self.handler_guard {
+            match guard.replace_handler(handler) {
+                Ok(()) => {
+                    return Ok(());
                 }
-
-                // the handler could not be replaced so we need to build a new handler instead
-                if let Err(err) = guard.unregister(&mut self.socket) {
-                    tracing::debug!("failed to unregister previous token - {}", err);
-                }
+                Err(h) => handler = h,
             }
-            _ => {}
+
+            // the handler could not be replaced so we need to build a new handler instead
+            if let Err(err) = guard.unregister(&mut self.socket) {
+                tracing::debug!("failed to unregister previous token - {}", err);
+            }
         }
 
         let guard = InterestGuard::new(
@@ -890,7 +877,7 @@ impl VirtualIoSource for LocalUdpSocket {
         // refresh that flag when the state changes. In Linux what we do is actually
         // make a non-blocking `poll` call to determine this state
         #[cfg(target_os = "windows")]
-        if map.has(InterestType::Writable) {
+        if map.has_interest(InterestType::Writable) {
             return Poll::Ready(Ok(10240));
         }
 
