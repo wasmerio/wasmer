@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::WasixSocketAddr;
+
 pub use super::Duration;
 pub use super::IpAddr;
 pub use super::IpCidr;
@@ -257,9 +259,9 @@ pub enum ResponseType {
     /// A single IP address
     IpAddress(IpAddr),
     /// List of socket addresses
-    SocketAddrList(Vec<SocketAddr>),
+    SocketAddrList(Vec<WasixSocketAddr>),
     /// A single IP address
-    SocketAddr(SocketAddr),
+    SocketAddr(WasixSocketAddr),
     /// Represents a MAC address
     Mac([u8; 6]),
     /// List of CIDR routes from a routing table
@@ -294,7 +296,7 @@ pub enum MessageRequest {
     SendTo {
         socket: SocketId,
         data: Vec<u8>,
-        addr: SocketAddr,
+        addr: WasixSocketAddr,
         req_id: Option<u64>,
     },
     Reconnect,
@@ -314,7 +316,7 @@ pub enum MessageResponse {
     RecvWithAddr {
         socket_id: SocketId,
         data: Vec<u8>,
-        addr: SocketAddr,
+        addr: WasixSocketAddr,
     },
     Sent {
         socket_id: SocketId,
@@ -329,7 +331,7 @@ pub enum MessageResponse {
     FinishAccept {
         socket_id: SocketId,
         child_id: SocketId,
-        addr: SocketAddr,
+        addr: WasixSocketAddr,
     },
     Closed {
         socket_id: SocketId,

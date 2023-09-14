@@ -136,7 +136,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
         .record("nread", bytes_read)
         .record("peer", &format!("{:?}", peer));
 
-    wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
+    wasi_try_ok!(write_socket_addr(&memory, ro_addr, peer));
 
     let bytes_read: M::Offset = wasi_try_ok!(bytes_read.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(ro_flags.write(&memory, 0));

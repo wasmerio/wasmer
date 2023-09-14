@@ -1,5 +1,5 @@
 #![allow(unused_variables)]
-use crate::{io_err_into_net_error, VirtualIoSource};
+use crate::{io_err_into_net_error, VirtualIoSource, WasixSocketAddr};
 #[allow(unused_imports)]
 use crate::{
     IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
@@ -496,15 +496,21 @@ impl VirtualUdpSocket for LocalUdpSocket {
 }
 
 impl VirtualConnectionlessSocket for LocalUdpSocket {
-    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+    fn try_send_to(&mut self, data: &[u8], addr: WasixSocketAddr) -> Result<usize> {
+        let Ok(addr) = addr.try_into() else {
+            return Err(NetworkError::InvalidInput);
+        };
         self.socket
             .send_to(data, addr)
             .map_err(io_err_into_net_error)
     }
 
-    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, WasixSocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        self.socket.recv_from(buf).map_err(io_err_into_net_error)
+        self.socket
+            .recv_from(buf)
+            .map(|(x, y)| (x, y.into()))
+            .map_err(io_err_into_net_error)
     }
 }
 

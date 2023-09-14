@@ -99,9 +99,9 @@ pub(crate) use crate::{
     bin_factory::spawn_exec_module,
     import_object_for_all_wasi_versions, mem_error_to_wasi,
     net::{
-        read_ip_port,
+        read_socket_addr,
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
-        write_ip_port,
+        write_socket_addr,
     },
     runtime::SpawnMemoryType,
     state::{

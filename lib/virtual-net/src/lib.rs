@@ -19,12 +19,15 @@ use pin_project_lite::pin_project;
 #[cfg(any(feature = "remote"))]
 pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
+use std::fmt::Display;
 use std::mem::MaybeUninit;
 pub use std::net::IpAddr;
 pub use std::net::Ipv4Addr;
 pub use std::net::Ipv6Addr;
 use std::net::Shutdown;
 pub use std::net::SocketAddr;
+use std::net::SocketAddrV4;
+use std::net::SocketAddrV6;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Context;
@@ -44,6 +47,65 @@ pub use virtual_mio::{handler_into_waker, InterestHandler};
 pub use virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
+
+// std::os::unix::net::SocketAddr does not exist on windows, so we have
+// to create our own struct
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub struct UnixSocketAddr(pub String);
+
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+pub enum WasixSocketAddr {
+    V4(SocketAddrV4),
+    V6(SocketAddrV6),
+    Unix(UnixSocketAddr),
+}
+
+impl From<SocketAddr> for WasixSocketAddr {
+    fn from(value: SocketAddr) -> Self {
+        match value {
+            SocketAddr::V4(v4) => WasixSocketAddr::V4(v4),
+            SocketAddr::V6(v6) => WasixSocketAddr::V6(v6),
+        }
+    }
+}
+
+impl TryFrom<WasixSocketAddr> for SocketAddr {
+    type Error = ();
+
+    fn try_from(value: WasixSocketAddr) -> std::result::Result<Self, Self::Error> {
+        match value {
+            WasixSocketAddr::V4(v4) => Ok(SocketAddr::V4(v4)),
+            WasixSocketAddr::V6(v6) => Ok(SocketAddr::V6(v6)),
+            WasixSocketAddr::Unix(_) => Err(()),
+        }
+    }
+}
+
+impl Display for WasixSocketAddr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V4(v4) => write!(f, "IPv4({v4})"),
+            Self::V6(v6) => write!(f, "IPv6({v6})"),
+            Self::Unix(u) => write!(f, "Unix({})", u.0),
+        }
+    }
+}
+
+impl WasixSocketAddr {
+    pub fn is_ipv4(&self) -> bool {
+        match self {
+            Self::V4(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_ipv6(&self) -> bool {
+        match self {
+            Self::V6(_) => true,
+            _ => false,
+        }
+    }
+}
 
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -429,22 +491,22 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
 pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     /// Sends out a datagram or stream of bytes on this socket
     /// to a specific address
-    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
+    fn try_send_to(&mut self, data: &[u8], addr: WasixSocketAddr) -> Result<usize>;
 
     /// Recv a packet from the socket
-    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, WasixSocketAddr)>;
 }
 
 #[async_trait::async_trait]
 pub trait VirtualConnectionlessSocketExt: VirtualConnectionlessSocket {
-    async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
+    async fn send_to(&mut self, data: &[u8], addr: WasixSocketAddr) -> Result<usize>;
 
-    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, WasixSocketAddr)>;
 }
 
 #[async_trait::async_trait]
 impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for R {
-    async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+    async fn send_to(&mut self, data: &[u8], addr: WasixSocketAddr) -> Result<usize> {
         pin_project! {
             struct Poller<'a, 'b, R: ?Sized>
             where
@@ -452,7 +514,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
             {
                 socket: &'a mut R,
                 data: &'b [u8],
-                addr: SocketAddr,
+                addr: WasixSocketAddr,
             }
         }
         impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
@@ -467,7 +529,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
                 if let Err(err) = this.socket.set_handler(handler) {
                     return Poll::Ready(Err(err));
                 }
-                match this.socket.try_send_to(this.data, *this.addr) {
+                match this.socket.try_send_to(this.data, this.addr.clone()) {
                     Ok(ret) => Poll::Ready(Ok(ret)),
                     Err(NetworkError::WouldBlock) => Poll::Pending,
                     Err(err) => Poll::Ready(Err(err)),
@@ -482,7 +544,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
         .await
     }
 
-    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, WasixSocketAddr)> {
         pin_project! {
             struct Poller<'a, 'b, R: ?Sized>
             where
@@ -496,7 +558,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
         where
             R: VirtualConnectionlessSocket + ?Sized,
         {
-            type Output = Result<(usize, SocketAddr)>;
+            type Output = Result<(usize, WasixSocketAddr)>;
             fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let this = self.project();
 

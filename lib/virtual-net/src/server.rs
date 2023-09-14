@@ -4,7 +4,7 @@ use crate::{
     meta::{MessageRequest, MessageResponse, RequestType, SocketId},
     VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
-use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
+use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket, WasixSocketAddr};
 use derivative::Derivative;
 use futures_util::stream::FuturesOrdered;
 #[cfg(any(feature = "hyper", feature = "tokio-tungstenite"))]
@@ -441,7 +441,7 @@ impl RemoteNetworkingServerDriver {
         &mut self,
         socket_id: SocketId,
         data: Vec<u8>,
-        addr: SocketAddr,
+        addr: WasixSocketAddr,
         req_id: Option<u64>,
     ) -> BackgroundTask {
         let mut guard = self.common.sockets.lock().unwrap();
@@ -864,7 +864,7 @@ impl RemoteNetworkingServerDriver {
                     RemoteAdapterSocket::RawSocket(s) => s.addr_local(),
                 },
                 |ret| match ret {
-                    Ok(addr) => ResponseType::SocketAddr(addr),
+                    Ok(addr) => ResponseType::SocketAddr(addr.into()),
                     Err(err) => ResponseType::Err(err),
                 },
                 socket_id,
@@ -879,7 +879,7 @@ impl RemoteNetworkingServerDriver {
                     RemoteAdapterSocket::RawSocket(_) => Err(NetworkError::Unsupported),
                 },
                 |ret| match ret {
-                    Ok(Some(addr)) => ResponseType::SocketAddr(addr),
+                    Ok(Some(addr)) => ResponseType::SocketAddr(addr.into()),
                     Ok(None) => ResponseType::None,
                     Err(err) => ResponseType::Err(err),
                 },
@@ -1374,7 +1374,7 @@ impl RemoteAdapterSocket {
         common: &Arc<RemoteAdapterCommon>,
         socket_id: SocketId,
         data: Vec<u8>,
-        addr: SocketAddr,
+        addr: WasixSocketAddr,
         req_id: u64,
     ) -> BackgroundTask {
         match self {
@@ -1437,7 +1437,7 @@ impl RemoteAdapterSocket {
                                     if let Some(task) = common.send(MessageResponse::FinishAccept {
                                         socket_id,
                                         child_id,
-                                        addr,
+                                        addr: addr.into(),
                                     }) {
                                         task.await;
                                     }

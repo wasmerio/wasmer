@@ -61,6 +61,7 @@ use crate::VirtualSocket;
 use crate::VirtualTcpListener;
 use crate::VirtualTcpSocket;
 use crate::VirtualUdpSocket;
+use crate::WasixSocketAddr;
 
 use crate::rx_tx::RemoteRx;
 use crate::rx_tx::RemoteTx;
@@ -497,12 +498,12 @@ impl RequestTx {
 #[derive(Debug)]
 struct DataWithAddr {
     pub data: Vec<u8>,
-    pub addr: SocketAddr,
+    pub addr: WasixSocketAddr,
 }
 #[derive(Debug)]
 struct SocketWithAddr {
     pub socket: SocketId,
-    pub addr: SocketAddr,
+    pub addr: WasixSocketAddr,
 }
 type SocketMap<T> = HashMap<SocketId, T>;
 
@@ -934,7 +935,9 @@ impl VirtualSocket for RemoteSocket {
     fn addr_local(&self) -> Result<SocketAddr> {
         match InlineWaker::block_on(self.io_socket(RequestType::GetAddrLocal)) {
             ResponseType::Err(err) => Err(err),
-            ResponseType::SocketAddr(addr) => Ok(addr),
+            ResponseType::SocketAddr(addr) => {
+                addr.try_into().map_err(|_| NetworkError::InvalidInput)
+            }
             res => {
                 tracing::debug!("invalid response to address local request - {res:?}");
                 Err(NetworkError::IOError)
@@ -975,6 +978,10 @@ impl VirtualTcpListener for RemoteSocket {
             TryRecvError::Disconnected => NetworkError::ConnectionAborted,
         })?;
 
+        let Ok(addr) = accepted.addr.try_into() else {
+            return Err(NetworkError::InvalidInput);
+        };
+
         // This placed here will mean there is always an accept request pending at the
         // server as the constructor invokes this method and we invoke it here after
         // receiving a child connection.
@@ -1013,7 +1020,7 @@ impl VirtualTcpListener for RemoteSocket {
             pending_accept: None,
             tx_waker: TxWaker::new(&self.common).as_waker(),
         };
-        Ok((Box::new(socket), accepted.addr))
+        Ok((Box::new(socket), addr))
     }
 
     fn set_handler(
@@ -1026,7 +1033,9 @@ impl VirtualTcpListener for RemoteSocket {
     fn addr_local(&self) -> Result<SocketAddr> {
         match InlineWaker::block_on(self.io_socket(RequestType::GetAddrLocal)) {
             ResponseType::Err(err) => Err(err),
-            ResponseType::SocketAddr(addr) => Ok(addr),
+            ResponseType::SocketAddr(addr) => {
+                addr.try_into().map_err(|_| NetworkError::InvalidInput)
+            }
             res => {
                 tracing::debug!("invalid response to addr local request - {res:?}");
                 Err(NetworkError::IOError)
@@ -1117,7 +1126,7 @@ impl VirtualRawSocket for RemoteSocket {
 }
 
 impl VirtualConnectionlessSocket for RemoteSocket {
-    fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+    fn try_send_to(&mut self, data: &[u8], addr: WasixSocketAddr) -> Result<usize> {
         let req_id = self.common.request_seed.fetch_add(1, Ordering::SeqCst);
         let mut cx = Context::from_waker(&self.tx_waker);
         match self.common.tx.poll_send(
@@ -1138,13 +1147,13 @@ impl VirtualConnectionlessSocket for RemoteSocket {
     fn try_recv_from(
         &mut self,
         buf: &mut [std::mem::MaybeUninit<u8>],
-    ) -> Result<(usize, SocketAddr)> {
+    ) -> Result<(usize, WasixSocketAddr)> {
         match self.rx_recv_with_addr.try_recv() {
             Ok(received) => {
                 let amt = buf.len().min(received.data.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(&received.data[..amt]);
-                Ok((amt, received.addr))
+                Ok((amt, received.addr.into()))
             }
             Err(TryRecvError::Disconnected) => Err(NetworkError::ConnectionAborted),
             Err(TryRecvError::Empty) => Err(NetworkError::WouldBlock),
@@ -1241,7 +1250,10 @@ impl VirtualUdpSocket for RemoteSocket {
         match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(None),
-            ResponseType::SocketAddr(addr) => Ok(Some(addr)),
+            ResponseType::SocketAddr(addr) => addr
+                .try_into()
+                .map(Some)
+                .map_err(|_| NetworkError::InvalidInput),
             res => {
                 tracing::debug!("invalid response to addr peer request - {res:?}");
                 Err(NetworkError::IOError)
@@ -1403,7 +1415,9 @@ impl VirtualTcpSocket for RemoteSocket {
     fn addr_peer(&self) -> Result<SocketAddr> {
         match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),
-            ResponseType::SocketAddr(addr) => Ok(addr),
+            ResponseType::SocketAddr(addr) => {
+                addr.try_into().map_err(|_| NetworkError::InvalidInput)
+            }
             res => {
                 tracing::debug!("invalid response to addr peer request - {res:?}");
                 Err(NetworkError::IOError)

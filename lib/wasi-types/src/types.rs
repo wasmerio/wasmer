@@ -241,7 +241,7 @@ pub mod net {
     #[derive(Debug, Copy, Clone, ValueType)]
     #[repr(C)]
     pub struct __wasi_addr_port_u {
-        pub octs: [u8; 18],
+        pub octs: [u8; 108],
     }
 
     #[derive(Debug, Copy, Clone, ValueType)]

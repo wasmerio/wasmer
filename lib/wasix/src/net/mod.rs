@@ -1,10 +1,11 @@
 use std::{
+    ffi::CStr,
     intrinsics::transmute,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6},
     time::Duration,
 };
 
-use virtual_net::{IpCidr, IpRoute, NetworkError};
+use virtual_net::{IpCidr, IpRoute, NetworkError, UnixSocketAddr, WasixSocketAddr};
 use wasmer::{MemoryView, WasmPtr};
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::{
@@ -161,24 +162,49 @@ pub(crate) fn write_cidr<M: MemorySize>(
     Ok(())
 }
 
-pub(crate) fn read_ip_port<M: MemorySize>(
+pub(crate) fn read_socket_addr<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_port_t, M>,
-) -> Result<(IpAddr, u16), Errno> {
+) -> Result<WasixSocketAddr, Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
-    let o = addr.u.octs;
+    let mut o = addr.u.octs;
     Ok(match addr.tag {
         Addressfamily::Inet4 => {
             let port = u16::from_ne_bytes([o[0], o[1]]);
-            (IpAddr::V4(Ipv4Addr::new(o[2], o[3], o[4], o[5])), port)
+            WasixSocketAddr::V4(SocketAddrV4::new(
+                Ipv4Addr::new(o[2], o[3], o[4], o[5]),
+                port,
+            ))
         }
         Addressfamily::Inet6 => {
+            let (flow_info, scope_id) = {
+                // Older versions of the witx definitions did not include these fields. To
+                // make sure we're not reading junk data, we test the remaining bytes in
+                // the struct to make sure they're zero, which should be the case if the
+                // struct was properly initialized to zero (this is done by wasix-libc
+                // automatically, see sockaddr_to_wasi in common/net.h)
+                if o[26..].iter().all(|x| *x == 0) {
+                    let octets = [o[18], o[19], o[20], o[21]];
+                    let flow_info = u32::from_ne_bytes(octets);
+                    let octets = [o[22], o[23], o[24], o[25]];
+                    let scope_id = u32::from_ne_bytes(octets);
+                    (flow_info, scope_id)
+                } else {
+                    (0, 0)
+                }
+            };
             let octets: [u8; 16] = o[2..18].try_into().unwrap();
-            (
-                IpAddr::V6(Ipv6Addr::from(octets)),
-                u16::from_ne_bytes([o[0], o[1]]),
-            )
+            let addr = Ipv6Addr::from(octets);
+            let port = u16::from_ne_bytes([o[0], o[1]]);
+            WasixSocketAddr::V6(SocketAddrV6::new(addr, port, flow_info, scope_id))
+        }
+        Addressfamily::Unix => {
+            // Insert a null byte at the end. Note that only paths up to 107 bytes are allowed.
+            o[107] = 0;
+            let path_str = CStr::from_bytes_until_nul(&o[..]).unwrap();
+            let str = path_str.to_str().map_err(|_| Errno::Inval)?;
+            WasixSocketAddr::Unix(UnixSocketAddr(str.to_string()))
         }
         _ => {
             tracing::debug!("invalid address family ({})", addr.tag as u8);
@@ -188,43 +214,56 @@ pub(crate) fn read_ip_port<M: MemorySize>(
 }
 
 #[allow(dead_code)]
-pub(crate) fn write_ip_port<M: MemorySize>(
+pub(crate) fn write_socket_addr<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_port_t, M>,
-    ip: IpAddr,
-    port: u16,
+    sock_addr: WasixSocketAddr,
 ) -> Result<(), Errno> {
-    let p = port.to_be_bytes();
-    let ipport = match ip {
-        IpAddr::V4(ip) => {
-            let o = ip.octets();
+    let mut octs = [0u8; 108];
+    let addr = match sock_addr {
+        WasixSocketAddr::V4(v4) => {
+            let o = v4.ip().octets();
+            let p = v4.port().to_ne_bytes();
+            octs[0..6].copy_from_slice(&[p[0], p[1], o[0], o[1], o[2], o[3]]);
             __wasi_addr_port_t {
                 tag: Addressfamily::Inet4,
                 _padding: 0,
-                u: __wasi_addr_port_u {
-                    octs: [
-                        p[0], p[1], o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    ],
-                },
+                u: __wasi_addr_port_u { octs },
             }
         }
-        IpAddr::V6(ip) => {
-            let o = ip.octets();
+        WasixSocketAddr::V6(v6) => {
+            let o = v6.ip().octets();
+            let p = v6.port().to_ne_bytes();
+            let f = v6.flowinfo().to_ne_bytes();
+            let s = v6.scope_id().to_ne_bytes();
+            octs[0..26].copy_from_slice(&[
+                p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
+                o[11], o[12], o[13], o[14], o[15], f[0], f[1], f[2], f[3], s[0], s[1], s[2], s[3],
+            ]);
             __wasi_addr_port_t {
                 tag: Addressfamily::Inet6,
                 _padding: 0,
-                u: __wasi_addr_port_u {
-                    octs: [
-                        p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9],
-                        o[10], o[11], o[12], o[13], o[14], o[15],
-                    ],
-                },
+                u: __wasi_addr_port_u { octs },
+            }
+        }
+        WasixSocketAddr::Unix(unix) => {
+            // The 108th byte has to remain null
+            let bytes = if unix.0.as_bytes().len() > 107 {
+                &unix.0.as_bytes()[0..107]
+            } else {
+                unix.0.as_bytes()
+            };
+            octs[0..bytes.len()].copy_from_slice(bytes);
+            __wasi_addr_port_t {
+                tag: Addressfamily::Unix,
+                _padding: 0,
+                u: __wasi_addr_port_u { octs },
             }
         }
     };
 
     let addr_ptr = ptr.deref(memory);
-    addr_ptr.write(ipport).map_err(crate::mem_error_to_wasi)?;
+    addr_ptr.write(addr).map_err(crate::mem_error_to_wasi)?;
     Ok(())
 }
 

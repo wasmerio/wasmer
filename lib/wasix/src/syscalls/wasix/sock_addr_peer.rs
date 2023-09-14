@@ -28,11 +28,6 @@ pub fn sock_addr_peer<M: MemorySize>(
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    wasi_try!(crate::net::write_ip_port(
-        &memory,
-        ro_addr,
-        addr.ip(),
-        addr.port()
-    ));
+    wasi_try!(crate::net::write_socket_addr(&memory, ro_addr, addr));
     Errno::Success
 }

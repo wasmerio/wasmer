@@ -17,8 +17,7 @@ pub fn sock_bind<M: MemorySize>(
 ) -> Errno {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
-    let addr = SocketAddr::new(addr.0, addr.1);
+    let addr = wasi_try!(crate::net::read_socket_addr(&memory, addr));
     Span::current().record("addr", &format!("{:?}", addr));
 
     let net = env.net().clone();

@@ -51,11 +51,10 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
 
-    let (addr_ip, addr_port) = {
+    let addr = {
         let memory = unsafe { env.memory_view(&ctx) };
-        wasi_try_ok!(read_ip_port(&memory, addr))
+        wasi_try_ok!(read_socket_addr(&memory, addr))
     };
-    let addr = SocketAddr::new(addr_ip, addr_port);
     Span::current().record("addr", &format!("{:?}", addr));
 
     let bytes_written = {
@@ -87,7 +86,7 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
                         .send_to::<M>(
                             env.tasks().deref(),
                             buf.as_ref(),
-                            addr,
+                            addr.clone(),
                             Some(timeout),
                             nonblocking,
                         )

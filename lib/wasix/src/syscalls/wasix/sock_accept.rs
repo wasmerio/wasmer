@@ -1,5 +1,7 @@
 use std::task::Waker;
 
+use virtual_net::WasixSocketAddr;
+
 use super::*;
 use crate::{net::socket::TimeType, syscalls::*};
 
@@ -67,12 +69,7 @@ pub fn sock_accept_v2<M: MemorySize>(
     let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
-    wasi_try_ok!(crate::net::write_ip_port(
-        &memory,
-        ro_addr,
-        addr.ip(),
-        addr.port()
-    ));
+    wasi_try_ok!(crate::net::write_socket_addr(&memory, ro_addr, addr));
 
     Ok(Errno::Success)
 }
@@ -82,7 +79,7 @@ pub fn sock_accept_internal(
     sock: WasiFd,
     mut fd_flags: Fdflags,
     mut nonblocking: bool,
-) -> Result<(WasiFd, SocketAddr), Errno> {
+) -> Result<(WasiFd, WasixSocketAddr), Errno> {
     let state = env.state();
     let inodes = &state.inodes;
 

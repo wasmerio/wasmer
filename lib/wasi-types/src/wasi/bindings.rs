@@ -1,3 +1,5 @@
+#![allow(non_upper_case_globals)]
+
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;

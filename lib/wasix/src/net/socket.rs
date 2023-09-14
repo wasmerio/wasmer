@@ -1,7 +1,7 @@
 use std::{
     future::Future,
     mem::MaybeUninit,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
     pin::Pin,
     sync::{Arc, RwLock},
     task::Poll,
@@ -15,8 +15,8 @@ use virtual_mio::{
     StatefulHandlerState,
 };
 use virtual_net::{
-    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket,
+    NetworkError, UnixSocketAddr, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
+    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, WasixSocketAddr,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
@@ -41,7 +41,7 @@ pub enum InodeSocketKind {
         family: Addressfamily,
         ty: Socktype,
         pt: SockProto,
-        addr: Option<SocketAddr>,
+        addr: Option<WasixSocketAddr>,
         only_v6: bool,
         reuse_port: bool,
         reuse_addr: bool,
@@ -205,7 +205,7 @@ impl InodeSocket {
         &self,
         tasks: &dyn VirtualTaskManager,
         net: &dyn VirtualNetworking,
-        set_addr: SocketAddr,
+        set_addr: WasixSocketAddr,
     ) -> Result<Option<InodeSocket>, Errno> {
         let timeout = self
             .opt_time(TimeType::BindTimeout)
@@ -247,7 +247,7 @@ impl InodeSocket {
                     }
 
                     addr.replace(set_addr);
-                    let addr = (*addr).unwrap();
+                    let addr = addr.clone().unwrap();
 
                     match *ty {
                         Socktype::Stream => {
@@ -260,7 +260,7 @@ impl InodeSocket {
                             let reuse_addr = *reuse_addr;
                             drop(inner);
 
-                            net.bind_udp(addr, reuse_port, reuse_addr)
+                            net.bind_udp(addr.try_into().unwrap(), reuse_port, reuse_addr)
                         }
                         _ => return Err(Errno::Inval),
                     }
@@ -306,7 +306,9 @@ impl InodeSocket {
                             tracing::warn!("wasi[?]::sock_listen - failed - address not set");
                             return Err(Errno::Inval);
                         }
-                        let addr = *addr.as_ref().unwrap();
+                        let Ok(addr) = addr.clone().unwrap().try_into() else {
+                            return Err(Errno::Inval);
+                        };
                         let only_v6 = *only_v6;
                         let reuse_port = *reuse_port;
                         let reuse_addr = *reuse_addr;
@@ -343,7 +345,7 @@ impl InodeSocket {
         tasks: &dyn VirtualTaskManager,
         nonblocking: bool,
         timeout: Option<Duration>,
-    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
+    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, WasixSocketAddr), Errno> {
         struct SocketAccepter<'a> {
             sock: &'a InodeSocket,
             nonblocking: bool,
@@ -358,7 +360,7 @@ impl InodeSocket {
             }
         }
         impl<'a> Future for SocketAccepter<'a> {
-            type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno>;
+            type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, WasixSocketAddr), Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
@@ -367,7 +369,7 @@ impl InodeSocket {
                     let mut inner = self.sock.inner.protected.write().unwrap();
                     return match &mut inner.kind {
                         InodeSocketKind::TcpListener { socket, .. } => match socket.try_accept() {
-                            Ok((child, addr)) => Poll::Ready(Ok((child, addr))),
+                            Ok((child, addr)) => Poll::Ready(Ok((child, addr.into()))),
                             Err(NetworkError::WouldBlock) if self.nonblocking => {
                                 Poll::Ready(Err(Errno::Again))
                             }
@@ -424,7 +426,7 @@ impl InodeSocket {
         &mut self,
         tasks: &dyn VirtualTaskManager,
         net: &dyn VirtualNetworking,
-        peer: SocketAddr,
+        peer: WasixSocketAddr,
         timeout: Option<std::time::Duration>,
     ) -> Result<Option<InodeSocket>, Errno> {
         let new_write_timeout;
@@ -453,17 +455,24 @@ impl InodeSocket {
                             let keep_alive = *keep_alive;
                             let dont_route = *dont_route;
                             let addr = match addr {
-                                Some(a) => *a,
+                                Some(a) => a.clone(),
                                 None => {
-                                    let ip = match peer.is_ipv4() {
-                                        true => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                        false => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                                    let ip = match peer {
+                                        WasixSocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                                        WasixSocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                                        WasixSocketAddr::Unix(_) => return Err(Errno::Inval),
                                     };
-                                    SocketAddr::new(ip, 0)
+                                    SocketAddr::new(ip, 0).into()
                                 }
                             };
                             Box::pin(async move {
-                                let mut ret = net.connect_tcp(addr, peer).await?;
+                                let Ok(addr) = addr.try_into() else {
+                                    return Err(Errno::Inval);
+                                };
+                                let mut ret = net
+                                    .connect_tcp(addr, peer.try_into().unwrap())
+                                    .await
+                                    .map_err(net_error_into_wasi_err)?;
                                 if let Some(no_delay) = no_delay {
                                     ret.set_nodelay(no_delay).ok();
                                 }
@@ -483,6 +492,9 @@ impl InodeSocket {
                 InodeSocketKind::UdpSocket {
                     peer: target_peer, ..
                 } => {
+                    let Ok(peer) = peer.try_into() else {
+                        return Err(Errno::Inval);
+                    };
                     target_peer.replace(peer);
                     return Ok(None);
                 }
@@ -491,7 +503,7 @@ impl InodeSocket {
         };
 
         let socket = tokio::select! {
-            res = connect => res.map_err(net_error_into_wasi_err)?,
+            res = connect => res?,
             _ = tasks.sleep_now(timeout) => return Err(Errno::Timedout)
         };
         Ok(Some(InodeSocket::new(InodeSocketKind::TcpStream {
@@ -512,67 +524,81 @@ impl InodeSocket {
         })
     }
 
-    pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
+    pub fn addr_local(&self) -> Result<WasixSocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { family, addr, .. } => {
                 if let Some(addr) = addr {
-                    *addr
+                    addr.clone()
                 } else {
-                    SocketAddr::new(
-                        match *family {
-                            Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                            Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                            _ => return Err(Errno::Inval),
-                        },
-                        0,
-                    )
+                    match *family {
+                        Addressfamily::Inet4 => {
+                            WasixSocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
+                        }
+                        Addressfamily::Inet6 => {
+                            WasixSocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))
+                        }
+                        Addressfamily::Unix => WasixSocketAddr::Unix(UnixSocketAddr(String::new())),
+                        _ => return Err(Errno::Inval),
+                    }
                 }
             }
-            InodeSocketKind::Icmp(sock) => sock.addr_local().map_err(net_error_into_wasi_err)?,
-            InodeSocketKind::TcpListener { socket, .. } => {
-                socket.addr_local().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::TcpStream { socket, .. } => {
-                socket.addr_local().map_err(net_error_into_wasi_err)?
-            }
-            InodeSocketKind::UdpSocket { socket, .. } => {
-                socket.addr_local().map_err(net_error_into_wasi_err)?
-            }
+            InodeSocketKind::Icmp(sock) => sock
+                .addr_local()
+                .map(Into::into)
+                .map_err(net_error_into_wasi_err)?,
+            InodeSocketKind::TcpListener { socket, .. } => socket
+                .addr_local()
+                .map(Into::into)
+                .map_err(net_error_into_wasi_err)?,
+            InodeSocketKind::TcpStream { socket, .. } => socket
+                .addr_local()
+                .map(Into::into)
+                .map_err(net_error_into_wasi_err)?,
+            InodeSocketKind::UdpSocket { socket, .. } => socket
+                .addr_local()
+                .map(Into::into)
+                .map_err(net_error_into_wasi_err)?,
             _ => return Err(Errno::Notsup),
         })
     }
 
-    pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
+    pub fn addr_peer(&self) -> Result<WasixSocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
-            InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
-                match *family {
-                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                    _ => return Err(Errno::Inval),
-                },
-                0,
-            ),
-            InodeSocketKind::TcpStream { socket, .. } => {
-                socket.addr_peer().map_err(net_error_into_wasi_err)?
-            }
+            InodeSocketKind::PreSocket { family, .. } => match *family {
+                Addressfamily::Inet4 => {
+                    WasixSocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0))
+                }
+                Addressfamily::Inet6 => {
+                    WasixSocketAddr::V6(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0))
+                }
+                Addressfamily::Unix => WasixSocketAddr::Unix(UnixSocketAddr(String::new())),
+                _ => return Err(Errno::Inval),
+            },
+            InodeSocketKind::TcpStream { socket, .. } => socket
+                .addr_peer()
+                .map(Into::into)
+                .map_err(net_error_into_wasi_err)?,
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .addr_peer()
                 .map_err(net_error_into_wasi_err)?
-                .map(Ok)
+                .map(|x| Ok(x.into()))
                 .unwrap_or_else(|| {
                     socket
                         .addr_local()
                         .map_err(net_error_into_wasi_err)
-                        .map(|addr| {
-                            SocketAddr::new(
-                                match addr {
-                                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                                },
+                        .and_then(|addr| match addr {
+                            SocketAddr::V4(_) => Ok(WasixSocketAddr::V4(SocketAddrV4::new(
+                                Ipv4Addr::UNSPECIFIED,
                                 0,
-                            )
+                            ))),
+                            SocketAddr::V6(_) => Ok(WasixSocketAddr::V6(SocketAddrV6::new(
+                                Ipv6Addr::UNSPECIFIED,
+                                0,
+                                0,
+                                0,
+                            ))),
                         })
                 })?,
             _ => return Err(Errno::Notsup),
@@ -974,7 +1000,7 @@ impl InodeSocket {
                         InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
                         InodeSocketKind::UdpSocket { socket, peer } => {
                             if let Some(peer) = peer {
-                                socket.try_send_to(self.data, *peer)
+                                socket.try_send_to(self.data, (*peer).into())
                             } else {
                                 Err(NetworkError::NotConnected)
                             }
@@ -1025,14 +1051,14 @@ impl InodeSocket {
         &self,
         tasks: &dyn VirtualTaskManager,
         buf: &[u8],
-        addr: SocketAddr,
+        addr: WasixSocketAddr,
         timeout: Option<Duration>,
         nonblocking: bool,
     ) -> Result<usize, Errno> {
         struct SocketSender<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b [u8],
-            addr: SocketAddr,
+            addr: WasixSocketAddr,
             nonblocking: bool,
             handler_registered: bool,
         }
@@ -1053,9 +1079,11 @@ impl InodeSocket {
                 loop {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
-                        InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::Icmp(socket) => {
+                            socket.try_send_to(self.data, self.addr.clone())
+                        }
                         InodeSocketKind::UdpSocket { socket, .. } => {
-                            socket.try_send_to(self.data, self.addr)
+                            socket.try_send_to(self.data, self.addr.clone())
                         }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
@@ -1135,7 +1163,7 @@ impl InodeSocket {
                         InodeSocketKind::UdpSocket { socket, peer } => {
                             if let Some(peer) = peer {
                                 match socket.try_recv_from(self.data) {
-                                    Ok((amt, addr)) if addr == *peer => Ok(amt),
+                                    Ok((amt, addr)) if addr == (*peer).into() => Ok(amt),
                                     Ok(_) => Err(NetworkError::WouldBlock),
                                     Err(err) => Err(err),
                                 }
@@ -1195,7 +1223,7 @@ impl InodeSocket {
         buf: &mut [MaybeUninit<u8>],
         timeout: Option<Duration>,
         nonblocking: bool,
-    ) -> Result<(usize, SocketAddr), Errno> {
+    ) -> Result<(usize, WasixSocketAddr), Errno> {
         struct SocketReceiver<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
@@ -1211,7 +1239,7 @@ impl InodeSocket {
             }
         }
         impl<'a, 'b> Future for SocketReceiver<'a, 'b> {
-            type Output = Result<(usize, SocketAddr), Errno>;
+            type Output = Result<(usize, WasixSocketAddr), Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
