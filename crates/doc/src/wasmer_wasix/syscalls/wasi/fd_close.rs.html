@@ -23,6 +23,18 @@
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
 </pre><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -40,6 +52,18 @@
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(pid = ctx.data().process.pid().raw(), %fd), ret)]
 </span><span class="kw">pub fn </span>fd_close(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+
+    <span class="comment">// HACK: As a special case, we don&#39;t want to close fd 3 because it can break
+    // some programs...
+    // - On Wasix, we have some default fd, 0:stdin, 1:stdout, 2:stderr, 3:root
+    // - On Posix, we have some default fd: 0:stdin, 1:stdout, 2:stderr
+    // - A POSIX program might want to closed all open fd (e.g. when Python
+    //   spawns subprocesses), so it blindly does fd_close() for fd=3..255
+    // - Wasix doesn&#39;t work well when 3:root is closed, because it&#39;s the root
+    </span><span class="kw">if </span>fd == <span class="number">3 </span>{
+        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Skipping fd_close(3)&quot;</span>);
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+    }
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
