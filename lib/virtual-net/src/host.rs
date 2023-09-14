@@ -382,9 +382,7 @@ impl VirtualTcpSocket for LocalTcpStream {
         // Don't route is being set by WASIX which breaks networking
         // Why this is being set is unknown but we need to disable
         // the functionality for now as it breaks everything
-        Err(NetworkError::Unsupported)
 
-        /*
         let val = val as libc::c_int;
         let payload = &val as *const libc::c_int as *const libc::c_void;
         let err = unsafe {
@@ -400,7 +398,6 @@ impl VirtualTcpSocket for LocalTcpStream {
             return Err(io_err_into_net_error(std::io::Error::last_os_error()));
         }
         Ok(())
-        */
     }
     #[cfg(target_os = "windows")]
     fn set_dontroute(&mut self, val: bool) -> Result<()> {
