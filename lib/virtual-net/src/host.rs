@@ -283,6 +283,10 @@ impl VirtualIoSource for LocalTcpListener {
     }
 
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
+        if !self.backlog.is_empty() {
+            return Poll::Ready(Ok(self.backlog.len()));
+        }
+
         let (state, selector, source) = self.split_borrow();
         let map = state_as_waker_map(state, selector, source).map_err(io_err_into_net_error)?;
         map.add(InterestType::Writable, cx.waker());
