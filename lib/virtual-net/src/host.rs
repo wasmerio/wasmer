@@ -273,11 +273,9 @@ impl VirtualIoSource for LocalTcpListener {
         let map = state_as_waker_map(state, selector, source).map_err(io_err_into_net_error)?;
         map.add(InterestType::Readable, cx.waker());
 
-        if map.has_interest(InterestType::Readable) {
-            if let Ok(child) = self.try_accept_internal() {
-                self.backlog.push_back(child);
-                return Poll::Ready(Ok(1));
-            }
+        if let Ok(child) = self.try_accept_internal() {
+            self.backlog.push_back(child);
+            return Poll::Ready(Ok(1));
         }
         Poll::Pending
     }
@@ -291,11 +289,9 @@ impl VirtualIoSource for LocalTcpListener {
         let map = state_as_waker_map(state, selector, source).map_err(io_err_into_net_error)?;
         map.add(InterestType::Writable, cx.waker());
 
-        if map.has_interest(InterestType::Writable) {
-            if let Ok(child) = self.try_accept_internal() {
-                self.backlog.push_back(child);
-                return Poll::Ready(Ok(1));
-            }
+        if let Ok(child) = self.try_accept_internal() {
+            self.backlog.push_back(child);
+            return Poll::Ready(Ok(1));
         }
         Poll::Pending
     }
@@ -589,13 +585,14 @@ impl VirtualIoSource for LocalTcpStream {
         let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
 
         match stream.read(uninit_unsafe) {
-            Ok(0) => Poll::Ready(Err(NetworkError::ConnectionReset)),
+            Ok(0) => Poll::Ready(Ok(0)),
             Ok(amt) => {
                 unsafe {
                     buffer.set_len(buffer.len() + amt);
                 }
                 Poll::Ready(Ok(amt))
             }
+            Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
             Err(err) => Poll::Ready(Err(io_err_into_net_error(err))),
         }
@@ -609,13 +606,13 @@ impl VirtualIoSource for LocalTcpStream {
         map.add(InterestType::Writable, cx.waker());
         map.add(InterestType::Closed, cx.waker());
         if map.has_interest(InterestType::Closed) {
-            return Poll::Ready(Err(NetworkError::ConnectionReset));
+            return Poll::Ready(Ok(0));
         }
 
         #[cfg(not(target_os = "windows"))]
         match libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP) {
             Some(val) if (val & libc::POLLHUP) != 0 => {
-                return Poll::Ready(Err(NetworkError::ConnectionReset))
+                return Poll::Ready(Ok(0));
             }
             Some(val) if (val & libc::POLLOUT) != 0 => return Poll::Ready(Ok(10240)),
             _ => {}
@@ -851,7 +848,7 @@ impl VirtualIoSource for LocalUdpSocket {
         let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
 
         match self.socket.recv_from(uninit_unsafe) {
-            Ok((0, _)) => Poll::Ready(Err(NetworkError::ConnectionReset)),
+            Ok((0, _)) => Poll::Ready(Ok(0)),
             Ok((amt, peer)) => {
                 unsafe {
                     buffer.set_len(amt);
@@ -859,6 +856,7 @@ impl VirtualIoSource for LocalUdpSocket {
                 self.backlog.push_back((buffer, peer));
                 Poll::Ready(Ok(amt))
             }
+            Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
             Err(err) => Poll::Ready(Err(io_err_into_net_error(err))),
         }
@@ -872,8 +870,12 @@ impl VirtualIoSource for LocalUdpSocket {
         map.add(InterestType::Writable, cx.waker());
 
         #[cfg(not(target_os = "windows"))]
-        if libc_poll(socket.as_raw_fd(), libc::POLLOUT).is_some() {
-            return Poll::Ready(Ok(10240));
+        match libc_poll(socket.as_raw_fd(), libc::POLLOUT | libc::POLLHUP) {
+            Some(val) if (val & libc::POLLHUP) != 0 => {
+                return Poll::Ready(Ok(0));
+            }
+            Some(val) if (val & libc::POLLOUT) != 0 => return Poll::Ready(Ok(10240)),
+            _ => {}
         }
 
         // In windows we can not poll the socket as it is not supported and hence
