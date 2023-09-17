@@ -4,7 +4,10 @@ use super::*;
 use crate::{
     capture_snapshot,
     os::task::thread::WasiMemoryLayout,
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    runtime::{
+        task_manager::{TaskWasm, TaskWasmRunProperties},
+        TaintReason,
+    },
     syscalls::*,
     WasiThreadHandle,
 };
@@ -175,6 +178,9 @@ fn call_module<M: MemorySize>(
                     ret = if code.is_success() {
                         Errno::Success
                     } else {
+                        env.data(&store)
+                            .runtime
+                            .on_taint(TaintReason::NonZeroExitCode(code));
                         Errno::Noexec
                     };
                 }
@@ -184,10 +190,16 @@ fn call_module<M: MemorySize>(
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
                     debug!("failed as wasi version is unknown",);
+                    env.data(&store)
+                        .runtime
+                        .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
                 }
                 Err(err) => {
                     debug!("failed with runtime error: {}", err);
+                    env.data(&store)
+                        .runtime
+                        .on_taint(TaintReason::RuntimeError(err));
                     ret = Errno::Noexec;
                 }
             }
