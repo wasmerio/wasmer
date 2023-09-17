@@ -589,6 +589,7 @@ impl VirtualIoSource for LocalTcpStream {
                 }
                 Poll::Ready(Ok(amt))
             }
+            Err(err) if err.kind() == io::ErrorKind::ConnectionAborted => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
             Err(err) => Poll::Ready(Err(io_err_into_net_error(err))),
@@ -853,6 +854,7 @@ impl VirtualIoSource for LocalUdpSocket {
                 self.backlog.push_back((buffer, peer));
                 Poll::Ready(Ok(amt))
             }
+            Err(err) if err.kind() == io::ErrorKind::ConnectionAborted => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
             Err(err) => Poll::Ready(Err(io_err_into_net_error(err))),
