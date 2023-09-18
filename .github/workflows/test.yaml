@@ -366,6 +366,7 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
+          components: rustfmt, clippy
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@master
         with:
@@ -407,6 +408,11 @@ jobs:
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
+      - name: Disable LLVM if not enabled
+        if: ${{ !matrix.metadata.llvm_url }}
+        shell: bash
+        run: |
+          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
       - name: Install LLVM
         if: matrix.metadata.llvm_url
         shell: bash
@@ -439,6 +445,18 @@ jobs:
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: ls -R $CARGO_ROOT_DIR
+      - run: make lint
+        if: ${{ matrix.build-what.key == 'capi' && !matrix.metadata.build == 'linux-musl' }}
+        env:
+          ENABLE_CRANELIFT: "1"
+          ENABLE_SINGLEPASS: "1"
+      - name: Assert no files have changed
+        if: ${{ matrix.build-what.key == 'capi' && !matrix.metadata.build == 'linux-musl' }}
+        shell: bash
+        run: |
+          pwd
+          git status
+          ! [[ $(git status -s) ]]
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:

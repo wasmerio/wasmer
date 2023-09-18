@@ -42,7 +42,7 @@ pub fn ___syscall5(mut ctx: FunctionEnvMut<EmEnv>, which: c_int, mut varargs: Va
             // create some random bytes and put them into the file
             let mut random_bytes = [0u8; 32];
             getrandom::getrandom(&mut random_bytes).unwrap();
-            let _ = urandom_file.write_all(&random_bytes).unwrap();
+            urandom_file.write_all(&random_bytes).unwrap();
             // put the file path string into wasm memory
             let urandom_file_offset = unsafe { copy_cstr_into_wasm(&mut ctx, ptr) };
             let mem = ctx.data().memory(0);

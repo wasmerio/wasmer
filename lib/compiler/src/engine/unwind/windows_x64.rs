@@ -39,10 +39,11 @@ impl UnwindRegistry {
             _ => return Err("unsupported unwind information".to_string()),
         };
 
-        let mut entry = winnt::RUNTIME_FUNCTION::default();
-
-        entry.BeginAddress = func_start;
-        entry.EndAddress = func_start + func_len;
+        let mut entry = winnt::RUNTIME_FUNCTION {
+            BeginAddress: func_start,
+            EndAddress: func_start + func_len,
+            ..Default::default()
+        };
 
         // The unwind information should be immediately following the function
         // with padding for 4 byte alignment
