@@ -2,7 +2,10 @@ use std::{pin::Pin, sync::Arc};
 
 use crate::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    runtime::{
+        task_manager::{TaskWasm, TaskWasmRunProperties},
+        TaintReason,
+    },
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
@@ -158,6 +161,7 @@ fn call_module(
     let pid = env.pid();
     let tasks = env.tasks().clone();
     handle.thread.set_status_running();
+    let runtime = env.runtime.clone();
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
@@ -206,6 +210,7 @@ fn call_module(
                     if code.is_success() {
                         Ok(Errno::Success)
                     } else {
+                        runtime.on_taint(TaintReason::NonZeroExitCode(code));
                         Ok(Errno::Noexec)
                     }
                 }
@@ -229,9 +234,13 @@ fn call_module(
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
                     debug!("failed as wasi version is unknown",);
+                    runtime.on_taint(TaintReason::UnknownWasiVersion);
                     Ok(Errno::Noexec)
                 }
-                Err(err) => Err(WasiRuntimeError::from(err)),
+                Err(err) => {
+                    runtime.on_taint(TaintReason::RuntimeError(err.clone()));
+                    Err(WasiRuntimeError::from(err))
+                }
             }
         } else {
             Ok(Errno::Success)

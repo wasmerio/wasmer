@@ -17,7 +17,8 @@ use std::{
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::Module;
+use wasmer::{Module, RuntimeError};
+use wasmer_wasix_types::wasi::ExitCode;
 
 use crate::{
     http::{DynHttpClient, HttpClient},
@@ -29,6 +30,13 @@ use crate::{
     },
     WasiTtyState,
 };
+
+#[derive(Clone)]
+pub enum TaintReason {
+    UnknownWasiVersion,
+    NonZeroExitCode(ExitCode),
+    RuntimeError(RuntimeError),
+}
 
 /// Runtime components used when running WebAssembly programs.
 ///
@@ -105,6 +113,10 @@ where
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
         InlineWaker::block_on(self.load_module(wasm))
     }
+
+    /// Callback thats invokes whenever the instance is tainted, tainting can occur
+    /// for multiple reasons however the most common is a panic within the process
+    fn on_taint(&self, _reason: TaintReason) {}
 }
 
 /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
