@@ -48,7 +48,7 @@ pub fn sock_open<M: MemorySize>(
 
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
-            socket: InodeSocket::new(InodeSocketKind::PreSocket {
+            socket: wasi_try!(InodeSocket::new(InodeSocketKind::PreSocket {
                 family: af,
                 ty,
                 pt,
@@ -65,7 +65,9 @@ pub fn sock_open<M: MemorySize>(
                 read_timeout: None,
                 accept_timeout: None,
                 connect_timeout: None,
-            }),
+                handler: None,
+            })
+            .map_err(net_error_into_wasi_err)),
         },
         _ => return Errno::Notsup,
     };

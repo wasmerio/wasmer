@@ -138,7 +138,7 @@ impl EpollHandler {
     }
 }
 impl InterestHandler for EpollHandler {
-    fn interest(&mut self, interest: InterestType) {
+    fn push_interest(&mut self, interest: InterestType) {
         let readiness = match interest {
             InterestType::Readable => EpollType::EPOLLIN,
             InterestType::Writable => EpollType::EPOLLOUT,
@@ -148,6 +148,35 @@ impl InterestHandler for EpollHandler {
         self.tx.send_modify(|i| {
             i.interest.insert((self.fd, readiness));
         });
+    }
+
+    fn pop_interest(&mut self, interest: InterestType) -> bool {
+        let readiness = match interest {
+            InterestType::Readable => EpollType::EPOLLIN,
+            InterestType::Writable => EpollType::EPOLLOUT,
+            InterestType::Closed => EpollType::EPOLLHUP,
+            InterestType::Error => EpollType::EPOLLERR,
+        };
+        let mut ret = false;
+        self.tx.send_modify(move |i| {
+            ret = i.interest.iter().any(|(_, b)| *b == readiness);
+            i.interest.retain(|(_, b)| *b != readiness);
+        });
+        ret
+    }
+
+    fn has_interest(&self, interest: InterestType) -> bool {
+        let readiness = match interest {
+            InterestType::Readable => EpollType::EPOLLIN,
+            InterestType::Writable => EpollType::EPOLLOUT,
+            InterestType::Closed => EpollType::EPOLLHUP,
+            InterestType::Error => EpollType::EPOLLERR,
+        };
+        let mut ret = false;
+        self.tx.send_modify(move |i| {
+            ret = i.interest.iter().any(|(_, b)| *b == readiness);
+        });
+        ret
     }
 }
 

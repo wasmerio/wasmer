@@ -65,6 +65,12 @@ pub struct IpRoute {
 pub trait VirtualIoSource: fmt::Debug + Send + Sync + 'static {
     /// Removes a previously registered waker using a token
     fn remove_handler(&mut self);
+
+    /// Polls the source to see if there is data waiting
+    fn poll_read_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<usize>>;
+
+    /// Polls the source to see if data can be sent
+    fn poll_write_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<usize>>;
 }
 
 /// An implementation of virtual networking
