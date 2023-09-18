@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["LocalNetworking","LocalTcpListener","LocalTcpStream","LocalUdpSocket"]};
+window.SIDEBAR_ITEMS = {"fn":["libc_poll"],"static":["CALLSITE","META"],"struct":["LocalNetworking","LocalTcpListener","LocalTcpStream","LocalUdpSocket"]};

@@ -902,6 +902,12 @@
 <a href="#902" id="902">902</a>
 <a href="#903" id="903">903</a>
 <a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
 </pre><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(any(feature = <span class="string">&quot;remote&quot;</span>))]
@@ -969,6 +975,12 @@
 </span><span class="kw">pub trait </span>VirtualIoSource: fmt::Debug + Send + Sync + <span class="lifetime">&#39;static </span>{
     <span class="doccomment">/// Removes a previously registered waker using a token
     </span><span class="kw">fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
+
+    <span class="doccomment">/// Polls the source to see if there is data waiting
+    </span><span class="kw">fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
+
+    <span class="doccomment">/// Polls the source to see if data can be sent
+    </span><span class="kw">fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize&gt;&gt;;
 }
 
 <span class="doccomment">/// An implementation of virtual networking

@@ -1615,6 +1615,30 @@
 <a href="#1615" id="1615">1615</a>
 <a href="#1616" id="1616">1616</a>
 <a href="#1617" id="1617">1617</a>
+<a href="#1618" id="1618">1618</a>
+<a href="#1619" id="1619">1619</a>
+<a href="#1620" id="1620">1620</a>
+<a href="#1621" id="1621">1621</a>
+<a href="#1622" id="1622">1622</a>
+<a href="#1623" id="1623">1623</a>
+<a href="#1624" id="1624">1624</a>
+<a href="#1625" id="1625">1625</a>
+<a href="#1626" id="1626">1626</a>
+<a href="#1627" id="1627">1627</a>
+<a href="#1628" id="1628">1628</a>
+<a href="#1629" id="1629">1629</a>
+<a href="#1630" id="1630">1630</a>
+<a href="#1631" id="1631">1631</a>
+<a href="#1632" id="1632">1632</a>
+<a href="#1633" id="1633">1633</a>
+<a href="#1634" id="1634">1634</a>
+<a href="#1635" id="1635">1635</a>
+<a href="#1636" id="1636">1636</a>
+<a href="#1637" id="1637">1637</a>
+<a href="#1638" id="1638">1638</a>
+<a href="#1639" id="1639">1639</a>
+<a href="#1640" id="1640">1640</a>
+<a href="#1641" id="1641">1641</a>
 </pre><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::meta::{FrameSerializationFormat, ResponseType};
 <span class="kw">use </span><span class="kw">crate</span>::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
 <span class="kw">use crate</span>::{
@@ -2234,7 +2258,7 @@
 
         <span class="comment">// Now we attach the handler to the main listening socket
         </span><span class="kw">let </span><span class="kw-2">mut </span>handler = Box::new(<span class="self">self</span>.common.handler.clone().for_socket(socket_id));
-        handler.interest(virtual_mio::InterestType::Readable);
+        handler.push_interest(virtual_mio::InterestType::Readable);
         <span class="self">self</span>.process_inner_noop(
             <span class="kw">move </span>|socket| <span class="kw">match </span>socket {
                 RemoteAdapterSocket::TcpListener {
@@ -3191,7 +3215,7 @@
     }
 }
 <span class="kw">impl </span>InterestHandler <span class="kw">for </span>RemoteAdapterHandler {
-    <span class="kw">fn </span>interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: virtual_mio::InterestType) {
+    <span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: virtual_mio::InterestType) {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.state.lock().unwrap();
         guard.driver_wakers.drain(..).for_each(|w| w.wake());
         <span class="kw">let </span>socket_id = <span class="kw">match </span><span class="self">self</span>.socket_id {
@@ -3202,6 +3226,30 @@
             guard.readable.insert(socket_id);
         }
     }
+
+    <span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: virtual_mio::InterestType) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.state.lock().unwrap();
+        <span class="kw">let </span>socket_id = <span class="kw">match </span><span class="self">self</span>.socket_id {
+            <span class="prelude-val">Some</span>(s) =&gt; s,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+        };
+        <span class="kw">if </span>interest == virtual_mio::InterestType::Readable {
+            <span class="kw">return </span>guard.readable.remove(<span class="kw-2">&amp;</span>socket_id);
+        }
+        <span class="bool-val">false
+    </span>}
+
+    <span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: virtual_mio::InterestType) -&gt; bool {
+        <span class="kw">let </span>guard = <span class="self">self</span>.state.lock().unwrap();
+        <span class="kw">let </span>socket_id = <span class="kw">match </span><span class="self">self</span>.socket_id {
+            <span class="prelude-val">Some</span>(s) =&gt; s,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+        };
+        <span class="kw">if </span>interest == virtual_mio::InterestType::Readable {
+            <span class="kw">return </span>guard.readable.contains(<span class="kw-2">&amp;</span>socket_id);
+        }
+        <span class="bool-val">false
+    </span>}
 }
 
 <span class="kw">type </span>SocketMap&lt;T&gt; = HashMap&lt;SocketId, T&gt;;

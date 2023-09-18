@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["POLL_GUARD_MAX_RET"],"enum":["InodeValFilePollGuardMode"],"fn":["is_err_closed"],"static":["CALLSITE","META"],"struct":["InodeValFilePollGuard","InodeValFilePollGuardJoin","InodeValFileReadGuard","InodeValFileWriteGuard","WasiStateFileGuard"]};
+window.SIDEBAR_ITEMS = {"constant":["POLL_GUARD_MAX_RET"],"enum":["InodeValFilePollGuardMode"],"fn":["is_err_closed"],"struct":["InodeValFilePollGuard","InodeValFilePollGuardJoin","InodeValFileReadGuard","InodeValFileWriteGuard","WasiStateFileGuard"]};

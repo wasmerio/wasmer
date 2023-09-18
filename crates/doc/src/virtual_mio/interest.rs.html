@@ -193,6 +193,11 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
 </pre><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -210,23 +215,73 @@
     Error,
 }
 
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>WakerInterestHandler {
+    set: HashSet&lt;InterestType&gt;,
+    waker: Waker,
+}
+<span class="kw">impl </span>WakerInterestHandler {
+    <span class="kw">pub fn </span>new(waker: <span class="kw-2">&amp;</span>Waker) -&gt; Box&lt;<span class="self">Self</span>&gt; {
+        Box::new(WakerInterestHandler {
+            set: Default::default(),
+            waker: waker.clone(),
+        })
+    }
+}
+<span class="kw">impl </span>InterestHandler <span class="kw">for </span>WakerInterestHandler {
+    <span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
+        <span class="self">self</span>.set.insert(interest);
+        <span class="self">self</span>.waker.wake_by_ref();
+    }
+
+    <span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="self">self</span>.set.remove(<span class="kw-2">&amp;</span>interest)
+    }
+
+    <span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="self">self</span>.set.contains(<span class="kw-2">&amp;</span>interest)
+    }
+}
+
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>SharedWakerInterestHandler {
+    inner: Arc&lt;Mutex&lt;Box&lt;WakerInterestHandler&gt;&gt;&gt;,
+}
+<span class="kw">impl </span>SharedWakerInterestHandler {
+    <span class="kw">pub fn </span>new(waker: <span class="kw-2">&amp;</span>Waker) -&gt; Box&lt;<span class="self">Self</span>&gt; {
+        Box::new(<span class="self">Self </span>{
+            inner: Arc::new(Mutex::new(WakerInterestHandler::new(waker))),
+        })
+    }
+}
+<span class="kw">impl </span>InterestHandler <span class="kw">for </span>SharedWakerInterestHandler {
+    <span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.push_interest(interest);
+    }
+
+    <span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.pop_interest(interest)
+    }
+
+    <span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.has_interest(interest)
+    }
+}
+
 <span class="kw">pub trait </span>InterestHandler: Send + Sync {
-    <span class="kw">fn </span>interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType);
+    <span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType);
+
+    <span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) -&gt; bool;
+
+    <span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool;
 }
 
 <span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span>Waker&gt; <span class="kw">for </span>Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt; {
     <span class="kw">fn </span>from(waker: <span class="kw-2">&amp;</span>Waker) -&gt; <span class="self">Self </span>{
-        <span class="kw">struct </span>WakerHandler {
-            waker: Waker,
-        }
-        <span class="kw">impl </span>InterestHandler <span class="kw">for </span>WakerHandler {
-            <span class="kw">fn </span>interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _interest: InterestType) {
-                <span class="self">self</span>.waker.wake_by_ref();
-            }
-        }
-        Box::new(WakerHandler {
-            waker: waker.clone(),
-        })
+        WakerInterestHandler::new(waker)
     }
 }
 
@@ -256,7 +311,7 @@
 <span class="kw">impl </span>InterestHandlerWaker {
     <span class="kw">pub fn </span>wake_now(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>handler = <span class="self">self</span>.handler.lock().unwrap();
-        handler.interest(<span class="self">self</span>.interest);
+        handler.push_interest(<span class="self">self</span>.interest);
     }
     <span class="kw">pub fn </span>set_interest(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;, interest: InterestType) -&gt; Arc&lt;<span class="self">Self</span>&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>next = <span class="self">self</span>.as_ref().clone();
@@ -290,102 +345,57 @@
     </span>)
 };
 
-<span class="attr">#[derive(Derivative, Default)]
-#[derivative(Debug)]
-</span><span class="kw">struct </span>FilteredHandlerSubscriptionsInner {
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span>mappings: HashMap&lt;InterestType, Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
+<span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="kw">struct </span>InterestWakerMapState {
+    wakers: HashMap&lt;InterestType, Vec&lt;Waker&gt;&gt;,
     triggered: HashSet&lt;InterestType&gt;,
 }
 
-<span class="attr">#[derive(Derivative, Default, Clone)]
-#[derivative(Debug)]
-</span><span class="kw">pub struct </span>FilteredHandlerSubscriptions {
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span>inner: Arc&lt;Mutex&lt;FilteredHandlerSubscriptionsInner&gt;&gt;,
+<span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="kw">pub struct </span>InterestWakerMap {
+    state: Arc&lt;Mutex&lt;InterestWakerMapState&gt;&gt;,
 }
-<span class="kw">impl </span>FilteredHandlerSubscriptions {
-    <span class="kw">pub fn </span>add_interest(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        interest: InterestType,
-        <span class="kw-2">mut </span>handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
-    ) {
-        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
-        <span class="kw">if </span>inner.triggered.take(<span class="kw-2">&amp;</span>interest).is_some() {
-            handler.interest(interest)
+
+<span class="kw">impl </span>InterestWakerMap {
+    <span class="kw">pub fn </span>add(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType, waker: <span class="kw-2">&amp;</span>Waker) {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        <span class="kw">let </span>entries = state.wakers.entry(interest).or_default();
+        <span class="kw">if </span>!entries.iter().any(|w| w.will_wake(waker)) {
+            entries.push(waker.clone());
         }
-        inner.mappings.insert(interest, handler);
+    }
+
+    <span class="kw">pub fn </span>pop(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.triggered.remove(<span class="kw-2">&amp;</span>interest)
+    }
+
+    <span class="kw">pub fn </span>push(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.triggered.insert(interest)
     }
 }
 
-<span class="kw">pub struct </span>FilteredHandler {
-    subs: FilteredHandlerSubscriptions,
-}
-
-<span class="kw">impl </span>FilteredHandler {
-    <span class="kw">pub fn </span>new() -&gt; Box&lt;<span class="self">Self</span>&gt; {
-        Box::new(<span class="self">Self </span>{
-            subs: Default::default(),
-        })
-    }
-    <span class="kw">pub fn </span>add_interest(
-        <span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;,
-        interest: InterestType,
-        handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
-    ) -&gt; Box&lt;<span class="self">Self</span>&gt; {
-        <span class="self">self</span>.subs.add_interest(interest, handler);
-        <span class="self">self
-    </span>}
-    <span class="kw">pub fn </span>subscriptions(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FilteredHandlerSubscriptions {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.subs
-    }
-}
-
-<span class="kw">impl </span>InterestHandler <span class="kw">for </span>FilteredHandler {
-    <span class="kw">fn </span>interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
-        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.subs.inner.lock().unwrap();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(handler) = inner.mappings.get_mut(<span class="kw-2">&amp;</span>interest) {
-            handler.interest(interest);
+<span class="kw">impl </span>InterestHandler <span class="kw">for </span>InterestWakerMap {
+    <span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(wakers) = state.wakers.remove(<span class="kw-2">&amp;</span>interest) {
+            <span class="kw">for </span>waker <span class="kw">in </span>wakers {
+                waker.wake();
+            }
         } <span class="kw">else </span>{
-            inner.triggered.insert(interest);
+            state.triggered.insert(interest);
         }
     }
-}
 
-<span class="attr">#[derive(Debug, Default, Clone)]
-</span><span class="kw">pub struct </span>StatefulHandlerState {
-    interest: Arc&lt;Mutex&lt;HashSet&lt;InterestType&gt;&gt;&gt;,
-}
-
-<span class="kw">impl </span>StatefulHandlerState {
-    <span class="kw">pub fn </span>take(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
-        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.interest.lock().unwrap();
-        guard.remove(<span class="kw-2">&amp;</span>interest)
+    <span class="kw">fn </span>pop_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.triggered.remove(<span class="kw-2">&amp;</span>interest)
     }
-    <span class="kw">pub fn </span>set(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) {
-        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.interest.lock().unwrap();
-        guard.insert(interest);
-    }
-}
 
-<span class="kw">pub struct </span>StatefulHandler {
-    handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
-    state: StatefulHandlerState,
-}
-
-<span class="kw">impl </span>StatefulHandler {
-    <span class="kw">pub fn </span>new(
-        handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
-        state: StatefulHandlerState,
-    ) -&gt; Box&lt;<span class="self">Self</span>&gt; {
-        Box::new(<span class="self">Self </span>{ handler, state })
-    }
-}
-
-<span class="kw">impl </span>InterestHandler <span class="kw">for </span>StatefulHandler {
-    <span class="kw">fn </span>interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
-        <span class="self">self</span>.state.set(interest);
-        <span class="self">self</span>.handler.interest(interest)
+    <span class="kw">fn </span>has_interest(<span class="kw-2">&amp;</span><span class="self">self</span>, interest: InterestType) -&gt; bool {
+        <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.triggered.contains(<span class="kw-2">&amp;</span>interest)
     }
 }
 </code></pre></div>

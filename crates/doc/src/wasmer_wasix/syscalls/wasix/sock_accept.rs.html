@@ -136,6 +136,7 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -251,7 +252,8 @@
             socket: child,
             write_timeout: <span class="prelude-val">None</span>,
             read_timeout: <span class="prelude-val">None</span>,
-        }),
+        })
+        .map_err(net_error_into_wasi_err)<span class="question-mark">?</span>,
     };
     <span class="kw">let </span>inode = state
         .fs
