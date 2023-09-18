@@ -16,7 +16,8 @@ pub fn sock_bind<M: MemorySize>(
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
     let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
+    let (memory, mut state, mut inodes) =
+        unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let addr = wasi_try!(crate::net::read_socket_addr(&memory, addr));
     Span::current().record("addr", &format!("{:?}", addr));
 
@@ -27,7 +28,11 @@ pub fn sock_bind<M: MemorySize>(
         &mut ctx,
         sock,
         Rights::SOCK_BIND,
-        move |socket| async move { socket.bind(tasks.deref(), net.deref(), addr).await }
+        move |socket| async move {
+            socket
+                .bind(tasks.deref(), net.deref(), &state, &inodes, addr)
+                .await
+        }
     ));
 
     Errno::Success

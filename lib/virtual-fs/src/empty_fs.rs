@@ -74,4 +74,18 @@ impl FileOpener for EmptyFileSystem {
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
         Err(FsError::EntryNotFound)
     }
+
+    fn bind_socket(
+        &self,
+        path: &Path,
+    ) -> Result<Box<dyn VirtualUnixSocket + Send + Sync + 'static>> {
+        Err(FsError::EntryNotFound)
+    }
+
+    fn connect_socket(
+        &self,
+        path: &Path,
+    ) -> Result<Box<dyn VirtualUnixSocketConnection + Send + Sync + 'static>> {
+        Err(FsError::EntryNotFound)
+    }
 }

@@ -2,6 +2,7 @@ use std::{
     future::Future,
     mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6},
+    path::Path,
     pin::Pin,
     sync::{Arc, RwLock},
     task::Poll,
@@ -10,6 +11,7 @@ use std::{
 
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
+use virtual_fs::{FileSystem, FsError};
 use virtual_mio::{
     FilteredHandler, FilteredHandlerSubscriptions, InterestHandler, InterestType,
     StatefulHandlerState,
@@ -21,7 +23,12 @@ use virtual_net::{
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
 
-use crate::{net::net_error_into_wasi_err, VirtualTaskManager};
+use crate::{
+    fs::{self, fs_error_into_wasi_err},
+    net::net_error_into_wasi_err,
+    state::WasiState,
+    VirtualTaskManager, WasiFs, WasiInodes, VIRTUAL_ROOT_FD,
+};
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -205,6 +212,8 @@ impl InodeSocket {
         &self,
         tasks: &dyn VirtualTaskManager,
         net: &dyn VirtualNetworking,
+        state: &WasiState,
+        inodes: &WasiInodes,
         set_addr: WasixSocketAddr,
     ) -> Result<Option<InodeSocket>, Errno> {
         let timeout = self
@@ -228,7 +237,7 @@ impl InodeSocket {
                         Addressfamily::Inet4 => {
                             if !set_addr.is_ipv4() {
                                 tracing::debug!(
-                                    "IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family"
+                                    "IP address is the wrong type ({set_addr}), expected IPv4 family"
                                 );
                                 return Err(Errno::Inval);
                             }
@@ -236,11 +245,22 @@ impl InodeSocket {
                         Addressfamily::Inet6 => {
                             if !set_addr.is_ipv6() {
                                 tracing::debug!(
-                                    "IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family"
+                                    "IP address is the wrong type ({set_addr}), expected IPv6 family"
                                 );
                                 return Err(Errno::Inval);
                             }
                         }
+                        Addressfamily::Unix => match set_addr {
+                            WasixSocketAddr::Unix(unix) => {
+                                return self.bind_unix(net, state, inodes, unix)
+                            }
+                            _ => {
+                                tracing::debug!(
+                                    "IP address is the wrong type ({set_addr}), expected Unix family"
+                                );
+                                return Err(Errno::Inval);
+                            }
+                        },
                         _ => {
                             return Err(Errno::Notsup);
                         }

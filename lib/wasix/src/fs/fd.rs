@@ -14,7 +14,10 @@ use tokio::sync::{watch, Mutex as AsyncMutex};
 use virtual_fs::{Pipe, VirtualFile};
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
 
-use crate::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
+use crate::{
+    net::socket::{InodeSocket, InodeUnixSocket},
+    syscalls::EpollJoinWaker,
+};
 
 use super::{
     InodeGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
@@ -171,6 +174,10 @@ pub enum Kind {
     Socket {
         /// Represents a networking socket
         socket: InodeSocket,
+    },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    UnixSocket {
+        socket: InodeUnixSocket,
     },
     #[cfg_attr(feature = "enable-serde", serde(skip))]
     Pipe {

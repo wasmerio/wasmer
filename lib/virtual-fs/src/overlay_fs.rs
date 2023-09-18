@@ -107,6 +107,120 @@ where
     }
 }
 
+impl<P, S> OverlayFileSystem<P, S>
+where
+    P: FileSystem + Send + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
+    for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
+{
+    fn open_file_generic<Res>(
+        &self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+        open_if_exists: impl FnOnce(&dyn FileSystem, &OpenOptionsConfig) -> Result<Res, FsError>,
+        open: impl Fn(&dyn FileSystem, &OpenOptionsConfig) -> Result<Res, FsError>,
+        open_copy_on_write: Option<
+            impl FnOnce(&Path, &OpenOptionsConfig, &Arc<P>, Res) -> Result<Res, FsError>,
+        >,
+    ) -> Result<Res, FsError> {
+        // Whiteout files can not be read, they are just markers
+        if ops::is_white_out(path).is_some() {
+            tracing::trace!(
+                path=%path.display(),
+                "Whiteout files can't be opened",
+            );
+            return Err(FsError::InvalidInput);
+        }
+
+        // Check if the file is in the primary (without actually creating it) as
+        // when the file is in the primary it takes preference over any of file
+        {
+            match open_if_exists(self.primary.as_ref(), conf) {
+                Err(e) if should_continue(e) => {}
+                other => return other,
+            }
+        }
+
+        // In the scenario that we are creating the file then there is
+        // special handling that will ensure its setup correctly
+        if conf.create_new {
+            // When the secondary has the directory structure but the primary
+            // does not then we need to make sure we create all the structure
+            // in the primary
+            if let Some(parent) = path.parent() {
+                if ops::exists(self, parent) {
+                    // We create the directory structure on the primary so that
+                    // the new file can be created, this will make it override
+                    // whatever is in the primary
+                    ops::create_dir_all(&self.primary, parent)?;
+                } else {
+                    return Err(FsError::EntryNotFound);
+                }
+            }
+
+            // Remove any whiteout
+            ops::remove_white_out(&self.primary, path);
+
+            // Create the file in the primary
+            return open(self.primary.as_ref(), conf);
+        }
+
+        // There might be a whiteout, search for this and if its found then
+        // we are done as the secondary file or directory has been earlier
+        // deleted via a white out (when the create flag is set then
+        // the white out marker is ignored)
+        if !conf.create && ops::has_white_out(&self.primary, path) {
+            tracing::trace!(
+                path=%path.display(),
+                "The file has been whited out",
+            );
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Determine if a mutation will be possible with the opened file
+        let require_mutations = conf.append || conf.write || conf.create_new | conf.truncate;
+
+        // If the file is on a secondary then we should open it
+        if !ops::has_white_out(&self.primary, path) {
+            for fs in self.secondaries.filesystems() {
+                let mut sub_conf = conf.clone();
+                sub_conf.create = false;
+                sub_conf.create_new = false;
+                sub_conf.append = false;
+                sub_conf.truncate = false;
+                match open(fs, &sub_conf) {
+                    Err(e) if should_continue(e) => continue,
+                    Ok(file) if require_mutations && open_copy_on_write.is_some() => {
+                        // If the file was opened with the ability to mutate then we need
+                        // to return a copy on write emulation so that the file can be
+                        // copied from the secondary to the primary in the scenario that
+                        // it is edited
+                        return open_copy_on_write.unwrap()(path, conf, &self.primary, file);
+                    }
+                    other => return other,
+                }
+            }
+        }
+
+        // If we are creating the file then do so
+        if conf.create {
+            // Create the parent structure and remove any whiteouts
+            if let Some(parent) = path.parent() {
+                if ops::exists(self, parent) {
+                    ops::create_dir_all(&self.primary, parent)?;
+                }
+            }
+            ops::remove_white_out(&self.primary, path);
+
+            // Create the file in the primary
+            return open(&self.primary.as_ref(), conf);
+        }
+
+        // The file does not exist anywhere
+        Err(FsError::EntryNotFound)
+    }
+}
+
 impl<P, S> FileSystem for OverlayFileSystem<P, S>
 where
     P: FileSystem + Send + 'static,
@@ -357,6 +471,50 @@ where
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
+
+    fn bind_socket(
+        &self,
+        path: &Path,
+    ) -> crate::Result<Box<dyn crate::VirtualUnixSocket + Send + Sync + 'static>> {
+        let conf = OpenOptionsConfig {
+            append: false,
+            create: false,
+            create_new: true,
+            read: false,
+            write: false,
+            truncate: false,
+        };
+        // open_if_exists always returns error since socket must not exist before being bound
+        self.open_file_generic(
+            path,
+            &conf,
+            |_, _| Err(FsError::EntryNotFound),
+            |fs, _| fs.bind_socket(path),
+            Option::<fn(_, _, _, _) -> _>::None,
+        )
+    }
+
+    fn connect_socket(
+        &self,
+        path: &Path,
+    ) -> crate::Result<Box<dyn crate::VirtualUnixSocketConnection + Send + Sync + 'static>> {
+        let conf = OpenOptionsConfig {
+            append: false,
+            create: false,
+            create_new: false,
+            read: false,
+            write: false,
+            truncate: false,
+        };
+        // open_if_exists always returns error since socket must not exist before being bound
+        self.open_file_generic(
+            path,
+            &conf,
+            |_, _| Err(FsError::EntryNotFound),
+            |fs, _| fs.connect_socket(path),
+            Option::<fn(_, _, _, _) -> _>::None,
+        )
+    }
 }
 
 impl<P, S> FileOpener for OverlayFileSystem<P, S>
@@ -370,113 +528,18 @@ where
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, FsError> {
-        // Whiteout files can not be read, they are just markers
-        if ops::is_white_out(path).is_some() {
-            tracing::trace!(
-                path=%path.display(),
-                options=?conf,
-                "Whiteout files can't be opened",
-            );
-            return Err(FsError::InvalidInput);
-        }
-
-        // Check if the file is in the primary (without actually creating it) as
-        // when the file is in the primary it takes preference over any of file
-        {
-            let mut conf = conf.clone();
-            conf.create = false;
-            conf.create_new = false;
-            match self.primary.new_open_options().options(conf).open(path) {
-                Err(e) if should_continue(e) => {}
-                other => return other,
-            }
-        }
-
-        // In the scenario that we are creating the file then there is
-        // special handling that will ensure its setup correctly
-        if conf.create_new {
-            // When the secondary has the directory structure but the primary
-            // does not then we need to make sure we create all the structure
-            // in the primary
-            if let Some(parent) = path.parent() {
-                if ops::exists(self, parent) {
-                    // We create the directory structure on the primary so that
-                    // the new file can be created, this will make it override
-                    // whatever is in the primary
-                    ops::create_dir_all(&self.primary, parent)?;
-                } else {
-                    return Err(FsError::EntryNotFound);
-                }
-            }
-
-            // Remove any whiteout
-            ops::remove_white_out(&self.primary, path);
-
-            // Create the file in the primary
-            return self
-                .primary
-                .new_open_options()
-                .options(conf.clone())
-                .open(path);
-        }
-
-        // There might be a whiteout, search for this and if its found then
-        // we are done as the secondary file or directory has been earlier
-        // deleted via a white out (when the create flag is set then
-        // the white out marker is ignored)
-        if !conf.create && ops::has_white_out(&self.primary, path) {
-            tracing::trace!(
-                path=%path.display(),
-                "The file has been whited out",
-            );
-            return Err(FsError::EntryNotFound);
-        }
-
-        // Determine if a mutation will be possible with the opened file
-        let require_mutations = conf.append || conf.write || conf.create_new | conf.truncate;
-
-        // If the file is on a secondary then we should open it
-        if !ops::has_white_out(&self.primary, path) {
-            for fs in self.secondaries.filesystems() {
-                let mut sub_conf = conf.clone();
-                sub_conf.create = false;
-                sub_conf.create_new = false;
-                sub_conf.append = false;
-                sub_conf.truncate = false;
-                match fs.new_open_options().options(sub_conf.clone()).open(path) {
-                    Err(e) if should_continue(e) => continue,
-                    Ok(file) if require_mutations => {
-                        // If the file was opened with the ability to mutate then we need
-                        // to return a copy on write emulation so that the file can be
-                        // copied from the secondary to the primary in the scenario that
-                        // it is edited
-                        return open_copy_on_write(path, conf, &self.primary, file);
-                    }
-                    other => return other,
-                }
-            }
-        }
-
-        // If we are creating the file then do so
-        if conf.create {
-            // Create the parent structure and remove any whiteouts
-            if let Some(parent) = path.parent() {
-                if ops::exists(self, parent) {
-                    ops::create_dir_all(&self.primary, parent)?;
-                }
-            }
-            ops::remove_white_out(&self.primary, path);
-
-            // Create the file in the primary
-            return self
-                .primary
-                .new_open_options()
-                .options(conf.clone())
-                .open(path);
-        }
-
-        // The file does not exist anywhere
-        Err(FsError::EntryNotFound)
+        self.open_file_generic(
+            path,
+            conf,
+            |fs, conf| {
+                let mut conf = conf.clone();
+                conf.create = false;
+                conf.create_new = false;
+                fs.new_open_options().options(conf).open(path)
+            },
+            |fs, conf| fs.new_open_options().options(conf.clone()).open(path),
+            Some(open_copy_on_write),
+        )
     }
 }
 

@@ -101,6 +101,16 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+
+    fn bind_socket(
+        &self,
+        path: &Path,
+    ) -> Result<Box<dyn VirtualUnixSocket + Send + Sync + 'static>>;
+
+    fn connect_socket(
+        &self,
+        path: &Path,
+    ) -> Result<Box<dyn VirtualUnixSocketConnection + Send + Sync + 'static>>;
 }
 
 impl dyn FileSystem + 'static {
@@ -375,6 +385,10 @@ pub trait VirtualFile:
     /// Polls the file for when it is available for writing
     fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
 }
+
+pub trait VirtualUnixSocket {}
+
+pub trait VirtualUnixSocketConnection {}
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
 /// Trait needed to get downcasting from `VirtualFile` to work.

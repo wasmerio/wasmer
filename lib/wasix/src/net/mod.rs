@@ -18,6 +18,7 @@ use wasmer_wasix_types::{
 };
 
 pub mod socket;
+pub mod unix_socket;
 
 #[allow(dead_code)]
 pub(crate) fn read_ip<M: MemorySize>(

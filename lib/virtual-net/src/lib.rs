@@ -105,6 +105,13 @@ impl WasixSocketAddr {
             _ => false,
         }
     }
+
+    pub fn is_unix(&self) -> bool {
+        match self {
+            Self::Unix(_) => true,
+            _ => false,
+        }
+    }
 }
 
 /// Represents an IP address and its netmask
