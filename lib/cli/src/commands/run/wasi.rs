@@ -66,7 +66,7 @@ pub struct Wasi {
     )]
     pub(crate) env_vars: Vec<(String, String)>,
 
-    /// Forward all host env variables to the wcgi task.
+    /// Forward all host env variables to guest
     #[clap(long, env)]
     pub(crate) forward_host_env: bool,
 
