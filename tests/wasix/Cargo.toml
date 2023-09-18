@@ -1,0 +1,3 @@
+[workspace]
+members = ["runner", "shared"]
+resolver = "2"

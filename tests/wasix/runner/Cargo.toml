@@ -1,0 +1,33 @@
+[package]
+name = "wasix-conformance-suite-runner"
+version = "0.1.0"
+edition = "2021"
+description = ""
+publish = false
+autotests = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+cargo_metadata = "0.18.0"
+libtest-mimic = "0.6.0"
+once_cell = "1.18.0"
+wasmer = { path = "../../../lib/api", features = ["compiler"] }
+
+[features]
+default = ["singlepass", "cranelift"]
+singlepass = ["wasmer/singlepass"]
+cranelift = ["wasmer/cranelift"]
+
+[[test]]
+name = "singlepass"
+path = "tests/singlepass.rs"
+required-features = ["singlepass"]
+harness = false
+
+[[test]]
+name = "cranelift"
+path = "tests/cranelift.rs"
+required-features = ["cranelift"]
+harness = false

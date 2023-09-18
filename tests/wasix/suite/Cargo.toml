@@ -1,0 +1,13 @@
+[package]
+name = "wasix-conformance-suite"
+version = "0.1.0"
+edition = "2021"
+
+# We don't want to include the test suite as part of any other workspaces
+[workspace]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wasix = "0.12.21"
+wasix-conformance-suite-shared = { version = "0.1.0", path = "../shared" }
