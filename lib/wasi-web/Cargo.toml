@@ -10,7 +10,7 @@ keywords = [ "wasm", "browser", "terminal" ]
 repository = "https://github.com/wasmerio/wasmer"
 readme = "../README.md"
 homepage = "https://wasmer.io/"
-rust-version = "1.67"
+rust-version = "1.70"
 
 # This crate is in its own workspace because it gets compiled to WebAssembly
 [workspace]
