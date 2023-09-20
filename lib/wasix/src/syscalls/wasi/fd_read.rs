@@ -351,13 +351,10 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                     // Yield until the notifications are triggered
                     let tasks_inner = env.tasks().clone();
 
-                    let res =
-                        __asyncify_light(env, None, async { poller.await })?.map_err(
-                            |err| match err {
-                                Errno::Timedout => Errno::Again,
-                                a => a,
-                            },
-                        );
+                    let res = __asyncify_light(env, None, poller)?.map_err(|err| match err {
+                        Errno::Timedout => Errno::Again,
+                        a => a,
+                    });
                     let val = wasi_try_ok_ok!(res);
 
                     let mut memory = unsafe { env.memory_view(ctx) };
