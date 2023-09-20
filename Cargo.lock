@@ -5723,7 +5723,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry 5.6.0",
- "wasmer-toml 0.6.0",
+ "wasmer-toml 0.8.0",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -6056,7 +6056,7 @@ dependencies = [
  "tokio",
  "toml 0.5.11",
  "url",
- "wasmer-toml 0.6.0",
+ "wasmer-toml 0.8.0",
  "wasmer-wasm-interface 4.2.0",
  "wasmparser 0.51.4",
  "whoami",
@@ -6136,9 +6136,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-toml"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d79d9e87af8aea672134da379ccef76e659b7bc316a10b7e51d30177515c0199"
+checksum = "e2d9ad139e1b613770613cf5952e95185e28b108120ddee14d88b4a004c7c94f"
 dependencies = [
  "anyhow",
  "derive_builder",
@@ -6572,9 +6572,7 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5c35d27cb4c7898571b5f25036ead587736ffb371261f9e928a28edee7abf9d"
+version = "5.5.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -6599,7 +6597,7 @@ dependencies = [
  "toml 0.7.8",
  "url",
  "walkdir",
- "wasmer-toml 0.7.0",
+ "wasmer-toml 0.8.0",
 ]
 
 [[package]]

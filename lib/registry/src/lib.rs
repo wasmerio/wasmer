@@ -180,8 +180,7 @@ pub fn query_package_from_registry(
         manifest: v.manifest.clone(),
 
         commands: manifest
-            .command
-            .unwrap_or_default()
+            .commands
             .iter()
             .map(|s| s.get_name())
             .collect::<Vec<_>>()
