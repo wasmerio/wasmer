@@ -596,13 +596,13 @@ test-js-wasi:
 test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 
 test-singlepass-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- singlepass::universal --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- singlepass::universal
 
 test-cranelift-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- cranelift::universal --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- cranelift::universal
 
 test-llvm-universal:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- llvm::universal --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- llvm::universal
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
@@ -621,7 +621,7 @@ test-capi-jsc: build-capi-jsc package-capi test-capi-integration-jsc
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) -- --nocapture --locked
+		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- --nocapture
 
 test-capi-integration-%:
 	# note: you need to do make build-capi and make package-capi first!
@@ -634,7 +634,7 @@ test-wasi-unit:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/wasi/Cargo.toml --release --locked
 
 test-wasi:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) -- wasi::wasitests --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- wasi::wasitests
 
 test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
