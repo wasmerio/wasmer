@@ -84,8 +84,8 @@ rust-version = "1.70"
 version = "4.2.0"
 
 [workspace.dependencies]
-webc = { version = "5.2.0", default-features = false, features = ["package"] }
-wasmer-toml = "0.6.0"
+webc = { version = "5.5.0", default-features = false, features = ["package"] }
+wasmer-toml = "0.8.0"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -311,3 +311,6 @@ required-features = ["backend"]
 name = "features"
 path = "examples/features.rs"
 required-features = ["cranelift"]
+
+[patch.crates-io]
+webc = { path = "../pirita/crates/webc" }
