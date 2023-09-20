@@ -113,7 +113,7 @@ fn load_binary_command(
         name: atom_name,
         dependency,
         ..
-    } = match dbg!(atom_name_for_command(command_name, cmd)?) {
+    } = match atom_name_for_command(command_name, cmd)? {
         Some(name) => name,
         None => {
             tracing::warn!(
@@ -147,12 +147,10 @@ fn load_binary_command(
         None => package,
     };
 
-    dbg!(package_id, command_name, cmd);
-
     let atom = webc.get_atom(&atom_name);
 
     if atom.is_none() && cmd.annotations.is_empty() {
-        return Ok(legacy_atom_hack(webc, &command_name, cmd));
+        return Ok(legacy_atom_hack(webc, command_name, cmd));
     }
 
     let atom = atom.with_context(|| {
