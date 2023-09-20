@@ -153,21 +153,40 @@ impl Init {
         Self::write_wasmer_toml(&target_file, &constructed_manifest)
     }
 
-    /// Writes the metadata to a wasmer.toml file
+    /// Writes the metadata to a wasmer.toml file, making sure we include the
+    /// [`NOTE`] so people get a link to the registry docs.
     fn write_wasmer_toml(
         path: &PathBuf,
         toml: &wasmer_toml::Manifest,
     ) -> Result<(), anyhow::Error> {
-        let toml_string = toml::to_string_pretty(&toml)?
-            .replace(
-                "[dependencies]",
-                &format!("{NOTE}{NEWLINE}{NEWLINE}[dependencies]"),
-            )
-            .lines()
-            .collect::<Vec<_>>()
-            .join(NEWLINE);
+        let toml_string = toml::to_string_pretty(&toml)?;
 
-        std::fs::write(path, toml_string)
+        let mut resulting_string = String::new();
+        let mut note_inserted = false;
+
+        for line in toml_string.lines() {
+            resulting_string.push_str(line);
+
+            if !note_inserted && line.is_empty() {
+                // We've found an empty line after the initial [package]
+                // section. Let's add our note here.
+                resulting_string.push_str(NEWLINE);
+                resulting_string.push_str(NOTE);
+                resulting_string.push_str(NEWLINE);
+                note_inserted = true;
+            }
+            resulting_string.push_str(NEWLINE);
+        }
+
+        if !note_inserted {
+            // Make sure the note still ends up at the end of the file.
+            resulting_string.push_str(NEWLINE);
+            resulting_string.push_str(NOTE);
+            resulting_string.push_str(NEWLINE);
+            resulting_string.push_str(NEWLINE);
+        }
+
+        std::fs::write(path, resulting_string)
             .with_context(|| format!("Unable to write to \"{}\"", path.display()))?;
 
         Ok(())
