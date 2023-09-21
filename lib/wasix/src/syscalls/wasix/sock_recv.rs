@@ -26,20 +26,33 @@ pub fn sock_recv<M: MemorySize>(
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
 ) -> Result<Errno, WasiError> {
-    let pid = ctx.data().pid();
-    let tid = ctx.data().tid();
+    let env = ctx.data();
+    let fd_entry = env.state.fs.get_fd(sock).unwrap();
+    let inode = fd_entry.inode.clone();
+    let guard = inode.read();
+    let use_read = match guard.deref() {
+        Kind::Pipe { .. } => true,
+        _ => false,
+    };
+    drop(guard);
+    if use_read {
+        fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)
+    } else {
+        let pid = ctx.data().pid();
+        let tid = ctx.data().tid();
 
-    let res = sock_recv_internal::<M>(
-        &mut ctx,
-        sock,
-        ri_data,
-        ri_data_len,
-        ri_flags,
-        ro_data_len,
-        ro_flags,
-    )?;
+        let res = sock_recv_internal::<M>(
+            &mut ctx,
+            sock,
+            ri_data,
+            ri_data_len,
+            ri_flags,
+            ro_data_len,
+            ro_flags,
+        )?;
 
-    sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
+        sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
+    }
 }
 
 pub(super) fn sock_recv_internal_handler<M: MemorySize>(
