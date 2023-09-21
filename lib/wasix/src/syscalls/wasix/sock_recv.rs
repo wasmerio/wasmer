@@ -28,12 +28,8 @@ pub fn sock_recv<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let fd_entry = env.state.fs.get_fd(sock).unwrap();
-    let inode = fd_entry.inode.clone();
-    let guard = inode.read();
-    let use_read = match guard.deref() {
-        Kind::Pipe { .. } => true,
-        _ => false,
-    };
+    let guard = fd_entry.inode.read();
+    let use_read = matches!(guard.deref(), Kind::Pipe { .. });
     drop(guard);
     if use_read {
         fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)
