@@ -5,8 +5,6 @@ description = 'Description for package wasmer'
 
 # See more keys and definitions at https://docs.wasmer.io/registry/manifest
 
-[dependencies]
-
 [[module]]
 name = 'wasmer'
 source = 'target/wasm32-wasi/release/wasmer.wasm'
