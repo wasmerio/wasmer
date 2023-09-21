@@ -130,8 +130,7 @@ impl VirtualFile for TraceFile {
     }
 
     fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
-        let fut = self.file.unlink();
-        Box::pin(async move { fut.await })
+        Box::pin(self.file.unlink())
     }
 
     #[tracing::instrument(level = "trace", skip_all, fields(path=%self.path.display()))]

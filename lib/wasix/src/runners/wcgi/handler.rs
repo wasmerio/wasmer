@@ -84,9 +84,7 @@ impl Handler {
         }
         .in_current_span();
         task_manager
-            .task_shared(Box::new(move || {
-                Box::pin(async move { work_consume_stderr.await })
-            }))
+            .task_shared(Box::new(move || Box::pin(work_consume_stderr)))
             .ok();
 
         let work_drive_io = async move {
@@ -99,9 +97,7 @@ impl Handler {
         }
         .in_current_span();
         task_manager
-            .task_shared(Box::new(move || {
-                Box::pin(async move { work_drive_io.await })
-            }))
+            .task_shared(Box::new(move || Box::pin(work_drive_io)))
             .ok();
 
         let parts = self

@@ -115,7 +115,7 @@ impl VirtualFile for ArcBoxFile {
         let mut inner = self.inner.lock().unwrap();
         let fut = inner.unlink();
         drop(inner);
-        Box::pin(async { fut.await })
+        Box::pin(fut)
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

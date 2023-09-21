@@ -80,7 +80,7 @@ edition = "2021"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.67"
+rust-version = "1.70"
 version = "4.2.0"
 
 [workspace.dependencies]
@@ -168,7 +168,7 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.weezl]
 opt-level = 3
-[profile.dev.package.sha256]
+[profile.dev.package.sha2]
 opt-level = 3
 [profile.dev.package.digest]
 opt-level = 3
