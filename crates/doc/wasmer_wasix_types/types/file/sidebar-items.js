@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["EVENT_FD_FLAGS_SEMAPHORE","__WASI_LOOKUP_SYMLINK_FOLLOW","__WASI_STDERR_FILENO","__WASI_STDIN_FILENO","__WASI_STDOUT_FILENO"],"fn":["print_right_set"],"struct":["Oflags"],"type":["EventFdFlags","FileDelta","LookupFlags"]};
+window.SIDEBAR_ITEMS = {"constant":["EVENT_FD_FLAGS_SEMAPHORE","__WASI_LOOKUP_SYMLINK_FOLLOW","__WASI_STDERR_FILENO","__WASI_STDIN_FILENO","__WASI_STDOUT_FILENO"],"fn":["print_right_set"]};

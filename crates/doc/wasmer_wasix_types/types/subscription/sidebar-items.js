@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Eventtype"],"struct":["SubscriptionFsReadwrite"]};
+window.SIDEBAR_ITEMS = {};

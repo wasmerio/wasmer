@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Ordering"],"fn":["max","max_by","max_by_key","min","min_by","min_by_key"],"macro":["Eq","Ord","PartialEq","PartialOrd"],"struct":["Reverse"],"trait":["Eq","Ord","PartialEq","PartialOrd"]};
+window.SIDEBAR_ITEMS = {"derive":["Eq","Ord","PartialEq","PartialOrd"],"enum":["Ordering"],"fn":["max","max_by","max_by_key","min","min_by","min_by_key"],"struct":["Reverse"],"trait":["Eq","Ord","PartialEq","PartialOrd"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"macro":["Copy"],"struct":["PhantomData","PhantomPinned"],"trait":["Copy","Destruct","DiscriminantKind","PointerLike","Send","Sized","StructuralEq","StructuralPartialEq","Sync","Tuple","Unpin","Unsize"]};
+window.SIDEBAR_ITEMS = {"derive":["Copy"],"struct":["PhantomData","PhantomPinned"],"trait":["Copy","Destruct","DiscriminantKind","FnPtr","PointerLike","Send","Sized","StructuralEq","StructuralPartialEq","Sync","Tuple","Unpin","Unsize"]};
