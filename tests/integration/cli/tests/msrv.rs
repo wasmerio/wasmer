@@ -79,12 +79,10 @@ fn ci_files_are_up_to_date() {
 
 /// Get the root directory for this repository.
 fn project_root() -> &'static Path {
-    let project_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+    Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(3)
-        .unwrap();
-    assert!(project_dir.join(".git").exists());
-    project_dir
+        .unwrap()
 }
 
 /// Check that a particular file has the desired contents.
