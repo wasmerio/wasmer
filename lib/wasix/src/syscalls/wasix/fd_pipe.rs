@@ -39,6 +39,7 @@ pub fn fd_pipe<M: MemorySize>(
         | Rights::FD_SYNC
         | Rights::FD_DATASYNC
         | Rights::POLL_FD_READWRITE
+        | Rights::SOCK_SEND
         | Rights::FD_FDSTAT_SET_FLAGS;
     let fd1 = wasi_try!(state
         .fs
