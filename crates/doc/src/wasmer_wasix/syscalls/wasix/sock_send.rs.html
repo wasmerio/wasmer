@@ -108,6 +108,15 @@
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
 <a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -135,7 +144,16 @@
     si_flags: SiFlags,
     ret_data_len: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    sock_send_internal(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock).unwrap();
+    <span class="kw">let </span>guard = fd_entry.inode.read();
+    <span class="kw">let </span>use_write = <span class="macro">matches!</span>(guard.deref(), Kind::Pipe { .. });
+    drop(guard);
+    <span class="kw">if </span>use_write {
+        fd_write(ctx, sock, si_data, si_data_len, ret_data_len)
+    } <span class="kw">else </span>{
+        sock_send_internal(ctx, sock, si_data, si_data_len, si_flags, ret_data_len)
+    }
 }
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>sock_send_internal&lt;M: MemorySize&gt;(

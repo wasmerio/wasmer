@@ -153,6 +153,15 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -181,20 +190,29 @@
     ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="kw">let </span>pid = ctx.data().pid();
-    <span class="kw">let </span>tid = ctx.data().tid();
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock).unwrap();
+    <span class="kw">let </span>guard = fd_entry.inode.read();
+    <span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::Pipe { .. });
+    drop(guard);
+    <span class="kw">if </span>use_read {
+        fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)
+    } <span class="kw">else </span>{
+        <span class="kw">let </span>pid = ctx.data().pid();
+        <span class="kw">let </span>tid = ctx.data().tid();
 
-    <span class="kw">let </span>res = sock_recv_internal::&lt;M&gt;(
-        <span class="kw-2">&amp;mut </span>ctx,
-        sock,
-        ri_data,
-        ri_data_len,
-        ri_flags,
-        ro_data_len,
-        ro_flags,
-    )<span class="question-mark">?</span>;
+        <span class="kw">let </span>res = sock_recv_internal::&lt;M&gt;(
+            <span class="kw-2">&amp;mut </span>ctx,
+            sock,
+            ri_data,
+            ri_data_len,
+            ri_flags,
+            ro_data_len,
+            ro_flags,
+        )<span class="question-mark">?</span>;
 
-    sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
+        sock_recv_internal_handler(ctx, res, ro_data_len, ro_flags)
+    }
 }
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>sock_recv_internal_handler&lt;M: MemorySize&gt;(
