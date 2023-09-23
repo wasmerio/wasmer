@@ -131,7 +131,7 @@ where
         let mut inner = self.inner.lock().unwrap();
         let fut = inner.unlink();
         drop(inner);
-        Box::pin(async move { fut.await })
+        Box::pin(fut)
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

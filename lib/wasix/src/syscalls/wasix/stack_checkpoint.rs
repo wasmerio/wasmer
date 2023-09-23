@@ -50,7 +50,6 @@ pub fn stack_checkpoint<M: MemorySize>(
             .unwrap();
         let env = ctx.data();
         let store_data = Bytes::from(store_data);
-        let mut memory_stack_corrected = memory_stack.clone();
 
         // We compute the hash again for two reasons... integrity so if there
         // is a long jump that goes to the wrong place it will fail gracefully.
