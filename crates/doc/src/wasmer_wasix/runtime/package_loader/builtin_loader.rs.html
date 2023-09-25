@@ -437,6 +437,11 @@
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
 <a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -510,6 +515,11 @@
             cache_dir,
             Arc::new(client),
         ))
+    }
+
+    <span class="doccomment">/// Insert a container into the in-memory hash.
+    </span><span class="kw">pub fn </span>insert_cached(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: WebcHash, container: <span class="kw-2">&amp;</span>Container) {
+        <span class="self">self</span>.in_memory.save(container, hash);
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(pkg.hash=%hash))]
