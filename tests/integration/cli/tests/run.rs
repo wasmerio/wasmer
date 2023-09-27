@@ -908,7 +908,7 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
 fn project_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
-        .find(|path| path.join(".git").exists())
+        .nth(3)
         .unwrap()
 }
 
