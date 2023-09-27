@@ -774,18 +774,6 @@
 <a href="#774" id="774">774</a>
 <a href="#775" id="775">775</a>
 <a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -894,7 +882,6 @@
             .parent()
             .context(<span class="string">&quot;could not determine manifest parent directory&quot;</span>)<span class="question-mark">?
             </span>.to_owned();
-        manifest.base_directory_path = manifest_dir.to_owned();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(package_name) = <span class="self">self</span>.package_name.as_ref() {
             manifest.package.name = package_name.to_string();
@@ -996,15 +983,14 @@
     <span class="kw">let </span>manifest_string = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>package = <span class="kw-2">&amp;</span>manifest.package;
-    <span class="kw">let </span>modules = manifest.module.as_deref().unwrap_or_default();
+    <span class="kw">let </span>modules = <span class="kw-2">&amp;</span>manifest.modules;
 
     <span class="kw">let </span>readme = <span class="kw">match </span>package.readme.as_ref() {
         <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         <span class="prelude-val">Some</span>(s) =&gt; {
-            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s)
-                .map_err(|(p, e)| {
-                    PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
-                })<span class="question-mark">?</span>;
+            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, s).map_err(|(p, e)| {
+                PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
+            })<span class="question-mark">?</span>;
             <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
         }
     };
@@ -1012,24 +998,24 @@
     <span class="kw">let </span>license = <span class="kw">match </span>package.license_file.as_ref() {
         <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
         <span class="prelude-val">Some</span>(s) =&gt; {
-            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, s)
-                .map_err(|(p, e)| {
-                    PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
-                })<span class="question-mark">?</span>;
+            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, s).map_err(|(p, e)| {
+                PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
+            })<span class="question-mark">?</span>;
             <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
         }
     };
 
     <span class="kw">for </span>module <span class="kw">in </span>modules {
-        append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>module.source)
-            .map_err(|(normalized_path, <span class="kw">_</span>)| PackageBuildError::SourceMustBeFile {
+        append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, <span class="kw-2">&amp;</span>module.source).map_err(
+            |(normalized_path, <span class="kw">_</span>)| PackageBuildError::SourceMustBeFile {
                 module: module.name.clone(),
                 path: normalized_path,
-            })<span class="question-mark">?</span>;
+            },
+        )<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
-            <span class="kw">for </span>path <span class="kw">in </span>bindings.referenced_files(<span class="kw-2">&amp;</span>manifest.base_directory_path)<span class="question-mark">? </span>{
-                append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>manifest.base_directory_path, <span class="kw-2">&amp;</span>path).map_err(
+            <span class="kw">for </span>path <span class="kw">in </span>bindings.referenced_files(manifest_dir)<span class="question-mark">? </span>{
+                append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, <span class="kw-2">&amp;</span>path).map_err(
                     |(normalized_path, <span class="kw">_</span>)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -1040,8 +1026,7 @@
     }
 
     <span class="comment">// bundle the package filesystem
-    </span><span class="kw">let </span>default = indexmap::IndexMap::default();
-    <span class="kw">for </span>(_alias, path) <span class="kw">in </span>manifest.fs.as_ref().unwrap_or(<span class="kw-2">&amp;</span>default).iter() {
+    </span><span class="kw">for </span>(_alias, path) <span class="kw">in </span><span class="kw-2">&amp;</span>manifest.fs {
         <span class="kw">let </span>normalized_path = normalize_path(manifest_dir, path);
         <span class="kw">let </span>path_metadata = normalized_path.metadata().map_err(|<span class="kw">_</span>| {
             PackageBuildError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
@@ -1247,7 +1232,7 @@
 
 <span class="kw">fn </span>get_active_personal_key(conn: <span class="kw-2">&amp;</span>Connection) -&gt; anyhow::Result&lt;PersonalKey&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>stmt = conn.prepare(
-        <span class="string">&quot;SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys 
+        <span class="string">&quot;SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys
          where active = 1&quot;</span>,
     )<span class="question-mark">?</span>;
 
@@ -1373,78 +1358,70 @@
         pkg_path: PathBuf,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="comment">// validate as dir
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(modules) = manifest.module.as_ref() {
-            <span class="kw">for </span>module <span class="kw">in </span>modules.iter() {
-                <span class="kw">let </span>source_path = <span class="kw">if </span>module.source.is_relative() {
-                    manifest.base_directory_path.join(<span class="kw-2">&amp;</span>module.source)
-                } <span class="kw">else </span>{
-                    module.source.clone()
-                };
-                <span class="kw">let </span>source_path_string = source_path.to_string_lossy().to_string();
-                <span class="kw">let </span><span class="kw-2">mut </span>wasm_file =
-                    fs::File::open(<span class="kw-2">&amp;</span>source_path).map_err(|<span class="kw">_</span>| ValidationError::MissingFile {
-                        file: source_path_string.clone(),
-                    })<span class="question-mark">?</span>;
-                <span class="kw">let </span><span class="kw-2">mut </span>wasm_buffer = Vec::new();
-                wasm_file.read_to_end(<span class="kw-2">&amp;mut </span>wasm_buffer).map_err(|err| {
-                    ValidationError::MiscCannotRead {
-                        file: source_path_string.clone(),
-                        error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err),
-                    }
+        </span><span class="kw">for </span>module <span class="kw">in </span>manifest.modules.iter() {
+            <span class="kw">let </span>source_path = <span class="kw">if </span>module.source.is_relative() {
+                pkg_path.join(<span class="kw-2">&amp;</span>module.source)
+            } <span class="kw">else </span>{
+                module.source.clone()
+            };
+            <span class="kw">let </span>source_path_string = source_path.to_string_lossy().to_string();
+            <span class="kw">let </span><span class="kw-2">mut </span>wasm_file =
+                fs::File::open(<span class="kw-2">&amp;</span>source_path).map_err(|<span class="kw">_</span>| ValidationError::MissingFile {
+                    file: source_path_string.clone(),
                 })<span class="question-mark">?</span>;
-
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
-                    validate_bindings(bindings, <span class="kw-2">&amp;</span>manifest.base_directory_path)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>wasm_buffer = Vec::new();
+            wasm_file.read_to_end(<span class="kw-2">&amp;mut </span>wasm_buffer).map_err(|err| {
+                ValidationError::MiscCannotRead {
+                    file: source_path_string.clone(),
+                    error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err),
                 }
+            })<span class="question-mark">?</span>;
 
-                <span class="comment">// hack, short circuit if no interface for now
-                </span><span class="kw">if </span>module.interfaces.is_none() {
-                    <span class="kw">return </span>validate_wasm_and_report_errors_old(
-                        <span class="kw-2">&amp;</span>wasm_buffer[..],
-                        source_path_string,
-                    );
-                }
-
-                <span class="kw">let </span><span class="kw-2">mut </span>conn = <span class="kw">super</span>::open_db()<span class="question-mark">?</span>;
-                <span class="kw">let </span><span class="kw-2">mut </span>interface: Interface = Default::default();
-                <span class="kw">for </span>(interface_name, interface_version) <span class="kw">in
-                    </span>module.interfaces.clone().unwrap_or_default().into_iter()
-                {
-                    <span class="kw">if </span>!interfaces::interface_exists(
-                        <span class="kw-2">&amp;mut </span>conn,
-                        <span class="kw-2">&amp;</span>interface_name,
-                        <span class="kw-2">&amp;</span>interface_version,
-                    )<span class="question-mark">? </span>{
-                        <span class="comment">// download interface and store it if we don&#39;t have it locally
-                        </span><span class="kw">let </span>interface_data_from_server = InterfaceFromServer::get(
-                            registry,
-                            interface_name.clone(),
-                            interface_version.clone(),
-                        )<span class="question-mark">?</span>;
-                        interfaces::import_interface(
-                            <span class="kw-2">&amp;mut </span>conn,
-                            <span class="kw-2">&amp;</span>interface_name,
-                            <span class="kw-2">&amp;</span>interface_version,
-                            <span class="kw-2">&amp;</span>interface_data_from_server.content,
-                        )<span class="question-mark">?</span>;
-                    }
-                    <span class="kw">let </span>sub_interface = interfaces::load_interface_from_db(
-                        <span class="kw-2">&amp;mut </span>conn,
-                        <span class="kw-2">&amp;</span>interface_name,
-                        <span class="kw-2">&amp;</span>interface_version,
-                    )<span class="question-mark">?</span>;
-                    interface = interface.merge(sub_interface).map_err(|e| {
-                        <span class="macro">anyhow!</span>(<span class="string">&quot;Failed to merge interface {}: {}&quot;</span>, <span class="kw-2">&amp;</span>interface_name, e)
-                    })<span class="question-mark">?</span>;
-                }
-                validate::validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm_buffer, <span class="kw-2">&amp;</span>interface).map_err(
-                    |e| ValidationError::InvalidWasm {
-                        file: source_path_string,
-                        error: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
-                    },
-                )<span class="question-mark">?</span>;
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
+                validate_bindings(bindings, <span class="kw-2">&amp;</span>pkg_path)<span class="question-mark">?</span>;
             }
+
+            <span class="comment">// hack, short circuit if no interface for now
+            </span><span class="kw">if </span>module.interfaces.is_none() {
+                <span class="kw">return </span>validate_wasm_and_report_errors_old(<span class="kw-2">&amp;</span>wasm_buffer[..], source_path_string);
+            }
+
+            <span class="kw">let </span><span class="kw-2">mut </span>conn = <span class="kw">super</span>::open_db()<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>interface: Interface = Default::default();
+            <span class="kw">for </span>(interface_name, interface_version) <span class="kw">in
+                </span>module.interfaces.clone().unwrap_or_default().into_iter()
+            {
+                <span class="kw">if </span>!interfaces::interface_exists(<span class="kw-2">&amp;mut </span>conn, <span class="kw-2">&amp;</span>interface_name, <span class="kw-2">&amp;</span>interface_version)<span class="question-mark">? </span>{
+                    <span class="comment">// download interface and store it if we don&#39;t have it locally
+                    </span><span class="kw">let </span>interface_data_from_server = InterfaceFromServer::get(
+                        registry,
+                        interface_name.clone(),
+                        interface_version.clone(),
+                    )<span class="question-mark">?</span>;
+                    interfaces::import_interface(
+                        <span class="kw-2">&amp;mut </span>conn,
+                        <span class="kw-2">&amp;</span>interface_name,
+                        <span class="kw-2">&amp;</span>interface_version,
+                        <span class="kw-2">&amp;</span>interface_data_from_server.content,
+                    )<span class="question-mark">?</span>;
+                }
+                <span class="kw">let </span>sub_interface = interfaces::load_interface_from_db(
+                    <span class="kw-2">&amp;mut </span>conn,
+                    <span class="kw-2">&amp;</span>interface_name,
+                    <span class="kw-2">&amp;</span>interface_version,
+                )<span class="question-mark">?</span>;
+                interface = interface
+                    .merge(sub_interface)
+                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;Failed to merge interface {}: {}&quot;</span>, <span class="kw-2">&amp;</span>interface_name, e))<span class="question-mark">?</span>;
+            }
+            validate::validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm_buffer, <span class="kw-2">&amp;</span>interface).map_err(|e| {
+                ValidationError::InvalidWasm {
+                    file: source_path_string,
+                    error: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
+                }
+            })<span class="question-mark">?</span>;
         }
+
         <span class="macro">log::debug!</span>(<span class="string">&quot;package at path {:#?} validated&quot;</span>, <span class="kw-2">&amp;</span>pkg_path);
 
         <span class="prelude-val">Ok</span>(())
@@ -1541,8 +1518,7 @@ runner = &quot;https://webc.org/runner/wcgi&quot;
         std::fs::write(<span class="kw-2">&amp;</span>manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join(<span class="string">&quot;module.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest_str).unwrap();
-        manifest.base_directory_path = manifest_dir.path().to_owned();
+        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest_str).unwrap();
 
         <span class="kw">let </span>meta = construct_tar_gz(<span class="kw-2">&amp;</span>archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
 

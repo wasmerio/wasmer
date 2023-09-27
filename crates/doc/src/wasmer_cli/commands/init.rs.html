@@ -532,6 +532,35 @@
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
 <a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -541,6 +570,7 @@
 <span class="kw">use </span>cargo_metadata::{CargoOpt, MetadataCommand};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>indexmap::IndexMap;
+<span class="kw">use </span>semver::VersionReq;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 
 <span class="kw">static </span>NOTE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;# See more keys and definitions at https://docs.wasmer.io/registry/manifest&quot;</span>;
@@ -686,21 +716,40 @@
         </span><span class="self">Self</span>::write_wasmer_toml(<span class="kw-2">&amp;</span>target_file, <span class="kw-2">&amp;</span>constructed_manifest)
     }
 
-    <span class="doccomment">/// Writes the metadata to a wasmer.toml file
+    <span class="doccomment">/// Writes the metadata to a wasmer.toml file, making sure we include the
+    /// [`NOTE`] so people get a link to the registry docs.
     </span><span class="kw">fn </span>write_wasmer_toml(
         path: <span class="kw-2">&amp;</span>PathBuf,
         toml: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>toml_string = toml::to_string_pretty(<span class="kw-2">&amp;</span>toml)<span class="question-mark">?
-            </span>.replace(
-                <span class="string">&quot;[dependencies]&quot;</span>,
-                <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{NOTE}{NEWLINE}{NEWLINE}[dependencies]&quot;</span>),
-            )
-            .lines()
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .join(NEWLINE);
+        <span class="kw">let </span>toml_string = toml::to_string_pretty(<span class="kw-2">&amp;</span>toml)<span class="question-mark">?</span>;
 
-        std::fs::write(path, toml_string)
+        <span class="kw">let </span><span class="kw-2">mut </span>resulting_string = String::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>note_inserted = <span class="bool-val">false</span>;
+
+        <span class="kw">for </span>line <span class="kw">in </span>toml_string.lines() {
+            resulting_string.push_str(line);
+
+            <span class="kw">if </span>!note_inserted &amp;&amp; line.is_empty() {
+                <span class="comment">// We&#39;ve found an empty line after the initial [package]
+                // section. Let&#39;s add our note here.
+                </span>resulting_string.push_str(NEWLINE);
+                resulting_string.push_str(NOTE);
+                resulting_string.push_str(NEWLINE);
+                note_inserted = <span class="bool-val">true</span>;
+            }
+            resulting_string.push_str(NEWLINE);
+        }
+
+        <span class="kw">if </span>!note_inserted {
+            <span class="comment">// Make sure the note still ends up at the end of the file.
+            </span>resulting_string.push_str(NEWLINE);
+            resulting_string.push_str(NOTE);
+            resulting_string.push_str(NEWLINE);
+            resulting_string.push_str(NEWLINE);
+        }
+
+        std::fs::write(path, resulting_string)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to write to \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
@@ -744,60 +793,58 @@
         }
     }
 
-    <span class="kw">fn </span>get_filesystem_mapping(include: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Option</span>&lt;IndexMap&lt;String, PathBuf&gt;&gt; {
+    <span class="kw">fn </span>get_filesystem_mapping(include: <span class="kw-2">&amp;</span>[String]) -&gt; IndexMap&lt;String, PathBuf&gt; {
         <span class="kw">if </span>include.is_empty() {
-            <span class="kw">return </span><span class="prelude-val">None</span>;
+            <span class="kw">return </span>IndexMap::new();
         }
 
-        <span class="prelude-val">Some</span>(
-            include
-                .iter()
-                .map(|path| {
-                    <span class="kw">if </span>path == <span class="string">&quot;.&quot; </span>|| path == <span class="string">&quot;/&quot; </span>{
-                        <span class="kw">return </span>(<span class="string">&quot;/&quot;</span>.to_string(), Path::new(<span class="string">&quot;/&quot;</span>).to_path_buf());
-                    }
+        include
+            .iter()
+            .map(|path| {
+                <span class="kw">if </span>path == <span class="string">&quot;.&quot; </span>|| path == <span class="string">&quot;/&quot; </span>{
+                    <span class="kw">return </span>(<span class="string">&quot;/&quot;</span>.to_string(), Path::new(<span class="string">&quot;/&quot;</span>).to_path_buf());
+                }
 
-                    <span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;./{path}&quot;</span>);
-                    <span class="kw">let </span>value = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;/{path}&quot;</span>));
+                <span class="kw">let </span>key = <span class="macro">format!</span>(<span class="string">&quot;./{path}&quot;</span>);
+                <span class="kw">let </span>value = PathBuf::from(<span class="macro">format!</span>(<span class="string">&quot;/{path}&quot;</span>));
 
-                    (key, value)
-                })
-                .collect(),
-        )
+                (key, value)
+            })
+            .collect()
     }
 
     <span class="kw">fn </span>get_command(
         modules: <span class="kw-2">&amp;</span>[wasmer_toml::Module],
         bin_or_lib: BinOrLib,
-    ) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;wasmer_toml::Command&gt;&gt; {
+    ) -&gt; Vec&lt;wasmer_toml::Command&gt; {
         <span class="kw">match </span>bin_or_lib {
-            BinOrLib::Bin =&gt; <span class="prelude-val">Some</span>(
-                modules
-                    .iter()
-                    .map(|m| {
-                        wasmer_toml::Command::V1(wasmer_toml::CommandV1 {
-                            name: m.name.clone(),
+            BinOrLib::Bin =&gt; modules
+                .iter()
+                .map(|m| {
+                    wasmer_toml::Command::V1(wasmer_toml::CommandV1 {
+                        name: m.name.clone(),
+                        module: wasmer_toml::ModuleReference::CurrentPackage {
                             module: m.name.clone(),
-                            main_args: <span class="prelude-val">None</span>,
-                            package: <span class="prelude-val">None</span>,
-                        })
+                        },
+                        main_args: <span class="prelude-val">None</span>,
+                        package: <span class="prelude-val">None</span>,
                     })
-                    .collect(),
-            ),
-            BinOrLib::Lib | BinOrLib::Empty =&gt; <span class="prelude-val">None</span>,
+                })
+                .collect(),
+            BinOrLib::Lib | BinOrLib::Empty =&gt; Vec::new(),
         }
     }
 
     <span class="doccomment">/// Returns the dependencies based on the `--template` flag
-    </span><span class="kw">fn </span>get_dependencies(template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;) -&gt; HashMap&lt;String, String&gt; {
+    </span><span class="kw">fn </span>get_dependencies(template: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Template&gt;) -&gt; HashMap&lt;String, VersionReq&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::default();
 
         <span class="kw">match </span>template {
             <span class="prelude-val">Some</span>(Template::Js) =&gt; {
-                map.insert(<span class="string">&quot;quickjs&quot;</span>.to_string(), <span class="string">&quot;quickjs/quickjs@latest&quot;</span>.to_string());
+                map.insert(<span class="string">&quot;quickjs/quickjs&quot;</span>.to_string(), VersionReq::STAR);
             }
             <span class="prelude-val">Some</span>(Template::Python) =&gt; {
-                map.insert(<span class="string">&quot;python&quot;</span>.to_string(), <span class="string">&quot;python/python@latest&quot;</span>.to_string());
+                map.insert(<span class="string">&quot;python/python&quot;</span>.to_string(), VersionReq::STAR);
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -1000,36 +1047,47 @@
         }),
     }];
 
-    <span class="prelude-val">Ok</span>(wasmer_toml::Manifest {
-        package: wasmer_toml::Package {
-            name: <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = namespace {
-                <span class="macro">format!</span>(<span class="string">&quot;{s}/{package_name}&quot;</span>)
-            } <span class="kw">else </span>{
-                package_name.to_string()
-            },
-            version,
-            description,
-            license,
-            license_file,
-            readme,
-            repository,
-            homepage,
-            wasmer_extra_flags: <span class="prelude-val">None</span>,
-            disable_command_rename: <span class="bool-val">false</span>,
-            rename_commands_to_raw_command_name: <span class="bool-val">false</span>,
+    <span class="kw">let </span><span class="kw-2">mut </span>pkg = wasmer_toml::Package::builder(
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = namespace {
+            <span class="macro">format!</span>(<span class="string">&quot;{s}/{package_name}&quot;</span>)
+        } <span class="kw">else </span>{
+            package_name.to_string()
         },
-        dependencies: <span class="prelude-val">Some</span>(Init::get_dependencies(template)),
-        command: Init::get_command(<span class="kw-2">&amp;</span>modules, bin_or_lib),
-        module: <span class="kw">match </span>bin_or_lib {
-            BinOrLib::Empty =&gt; <span class="prelude-val">None</span>,
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">Some</span>(modules),
-        },
-        fs: Init::get_filesystem_mapping(include_fs),
-        base_directory_path: target_file
-            .parent()
-            .map(|o| o.to_path_buf())
-            .unwrap_or_else(|| target_file.to_path_buf()),
-    })
+        version,
+        description,
+    );
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(license) = license {
+        pkg.license(license);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(license_file) = license_file {
+        pkg.license_file(license_file);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(readme) = readme {
+        pkg.readme(readme);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(repository) = repository {
+        pkg.repository(repository);
+    }
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(homepage) = homepage {
+        pkg.homepage(homepage);
+    }
+    <span class="kw">let </span>pkg = pkg.build()<span class="question-mark">?</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::builder(pkg);
+    manifest
+        .dependencies(Init::get_dependencies(template))
+        .commands(Init::get_command(<span class="kw-2">&amp;</span>modules, bin_or_lib))
+        .fs(Init::get_filesystem_mapping(include_fs));
+    <span class="kw">match </span>bin_or_lib {
+        BinOrLib::Bin | BinOrLib::Lib =&gt; {
+            manifest.modules(modules);
+        }
+        BinOrLib::Empty =&gt; {}
+    }
+    <span class="kw">let </span>manifest = manifest.build()<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(manifest)
 }
 <span class="kw">fn </span>parse_cargo_toml(manifest_path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;MiniCargoTomlPackage, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>metadata = MetadataCommand::new();

@@ -444,6 +444,31 @@
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -454,8 +479,12 @@
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>futures::{future::BoxFuture, StreamExt, TryStreamExt};
 <span class="kw">use </span>once_cell::sync::OnceCell;
+<span class="kw">use </span>petgraph::visit::EdgeRef;
 <span class="kw">use </span>virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
-<span class="kw">use </span>webc::compat::{Container, Volume};
+<span class="kw">use </span>webc::{
+    compat::{Container, Volume},
+    metadata::annotations::Atom <span class="kw">as </span>AtomAnnotation,
+};
 
 <span class="kw">use crate</span>::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
@@ -483,7 +512,8 @@
     <span class="kw">let </span>fs = filesystem(<span class="kw-2">&amp;</span>containers, <span class="kw-2">&amp;</span>resolution.package)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>root = <span class="kw-2">&amp;</span>resolution.package.root_package;
-    <span class="kw">let </span>commands: Vec&lt;BinaryPackageCommand&gt; = commands(<span class="kw-2">&amp;</span>resolution.package.commands, <span class="kw-2">&amp;</span>containers)<span class="question-mark">?</span>;
+    <span class="kw">let </span>commands: Vec&lt;BinaryPackageCommand&gt; =
+        commands(<span class="kw-2">&amp;</span>resolution.package.commands, <span class="kw-2">&amp;</span>containers, resolution)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>file_system_memory_footprint = count_file_system(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/&quot;</span>));
     <span class="kw">let </span>atoms_in_use: HashSet&lt;<span class="kw">_</span>&gt; = commands.iter().map(|cmd| cmd.atom()).collect();
@@ -515,6 +545,7 @@
 <span class="kw">fn </span>commands(
     commands: <span class="kw-2">&amp;</span>BTreeMap&lt;String, ItemLocation&gt;,
     containers: <span class="kw-2">&amp;</span>HashMap&lt;PackageId, Container&gt;,
+    resolution: <span class="kw-2">&amp;</span>Resolution,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;BinaryPackageCommand&gt;, Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>pkg_commands = Vec::new();
 
@@ -530,7 +561,9 @@
         <span class="kw">let </span>manifest = webc.manifest();
         <span class="kw">let </span>command_metadata = <span class="kw-2">&amp;</span>manifest.commands[original_name];
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = load_binary_command(webc, name, command_metadata)<span class="question-mark">? </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) =
+            load_binary_command(package, name, command_metadata, containers, resolution)<span class="question-mark">?
+        </span>{
             pkg_commands.push(cmd);
         }
     }
@@ -538,16 +571,24 @@
     <span class="prelude-val">Ok</span>(pkg_commands)
 }
 
-<span class="kw">fn </span>load_binary_command(
-    webc: <span class="kw-2">&amp;</span>Container,
-    name: <span class="kw-2">&amp;</span>str,
+<span class="doccomment">/// Given a [`webc::metadata::Command`], figure out which atom it uses and load
+/// that atom into a [`BinaryPackageCommand`].
+</span><span class="kw">fn </span>load_binary_command(
+    package_id: <span class="kw-2">&amp;</span>PackageId,
+    command_name: <span class="kw-2">&amp;</span>str,
     cmd: <span class="kw-2">&amp;</span>webc::metadata::Command,
+    containers: <span class="kw-2">&amp;</span>HashMap&lt;PackageId, Container&gt;,
+    resolution: <span class="kw-2">&amp;</span>Resolution,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BinaryPackageCommand&gt;, anyhow::Error&gt; {
-    <span class="kw">let </span>atom_name = <span class="kw">match </span>atom_name_for_command(name, cmd)<span class="question-mark">? </span>{
+    <span class="kw">let </span>AtomAnnotation {
+        name: atom_name,
+        dependency,
+        ..
+    } = <span class="kw">match </span>atom_name_for_command(command_name, cmd)<span class="question-mark">? </span>{
         <span class="prelude-val">Some</span>(name) =&gt; name,
         <span class="prelude-val">None </span>=&gt; {
             <span class="macro">tracing::warn!</span>(
-                cmd.name=name,
+                cmd.name=command_name,
                 cmd.runner=%cmd.runner,
                 <span class="string">&quot;Skipping unsupported command&quot;</span>,
             );
@@ -555,16 +596,41 @@
         }
     };
 
+    <span class="kw">let </span>package = <span class="kw-2">&amp;</span>containers[package_id];
+
+    <span class="kw">let </span>webc = <span class="kw">match </span>dependency {
+        <span class="prelude-val">Some</span>(dep) =&gt; {
+            <span class="kw">let </span>ix = resolution
+                .graph
+                .packages()
+                .get(package_id)
+                .copied()
+                .unwrap();
+            <span class="kw">let </span>graph = resolution.graph.graph();
+            <span class="kw">let </span>edge_reference = graph
+                .edges_directed(ix, petgraph::Direction::Outgoing)
+                .find(|edge| edge.weight().alias == dep)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to find the \&quot;{dep}\&quot; dependency for the \&quot;{command_name}\&quot; command in \&quot;{package_id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
+
+            <span class="kw">let </span>other_package = graph.node_weight(edge_reference.target()).unwrap();
+            <span class="kw-2">&amp;</span>containers[<span class="kw-2">&amp;</span>other_package.id]
+        }
+        <span class="prelude-val">None </span>=&gt; package,
+    };
+
     <span class="kw">let </span>atom = webc.get_atom(<span class="kw-2">&amp;</span>atom_name);
 
     <span class="kw">if </span>atom.is_none() &amp;&amp; cmd.annotations.is_empty() {
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(legacy_atom_hack(webc, name, cmd));
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(legacy_atom_hack(webc, command_name, cmd));
     }
 
-    <span class="kw">let </span>atom = atom
-        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The &#39;{name}&#39; command uses the &#39;{atom_name}&#39; atom, but it isn&#39;t present in the WEBC file&quot;</span>))<span class="question-mark">?</span>;
+    <span class="kw">let </span>atom = atom.with_context(|| {
+        <span class="macro">format!</span>(
+            <span class="string">&quot;The &#39;{command_name}&#39; command uses the &#39;{atom_name}&#39; atom, but it isn&#39;t present in the WEBC file&quot;
+        </span>)
+    })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>cmd = BinaryPackageCommand::new(name.to_string(), cmd.clone(), atom);
+    <span class="kw">let </span>cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom);
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cmd))
 }
@@ -572,28 +638,12 @@
 <span class="kw">fn </span>atom_name_for_command(
     command_name: <span class="kw-2">&amp;</span>str,
     cmd: <span class="kw-2">&amp;</span>webc::metadata::Command,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, anyhow::Error&gt; {
-    <span class="kw">use </span>webc::metadata::annotations::{
-        Emscripten, Wasi, EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI,
-    };
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;AtomAnnotation&gt;, anyhow::Error&gt; {
+    <span class="kw">use </span>webc::metadata::annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI};
 
-    <span class="comment">// FIXME: command metadata should include an &quot;atom: Option&lt;String&gt;&quot; field
-    // because it&#39;s so common, rather than relying on each runner to include
-    // annotations where &quot;atom&quot; just so happens to contain the atom&#39;s name
-    // (like in Wasi and Emscripten)
-
-    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(Wasi { atom, .. }) = cmd
-        .annotation(<span class="string">&quot;wasi&quot;</span>)
-        .context(<span class="string">&quot;Unable to deserialize &#39;wasi&#39; annotations&quot;</span>)<span class="question-mark">?
-    </span>{
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(atom));
-    }
-
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(Emscripten {
-        atom: <span class="prelude-val">Some</span>(atom), ..
-    }) = cmd
-        .annotation(<span class="string">&quot;emscripten&quot;</span>)
-        .context(<span class="string">&quot;Unable to deserialize &#39;emscripten&#39; annotations&quot;</span>)<span class="question-mark">?
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(atom) = cmd
+        .atom()
+        .context(<span class="string">&quot;Unable to deserialize atom annotations&quot;</span>)<span class="question-mark">?
     </span>{
         <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(atom));
     }
@@ -609,7 +659,7 @@
             command = command_name,
             <span class="string">&quot;No annotations specifying the atom name found. Falling back to the command name&quot;
         </span>);
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(command_name.to_string()));
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(AtomAnnotation::new(command_name, <span class="prelude-val">None</span>)));
     }
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
