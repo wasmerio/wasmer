@@ -106,7 +106,6 @@ impl Publish {
             .parent()
             .context("could not determine manifest parent directory")?
             .to_owned();
-        manifest.base_directory_path = manifest_dir.to_owned();
 
         if let Some(package_name) = self.package_name.as_ref() {
             manifest.package.name = package_name.to_string();
@@ -208,15 +207,14 @@ fn construct_tar_gz(
     let manifest_string = toml::to_string(&manifest)?;
 
     let package = &manifest.package;
-    let modules = manifest.module.as_deref().unwrap_or_default();
+    let modules = &manifest.modules;
 
     let readme = match package.readme.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, s)
-                .map_err(|(p, e)| {
-                    PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
-                })?;
+            let path = append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
+                PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+            })?;
             Some(std::fs::read_to_string(path)?)
         }
     };
@@ -224,24 +222,24 @@ fn construct_tar_gz(
     let license = match package.license_file.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, s)
-                .map_err(|(p, e)| {
-                    PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
-                })?;
+            let path = append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
+                PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+            })?;
             Some(std::fs::read_to_string(path)?)
         }
     };
 
     for module in modules {
-        append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, &module.source)
-            .map_err(|(normalized_path, _)| PackageBuildError::SourceMustBeFile {
+        append_path_to_tar_gz(&mut builder, manifest_dir, &module.source).map_err(
+            |(normalized_path, _)| PackageBuildError::SourceMustBeFile {
                 module: module.name.clone(),
                 path: normalized_path,
-            })?;
+            },
+        )?;
 
         if let Some(bindings) = &module.bindings {
-            for path in bindings.referenced_files(&manifest.base_directory_path)? {
-                append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, &path).map_err(
+            for path in bindings.referenced_files(manifest_dir)? {
+                append_path_to_tar_gz(&mut builder, manifest_dir, &path).map_err(
                     |(normalized_path, _)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -252,8 +250,7 @@ fn construct_tar_gz(
     }
 
     // bundle the package filesystem
-    let default = indexmap::IndexMap::default();
-    for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
+    for (_alias, path) in &manifest.fs {
         let normalized_path = normalize_path(manifest_dir, path);
         let path_metadata = normalized_path.metadata().map_err(|_| {
             PackageBuildError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
@@ -459,7 +456,7 @@ pub struct PersonalKey {
 
 fn get_active_personal_key(conn: &Connection) -> anyhow::Result<PersonalKey> {
     let mut stmt = conn.prepare(
-        "SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys 
+        "SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys
          where active = 1",
     )?;
 
@@ -585,78 +582,70 @@ mod validate {
         pkg_path: PathBuf,
     ) -> anyhow::Result<()> {
         // validate as dir
-        if let Some(modules) = manifest.module.as_ref() {
-            for module in modules.iter() {
-                let source_path = if module.source.is_relative() {
-                    manifest.base_directory_path.join(&module.source)
-                } else {
-                    module.source.clone()
-                };
-                let source_path_string = source_path.to_string_lossy().to_string();
-                let mut wasm_file =
-                    fs::File::open(&source_path).map_err(|_| ValidationError::MissingFile {
-                        file: source_path_string.clone(),
-                    })?;
-                let mut wasm_buffer = Vec::new();
-                wasm_file.read_to_end(&mut wasm_buffer).map_err(|err| {
-                    ValidationError::MiscCannotRead {
-                        file: source_path_string.clone(),
-                        error: format!("{}", err),
-                    }
+        for module in manifest.modules.iter() {
+            let source_path = if module.source.is_relative() {
+                pkg_path.join(&module.source)
+            } else {
+                module.source.clone()
+            };
+            let source_path_string = source_path.to_string_lossy().to_string();
+            let mut wasm_file =
+                fs::File::open(&source_path).map_err(|_| ValidationError::MissingFile {
+                    file: source_path_string.clone(),
                 })?;
-
-                if let Some(bindings) = &module.bindings {
-                    validate_bindings(bindings, &manifest.base_directory_path)?;
+            let mut wasm_buffer = Vec::new();
+            wasm_file.read_to_end(&mut wasm_buffer).map_err(|err| {
+                ValidationError::MiscCannotRead {
+                    file: source_path_string.clone(),
+                    error: format!("{}", err),
                 }
+            })?;
 
-                // hack, short circuit if no interface for now
-                if module.interfaces.is_none() {
-                    return validate_wasm_and_report_errors_old(
-                        &wasm_buffer[..],
-                        source_path_string,
-                    );
-                }
-
-                let mut conn = super::open_db()?;
-                let mut interface: Interface = Default::default();
-                for (interface_name, interface_version) in
-                    module.interfaces.clone().unwrap_or_default().into_iter()
-                {
-                    if !interfaces::interface_exists(
-                        &mut conn,
-                        &interface_name,
-                        &interface_version,
-                    )? {
-                        // download interface and store it if we don't have it locally
-                        let interface_data_from_server = InterfaceFromServer::get(
-                            registry,
-                            interface_name.clone(),
-                            interface_version.clone(),
-                        )?;
-                        interfaces::import_interface(
-                            &mut conn,
-                            &interface_name,
-                            &interface_version,
-                            &interface_data_from_server.content,
-                        )?;
-                    }
-                    let sub_interface = interfaces::load_interface_from_db(
-                        &mut conn,
-                        &interface_name,
-                        &interface_version,
-                    )?;
-                    interface = interface.merge(sub_interface).map_err(|e| {
-                        anyhow!("Failed to merge interface {}: {}", &interface_name, e)
-                    })?;
-                }
-                validate::validate_wasm_and_report_errors(&wasm_buffer, &interface).map_err(
-                    |e| ValidationError::InvalidWasm {
-                        file: source_path_string,
-                        error: format!("{:?}", e),
-                    },
-                )?;
+            if let Some(bindings) = &module.bindings {
+                validate_bindings(bindings, &pkg_path)?;
             }
+
+            // hack, short circuit if no interface for now
+            if module.interfaces.is_none() {
+                return validate_wasm_and_report_errors_old(&wasm_buffer[..], source_path_string);
+            }
+
+            let mut conn = super::open_db()?;
+            let mut interface: Interface = Default::default();
+            for (interface_name, interface_version) in
+                module.interfaces.clone().unwrap_or_default().into_iter()
+            {
+                if !interfaces::interface_exists(&mut conn, &interface_name, &interface_version)? {
+                    // download interface and store it if we don't have it locally
+                    let interface_data_from_server = InterfaceFromServer::get(
+                        registry,
+                        interface_name.clone(),
+                        interface_version.clone(),
+                    )?;
+                    interfaces::import_interface(
+                        &mut conn,
+                        &interface_name,
+                        &interface_version,
+                        &interface_data_from_server.content,
+                    )?;
+                }
+                let sub_interface = interfaces::load_interface_from_db(
+                    &mut conn,
+                    &interface_name,
+                    &interface_version,
+                )?;
+                interface = interface
+                    .merge(sub_interface)
+                    .map_err(|e| anyhow!("Failed to merge interface {}: {}", &interface_name, e))?;
+            }
+            validate::validate_wasm_and_report_errors(&wasm_buffer, &interface).map_err(|e| {
+                ValidationError::InvalidWasm {
+                    file: source_path_string,
+                    error: format!("{:?}", e),
+                }
+            })?;
         }
+
         log::debug!("package at path {:#?} validated", &pkg_path);
 
         Ok(())
@@ -753,8 +742,7 @@ runner = "https://webc.org/runner/wcgi"
         std::fs::write(&manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join("module.wasm"), "()").unwrap();
 
-        let mut manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
-        manifest.base_directory_path = manifest_dir.path().to_owned();
+        let manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
 
         let meta = construct_tar_gz(&archive_dir.path(), &manifest, &manifest_path).unwrap();
 

@@ -885,6 +885,33 @@ fn run_bash_using_coreutils() {
     assert.success().stdout(contains(some_expected_binaries));
 }
 
+#[test]
+fn run_a_package_that_uses_an_atom_from_a_dependency() {
+    let js_script_dir = project_root()
+        .join("tests")
+        .join("integration")
+        .join("cli")
+        .join("tests")
+        .join("packages")
+        .join("js-script");
+
+    let assert = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(&js_script_dir)
+        .arg("--registry=wasmer.io")
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert();
+
+    assert.success().stdout(contains("Hello, World!"));
+}
+
+fn project_root() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .unwrap()
+}
+
 /// A helper that wraps [`Child`] to make sure it gets terminated
 /// when it is no longer needed.
 struct JoinableChild {

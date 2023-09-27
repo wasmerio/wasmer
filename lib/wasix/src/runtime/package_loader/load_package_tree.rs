@@ -8,8 +8,12 @@ use std::{
 use anyhow::{Context, Error};
 use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
+use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
-use webc::compat::{Container, Volume};
+use webc::{
+    compat::{Container, Volume},
+    metadata::annotations::Atom as AtomAnnotation,
+};
 
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
@@ -37,7 +41,8 @@ pub async fn load_package_tree(
     let fs = filesystem(&containers, &resolution.package)?;
 
     let root = &resolution.package.root_package;
-    let commands: Vec<BinaryPackageCommand> = commands(&resolution.package.commands, &containers)?;
+    let commands: Vec<BinaryPackageCommand> =
+        commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
     let atoms_in_use: HashSet<_> = commands.iter().map(|cmd| cmd.atom()).collect();
@@ -69,6 +74,7 @@ pub async fn load_package_tree(
 fn commands(
     commands: &BTreeMap<String, ItemLocation>,
     containers: &HashMap<PackageId, Container>,
+    resolution: &Resolution,
 ) -> Result<Vec<BinaryPackageCommand>, Error> {
     let mut pkg_commands = Vec::new();
 
@@ -84,7 +90,9 @@ fn commands(
         let manifest = webc.manifest();
         let command_metadata = &manifest.commands[original_name];
 
-        if let Some(cmd) = load_binary_command(webc, name, command_metadata)? {
+        if let Some(cmd) =
+            load_binary_command(package, name, command_metadata, containers, resolution)?
+        {
             pkg_commands.push(cmd);
         }
     }
@@ -92,16 +100,24 @@ fn commands(
     Ok(pkg_commands)
 }
 
+/// Given a [`webc::metadata::Command`], figure out which atom it uses and load
+/// that atom into a [`BinaryPackageCommand`].
 fn load_binary_command(
-    webc: &Container,
-    name: &str,
+    package_id: &PackageId,
+    command_name: &str,
     cmd: &webc::metadata::Command,
+    containers: &HashMap<PackageId, Container>,
+    resolution: &Resolution,
 ) -> Result<Option<BinaryPackageCommand>, anyhow::Error> {
-    let atom_name = match atom_name_for_command(name, cmd)? {
+    let AtomAnnotation {
+        name: atom_name,
+        dependency,
+        ..
+    } = match atom_name_for_command(command_name, cmd)? {
         Some(name) => name,
         None => {
             tracing::warn!(
-                cmd.name=name,
+                cmd.name=command_name,
                 cmd.runner=%cmd.runner,
                 "Skipping unsupported command",
             );
@@ -109,16 +125,41 @@ fn load_binary_command(
         }
     };
 
+    let package = &containers[package_id];
+
+    let webc = match dependency {
+        Some(dep) => {
+            let ix = resolution
+                .graph
+                .packages()
+                .get(package_id)
+                .copied()
+                .unwrap();
+            let graph = resolution.graph.graph();
+            let edge_reference = graph
+                .edges_directed(ix, petgraph::Direction::Outgoing)
+                .find(|edge| edge.weight().alias == dep)
+                .with_context(|| format!("Unable to find the \"{dep}\" dependency for the \"{command_name}\" command in \"{package_id}\""))?;
+
+            let other_package = graph.node_weight(edge_reference.target()).unwrap();
+            &containers[&other_package.id]
+        }
+        None => package,
+    };
+
     let atom = webc.get_atom(&atom_name);
 
     if atom.is_none() && cmd.annotations.is_empty() {
-        return Ok(legacy_atom_hack(webc, name, cmd));
+        return Ok(legacy_atom_hack(webc, command_name, cmd));
     }
 
-    let atom = atom
-        .with_context(|| format!("The '{name}' command uses the '{atom_name}' atom, but it isn't present in the WEBC file"))?;
+    let atom = atom.with_context(|| {
+        format!(
+            "The '{command_name}' command uses the '{atom_name}' atom, but it isn't present in the WEBC file"
+        )
+    })?;
 
-    let cmd = BinaryPackageCommand::new(name.to_string(), cmd.clone(), atom);
+    let cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom);
 
     Ok(Some(cmd))
 }
@@ -126,28 +167,12 @@ fn load_binary_command(
 fn atom_name_for_command(
     command_name: &str,
     cmd: &webc::metadata::Command,
-) -> Result<Option<String>, anyhow::Error> {
-    use webc::metadata::annotations::{
-        Emscripten, Wasi, EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI,
-    };
+) -> Result<Option<AtomAnnotation>, anyhow::Error> {
+    use webc::metadata::annotations::{EMSCRIPTEN_RUNNER_URI, WASI_RUNNER_URI, WCGI_RUNNER_URI};
 
-    // FIXME: command metadata should include an "atom: Option<String>" field
-    // because it's so common, rather than relying on each runner to include
-    // annotations where "atom" just so happens to contain the atom's name
-    // (like in Wasi and Emscripten)
-
-    if let Some(Wasi { atom, .. }) = cmd
-        .annotation("wasi")
-        .context("Unable to deserialize 'wasi' annotations")?
-    {
-        return Ok(Some(atom));
-    }
-
-    if let Some(Emscripten {
-        atom: Some(atom), ..
-    }) = cmd
-        .annotation("emscripten")
-        .context("Unable to deserialize 'emscripten' annotations")?
+    if let Some(atom) = cmd
+        .atom()
+        .context("Unable to deserialize atom annotations")?
     {
         return Ok(Some(atom));
     }
@@ -163,7 +188,7 @@ fn atom_name_for_command(
             command = command_name,
             "No annotations specifying the atom name found. Falling back to the command name"
         );
-        return Ok(Some(command_name.to_string()));
+        return Ok(Some(AtomAnnotation::new(command_name, None)));
     }
 
     Ok(None)
