@@ -12,7 +12,7 @@ module = "saghul/quickjs:quickjs"
 runner = "wasi"
 
 [command.annotations.wasi]
-main_args = ["/src/index.js"]
+main-args = ["/src/index.js"]
 
 [fs]
 "/src" = "./src"
