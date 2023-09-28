@@ -9,6 +9,30 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.1 - 28/09/2023
+
+## Added
+
+  - [#4213](https://github.com/wasmerio/wasmer/pull/4213) feat(wasix): Add BuiltinPackageLoader::insert_cached
+  - [#4202](https://github.com/wasmerio/wasmer/pull/4202) Add support for `JoinFlags::NON_BLOCKING` to `proc_join`
+
+## Changed
+
+  - [#4223](https://github.com/wasmerio/wasmer/pull/4223) Allow packages to have commands that use a dependency's atom
+  - [#4224](https://github.com/wasmerio/wasmer/pull/4224) Use write instead of send for pipe, to accomodate socketpair
+  - [#4221](https://github.com/wasmerio/wasmer/pull/4221) Bump the MSRV from 1.69 to 1.70
+  - [#4214](https://github.com/wasmerio/wasmer/pull/4214) Rephrase the docstring for `--forward-host-env` flag on `wasmer run`
+  - [#4215](https://github.com/wasmerio/wasmer/pull/4215) Ignore `fd_close(3)` to avoid breaking POSIX programs that blindly close all file descriptors
+  - [#4204](https://github.com/wasmerio/wasmer/pull/4204) Stability improvements
+
+## Fixed
+
+  - [#4211](https://github.com/wasmerio/wasmer/pull/4211) Fixes for sockets
+  - [#4193](https://github.com/wasmerio/wasmer/pull/4193) Fix sockets
+  - [#4205](https://github.com/wasmerio/wasmer/pull/4205) Fix File System Merging Problems
+
+
+
 ## 4.2.0 - 05/09/2023
 New release of wasmer, with a new 0-copy module deserialization for shorter startup time, some fixes to avoid misaligned pointer acces, and faster internal stack handling, among some other fixes.
 
