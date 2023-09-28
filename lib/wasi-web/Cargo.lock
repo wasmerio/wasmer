@@ -2438,7 +2438,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.2.0"
+version = "4.2.1"
 dependencies = [
  "bytes",
  "cfg-if",
@@ -2466,7 +2466,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.2.0"
+version = "4.2.1"
 dependencies = [
  "backtrace",
  "bytes",
@@ -2490,7 +2490,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.2.0"
+version = "4.2.1"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2518,7 +2518,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.2.0"
+version = "4.2.1"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -2533,7 +2533,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "4.2.0"
+version = "4.2.1"
 dependencies = [
  "backtrace",
  "cc",
