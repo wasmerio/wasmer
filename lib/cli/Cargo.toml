@@ -36,13 +36,13 @@ wasmer-compiler-singlepass = { version = "=4.2.1", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=4.2.1", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.2.1", path = "../emscripten" }
 wasmer-vm = { version = "=4.2.1", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.13.0", path = "../wasix", features = [
+wasmer-wasix = { version = "0.14.0", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
   "webc_runner_rt_emscripten",
   "host-fs",
 ] }
-wasmer-wasix-experimental-io-devices = { version = "0.13.0", path = "../wasi-experimental-io-devices", optional = true, features = [
+wasmer-wasix-experimental-io-devices = { version = "0.14.0", path = "../wasi-experimental-io-devices", optional = true, features = [
   "link_external_libs",
 ] }
 wasmer-wast = { version = "=4.2.1", path = "../../tests/lib/wast", optional = true }
@@ -52,15 +52,15 @@ wasmer-cache = { version = "=4.2.1", path = "../cache", features = [
 wasmer-types = { version = "=4.2.1", path = "../types", features = [
   "enable-serde",
 ] }
-wasmer-registry = { version = "5.6.0", path = "../registry", features = [
+wasmer-registry = { version = "5.7.0", path = "../registry", features = [
   "build-package",
   "clap", 
 ] }
 wasmer-object = { version = "=4.2.1", path = "../object", optional = true }
-virtual-fs = { version = "0.8.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.9.0", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }
-virtual-net = { version = "0.5.0", path = "../virtual-net" }
+virtual-net = { version = "0.6.0", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
 webc = { workspace = true }
