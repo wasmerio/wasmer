@@ -10,6 +10,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 4.2.1 - 28/09/2023
+New release of wasmer with improved WASIX compatibility. MSRV was bumped to 1.70 for this release. 
+
+Now it is possible for packages to execute atoms from their dependencies, enabling e.g. python packages to not include the binary but use the one from the official python package.
 
 ## Added
 
