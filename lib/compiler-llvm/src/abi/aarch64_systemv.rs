@@ -246,13 +246,12 @@ impl Abi for Aarch64SystemV {
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
             let llvm_params: Vec<_> = func_sig
                 .results()
-                .to_vec()
-                .into_iter()
-                .map(|x| type_to_llvm(intrinsics, x.clone()).unwrap())
+                .iter()
+                .map(|x| type_to_llvm(intrinsics, *x).unwrap())
                 .collect();
             let llvm_params = llvm_fn_ty
                 .get_context()
-                .struct_type(&llvm_params.as_slice(), false);
+                .struct_type(llvm_params.as_slice(), false);
             Some(alloca_builder.build_alloca(llvm_params, "sret"))
         } else {
             None
@@ -439,13 +438,13 @@ impl Abi for Aarch64SystemV {
                 // re-build the llvm-type struct holding the return values
                 let llvm_results: Vec<_> = func_sig
                     .results()
-                    .into_iter()
-                    .map(|x| type_to_llvm(intrinsics, x.clone()).unwrap())
+                    .iter()
+                    .map(|x| type_to_llvm(intrinsics, *x).unwrap())
                     .collect();
                 let struct_type = intrinsics
                     .i32_ty
                     .get_context()
-                    .struct_type(&llvm_results.as_slice(), false);
+                    .struct_type(llvm_results.as_slice(), false);
 
                 let struct_value = builder
                     .build_load(struct_type, sret, "")

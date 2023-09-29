@@ -1243,12 +1243,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .into_pointer_value();
             let llvm_params: Vec<_> = wasm_fn_type
                 .results()
-                .into_iter()
-                .map(|x| type_to_llvm(self.intrinsics, x.clone()).unwrap())
+                .iter()
+                .map(|x| type_to_llvm(self.intrinsics, *x).unwrap())
                 .collect();
             let mut struct_value = self
                 .context
-                .struct_type(&llvm_params.as_slice(), false)
+                .struct_type(llvm_params.as_slice(), false)
                 .get_undef();
             for (idx, value) in results.enumerate() {
                 let value = self.builder.build_bitcast(
@@ -2186,7 +2186,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.ctx
                         .func(func_index, self.intrinsics, self.context, func_type)?
                 };
-                let llvm_func_type = llvm_func_type.clone();
+                let llvm_func_type = *llvm_func_type;
                 let func = *func;
                 let callee_vmctx = *callee_vmctx;
                 let attrs = attrs.clone();
