@@ -5169,7 +5169,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5188,7 +5188,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite 0.19.0",
+ "tokio-tungstenite 0.20.1",
  "tokio-util 0.6.10",
  "tracing",
  "tracing-test",
@@ -5748,7 +5748,7 @@ dependencies = [
  "unix_mode",
  "url",
  "virtual-fs",
- "virtual-net 0.6.0",
+ "virtual-net 0.6.1",
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
@@ -6287,7 +6287,7 @@ dependencies = [
  "urlencoding",
  "virtual-fs",
  "virtual-mio 0.3.0",
- "virtual-net 0.6.0",
+ "virtual-net 0.6.1",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",

@@ -60,7 +60,7 @@ wasmer-object = { version = "=4.2.1", path = "../object", optional = true }
 virtual-fs = { version = "0.9.0", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }
-virtual-net = { version = "0.6.0", path = "../virtual-net" }
+virtual-net = { version = "0.6.1", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
 webc = { workspace = true }
