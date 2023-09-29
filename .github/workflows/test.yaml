@@ -418,7 +418,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_140_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_150_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
