@@ -456,7 +456,7 @@ impl FuncTrampoline {
                 .map(|(idx, ty)| {
                     let ptr = unsafe {
                         builder.build_gep(
-                            intrinsics.i32_ty,
+                            intrinsics.i128_ty,
                             values,
                             &[intrinsics.i32_ty.const_int(idx.try_into().unwrap(), false)],
                             "",
@@ -464,7 +464,7 @@ impl FuncTrampoline {
                     };
                     let ptr =
                         builder.build_pointer_cast(ptr, type_to_llvm_ptr(intrinsics, *ty)?, "");
-                    Ok(builder.build_load(intrinsics.i32_ptr_ty, ptr, ""))
+                    Ok(builder.build_load(type_to_llvm(intrinsics, *ty)?, ptr, ""))
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?;
 
