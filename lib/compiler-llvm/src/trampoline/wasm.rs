@@ -362,7 +362,7 @@ impl FuncTrampoline {
         rets.iter().for_each(|v| {
             let ptr = unsafe {
                 builder.build_gep(
-                    intrinsics.i64_ty,
+                    intrinsics.i128_ty,
                     args_rets_ptr,
                     &[intrinsics.i32_ty.const_int(idx, false)],
                     "",
@@ -371,9 +371,6 @@ impl FuncTrampoline {
             let ptr =
                 builder.build_pointer_cast(ptr, v.get_type().ptr_type(AddressSpace::default()), "");
             builder.build_store(ptr, *v);
-            if v.get_type() == intrinsics.i128_ty.as_basic_type_enum() {
-                idx += 1;
-            }
             idx += 1;
         });
 
