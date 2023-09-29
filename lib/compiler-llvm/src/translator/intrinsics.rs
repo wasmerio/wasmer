@@ -1110,19 +1110,34 @@ impl<'ctx> Intrinsics<'ctx> {
             memory_notify: module.add_function(
                 "wasmer_vm_memory32_atomic_notify",
                 i32_ty.fn_type(
-                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
                     false,
                 ),
                 None,
             ),
             memory_notify_ty: i32_ty.fn_type(
-                &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                &[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                ],
                 false,
             ),
             imported_memory_notify: module.add_function(
                 "wasmer_vm_imported_memory32_atomic_notify",
                 i32_ty.fn_type(
-                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
                     false,
                 ),
                 None,
