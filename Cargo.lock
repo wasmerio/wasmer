@@ -5838,9 +5838,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.27"
+version = "0.1.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5c609d596ef7402e1d5d26259ac335781d04dd9aa028c4788b8e1de683b9548"
+checksum = "0a6cf47c5b80324b4693052a42cef8f7dd0edf2482037e6d6fb2168d6084c422"
 dependencies = [
  "anyhow",
  "clap",
