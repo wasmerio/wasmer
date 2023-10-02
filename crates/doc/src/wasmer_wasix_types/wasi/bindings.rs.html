@@ -3704,9 +3704,6 @@
 <a href="#3704" id="3704">3704</a>
 <a href="#3705" id="3705">3705</a>
 <a href="#3706" id="3706">3706</a>
-<a href="#3707" id="3707">3707</a>
-<a href="#3708" id="3708">3708</a>
-<a href="#3709" id="3709">3709</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -5041,7 +5038,6 @@
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>StdioMode {
-    Reserved,
     Piped,
     Inherit,
     Null,
@@ -5050,7 +5046,6 @@
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>StdioMode {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; core::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            StdioMode::Reserved =&gt; f.debug_tuple(<span class="string">&quot;StdioMode::Reserved&quot;</span>).finish(),
             StdioMode::Piped =&gt; f.debug_tuple(<span class="string">&quot;StdioMode::Piped&quot;</span>).finish(),
             StdioMode::Inherit =&gt; f.debug_tuple(<span class="string">&quot;StdioMode::Inherit&quot;</span>).finish(),
             StdioMode::Null =&gt; f.debug_tuple(<span class="string">&quot;StdioMode::Null&quot;</span>).finish(),
@@ -6908,11 +6903,10 @@
 
     <span class="kw">fn </span>from_native(n: <span class="self">Self</span>::Native) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span>n {
-            <span class="number">0 </span>=&gt; <span class="self">Self</span>::Reserved,
-            <span class="number">1 </span>=&gt; <span class="self">Self</span>::Piped,
-            <span class="number">2 </span>=&gt; <span class="self">Self</span>::Inherit,
-            <span class="number">3 </span>=&gt; <span class="self">Self</span>::Null,
-            <span class="number">4 </span>=&gt; <span class="self">Self</span>::Log,
+            <span class="number">0 </span>=&gt; <span class="self">Self</span>::Piped,
+            <span class="number">1 </span>=&gt; <span class="self">Self</span>::Inherit,
+            <span class="number">2 </span>=&gt; <span class="self">Self</span>::Null,
+            <span class="number">3 </span>=&gt; <span class="self">Self</span>::Log,
 
             q =&gt; {
                 <span class="macro">tracing::debug!</span>(<span class="string">&quot;could not serialize number {q} to enum StdioMode&quot;</span>);
