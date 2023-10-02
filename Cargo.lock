@@ -2070,19 +2070,6 @@ dependencies = [
 
 [[package]]
 name = "hyper-tungstenite"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "226df6fd0aece319a325419d770aa9d947defa60463f142cd82b329121f906a3"
-dependencies = [
- "hyper",
- "pin-project",
- "tokio",
- "tokio-tungstenite 0.19.0",
- "tungstenite 0.19.0",
-]
-
-[[package]]
-name = "hyper-tungstenite"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cc7dcb1ab67cd336f468a12491765672e61a3b6b148634dbfe2fe8acd3fe7d9"
@@ -2090,8 +2077,8 @@ dependencies = [
  "hyper",
  "pin-project-lite",
  "tokio",
- "tokio-tungstenite 0.20.1",
- "tungstenite 0.20.1",
+ "tokio-tungstenite",
+ "tungstenite",
 ]
 
 [[package]]
@@ -4607,18 +4594,6 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec509ac96e9a0c43427c74f003127d953a265737636129424288d27cb5c4b12c"
-dependencies = [
- "futures-util",
- "log",
- "tokio",
- "tungstenite 0.19.0",
-]
-
-[[package]]
-name = "tokio-tungstenite"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212d5dcb2a1ce06d81107c3d0ffa3121fe974b73f068c8282cb1c32328113b6c"
@@ -4626,7 +4601,7 @@ dependencies = [
  "futures-util",
  "log",
  "tokio",
- "tungstenite 0.20.1",
+ "tungstenite",
 ]
 
 [[package]]
@@ -4868,25 +4843,6 @@ dependencies = [
 
 [[package]]
 name = "tungstenite"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15fba1a6d6bb030745759a9a2a588bfe8490fc8b4751a277db3a0be1c9ebbf67"
-dependencies = [
- "byteorder",
- "bytes",
- "data-encoding",
- "http",
- "httparse",
- "log",
- "rand",
- "sha1",
- "thiserror",
- "url",
- "utf-8",
-]
-
-[[package]]
-name = "tungstenite"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e3dac10fd62eaf6617d3a904ae222845979aec67c615d1c842b4002c7666fb9"
@@ -5108,9 +5064,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc63af761ebc294142a24d62795518b8ed4f722ae9a6666b9f93569a4df6447e"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5126,6 +5080,8 @@ dependencies = [
 [[package]]
 name = "virtual-mio"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9f38a379f14296f9fb93eda42ece4d57b568af417569102c3dcfeb88ab4800f"
 dependencies = [
  "async-trait",
  "bytes",
@@ -5140,35 +5096,6 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "306bb6ff6ed62c44f50a72c7c89f95439bb0f56cce7c3963cd3ae6d292a04af5"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64",
- "bincode",
- "bytes",
- "derivative",
- "futures-util",
- "hyper",
- "hyper-tungstenite 0.10.0",
- "libc",
- "mio",
- "pin-project-lite",
- "serde",
- "socket2 0.4.9",
- "thiserror",
- "tokio",
- "tokio-serde",
- "tokio-tungstenite 0.19.0",
- "tokio-util 0.6.10",
- "tracing",
- "virtual-mio 0.2.0",
-]
-
-[[package]]
-name = "virtual-net"
 version = "0.6.1"
 dependencies = [
  "anyhow",
@@ -5179,7 +5106,7 @@ dependencies = [
  "derivative",
  "futures-util",
  "hyper",
- "hyper-tungstenite 0.11.1",
+ "hyper-tungstenite",
  "libc",
  "mio",
  "pin-project-lite",
@@ -5188,11 +5115,40 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite 0.20.1",
+ "tokio-tungstenite",
  "tokio-util 0.6.10",
  "tracing",
  "tracing-test",
  "virtual-mio 0.3.0",
+]
+
+[[package]]
+name = "virtual-net"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "762dac9d5da7f609894b31f7fd03b19ee8959510847c98c1973acce32270b132"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "bincode",
+ "bytes",
+ "derivative",
+ "futures-util",
+ "hyper",
+ "hyper-tungstenite",
+ "libc",
+ "mio",
+ "pin-project-lite",
+ "serde",
+ "socket2 0.4.9",
+ "thiserror",
+ "tokio",
+ "tokio-serde",
+ "tokio-tungstenite",
+ "tokio-util 0.6.10",
+ "tracing",
+ "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5598,9 +5554,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.16"
+version = "0.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9e8e1c4dcacb5055cd584994bb04a43e107b1c23651b24ab4da8befc24793f6"
+checksum = "9280054c3d646ba55c26cb67fbd7e818192c7c858a6148e37ee204a2e5f00e6f"
 dependencies = [
  "anyhow",
  "cynic",
@@ -5882,9 +5838,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-cli"
-version = "0.1.25"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22d9ccd93f117915eadf90c2f24213ad5f1725f5d3470cbd2ba8d58f79bd0b53"
+checksum = "a5c609d596ef7402e1d5d26259ac335781d04dd9aa028c4788b8e1de683b9548"
 dependencies = [
  "anyhow",
  "clap",
@@ -5909,8 +5865,8 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
- "virtual-mio 0.2.0",
- "virtual-net 0.5.0",
+ "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "virtual-net 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-api",
  "wasmer-deploy-schema",
  "wasmer-deploy-util",
@@ -5921,9 +5877,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-schema"
-version = "0.0.14"
+version = "0.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0cef86a0ed94dfc32acb1c6f7938e6f2c0b63f35af0a112df8052ea10140612"
+checksum = "4a2438bcb6db110e911ef8faf4d2896c682b36798b966d6afb7d4efef0afe65c"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -5944,9 +5900,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-deploy-util"
-version = "0.0.14"
+version = "0.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7595515fb1163de1f6ab6d4d070d59fe7f75176af99e3ec12beaed7169dc3e88"
+checksum = "549a152f6369e2f0f21b4edcec5d6d4c349756067a90403f86e3229854d0bd8b"
 dependencies = [
  "http",
  "serde",
