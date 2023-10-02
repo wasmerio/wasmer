@@ -499,6 +499,11 @@
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::{get_abi, Abi};
 <span class="kw">use </span><span class="kw">crate</span>::config::{CompiledKind, LLVM};
 <span class="kw">use </span><span class="kw">crate</span>::object_file::{load_object_file, CompiledFunction};
@@ -510,15 +515,14 @@
     module::{Linkage, Module},
     passes::PassManager,
     targets::{FileType, TargetMachine},
-    types::BasicType,
+    types::{BasicType, FunctionType},
     values::FunctionValue,
     AddressSpace, DLLStorageClass,
 };
 <span class="kw">use </span>std::cmp;
-<span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::convert::TryInto;
 <span class="kw">use </span>wasmer_types::{
-    CompileError, FunctionBody, FunctionType, LocalFunctionIndex, RelocationTarget,
+    CompileError, FunctionBody, FunctionType <span class="kw">as </span>FuncType, LocalFunctionIndex, RelocationTarget,
 };
 
 <span class="kw">pub struct </span>FuncTrampoline {
@@ -541,7 +545,7 @@
 
     <span class="kw">pub fn </span>trampoline_to_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ty: <span class="kw-2">&amp;</span>FunctionType,
+        ty: <span class="kw-2">&amp;</span>FuncType,
         config: <span class="kw-2">&amp;</span>LLVM,
         name: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CompileError&gt; {
@@ -577,7 +581,14 @@
         trampoline_func
             .as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
-        <span class="self">self</span>.generate_trampoline(trampoline_func, ty, <span class="kw-2">&amp;</span>callee_attrs, <span class="kw-2">&amp;</span><span class="self">self</span>.ctx, <span class="kw-2">&amp;</span>intrinsics)<span class="question-mark">?</span>;
+        <span class="self">self</span>.generate_trampoline(
+            trampoline_func,
+            ty,
+            callee_ty,
+            <span class="kw-2">&amp;</span>callee_attrs,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.ctx,
+            <span class="kw-2">&amp;</span>intrinsics,
+        )<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = config.callbacks {
             callbacks.preopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>module);
@@ -602,7 +613,7 @@
 
     <span class="kw">pub fn </span>trampoline(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ty: <span class="kw-2">&amp;</span>FunctionType,
+        ty: <span class="kw-2">&amp;</span>FuncType,
         config: <span class="kw-2">&amp;</span>LLVM,
         name: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
@@ -667,7 +678,7 @@
 
     <span class="kw">pub fn </span>dynamic_trampoline_to_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ty: <span class="kw-2">&amp;</span>FunctionType,
+        ty: <span class="kw-2">&amp;</span>FuncType,
         config: <span class="kw-2">&amp;</span>LLVM,
         name: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CompileError&gt; {
@@ -721,7 +732,7 @@
     }
     <span class="kw">pub fn </span>dynamic_trampoline(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ty: <span class="kw-2">&amp;</span>FunctionType,
+        ty: <span class="kw-2">&amp;</span>FuncType,
         config: <span class="kw-2">&amp;</span>LLVM,
         name: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
@@ -788,7 +799,8 @@
     <span class="kw">fn </span>generate_trampoline&lt;<span class="lifetime">&#39;ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         trampoline_func: FunctionValue,
-        func_sig: <span class="kw-2">&amp;</span>FunctionType,
+        func_sig: <span class="kw-2">&amp;</span>FuncType,
+        llvm_func_type: FunctionType,
         func_attrs: <span class="kw-2">&amp;</span>[(Attribute, AttributeLoc)],
         context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
@@ -829,20 +841,22 @@
 
         <span class="kw">for </span>(i, param_ty) <span class="kw">in </span>func_sig.params().iter().enumerate() {
             <span class="kw">let </span>index = intrinsics.i32_ty.const_int(i <span class="kw">as _</span>, <span class="bool-val">false</span>);
-            <span class="kw">let </span>item_pointer =
-                <span class="kw">unsafe </span>{ builder.build_in_bounds_gep(args_rets_ptr, <span class="kw-2">&amp;</span>[index], <span class="string">&quot;arg_ptr&quot;</span>) };
+            <span class="kw">let </span>item_pointer = <span class="kw">unsafe </span>{
+                builder.build_in_bounds_gep(intrinsics.i128_ty, args_rets_ptr, <span class="kw-2">&amp;</span>[index], <span class="string">&quot;arg_ptr&quot;</span>)
+            };
 
+            <span class="kw">let </span>casted_type = type_to_llvm(intrinsics, <span class="kw-2">*</span>param_ty)<span class="question-mark">?</span>;
             <span class="kw">let </span>casted_pointer_type = type_to_llvm_ptr(intrinsics, <span class="kw-2">*</span>param_ty)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>typed_item_pointer =
                 builder.build_pointer_cast(item_pointer, casted_pointer_type, <span class="string">&quot;typed_arg_pointer&quot;</span>);
 
-            <span class="kw">let </span>arg = builder.build_load(typed_item_pointer, <span class="string">&quot;arg&quot;</span>);
+            <span class="kw">let </span>arg = builder.build_load(casted_type, typed_item_pointer, <span class="string">&quot;arg&quot;</span>);
             args_vec.push(arg.into());
         }
 
-        <span class="kw">let </span>callable_func = inkwell::values::CallableValue::try_from(func_ptr).unwrap();
-        <span class="kw">let </span>call_site = builder.build_call(callable_func, args_vec.as_slice(), <span class="string">&quot;call&quot;</span>);
+        <span class="kw">let </span>call_site =
+            builder.build_indirect_call(llvm_func_type, func_ptr, args_vec.as_slice(), <span class="string">&quot;call&quot;</span>);
         <span class="kw">for </span>(attr, attr_loc) <span class="kw">in </span>func_attrs {
             call_site.add_attribute(<span class="kw-2">*</span>attr_loc, <span class="kw-2">*</span>attr);
         }
@@ -854,6 +868,7 @@
         rets.iter().for_each(|v| {
             <span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
                 builder.build_gep(
+                    intrinsics.i128_ty,
                     args_rets_ptr,
                     <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(idx, <span class="bool-val">false</span>)],
                     <span class="string">&quot;&quot;</span>,
@@ -862,9 +877,6 @@
             <span class="kw">let </span>ptr =
                 builder.build_pointer_cast(ptr, v.get_type().ptr_type(AddressSpace::default()), <span class="string">&quot;&quot;</span>);
             builder.build_store(ptr, <span class="kw-2">*</span>v);
-            <span class="kw">if </span>v.get_type() == intrinsics.i128_ty.as_basic_type_enum() {
-                idx += <span class="number">1</span>;
-            }
             idx += <span class="number">1</span>;
         });
 
@@ -875,7 +887,7 @@
     <span class="kw">fn </span>generate_dynamic_trampoline&lt;<span class="lifetime">&#39;ctx</span>&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         trampoline_func: FunctionValue,
-        func_sig: <span class="kw-2">&amp;</span>FunctionType,
+        func_sig: <span class="kw-2">&amp;</span>FuncType,
         context: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx </span>Context,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
@@ -897,12 +909,10 @@
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..func_sig.params().len() {
             <span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
                 builder.build_in_bounds_gep(
+                    intrinsics.i128_ty,
                     values,
-                    <span class="kw-2">&amp;</span>[
-                        intrinsics.i32_zero,
-                        intrinsics.i32_ty.const_int(i.try_into().unwrap(), <span class="bool-val">false</span>),
-                    ],
-                    <span class="string">&quot;&quot;</span>,
+                    <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(i.try_into().unwrap(), <span class="bool-val">false</span>)],
+                    <span class="string">&quot;args&quot;</span>,
                 )
             };
             <span class="kw">let </span>ptr = builder
@@ -916,29 +926,28 @@
             );
         }
 
-        <span class="kw">let </span>callee_ty = intrinsics
-            .void_ty
-            .fn_type(
-                <span class="kw-2">&amp;</span>[
-                    intrinsics.ctx_ptr_ty.into(),  <span class="comment">// vmctx ptr
-                    </span>intrinsics.i128_ptr_ty.into(), <span class="comment">// in/out values ptr
-                </span>],
-                <span class="bool-val">false</span>,
-            )
-            .ptr_type(AddressSpace::default());
+        <span class="kw">let </span>callee_ptr_ty = intrinsics.void_ty.fn_type(
+            <span class="kw-2">&amp;</span>[
+                intrinsics.ctx_ptr_ty.into(),  <span class="comment">// vmctx ptr
+                </span>intrinsics.i128_ptr_ty.into(), <span class="comment">// in/out values ptr
+            </span>],
+            <span class="bool-val">false</span>,
+        );
+        <span class="kw">let </span>callee_ty = callee_ptr_ty.ptr_type(AddressSpace::default());
         <span class="kw">let </span>vmctx = <span class="self">self</span>.abi.get_vmctx_ptr_param(<span class="kw-2">&amp;</span>trampoline_func);
+        <span class="kw">let </span>callee_ty =
+            builder.build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::default()), <span class="string">&quot;&quot;</span>);
         <span class="kw">let </span>callee = builder
-            .build_load(
-                builder
-                    .build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::default()), <span class="string">&quot;&quot;</span>)
-                    .into_pointer_value(),
-                <span class="string">&quot;&quot;</span>,
-            )
+            .build_load(intrinsics.ctx_ptr_ty, callee_ty.into_pointer_value(), <span class="string">&quot;&quot;</span>)
             .into_pointer_value();
 
         <span class="kw">let </span>values_ptr = builder.build_pointer_cast(values, intrinsics.i128_ptr_ty, <span class="string">&quot;&quot;</span>);
-        <span class="kw">let </span>callable_func = inkwell::values::CallableValue::try_from(callee).unwrap();
-        builder.build_call(callable_func, <span class="kw-2">&amp;</span>[vmctx.into(), values_ptr.into()], <span class="string">&quot;&quot;</span>);
+        builder.build_indirect_call(
+            callee_ptr_ty,
+            callee,
+            <span class="kw-2">&amp;</span>[vmctx.into(), values_ptr.into()],
+            <span class="string">&quot;&quot;</span>,
+        );
 
         <span class="kw">if </span>func_sig.results().is_empty() {
             builder.build_return(<span class="prelude-val">None</span>);
@@ -950,17 +959,15 @@
                 .map(|(idx, ty)| {
                     <span class="kw">let </span>ptr = <span class="kw">unsafe </span>{
                         builder.build_gep(
+                            intrinsics.i128_ty,
                             values,
-                            <span class="kw-2">&amp;</span>[
-                                intrinsics.i32_ty.const_zero(),
-                                intrinsics.i32_ty.const_int(idx.try_into().unwrap(), <span class="bool-val">false</span>),
-                            ],
+                            <span class="kw-2">&amp;</span>[intrinsics.i32_ty.const_int(idx.try_into().unwrap(), <span class="bool-val">false</span>)],
                             <span class="string">&quot;&quot;</span>,
                         )
                     };
                     <span class="kw">let </span>ptr =
                         builder.build_pointer_cast(ptr, type_to_llvm_ptr(intrinsics, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>, <span class="string">&quot;&quot;</span>);
-                    <span class="prelude-val">Ok</span>(builder.build_load(ptr, <span class="string">&quot;&quot;</span>))
+                    <span class="prelude-val">Ok</span>(builder.build_load(type_to_llvm(intrinsics, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>, ptr, <span class="string">&quot;&quot;</span>))
                 })
                 .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
 
@@ -969,11 +976,14 @@
                     .get_first_param()
                     .unwrap()
                     .into_pointer_value();
-                <span class="kw">let </span><span class="kw-2">mut </span>struct_value = sret
-                    .get_type()
-                    .get_element_type()
-                    .into_struct_type()
-                    .get_undef();
+
+                <span class="kw">let </span>basic_types: Vec&lt;<span class="kw">_</span>&gt; = func_sig
+                    .results()
+                    .iter()
+                    .map(|<span class="kw-2">&amp;</span>ty| type_to_llvm(intrinsics, ty))
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>struct_value = context.struct_type(<span class="kw-2">&amp;</span>basic_types, <span class="bool-val">false</span>).get_undef();
+
                 <span class="kw">for </span>(idx, value) <span class="kw">in </span>results.iter().enumerate() {
                     <span class="kw">let </span>value = builder.build_bitcast(
                         <span class="kw-2">*</span>value,

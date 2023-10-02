@@ -2025,6 +2025,99 @@
 <a href="#2025" id="2025">2025</a>
 <a href="#2026" id="2026">2026</a>
 <a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
+<a href="#2055" id="2055">2055</a>
+<a href="#2056" id="2056">2056</a>
+<a href="#2057" id="2057">2057</a>
+<a href="#2058" id="2058">2058</a>
+<a href="#2059" id="2059">2059</a>
+<a href="#2060" id="2060">2060</a>
+<a href="#2061" id="2061">2061</a>
+<a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
+<a href="#2064" id="2064">2064</a>
+<a href="#2065" id="2065">2065</a>
+<a href="#2066" id="2066">2066</a>
+<a href="#2067" id="2067">2067</a>
+<a href="#2068" id="2068">2068</a>
+<a href="#2069" id="2069">2069</a>
+<a href="#2070" id="2070">2070</a>
+<a href="#2071" id="2071">2071</a>
+<a href="#2072" id="2072">2072</a>
+<a href="#2073" id="2073">2073</a>
+<a href="#2074" id="2074">2074</a>
+<a href="#2075" id="2075">2075</a>
+<a href="#2076" id="2076">2076</a>
+<a href="#2077" id="2077">2077</a>
+<a href="#2078" id="2078">2078</a>
+<a href="#2079" id="2079">2079</a>
+<a href="#2080" id="2080">2080</a>
+<a href="#2081" id="2081">2081</a>
+<a href="#2082" id="2082">2082</a>
+<a href="#2083" id="2083">2083</a>
+<a href="#2084" id="2084">2084</a>
+<a href="#2085" id="2085">2085</a>
+<a href="#2086" id="2086">2086</a>
+<a href="#2087" id="2087">2087</a>
+<a href="#2088" id="2088">2088</a>
+<a href="#2089" id="2089">2089</a>
+<a href="#2090" id="2090">2090</a>
+<a href="#2091" id="2091">2091</a>
+<a href="#2092" id="2092">2092</a>
+<a href="#2093" id="2093">2093</a>
+<a href="#2094" id="2094">2094</a>
+<a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
+<a href="#2097" id="2097">2097</a>
+<a href="#2098" id="2098">2098</a>
+<a href="#2099" id="2099">2099</a>
+<a href="#2100" id="2100">2100</a>
+<a href="#2101" id="2101">2101</a>
+<a href="#2102" id="2102">2102</a>
+<a href="#2103" id="2103">2103</a>
+<a href="#2104" id="2104">2104</a>
+<a href="#2105" id="2105">2105</a>
+<a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
+<a href="#2112" id="2112">2112</a>
+<a href="#2113" id="2113">2113</a>
+<a href="#2114" id="2114">2114</a>
+<a href="#2115" id="2115">2115</a>
+<a href="#2116" id="2116">2116</a>
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
@@ -2040,8 +2133,8 @@
     module::{Linkage, Module},
     targets::TargetData,
     types::{
-        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType, PointerType,
-        StructType, VectorType, VoidType,
+        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType,
+        PointerType, StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -2267,21 +2360,28 @@
     <span class="kw">pub </span>imported_memory_copy: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>memory_fill: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>imported_memory_fill: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>memory_size_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>memory_grow_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>memory_wait32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>memory_wait32_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>imported_memory_wait32: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>memory_wait64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>memory_wait64_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>imported_memory_wait64: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>memory_notify: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>memory_notify_ty: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>imported_memory_notify: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
 
     <span class="kw">pub </span>throw_trap: FunctionValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
 
     <span class="comment">// VM builtins.
     </span><span class="kw">pub </span>vmfunction_import_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>vmfunction_import_ty: StructType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>vmfunction_import_body_element: u32,
     <span class="kw">pub </span>vmfunction_import_vmctx_element: u32,
 
     <span class="kw">pub </span>vmmemory_definition_ptr_ty: PointerType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>vmmemory_definition_ty: StructType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>vmmemory_definition_base_element: u32,
     <span class="kw">pub </span>vmmemory_definition_current_length_element: u32,
 
@@ -3026,6 +3126,11 @@
                 ),
                 <span class="prelude-val">None</span>,
             ),
+            memory_size_ty: i32_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
+            memory_grow_ty: i32_ty.fn_type(
+                <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                <span class="bool-val">false</span>,
+            ),
             data_drop: module.add_function(
                 <span class="string">&quot;wasmer_vm_data_drop&quot;</span>,
                 void_ty.fn_type(<span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md], <span class="bool-val">false</span>),
@@ -3060,6 +3165,16 @@
                 ),
                 <span class="prelude-val">None</span>,
             ),
+            memory_wait32_ty: i32_ty.fn_type(
+                <span class="kw-2">&amp;</span>[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i64_ty_basic_md,
+                ],
+                <span class="bool-val">false</span>,
+            ),
             imported_memory_wait32: module.add_function(
                 <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait32&quot;</span>,
                 i32_ty.fn_type(
@@ -3088,6 +3203,16 @@
                 ),
                 <span class="prelude-val">None</span>,
             ),
+            memory_wait64_ty: i32_ty.fn_type(
+                <span class="kw-2">&amp;</span>[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i64_ty_basic_md,
+                    i64_ty_basic_md,
+                ],
+                <span class="bool-val">false</span>,
+            ),
             imported_memory_wait64: module.add_function(
                 <span class="string">&quot;wasmer_vm_imported_memory32_atomic_wait64&quot;</span>,
                 i32_ty.fn_type(
@@ -3105,15 +3230,34 @@
             memory_notify: module.add_function(
                 <span class="string">&quot;wasmer_vm_memory32_atomic_notify&quot;</span>,
                 i32_ty.fn_type(
-                    <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    <span class="kw-2">&amp;</span>[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
                     <span class="bool-val">false</span>,
                 ),
                 <span class="prelude-val">None</span>,
             ),
+            memory_notify_ty: i32_ty.fn_type(
+                <span class="kw-2">&amp;</span>[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                ],
+                <span class="bool-val">false</span>,
+            ),
             imported_memory_notify: module.add_function(
                 <span class="string">&quot;wasmer_vm_imported_memory32_atomic_notify&quot;</span>,
                 i32_ty.fn_type(
-                    <span class="kw-2">&amp;</span>[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    <span class="kw-2">&amp;</span>[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
                     <span class="bool-val">false</span>,
                 ),
                 <span class="prelude-val">None</span>,
@@ -3122,12 +3266,14 @@
             vmfunction_import_ptr_ty: context
                 .struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, i8_ptr_ty_basic], <span class="bool-val">false</span>)
                 .ptr_type(AddressSpace::default()),
+            vmfunction_import_ty: context.struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, i8_ptr_ty_basic], <span class="bool-val">false</span>),
             vmfunction_import_body_element: <span class="number">0</span>,
             vmfunction_import_vmctx_element: <span class="number">1</span>,
 
             vmmemory_definition_ptr_ty: context
                 .struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, isize_ty.into()], <span class="bool-val">false</span>)
                 .ptr_type(AddressSpace::default()),
+            vmmemory_definition_ty: context.struct_type(<span class="kw-2">&amp;</span>[i8_ptr_ty_basic, isize_ty.into()], <span class="bool-val">false</span>),
             vmmemory_definition_base_element: <span class="number">0</span>,
             vmmemory_definition_current_length_element: <span class="number">1</span>,
 
@@ -3254,13 +3400,19 @@
 
 <span class="attr">#[derive(Clone, Copy)]
 </span><span class="kw">pub enum </span>GlobalCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
-    Mut { ptr_to_value: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt; },
-    Const { value: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt; },
+    Mut {
+        ptr_to_value: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        value_type: BasicTypeEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    },
+    Const {
+        value: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    },
 }
 
 <span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>FunctionCache&lt;<span class="lifetime">&#39;ctx</span>&gt; {
     <span class="kw">pub </span>func: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+    <span class="kw">pub </span>llvm_func_type: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>vmctx: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     <span class="kw">pub </span>attrs: Vec&lt;(Attribute, AttributeLoc)&gt;,
 }
@@ -3330,34 +3482,36 @@
         );
         <span class="kw">let </span>memory_style = <span class="kw-2">&amp;</span>memory_styles[index];
         <span class="kw-2">*</span>cached_memories.entry(index).or_insert_with(|| {
-            <span class="kw">let </span>memory_definition_ptr =
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) = wasm_module.local_memory_index(index) {
-                    <span class="kw">let </span>offset = offsets.vmctx_vmmemory_definition(local_memory_index);
-                    <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-                    <span class="kw">unsafe </span>{ cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) }
-                } <span class="kw">else </span>{
-                    <span class="kw">let </span>offset = offsets.vmctx_vmmemory_import(index);
-                    <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-                    <span class="kw">let </span>memory_definition_ptr_ptr =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
-                    <span class="kw">let </span>memory_definition_ptr_ptr = cache_builder
-                        .build_bitcast(
-                            memory_definition_ptr_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
-                            <span class="string">&quot;&quot;</span>,
-                        )
-                        .into_pointer_value();
-                    <span class="kw">let </span>memory_definition_ptr = cache_builder
-                        .build_load(memory_definition_ptr_ptr, <span class="string">&quot;&quot;</span>)
-                        .into_pointer_value();
-                    tbaa_label(
-                        module,
-                        intrinsics,
-                        <span class="macro">format!</span>(<span class="string">&quot;memory {} definition&quot;</span>, index.as_u32()),
-                        memory_definition_ptr.as_instruction_value().unwrap(),
-                    );
-                    memory_definition_ptr
+            <span class="kw">let </span>memory_definition_ptr = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) =
+                wasm_module.local_memory_index(index)
+            {
+                <span class="kw">let </span>offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) }
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>offset = offsets.vmctx_vmmemory_import(index);
+                <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
+                <span class="kw">let </span>memory_definition_ptr_ptr = <span class="kw">unsafe </span>{
+                    cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
                 };
+                <span class="kw">let </span>memory_definition_ptr_ptr = cache_builder
+                    .build_bitcast(
+                        memory_definition_ptr_ptr,
+                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
+                        <span class="string">&quot;&quot;</span>,
+                    )
+                    .into_pointer_value();
+                <span class="kw">let </span>memory_definition_ptr = cache_builder
+                    .build_load(intrinsics.i8_ptr_ty, memory_definition_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                    .into_pointer_value();
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    <span class="macro">format!</span>(<span class="string">&quot;memory {} definition&quot;</span>, index.as_u32()),
+                    memory_definition_ptr.as_instruction_value().unwrap(),
+                );
+                memory_definition_ptr
+            };
             <span class="kw">let </span>memory_definition_ptr = cache_builder
                 .build_bitcast(
                     memory_definition_ptr,
@@ -3367,6 +3521,7 @@
                 .into_pointer_value();
             <span class="kw">let </span>base_ptr = cache_builder
                 .build_struct_gep(
+                    intrinsics.vmmemory_definition_ty,
                     memory_definition_ptr,
                     intrinsics.vmmemory_definition_base_element,
                     <span class="string">&quot;&quot;</span>,
@@ -3375,6 +3530,7 @@
             <span class="kw">if let </span>MemoryStyle::Dynamic { .. } = memory_style {
                 <span class="kw">let </span>current_length_ptr = cache_builder
                     .build_struct_gep(
+                        intrinsics.vmmemory_definition_ty,
                         memory_definition_ptr,
                         intrinsics.vmmemory_definition_current_length_element,
                         <span class="string">&quot;&quot;</span>,
@@ -3385,7 +3541,9 @@
                     ptr_to_current_length: current_length_ptr,
                 }
             } <span class="kw">else </span>{
-                <span class="kw">let </span>base_ptr = cache_builder.build_load(base_ptr, <span class="string">&quot;&quot;</span>).into_pointer_value();
+                <span class="kw">let </span>base_ptr = cache_builder
+                    .build_load(intrinsics.i8_ptr_ty, base_ptr, <span class="string">&quot;&quot;</span>)
+                    .into_pointer_value();
                 tbaa_label(
                     module,
                     intrinsics,
@@ -3422,8 +3580,9 @@
                             .into(),
                         <span class="bool-val">false</span>,
                     );
-                    <span class="kw">let </span>ptr_to_base_ptr =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                    <span class="kw">let </span>ptr_to_base_ptr = <span class="kw">unsafe </span>{
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    };
                     <span class="kw">let </span>ptr_to_base_ptr = cache_builder
                         .build_bitcast(
                             ptr_to_base_ptr,
@@ -3437,8 +3596,9 @@
                             .into(),
                         <span class="bool-val">false</span>,
                     );
-                    <span class="kw">let </span>ptr_to_bounds =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                    <span class="kw">let </span>ptr_to_bounds = <span class="kw">unsafe </span>{
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    };
                     <span class="kw">let </span>ptr_to_bounds = cache_builder
                         .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, <span class="string">&quot;&quot;</span>)
                         .into_pointer_value();
@@ -3448,8 +3608,9 @@
                         offsets.vmctx_vmtable_import_definition(table_index).into(),
                         <span class="bool-val">false</span>,
                     );
-                    <span class="kw">let </span>definition_ptr_ptr =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                    <span class="kw">let </span>definition_ptr_ptr = <span class="kw">unsafe </span>{
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    };
                     <span class="kw">let </span>definition_ptr_ptr = cache_builder
                         .build_bitcast(
                             definition_ptr_ptr,
@@ -3458,7 +3619,7 @@
                         )
                         .into_pointer_value();
                     <span class="kw">let </span>definition_ptr = cache_builder
-                        .build_load(definition_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                        .build_load(intrinsics.i8_ptr_ty, definition_ptr_ptr, <span class="string">&quot;&quot;</span>)
                         .into_pointer_value();
                     tbaa_label(
                         module,
@@ -3470,8 +3631,9 @@
                     <span class="kw">let </span>offset = intrinsics
                         .i64_ty
                         .const_int(offsets.vmtable_definition_base().into(), <span class="bool-val">false</span>);
-                    <span class="kw">let </span>ptr_to_base_ptr =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                    <span class="kw">let </span>ptr_to_base_ptr = <span class="kw">unsafe </span>{
+                        cache_builder.build_gep(intrinsics.i8_ty, definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    };
                     <span class="kw">let </span>ptr_to_base_ptr = cache_builder
                         .build_bitcast(
                             ptr_to_base_ptr,
@@ -3482,8 +3644,9 @@
                     <span class="kw">let </span>offset = intrinsics
                         .i64_ty
                         .const_int(offsets.vmtable_definition_current_elements().into(), <span class="bool-val">false</span>);
-                    <span class="kw">let </span>ptr_to_bounds =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                    <span class="kw">let </span>ptr_to_bounds = <span class="kw">unsafe </span>{
+                        cache_builder.build_gep(intrinsics.i8_ty, definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    };
                     <span class="kw">let </span>ptr_to_bounds = cache_builder
                         .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, <span class="string">&quot;&quot;</span>)
                         .into_pointer_value();
@@ -3507,11 +3670,11 @@
         <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="self">self</span>.table_prepare(index, intrinsics, module);
         <span class="kw">let </span>base_ptr = <span class="self">self
             </span>.cache_builder
-            .build_load(ptr_to_base_ptr, <span class="string">&quot;base_ptr&quot;</span>)
+            .build_load(intrinsics.i8_ptr_ty, ptr_to_base_ptr, <span class="string">&quot;base_ptr&quot;</span>)
             .into_pointer_value();
         <span class="kw">let </span>bounds = <span class="self">self
             </span>.cache_builder
-            .build_load(ptr_to_bounds, <span class="string">&quot;bounds&quot;</span>)
+            .build_load(intrinsics.isize_ty, ptr_to_bounds, <span class="string">&quot;bounds&quot;</span>)
             .into_int_value();
         tbaa_label(
             module,
@@ -3545,14 +3708,19 @@
                 .i64_ty
                 .const_int(offsets.vmctx_vmshared_signature_id(index).into(), <span class="bool-val">false</span>);
             <span class="kw">let </span>sigindex_ptr = <span class="kw">unsafe </span>{
-                cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[byte_offset], <span class="string">&quot;dynamic_sigindex&quot;</span>)
+                cache_builder.build_gep(
+                    intrinsics.i8_ty,
+                    ctx_ptr_value,
+                    <span class="kw-2">&amp;</span>[byte_offset],
+                    <span class="string">&quot;dynamic_sigindex&quot;</span>,
+                )
             };
             <span class="kw">let </span>sigindex_ptr = cache_builder
                 .build_bitcast(sigindex_ptr, intrinsics.i32_ptr_ty, <span class="string">&quot;&quot;</span>)
                 .into_pointer_value();
 
             <span class="kw">let </span>sigindex = cache_builder
-                .build_load(sigindex_ptr, <span class="string">&quot;sigindex&quot;</span>)
+                .build_load(intrinsics.i32_ty, sigindex_ptr, <span class="string">&quot;sigindex&quot;</span>)
                 .into_int_value();
             tbaa_label(
                 module,
@@ -3592,8 +3760,9 @@
                 };
                 <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
                 <span class="kw">let </span>global_ptr = {
-                    <span class="kw">let </span>global_ptr_ptr =
-                        <span class="kw">unsafe </span>{ cache_builder.build_gep(ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                    <span class="kw">let </span>global_ptr_ptr = <span class="kw">unsafe </span>{
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                    };
                     <span class="kw">let </span>global_ptr_ptr = cache_builder
                         .build_bitcast(
                             global_ptr_ptr,
@@ -3602,7 +3771,7 @@
                         )
                         .into_pointer_value();
                     <span class="kw">let </span>global_ptr = cache_builder
-                        .build_load(global_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                        .build_load(intrinsics.i32_ptr_ty, global_ptr_ptr, <span class="string">&quot;&quot;</span>)
                         .into_pointer_value();
                     tbaa_label(
                         module,
@@ -3622,7 +3791,11 @@
 
                 entry.insert(<span class="kw">match </span>global_mutability {
                     Mutability::Const =&gt; {
-                        <span class="kw">let </span>value = cache_builder.build_load(global_ptr, <span class="string">&quot;&quot;</span>);
+                        <span class="kw">let </span>value = cache_builder.build_load(
+                            type_to_llvm(intrinsics, global_value_type)<span class="question-mark">?</span>,
+                            global_ptr,
+                            <span class="string">&quot;&quot;</span>,
+                        );
                         tbaa_label(
                             module,
                             intrinsics,
@@ -3633,6 +3806,7 @@
                     }
                     Mutability::Var =&gt; GlobalCache::Mut {
                         ptr_to_value: global_ptr,
+                        value_type: type_to_llvm(intrinsics, global_value_type)<span class="question-mark">?</span>,
                     },
                 })
             }
@@ -3643,6 +3817,7 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         function_index: FunctionIndex,
         func: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        llvm_func_type: FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         vmctx: BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         attrs: <span class="kw-2">&amp;</span>[(Attribute, AttributeLoc)],
     ) {
@@ -3651,6 +3826,7 @@
             Entry::Vacant(entry) =&gt; {
                 entry.insert(FunctionCache {
                     func,
+                    llvm_func_type,
                     vmctx,
                     attrs: attrs.to_vec(),
                 });
@@ -3688,6 +3864,7 @@
                 }
                 entry.insert(FunctionCache {
                     func: func.as_global_value().as_pointer_value(),
+                    llvm_func_type,
                     vmctx: ctx_ptr_value.as_basic_value_enum(),
                     attrs: llvm_func_attrs,
                 })
@@ -3718,8 +3895,9 @@
                 <span class="macro">debug_assert!</span>(wasm_module.local_func_index(function_index).is_none());
                 <span class="kw">let </span>offset = offsets.vmctx_vmfunction_import(function_index);
                 <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-                <span class="kw">let </span>vmfunction_import_ptr =
-                    <span class="kw">unsafe </span>{ cache_builder.build_gep(<span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+                <span class="kw">let </span>vmfunction_import_ptr = <span class="kw">unsafe </span>{
+                    cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>)
+                };
                 <span class="kw">let </span>vmfunction_import_ptr = cache_builder
                     .build_bitcast(
                         vmfunction_import_ptr,
@@ -3730,12 +3908,13 @@
 
                 <span class="kw">let </span>body_ptr_ptr = cache_builder
                     .build_struct_gep(
+                        intrinsics.vmfunction_import_ty,
                         vmfunction_import_ptr,
                         intrinsics.vmfunction_import_body_element,
                         <span class="string">&quot;&quot;</span>,
                     )
                     .unwrap();
-                <span class="kw">let </span>body_ptr = cache_builder.build_load(body_ptr_ptr, <span class="string">&quot;&quot;</span>);
+                <span class="kw">let </span>body_ptr = cache_builder.build_load(intrinsics.i8_ptr_ty, body_ptr_ptr, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let </span>body_ptr = cache_builder
                     .build_bitcast(
                         body_ptr,
@@ -3745,14 +3924,16 @@
                     .into_pointer_value();
                 <span class="kw">let </span>vmctx_ptr_ptr = cache_builder
                     .build_struct_gep(
+                        intrinsics.vmfunction_import_ty,
                         vmfunction_import_ptr,
                         intrinsics.vmfunction_import_vmctx_element,
                         <span class="string">&quot;&quot;</span>,
                     )
                     .unwrap();
-                <span class="kw">let </span>vmctx_ptr = cache_builder.build_load(vmctx_ptr_ptr, <span class="string">&quot;&quot;</span>);
+                <span class="kw">let </span>vmctx_ptr = cache_builder.build_load(intrinsics.ctx_ptr_ty, vmctx_ptr_ptr, <span class="string">&quot;&quot;</span>);
                 entry.insert(FunctionCache {
                     func: body_ptr,
+                    llvm_func_type,
                     vmctx: vmctx_ptr,
                     attrs: llvm_func_attrs,
                 })
@@ -3786,7 +3967,8 @@
             };
             <span class="kw">let </span>offset = offsets.vmctx_builtin_function(grow_fn);
             <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>grow_fn_ptr_ptr = <span class="kw">unsafe </span>{ cache_builder.build_gep(<span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+            <span class="kw">let </span>grow_fn_ptr_ptr =
+                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
             <span class="kw">let </span>grow_fn_ptr_ptr = cache_builder
                 .build_bitcast(
@@ -3796,7 +3978,7 @@
                 )
                 .into_pointer_value();
             cache_builder
-                .build_load(grow_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                .build_load(grow_fn_ty, grow_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
                 .into_pointer_value()
         })
     }
@@ -3827,7 +4009,8 @@
             };
             <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
             <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{ cache_builder.build_gep(<span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+            <span class="kw">let </span>size_fn_ptr_ptr =
+                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
             <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
@@ -3838,7 +4021,7 @@
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
                 .into_pointer_value()
         })
     }
@@ -3869,7 +4052,8 @@
             };
             <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
             <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{ cache_builder.build_gep(<span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+            <span class="kw">let </span>size_fn_ptr_ptr =
+                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
             <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
@@ -3880,7 +4064,7 @@
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
                 .into_pointer_value()
         })
     }
@@ -3911,7 +4095,8 @@
             };
             <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
             <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{ cache_builder.build_gep(<span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+            <span class="kw">let </span>size_fn_ptr_ptr =
+                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
             <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
@@ -3922,7 +4107,7 @@
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
                 .into_pointer_value()
         })
     }
@@ -3953,7 +4138,8 @@
             };
             <span class="kw">let </span>offset = offsets.vmctx_builtin_function(size_fn);
             <span class="kw">let </span>offset = intrinsics.i32_ty.const_int(offset.into(), <span class="bool-val">false</span>);
-            <span class="kw">let </span>size_fn_ptr_ptr = <span class="kw">unsafe </span>{ cache_builder.build_gep(<span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
+            <span class="kw">let </span>size_fn_ptr_ptr =
+                <span class="kw">unsafe </span>{ cache_builder.build_gep(intrinsics.i8_ty, <span class="kw-2">*</span>ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">&quot;&quot;</span>) };
 
             <span class="kw">let </span>size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
@@ -3964,7 +4150,7 @@
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
+                .build_load(size_fn_ty, size_fn_ptr_ptr, <span class="string">&quot;&quot;</span>)
                 .into_pointer_value()
         })
     }

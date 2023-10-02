@@ -622,6 +622,20 @@
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
 <a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
 <span class="kw">use </span><span class="kw">crate</span>::translator::intrinsics::{type_to_llvm, Intrinsics};
 <span class="kw">use </span>inkwell::{
@@ -861,21 +875,22 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         alloca_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         func_sig: <span class="kw-2">&amp;</span>FuncSig,
-        ctx_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         llvm_fn_ty: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        ctx_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;],
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     ) -&gt; Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt; {
         <span class="comment">// If it&#39;s an sret, allocate the return space.
         </span><span class="kw">let </span>sret = <span class="kw">if </span>llvm_fn_ty.get_return_type().is_none() &amp;&amp; func_sig.results().len() &gt; <span class="number">1 </span>{
-            <span class="prelude-val">Some</span>(
-                alloca_builder.build_alloca(
-                    llvm_fn_ty.get_param_types()[<span class="number">0</span>]
-                        .into_pointer_type()
-                        .get_element_type()
-                        .into_struct_type(),
-                    <span class="string">&quot;sret&quot;</span>,
-                ),
-            )
+            <span class="kw">let </span>llvm_params: Vec&lt;<span class="kw">_</span>&gt; = func_sig
+                .results()
+                .iter()
+                .map(|x| type_to_llvm(intrinsics, <span class="kw-2">*</span>x).unwrap())
+                .collect();
+            <span class="kw">let </span>llvm_params = llvm_fn_ty
+                .get_context()
+                .struct_type(llvm_params.as_slice(), <span class="bool-val">false</span>);
+            <span class="prelude-val">Some</span>(alloca_builder.build_alloca(llvm_params, <span class="string">&quot;sret&quot;</span>))
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>};
@@ -1049,16 +1064,29 @@
                 )
                 .is_some()
             {
-                <span class="kw">let </span>sret = call_site
+                <span class="kw">let </span>sret_ty = call_site
                     .try_as_basic_value()
                     .right()
                     .unwrap()
                     .get_operand(<span class="number">0</span>)
                     .unwrap()
                     .left()
-                    .unwrap()
-                    .into_pointer_value();
-                <span class="kw">let </span>struct_value = builder.build_load(sret, <span class="string">&quot;&quot;</span>).into_struct_value();
+                    .unwrap();
+                <span class="kw">let </span>sret = sret_ty.into_pointer_value();
+                <span class="comment">// re-build the llvm-type struct holding the return values
+                </span><span class="kw">let </span>llvm_results: Vec&lt;<span class="kw">_</span>&gt; = func_sig
+                    .results()
+                    .iter()
+                    .map(|x| type_to_llvm(intrinsics, <span class="kw-2">*</span>x).unwrap())
+                    .collect();
+                <span class="kw">let </span>struct_type = intrinsics
+                    .i32_ty
+                    .get_context()
+                    .struct_type(llvm_results.as_slice(), <span class="bool-val">false</span>);
+
+                <span class="kw">let </span>struct_value = builder
+                    .build_load(struct_type, sret, <span class="string">&quot;&quot;</span>)
+                    .into_struct_value();
                 <span class="kw">let </span><span class="kw-2">mut </span>rets: Vec&lt;<span class="kw">_</span>&gt; = Vec::new();
                 <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..struct_value.get_type().count_fields() {
                     <span class="kw">let </span>value = builder.build_extract_value(struct_value, i, <span class="string">&quot;&quot;</span>).unwrap();

@@ -85,6 +85,7 @@
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="comment">// LLVM implements part of the ABI lowering internally, but also requires that
 // the user pack and unpack values themselves sometimes. This can help the LLVM
 // optimizer by exposing operations to the optimizer, but it requires that the
@@ -146,9 +147,10 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         alloca_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         func_sig: <span class="kw-2">&amp;</span>FuncSig,
-        ctx_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         llvm_fn_ty: <span class="kw-2">&amp;</span>FunctionType&lt;<span class="lifetime">&#39;ctx</span>&gt;,
+        ctx_ptr: PointerValue&lt;<span class="lifetime">&#39;ctx</span>&gt;,
         values: <span class="kw-2">&amp;</span>[BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;],
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">&#39;ctx</span>&gt;,
     ) -&gt; Vec&lt;BasicValueEnum&lt;<span class="lifetime">&#39;ctx</span>&gt;&gt;;
 
     <span class="doccomment">/// Given a CallSite, extract the returned values and return them in a Vec.
