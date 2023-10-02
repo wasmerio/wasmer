@@ -120,6 +120,11 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         match spawn_type {
             SpawnMemoryType::CreateMemoryOfType(mut ty) => {
                 ty.shared = true;
+
+                // Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
                 let mem = Memory::new(&mut store, ty).map_err(|err| {
                     tracing::error!(
                         error = &err as &dyn std::error::Error,
