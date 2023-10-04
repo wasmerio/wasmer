@@ -63,10 +63,14 @@ struct ucontext_t {
     uc_link: *mut ucontext_t,
     uc_stack: libc::stack_t,
     uc_flags: libc::c_int,
-    spare: [libc::c_int; 4], 
+    spare: [libc::c_int; 4],
 }
 
-#[cfg(all(unix, not(all(target_arch = "aarch64", target_os = "macos")), not(all(target_arch="aarch64", target_os="freebsd"))))]
+#[cfg(all(
+    unix,
+    not(all(target_arch = "aarch64", target_os = "macos")),
+    not(all(target_arch = "aarch64", target_os = "freebsd"))
+))]
 use libc::ucontext_t;
 
 /// Default stack size is 1MB.
