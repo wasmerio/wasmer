@@ -359,7 +359,7 @@ fn run_test_caching_works_for_urls() {
         .stderr(contains("web_source: Cache hit"))
         // Cache hit downloading the *.webc file
         .stderr(contains(
-            r#"builtin_loader: Cache hit! pkg.name="python" pkg.version=0.1.0"#,
+            r#"builtin_loader: Cache hit! pkg.name="python" pkg.version=0.2.0"#,
         ))
         // Cache hit compiling the module
         .stderr(contains("module_cache::filesystem: Cache hit!"));
