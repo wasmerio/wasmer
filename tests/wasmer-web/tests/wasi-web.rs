@@ -46,7 +46,7 @@ async fn run_a_webc_package_that_involves_the_filesystem(client: Client) {
 
     let output = client
         .execute_command_with_timeout(
-            "wasmer python/python -c 'import sys; print(sys.version_info)'",
+            "wasmer python/python@0.1.0 -c 'import sys; print(sys.version_info)'",
             PROMPT,
             Duration::from_secs(30),
         )
