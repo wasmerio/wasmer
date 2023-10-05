@@ -205,7 +205,34 @@ impl Console {
             }
         };
 
-        let wasi_opts = webc::metadata::annotations::Wasi::new(prog);
+        let command = if let Some(entrypoint) = pkg.entrypoint_cmd.as_deref() {
+            pkg.get_command(entrypoint).unwrap()
+        } else {
+            match pkg.commands.as_slice() {
+                [] => {
+                    return Err(SpawnError::Other(
+                        anyhow::anyhow!("The WEBC file doesn't contain any executable commands")
+                            .into(),
+                    ))
+                }
+                [one] => one,
+                [first, ..] => first,
+            }
+        };
+
+        let mut wasi_opts = command
+            .metadata()
+            .wasi()
+            .ok()
+            .and_then(|x| x)
+            .unwrap_or_else(|| webc::metadata::annotations::Wasi::new(prog));
+
+        // Prevent adding default args if custom args are specified.
+        if !args.is_empty() {
+            if let Some(wargs) = &mut wasi_opts.main_args {
+                wargs.clear();
+            }
+        }
 
         let root_fs = RootFileSystemBuilder::new()
             .with_tty(Box::new(CombineFile::new(
