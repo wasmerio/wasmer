@@ -23,7 +23,7 @@ to native speeds.
 ## Requirements
 
 The LLVM compiler requires a valid installation of LLVM in your system.
-It currently requires **LLVM 14**.
+It currently requires **LLVM 15**.
 
 
 You can install LLVM easily on your Debian-like system via this command:

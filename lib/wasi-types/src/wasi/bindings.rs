@@ -1332,7 +1332,6 @@ impl core::fmt::Debug for PipeHandles {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum StdioMode {
-    Reserved,
     Piped,
     Inherit,
     Null,
@@ -1341,7 +1340,6 @@ pub enum StdioMode {
 impl core::fmt::Debug for StdioMode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            StdioMode::Reserved => f.debug_tuple("StdioMode::Reserved").finish(),
             StdioMode::Piped => f.debug_tuple("StdioMode::Piped").finish(),
             StdioMode::Inherit => f.debug_tuple("StdioMode::Inherit").finish(),
             StdioMode::Null => f.debug_tuple("StdioMode::Null").finish(),
@@ -3199,11 +3197,10 @@ unsafe impl wasmer::FromToNativeWasmType for StdioMode {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Reserved,
-            1 => Self::Piped,
-            2 => Self::Inherit,
-            3 => Self::Null,
-            4 => Self::Log,
+            0 => Self::Piped,
+            1 => Self::Inherit,
+            2 => Self::Null,
+            3 => Self::Log,
 
             q => {
                 tracing::debug!("could not serialize number {q} to enum StdioMode");
