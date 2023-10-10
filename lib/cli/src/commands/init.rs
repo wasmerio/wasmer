@@ -6,7 +6,6 @@ use std::{
 use anyhow::Context;
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
-use indexmap::IndexMap;
 use semver::VersionReq;
 use wasmer_registry::wasmer_env::WasmerEnv;
 
@@ -230,24 +229,17 @@ impl Init {
         }
     }
 
-    fn get_filesystem_mapping(include: &[String]) -> IndexMap<String, PathBuf> {
-        if include.is_empty() {
-            return IndexMap::new();
-        }
+    fn get_filesystem_mapping(include: &[String]) -> impl Iterator<Item = (String, PathBuf)> + '_ {
+        include.iter().map(|path| {
+            if path == "." || path == "/" {
+                return ("/".to_string(), Path::new("/").to_path_buf());
+            }
 
-        include
-            .iter()
-            .map(|path| {
-                if path == "." || path == "/" {
-                    return ("/".to_string(), Path::new("/").to_path_buf());
-                }
+            let key = format!("./{path}");
+            let value = PathBuf::from(format!("/{path}"));
 
-                let key = format!("./{path}");
-                let value = PathBuf::from(format!("/{path}"));
-
-                (key, value)
-            })
-            .collect()
+            (key, value)
+        })
     }
 
     fn get_command(
@@ -515,7 +507,7 @@ fn construct_manifest(
     manifest
         .dependencies(Init::get_dependencies(template))
         .commands(Init::get_command(&modules, bin_or_lib))
-        .fs(Init::get_filesystem_mapping(include_fs));
+        .fs(Init::get_filesystem_mapping(include_fs).collect());
     match bin_or_lib {
         BinOrLib::Bin | BinOrLib::Lib => {
             manifest.modules(modules);
