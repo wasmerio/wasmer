@@ -250,13 +250,13 @@ impl Init {
             BinOrLib::Bin => modules
                 .iter()
                 .map(|m| {
-                    wasmer_toml::Command::V1(wasmer_toml::CommandV1 {
+                    wasmer_toml::Command::V2(wasmer_toml::CommandV2 {
                         name: m.name.clone(),
                         module: wasmer_toml::ModuleReference::CurrentPackage {
                             module: m.name.clone(),
                         },
-                        main_args: None,
-                        package: None,
+                        runner: "wasi".to_string(),
+                        annotations: None,
                     })
                 })
                 .collect(),
