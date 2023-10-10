@@ -46,7 +46,7 @@ impl InodeValFilePollGuard {
         subscription: Subscription,
         guard: &Kind,
     ) -> Option<Self> {
-        let mode = match guard.deref() {
+        let mode = match guard {
             Kind::EventNotifications { inner, .. } => {
                 InodeValFilePollGuardMode::EventNotifications(inner.clone())
             }

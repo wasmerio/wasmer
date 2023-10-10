@@ -19,7 +19,7 @@ pub fn fd_event<M: MemorySize>(
     };
 
     let inode = state.fs.create_inode_with_default_stat(
-        inodes.deref(),
+        inodes,
         kind,
         false,
         "event".to_string().into(),
