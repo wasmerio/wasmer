@@ -172,6 +172,18 @@ impl std::cmp::PartialEq for Memory {
     }
 }
 
+impl From<Memory> for crate::Memory {
+    fn from(value: Memory) -> Self {
+        crate::Memory(value)
+    }
+}
+
+impl From<crate::Memory> for Memory {
+    fn from(value: crate::Memory) -> Self {
+        value.0
+    }
+}
+
 /// Underlying buffer for a memory.
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct MemoryBuffer<'a> {

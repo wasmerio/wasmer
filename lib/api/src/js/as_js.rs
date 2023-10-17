@@ -232,13 +232,10 @@ impl AsJs for Memory {
         memory_type: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {
-        if value.is_instance_of::<JsMemory>() {
+        if let Some(memory) = value.dyn_ref::<JsMemory>() {
             Ok(Memory::from_vm_extern(
                 store,
-                VMMemory::new(
-                    value.clone().unchecked_into::<JsMemory>(),
-                    memory_type.clone(),
-                ),
+                VMMemory::new(memory.clone(), memory_type.clone()),
             ))
         } else {
             Err(JsError::new(&format!(
