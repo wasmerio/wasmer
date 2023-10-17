@@ -38,6 +38,7 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
     + Sync;
 
 /// The properties passed to the task
+#[derive(Debug)]
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
