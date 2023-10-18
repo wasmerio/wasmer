@@ -668,18 +668,24 @@ impl WasiEnv {
                     match err.downcast::<WasiError>() {
                         Ok(wasi_err) => {
                             warn!(
-                                "wasi[{}]::signal handler wasi error - {}",
+                                "wasi[{}]::signal handler wasi error (sig={:?}) - {}",
                                 ctx.data().pid(),
+                                signal,
                                 wasi_err
                             );
                             return Err(wasi_err);
                         }
                         Err(runtime_err) => {
-                            warn!(
-                                "wasi[{}]::signal handler runtime error - {}",
-                                ctx.data().pid(),
-                                runtime_err
-                            );
+                            // anything other than a kill command should report
+                            // the error, killed things may not gracefully close properly
+                            if signal != Signal::Sigkill {
+                                warn!(
+                                    "wasi[{}]::signal handler runtime error (sig={:?}) - {}",
+                                    ctx.data().pid(),
+                                    signal,
+                                    runtime_err
+                                );
+                            }
                             return Err(WasiError::Exit(Errno::Intr.into()));
                         }
                     }
