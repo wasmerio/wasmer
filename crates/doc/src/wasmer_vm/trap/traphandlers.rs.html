@@ -1089,6 +1089,25 @@
 <a href="#1089" id="1089">1089</a>
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1143,7 +1162,25 @@
     uc_mcontext: libc::mcontext_t,
 }
 
-<span class="attr">#[cfg(all(unix, not(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>))))]
+<span class="comment">// Current definition of `ucontext_t` in the `libc` crate is not present
+// on aarch64-unknown-freebsd so it&#39;s defined here.
+</span><span class="attr">#[repr(C)]
+#[cfg(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;freebsd&quot;</span>))]
+#[allow(non_camel_case_types)]
+</span><span class="kw">struct </span>ucontext_t {
+    uc_sigmask: libc::sigset_t,
+    uc_mcontext: libc::mcontext_t,
+    uc_link: <span class="kw-2">*mut </span>ucontext_t,
+    uc_stack: libc::stack_t,
+    uc_flags: libc::c_int,
+    spare: [libc::c_int; <span class="number">4</span>],
+}
+
+<span class="attr">#[cfg(all(
+    unix,
+    not(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;macos&quot;</span>)),
+    not(all(target_arch = <span class="string">&quot;aarch64&quot;</span>, target_os = <span class="string">&quot;freebsd&quot;</span>))
+))]
 </span><span class="kw">use </span>libc::ucontext_t;
 
 <span class="doccomment">/// Default stack size is 1MB.
@@ -1525,7 +1562,8 @@
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__fp = x29;
                     (<span class="kw-2">*</span>context.uc_mcontext).__ss.__lr = lr;
                 } <span class="kw">else if </span><span class="attr">#[cfg(all(target_os = <span class="string">&quot;freebsd&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>))] </span>{
-                    context.uc_mcontext.mc_gpregs.gp_pc = pc <span class="kw">as </span>libc::register_t;
+                    <span class="kw">let </span>TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
+                    context.uc_mcontext.mc_gpregs.gp_elr = pc <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_sp = sp <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[<span class="number">0</span>] = x0 <span class="kw">as </span>libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[<span class="number">1</span>] = x1 <span class="kw">as </span>libc::register_t;
