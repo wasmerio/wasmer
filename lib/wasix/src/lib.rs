@@ -50,6 +50,7 @@ pub mod http;
 mod rewind;
 pub mod runners;
 pub mod runtime;
+pub mod snapshot;
 mod state;
 mod syscalls;
 mod utils;

@@ -27,6 +27,7 @@ use crate::{
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
+    snapshot::{DynSnapShooter, UnsupportedSnapShooter},
     WasiTtyState,
 };
 
@@ -90,7 +91,7 @@ where
     }
 
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
-    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, anyhow::Error>> {
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
 
@@ -104,6 +105,12 @@ where
     /// Non-async version of [`Self::load_module`].
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
         InlineWaker::block_on(self.load_module(wasm))
+    }
+
+    /// The snap shooter takes and restores snapshots of the WASM process at specific
+    /// points in time by reading and writing log entries
+    fn snap_shooter<'a>(&'a self) -> Arc<DynSnapShooter> {
+        Arc::new(UnsupportedSnapShooter::default()) as Arc<DynSnapShooter>
     }
 }
 
