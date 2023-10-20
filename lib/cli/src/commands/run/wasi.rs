@@ -113,8 +113,17 @@ pub struct Wasi {
 
     /// Indicates what events will cause a snapshot to be taken
     /// and written to the snapshot file.
+    ///
+    /// If not specified, the default is to snapshot on idle plus if a
+    /// snapshot period is provided it will also default to periodic snapshots
+    /// as well.
     #[clap(long = "snapshot-on")]
     pub snapshot_on: Vec<SnapshotTrigger>,
+
+    /// Time in seconds between taking snapshots of the process and dumping
+    /// them to the snapshot file.
+    #[clap(long = "snapshot-period")]
+    pub snapshot_period: Option<u64>,
 
     /// When specified, the runtime will restore a previous snapshot
     /// using the supplied file.
@@ -137,7 +146,13 @@ pub struct Wasi {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SnapshotTrigger {
     /// Triggered when all the threads in the process goes idle
-    OnIdle,
+    Idle,
+    /// Triggered when a listen syscall is invoked on a socket
+    Listen,
+    /// Triggered when the process reads stdin for the first time
+    Stdin,
+    /// Triggered periodically (default 10 seconds) which can be specified using the `snapshot-period` option
+    Periodic,
     /// Issued if the user sends an interrupt signal (Ctrl + C).
     Sigint,
     /// Alarm clock signal (used for timers)
@@ -154,11 +169,14 @@ impl FromStr for SnapshotTrigger {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let s = s.trim().to_lowercase();
         Ok(match s.as_str() {
-            "onidle" | "on-idle" => Self::OnIdle,
-            "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
-            "sigalrm" => Self::Sigalrm,
+            "idle" => Self::Idle,
+            "listen" => Self::Listen,
+            "stdin" => Self::Stdin,
+            "periodic" => Self::Periodic,
+            "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
+            "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
             "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,
-            "sigstop" => Self::Sigstop,
+            "stop" | "sigstop" => Self::Sigstop,
             a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
         })
     }
