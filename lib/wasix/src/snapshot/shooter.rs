@@ -62,6 +62,8 @@ pub enum SnapshotLog<'a> {
         len: u64,
         data: Cow<'a, [u8]>,
     },
+    /// Represents the marker for the end of a snapshot
+    SnapshotV1,
 }
 
 /// The snap shooter will take a series of objects that represents the state of

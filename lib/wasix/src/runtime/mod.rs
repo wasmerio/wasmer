@@ -19,6 +19,8 @@ use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
+#[cfg(feature = "snapshooter")]
+use crate::snapshot::{DynSnapShooter, UnsupportedSnapShooter};
 use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
@@ -27,7 +29,6 @@ use crate::{
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
-    snapshot::{DynSnapShooter, UnsupportedSnapShooter},
     WasiTtyState,
 };
 
@@ -109,6 +110,7 @@ where
 
     /// The snap shooter takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
+    #[cfg(feature = "snapshooter")]
     fn snap_shooter<'a>(&'a self) -> Arc<DynSnapShooter> {
         Arc::new(UnsupportedSnapShooter::default()) as Arc<DynSnapShooter>
     }
@@ -187,6 +189,9 @@ pub struct PluggableRuntime {
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
+    #[cfg(feature = "snapshooter")]
+    #[derivative(Debug = "ignore")]
+    pub snapshooter: Arc<DynSnapShooter>,
 }
 
 impl PluggableRuntime {
@@ -221,6 +226,7 @@ impl PluggableRuntime {
             source: Arc::new(source),
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
+            snapshooter: Arc::new(UnsupportedSnapShooter::default()) as Arc<DynSnapShooter>,
         }
     }
 
@@ -270,6 +276,11 @@ impl PluggableRuntime {
         self.http_client = Some(Arc::new(client));
         self
     }
+
+    pub fn set_snapshooter(&mut self, snapshooter: Arc<DynSnapShooter>) -> &mut Self {
+        self.snapshooter = snapshooter;
+        self
+    }
 }
 
 impl Runtime for PluggableRuntime {
@@ -314,5 +325,10 @@ impl Runtime for PluggableRuntime {
 
     fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
         self.module_cache.clone()
+    }
+
+    #[cfg(feature = "snapshooter")]
+    fn snap_shooter<'a>(&'a self) -> Arc<DynSnapShooter> {
+        self.snapshooter.clone()
     }
 }

@@ -55,6 +55,7 @@ pub enum SnapshotLogEntry {
         len: u64,
         data: Vec<u8>,
     },
+    SnapshotV1,
 }
 
 impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
@@ -102,6 +103,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 len,
                 data: data.into_owned(),
             },
+            SnapshotLog::SnapshotV1 => Self::SnapshotV1,
         }
     }
 }
@@ -151,6 +153,7 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 len,
                 data: data.into(),
             },
+            SnapshotLogEntry::SnapshotV1 => Self::SnapshotV1,
         }
     }
 }

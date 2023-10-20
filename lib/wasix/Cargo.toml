@@ -119,6 +119,7 @@ sys = ["webc/mmap", "time", "virtual-mio/sys"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest"]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rayon"]
+snapshooter = []
 
 # Deprecated. Kept it for compatibility
 compiler = []

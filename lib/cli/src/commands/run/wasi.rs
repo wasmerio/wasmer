@@ -34,6 +34,7 @@ use wasmer_wasix::{
             VirtualTaskManagerExt,
         },
     },
+    snapshot,
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
     PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
@@ -108,6 +109,7 @@ pub struct Wasi {
 
     /// Specifies the snapshot file that Wasmer will use to store
     /// the state of the WASM process so that it can be later restored
+    #[cfg(feature = "snapshooter")]
     #[clap(long = "snapshot-to")]
     pub snapshot_to: Option<PathBuf>,
 
@@ -117,16 +119,19 @@ pub struct Wasi {
     /// If not specified, the default is to snapshot on idle plus if a
     /// snapshot period is provided it will also default to periodic snapshots
     /// as well.
+    #[cfg(feature = "snapshooter")]
     #[clap(long = "snapshot-on")]
     pub snapshot_on: Vec<SnapshotTrigger>,
 
     /// Time in seconds between taking snapshots of the process and dumping
     /// them to the snapshot file.
+    #[cfg(feature = "snapshooter")]
     #[clap(long = "snapshot-period")]
     pub snapshot_period: Option<u64>,
 
     /// When specified, the runtime will restore a previous snapshot
     /// using the supplied file.
+    #[cfg(feature = "snapshooter")]
     #[clap(long = "resume-from")]
     pub resume_from: Option<PathBuf>,
 
@@ -331,6 +336,11 @@ impl Wasi {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+        }
+
+        #[cfg(feature = "snapshooter")]
+        if let Some(path) = &self.resume_from {
+            rt.set_snapshooter(snapshot::LogFileSnapShooter::new(path).await?);
         }
 
         if !self.no_tty {

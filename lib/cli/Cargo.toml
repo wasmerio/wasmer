@@ -160,9 +160,11 @@ default = [
   "wat",
   "wast",
   "compiler",
+  "snapshooter",
   "wasmer-artifact-create",
   "static-artifact-create",
 ]
+snapshooter = ["wasmer-wasix/snapshooter"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
