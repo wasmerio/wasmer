@@ -103,7 +103,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 len,
                 data: data.into_owned(),
             },
-            SnapshotLog::SnapshotV1 => Self::SnapshotV1,
+            SnapshotLog::Snapshot => Self::SnapshotV1,
         }
     }
 }
@@ -153,7 +153,7 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 len,
                 data: data.into(),
             },
-            SnapshotLogEntry::SnapshotV1 => Self::SnapshotV1,
+            SnapshotLogEntry::SnapshotV1 => Self::Snapshot,
         }
     }
 }
@@ -187,6 +187,21 @@ impl LogFileSnapShooter {
                 .create(true)
                 .open(path)
                 .await?,
+            at_end: false,
+        };
+        Ok(Self {
+            state: tokio::sync::Mutex::new(state),
+        })
+    }
+
+    pub fn new_std(path: impl AsRef<Path>) -> io::Result<Self> {
+        let file = std::fs::File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+        let state = State {
+            file: tokio::fs::File::from_std(file),
             at_end: false,
         };
         Ok(Self {

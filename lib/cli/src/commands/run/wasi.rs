@@ -340,7 +340,7 @@ impl Wasi {
 
         #[cfg(feature = "snapshooter")]
         if let Some(path) = &self.resume_from {
-            rt.set_snapshooter(snapshot::LogFileSnapShooter::new(path).await?);
+            rt.set_snapshooter(Arc::new(snapshot::LogFileSnapShooter::new_std(path)?));
         }
 
         if !self.no_tty {

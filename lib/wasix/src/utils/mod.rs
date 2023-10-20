@@ -38,6 +38,11 @@ pub fn map_io_err(err: std::io::Error) -> Errno {
     From::<std::io::Error>::from(err)
 }
 
+pub fn map_snapshot_err(err: anyhow::Error) -> Errno {
+    tracing::warn!("unknown snapshot error: {}", err);
+    Errno::Unknown
+}
+
 /// The version of WASI. This is determined by the imports namespace
 /// string.
 #[derive(Debug, Clone, Copy, Eq)]

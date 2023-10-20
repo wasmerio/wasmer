@@ -299,6 +299,9 @@ pub struct WasiEnv {
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
 
+    /// Indicates if the feed to the snapshot system is enabled or not
+    pub enable_snapshot_feed: bool,
+
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
     ///  not be cloned when `WasiEnv` is cloned)
@@ -328,6 +331,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            enable_snapshot_feed: self.enable_snapshot_feed,
         }
     }
 }
@@ -364,6 +368,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            enable_snapshot_feed: self.enable_snapshot_feed,
         };
         Ok((new_env, handle))
     }
@@ -424,6 +429,7 @@ impl WasiEnv {
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
+            enable_snapshot_feed: false,
             capabilities: init.capabilities,
         };
         env.owned_handles.push(thread);

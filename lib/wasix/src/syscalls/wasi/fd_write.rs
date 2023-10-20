@@ -1,7 +1,7 @@
 use std::task::Waker;
 
 use super::*;
-use crate::{net::socket::TimeType, syscalls::*};
+use crate::{net::socket::TimeType, snapshot::SnapshotLog, syscalls::*, utils::map_snapshot_err};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -99,6 +99,31 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     let bytes_written = {
         if !is_stdio && !fd_entry.rights.contains(Rights::FD_WRITE) {
             return Ok(Errno::Access);
+        }
+
+        // If snap-shooting is enabled and this is to stdio then we
+        // will record a terminal event.
+        #[cfg(feature = "snapshooter")]
+        if is_stdio && ctx.data().enable_snapshot_feed {
+            __asyncify_light(env, None, async {
+                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+                for iovs in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                        .slice(&memory, iovs.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    ctx.data()
+                        .runtime()
+                        .snap_shooter()
+                        .write(SnapshotLog::TerminalData {
+                            data: Cow::Borrowed(buf.as_ref()),
+                        })
+                        .await
+                        .map_err(map_snapshot_err)?;
+                }
+                Ok(())
+            });
         }
 
         let fd_flags = fd_entry.flags;

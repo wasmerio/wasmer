@@ -2,6 +2,8 @@ use futures::future::BoxFuture;
 
 use super::*;
 
+pub static UNSUPPORTED_SNAP_SHOOTER: UnsupportedSnapShooter = UnsupportedSnapShooter {};
+
 /// The default for runtime is to use the unsupported snap-shooter
 /// which will fail to snapshot if one attempts to do so.
 #[derive(Debug, Default)]

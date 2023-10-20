@@ -8,6 +8,7 @@ use self::{
     module_cache::{CacheError, ModuleHash},
     task_manager::InlineWaker,
 };
+use crate::snapshot::UNSUPPORTED_SNAP_SHOOTER;
 
 use std::{
     fmt,
@@ -111,8 +112,8 @@ where
     /// The snap shooter takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
     #[cfg(feature = "snapshooter")]
-    fn snap_shooter<'a>(&'a self) -> Arc<DynSnapShooter> {
-        Arc::new(UnsupportedSnapShooter::default()) as Arc<DynSnapShooter>
+    fn snap_shooter<'a>(&'a self) -> &'_ DynSnapShooter {
+        &UNSUPPORTED_SNAP_SHOOTER
     }
 }
 
@@ -328,7 +329,7 @@ impl Runtime for PluggableRuntime {
     }
 
     #[cfg(feature = "snapshooter")]
-    fn snap_shooter<'a>(&'a self) -> Arc<DynSnapShooter> {
-        self.snapshooter.clone()
+    fn snap_shooter<'a>(&'a self) -> &DynSnapShooter {
+        self.snapshooter.as_ref()
     }
 }
