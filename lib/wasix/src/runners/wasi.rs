@@ -10,7 +10,8 @@ use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    Runtime, WasiEnvBuilder,
+    runtime::task_manager::VirtualTaskManagerExt,
+    Runtime, WasiEnvBuilder, WasiRuntimeError,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -228,25 +229,33 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_module_sync(cmd.atom())?;
-        let mut store = runtime.new_store();
+        let store = runtime.new_store();
 
         let env = self
-            .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
-            .context("Unable to prepare the WASI environment")?;
+            .prepare_webc_env(command_name, &wasi, pkg, Arc::clone(&runtime), None)
+            .context("Unable to prepare the WASI environment")?
+            .build()?;
 
-        if self
-            .wasi
-            .capabilities
-            .threading
-            .enable_asynchronous_threading
-        {
-            env.run_with_store_async(module, store)?;
+        let command_name = command_name.to_string();
+        let tasks = runtime.task_manager().clone();
+        let pkg = pkg.clone();
+
+        let exit_code = tasks.spawn_and_block_on(async move {
+            let fut = crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime);
+            let mut task_handle = fut.await.context("Spawn failed")?;
+
+            task_handle
+                .wait_finished()
+                .await
+                .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
+                .context("Unable to wait for the process to exit")
+        })?;
+
+        if exit_code.raw() == 0 {
+            Ok(())
         } else {
-            env.run_with_store(module, &mut store)?;
+            Err(WasiRuntimeError::Wasi(crate::WasiError::Exit(exit_code)).into())
         }
-
-        Ok(())
     }
 }
 
