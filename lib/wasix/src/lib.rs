@@ -50,7 +50,7 @@ pub mod http;
 mod rewind;
 pub mod runners;
 pub mod runtime;
-#[cfg(feature = "snapshooter")]
+#[cfg(feature = "snapshot")]
 pub mod snapshot;
 mod state;
 mod syscalls;

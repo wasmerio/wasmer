@@ -35,7 +35,7 @@ impl SnapshotEffector {
                     .map_err(mem_error_to_wasi)?;
                 ctx.data()
                     .runtime()
-                    .snap_shooter()
+                    .snapshot_capturer()
                     .write(SnapshotLog::TerminalData {
                         data: Cow::Borrowed(buf.as_ref()),
                     })
@@ -57,7 +57,7 @@ impl SnapshotEffector {
         wasi_try_ok_ok!(__asyncify_light(env, None, async {
             ctx.data()
                 .runtime()
-                .snap_shooter()
+                .snapshot_capturer()
                 .write(SnapshotLog::SetThread {
                     id,
                     call_stack: Cow::Owned(rewind_stack.into()),
@@ -110,7 +110,7 @@ impl SnapshotEffector {
         // file in an orderly manner.
         wasi_try_ok_ok!(__asyncify_light(env, None, async {
             let memory = unsafe { env.memory_view(ctx) };
-            let shooter = ctx.data().runtime().snap_shooter();
+            let capturer = ctx.data().runtime().snapshot_capturer();
 
             for region in regions {
                 // We grab this region of memory as a vector and hash
@@ -120,8 +120,8 @@ impl SnapshotEffector {
                     .copy_range_to_vec(region.clone())
                     .map_err(mem_error_to_wasi)?;
 
-                // Now we write it to the snap shooter
-                shooter
+                // Now we write it to the snap snapshot capturer
+                capturer
                     .write(SnapshotLog::UpdateMemoryRegion {
                         region,
                         data: data.into(),
@@ -132,7 +132,7 @@ impl SnapshotEffector {
 
             // Finally we mark the end of the snapshot so that
             // it can act as a restoration point
-            shooter
+            capturer
                 .write(SnapshotLog::Snapshot)
                 .await
                 .map_err(map_snapshot_err)?;

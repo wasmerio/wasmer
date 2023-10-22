@@ -163,7 +163,7 @@ struct State {
     at_end: bool,
 }
 
-/// The LogFile snap shooter will write its snapshots to a linear journal
+/// The LogFile snapshot capturer will write its snapshots to a linear journal
 /// and read them when restoring. It uses the `bincode` serializer which
 /// means that forwards and backwards compatibility must be dealt with
 /// carefully.
@@ -172,13 +172,13 @@ struct State {
 /// then new entries will be added to the end regardless of if
 /// its been read.
 ///
-/// The logfile snapshooter uses a 64bit number as a entry encoding
+/// The logfile snapshot capturer uses a 64bit number as a entry encoding
 /// delimiter.
-pub struct LogFileSnapShooter {
+pub struct LogFileSnapshotCapturer {
     state: tokio::sync::Mutex<State>,
 }
 
-impl LogFileSnapShooter {
+impl LogFileSnapshotCapturer {
     pub async fn new(path: impl AsRef<Path>) -> io::Result<Self> {
         let state = State {
             file: tokio::fs::File::options()
@@ -211,7 +211,7 @@ impl LogFileSnapShooter {
 }
 
 #[async_trait::async_trait]
-impl SnapShooter for LogFileSnapShooter {
+impl SnapshotCapturer for LogFileSnapshotCapturer {
     fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>> {
         Box::pin(async {
             let entry: SnapshotLogEntry = entry.into();

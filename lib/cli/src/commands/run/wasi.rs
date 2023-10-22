@@ -109,7 +109,7 @@ pub struct Wasi {
 
     /// Specifies the snapshot file that Wasmer will use to store
     /// the state of the WASM process so that it can be later restored
-    #[cfg(feature = "snapshooter")]
+    #[cfg(feature = "snapshot")]
     #[clap(long = "snapshot-to")]
     pub snapshot_to: Option<PathBuf>,
 
@@ -119,19 +119,20 @@ pub struct Wasi {
     /// If not specified, the default is to snapshot on idle plus if a
     /// snapshot period is provided it will also default to periodic snapshots
     /// as well.
-    #[cfg(feature = "snapshooter")]
+    #[cfg(feature = "snapshot")]
     #[clap(long = "snapshot-on")]
     pub snapshot_on: Vec<SnapshotTrigger>,
 
-    /// Time in seconds between taking snapshots of the process and dumping
-    /// them to the snapshot file.
-    #[cfg(feature = "snapshooter")]
-    #[clap(long = "snapshot-period")]
-    pub snapshot_period: Option<u64>,
+    /// Adds a timer (measured in seconds) that takes snapshots of the process and dumps the
+    /// journal of events to the snapshot file. When specifying this parameter it implies
+    /// that `--snapshot-on timer` has also been specified.
+    #[cfg(feature = "snapshot")]
+    #[clap(long = "snapshot-timer")]
+    pub snapshot_timer: Option<u64>,
 
     /// When specified, the runtime will restore a previous snapshot
     /// using the supplied file.
-    #[cfg(feature = "snapshooter")]
+    #[cfg(feature = "snapshot")]
     #[clap(long = "resume-from")]
     pub resume_from: Option<PathBuf>,
 
@@ -156,8 +157,8 @@ pub enum SnapshotTrigger {
     Listen,
     /// Triggered when the process reads stdin for the first time
     Stdin,
-    /// Triggered periodically (default 10 seconds) which can be specified using the `snapshot-period` option
-    Periodic,
+    /// Triggered periodically based on a timer (default 10 seconds) which can be specified using the `snapshot-timer` option
+    Timer,
     /// Issued if the user sends an interrupt signal (Ctrl + C).
     Sigint,
     /// Alarm clock signal (used for timers)
@@ -166,6 +167,8 @@ pub enum SnapshotTrigger {
     Sigtstp,
     /// The SIGSTOP signal instructs the operating system to stop a process for later resumption.
     Sigstop,
+    /// When a non-determinstic call is made
+    NonDeterministicCall,
 }
 
 impl FromStr for SnapshotTrigger {
@@ -177,7 +180,7 @@ impl FromStr for SnapshotTrigger {
             "idle" => Self::Idle,
             "listen" => Self::Listen,
             "stdin" => Self::Stdin,
-            "periodic" => Self::Periodic,
+            "periodic" => Self::Timer,
             "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
             "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
             "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,
@@ -338,9 +341,9 @@ impl Wasi {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }
 
-        #[cfg(feature = "snapshooter")]
+        #[cfg(feature = "snapshot")]
         if let Some(path) = &self.resume_from {
-            rt.set_snapshooter(Arc::new(snapshot::LogFileSnapShooter::new_std(path)?));
+            rt.set_snapshot_capturer(Arc::new(snapshot::LogFileSnapshotCapturer::new_std(path)?));
         }
 
         if !self.no_tty {

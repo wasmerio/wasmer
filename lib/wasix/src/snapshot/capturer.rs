@@ -66,11 +66,11 @@ pub enum SnapshotLog<'a> {
     Snapshot,
 }
 
-/// The snap shooter will take a series of objects that represents the state of
+/// The snapshot capturer will take a series of objects that represents the state of
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 #[allow(unused_variables)]
-pub trait SnapShooter {
+pub trait SnapshotCapturer {
     /// Takes in a stream of snapshot log entries and saves them so that they
     /// may be restored at a later moment
     fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>>;
@@ -80,4 +80,4 @@ pub trait SnapShooter {
     fn read<'a>(&'a self) -> BoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>>;
 }
 
-pub type DynSnapShooter = dyn SnapShooter + Send + Sync;
+pub type DynSnapshotCapturer = dyn SnapshotCapturer + Send + Sync;

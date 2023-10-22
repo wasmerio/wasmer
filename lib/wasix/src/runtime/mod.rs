@@ -8,7 +8,7 @@ use self::{
     module_cache::{CacheError, ModuleHash},
     task_manager::InlineWaker,
 };
-use crate::snapshot::UNSUPPORTED_SNAP_SHOOTER;
+use crate::snapshot::UNSUPPORTED_SNAPSHOT_CAPTURER;
 
 use std::{
     fmt,
@@ -20,8 +20,8 @@ use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
-#[cfg(feature = "snapshooter")]
-use crate::snapshot::{DynSnapShooter, UnsupportedSnapShooter};
+#[cfg(feature = "snapshot")]
+use crate::snapshot::{DynSnapshotCapturer, UnsupportedSnapshotCapturer};
 use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
@@ -109,11 +109,11 @@ where
         InlineWaker::block_on(self.load_module(wasm))
     }
 
-    /// The snap shooter takes and restores snapshots of the WASM process at specific
+    /// The snapshot capturer takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
-    #[cfg(feature = "snapshooter")]
-    fn snap_shooter<'a>(&'a self) -> &'_ DynSnapShooter {
-        &UNSUPPORTED_SNAP_SHOOTER
+    #[cfg(feature = "snapshot")]
+    fn snapshot_capturer<'a>(&'a self) -> &'_ DynSnapshotCapturer {
+        &UNSUPPORTED_SNAPSHOT_CAPTURER
     }
 }
 
@@ -190,9 +190,9 @@ pub struct PluggableRuntime {
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
-    #[cfg(feature = "snapshooter")]
+    #[cfg(feature = "snapshot")]
     #[derivative(Debug = "ignore")]
-    pub snapshooter: Arc<DynSnapShooter>,
+    pub snapshot_capturer: Arc<DynSnapshotCapturer>,
 }
 
 impl PluggableRuntime {
@@ -227,7 +227,8 @@ impl PluggableRuntime {
             source: Arc::new(source),
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
-            snapshooter: Arc::new(UnsupportedSnapShooter::default()) as Arc<DynSnapShooter>,
+            snapshot_capturer: Arc::new(UnsupportedSnapshotCapturer::default())
+                as Arc<DynSnapshotCapturer>,
         }
     }
 
@@ -278,8 +279,8 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_snapshooter(&mut self, snapshooter: Arc<DynSnapShooter>) -> &mut Self {
-        self.snapshooter = snapshooter;
+    pub fn set_snapshot_capturer(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
+        self.snapshot_capturer = capturer;
         self
     }
 }
@@ -328,8 +329,8 @@ impl Runtime for PluggableRuntime {
         self.module_cache.clone()
     }
 
-    #[cfg(feature = "snapshooter")]
-    fn snap_shooter<'a>(&'a self) -> &DynSnapShooter {
-        self.snapshooter.as_ref()
+    #[cfg(feature = "snapshot")]
+    fn snapshot_capturer<'a>(&'a self) -> &DynSnapshotCapturer {
+        self.snapshot_capturer.as_ref()
     }
 }

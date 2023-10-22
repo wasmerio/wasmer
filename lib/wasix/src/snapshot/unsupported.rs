@@ -2,14 +2,15 @@ use futures::future::BoxFuture;
 
 use super::*;
 
-pub static UNSUPPORTED_SNAP_SHOOTER: UnsupportedSnapShooter = UnsupportedSnapShooter {};
+pub static UNSUPPORTED_SNAPSHOT_CAPTURER: UnsupportedSnapshotCapturer =
+    UnsupportedSnapshotCapturer {};
 
-/// The default for runtime is to use the unsupported snap-shooter
+/// The default for runtime is to use the unsupported snapshot capturer
 /// which will fail to snapshot if one attempts to do so.
 #[derive(Debug, Default)]
-pub struct UnsupportedSnapShooter {}
+pub struct UnsupportedSnapshotCapturer {}
 
-impl SnapShooter for UnsupportedSnapShooter {
+impl SnapshotCapturer for UnsupportedSnapshotCapturer {
     fn write<'a>(&'a self, _entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>> {
         Box::pin(async { Err(anyhow::format_err!("unsupported")) })
     }
