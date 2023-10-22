@@ -155,7 +155,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     // Waiting for a process that is an explicit child will join it
     // meaning it will no longer be a sub-process of the main process
     let mut process = {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         let process = inner
             .children
             .iter()

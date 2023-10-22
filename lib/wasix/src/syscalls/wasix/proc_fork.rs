@@ -62,7 +62,7 @@ pub fn proc_fork<M: MemorySize>(
     // We write a zero to the PID before we capture the stack
     // so that this is what will be returned to the child
     {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         inner.children.push(child_env.process.clone());
     }
     let env = ctx.data();

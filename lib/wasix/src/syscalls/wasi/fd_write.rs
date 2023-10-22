@@ -1,7 +1,12 @@
 use std::task::Waker;
 
 use super::*;
-use crate::{net::socket::TimeType, snapshot::SnapshotLog, syscalls::*, utils::map_snapshot_err};
+use crate::{
+    net::socket::TimeType,
+    snapshot::{SnapshotEffector, SnapshotLog},
+    syscalls::*,
+    utils::map_snapshot_err,
+};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -90,8 +95,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
     let mut env = ctx.data();
     let state = env.state.clone();
-    let mut memory = unsafe { env.memory_view(&ctx) };
-    let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
 
     let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
     let is_stdio = fd_entry.is_stdio;
@@ -105,28 +108,13 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         // will record a terminal event.
         #[cfg(feature = "snapshooter")]
         if is_stdio && ctx.data().enable_snapshot_feed {
-            __asyncify_light(env, None, async {
-                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                for iovs in iovs_arr.iter() {
-                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                        .slice(&memory, iovs.buf_len)
-                        .map_err(mem_error_to_wasi)?
-                        .access()
-                        .map_err(mem_error_to_wasi)?;
-                    ctx.data()
-                        .runtime()
-                        .snap_shooter()
-                        .write(SnapshotLog::TerminalData {
-                            data: Cow::Borrowed(buf.as_ref()),
-                        })
-                        .await
-                        .map_err(map_snapshot_err)?;
-                }
-                Ok(())
-            });
+            SnapshotEffector::write_terminal_data(&mut ctx, iovs, iovs_len)?;
+            env = ctx.data();
         }
 
         let fd_flags = fd_entry.flags;
+        let mut memory = unsafe { env.memory_view(&ctx) };
+        let iovs_arr = wasi_try_mem_ok!(iovs.slice(&memory, iovs_len));
 
         let (bytes_written, can_update_cursor) = {
             let iovs_arr = wasi_try_mem_ok!(iovs_arr.access());

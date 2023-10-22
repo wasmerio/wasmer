@@ -203,6 +203,8 @@ pub enum ControlPlaneError {
 
 #[cfg(test)]
 mod tests {
+    use crate::os::task::thread::WasiMemoryLayout;
+
     use super::*;
 
     /// Simple test to ensure task limits are respected.
@@ -214,8 +216,8 @@ mod tests {
         });
 
         let p1 = p.new_process().unwrap();
-        let _t1 = p1.new_thread().unwrap();
-        let _t2 = p1.new_thread().unwrap();
+        let _t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        let _t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
 
         assert_eq!(
             p.new_process().unwrap_err(),
@@ -234,11 +236,11 @@ mod tests {
         let p1 = p.new_process().unwrap();
 
         for _ in 0..10 {
-            let _thread = p1.new_thread().unwrap();
+            let _thread = p1.new_thread(WasiMemoryLayout::default()).unwrap();
         }
 
-        let _t1 = p1.new_thread().unwrap();
-        let _t2 = p1.new_thread().unwrap();
+        let _t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        let _t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
 
         assert_eq!(
             p.new_process().unwrap_err(),

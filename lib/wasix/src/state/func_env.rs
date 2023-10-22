@@ -170,9 +170,23 @@ impl WasiFunctionEnv {
 
             // Update the stack layout which is need for asyncify
             let env = self.data_mut(store);
+            let tid = env.tid();
             let layout = &mut env.layout;
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
+
+            // Replace the thread object itself
+            env.thread.set_memory_layout(layout.clone());
+
+            // Replace the thread object with this new layout
+            {
+                let mut guard = env.process.lock();
+                guard
+                    .threads
+                    .values_mut()
+                    .filter(|t| t.tid() == tid)
+                    .for_each(|t| t.set_memory_layout(layout.clone()))
+            }
         }
         tracing::trace!("initializing with layout {:?}", self.data(store).layout);
 

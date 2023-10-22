@@ -245,7 +245,7 @@ pub fn proc_spawn_internal(
 
     // Add the process to the environment state
     {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         inner.children.push(child_process);
     }
     let env = ctx.data();

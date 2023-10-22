@@ -73,7 +73,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
     tracing::trace!("spawn with layout {:?}", layout);
 
     // Create the handle that represents this thread
-    let mut thread_handle = match env.process.new_thread() {
+    let mut thread_handle = match env.process.new_thread(layout.clone()) {
         Ok(h) => Arc::new(h),
         Err(err) => {
             error!(

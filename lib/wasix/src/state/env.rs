@@ -345,7 +345,7 @@ impl WasiEnv {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.control_plane.new_process()?;
-        let handle = process.new_thread()?;
+        let handle = process.new_thread(self.layout.clone())?;
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -410,17 +410,19 @@ impl WasiEnv {
         } else {
             init.control_plane.new_process()?
         };
+
+        let layout = WasiMemoryLayout::default();
         let thread = if let Some(t) = init.thread {
             t
         } else {
-            process.new_thread()?
+            process.new_thread(layout.clone())?
         };
 
         let mut env = Self {
             control_plane: init.control_plane,
             process,
             thread: thread.as_thread(),
-            layout: WasiMemoryLayout::default(),
+            layout,
             vfork: None,
             poll_seed: 0,
             state: Arc::new(init.state),
@@ -637,29 +639,28 @@ impl WasiEnv {
         if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;
-            let has_signal_interval = {
-                let mut any = false;
-                let inner = env.process.inner.read().unwrap();
+            {
+                let mut has_signal_interval = false;
+                let inner = env.process.inner.0.lock().unwrap();
                 if !inner.signal_intervals.is_empty() {
                     now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
                         as u128;
                     for signal in inner.signal_intervals.values() {
                         let elapsed = now - signal.last_signal;
                         if elapsed >= signal.interval.as_nanos() {
-                            any = true;
+                            has_signal_interval = true;
                             break;
                         }
                     }
                 }
-                any
-            };
-            if has_signal_interval {
-                let mut inner = env.process.inner.write().unwrap();
-                for signal in inner.signal_intervals.values_mut() {
-                    let elapsed = now - signal.last_signal;
-                    if elapsed >= signal.interval.as_nanos() {
-                        signal.last_signal = now;
-                        signals.push(signal.signal);
+                if has_signal_interval {
+                    let mut inner = env.process.inner.0.lock().unwrap();
+                    for signal in inner.signal_intervals.values_mut() {
+                        let elapsed = now - signal.last_signal;
+                        if elapsed >= signal.interval.as_nanos() {
+                            signal.last_signal = now;
+                            signals.push(signal.signal);
+                        }
                     }
                 }
             }

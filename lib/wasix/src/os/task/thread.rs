@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, RwLock, Weak},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Condvar, Mutex, Weak,
+    },
     task::Waker,
 };
 
@@ -96,6 +99,7 @@ pub struct ThreadStack {
 #[derive(Clone, Debug)]
 pub struct WasiThread {
     state: Arc<WasiThreadState>,
+    layout: WasiMemoryLayout,
 
     // This is used for stack rewinds
     rewind: Option<RewindResult>,
@@ -110,6 +114,28 @@ impl WasiThread {
     /// Pops any rewinds that need to take place
     pub(crate) fn take_rewind(&mut self) -> Option<RewindResult> {
         self.rewind.take()
+    }
+
+    /// Sets a flag that tells others that this thread is currently
+    /// check pointing itself
+    pub(crate) fn set_check_pointing(&self, val: bool) {
+        self.state.check_pointing.store(val, Ordering::SeqCst);
+    }
+
+    /// Reads a flag that determines if this thread is currently
+    /// check pointing itself or not
+    pub(crate) fn is_check_pointing(&self) -> bool {
+        self.state.check_pointing.load(Ordering::SeqCst)
+    }
+
+    /// Gets the memory layout for this thread
+    pub(crate) fn memory_layout(&self) -> &WasiMemoryLayout {
+        &self.layout
+    }
+
+    /// Gets the memory layout for this thread
+    pub(crate) fn set_memory_layout(&mut self, layout: WasiMemoryLayout) {
+        self.layout = layout;
     }
 }
 
@@ -171,6 +197,7 @@ struct WasiThreadState {
     signals: Mutex<(Vec<Signal>, Vec<Waker>)>,
     stack: Mutex<ThreadStack>,
     status: Arc<OwnedTaskStatus>,
+    check_pointing: AtomicBool,
 
     // Registers the task termination with the ControlPlane on drop.
     // Never accessed, since it's a drop guard.
@@ -186,6 +213,7 @@ impl WasiThread {
         is_main: bool,
         status: Arc<OwnedTaskStatus>,
         guard: TaskCountGuard,
+        layout: WasiMemoryLayout,
     ) -> Self {
         Self {
             state: Arc::new(WasiThreadState {
@@ -195,8 +223,10 @@ impl WasiThread {
                 status,
                 signals: Mutex::new((Vec::new(), Vec::new())),
                 stack: Mutex::new(ThreadStack::default()),
+                check_pointing: AtomicBool::new(false),
                 _task_count_guard: guard,
             }),
+            layout,
             rewind: None,
         }
     }
@@ -446,7 +476,7 @@ impl WasiThread {
 #[derive(Debug)]
 pub struct WasiThreadHandleProtected {
     thread: WasiThread,
-    inner: Weak<RwLock<WasiProcessInner>>,
+    inner: Weak<(Mutex<WasiProcessInner>, Condvar)>,
 }
 
 #[derive(Debug, Clone)]
@@ -457,7 +487,7 @@ pub struct WasiThreadHandle {
 impl WasiThreadHandle {
     pub(crate) fn new(
         thread: WasiThread,
-        inner: &Arc<RwLock<WasiProcessInner>>,
+        inner: &Arc<(Mutex<WasiProcessInner>, Condvar)>,
     ) -> WasiThreadHandle {
         Self {
             protected: Arc::new(WasiThreadHandleProtected {
@@ -480,7 +510,7 @@ impl Drop for WasiThreadHandleProtected {
     fn drop(&mut self) {
         let id = self.thread.tid();
         if let Some(inner) = Weak::upgrade(&self.inner) {
-            let mut inner = inner.write().unwrap();
+            let mut inner = inner.0.lock().unwrap();
             if let Some(ctrl) = inner.threads.remove(&id) {
                 ctrl.set_status_finished(Ok(Errno::Success.into()));
             }
