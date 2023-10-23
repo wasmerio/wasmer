@@ -12,7 +12,7 @@ use super::*;
 
 struct State {
     memory_map: HashMap<Range<u64>, [u8; 32]>,
-    open_file: HashMap<Fd, FdSnapshot>,
+    open_file: HashMap<Fd, FdSnapshot<'static>>,
     close_file: HashSet<Fd>,
 }
 
@@ -100,9 +100,9 @@ impl SnapshotCapturer for CompactingSnapshotCapturer {
                 } => {
                     let mut state = self.state.lock().unwrap();
                     state.close_file.remove(&fd);
-                    state.open_file.insert(fd, fd_state);
+                    state.open_file.insert(fd, fd_state.into_owned());
                 }
-                SnapshotLog::Snapshot => {
+                SnapshotLog::Snapshot { .. } => {
                     let (to_close, to_open) = {
                         let mut state = self.state.lock().unwrap();
                         (

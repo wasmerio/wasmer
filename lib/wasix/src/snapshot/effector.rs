@@ -1,4 +1,4 @@
-use std::{borrow::Cow, collections::LinkedList, ops::Range, sync::MutexGuard};
+use std::{borrow::Cow, collections::LinkedList, ops::Range, sync::MutexGuard, time::SystemTime};
 
 use bytes::Bytes;
 use wasmer::{FunctionEnvMut, WasmPtr};
@@ -42,6 +42,23 @@ impl SnapshotEffector {
                     .await
                     .map_err(map_snapshot_err)?;
             }
+            Ok(())
+        })?);
+        Ok(Ok(()))
+    }
+
+    pub fn write_thread_exit(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        id: WasiThreadId,
+    ) -> Result<Result<(), Errno>, WasiError> {
+        let env = ctx.data();
+        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+            ctx.data()
+                .runtime()
+                .snapshot_capturer()
+                .write(SnapshotLog::CloseThread { id })
+                .await
+                .map_err(map_snapshot_err)?;
             Ok(())
         })?);
         Ok(Ok(()))
@@ -132,8 +149,9 @@ impl SnapshotEffector {
 
             // Finally we mark the end of the snapshot so that
             // it can act as a restoration point
+            let when = SystemTime::now();
             capturer
-                .write(SnapshotLog::Snapshot)
+                .write(SnapshotLog::Snapshot { when })
                 .await
                 .map_err(map_snapshot_err)?;
             Ok(())

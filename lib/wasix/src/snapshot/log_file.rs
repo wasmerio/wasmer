@@ -3,6 +3,7 @@ use std::{
     io::{self, ErrorKind, SeekFrom},
     mem::MaybeUninit,
     path::Path,
+    time::SystemTime,
 };
 
 use futures::future::BoxFuture;
@@ -44,7 +45,7 @@ pub enum SnapshotLogEntry {
     },
     OpenFileDescriptorV1 {
         fd: Fd,
-        state: FdSnapshot,
+        state: FdSnapshot<'static>,
     },
     RemoveFileSystemEntryV1 {
         path: String,
@@ -58,7 +59,9 @@ pub enum SnapshotLogEntry {
         len: u64,
         data: Vec<u8>,
     },
-    SnapshotV1,
+    SnapshotV1 {
+        when: SystemTime,
+    },
 }
 
 impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
@@ -84,9 +87,10 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 memory_stack: memory_stack.into_owned(),
             },
             SnapshotLog::CloseFileDescriptor { fd } => Self::CloseFileDescriptorV1 { fd },
-            SnapshotLog::OpenFileDescriptor { fd, state } => {
-                Self::OpenFileDescriptorV1 { fd, state }
-            }
+            SnapshotLog::OpenFileDescriptor { fd, state } => Self::OpenFileDescriptorV1 {
+                fd,
+                state: state.into_owned(),
+            },
             SnapshotLog::RemoveFileSystemEntry { path } => Self::RemoveFileSystemEntryV1 {
                 path: path.into_owned(),
             },
@@ -107,7 +111,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 len,
                 data: data.into_owned(),
             },
-            SnapshotLog::Snapshot => Self::SnapshotV1,
+            SnapshotLog::Snapshot { when } => Self::SnapshotV1 { when },
         }
     }
 }
@@ -158,7 +162,7 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 len,
                 data: data.into(),
             },
-            SnapshotLogEntry::SnapshotV1 => Self::Snapshot,
+            SnapshotLogEntry::SnapshotV1 { when } => Self::Snapshot { when },
         }
     }
 }
