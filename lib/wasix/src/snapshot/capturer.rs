@@ -28,6 +28,9 @@ pub enum FileEntryType {
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
 pub enum SnapshotLog<'a> {
+    Init {
+        wasm_hash: [u8; 32],
+    },
     TerminalData {
         data: Cow<'a, [u8]>,
     },

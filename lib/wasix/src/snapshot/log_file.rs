@@ -20,6 +20,9 @@ use super::*;
 /// worry about backward and forward compatibility
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SnapshotLogEntry {
+    Init {
+        wasm_hash: [u8; 32],
+    },
     TerminalDataV1 {
         data: Vec<u8>,
     },
@@ -61,6 +64,7 @@ pub enum SnapshotLogEntry {
 impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
     fn from(value: SnapshotLog<'a>) -> Self {
         match value {
+            SnapshotLog::Init { wasm_hash } => Self::Init { wasm_hash },
             SnapshotLog::TerminalData { data } => Self::TerminalDataV1 {
                 data: data.into_owned(),
             },
@@ -111,6 +115,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
 impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
     fn from(value: SnapshotLogEntry) -> Self {
         match value {
+            SnapshotLogEntry::Init { wasm_hash } => Self::Init { wasm_hash },
             SnapshotLogEntry::TerminalDataV1 { data } => Self::TerminalData { data: data.into() },
             SnapshotLogEntry::UpdateMemoryRegionV1 { start, end, data } => {
                 Self::UpdateMemoryRegion {
