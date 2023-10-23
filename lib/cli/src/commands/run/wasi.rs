@@ -185,6 +185,7 @@ impl FromStr for SnapshotTrigger {
             "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
             "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,
             "stop" | "sigstop" => Self::Sigstop,
+            "non-deterministic-call" => Self::NonDeterministicCall,
             a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
         })
     }
