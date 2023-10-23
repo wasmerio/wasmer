@@ -76,3 +76,30 @@ The implementation is currently able to save and restore the following:
 - Open sockets
 - Open files
 - Terminal text
+
+# Capturer Implementations
+
+## Log File Capturer
+
+Writes the log events to a linear log file on the local file system
+as they are received by the trait. Log files can be concatenated
+together to make larger log files.
+
+## Unsupported Capturer
+
+The default implementation does not support snapshots and will error
+out if an attempt is made to send it events. Using the unsupported
+capturer as a restoration point will restore nothing but will not
+error out.
+
+## Compacting Capturer
+
+Deduplicates memory and stacks to reduce the number of volume of
+log events sent to its inner capturer. Compacting the events occurs
+in line as the events are generated
+
+## Filtered Capturer
+
+Filters out a specific set of log events and drops the rest, this
+capturer can be useful for restoring to a previous call point but
+retaining the memory changes (e.g. WCGI runner).
