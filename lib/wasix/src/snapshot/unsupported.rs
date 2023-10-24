@@ -11,7 +11,8 @@ pub static UNSUPPORTED_SNAPSHOT_CAPTURER: UnsupportedSnapshotCapturer =
 pub struct UnsupportedSnapshotCapturer {}
 
 impl SnapshotCapturer for UnsupportedSnapshotCapturer {
-    fn write<'a>(&'a self, _entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>> {
+    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>> {
+        tracing::debug!("snapshot event: {:?}", entry);
         Box::pin(async { Err(anyhow::format_err!("unsupported")) })
     }
 

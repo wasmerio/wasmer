@@ -27,6 +27,8 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
         return Ok(Errno::Success);
     }
 
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
+
     let env = ctx.data();
 
     #[cfg(feature = "sys-thread")]

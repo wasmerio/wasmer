@@ -258,6 +258,11 @@ impl Wasi {
 
         *builder.capabilities_mut() = self.capabilities();
 
+        #[cfg(feature = "snapshot")]
+        for trigger in self.snapshot_on.iter().cloned() {
+            builder.add_snapshot_trigger(trigger);
+        }
+
         #[cfg(feature = "experimental-io-devices")]
         {
             if self.enable_experimental_io_devices {

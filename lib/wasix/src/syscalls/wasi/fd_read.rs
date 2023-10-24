@@ -44,7 +44,9 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
-    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx, SnapshotTrigger::Stdin)?);
+    if fd == DeviceFile::STDIN {
+        ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Stdin)?);
+    }
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
     fd_read_internal_handler(ctx, res, nread)
@@ -77,7 +79,9 @@ pub fn fd_pread<M: MemorySize>(
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
-    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx, SnapshotTrigger::Stdin)?);
+    if fd == DeviceFile::STDIN {
+        ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Stdin)?);
+    }
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;
     fd_read_internal_handler::<M>(ctx, res, nread)

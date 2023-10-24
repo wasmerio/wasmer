@@ -172,6 +172,12 @@ impl WasiProcessInner {
 
         // Perform the unwind action
         unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
+            tracing::debug!(
+                "stack snapshot unwind (memory_stack={}, rewind_stack={})",
+                memory_stack.len(),
+                rewind_stack.len()
+            );
+
             // Write our thread state to the snapshot
             let tid = ctx.data().thread.tid();
             if let Err(err) = SnapshotEffector::save_thread_state(

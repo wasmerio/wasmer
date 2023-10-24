@@ -241,6 +241,11 @@ impl Config {
     pub fn capabilities(&mut self) -> &mut Capabilities {
         &mut self.wasi.capabilities
     }
+
+    #[cfg(feature = "snapshot")]
+    pub fn add_snapshot_trigger(&mut self, on: crate::snapshot::SnapshotTrigger) {
+        self.wasi.snapshot_on.push(on);
+    }
 }
 
 impl Default for Config {

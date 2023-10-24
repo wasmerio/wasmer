@@ -1213,7 +1213,7 @@ pub fn rewind_ext<M: MemorySize>(
 }
 
 #[cfg(not(feature = "snapshot"))]
-pub fn maybe_snapshot<M: MemorySize>(
+pub fn maybe_snapshot_once<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     _trigger: crate::snapshot::SnapshotTrigger,
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
@@ -1221,11 +1221,15 @@ pub fn maybe_snapshot<M: MemorySize>(
 }
 
 #[cfg(feature = "snapshot")]
-pub fn maybe_snapshot<M: MemorySize>(
+pub fn maybe_snapshot_once<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     trigger: crate::snapshot::SnapshotTrigger,
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
+
+    if ctx.data().enable_snapshot_capture == false {
+        return Ok(Ok(ctx));
+    }
 
     if ctx.data_mut().pop_snapshot_trigger(trigger) {
         let inner = ctx.data().process.inner.clone();
@@ -1240,14 +1244,33 @@ pub fn maybe_snapshot<M: MemorySize>(
                 ctx = c;
             }
         }
-    } else if ctx.data().should_feed_snapshot() {
-        let inner = ctx.data().process.inner.clone();
-        let res = wasi_try_ok_ok!(WasiProcessInner::maybe_checkpoint::<M>(inner, ctx)?);
-        match res {
-            MaybeCheckpointResult::Unwinding => return Ok(Err(Errno::Success)),
-            MaybeCheckpointResult::NotThisTime(c) => {
-                ctx = c;
-            }
+    }
+    Ok(Ok(ctx))
+}
+
+#[cfg(not(feature = "snapshot"))]
+pub fn maybe_snapshot<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+    Ok(Ok(ctx))
+}
+
+#[cfg(feature = "snapshot")]
+pub fn maybe_snapshot<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+    use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
+
+    if ctx.data().enable_snapshot_capture == false {
+        return Ok(Ok(ctx));
+    }
+
+    let inner = ctx.data().process.inner.clone();
+    let res = wasi_try_ok_ok!(WasiProcessInner::maybe_checkpoint::<M>(inner, ctx)?);
+    match res {
+        MaybeCheckpointResult::Unwinding => return Ok(Err(Errno::Success)),
+        MaybeCheckpointResult::NotThisTime(c) => {
+            ctx = c;
         }
     }
     Ok(Ok(ctx))

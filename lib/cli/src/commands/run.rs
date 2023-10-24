@@ -224,6 +224,7 @@ impl Run {
         if self.wasi.forward_host_env {
             runner.set_forward_host_env();
         }
+
         #[cfg(feature = "snapshot")]
         for trigger in self.wasi.snapshot_on.iter().cloned() {
             runner.add_snapshot_trigger(trigger);
@@ -253,6 +254,11 @@ impl Run {
         *runner.config().capabilities() = self.wasi.capabilities();
         if self.wasi.forward_host_env {
             runner.config().forward_host_env();
+        }
+
+        #[cfg(feature = "snapshot")]
+        for trigger in self.wasi.snapshot_on.iter().cloned() {
+            runner.config().add_snapshot_trigger(trigger);
         }
 
         runner.run_command(command_name, pkg, runtime)
@@ -312,7 +318,8 @@ impl Run {
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
-        let builder = self
+        #[allow(unused_mut)]
+        let mut builder = self
             .wasi
             .prepare(module, program_name, self.args.clone(), runtime)?;
 

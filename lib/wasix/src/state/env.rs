@@ -309,9 +309,12 @@ pub struct WasiEnv {
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
 
+    /// Enables the snap shotting functionality
+    pub enable_snapshot_capture: bool,
+
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "snapshot")]
-    pub(crate) snapshot_on: HashSet<SnapshotTrigger>,
+    snapshot_on: HashSet<SnapshotTrigger>,
 
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
@@ -342,6 +345,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            enable_snapshot_capture: self.enable_snapshot_capture,
             #[cfg(feature = "snapshot")]
             snapshot_on: self.snapshot_on.clone(),
         }
@@ -380,6 +384,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            enable_snapshot_capture: self.enable_snapshot_capture,
             #[cfg(feature = "snapshot")]
             snapshot_on: self.snapshot_on.clone(),
         };
@@ -446,14 +451,13 @@ impl WasiEnv {
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
             #[cfg(feature = "snapshot")]
-            snapshot_on: Default::default(),
+            enable_snapshot_capture: !init.snapshot_on.is_empty(),
+            #[cfg(not(feature = "snapshot"))]
+            enable_snapshot_capture: false,
+            #[cfg(feature = "snapshot")]
+            snapshot_on: init.snapshot_on.into_iter().collect(),
         };
         env.owned_handles.push(thread);
-
-        #[cfg(feature = "snapshot")]
-        for snapshot_on in init.snapshot_on {
-            env.snapshot_on.insert(snapshot_on);
-        }
 
         // TODO: should not be here - should be callers responsibility!
         for pkg in &init.webc_dependencies {
