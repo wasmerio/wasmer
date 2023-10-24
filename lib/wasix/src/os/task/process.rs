@@ -186,7 +186,7 @@ impl WasiProcessInner {
                 memory_stack.freeze(),
                 rewind_stack.freeze(),
             ) {
-                return wasmer_types::OnCalledAction::Trap(Box::new(err));
+                return wasmer_types::OnCalledAction::Trap(err.into());
             }
 
             let mut guard = inner.0.lock().unwrap();
@@ -213,7 +213,7 @@ impl WasiProcessInner {
                                 &mut ctx, &mut guard, trigger,
                             ) {
                                 inner.1.notify_all();
-                                return wasmer_types::OnCalledAction::Trap(Box::new(err));
+                                return wasmer_types::OnCalledAction::Trap(err.into());
                             }
 
                             // Clear the checkpointing flag and notify everyone to wake up

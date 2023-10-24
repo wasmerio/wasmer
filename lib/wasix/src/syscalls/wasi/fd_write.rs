@@ -108,7 +108,13 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         // will record a terminal event.
         #[cfg(feature = "snapshot")]
         if is_stdio && env.enable_snapshot_capture {
-            SnapshotEffector::save_terminal_data(&mut ctx, iovs, iovs_len)?;
+            SnapshotEffector::save_terminal_data(&mut ctx, iovs, iovs_len).map_err(|err| {
+                tracing::warn!(
+                    "failed to save terminal data to snapshot capturer - {}",
+                    err
+                );
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })?;
             env = ctx.data();
         }
 

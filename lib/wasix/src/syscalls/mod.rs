@@ -958,17 +958,15 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     let tasks = ctx.data().tasks().clone();
     let res = unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
         // Schedule the process on the stack so that it can be resumed
-        OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
-            WasiError::DeepSleep(DeepSleepWork {
-                trigger,
-                rewind: RewindState {
-                    memory_stack: memory_stack.freeze(),
-                    rewind_stack: rewind_stack.freeze(),
-                    store_data,
-                    is_64bit: M::is_64bit(),
-                },
-            }),
-        ))))
+        OnCalledAction::Trap(Box::new(WasiError::DeepSleep(DeepSleepWork {
+            trigger,
+            rewind: RewindState {
+                memory_stack: memory_stack.freeze(),
+                rewind_stack: rewind_stack.freeze(),
+                store_data,
+                is_64bit: M::is_64bit(),
+            },
+        })))
     })?;
 
     // If there is an error then exit the process, otherwise we are done

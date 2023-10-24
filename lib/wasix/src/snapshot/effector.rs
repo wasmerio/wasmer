@@ -12,7 +12,7 @@ use crate::{
     os::task::process::WasiProcessInner,
     syscalls::__asyncify_light,
     utils::{map_io_err, map_snapshot_err},
-    WasiEnv, WasiResult, WasiThreadId,
+    WasiEnv, WasiError, WasiThreadId,
 };
 
 use super::*;
@@ -26,12 +26,12 @@ impl SnapshotEffector {
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
         iovs_len: M::Offset,
-    ) -> WasiResult<()> {
+    ) -> anyhow::Result<()> {
         let env = ctx.data();
         let memory = unsafe { env.memory_view(&ctx) };
-        let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
+        let iovs_arr = iovs.slice(&memory, iovs_len)?;
 
-        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+        __asyncify_light(env, None, async {
             let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
             for iovs in iovs_arr.iter() {
                 let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -49,38 +49,41 @@ impl SnapshotEffector {
                     .map_err(map_snapshot_err)?;
             }
             Ok(())
-        })?);
-        Ok(Ok(()))
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        Ok(())
     }
 
     pub fn apply_terminal_data<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         data: &[u8],
-    ) -> WasiResult<()> {
+    ) -> anyhow::Result<()> {
         let env = ctx.data();
-        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+        __asyncify_light(env, None, async {
             if let Some(mut stdout) = ctx.data().stdout().map_err(fs_error_into_wasi_err)? {
                 stdout.write_all(data).await.map_err(map_io_err)?;
             }
             Ok(())
-        })?);
-        Ok(Ok(()))
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        Ok(())
     }
 
     pub fn save_thread_exit(
         env: &WasiEnv,
         id: WasiThreadId,
         exit_code: Option<ExitCode>,
-    ) -> WasiResult<()> {
-        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+    ) -> anyhow::Result<()> {
+        __asyncify_light(env, None, async {
             env.runtime()
                 .snapshot_capturer()
                 .write(SnapshotLog::CloseThread { id, exit_code })
                 .await
                 .map_err(map_snapshot_err)?;
             Ok(())
-        })?);
-        Ok(Ok(()))
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        Ok(())
     }
 
     pub fn save_thread_state(
@@ -88,9 +91,10 @@ impl SnapshotEffector {
         id: WasiThreadId,
         memory_stack: Bytes,
         rewind_stack: Bytes,
-    ) -> WasiResult<()> {
+    ) -> anyhow::Result<()> {
         let env = ctx.data();
-        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+
+        __asyncify_light(env, None, async {
             ctx.data()
                 .runtime()
                 .snapshot_capturer()
@@ -102,15 +106,17 @@ impl SnapshotEffector {
                 .await
                 .map_err(map_snapshot_err)?;
             Ok(())
-        })?);
-        Ok(Ok(()))
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+
+        Ok(())
     }
 
     pub fn save_memory_and_snapshot(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         process: &mut MutexGuard<'_, WasiProcessInner>,
         trigger: SnapshotTrigger,
-    ) -> WasiResult<()> {
+    ) -> anyhow::Result<()> {
         let env = ctx.data();
         let memory = unsafe { env.memory_view(ctx) };
 
@@ -145,7 +151,7 @@ impl SnapshotEffector {
         // Now that we known all the regions that need to be saved we
         // enter a processing loop that dumps all the data to the log
         // file in an orderly manner.
-        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+        __asyncify_light(env, None, async {
             let memory = unsafe { env.memory_view(ctx) };
             let capturer = ctx.data().runtime().snapshot_capturer();
 
@@ -175,7 +181,8 @@ impl SnapshotEffector {
                 .await
                 .map_err(map_snapshot_err)?;
             Ok(())
-        })?);
-        Ok(Ok(()))
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        Ok(())
     }
 }

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::net::SocketAddr;
 use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
@@ -100,7 +101,6 @@ pub enum FileEntryType {
 
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
-#[derive(Debug)]
 pub enum SnapshotLog<'a> {
     Init {
         wasm_hash: [u8; 32],
@@ -145,6 +145,77 @@ pub enum SnapshotLog<'a> {
         when: SystemTime,
         trigger: SnapshotTrigger,
     },
+}
+
+impl fmt::Debug for SnapshotLog<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Init { wasm_hash } => f
+                .debug_struct("Init")
+                .field("wasm_hash.len", &wasm_hash.len())
+                .finish(),
+            Self::TerminalData { data } => f
+                .debug_struct("TerminalData")
+                .field("data.len", &data.len())
+                .finish(),
+            Self::UpdateMemoryRegion { region, data } => f
+                .debug_struct("UpdateMemoryRegion")
+                .field("region", region)
+                .field("data.len", &data.len())
+                .finish(),
+            Self::CloseThread { id, exit_code } => f
+                .debug_struct("CloseThread")
+                .field("id", id)
+                .field("exit_code", exit_code)
+                .finish(),
+            Self::SetThread {
+                id,
+                call_stack,
+                memory_stack,
+            } => f
+                .debug_struct("SetThread")
+                .field("id", id)
+                .field("call_stack.len", &call_stack.len())
+                .field("memory_stack.len", &memory_stack.len())
+                .finish(),
+            Self::CloseFileDescriptor { fd } => f
+                .debug_struct("CloseFileDescriptor")
+                .field("fd", fd)
+                .finish(),
+            Self::OpenFileDescriptor { fd, state } => f
+                .debug_struct("OpenFileDescriptor")
+                .field("fd", fd)
+                .field("state", state)
+                .finish(),
+            Self::RemoveFileSystemEntry { path } => f
+                .debug_struct("RemoveFileSystemEntry")
+                .field("path", path)
+                .finish(),
+            Self::UpdateFileSystemEntry {
+                path,
+                ft,
+                accessed,
+                created,
+                modified,
+                len,
+                data,
+            } => f
+                .debug_struct("UpdateFileSystemEntry")
+                .field("path", path)
+                .field("ft", ft)
+                .field("accessed", accessed)
+                .field("created", created)
+                .field("modified", modified)
+                .field("len", len)
+                .field("data.len", &data.len())
+                .finish(),
+            Self::Snapshot { when, trigger } => f
+                .debug_struct("Snapshot")
+                .field("when", when)
+                .field("trigger", trigger)
+                .finish(),
+        }
+    }
 }
 
 /// The snapshot capturer will take a series of objects that represents the state of
