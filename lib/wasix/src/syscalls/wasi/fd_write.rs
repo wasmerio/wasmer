@@ -109,7 +109,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         #[cfg(feature = "snapshot")]
         if is_stdio && env.enable_snapshot_capture {
             SnapshotEffector::save_terminal_data(&mut ctx, iovs, iovs_len).map_err(|err| {
-                tracing::warn!(
+                tracing::error!(
                     "failed to save terminal data to snapshot capturer - {}",
                     err
                 );
