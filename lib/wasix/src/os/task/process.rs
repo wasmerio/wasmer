@@ -194,38 +194,31 @@ impl WasiProcessInner {
             // Wait for the checkpoint to finish (or if we are the last thread
             // to freeze then we have to execute the checksum operation)
             loop {
-                if let WasiProcessCheckpoint::Snapshot { .. } = guard.checkpoint {
+                if let WasiProcessCheckpoint::Snapshot { trigger } = guard.checkpoint {
+                    ctx.data().thread.set_check_pointing(true);
+
+                    // Now if we are the last thread we also write the memory
+                    let is_last_thread = guard.threads.values().all(WasiThread::is_check_pointing);
+                    if is_last_thread {
+                        if let Err(err) = SnapshotEffector::save_memory_and_snapshot(
+                            &mut ctx, &mut guard, trigger,
+                        ) {
+                            inner.1.notify_all();
+                            return wasmer_types::OnCalledAction::Trap(err.into());
+                        }
+
+                        // Clear the checkpointing flag and notify everyone to wake up
+                        ctx.data().thread.set_check_pointing(false);
+                        guard.checkpoint = WasiProcessCheckpoint::Execute;
+                        trace!("checkpoint complete");
+                        inner.1.notify_all();
+                    } else {
+                        guard = inner.1.wait(guard).unwrap();
+                    }
                 } else {
                     ctx.data().thread.set_check_pointing(false);
                     trace!("checkpoint finished");
                     break;
-                }
-
-                ctx.data().thread.set_check_pointing(true);
-
-                match guard.checkpoint {
-                    WasiProcessCheckpoint::Snapshot { trigger } => {
-                        // Now if we are the last thread we also write the memory
-                        let is_last_thread =
-                            guard.threads.values().all(WasiThread::is_check_pointing);
-                        if is_last_thread {
-                            if let Err(err) = SnapshotEffector::save_memory_and_snapshot(
-                                &mut ctx, &mut guard, trigger,
-                            ) {
-                                inner.1.notify_all();
-                                return wasmer_types::OnCalledAction::Trap(err.into());
-                            }
-
-                            // Clear the checkpointing flag and notify everyone to wake up
-                            ctx.data().thread.set_check_pointing(false);
-                            guard.checkpoint = WasiProcessCheckpoint::Execute;
-                            trace!("checkpoint complete");
-                            inner.1.notify_all();
-                        } else {
-                            guard = inner.1.wait(guard).unwrap();
-                        }
-                    }
-                    _ => {}
                 }
             }
 
