@@ -120,7 +120,7 @@ use crate::{
     os::task::thread::RewindResult,
     runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes, WasiResult,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -241,9 +241,9 @@ fn block_on_with_timeout<T, Fut>(
     tasks: &Arc<dyn VirtualTaskManager>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
-    Fut: Future<Output = Result<Result<T, Errno>, WasiError>>,
+    Fut: Future<Output = WasiResult<T>>,
 {
     let mut nonblocking = false;
     if timeout == Some(Duration::ZERO) {
@@ -293,7 +293,7 @@ pub(crate) fn __asyncify<T, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
     T: 'static,
     Fut: std::future::Future<Output = Result<T, Errno>>,
@@ -481,7 +481,7 @@ pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
     T: 'static,
     Fut: Future<Output = Result<T, Errno>>,

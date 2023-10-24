@@ -34,7 +34,7 @@ use crate::{
     runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiRuntimeError, WasiStateCreationError, WasiVFork,
+    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
 
 pub(crate) use super::handles::*;
@@ -566,9 +566,7 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub(crate) fn process_signals_and_exit(
-        ctx: &mut FunctionEnvMut<'_, Self>,
-    ) -> Result<Result<bool, Errno>, WasiError> {
+    pub(crate) fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
@@ -603,9 +601,7 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up
-    pub(crate) fn process_signals(
-        ctx: &mut FunctionEnvMut<'_, Self>,
-    ) -> Result<Result<bool, Errno>, WasiError> {
+    pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();

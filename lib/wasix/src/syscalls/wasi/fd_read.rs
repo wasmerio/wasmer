@@ -109,7 +109,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     offset: usize,
     nread: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
-) -> Result<Result<usize, Errno>, WasiError> {
+) -> WasiResult<usize> {
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let env = ctx.data();

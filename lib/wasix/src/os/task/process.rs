@@ -1,4 +1,4 @@
-use crate::{snapshot::SnapshotEffector, unwind, WasiEnv, WasiError, WasiRuntimeError};
+use crate::{snapshot::SnapshotEffector, unwind, WasiEnv, WasiResult, WasiRuntimeError};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -325,7 +325,7 @@ impl WasiProcess {
         &self,
         ctx: FunctionEnvMut<'_, WasiEnv>,
         for_what: WasiProcessCheckpoint,
-    ) -> Result<Result<(), Errno>, WasiError> {
+    ) -> WasiResult<()> {
         // Set the checkpoint flag and then enter the normal processing loop
         {
             let mut inner = self.inner.0.lock().unwrap();
@@ -340,7 +340,7 @@ impl WasiProcess {
     pub fn maybe_checkpoint<M: MemorySize>(
         &self,
         ctx: FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<Result<(), Errno>, WasiError> {
+    ) -> WasiResult<()> {
         // Enter the lock which will determine if we are in a checkpoint or not
         let inner = self.inner.clone();
         let guard = inner.0.lock().unwrap();
@@ -355,7 +355,7 @@ impl WasiProcess {
         unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
             // Write our thread state to the snapshot
             let tid = ctx.data().thread.tid();
-            if let Err(err) = SnapshotEffector::write_thread_state(
+            if let Err(err) = SnapshotEffector::save_thread_state(
                 &mut ctx,
                 tid,
                 memory_stack.freeze(),
@@ -385,7 +385,7 @@ impl WasiProcess {
                             guard.threads.values().all(WasiThread::is_check_pointing);
                         if is_last_thread {
                             if let Err(err) =
-                                SnapshotEffector::write_memory_and_snapshot(&mut ctx, &mut guard)
+                                SnapshotEffector::save_memory_and_snapshot(&mut ctx, &mut guard)
                             {
                                 inner.1.notify_all();
                                 return wasmer_types::OnCalledAction::Trap(Box::new(err));

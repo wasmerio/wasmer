@@ -1,13 +1,18 @@
 use std::{borrow::Cow, collections::LinkedList, ops::Range, sync::MutexGuard, time::SystemTime};
 
 use bytes::Bytes;
+use virtual_fs::AsyncWriteExt;
 use wasmer::{FunctionEnvMut, WasmPtr};
 use wasmer_types::MemorySize;
-use wasmer_wasix_types::{types::__wasi_ciovec_t, wasi::Errno};
+use wasmer_wasix_types::types::__wasi_ciovec_t;
 
 use crate::{
-    mem_error_to_wasi, os::task::process::WasiProcessInner, syscalls::__asyncify_light,
-    utils::map_snapshot_err, WasiEnv, WasiError, WasiThreadId,
+    fs::fs_error_into_wasi_err,
+    mem_error_to_wasi,
+    os::task::process::WasiProcessInner,
+    syscalls::__asyncify_light,
+    utils::{map_io_err, map_snapshot_err},
+    WasiEnv, WasiResult, WasiThreadId,
 };
 
 use super::*;
@@ -16,11 +21,11 @@ use super::*;
 pub struct SnapshotEffector {}
 
 impl SnapshotEffector {
-    pub fn write_terminal_data<M: MemorySize>(
+    pub fn save_terminal_data<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
         iovs_len: M::Offset,
-    ) -> Result<Result<(), Errno>, WasiError> {
+    ) -> WasiResult<()> {
         let env = ctx.data();
         let memory = unsafe { env.memory_view(&ctx) };
         let iovs_arr = wasi_try_mem_ok_ok!(iovs.slice(&memory, iovs_len));
@@ -47,10 +52,24 @@ impl SnapshotEffector {
         Ok(Ok(()))
     }
 
-    pub fn write_thread_exit(
+    pub fn apply_terminal_data<M: MemorySize>(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        data: &[u8],
+    ) -> WasiResult<()> {
+        let env = ctx.data();
+        wasi_try_ok_ok!(__asyncify_light(env, None, async {
+            if let Some(mut stdout) = ctx.data().stdout().map_err(fs_error_into_wasi_err)? {
+                stdout.write_all(data).await.map_err(map_io_err)?;
+            }
+            Ok(())
+        })?);
+        Ok(Ok(()))
+    }
+
+    pub fn save_thread_exit(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         id: WasiThreadId,
-    ) -> Result<Result<(), Errno>, WasiError> {
+    ) -> WasiResult<()> {
         let env = ctx.data();
         wasi_try_ok_ok!(__asyncify_light(env, None, async {
             ctx.data()
@@ -64,12 +83,12 @@ impl SnapshotEffector {
         Ok(Ok(()))
     }
 
-    pub fn write_thread_state(
+    pub fn save_thread_state(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         id: WasiThreadId,
         memory_stack: Bytes,
         rewind_stack: Bytes,
-    ) -> Result<Result<(), Errno>, WasiError> {
+    ) -> WasiResult<()> {
         let env = ctx.data();
         wasi_try_ok_ok!(__asyncify_light(env, None, async {
             ctx.data()
@@ -87,10 +106,10 @@ impl SnapshotEffector {
         Ok(Ok(()))
     }
 
-    pub fn write_memory_and_snapshot(
+    pub fn save_memory_and_snapshot(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         process: &mut MutexGuard<'_, WasiProcessInner>,
-    ) -> Result<Result<(), Errno>, WasiError> {
+    ) -> WasiResult<()> {
         let env = ctx.data();
         let memory = unsafe { env.memory_view(ctx) };
 

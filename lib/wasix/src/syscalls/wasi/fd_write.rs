@@ -108,7 +108,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         // will record a terminal event.
         #[cfg(feature = "snapshot")]
         if is_stdio && ctx.data().enable_snapshot_feed {
-            SnapshotEffector::write_terminal_data(&mut ctx, iovs, iovs_len)?;
+            SnapshotEffector::save_terminal_data(&mut ctx, iovs, iovs_len)?;
             env = ctx.data();
         }
 

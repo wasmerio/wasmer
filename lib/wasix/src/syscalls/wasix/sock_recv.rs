@@ -107,7 +107,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     ri_flags: RiFlags,
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
-) -> Result<Result<usize, Errno>, WasiError> {
+) -> WasiResult<usize> {
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let mut env = ctx.data();

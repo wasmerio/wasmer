@@ -122,6 +122,8 @@ pub enum WasiError {
     UnknownWasiVersion,
 }
 
+pub type WasiResult<T> = Result<Result<T, Errno>, WasiError>;
+
 #[deny(unused, dead_code)]
 #[derive(Error, Debug)]
 pub enum SpawnError {
