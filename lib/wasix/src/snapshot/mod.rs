@@ -5,8 +5,6 @@ mod filter;
 mod log_file;
 mod unsupported;
 
-use std::str::FromStr;
-
 pub use capturer::*;
 pub use compactor::*;
 pub use effector::*;
@@ -14,9 +12,12 @@ pub use filter::*;
 pub use log_file::*;
 pub use unsupported::*;
 
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+
 /// Various triggers that will cause the runtime to take snapshot
 /// of the WASM state and store it in the snapshot file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum SnapshotTrigger {
     /// Triggered when all the threads in the process goes idle
     Idle,

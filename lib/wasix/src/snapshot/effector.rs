@@ -108,6 +108,7 @@ impl SnapshotEffector {
     pub fn save_memory_and_snapshot(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         process: &mut MutexGuard<'_, WasiProcessInner>,
+        trigger: SnapshotTrigger,
     ) -> WasiResult<()> {
         let env = ctx.data();
         let memory = unsafe { env.memory_view(ctx) };
@@ -169,7 +170,7 @@ impl SnapshotEffector {
             // it can act as a restoration point
             let when = SystemTime::now();
             capturer
-                .write(SnapshotLog::Snapshot { when })
+                .write(SnapshotLog::Snapshot { when, trigger })
                 .await
                 .map_err(map_snapshot_err)?;
             Ok(())

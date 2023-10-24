@@ -78,6 +78,8 @@ impl std::fmt::Debug for WasiProcessId {
     }
 }
 
+pub type LockableWasiProcessInner = Arc<(Mutex<WasiProcessInner>, Condvar)>;
+
 /// Represents a process running within the compute state
 /// TODO: fields should be private and only accessed via methods.
 #[derive(Debug, Clone)]
@@ -88,7 +90,7 @@ pub struct WasiProcess {
     pub(crate) parent: Option<Weak<RwLock<WasiProcessInner>>>,
     /// The inner protected region of the process with a conditional
     /// variable that is used for coordination such as checksums.
-    pub(crate) inner: Arc<(Mutex<WasiProcessInner>, Condvar)>,
+    pub(crate) inner: LockableWasiProcessInner,
     /// Reference back to the compute engine
     // TODO: remove this reference, access should happen via separate state instead
     // (we don't want cyclical references)
@@ -113,7 +115,7 @@ pub enum WasiProcessCheckpoint {
     Execute,
     /// The process needs to take a snapshot of the
     /// memory and state-machine
-    Snapshot,
+    Snapshot { trigger: SnapshotTrigger },
 }
 
 // TODO: fields should be private and only accessed via methods.
@@ -132,6 +134,104 @@ pub struct WasiProcessInner {
     /// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     pub checkpoint: WasiProcessCheckpoint,
+}
+
+pub enum MaybeCheckpointResult<'a> {
+    NotThisTime(FunctionEnvMut<'a, WasiEnv>),
+    Unwinding,
+}
+
+impl WasiProcessInner {
+    /// Checkpoints the process which will cause all other threads to
+    /// pause and for the thread and memory state to be saved
+    pub fn checkpoint<M: MemorySize>(
+        inner: LockableWasiProcessInner,
+        ctx: FunctionEnvMut<'_, WasiEnv>,
+        for_what: WasiProcessCheckpoint,
+    ) -> WasiResult<MaybeCheckpointResult<'_>> {
+        // Set the checkpoint flag and then enter the normal processing loop
+        {
+            let mut inner = inner.0.lock().unwrap();
+            inner.checkpoint = for_what;
+        }
+
+        Self::maybe_checkpoint::<M>(inner, ctx)
+    }
+
+    /// If a checkpoint has been started this will block the current process
+    /// until the checkpoint operation has completed
+    pub fn maybe_checkpoint<M: MemorySize>(
+        inner: LockableWasiProcessInner,
+        ctx: FunctionEnvMut<'_, WasiEnv>,
+    ) -> WasiResult<MaybeCheckpointResult<'_>> {
+        // Enter the lock which will determine if we are in a checkpoint or not
+        let guard = inner.0.lock().unwrap();
+        if guard.checkpoint == WasiProcessCheckpoint::Execute {
+            // No checkpoint so just carry on
+            return Ok(Ok(MaybeCheckpointResult::NotThisTime(ctx)));
+        }
+        trace!("checkpoint capture");
+        drop(guard);
+
+        // Perform the unwind action
+        unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
+            // Write our thread state to the snapshot
+            let tid = ctx.data().thread.tid();
+            if let Err(err) = SnapshotEffector::save_thread_state(
+                &mut ctx,
+                tid,
+                memory_stack.freeze(),
+                rewind_stack.freeze(),
+            ) {
+                return wasmer_types::OnCalledAction::Trap(Box::new(err));
+            }
+
+            let mut guard = inner.0.lock().unwrap();
+
+            // Wait for the checkpoint to finish (or if we are the last thread
+            // to freeze then we have to execute the checksum operation)
+            loop {
+                if let WasiProcessCheckpoint::Snapshot { .. } = guard.checkpoint {
+                } else {
+                    ctx.data().thread.set_check_pointing(false);
+                    trace!("checkpoint finished");
+                    break;
+                }
+
+                ctx.data().thread.set_check_pointing(true);
+
+                match guard.checkpoint {
+                    WasiProcessCheckpoint::Snapshot { trigger } => {
+                        // Now if we are the last thread we also write the memory
+                        let is_last_thread =
+                            guard.threads.values().all(WasiThread::is_check_pointing);
+                        if is_last_thread {
+                            if let Err(err) = SnapshotEffector::save_memory_and_snapshot(
+                                &mut ctx, &mut guard, trigger,
+                            ) {
+                                inner.1.notify_all();
+                                return wasmer_types::OnCalledAction::Trap(Box::new(err));
+                            }
+
+                            // Clear the checkpointing flag and notify everyone to wake up
+                            ctx.data().thread.set_check_pointing(false);
+                            guard.checkpoint = WasiProcessCheckpoint::Execute;
+                            trace!("checkpoint complete");
+                            inner.1.notify_all();
+                        } else {
+                            guard = inner.1.wait(guard).unwrap();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Resume execution
+            wasmer_types::OnCalledAction::InvokeAgain
+        })?;
+
+        Ok(Ok(MaybeCheckpointResult::Unwinding))
+    }
 }
 
 // TODO: why do we need this, how is it used?
@@ -329,97 +429,6 @@ impl WasiProcess {
     pub fn active_threads(&self) -> u32 {
         let inner = self.inner.0.lock().unwrap();
         inner.thread_count
-    }
-
-    /// Checkpoints the process which will cause all other threads to
-    /// pause and for the thread and memory state to be saved
-    pub fn checkpoint<M: MemorySize>(
-        &self,
-        ctx: FunctionEnvMut<'_, WasiEnv>,
-        for_what: WasiProcessCheckpoint,
-    ) -> WasiResult<()> {
-        // Set the checkpoint flag and then enter the normal processing loop
-        {
-            let mut inner = self.inner.0.lock().unwrap();
-            inner.checkpoint = for_what;
-        }
-
-        self.maybe_checkpoint::<M>(ctx)
-    }
-
-    /// If a checkpoint has been started this will block the current process
-    /// until the checkpoint operation has completed
-    pub fn maybe_checkpoint<M: MemorySize>(
-        &self,
-        ctx: FunctionEnvMut<'_, WasiEnv>,
-    ) -> WasiResult<()> {
-        // Enter the lock which will determine if we are in a checkpoint or not
-        let inner = self.inner.clone();
-        let guard = inner.0.lock().unwrap();
-        if guard.checkpoint == WasiProcessCheckpoint::Execute {
-            // No checkpoint so just carry on
-            return Ok(Ok(()));
-        }
-        trace!("checkpoint capture");
-        drop(guard);
-
-        // Perform the unwind action
-        unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
-            // Write our thread state to the snapshot
-            let tid = ctx.data().thread.tid();
-            if let Err(err) = SnapshotEffector::save_thread_state(
-                &mut ctx,
-                tid,
-                memory_stack.freeze(),
-                rewind_stack.freeze(),
-            ) {
-                return wasmer_types::OnCalledAction::Trap(Box::new(err));
-            }
-
-            let mut guard = inner.0.lock().unwrap();
-
-            // Wait for the checkpoint to finish (or if we are the last thread
-            // to freeze then we have to execute the checksum operation)
-            loop {
-                if WasiProcessCheckpoint::Execute == guard.checkpoint {
-                    ctx.data().thread.set_check_pointing(false);
-                    trace!("checkpoint finished");
-                    break;
-                }
-
-                ctx.data().thread.set_check_pointing(true);
-
-                match guard.checkpoint {
-                    WasiProcessCheckpoint::Execute => {}
-                    WasiProcessCheckpoint::Snapshot => {
-                        // Now if we are the last thread we also write the memory
-                        let is_last_thread =
-                            guard.threads.values().all(WasiThread::is_check_pointing);
-                        if is_last_thread {
-                            if let Err(err) =
-                                SnapshotEffector::save_memory_and_snapshot(&mut ctx, &mut guard)
-                            {
-                                inner.1.notify_all();
-                                return wasmer_types::OnCalledAction::Trap(Box::new(err));
-                            }
-
-                            // Clear the checkpointing flag and notify everyone to wake up
-                            ctx.data().thread.set_check_pointing(false);
-                            guard.checkpoint = WasiProcessCheckpoint::Execute;
-                            trace!("checkpoint complete");
-                            inner.1.notify_all();
-                        } else {
-                            guard = inner.1.wait(guard).unwrap();
-                        }
-                    }
-                }
-            }
-
-            // Resume execution
-            wasmer_types::OnCalledAction::InvokeAgain
-        })?;
-
-        Ok(Ok(()))
     }
 
     /// Waits until the process is finished.

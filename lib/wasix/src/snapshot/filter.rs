@@ -136,11 +136,11 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
                         data,
                     }
                 }
-                SnapshotLog::Snapshot { when } => {
+                SnapshotLog::Snapshot { when, trigger } => {
                     if self.filter_snapshots {
                         return Ok(());
                     }
-                    SnapshotLog::Snapshot { when }
+                    SnapshotLog::Snapshot { when, trigger }
                 }
             };
             self.inner.write(evt).await

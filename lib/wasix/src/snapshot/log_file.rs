@@ -63,6 +63,7 @@ pub enum SnapshotLogEntry {
     },
     SnapshotV1 {
         when: SystemTime,
+        trigger: SnapshotTrigger,
     },
 }
 
@@ -113,7 +114,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 len,
                 data: data.into_owned(),
             },
-            SnapshotLog::Snapshot { when } => Self::SnapshotV1 { when },
+            SnapshotLog::Snapshot { when, trigger } => Self::SnapshotV1 { when, trigger },
         }
     }
 }
@@ -166,7 +167,7 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 len,
                 data: data.into(),
             },
-            SnapshotLogEntry::SnapshotV1 { when } => Self::Snapshot { when },
+            SnapshotLogEntry::SnapshotV1 { when, trigger } => Self::Snapshot { when, trigger },
         }
     }
 }

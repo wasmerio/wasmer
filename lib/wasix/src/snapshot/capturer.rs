@@ -9,6 +9,8 @@ use virtual_fs::Fd;
 
 use crate::WasiThreadId;
 
+use super::SnapshotTrigger;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SocketSnapshot {
     TcpListen {
@@ -140,6 +142,7 @@ pub enum SnapshotLog<'a> {
     /// Represents the marker for the end of a snapshot
     Snapshot {
         when: SystemTime,
+        trigger: SnapshotTrigger,
     },
 }
 

@@ -829,6 +829,18 @@ impl WasiEnv {
         !self.process.checkpoint_on.is_empty()
     }
 
+    /// Returns true if a particular snapshot trigger is enabled
+    #[cfg(feature = "snapshot")]
+    pub fn has_snapshot_trigger(&self, trigger: SnapshotTrigger) -> bool {
+        self.process.checkpoint_on.contains(&trigger)
+    }
+
+    /// Returns true if a particular snapshot trigger is enabled
+    #[cfg(feature = "snapshot")]
+    pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
+        self.process.checkpoint_on.remove(&trigger)
+    }
+
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     pub fn std_dev_get(
