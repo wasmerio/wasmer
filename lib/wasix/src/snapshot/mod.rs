@@ -25,6 +25,8 @@ pub enum SnapshotTrigger {
     Idle,
     /// Triggered when a listen syscall is invoked on a socket
     Listen,
+    /// Triggered on reading the environment variables for the first time
+    Environ,
     /// Triggered when the process reads stdin for the first time
     Stdin,
     /// Triggered periodically based on a timer (default 10 seconds) which can be specified using the `snapshot-timer` option
@@ -50,6 +52,7 @@ impl FromStr for SnapshotTrigger {
             "idle" => Self::Idle,
             "listen" => Self::Listen,
             "stdin" => Self::Stdin,
+            "environ" => Self::Environ,
             "periodic" => Self::Timer,
             "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
             "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
