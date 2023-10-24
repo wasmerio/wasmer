@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
@@ -304,6 +304,10 @@ pub struct WasiEnv {
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
 
+    /// List of situations that the process will checkpoint on
+    #[cfg(feature = "snapshot")]
+    pub(crate) snapshot_on: HashSet<SnapshotTrigger>,
+
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
     ///  not be cloned when `WasiEnv` is cloned)
@@ -333,6 +337,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            snapshot_on: self.snapshot_on.clone(),
         }
     }
 }
@@ -369,6 +374,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            snapshot_on: self.snapshot_on.clone(),
         };
         Ok((new_env, handle))
     }
@@ -405,15 +411,11 @@ impl WasiEnv {
 
     #[allow(clippy::result_large_err)]
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
-        let mut process = if let Some(p) = init.process {
+        let process = if let Some(p) = init.process {
             p
         } else {
             init.control_plane.new_process()?
         };
-
-        for snapshot_on in init.snapshot_on {
-            process.add_snapshot_trigger(snapshot_on)
-        }
 
         let layout = WasiMemoryLayout::default();
         let thread = if let Some(t) = init.thread {
@@ -436,8 +438,13 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
+            snapshot_on: Default::default(),
         };
         env.owned_handles.push(thread);
+
+        for snapshot_on in init.snapshot_on {
+            env.snapshot_on.insert(snapshot_on);
+        }
 
         // TODO: should not be here - should be callers responsibility!
         for pkg in &init.webc_dependencies {
@@ -826,19 +833,19 @@ impl WasiEnv {
     /// Returns true if the process should perform snapshots or not
     #[cfg(feature = "snapshot")]
     pub fn should_feed_snapshot(&self) -> bool {
-        !self.process.checkpoint_on.is_empty()
+        !self.snapshot_on.is_empty()
     }
 
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "snapshot")]
     pub fn has_snapshot_trigger(&self, trigger: SnapshotTrigger) -> bool {
-        self.process.checkpoint_on.contains(&trigger)
+        self.snapshot_on.contains(&trigger)
     }
 
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "snapshot")]
     pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
-        self.process.checkpoint_on.remove(&trigger)
+        self.snapshot_on.remove(&trigger)
     }
 
     /// Internal helper function to get a standard device handle.
