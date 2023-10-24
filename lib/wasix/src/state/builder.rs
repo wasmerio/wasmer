@@ -13,6 +13,8 @@ use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
+#[cfg(feature = "snapshot")]
+use crate::snapshot::SnapshotTrigger;
 #[cfg(feature = "sys")]
 use crate::PluggableRuntime;
 use crate::{
@@ -21,7 +23,6 @@ use crate::{
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::task_manager::InlineWaker,
-    snapshot::SnapshotTrigger,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -72,6 +73,7 @@ pub struct WasiEnvBuilder {
 
     pub(super) capabilites: Capabilities,
 
+    #[cfg(feature = "snapshot")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
 }
 
@@ -576,6 +578,7 @@ impl WasiEnvBuilder {
         self.capabilites = capabilities;
     }
 
+    #[cfg(feature = "snapshot")]
     pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) {
         self.snapshot_on.push(on);
     }
@@ -738,6 +741,7 @@ impl WasiEnvBuilder {
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
+        #[cfg(feature = "snapshot")]
         let snapshot_on = self.snapshot_on;
 
         let init = WasiEnvInit {
@@ -754,6 +758,7 @@ impl WasiEnvBuilder {
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
+            #[cfg(feature = "snapshot")]
             snapshot_on,
         };
 

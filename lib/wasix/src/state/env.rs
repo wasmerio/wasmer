@@ -1,5 +1,7 @@
+#[cfg(feature = "snapshot")]
+use std::collections::HashSet;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     ops::Deref,
     path::{Path, PathBuf},
     sync::Arc,
@@ -21,6 +23,8 @@ use wasmer_wasix_types::{
     wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
+#[cfg(feature = "snapshot")]
+use crate::snapshot::{SnapshotEffector, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -32,7 +36,6 @@ use crate::{
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
-    snapshot::{SnapshotEffector, SnapshotTrigger},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -233,6 +236,7 @@ pub struct WasiEnvInit {
     pub extra_tracing: bool,
 
     /// Indicates triggers that will cause a snapshot to be taken
+    #[cfg(feature = "snapshot")]
     pub snapshot_on: Vec<SnapshotTrigger>,
 }
 
@@ -270,6 +274,7 @@ impl WasiEnvInit {
             call_initialize: self.call_initialize,
             can_deep_sleep: self.can_deep_sleep,
             extra_tracing: false,
+            #[cfg(feature = "snapshot")]
             snapshot_on: self.snapshot_on.clone(),
         }
     }
@@ -337,6 +342,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            #[cfg(feature = "snapshot")]
             snapshot_on: self.snapshot_on.clone(),
         }
     }
@@ -374,6 +380,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
+            #[cfg(feature = "snapshot")]
             snapshot_on: self.snapshot_on.clone(),
         };
         Ok((new_env, handle))
@@ -438,10 +445,12 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
+            #[cfg(feature = "snapshot")]
             snapshot_on: Default::default(),
         };
         env.owned_handles.push(thread);
 
+        #[cfg(feature = "snapshot")]
         for snapshot_on in init.snapshot_on {
             env.snapshot_on.insert(snapshot_on);
         }

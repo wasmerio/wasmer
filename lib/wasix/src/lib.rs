@@ -50,7 +50,6 @@ pub mod http;
 mod rewind;
 pub mod runners;
 pub mod runtime;
-#[cfg(feature = "snapshot")]
 pub mod snapshot;
 mod state;
 mod syscalls;
@@ -105,7 +104,7 @@ pub use crate::{
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
         WasiVersion,
     },
 };

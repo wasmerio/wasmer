@@ -237,10 +237,12 @@ impl crate::runners::Runner for WasiRunner {
         let module = runtime.load_module_sync(cmd.atom())?;
         let mut store = runtime.new_store();
 
+        #[allow(unused_mut)]
         let mut env = self
             .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
             .context("Unable to prepare the WASI environment")?;
 
+        #[cfg(feature = "snapshot")]
         for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
             env.add_snapshot_trigger(snapshot_trigger);
         }

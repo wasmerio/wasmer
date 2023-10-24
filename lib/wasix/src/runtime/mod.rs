@@ -8,6 +8,7 @@ use self::{
     module_cache::{CacheError, ModuleHash},
     task_manager::InlineWaker,
 };
+#[cfg(feature = "snapshot")]
 use crate::snapshot::UNSUPPORTED_SNAPSHOT_CAPTURER;
 
 use std::{
@@ -227,6 +228,7 @@ impl PluggableRuntime {
             source: Arc::new(source),
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
+            #[cfg(feature = "snapshot")]
             snapshot_capturer: Arc::new(UnsupportedSnapshotCapturer::default())
                 as Arc<DynSnapshotCapturer>,
         }
@@ -279,6 +281,7 @@ impl PluggableRuntime {
         self
     }
 
+    #[cfg(feature = "snapshot")]
     pub fn set_snapshot_capturer(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
         self.snapshot_capturer = capturer;
         self

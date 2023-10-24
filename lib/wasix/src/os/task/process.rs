@@ -1,7 +1,6 @@
-use crate::{
-    snapshot::{SnapshotEffector, SnapshotTrigger},
-    unwind, WasiEnv, WasiResult, WasiRuntimeError,
-};
+#[cfg(feature = "snapshot")]
+use crate::{snapshot::SnapshotEffector, unwind, WasiResult};
+use crate::{snapshot::SnapshotTrigger, WasiEnv, WasiRuntimeError};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -14,7 +13,6 @@ use std::{
 };
 use tracing::trace;
 use wasmer::FunctionEnvMut;
-use wasmer_types::MemorySize;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
@@ -141,7 +139,8 @@ pub enum MaybeCheckpointResult<'a> {
 impl WasiProcessInner {
     /// Checkpoints the process which will cause all other threads to
     /// pause and for the thread and memory state to be saved
-    pub fn checkpoint<M: MemorySize>(
+    #[cfg(feature = "snapshot")]
+    pub fn checkpoint<M: wasmer_types::MemorySize>(
         inner: LockableWasiProcessInner,
         ctx: FunctionEnvMut<'_, WasiEnv>,
         for_what: WasiProcessCheckpoint,
@@ -157,7 +156,8 @@ impl WasiProcessInner {
 
     /// If a checkpoint has been started this will block the current process
     /// until the checkpoint operation has completed
-    pub fn maybe_checkpoint<M: MemorySize>(
+    #[cfg(feature = "snapshot")]
+    pub fn maybe_checkpoint<M: wasmer_types::MemorySize>(
         inner: LockableWasiProcessInner,
         ctx: FunctionEnvMut<'_, WasiEnv>,
     ) -> WasiResult<MaybeCheckpointResult<'_>> {

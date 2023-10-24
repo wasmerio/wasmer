@@ -38,6 +38,7 @@ pub fn map_io_err(err: std::io::Error) -> Errno {
     From::<std::io::Error>::from(err)
 }
 
+#[cfg(feature = "snapshot")]
 pub fn map_snapshot_err(err: anyhow::Error) -> Errno {
     tracing::warn!("unknown snapshot error: {}", err);
     Errno::Unknown

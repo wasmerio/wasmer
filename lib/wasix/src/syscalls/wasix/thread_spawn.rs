@@ -1,11 +1,12 @@
 use std::f32::consts::E;
 
 use super::*;
+#[cfg(feature = "snapshot")]
+use crate::snapshot::SnapshotEffector;
 use crate::{
-    capture_snapshot,
+    capture_instance_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
-    snapshot::SnapshotEffector,
     syscalls::*,
     WasiThreadHandle,
 };
@@ -120,7 +121,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
         return Err(Errno::Notcapable);
     }
     let thread_module = unsafe { env.inner() }.module_clone();
-    let snapshot = capture_snapshot(&mut ctx.as_store_mut());
+    let snapshot = capture_instance_snapshot(&mut ctx.as_store_mut());
     let spawn_type =
         crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
 

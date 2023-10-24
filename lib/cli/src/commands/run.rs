@@ -224,6 +224,7 @@ impl Run {
         if self.wasi.forward_host_env {
             runner.set_forward_host_env();
         }
+        #[cfg(feature = "snapshot")]
         for trigger in self.wasi.snapshot_on.iter().cloned() {
             runner.add_snapshot_trigger(trigger);
         }

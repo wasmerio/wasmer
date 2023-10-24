@@ -44,6 +44,8 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx, SnapshotTrigger::Stdin)?);
+
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
     fd_read_internal_handler(ctx, res, nread)
 }
@@ -75,25 +77,7 @@ pub fn fd_pread<M: MemorySize>(
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
-    // If snap-shooting is enabled and this is to stdio then we
-    // we may actually trigger a snapshot event heere.
-    #[cfg(feature = "snapshot")]
-    if fd == DeviceFile::STDIN && ctx.data_mut().pop_snapshot_trigger(SnapshotTrigger::Stdin) {
-        let inner = ctx.data().process.inner.clone();
-        let res = wasi_try_ok!(WasiProcessInner::checkpoint::<M>(
-            inner,
-            ctx,
-            WasiProcessCheckpoint::Snapshot {
-                trigger: SnapshotTrigger::Stdin,
-            },
-        )?);
-        match res {
-            MaybeCheckpointResult::Unwinding => return Ok(Errno::Success),
-            MaybeCheckpointResult::NotThisTime(c) => {
-                ctx = c;
-            }
-        }
-    }
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx, SnapshotTrigger::Stdin)?);
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;
     fd_read_internal_handler::<M>(ctx, res, nread)

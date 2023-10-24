@@ -20,6 +20,7 @@ use super::*;
 #[derive(Debug, Clone)]
 pub struct SnapshotEffector {}
 
+#[cfg(feature = "snapshot")]
 impl SnapshotEffector {
     pub fn save_terminal_data<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,

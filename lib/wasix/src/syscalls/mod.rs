@@ -117,7 +117,7 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    os::task::thread::RewindResult,
+    os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes, WasiResult,
@@ -949,7 +949,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     trigger: Pin<Box<AsyncifyFuture>>,
 ) -> Result<(), WasiError> {
     // Grab all the globals and serialize them
-    let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
+    let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
         .serialize()
         .unwrap();
     let store_data = Bytes::from(store_data);
@@ -1148,7 +1148,7 @@ pub fn rewind_ext<M: MemorySize>(
             return Errno::Unknown;
         }
     };
-    crate::utils::store::restore_snapshot(&mut ctx, &store_snapshot);
+    crate::utils::store::restore_instance_snapshot(&mut ctx, &store_snapshot);
     let env = ctx.data();
     let memory = match env.try_memory_view(&ctx) {
         Some(v) => v,
@@ -1210,6 +1210,47 @@ pub fn rewind_ext<M: MemorySize>(
     }
 
     Errno::Success
+}
+
+#[cfg(not(feature = "snapshot"))]
+pub fn maybe_snapshot<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    _trigger: crate::snapshot::SnapshotTrigger,
+) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+    Ok(Ok(ctx))
+}
+
+#[cfg(feature = "snapshot")]
+pub fn maybe_snapshot<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    trigger: crate::snapshot::SnapshotTrigger,
+) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+    use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
+
+    if ctx.data_mut().pop_snapshot_trigger(trigger) {
+        let inner = ctx.data().process.inner.clone();
+        let res = wasi_try_ok_ok!(WasiProcessInner::checkpoint::<M>(
+            inner,
+            ctx,
+            WasiProcessCheckpoint::Snapshot { trigger: trigger },
+        )?);
+        match res {
+            MaybeCheckpointResult::Unwinding => return Ok(Err(Errno::Success)),
+            MaybeCheckpointResult::NotThisTime(c) => {
+                ctx = c;
+            }
+        }
+    } else if ctx.data().should_feed_snapshot() {
+        let inner = ctx.data().process.inner.clone();
+        let res = wasi_try_ok_ok!(WasiProcessInner::maybe_checkpoint::<M>(inner, ctx)?);
+        match res {
+            MaybeCheckpointResult::Unwinding => return Ok(Err(Errno::Success)),
+            MaybeCheckpointResult::NotThisTime(c) => {
+                ctx = c;
+            }
+        }
+    }
+    Ok(Ok(ctx))
 }
 
 pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(

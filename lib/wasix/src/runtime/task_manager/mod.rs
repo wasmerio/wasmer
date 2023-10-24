@@ -14,7 +14,7 @@ use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
-use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::{capture_instance_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 pub use virtual_mio::waker::*;
 
@@ -295,7 +295,7 @@ impl dyn VirtualTaskManager {
             }
         }
 
-        let snapshot = capture_snapshot(&mut store.as_store_mut());
+        let snapshot = capture_instance_snapshot(&mut store.as_store_mut());
         let env = ctx.data(&store);
         let module = env.inner().module_clone();
         let memory = env.inner().memory_clone();

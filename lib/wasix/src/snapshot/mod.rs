@@ -1,5 +1,6 @@
 mod capturer;
 mod compactor;
+#[cfg(feature = "snapshot")]
 mod effector;
 mod filter;
 mod log_file;
@@ -7,6 +8,7 @@ mod unsupported;
 
 pub use capturer::*;
 pub use compactor::*;
+#[cfg(feature = "snapshot")]
 pub use effector::*;
 pub use filter::*;
 pub use log_file::*;

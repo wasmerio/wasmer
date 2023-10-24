@@ -1,10 +1,10 @@
 use std::task::Waker;
 
 use super::*;
+use crate::{net::socket::TimeType, syscalls::*};
+#[cfg(feature = "snapshot")]
 use crate::{
-    net::socket::TimeType,
     snapshot::{SnapshotEffector, SnapshotLog},
-    syscalls::*,
     utils::map_snapshot_err,
 };
 

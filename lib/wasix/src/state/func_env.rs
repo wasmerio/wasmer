@@ -8,7 +8,7 @@ use crate::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
+    utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
     InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
 };
 
@@ -74,7 +74,7 @@ impl WasiFunctionEnv {
         // Set all the globals
         if let Some(snapshot) = snapshot {
             tracing::trace!("restoring snapshot for new thread");
-            restore_snapshot(&mut store, snapshot);
+            restore_instance_snapshot(&mut store, snapshot);
         }
 
         Ok((ctx, store))
