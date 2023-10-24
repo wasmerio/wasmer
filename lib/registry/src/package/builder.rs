@@ -785,7 +785,7 @@ runner = "https://webc.org/runner/wcgi"
     #[test]
     fn test_construct_wai_package_tar_gz() {
         let manifest_str = r#"[package]
-name = "dynamite-bud/crumsort-wasm"
+name = "wasmer/crumsort-wasm"
 version = "0.2.4"
 description = "Crumsort from Google made for WASM"
 
