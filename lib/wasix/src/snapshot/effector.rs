@@ -4,7 +4,7 @@ use bytes::Bytes;
 use virtual_fs::AsyncWriteExt;
 use wasmer::{FunctionEnvMut, WasmPtr};
 use wasmer_types::MemorySize;
-use wasmer_wasix_types::types::__wasi_ciovec_t;
+use wasmer_wasix_types::{types::__wasi_ciovec_t, wasi::ExitCode};
 
 use crate::{
     fs::fs_error_into_wasi_err,
@@ -67,15 +67,14 @@ impl SnapshotEffector {
     }
 
     pub fn save_thread_exit(
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        env: &WasiEnv,
         id: WasiThreadId,
+        exit_code: Option<ExitCode>,
     ) -> WasiResult<()> {
-        let env = ctx.data();
         wasi_try_ok_ok!(__asyncify_light(env, None, async {
-            ctx.data()
-                .runtime()
+            env.runtime()
                 .snapshot_capturer()
-                .write(SnapshotLog::CloseThread { id })
+                .write(SnapshotLog::CloseThread { id, exit_code })
                 .await
                 .map_err(map_snapshot_err)?;
             Ok(())

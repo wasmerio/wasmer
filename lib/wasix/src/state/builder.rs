@@ -21,6 +21,7 @@ use crate::{
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::task_manager::InlineWaker,
+    snapshot::SnapshotTrigger,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -70,6 +71,8 @@ pub struct WasiEnvBuilder {
     pub(super) map_commands: HashMap<String, PathBuf>,
 
     pub(super) capabilites: Capabilities,
+
+    pub(super) snapshot_on: Vec<SnapshotTrigger>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -573,6 +576,10 @@ impl WasiEnvBuilder {
         self.capabilites = capabilities;
     }
 
+    pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) {
+        self.snapshot_on.push(on);
+    }
+
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
@@ -731,6 +738,8 @@ impl WasiEnvBuilder {
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
+        let snapshot_on = self.snapshot_on;
+
         let init = WasiEnvInit {
             state,
             runtime,
@@ -745,6 +754,7 @@ impl WasiEnvBuilder {
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
+            snapshot_on,
         };
 
         Ok(init)

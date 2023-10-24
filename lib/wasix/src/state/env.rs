@@ -32,6 +32,7 @@ use crate::{
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
+    snapshot::{SnapshotEffector, SnapshotTrigger},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -230,6 +231,9 @@ pub struct WasiEnvInit {
 
     /// Indicates if extra tracing should be output
     pub extra_tracing: bool,
+
+    /// Indicates triggers that will cause a snapshot to be taken
+    pub snapshot_on: Vec<SnapshotTrigger>,
 }
 
 impl WasiEnvInit {
@@ -266,6 +270,7 @@ impl WasiEnvInit {
             call_initialize: self.call_initialize,
             can_deep_sleep: self.can_deep_sleep,
             extra_tracing: false,
+            snapshot_on: self.snapshot_on.clone(),
         }
     }
 }
@@ -299,9 +304,6 @@ pub struct WasiEnv {
     /// Is this environment capable and setup for deep sleeping
     pub enable_deep_sleep: bool,
 
-    /// Indicates if the feed to the snapshot system is enabled or not
-    pub enable_snapshot_feed: bool,
-
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
     ///  not be cloned when `WasiEnv` is cloned)
@@ -331,7 +333,6 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
-            enable_snapshot_feed: self.enable_snapshot_feed,
         }
     }
 }
@@ -368,7 +369,6 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
-            enable_snapshot_feed: self.enable_snapshot_feed,
         };
         Ok((new_env, handle))
     }
@@ -405,11 +405,15 @@ impl WasiEnv {
 
     #[allow(clippy::result_large_err)]
     pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
-        let process = if let Some(p) = init.process {
+        let mut process = if let Some(p) = init.process {
             p
         } else {
             init.control_plane.new_process()?
         };
+
+        for snapshot_on in init.snapshot_on {
+            process.add_snapshot_trigger(snapshot_on)
+        }
 
         let layout = WasiMemoryLayout::default();
         let thread = if let Some(t) = init.thread {
@@ -431,7 +435,6 @@ impl WasiEnv {
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
-            enable_snapshot_feed: false,
             capabilities: init.capabilities,
         };
         env.owned_handles.push(thread);
@@ -820,6 +823,12 @@ impl WasiEnv {
         self.state.stdin()
     }
 
+    /// Returns true if the process should perform snapshots or not
+    #[cfg(feature = "snapshot")]
+    pub fn should_feed_snapshot(&self) -> bool {
+        !self.process.checkpoint_on.is_empty()
+    }
+
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     pub fn std_dev_get(
@@ -1035,6 +1044,14 @@ impl WasiEnv {
     #[allow(clippy::await_holding_lock)]
     pub fn cleanup(&self, exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
+
+        // If snap-shooting is enabled then we should record an event that the thread has exited.
+        #[cfg(feature = "snapshot")]
+        if self.should_feed_snapshot() {
+            if let Err(err) = SnapshotEffector::save_thread_exit(self, self.tid(), exit_code) {
+                tracing::warn!("failed to save snapshot event for thread exit - {}", err);
+            }
+        }
 
         // If this is the main thread then also close all the files
         if self.thread.is_main() {

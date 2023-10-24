@@ -11,7 +11,7 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
     bin_factory::BinaryPackage, capabilities::Capabilities, runners::MappedDirectory,
-    WasiEnvBuilder,
+    snapshot::SnapshotTrigger, WasiEnvBuilder,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -22,6 +22,7 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
+    pub(crate) snapshot_on: Vec<SnapshotTrigger>,
 }
 
 impl CommonWasiOptions {

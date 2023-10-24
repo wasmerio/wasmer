@@ -1,7 +1,10 @@
-use crate::{snapshot::SnapshotEffector, unwind, WasiEnv, WasiResult, WasiRuntimeError};
+use crate::{
+    snapshot::{SnapshotEffector, SnapshotTrigger},
+    unwind, WasiEnv, WasiResult, WasiRuntimeError,
+};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     convert::TryInto,
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -94,6 +97,9 @@ pub struct WasiProcess {
     pub(crate) finished: Arc<OwnedTaskStatus>,
     /// Number of threads waiting for children to exit
     pub(crate) waiting: Arc<AtomicU32>,
+    /// List of situations that the process will checkpoint on
+    #[cfg(feature = "snapshot")]
+    pub(crate) checkpoint_on: HashSet<SnapshotTrigger>,
 }
 
 /// Represents a freeze of all threads to perform some action
@@ -167,11 +173,17 @@ impl WasiProcess {
             )),
             finished: Arc::new(OwnedTaskStatus::default()),
             waiting: Arc::new(AtomicU32::new(0)),
+            checkpoint_on: Default::default(),
         }
     }
 
     pub(super) fn set_pid(&mut self, pid: WasiProcessId) {
         self.pid = pid;
+    }
+
+    /// Adds another trigger that will cause a snapshot to be taken
+    pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) {
+        self.checkpoint_on.insert(on);
     }
 
     /// Gets the process ID of this process

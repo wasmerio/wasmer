@@ -10,6 +10,7 @@ use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
+    snapshot::SnapshotTrigger,
     Runtime, WasiEnvBuilder,
 };
 
@@ -146,6 +147,11 @@ impl WasiRunner {
         self.wasi.capabilities = capabilities;
     }
 
+    pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
+        self.wasi.snapshot_on.push(on);
+        self
+    }
+
     pub fn with_stdin(mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> Self {
         self.set_stdin(stdin);
         self
@@ -231,9 +237,13 @@ impl crate::runners::Runner for WasiRunner {
         let module = runtime.load_module_sync(cmd.atom())?;
         let mut store = runtime.new_store();
 
-        let env = self
+        let mut env = self
             .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
             .context("Unable to prepare the WASI environment")?;
+
+        for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
+            env.add_snapshot_trigger(snapshot_trigger);
+        }
 
         if self
             .wasi

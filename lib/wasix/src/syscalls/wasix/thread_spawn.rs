@@ -5,6 +5,7 @@ use crate::{
     capture_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    snapshot::SnapshotEffector,
     syscalls::*,
     WasiThreadHandle,
 };

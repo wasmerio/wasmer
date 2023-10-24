@@ -37,6 +37,7 @@ use wasmer_wasix::{
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
     },
+    snapshot::SnapshotTrigger,
     WasiError,
 };
 use wasmer_wasix::{
@@ -223,7 +224,9 @@ impl Run {
         if self.wasi.forward_host_env {
             runner.set_forward_host_env();
         }
-
+        for trigger in self.wasi.snapshot_on.iter().cloned() {
+            runner.add_snapshot_trigger(trigger);
+        }
         *runner.capabilities() = self.wasi.capabilities();
 
         runner.run_command(command_name, pkg, runtime)

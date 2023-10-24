@@ -107,7 +107,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         // If snap-shooting is enabled and this is to stdio then we
         // will record a terminal event.
         #[cfg(feature = "snapshot")]
-        if is_stdio && ctx.data().enable_snapshot_feed {
+        if is_stdio && ctx.data().should_feed_snapshot() {
             SnapshotEffector::save_terminal_data(&mut ctx, iovs, iovs_len)?;
             env = ctx.data();
         }

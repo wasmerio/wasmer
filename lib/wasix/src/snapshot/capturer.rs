@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
+use wasmer_wasix_types::wasi::ExitCode;
 
 use futures::future::BoxFuture;
 use virtual_fs::Fd;
@@ -110,6 +111,7 @@ pub enum SnapshotLog<'a> {
     },
     CloseThread {
         id: WasiThreadId,
+        exit_code: Option<ExitCode>,
     },
     SetThread {
         id: WasiThreadId,

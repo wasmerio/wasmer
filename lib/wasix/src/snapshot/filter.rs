@@ -76,11 +76,11 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
                     }
                     SnapshotLog::UpdateMemoryRegion { region, data }
                 }
-                SnapshotLog::CloseThread { id } => {
+                SnapshotLog::CloseThread { id, exit_code } => {
                     if self.filter_threads {
                         return Ok(());
                     }
-                    SnapshotLog::CloseThread { id }
+                    SnapshotLog::CloseThread { id, exit_code }
                 }
                 SnapshotLog::SetThread {
                     id,

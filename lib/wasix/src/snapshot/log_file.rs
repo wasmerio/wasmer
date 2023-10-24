@@ -5,6 +5,7 @@ use std::{
     path::Path,
     time::SystemTime,
 };
+use wasmer_wasix_types::wasi::ExitCode;
 
 use futures::future::BoxFuture;
 use virtual_fs::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, Fd};
@@ -34,6 +35,7 @@ pub enum SnapshotLogEntry {
     },
     CloseThreadV1 {
         id: WasiThreadId,
+        exit_code: Option<ExitCode>,
     },
     SetThreadV1 {
         id: WasiThreadId,
@@ -76,7 +78,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 end: region.end,
                 data: data.into_owned(),
             },
-            SnapshotLog::CloseThread { id } => Self::CloseThreadV1 { id },
+            SnapshotLog::CloseThread { id, exit_code } => Self::CloseThreadV1 { id, exit_code },
             SnapshotLog::SetThread {
                 id,
                 call_stack,
@@ -127,7 +129,9 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                     data: data.into(),
                 }
             }
-            SnapshotLogEntry::CloseThreadV1 { id } => Self::CloseThread { id },
+            SnapshotLogEntry::CloseThreadV1 { id, exit_code } => {
+                Self::CloseThread { id, exit_code }
+            }
             SnapshotLogEntry::SetThreadV1 {
                 id,
                 call_stack,
