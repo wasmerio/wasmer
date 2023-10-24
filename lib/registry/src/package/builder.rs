@@ -239,7 +239,15 @@ fn construct_tar_gz(
 
         if let Some(bindings) = &module.bindings {
             for path in bindings.referenced_files(manifest_dir)? {
-                append_path_to_tar_gz(&mut builder, manifest_dir, &path).map_err(
+                let relative_path = path.strip_prefix(manifest_dir).with_context(|| {
+                    format!(
+                        "\"{}\" should be inside \"{}\"",
+                        path.display(),
+                        manifest_dir.display(),
+                    )
+                })?;
+
+                append_path_to_tar_gz(&mut builder, manifest_dir, relative_path).map_err(
                     |(normalized_path, _)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
