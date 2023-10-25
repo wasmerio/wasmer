@@ -91,6 +91,7 @@ impl SnapshotEffector {
         id: WasiThreadId,
         memory_stack: Bytes,
         rewind_stack: Bytes,
+        store_data: Bytes,
     ) -> anyhow::Result<()> {
         let env = ctx.data();
 
@@ -102,6 +103,7 @@ impl SnapshotEffector {
                     id,
                     call_stack: Cow::Owned(rewind_stack.into()),
                     memory_stack: Cow::Owned(memory_stack.into()),
+                    store_data: Cow::Owned(store_data.into()),
                 })
                 .await
                 .map_err(map_snapshot_err)?;
@@ -123,13 +125,14 @@ impl SnapshotEffector {
         // Compute all the regions that we need to save which is basically
         // everything in the memory except for the memory stacks.
         //
-        // We do not want the regions to be greater than 128KB as this will
-        // otherwise create too much inefficiency.
+        // We do not want the regions to be greater than 64KB as this will
+        // otherwise create too much inefficiency. We choose 64KB as its
+        // aligned with the standard WASM page size.
         let mut cur = 0u64;
         let mut regions = LinkedList::<Range<u64>>::new();
         while cur < memory.data_size() {
             let mut again = false;
-            let mut end = memory.data_size().min(cur + 131_072);
+            let mut end = memory.data_size().min(cur + 65536);
             for (_, thread) in process.threads.iter() {
                 let layout = thread.memory_layout();
                 if cur >= layout.stack_lower && cur < layout.stack_upper {
@@ -137,7 +140,7 @@ impl SnapshotEffector {
                     again = true;
                     break;
                 }
-                if end > layout.stack_lower {
+                if end > layout.stack_lower && end < layout.stack_upper {
                     end = end.min(layout.stack_lower);
                 }
             }

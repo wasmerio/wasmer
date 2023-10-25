@@ -120,6 +120,7 @@ pub enum SnapshotLog<'a> {
         id: WasiThreadId,
         call_stack: Cow<'a, [u8]>,
         memory_stack: Cow<'a, [u8]>,
+        store_data: Cow<'a, [u8]>,
     },
     CloseFileDescriptor {
         fd: Fd,
@@ -172,11 +173,13 @@ impl fmt::Debug for SnapshotLog<'_> {
                 id,
                 call_stack,
                 memory_stack,
+                store_data,
             } => f
                 .debug_struct("SetThread")
                 .field("id", id)
                 .field("call_stack.len", &call_stack.len())
                 .field("memory_stack.len", &memory_stack.len())
+                .field("store_data.len", &store_data.len())
                 .finish(),
             Self::CloseFileDescriptor { fd } => f
                 .debug_struct("CloseFileDescriptor")

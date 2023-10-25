@@ -988,7 +988,7 @@ fn run_with_deep_sleep(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                rewind_result,
+                Some(rewind_result),
             )
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
@@ -996,7 +996,7 @@ fn run_with_deep_sleep(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                rewind_result,
+                Some(rewind_result),
             )
         };
 

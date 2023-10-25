@@ -167,7 +167,7 @@ fn call_module(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                rewind_result,
+                Some(rewind_result),
             );
             if res != Errno::Success {
                 ctx.data(&store).blocking_cleanup(Some(res.into()));
@@ -179,7 +179,7 @@ fn call_module(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                rewind_result,
+                Some(rewind_result),
             );
             if res != Errno::Success {
                 ctx.data(&store).blocking_cleanup(Some(res.into()));

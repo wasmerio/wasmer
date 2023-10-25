@@ -1120,7 +1120,13 @@ where
     T: serde::Serialize,
 {
     let rewind_result = bincode::serialize(&result).unwrap().into();
-    rewind_ext::<M>(ctx, memory_stack, rewind_stack, store_data, rewind_result)
+    rewind_ext::<M>(
+        ctx,
+        memory_stack,
+        rewind_stack,
+        store_data,
+        Some(rewind_result),
+    )
 }
 
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
@@ -1130,13 +1136,15 @@ pub fn rewind_ext<M: MemorySize>(
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
-    rewind_result: Bytes,
+    rewind_result: Option<Bytes>,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
-    ctx.data_mut().thread.set_rewind(RewindResult {
-        memory_stack,
-        rewind_result,
-    });
+    if let Some(rewind_result) = rewind_result {
+        ctx.data_mut().thread.set_rewind(RewindResult {
+            memory_stack,
+            rewind_result,
+        });
+    }
 
     // Deserialize the store data back into a snapshot
     let store_snapshot = match InstanceSnapshot::deserialize(&store_data[..]) {

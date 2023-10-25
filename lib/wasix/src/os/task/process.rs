@@ -162,6 +162,12 @@ impl WasiProcessInner {
         ctx: FunctionEnvMut<'_, WasiEnv>,
     ) -> WasiResult<MaybeCheckpointResult<'_>> {
         // Enter the lock which will determine if we are in a checkpoint or not
+
+        use bytes::Bytes;
+        use wasmer::AsStoreMut;
+        use wasmer_types::OnCalledAction;
+
+        use crate::{rewind_ext, WasiError};
         let guard = inner.0.lock().unwrap();
         if guard.checkpoint == WasiProcessCheckpoint::Execute {
             // No checkpoint so just carry on
@@ -172,10 +178,20 @@ impl WasiProcessInner {
 
         // Perform the unwind action
         unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
+            // Grab all the globals and serialize them
+            let store_data =
+                crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
+                    .serialize()
+                    .unwrap();
+            let memory_stack = memory_stack.freeze();
+            let rewind_stack = rewind_stack.freeze();
+            let store_data = Bytes::from(store_data);
+
             tracing::debug!(
-                "stack snapshot unwind (memory_stack={}, rewind_stack={})",
+                "stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})",
                 memory_stack.len(),
-                rewind_stack.len()
+                rewind_stack.len(),
+                store_data.len(),
             );
 
             // Write our thread state to the snapshot
@@ -183,8 +199,9 @@ impl WasiProcessInner {
             if let Err(err) = SnapshotEffector::save_thread_state(
                 &mut ctx,
                 tid,
-                memory_stack.freeze(),
-                rewind_stack.freeze(),
+                memory_stack.clone(),
+                rewind_stack.clone(),
+                store_data.clone(),
             ) {
                 return wasmer_types::OnCalledAction::Trap(err.into());
             }
@@ -215,15 +232,24 @@ impl WasiProcessInner {
                     } else {
                         guard = inner.1.wait(guard).unwrap();
                     }
-                } else {
-                    ctx.data().thread.set_check_pointing(false);
-                    trace!("checkpoint finished");
-                    break;
+                    continue;
                 }
-            }
 
-            // Resume execution
-            wasmer_types::OnCalledAction::InvokeAgain
+                ctx.data().thread.set_check_pointing(false);
+                trace!("checkpoint finished");
+
+                // Rewind the stack and carry on
+                return match rewind_ext::<M>(ctx, memory_stack, rewind_stack, store_data, None) {
+                    Errno::Success => OnCalledAction::InvokeAgain,
+                    err => {
+                        tracing::warn!(
+                            "snapshot resumption failed - could not rewind the stack - errno={}",
+                            err
+                        );
+                        OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
+                    }
+                };
+            }
         })?;
 
         Ok(Ok(MaybeCheckpointResult::Unwinding))

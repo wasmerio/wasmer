@@ -86,6 +86,7 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
                     id,
                     call_stack,
                     memory_stack,
+                    store_data,
                 } => {
                     if self.filter_threads {
                         return Ok(());
@@ -94,6 +95,7 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
                         id,
                         call_stack,
                         memory_stack,
+                        store_data,
                     }
                 }
                 SnapshotLog::CloseFileDescriptor { fd } => {

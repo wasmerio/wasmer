@@ -23,7 +23,7 @@ use super::*;
 /// worry about backward and forward compatibility
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SnapshotLogEntry {
-    Init {
+    InitV1 {
         wasm_hash: [u8; 32],
     },
     TerminalDataV1 {
@@ -42,6 +42,7 @@ pub enum SnapshotLogEntry {
         id: WasiThreadId,
         call_stack: Vec<u8>,
         memory_stack: Vec<u8>,
+        store_data: Vec<u8>,
     },
     CloseFileDescriptorV1 {
         fd: Fd,
@@ -71,7 +72,7 @@ pub enum SnapshotLogEntry {
 impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
     fn from(value: SnapshotLog<'a>) -> Self {
         match value {
-            SnapshotLog::Init { wasm_hash } => Self::Init { wasm_hash },
+            SnapshotLog::Init { wasm_hash } => Self::InitV1 { wasm_hash },
             SnapshotLog::TerminalData { data } => Self::TerminalDataV1 {
                 data: data.into_owned(),
             },
@@ -85,10 +86,12 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 id,
                 call_stack,
                 memory_stack,
+                store_data,
             } => Self::SetThreadV1 {
                 id,
                 call_stack: call_stack.into_owned(),
                 memory_stack: memory_stack.into_owned(),
+                store_data: store_data.into_owned(),
             },
             SnapshotLog::CloseFileDescriptor { fd } => Self::CloseFileDescriptorV1 { fd },
             SnapshotLog::OpenFileDescriptor { fd, state } => Self::OpenFileDescriptorV1 {
@@ -123,7 +126,7 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
 impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
     fn from(value: SnapshotLogEntry) -> Self {
         match value {
-            SnapshotLogEntry::Init { wasm_hash } => Self::Init { wasm_hash },
+            SnapshotLogEntry::InitV1 { wasm_hash } => Self::Init { wasm_hash },
             SnapshotLogEntry::TerminalDataV1 { data } => Self::TerminalData { data: data.into() },
             SnapshotLogEntry::UpdateMemoryRegionV1 { start, end, data } => {
                 Self::UpdateMemoryRegion {
@@ -138,10 +141,12 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 id,
                 call_stack,
                 memory_stack,
+                store_data,
             } => Self::SetThread {
                 id: id,
                 call_stack: call_stack.into(),
                 memory_stack: memory_stack.into(),
+                store_data: store_data.into(),
             },
             SnapshotLogEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
             SnapshotLogEntry::OpenFileDescriptorV1 { fd, state } => Self::OpenFileDescriptor {
@@ -231,6 +236,7 @@ impl LogFileSnapshotCapturer {
 #[async_trait::async_trait]
 impl SnapshotCapturer for LogFileSnapshotCapturer {
     fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
+        tracing::debug!("snapshot event: {:?}", entry);
         Box::pin(async {
             let entry: SnapshotLogEntry = entry.into();
 

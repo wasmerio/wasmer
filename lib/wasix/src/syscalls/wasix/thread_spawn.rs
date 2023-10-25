@@ -210,7 +210,7 @@ fn call_module<M: MemorySize>(
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            rewind_result,
+            Some(rewind_result),
         );
         if res != Errno::Success {
             return Err(res);
