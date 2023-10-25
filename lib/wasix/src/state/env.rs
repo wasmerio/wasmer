@@ -549,7 +549,7 @@ impl WasiEnv {
         // If this module exports an _initialize function, run that first.
         if call_initialize {
             if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
+                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store, None) {
                     func_env
                         .data(&store)
                         .blocking_cleanup(Some(Errno::Noexec.into()));

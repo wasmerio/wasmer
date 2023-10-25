@@ -23,6 +23,7 @@ use crate::{
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::task_manager::InlineWaker,
+    snapshot::DynSnapshotCapturer,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -75,6 +76,12 @@ pub struct WasiEnvBuilder {
 
     #[cfg(feature = "snapshot")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
+
+    #[cfg(feature = "snapshot")]
+    pub(super) snapshot_restore: Option<Arc<DynSnapshotCapturer>>,
+
+    #[cfg(feature = "snapshot")]
+    pub(super) snapshot_save: Option<Arc<DynSnapshotCapturer>>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -485,6 +492,21 @@ impl WasiEnvBuilder {
         Ok(self)
     }
 
+    /// Supplies a snapshot capturer which will be used to read the
+    /// snapshot journal events and replay them into the WasiEnv
+    /// rather than starting a new instance from scratch
+    pub fn with_snapshot_restore(mut self, snapshot_capturer: Arc<DynSnapshotCapturer>) -> Self {
+        self.snapshot_restore.replace(snapshot_capturer);
+        self
+    }
+
+    /// Supplies a snapshot capturer where the snapshot journal events
+    /// will be sent to as they are generated
+    pub fn with_snapshot_save(mut self, snapshot_capturer: Arc<DynSnapshotCapturer>) -> Self {
+        self.snapshot_save.replace(snapshot_capturer);
+        self
+    }
+
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
     /// original `stdout` use [`WasiFs::swap_file`] after building.
     pub fn stdout(mut self, new_file: Box<dyn VirtualFile + Send + Sync + 'static>) -> Self {
@@ -719,7 +741,11 @@ impl WasiEnvBuilder {
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
-                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default())))
+                let mut runtime = PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
+                if let Some(capturer) = self.snapshot_save.clone() {
+                    runtime.set_snapshot_capturer(capturer);
+                }
+                Arc::new(runtime)
             }
 
             #[cfg(not(feature = "sys-thread"))]
@@ -755,6 +781,9 @@ impl WasiEnvBuilder {
             memory_ty: None,
             process: None,
             thread: None,
+            #[cfg(feature = "snapshot")]
+            call_initialize: self.snapshot_restore.is_none(),
+            #[cfg(not(feature = "snapshot"))]
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
@@ -830,12 +859,14 @@ impl WasiEnvBuilder {
             );
         }
 
+        let snapshot_restore = self.snapshot_restore.clone();
+
         let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
 
-        let result = crate::run_wasi_func_start(start, store);
+        let result = crate::run_wasi_func_start(start, store, snapshot_restore);
         let (result, exit_code) = wasi_exit_code(result);
 
         let pid = env.data(&store).pid();
@@ -873,6 +904,13 @@ impl WasiEnvBuilder {
         };
         #[cfg(feature = "sys-thread")]
         let _guard = _guard.as_ref().map(|r| r.enter());
+
+        let snapshot_restore = self.snapshot_restore.clone();
+
+        // TODO - need to restore the memory and pass the rewind_state to the `run_with_deep_sleep` emthod
+        if snapshot_restore.is_some() {
+            panic!("Snapshot restoration is not currently supported.");
+        }
 
         let (_, env) = self.instantiate(module, &mut store)?;
 

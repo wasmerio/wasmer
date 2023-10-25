@@ -34,7 +34,7 @@ use wasmer_wasix::{
             VirtualTaskManagerExt,
         },
     },
-    snapshot::{self, SnapshotTrigger},
+    snapshot::{self, LogFileSnapshotCapturer, SnapshotTrigger},
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
     PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
@@ -263,6 +263,25 @@ impl Wasi {
             builder.add_snapshot_trigger(trigger);
         }
 
+        #[cfg(feature = "snapshot")]
+        match (self.snapshot_to.clone(), self.resume_from.clone()) {
+            (Some(save), Some(restore)) if save == restore => {
+                return Err(anyhow::format_err!(
+                    "The snapshot save path and snapshot restore path can not be the same"
+                ));
+            }
+            (_, _) => {
+                if let Some(path) = self.snapshot_to.clone() {
+                    builder = builder
+                        .with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+                if let Some(path) = self.resume_from.clone() {
+                    builder = builder
+                        .with_snapshot_restore(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+            }
+        }
+
         #[cfg(feature = "experimental-io-devices")]
         {
             if self.enable_experimental_io_devices {
@@ -304,7 +323,7 @@ impl Wasi {
         }
 
         #[cfg(feature = "snapshot")]
-        if let Some(path) = &self.resume_from {
+        if let Some(path) = &self.snapshot_to {
             rt.set_snapshot_capturer(Arc::new(snapshot::LogFileSnapshotCapturer::new_std(path)?));
         }
 

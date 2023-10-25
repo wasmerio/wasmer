@@ -5,9 +5,10 @@ use std::{
     path::Path,
     time::SystemTime,
 };
+use tokio::runtime::Handle;
 use wasmer_wasix_types::wasi::ExitCode;
 
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, LocalBoxFuture};
 use virtual_fs::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, Fd};
 
 use crate::WasiThreadId;
@@ -190,6 +191,7 @@ struct State {
 /// delimiter.
 pub struct LogFileSnapshotCapturer {
     state: tokio::sync::Mutex<State>,
+    handle: Handle,
 }
 
 impl LogFileSnapshotCapturer {
@@ -205,6 +207,7 @@ impl LogFileSnapshotCapturer {
         };
         Ok(Self {
             state: tokio::sync::Mutex::new(state),
+            handle: Handle::current(),
         })
     }
 
@@ -220,16 +223,18 @@ impl LogFileSnapshotCapturer {
         };
         Ok(Self {
             state: tokio::sync::Mutex::new(state),
+            handle: Handle::current(),
         })
     }
 }
 
 #[async_trait::async_trait]
 impl SnapshotCapturer for LogFileSnapshotCapturer {
-    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>> {
+    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
         Box::pin(async {
             let entry: SnapshotLogEntry = entry.into();
 
+            let _guard = Handle::try_current().map_err(|_| self.handle.enter());
             let mut state = self.state.lock().await;
             if state.at_end == false {
                 state.file.seek(SeekFrom::End(0)).await?;
@@ -239,9 +244,9 @@ impl SnapshotCapturer for LogFileSnapshotCapturer {
             let data = bincode::serialize(&entry)?;
             let data_len = data.len() as u64;
             let data_len = data_len.to_ne_bytes();
+
             state.file.write_all(&data_len).await?;
             state.file.write_all(&data).await?;
-
             Ok(())
         })
     }

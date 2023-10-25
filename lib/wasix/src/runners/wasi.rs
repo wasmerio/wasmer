@@ -10,7 +10,7 @@ use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    snapshot::SnapshotTrigger,
+    snapshot::{DynSnapshotCapturer, SnapshotTrigger},
     Runtime, WasiEnvBuilder,
 };
 
@@ -152,6 +152,16 @@ impl WasiRunner {
         self
     }
 
+    pub fn with_snapshot_restore(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
+        self.wasi.snapshot_restore.replace(capturer);
+        self
+    }
+
+    pub fn with_snapshot_save(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
+        self.wasi.snapshot_save.replace(capturer);
+        self
+    }
+
     pub fn with_stdin(mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> Self {
         self.set_stdin(stdin);
         self
@@ -245,6 +255,16 @@ impl crate::runners::Runner for WasiRunner {
         #[cfg(feature = "snapshot")]
         for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
             env.add_snapshot_trigger(snapshot_trigger);
+        }
+
+        #[cfg(feature = "snapshot")]
+        if let Some(capturer) = self.wasi.snapshot_save.clone() {
+            env = env.with_snapshot_save(capturer);
+        }
+
+        #[cfg(feature = "snapshot")]
+        if let Some(capturer) = self.wasi.snapshot_restore.clone() {
+            env = env.with_snapshot_restore(capturer);
         }
 
         if self

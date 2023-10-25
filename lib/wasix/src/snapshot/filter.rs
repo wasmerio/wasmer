@@ -1,4 +1,4 @@
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, LocalBoxFuture};
 
 use super::*;
 
@@ -60,7 +60,7 @@ impl FilteredSnapshotCapturer {
 }
 
 impl SnapshotCapturer for FilteredSnapshotCapturer {
-    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>> {
+    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
         Box::pin(async {
             let evt = match entry {
                 SnapshotLog::Init { wasm_hash } => SnapshotLog::Init { wasm_hash },

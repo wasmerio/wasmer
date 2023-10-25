@@ -5,16 +5,21 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
-    bin_factory::BinaryPackage, capabilities::Capabilities, runners::MappedDirectory,
-    snapshot::SnapshotTrigger, WasiEnvBuilder,
+    bin_factory::BinaryPackage,
+    capabilities::Capabilities,
+    runners::MappedDirectory,
+    snapshot::{DynSnapshotCapturer, SnapshotTrigger},
+    WasiEnvBuilder,
 };
 
-#[derive(Debug, Default, Clone)]
+#[derive(Derivative, Default, Clone)]
+#[derivative(Debug)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
@@ -22,6 +27,10 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
+    #[derivative(Debug = "ignore")]
+    pub(crate) snapshot_save: Option<Arc<DynSnapshotCapturer>>,
+    #[derivative(Debug = "ignore")]
+    pub(crate) snapshot_restore: Option<Arc<DynSnapshotCapturer>>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
 }
 

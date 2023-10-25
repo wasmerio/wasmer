@@ -246,6 +246,24 @@ impl Config {
     pub fn add_snapshot_trigger(&mut self, on: crate::snapshot::SnapshotTrigger) {
         self.wasi.snapshot_on.push(on);
     }
+
+    #[cfg(feature = "snapshot")]
+    pub fn with_snapshot_restore(
+        &mut self,
+        capturer: Arc<crate::snapshot::DynSnapshotCapturer>,
+    ) -> &mut Self {
+        self.wasi.snapshot_restore.replace(capturer);
+        self
+    }
+
+    #[cfg(feature = "snapshot")]
+    pub fn with_snapshot_save(
+        &mut self,
+        capturer: Arc<crate::snapshot::DynSnapshotCapturer>,
+    ) -> &mut Self {
+        self.wasi.snapshot_save.replace(capturer);
+        self
+    }
 }
 
 impl Default for Config {

@@ -58,9 +58,12 @@ mod utils;
 /// WAI based bindings.
 mod bindings;
 
+use std::sync::Arc;
+
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
+use snapshot::DynSnapshotCapturer;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -231,8 +234,16 @@ impl WasiRuntimeError {
 pub(crate) fn run_wasi_func(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
+    restorer: Option<Arc<DynSnapshotCapturer>>,
     params: &[wasmer::Value],
 ) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
+    // TODO - do the snapshot restoration here
+    if restorer.is_some() {
+        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+            anyhow::format_err!("snapshot restoration is not currently supported").into(),
+        )));
+    }
+
     func.call(store, params).map_err(|err| {
         if let Some(_werr) = err.downcast_ref::<WasiError>() {
             let werr = err.downcast::<WasiError>().unwrap();
@@ -253,8 +264,9 @@ pub(crate) fn run_wasi_func(
 pub(crate) fn run_wasi_func_start(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
+    restorer: Option<Arc<DynSnapshotCapturer>>,
 ) -> Result<(), WasiRuntimeError> {
-    run_wasi_func(func, store, &[])?;
+    run_wasi_func(func, store, restorer, &[])?;
     Ok(())
 }
 

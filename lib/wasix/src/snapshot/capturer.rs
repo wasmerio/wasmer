@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
 use wasmer_wasix_types::wasi::ExitCode;
 
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, LocalBoxFuture};
 use virtual_fs::Fd;
 
 use crate::WasiThreadId;
@@ -225,7 +225,7 @@ impl fmt::Debug for SnapshotLog<'_> {
 pub trait SnapshotCapturer {
     /// Takes in a stream of snapshot log entries and saves them so that they
     /// may be restored at a later moment
-    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> BoxFuture<'a, anyhow::Result<()>>;
+    fn write<'a>(&'a self, entry: SnapshotLog<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>>;
 
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time

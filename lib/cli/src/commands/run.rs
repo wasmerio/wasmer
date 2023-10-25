@@ -37,7 +37,7 @@ use wasmer_wasix::{
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
     },
-    snapshot::SnapshotTrigger,
+    snapshot::{LogFileSnapshotCapturer, SnapshotTrigger},
     WasiError,
 };
 use wasmer_wasix::{
@@ -229,6 +229,24 @@ impl Run {
         for trigger in self.wasi.snapshot_on.iter().cloned() {
             runner.add_snapshot_trigger(trigger);
         }
+
+        #[cfg(feature = "snapshot")]
+        match (self.wasi.snapshot_to.clone(), self.wasi.resume_from.clone()) {
+            (Some(save), Some(restore)) if save == restore => {
+                return Err(anyhow::format_err!(
+                    "The snapshot save path and snapshot restore path can not be the same"
+                ));
+            }
+            (_, _) => {
+                if let Some(path) = self.wasi.snapshot_to.clone() {
+                    runner.with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+                if let Some(path) = self.wasi.resume_from.clone() {
+                    runner.with_snapshot_restore(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+            }
+        }
+
         *runner.capabilities() = self.wasi.capabilities();
 
         runner.run_command(command_name, pkg, runtime)
@@ -259,6 +277,27 @@ impl Run {
         #[cfg(feature = "snapshot")]
         for trigger in self.wasi.snapshot_on.iter().cloned() {
             runner.config().add_snapshot_trigger(trigger);
+        }
+
+        #[cfg(feature = "snapshot")]
+        match (self.wasi.snapshot_to.clone(), self.wasi.resume_from.clone()) {
+            (Some(save), Some(restore)) if save == restore => {
+                return Err(anyhow::format_err!(
+                    "The snapshot save path and snapshot restore path can not be the same"
+                ));
+            }
+            (_, _) => {
+                if let Some(path) = self.wasi.snapshot_to.clone() {
+                    runner
+                        .config()
+                        .with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+                if let Some(path) = self.wasi.resume_from.clone() {
+                    runner
+                        .config()
+                        .with_snapshot_restore(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+            }
         }
 
         runner.run_command(command_name, pkg, runtime)
