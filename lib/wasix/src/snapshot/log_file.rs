@@ -8,7 +8,7 @@ use std::{
 use tokio::runtime::Handle;
 use wasmer_wasix_types::wasi::ExitCode;
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 use virtual_fs::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt, Fd};
 
 use crate::WasiThreadId;
@@ -43,6 +43,7 @@ pub enum SnapshotLogEntry {
         call_stack: Vec<u8>,
         memory_stack: Vec<u8>,
         store_data: Vec<u8>,
+        is_64bit: bool,
     },
     CloseFileDescriptorV1 {
         fd: Fd,
@@ -87,11 +88,13 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 call_stack,
                 memory_stack,
                 store_data,
+                is_64bit,
             } => Self::SetThreadV1 {
                 id,
                 call_stack: call_stack.into_owned(),
                 memory_stack: memory_stack.into_owned(),
                 store_data: store_data.into_owned(),
+                is_64bit,
             },
             SnapshotLog::CloseFileDescriptor { fd } => Self::CloseFileDescriptorV1 { fd },
             SnapshotLog::OpenFileDescriptor { fd, state } => Self::OpenFileDescriptorV1 {
@@ -142,11 +145,13 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 call_stack,
                 memory_stack,
                 store_data,
+                is_64bit,
             } => Self::SetThread {
                 id: id,
                 call_stack: call_stack.into(),
                 memory_stack: memory_stack.into(),
                 store_data: store_data.into(),
+                is_64bit,
             },
             SnapshotLogEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
             SnapshotLogEntry::OpenFileDescriptorV1 { fd, state } => Self::OpenFileDescriptor {
@@ -259,7 +264,7 @@ impl SnapshotCapturer for LogFileSnapshotCapturer {
 
     /// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
-    fn read<'a>(&'a self) -> BoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
+    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
         Box::pin(async {
             let mut state = self.state.lock().await;
 

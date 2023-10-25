@@ -11,6 +11,7 @@ use crate::{
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     snapshot::{DynSnapshotCapturer, SnapshotTrigger},
+    state::SnapshotRestore,
     Runtime, WasiEnvBuilder,
 };
 
@@ -152,8 +153,15 @@ impl WasiRunner {
         self
     }
 
-    pub fn with_snapshot_restore(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
-        self.wasi.snapshot_restore.replace(capturer);
+    pub fn with_snapshot_restore(
+        &mut self,
+        restorer: Arc<DynSnapshotCapturer>,
+        n_snapshots: Option<usize>,
+    ) -> &mut Self {
+        self.wasi.snapshot_restore.replace(SnapshotRestore {
+            restorer,
+            n_snapshots,
+        });
         self
     }
 
@@ -263,8 +271,8 @@ impl crate::runners::Runner for WasiRunner {
         }
 
         #[cfg(feature = "snapshot")]
-        if let Some(capturer) = self.wasi.snapshot_restore.clone() {
-            env = env.with_snapshot_restore(capturer);
+        if let Some(restore) = self.wasi.snapshot_restore.clone() {
+            env = env.with_snapshot_restore(restore.restorer, restore.n_snapshots);
         }
 
         if self

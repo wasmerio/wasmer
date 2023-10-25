@@ -90,7 +90,10 @@ pub(crate) use self::types::{
     },
     *,
 };
-use self::{state::WasiInstanceGuardMemory, utils::WasiDummyWaker};
+use self::{
+    state::{SnapshotRestore, WasiInstanceGuardMemory},
+    utils::WasiDummyWaker,
+};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -119,8 +122,10 @@ use crate::{
     },
     os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
+    snapshot::DynSnapshotCapturer,
     utils::store::InstanceSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes, WasiResult,
+    WasiRuntimeError,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1280,6 +1285,133 @@ pub fn maybe_snapshot<M: MemorySize>(
         }
     }
     Ok(Ok(ctx))
+}
+
+pub fn restore_snapshot(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    restore: SnapshotRestore,
+) -> Result<RewindState, WasiRuntimeError> {
+    let restorer = restore.restorer;
+    let mut n_snapshots = restore.n_snapshots;
+
+    InlineWaker::block_on(async {
+        let mut rewind = None;
+        while let Some(next) = restorer
+            .read()
+            .await
+            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?
+        {
+            tracing::trace!("Restoring snapshot event - {next:?}");
+            match next {
+                crate::snapshot::SnapshotLog::Init { .. } => {
+                    // TODO: Here we need to check the hash matches the binary
+                }
+                crate::snapshot::SnapshotLog::TerminalData { data } => {
+                    if let Some(mut stdout) = ctx
+                        .data()
+                        .stdout()
+                        .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?
+                    {
+                        stdout.write_all(data.as_ref()).await.map_err(|err| {
+                            WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
+                        })?;
+                    }
+                }
+                crate::snapshot::SnapshotLog::UpdateMemoryRegion { region, data } => {
+                    let (env, mut store) = ctx.data_and_store_mut();
+                    let memory = unsafe { env.memory_view(&mut store) };
+                    memory
+                        .write(region.start, data.as_ref())
+                        .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?
+                }
+                crate::snapshot::SnapshotLog::CloseThread { id, exit_code } => {
+                    if id == ctx.data().tid() {
+                        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                            anyhow::format_err!(
+                                "Snapshot restoration has already closed the main thread."
+                            )
+                            .into(),
+                        )));
+                    }
+                }
+                crate::snapshot::SnapshotLog::SetThread {
+                    id,
+                    call_stack,
+                    memory_stack,
+                    store_data,
+                    is_64bit,
+                } => {
+                    if id == ctx.data().tid() {
+                        rewind.replace(RewindState {
+                            memory_stack: memory_stack.to_vec().into(),
+                            rewind_stack: call_stack.to_vec().into(),
+                            store_data: store_data.to_vec().into(),
+                            is_64bit: is_64bit,
+                        });
+                    } else {
+                        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                            anyhow::format_err!(
+                                "Snapshot restoration does not currently support multiple threads."
+                            )
+                            .into(),
+                        )));
+                    }
+                }
+                crate::snapshot::SnapshotLog::CloseFileDescriptor { fd: _ } => {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration does not currently support file descriptors."
+                        )
+                        .into(),
+                    )));
+                }
+                crate::snapshot::SnapshotLog::OpenFileDescriptor { fd: _, state: _ } => {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration does not currently support file descriptors."
+                        )
+                        .into(),
+                    )));
+                }
+                crate::snapshot::SnapshotLog::RemoveFileSystemEntry { path: _ } => {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration does not currently support local file changes."
+                        )
+                        .into(),
+                    )));
+                }
+                crate::snapshot::SnapshotLog::UpdateFileSystemEntry {
+                    path: _,
+                    ft: _,
+                    accessed: _,
+                    created: _,
+                    modified: _,
+                    len: _,
+                    data: _,
+                } => {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration does not currently support local file changes."
+                        )
+                        .into(),
+                    )));
+                }
+                crate::snapshot::SnapshotLog::Snapshot {
+                    when: _,
+                    trigger: _,
+                } => {
+                    if let Some(n_snapshots) = &mut n_snapshots {
+                        if *n_snapshots <= 1 {
+                            break;
+                        }
+                        *n_snapshots -= 1;
+                    }
+                }
+            }
+        }
+        rewind.ok_or(WasiRuntimeError::Runtime(RuntimeError::user(anyhow::format_err!("The restored snapshot journal does not have a thread stack events and hence we can not restore the state of the process.").into())))
+    })
 }
 
 pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(

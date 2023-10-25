@@ -1,4 +1,4 @@
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 
 use super::*;
 
@@ -16,7 +16,7 @@ impl SnapshotCapturer for UnsupportedSnapshotCapturer {
         Box::pin(async { Err(anyhow::format_err!("unsupported")) })
     }
 
-    fn read<'a>(&'a self) -> BoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
+    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
         Box::pin(async { Ok(None) })
     }
 }

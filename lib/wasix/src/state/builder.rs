@@ -25,7 +25,10 @@ use crate::{
     runtime::task_manager::InlineWaker,
     snapshot::DynSnapshotCapturer,
     state::WasiState,
-    syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    syscalls::{
+        restore_snapshot,
+        types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    },
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 
@@ -78,10 +81,18 @@ pub struct WasiEnvBuilder {
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
 
     #[cfg(feature = "snapshot")]
-    pub(super) snapshot_restore: Option<Arc<DynSnapshotCapturer>>,
+    pub(super) snapshot_restore: Option<SnapshotRestore>,
 
     #[cfg(feature = "snapshot")]
     pub(super) snapshot_save: Option<Arc<DynSnapshotCapturer>>,
+}
+
+#[derive(Clone)]
+pub struct SnapshotRestore {
+    /// Snapshot capturer that will be used to restore state
+    pub restorer: Arc<DynSnapshotCapturer>,
+    /// Maximum number of snapshots taken before execution resumes
+    pub n_snapshots: Option<usize>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -495,8 +506,15 @@ impl WasiEnvBuilder {
     /// Supplies a snapshot capturer which will be used to read the
     /// snapshot journal events and replay them into the WasiEnv
     /// rather than starting a new instance from scratch
-    pub fn with_snapshot_restore(mut self, snapshot_capturer: Arc<DynSnapshotCapturer>) -> Self {
-        self.snapshot_restore.replace(snapshot_capturer);
+    pub fn with_snapshot_restore(
+        mut self,
+        restorer: Arc<DynSnapshotCapturer>,
+        n_snapshots: Option<usize>,
+    ) -> Self {
+        self.snapshot_restore.replace(SnapshotRestore {
+            restorer,
+            n_snapshots,
+        });
         self
     }
 
@@ -859,14 +877,14 @@ impl WasiEnvBuilder {
             );
         }
 
-        let snapshot_restore = self.snapshot_restore.clone();
+        let restore = self.snapshot_restore.clone();
 
         let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
 
-        let result = crate::run_wasi_func_start(start, store, snapshot_restore);
+        let result = crate::run_wasi_func_start(start, store, restore);
         let (result, exit_code) = wasi_exit_code(result);
 
         let pid = env.data(&store).pid();
@@ -907,14 +925,16 @@ impl WasiEnvBuilder {
 
         let snapshot_restore = self.snapshot_restore.clone();
 
-        // TODO - need to restore the memory and pass the rewind_state to the `run_with_deep_sleep` emthod
-        if snapshot_restore.is_some() {
-            panic!("Snapshot restoration is not currently supported.");
-        }
-
         let (_, env) = self.instantiate(module, &mut store)?;
 
         env.data(&store).thread.set_status_running();
+
+        let mut rewind_state = None;
+        if let Some(restore) = snapshot_restore {
+            let ctx = env.env.clone().into_mut(&mut store);
+            let rewind = restore_snapshot(ctx, restore)?;
+            rewind_state = Some((rewind, None));
+        }
 
         let tasks = env.data(&store).tasks().clone();
         let pid = env.data(&store).pid();
@@ -926,7 +946,7 @@ impl WasiEnvBuilder {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
         tasks.task_dedicated(Box::new(move || {
-            run_with_deep_sleep(store, None, env, tx);
+            run_with_deep_sleep(store, rewind_state, env, tx);
         }))?;
 
         let result = InlineWaker::block_on(rx.recv());
@@ -976,7 +996,7 @@ fn wasi_exit_code(
 
 fn run_with_deep_sleep(
     mut store: Store,
-    rewind_state: Option<(RewindState, Bytes)>,
+    rewind_state: Option<(RewindState, Option<Bytes>)>,
     env: WasiFunctionEnv,
     sender: tokio::sync::mpsc::UnboundedSender<Result<(), WasiRuntimeError>>,
 ) {
@@ -988,7 +1008,7 @@ fn run_with_deep_sleep(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                Some(rewind_result),
+                rewind_result,
             )
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
@@ -996,7 +1016,7 @@ fn run_with_deep_sleep(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                Some(rewind_result),
+                rewind_result,
             )
         };
 
@@ -1048,8 +1068,9 @@ fn handle_result(
 
             let tasks = env.data(&store).tasks().clone();
             let rewind = work.rewind;
-            let respawn =
-                move |ctx, store, res| run_with_deep_sleep(store, Some((rewind, res)), ctx, sender);
+            let respawn = move |ctx, store, res| {
+                run_with_deep_sleep(store, Some((rewind, Some(res))), ctx, sender)
+            };
 
             // Spawns the WASM process after a trigger
             unsafe {

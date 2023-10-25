@@ -5,7 +5,7 @@ use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
 use wasmer_wasix_types::wasi::ExitCode;
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 use virtual_fs::Fd;
 
 use crate::WasiThreadId;
@@ -121,6 +121,7 @@ pub enum SnapshotLog<'a> {
         call_stack: Cow<'a, [u8]>,
         memory_stack: Cow<'a, [u8]>,
         store_data: Cow<'a, [u8]>,
+        is_64bit: bool,
     },
     CloseFileDescriptor {
         fd: Fd,
@@ -174,12 +175,14 @@ impl fmt::Debug for SnapshotLog<'_> {
                 call_stack,
                 memory_stack,
                 store_data,
+                is_64bit,
             } => f
                 .debug_struct("SetThread")
                 .field("id", id)
                 .field("call_stack.len", &call_stack.len())
                 .field("memory_stack.len", &memory_stack.len())
                 .field("store_data.len", &store_data.len())
+                .field("is_64bit", is_64bit)
                 .finish(),
             Self::CloseFileDescriptor { fd } => f
                 .debug_struct("CloseFileDescriptor")
@@ -232,7 +235,7 @@ pub trait SnapshotCapturer {
 
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
-    fn read<'a>(&'a self) -> BoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>>;
+    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>>;
 }
 
 pub type DynSnapshotCapturer = dyn SnapshotCapturer + Send + Sync;

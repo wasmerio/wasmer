@@ -136,6 +136,12 @@ pub struct Wasi {
     #[clap(long = "resume-from")]
     pub resume_from: Option<PathBuf>,
 
+    /// When specified this limits the number of restoration points
+    /// that the resume will take before it resumes execution.
+    #[cfg(feature = "snapshot")]
+    #[clap(long = "resume-snapshot-limit")]
+    pub resume_num_snapshots: Option<usize>,
+
     /// Allow instances to send http requests.
     ///
     /// Access to domains is granted by default.
@@ -276,8 +282,11 @@ impl Wasi {
                         .with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
                 }
                 if let Some(path) = self.resume_from.clone() {
-                    builder = builder
-                        .with_snapshot_restore(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                    let n_snapshots = self.resume_num_snapshots;
+                    builder = builder.with_snapshot_restore(
+                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
+                        n_snapshots,
+                    );
                 }
             }
         }

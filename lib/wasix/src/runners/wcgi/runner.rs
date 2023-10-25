@@ -251,8 +251,14 @@ impl Config {
     pub fn with_snapshot_restore(
         &mut self,
         capturer: Arc<crate::snapshot::DynSnapshotCapturer>,
+        n_snapshots: Option<usize>,
     ) -> &mut Self {
-        self.wasi.snapshot_restore.replace(capturer);
+        use crate::state::SnapshotRestore;
+
+        self.wasi.snapshot_restore.replace(SnapshotRestore {
+            restorer: capturer,
+            n_snapshots,
+        });
         self
     }
 

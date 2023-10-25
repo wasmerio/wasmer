@@ -4,7 +4,7 @@ use std::{
     sync::Mutex,
 };
 
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 use sha2::{Digest, Sha256};
 use virtual_fs::Fd;
 
@@ -133,7 +133,7 @@ impl SnapshotCapturer for CompactingSnapshotCapturer {
         })
     }
 
-    fn read<'a>(&'a self) -> BoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
+    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
         Box::pin(async {
             Ok(match self.inner.read().await? {
                 Some(SnapshotLog::UpdateMemoryRegion { region, data }) => {

@@ -1,4 +1,4 @@
-use futures::future::{BoxFuture, LocalBoxFuture};
+use futures::future::LocalBoxFuture;
 
 use super::*;
 
@@ -87,6 +87,7 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
                     call_stack,
                     memory_stack,
                     store_data,
+                    is_64bit,
                 } => {
                     if self.filter_threads {
                         return Ok(());
@@ -96,6 +97,7 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
                         call_stack,
                         memory_stack,
                         store_data,
+                        is_64bit,
                     }
                 }
                 SnapshotLog::CloseFileDescriptor { fd } => {
@@ -149,7 +151,7 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
         })
     }
 
-    fn read<'a>(&'a self) -> BoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
+    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<SnapshotLog<'a>>>> {
         Box::pin(async { self.inner.read().await })
     }
 }

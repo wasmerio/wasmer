@@ -15,7 +15,7 @@ use crate::{
     capabilities::Capabilities,
     runners::MappedDirectory,
     snapshot::{DynSnapshotCapturer, SnapshotTrigger},
-    WasiEnvBuilder,
+    WasiEnvBuilder, state::SnapshotRestore,
 };
 
 #[derive(Derivative, Default, Clone)]
@@ -30,7 +30,7 @@ pub(crate) struct CommonWasiOptions {
     #[derivative(Debug = "ignore")]
     pub(crate) snapshot_save: Option<Arc<DynSnapshotCapturer>>,
     #[derivative(Debug = "ignore")]
-    pub(crate) snapshot_restore: Option<Arc<DynSnapshotCapturer>>,
+    pub(crate) snapshot_restore: Option<SnapshotRestore>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
 }
 

@@ -196,7 +196,7 @@ impl WasiProcessInner {
 
             // Write our thread state to the snapshot
             let tid = ctx.data().thread.tid();
-            if let Err(err) = SnapshotEffector::save_thread_state(
+            if let Err(err) = SnapshotEffector::save_thread_state::<M>(
                 &mut ctx,
                 tid,
                 memory_stack.clone(),

@@ -242,7 +242,11 @@ impl Run {
                     runner.with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
                 }
                 if let Some(path) = self.wasi.resume_from.clone() {
-                    runner.with_snapshot_restore(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                    let n_snapshots = self.wasi.resume_num_snapshots;
+                    runner.with_snapshot_restore(
+                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
+                        n_snapshots,
+                    );
                 }
             }
         }
@@ -293,9 +297,11 @@ impl Run {
                         .with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
                 }
                 if let Some(path) = self.wasi.resume_from.clone() {
-                    runner
-                        .config()
-                        .with_snapshot_restore(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                    let n_snapshots = self.wasi.resume_num_snapshots;
+                    runner.config().with_snapshot_restore(
+                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
+                        n_snapshots,
+                    );
                 }
             }
         }
