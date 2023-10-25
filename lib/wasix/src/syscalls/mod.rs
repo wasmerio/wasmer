@@ -1139,12 +1139,10 @@ pub fn rewind_ext<M: MemorySize>(
     rewind_result: Option<Bytes>,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
-    if let Some(rewind_result) = rewind_result {
-        ctx.data_mut().thread.set_rewind(RewindResult {
-            memory_stack,
-            rewind_result,
-        });
-    }
+    ctx.data_mut().thread.set_rewind(RewindResult {
+        memory_stack,
+        rewind_result,
+    });
 
     // Deserialize the store data back into a snapshot
     let store_snapshot = match InstanceSnapshot::deserialize(&store_data[..]) {
@@ -1233,6 +1231,8 @@ pub fn maybe_snapshot_once<M: MemorySize>(
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
+    unsafe { handle_rewind_ext::<M, ()>(&mut ctx, HandleRewindType::Resultless) };
+
     if ctx.data().enable_snapshot_capture == false {
         return Ok(Ok(ctx));
     }
@@ -1288,12 +1288,32 @@ pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(
 where
     T: serde::de::DeserializeOwned,
 {
+    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven)
+}
+
+pub(crate) enum HandleRewindType {
+    /// Handle rewind types that have a result to be processed
+    ResultDriven,
+    /// Handle rewind types that are resultless (generally these
+    /// are caused by snapshot events)
+    Resultless,
+}
+
+pub(crate) unsafe fn handle_rewind_ext<M: MemorySize, T>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    _type: HandleRewindType,
+) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    if !ctx.data().thread.has_rewind_of_type(_type) {
+        return None;
+    };
+
     // If the stack has been restored
     if let Some(result) = ctx.data_mut().thread.take_rewind() {
         // Deserialize the result
         let memory_stack = result.memory_stack;
-        let ret = bincode::deserialize(&result.rewind_result)
-            .expect("failed to deserialize the rewind result");
 
         // Notify asyncify that we are no longer rewinding
         let env = ctx.data();
@@ -1307,7 +1327,14 @@ where
         // Restore the memory stack
         let (env, mut store) = ctx.data_and_store_mut();
         set_memory_stack::<M>(env, &mut store, memory_stack);
-        Some(ret)
+
+        if let Some(rewind_result) = result.rewind_result {
+            let ret = bincode::deserialize(&rewind_result)
+                .expect("failed to deserialize the rewind result");
+            Some(ret)
+        } else {
+            None
+        }
     } else {
         None
     }

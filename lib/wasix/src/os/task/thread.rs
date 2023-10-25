@@ -17,6 +17,7 @@ use wasmer_wasix_types::{
 
 use crate::{
     os::task::process::{WasiProcessId, WasiProcessInner},
+    syscalls::HandleRewindType,
     WasiRuntimeError,
 };
 
@@ -115,6 +116,19 @@ impl WasiThread {
         self.rewind.take()
     }
 
+    pub(crate) fn has_rewind_of_type(&self, _type: HandleRewindType) -> bool {
+        match _type {
+            HandleRewindType::ResultDriven => match &self.rewind {
+                Some(rewind) => rewind.rewind_result.is_some(),
+                None => false,
+            },
+            HandleRewindType::Resultless => match &self.rewind {
+                Some(rewind) => rewind.rewind_result.is_none(),
+                None => false,
+            },
+        }
+    }
+
     /// Sets a flag that tells others that this thread is currently
     /// check pointing itself
     #[cfg(feature = "snapshot")]
@@ -188,7 +202,7 @@ pub(crate) struct RewindResult {
     pub memory_stack: Bytes,
     /// Generic serialized object passed back to the rewind resumption code
     /// (uses the bincode serializer)
-    pub rewind_result: Bytes,
+    pub rewind_result: Option<Bytes>,
 }
 
 #[derive(Debug)]
