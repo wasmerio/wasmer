@@ -774,6 +774,73 @@
 <a href="#774" id="774">774</a>
 <a href="#775" id="775">775</a>
 <a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -1015,7 +1082,15 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
             <span class="kw">for </span>path <span class="kw">in </span>bindings.referenced_files(manifest_dir)<span class="question-mark">? </span>{
-                append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, <span class="kw-2">&amp;</span>path).map_err(
+                <span class="kw">let </span>relative_path = path.strip_prefix(manifest_dir).with_context(|| {
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;\&quot;{}\&quot; should be inside \&quot;{}\&quot;&quot;</span>,
+                        path.display(),
+                        manifest_dir.display(),
+                    )
+                })<span class="question-mark">?</span>;
+
+                append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, relative_path).map_err(
                     |(normalized_path, <span class="kw">_</span>)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -1543,6 +1618,65 @@ runner = &quot;https://webc.org/runner/wcgi&quot;
         <span class="kw">let </span>expected: std::collections::HashMap&lt;String, String&gt; = [
             (<span class="string">&quot;wapm.toml&quot;</span>.to_string(), manifest_str.to_string()),
             (<span class="string">&quot;module.wasm&quot;</span>.to_string(), <span class="string">&quot;()&quot;</span>.to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        <span class="macro">pretty_assertions::assert_eq!</span>(map, expected);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_construct_wai_package_tar_gz() {
+        <span class="kw">let </span>manifest_str = <span class="string">r#&quot;[package]
+name = &quot;wasmer/crumsort-wasm&quot;
+version = &quot;0.2.4&quot;
+description = &quot;Crumsort from Google made for WASM&quot;
+
+[[module]]
+name = &quot;crumsort-wasm&quot;
+source = &quot;crumsort_wasm.wasm&quot;
+
+[module.bindings]
+wai-version = &quot;0.2.0&quot;
+exports = &quot;crum-sort.wai&quot;
+&quot;#</span>;
+
+        <span class="kw">let </span>archive_dir = tempfile::tempdir().unwrap();
+
+        <span class="kw">let </span>manifest_dir = tempfile::tempdir().unwrap();
+
+        <span class="kw">let </span>mp = manifest_dir.path();
+        <span class="kw">let </span>manifest_path = mp.join(<span class="string">&quot;wasmer.toml&quot;</span>);
+
+        std::fs::write(<span class="kw-2">&amp;</span>manifest_path, manifest_str).unwrap();
+        std::fs::write(mp.join(<span class="string">&quot;crumsort_wasm.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
+        std::fs::write(mp.join(<span class="string">&quot;crum-sort.wai&quot;</span>), <span class="string">&quot;/// crum-sort.wai&quot;</span>).unwrap();
+
+        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest_str).unwrap();
+        <span class="kw">let </span>meta = construct_tar_gz(<span class="kw-2">&amp;</span>archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(<span class="kw-2">&amp;</span>meta.archive_path).unwrap());
+
+        <span class="kw">let </span>gz = flate2::read::GzDecoder::new(<span class="kw-2">&amp;mut </span>data);
+        <span class="kw">let </span><span class="kw-2">mut </span>archive = tar::Archive::new(gz);
+
+        <span class="kw">let </span>map = archive
+            .entries()
+            .unwrap()
+            .map(|res| {
+                <span class="kw">let </span><span class="kw-2">mut </span>entry = res.unwrap();
+                <span class="kw">let </span>name = entry.path().unwrap().to_str().unwrap().to_string();
+                <span class="kw">let </span><span class="kw-2">mut </span>contents = String::new();
+                entry.read_to_string(<span class="kw-2">&amp;mut </span>contents).unwrap();
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{name}:\n{contents}\n\n&quot;</span>);
+                (name, contents)
+            })
+            .collect::&lt;std::collections::HashMap&lt;String, String&gt;&gt;();
+
+        <span class="kw">let </span>expected: std::collections::HashMap&lt;String, String&gt; = [
+            (<span class="string">&quot;wapm.toml&quot;</span>.to_string(), manifest_str.to_string()),
+            (<span class="string">&quot;crum-sort.wai&quot;</span>.to_string(), <span class="string">&quot;/// crum-sort.wai&quot;</span>.to_string()),
+            (<span class="string">&quot;crumsort_wasm.wasm&quot;</span>.to_string(), <span class="string">&quot;()&quot;</span>.to_string()),
         ]
         .into_iter()
         .collect();
