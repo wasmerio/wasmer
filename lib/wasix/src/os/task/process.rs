@@ -238,6 +238,8 @@ impl WasiProcessInner {
                 ctx.data().thread.set_check_pointing(false);
                 trace!("checkpoint finished");
 
+                return OnCalledAction::InvokeAgain;
+                /*
                 // Rewind the stack and carry on
                 return match rewind_ext::<M>(ctx, memory_stack, rewind_stack, store_data, None) {
                     Errno::Success => OnCalledAction::InvokeAgain,
@@ -249,6 +251,7 @@ impl WasiProcessInner {
                         OnCalledAction::Trap(Box::new(WasiError::Exit(err.into())))
                     }
                 };
+                */
             }
         })?;
 
