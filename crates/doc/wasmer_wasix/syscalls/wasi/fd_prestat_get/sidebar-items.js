@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_prestat_get"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_prestat_get"],"static":["META","__CALLSITE"]};

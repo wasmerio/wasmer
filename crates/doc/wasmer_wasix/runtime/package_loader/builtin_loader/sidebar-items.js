@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["discover_wasmer_dir","headers"],"static":["CALLSITE","META"],"struct":["BuiltinPackageLoader","FileSystemCache","InMemoryCache"]};
+window.SIDEBAR_ITEMS = {"fn":["discover_wasmer_dir","headers"],"static":["META","__CALLSITE"],"struct":["BuiltinPackageLoader","FileSystemCache","InMemoryCache"]};

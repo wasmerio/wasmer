@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["proc_fork","run"],"static":["CALLSITE","META"],"struct":["ForkResult"]};
+window.SIDEBAR_ITEMS = {"fn":["proc_fork","run"],"static":["META","__CALLSITE"],"struct":["ForkResult"]};

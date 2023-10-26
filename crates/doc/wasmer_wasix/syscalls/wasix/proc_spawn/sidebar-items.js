@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["proc_spawn","proc_spawn_internal"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["proc_spawn","proc_spawn_internal"],"static":["META","__CALLSITE"]};

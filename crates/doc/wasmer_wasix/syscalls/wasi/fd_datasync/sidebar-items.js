@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_datasync"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_datasync"],"static":["META","__CALLSITE"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_leave_multicast_v4"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_leave_multicast_v4"],"static":["META","__CALLSITE"]};

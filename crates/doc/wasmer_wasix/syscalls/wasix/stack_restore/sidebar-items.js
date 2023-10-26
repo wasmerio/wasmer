@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["stack_restore"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["stack_restore"],"static":["META","__CALLSITE"]};

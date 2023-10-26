@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["load_module"],"mod":["module_cache","package_loader","resolver","task_manager"],"static":["CALLSITE","META"],"struct":["DefaultTty","PluggableRuntime"],"trait":["Runtime"]};
+window.SIDEBAR_ITEMS = {"fn":["load_module"],"mod":["module_cache","package_loader","resolver","task_manager"],"static":["META","__CALLSITE"],"struct":["DefaultTty","PluggableRuntime"],"trait":["Runtime"]};

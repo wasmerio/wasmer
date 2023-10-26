@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["random_get"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["random_get"],"static":["META","__CALLSITE"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["WasiProcess","WasiProcessId","WasiProcessInner","WasiProcessWait"]};
+window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["WasiProcess","WasiProcessId","WasiProcessInner","WasiProcessWait"]};

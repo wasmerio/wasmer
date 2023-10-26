@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["CALLSITE","META"],"struct":["TraceFile","TraceFileSystem"]};
+window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["TraceFile","TraceFileSystem"]};

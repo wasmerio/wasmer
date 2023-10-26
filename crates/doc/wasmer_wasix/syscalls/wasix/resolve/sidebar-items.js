@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["resolve"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["resolve"],"static":["META","__CALLSITE"]};

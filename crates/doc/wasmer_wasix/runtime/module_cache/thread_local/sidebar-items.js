@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CACHED_MODULES"],"fn":["__getit","__init"],"static":["CALLSITE","META","__KEY"],"struct":["ThreadLocalCache"]};
+window.SIDEBAR_ITEMS = {"constant":["CACHED_MODULES"],"fn":["__getit","__init"],"static":["META","__CALLSITE","__KEY"],"struct":["ThreadLocalCache"]};

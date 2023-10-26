@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["WasiThreadError"],"static":["CALLSITE","META","NO_MORE_BYTES"],"struct":["RewindResult","ThreadSnapshot","ThreadStack","WasiMemoryLayout","WasiThread","WasiThreadHandle","WasiThreadHandleProtected","WasiThreadId","WasiThreadRunGuard","WasiThreadState"]};
+window.SIDEBAR_ITEMS = {"enum":["WasiThreadError"],"static":["META","NO_MORE_BYTES","__CALLSITE"],"struct":["RewindResult","ThreadSnapshot","ThreadStack","WasiMemoryLayout","WasiThread","WasiThreadHandle","WasiThreadHandleProtected","WasiThreadId","WasiThreadRunGuard","WasiThreadState"]};

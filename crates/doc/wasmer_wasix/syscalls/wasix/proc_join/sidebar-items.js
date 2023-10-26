@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["JoinStatusResult"],"fn":["proc_join","proc_join_internal"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"enum":["JoinStatusResult"],"fn":["proc_join","proc_join_internal"],"static":["META","__CALLSITE"]};

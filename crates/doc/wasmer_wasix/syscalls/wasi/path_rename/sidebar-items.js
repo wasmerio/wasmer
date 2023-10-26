@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_rename"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["path_rename"],"static":["META","__CALLSITE"]};

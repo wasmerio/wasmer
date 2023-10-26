@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["port_unbridge"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["port_unbridge"],"static":["META","__CALLSITE"]};

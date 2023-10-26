@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["thread_id"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["thread_id"],"static":["META","__CALLSITE"]};

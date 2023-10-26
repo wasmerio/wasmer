@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_filestat_set_times"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["path_filestat_set_times"],"static":["META","__CALLSITE"]};

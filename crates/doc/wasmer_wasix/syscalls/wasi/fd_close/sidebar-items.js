@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_close"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_close"],"static":["META","__CALLSITE"]};

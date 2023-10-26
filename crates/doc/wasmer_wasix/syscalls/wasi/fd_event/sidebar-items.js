@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_event"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_event"],"static":["META","__CALLSITE"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_shutdown"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_shutdown"],"static":["META","__CALLSITE"]};

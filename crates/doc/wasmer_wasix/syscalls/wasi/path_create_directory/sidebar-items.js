@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_create_directory"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["path_create_directory"],"static":["META","__CALLSITE"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_get_opt_flag"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_get_opt_flag"],"static":["META","__CALLSITE"]};

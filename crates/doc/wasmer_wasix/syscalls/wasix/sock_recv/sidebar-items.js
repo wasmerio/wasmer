@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_recv","sock_recv_internal","sock_recv_internal_handler"],"static":["CALLSITE","META"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_recv","sock_recv_internal","sock_recv_internal_handler"],"static":["META","__CALLSITE"]};
