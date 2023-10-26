@@ -13,8 +13,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=4.2.2", default-features = false }
-wasmer-object = { path = "../object", version = "=4.2.2", optional = true }
+wasmer-types = { path = "../types", version = "=4.2.3", default-features = false }
+wasmer-object = { path = "../object", version = "=4.2.3", optional = true }
 wasmparser = { version = "0.95", optional = true, default-features = false }
 enumset = "1.0.2"
 hashbrown = { version = "0.11", optional = true }
@@ -38,7 +38,7 @@ rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 shared-buffer = "0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-vm = { path = "../vm", version = "=4.2.2" }
+wasmer-vm = { path = "../vm", version = "=4.2.3" }
 region = { version = "3.0" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
