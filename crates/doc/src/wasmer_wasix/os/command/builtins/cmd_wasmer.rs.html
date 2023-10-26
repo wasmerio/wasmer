@@ -151,6 +151,17 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{any::Any, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -249,8 +260,19 @@ ARGS:
     }
 
     <span class="kw">pub async fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+        <span class="comment">// Need to make sure this task runs on the main runtime.
+        </span><span class="kw">let </span>(tx, rx) = tokio::sync::oneshot::channel();
         <span class="kw">let </span>specifier = name.parse()<span class="question-mark">?</span>;
-        BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span><span class="self">self</span>.runtime).<span class="kw">await
+        <span class="kw">let </span>rt = <span class="self">self</span>.runtime.clone();
+        <span class="self">self</span>.runtime.task_manager().task_shared(Box::new(|| {
+            Box::pin(<span class="kw">async move </span>{
+                <span class="kw">let </span>res = BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, rt.as_ref()).<span class="kw">await</span>;
+                tx.send(res)
+                    .expect(<span class="string">&quot;could not send response to output channel&quot;</span>);
+            })
+        }))<span class="question-mark">?</span>;
+        rx.<span class="kw">await
+            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;package retrieval response channel died&quot;</span>))<span class="question-mark">?
     </span>}
 }
 
