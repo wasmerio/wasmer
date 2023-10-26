@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.15.0"
+version = "0.16.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -17,7 +17,7 @@ cfg-if = "1.0"
 thiserror = "1"
 tracing = { version = "0.1.37" }
 getrandom = "0.2"
-wasmer-wasix-types = { path = "../wasi-types", version = "0.15.0", features = [ "enable-serde" ] }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.16.0", features = [ "enable-serde" ] }
 wasmer-types = { path = "../types", version = "=4.2.3", default-features = false }
 wasmer = { path = "../api", version = "=4.2.3", default-features = false, features = ["wat", "js-serializable-module"] }
 virtual-mio  = { path = "../virtual-io", version = "0.3.0", default-features = false }
@@ -51,7 +51,7 @@ hex = { version = "^0.4" }
 term_size = { version = "0.3" }
 linked_hash_set = { version = "0.1" }
 http = "0.2.8"
-wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.15.0", features = ["tracing"] }
+wai-bindgen-wasmer = { path = "../wai-bindgen-wasmer", version = "0.16.0", features = ["tracing"] }
 heapless = "0.7.16"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
