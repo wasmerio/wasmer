@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.2.3 - 26/10/2023
 
+This new version fixes a bug in module bindings path.
+
 ## Added
 
 
