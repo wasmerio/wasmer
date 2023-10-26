@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Error};
+use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -177,6 +178,7 @@ impl WasiRunner {
         self
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn prepare_webc_env(
         &self,
         program_name: &str,
@@ -240,16 +242,19 @@ impl crate::runners::Runner for WasiRunner {
         let tasks = runtime.task_manager().clone();
         let pkg = pkg.clone();
 
-        let exit_code = tasks.spawn_and_block_on(async move {
-            let fut = crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime);
-            let mut task_handle = fut.await.context("Spawn failed")?;
+        let exit_code = tasks.spawn_and_block_on(
+            async move {
+                let fut = crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime);
+                let mut task_handle = fut.await.context("Spawn failed")?;
 
-            task_handle
-                .wait_finished()
-                .await
-                .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
-                .context("Unable to wait for the process to exit")
-        })?;
+                task_handle
+                    .wait_finished()
+                    .await
+                    .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
+                    .context("Unable to wait for the process to exit")
+            }
+            .in_current_span(),
+        )?;
 
         if exit_code.raw() == 0 {
             Ok(())

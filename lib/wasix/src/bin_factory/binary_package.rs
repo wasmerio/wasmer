@@ -77,6 +77,7 @@ pub struct BinaryPackage {
 impl BinaryPackage {
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_webc(
         container: &Container,
         rt: &(dyn Runtime + Send + Sync),
@@ -99,6 +100,7 @@ impl BinaryPackage {
     }
 
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(
         specifier: &PackageSpecifier,
         runtime: &(dyn Runtime + Send + Sync),
