@@ -23,6 +23,7 @@ use wasmer_wasix::{
 use webc::Container;
 
 mod wasi {
+    use tokio::sync::oneshot;
     use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 
     use super::*;
@@ -42,16 +43,23 @@ mod wasi {
         let container = Container::from_bytes(webc).unwrap();
         let rt = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let (sender, receiver) = oneshot::channel();
 
         // Note: we don't have any way to intercept stdin or stdout, so blindly
         // assume that everything is fine if it runs successfully.
-        let handle = std::thread::spawn(move || {
-            WasiRunner::new()
-                .with_args(["--version"])
-                .run_command("wat2wasm", &pkg, Arc::new(rt))
-        });
+        rt.task_manager().task_dedicated(Box::new(move || {
+            let result = WasiRunner::new().with_args(["--version"]).run_command(
+                "wat2wasm",
+                &pkg,
+                Arc::new(rt),
+            );
+            sender.send(result);
+        }));
 
-        handle.join().unwrap().expect("Runner failed");
+        receiver
+            .blocking_recv()
+            .expect("Channel hung up")
+            .expect("The runner encountered an error");
     }
 
     #[tokio::test]
@@ -60,13 +68,15 @@ mod wasi {
         let rt = runtime();
         let container = Container::from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let (sender, receiver) = oneshot::channel();
 
-        let handle = std::thread::spawn(move || {
-            WasiRunner::new()
+        rt.task_manager().task_dedicated(Box::new(move || {
+            let result = WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
-                .run_command("python", &pkg, Arc::new(rt))
-        });
-        let err = handle.join().unwrap().unwrap_err();
+                .run_command("python", &pkg, Arc::new(rt));
+            sender.send(result);
+        }));
+        let err = receiver.blocking_recv().unwrap().unwrap_err();
 
         let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
         let exit_code = match runtime_error {
