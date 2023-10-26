@@ -30,7 +30,7 @@ mod wasi {
 
     #[tokio::test]
     async fn can_run_wat2wasm() {
-        let webc = download_cached("https://wasmer.io/wasmer/wabt").await;
+        let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = Container::from_bytes(webc).unwrap();
         let command = &container.manifest().commands["wat2wasm"];
 
@@ -39,7 +39,7 @@ mod wasi {
 
     #[tokio::test]
     async fn wat2wasm() {
-        let webc = download_cached("https://wasmer.io/wasmer/wabt").await;
+        let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = Container::from_bytes(webc).unwrap();
         let rt = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
@@ -64,7 +64,7 @@ mod wasi {
 
     #[tokio::test]
     async fn python() {
-        let webc = download_cached("https://wasmer.io/python/python").await;
+        let webc = download_cached("https://wasmer.io/python/python@0.1.0").await;
         let rt = runtime();
         let container = Container::from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
@@ -101,7 +101,7 @@ mod wcgi {
 
     #[tokio::test]
     async fn can_run_staticserver() {
-        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver").await;
+        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
         let container = Container::from_bytes(webc).unwrap();
 
         let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
@@ -110,7 +110,7 @@ mod wcgi {
 
     #[tokio::test]
     async fn staticserver() {
-        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver").await;
+        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
         let rt = runtime();
         let container = Container::from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new();
