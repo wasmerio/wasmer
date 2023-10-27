@@ -23,7 +23,7 @@ use wasmer_wasix::{
 use webc::Container;
 
 mod wasi {
-    use tracing_subscriber::fmt::format::FmtSpan;
+    use virtual_fs::{AsyncReadExt, AsyncSeekExt};
     use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 
     use super::*;
@@ -39,21 +39,20 @@ mod wasi {
 
     #[tokio::test(flavor = "multi_thread")]
     async fn wat2wasm() {
-        tracing_subscriber::fmt::fmt()
-            .with_max_level(tracing::level_filters::LevelFilter::TRACE)
-            .with_span_events(FmtSpan::FULL)
-            .init();
         let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = Container::from_bytes(webc).unwrap();
         let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let mut stdout = virtual_fs::ArcFile::new(Box::new(virtual_fs::BufferFile::default()));
 
-        // Note: we don't have any way to intercept stdin or stdout, so blindly
-        // assume that everything is fine if it runs successfully.
+        let stdout_2 = stdout.clone();
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["--version"])
+                .with_stdin(Box::new(virtual_fs::NullFile::default()))
+                .with_stdout(Box::new(stdout_2) as Box<_>)
+                .with_stderr(Box::new(virtual_fs::NullFile::default()))
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
@@ -61,6 +60,11 @@ mod wasi {
             .join()
             .unwrap()
             .expect("The runner encountered an error");
+
+        stdout.rewind().await.unwrap();
+        let mut output = Vec::new();
+        stdout.read_to_end(&mut output).await.unwrap();
+        assert_eq!(String::from_utf8(output).unwrap(), "1.0.37 (git~v1.0.37)\n");
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -74,6 +78,9 @@ mod wasi {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
+                .with_stdin(Box::new(virtual_fs::NullFile::default()))
+                .with_stdout(Box::new(virtual_fs::NullFile::default()))
+                .with_stderr(Box::new(virtual_fs::NullFile::default()))
                 .run_command("python", &pkg, Arc::new(rt))
         });
 
