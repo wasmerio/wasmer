@@ -203,13 +203,8 @@ fn call_module(
 
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
-                Ok(WasiError::Exit(code)) => {
-                    if code.is_success() {
-                        Ok(Errno::Success)
-                    } else {
-                        Ok(Errno::Noexec)
-                    }
-                }
+                Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
+                Ok(err @ WasiError::Exit(_)) => Err(err.into()),
                 Ok(WasiError::DeepSleep(deep)) => {
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
@@ -222,7 +217,12 @@ fn call_module(
 
                     // Spawns the WASM process after a trigger
                     if let Err(err) = unsafe {
-                        tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                        tasks.resume_wasm_after_poller(
+                            Box::new(respawn),
+                            ctx,
+                            store,
+                            deep.trigger,
+                        )
                     } {
                         debug!("failed to go into deep sleep - {}", err);
                     }
