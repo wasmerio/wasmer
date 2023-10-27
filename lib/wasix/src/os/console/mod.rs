@@ -368,8 +368,6 @@ mod tests {
     /// Regression test to ensure merging of multiple packages works correctly.
     #[test]
     fn test_console_python_merge() {
-        std::env::set_var("RUST_LOG", "wasmer_wasix=trace");
-        tracing_subscriber::fmt::init();
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
         let rt_handle = tokio_rt.handle().clone();
         let _guard = rt_handle.enter();

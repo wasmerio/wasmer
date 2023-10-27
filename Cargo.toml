@@ -280,7 +280,7 @@ required-features = ["backend"]
 [[example]]
 name = "errors"
 path = "examples/errors.rs"
-required-features = ["sys"]
+required-features = ["backend"]
 
 [[example]]
 name = "imported-function-env"
