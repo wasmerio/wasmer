@@ -52,7 +52,6 @@ wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=4.2.3", optional
 wasm-bindgen = { version = "0.2.74", optional = true }
 js-sys = { version = "0.3.51", optional = true }
 rusty_jsc = { version = "0.1.0", optional = true }
-# rusty_jsc = { path="../../../rusty_jsc", optional = true }
 wasmparser = { version = "0.83", default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
@@ -70,9 +69,7 @@ macro-wasmer-universal-test = { version = "4.2.3", path = "./macro-wasmer-univer
 # - Mandatory dependencies for `js`.
 wasmer-types = { path = "../types", version = "=4.2.3", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2.74"
-wasm-bindgen-downcast = { version = "0.1.1" }
 js-sys = "0.3.51"
-#web-sys = { version = "0.3.51", features = [ "console" ] }
 wasmer-derive = { path = "../derive", version = "=4.2.3" }
 # - Optional dependencies for `js`.
 wasmparser = { version = "0.95", default-features = false, optional = true }

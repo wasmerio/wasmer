@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Error};
+use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -10,7 +11,8 @@ use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    Runtime, WasiEnvBuilder,
+    runtime::task_manager::VirtualTaskManagerExt,
+    Runtime, WasiEnvBuilder, WasiRuntimeError,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -176,6 +178,7 @@ impl WasiRunner {
         self
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn prepare_webc_env(
         &self,
         program_name: &str,
@@ -228,25 +231,38 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_module_sync(cmd.atom())?;
-        let mut store = runtime.new_store();
+        let store = runtime.new_store();
 
         let env = self
-            .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
-            .context("Unable to prepare the WASI environment")?;
+            .prepare_webc_env(command_name, &wasi, pkg, Arc::clone(&runtime), None)
+            .context("Unable to prepare the WASI environment")?
+            .build()?;
 
-        if self
-            .wasi
-            .capabilities
-            .threading
-            .enable_asynchronous_threading
-        {
-            env.run_with_store_async(module, store)?;
+        let command_name = command_name.to_string();
+        let tasks = runtime.task_manager().clone();
+        let pkg = pkg.clone();
+
+        let exit_code = tasks.spawn_and_block_on(
+            async move {
+                let mut task_handle =
+                    crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime)
+                        .await
+                        .context("Spawn failed")?;
+
+                task_handle
+                    .wait_finished()
+                    .await
+                    .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
+                    .context("Unable to wait for the process to exit")
+            }
+            .in_current_span(),
+        )?;
+
+        if exit_code.raw() == 0 {
+            Ok(())
         } else {
-            env.run_with_store(module, &mut store)?;
+            Err(WasiRuntimeError::Wasi(crate::WasiError::Exit(exit_code)).into())
         }
-
-        Ok(())
     }
 }
 

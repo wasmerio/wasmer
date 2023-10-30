@@ -19,7 +19,7 @@ use crate::{
 const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WasiFunctionEnv {
     pub env: FunctionEnv<WasiEnv>,
 }

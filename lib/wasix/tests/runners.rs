@@ -23,51 +23,68 @@ use wasmer_wasix::{
 use webc::Container;
 
 mod wasi {
+    use virtual_fs::{AsyncReadExt, AsyncSeekExt};
     use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
 
     use super::*;
 
     #[tokio::test]
     async fn can_run_wat2wasm() {
-        let webc = download_cached("https://wasmer.io/wasmer/wabt").await;
+        let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = Container::from_bytes(webc).unwrap();
         let command = &container.manifest().commands["wat2wasm"];
 
         assert!(WasiRunner::can_run_command(command).unwrap());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn wat2wasm() {
-        let webc = download_cached("https://wasmer.io/wasmer/wabt").await;
+        let webc = download_cached("https://wasmer.io/wasmer/wabt@1.0.37").await;
         let container = Container::from_bytes(webc).unwrap();
-        let rt = runtime();
+        let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
+        let mut stdout = virtual_fs::ArcFile::new(Box::new(virtual_fs::BufferFile::default()));
 
-        // Note: we don't have any way to intercept stdin or stdout, so blindly
-        // assume that everything is fine if it runs successfully.
+        let stdout_2 = stdout.clone();
         let handle = std::thread::spawn(move || {
+            let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["--version"])
+                .with_stdin(Box::new(virtual_fs::NullFile::default()))
+                .with_stdout(Box::new(stdout_2) as Box<_>)
+                .with_stderr(Box::new(virtual_fs::NullFile::default()))
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
-        handle.join().unwrap().expect("Runner failed");
+        handle
+            .join()
+            .unwrap()
+            .expect("The runner encountered an error");
+
+        stdout.rewind().await.unwrap();
+        let mut output = Vec::new();
+        stdout.read_to_end(&mut output).await.unwrap();
+        assert_eq!(String::from_utf8(output).unwrap(), "1.0.37 (git~v1.0.37)\n");
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn python() {
-        let webc = download_cached("https://wasmer.io/python/python").await;
-        let rt = runtime();
+        let webc = download_cached("https://wasmer.io/python/python@0.1.0").await;
+        let (rt, tasks) = runtime();
         let container = Container::from_bytes(webc).unwrap();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
 
         let handle = std::thread::spawn(move || {
+            let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
+                .with_stdin(Box::new(virtual_fs::NullFile::default()))
+                .with_stdout(Box::new(virtual_fs::NullFile::default()))
+                .with_stderr(Box::new(virtual_fs::NullFile::default()))
                 .run_command("python", &pkg, Arc::new(rt))
         });
-        let err = handle.join().unwrap().unwrap_err();
 
+        let err = handle.join().unwrap().unwrap_err();
         let runtime_error = err.chain().find_map(|e| e.downcast_ref::<WasiError>());
         let exit_code = match runtime_error {
             Some(WasiError::Exit(code)) => *code,
@@ -91,7 +108,7 @@ mod wcgi {
 
     #[tokio::test]
     async fn can_run_staticserver() {
-        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver").await;
+        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
         let container = Container::from_bytes(webc).unwrap();
 
         let entrypoint = container.manifest().entrypoint.as_ref().unwrap();
@@ -100,8 +117,8 @@ mod wcgi {
 
     #[tokio::test]
     async fn staticserver() {
-        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver").await;
-        let rt = runtime();
+        let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
+        let (rt, tasks) = runtime();
         let container = Container::from_bytes(webc).unwrap();
         let mut runner = WcgiRunner::new();
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
@@ -114,6 +131,7 @@ mod wcgi {
 
         // The server blocks so we need to start it on a background thread.
         let join_handle = std::thread::spawn(move || {
+            let _guard = tasks.runtime_handle().enter();
             runner.run_command("serve", &pkg, Arc::new(rt)).unwrap();
         });
 
@@ -222,9 +240,10 @@ fn sanitze_name_for_path(name: &str) -> String {
     name.replace(":", "_")
 }
 
-fn runtime() -> impl Runtime + Send + Sync {
+fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
     let tasks = TokioTaskManager::new(Handle::current());
-    let mut rt = PluggableRuntime::new(Arc::new(tasks));
+    let tasks = Arc::new(tasks);
+    let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
 
     let cache =
         SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
@@ -242,7 +261,7 @@ fn runtime() -> impl Runtime + Send + Sync {
         .set_package_loader(BuiltinPackageLoader::new(cache_dir))
         .set_http_client(wasmer_wasix::http::default_http_client().unwrap());
 
-    rt
+    (rt, tasks)
 }
 
 fn tmp_dir() -> PathBuf {
