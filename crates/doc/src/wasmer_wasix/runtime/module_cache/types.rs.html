@@ -195,6 +195,13 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Debug, Display, Formatter},
     ops::Deref,
@@ -319,13 +326,20 @@
 }
 
 <span class="doccomment">/// The SHA-256 hash of a WebAssembly module.
-</span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+</span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 </span><span class="kw">pub struct </span>ModuleHash([u8; <span class="number">32</span>]);
 
 <span class="kw">impl </span>ModuleHash {
     <span class="doccomment">/// Create a new [`ModuleHash`] from the raw SHA-256 hash.
     </span><span class="kw">pub fn </span>from_bytes(key: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
         ModuleHash(key)
+    }
+
+    <span class="doccomment">/// Parse a sha256 hash from a hex-encoded string.
+    </span><span class="kw">pub fn </span>parse_hex(hex_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, hex::FromHexError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>hash = [<span class="number">0_u8</span>; <span class="number">32</span>];
+        hex::decode_to_slice(hex_str, <span class="kw-2">&amp;mut </span>hash)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(hash))
     }
 
     <span class="doccomment">/// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.

@@ -376,6 +376,22 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -416,6 +432,7 @@
     + Sync;
 
 <span class="doccomment">/// The properties passed to the task
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>TaskWasmRunProperties {
     <span class="kw">pub </span>ctx: WasiFunctionEnv,
     <span class="kw">pub </span>store: Store,
@@ -498,22 +515,37 @@
         <span class="kw">match </span>spawn_type {
             SpawnMemoryType::CreateMemoryOfType(<span class="kw-2">mut </span>ty) =&gt; {
                 ty.shared = <span class="bool-val">true</span>;
+
+                <span class="comment">// Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                </span><span class="kw">let _ </span>= ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
                 <span class="kw">let </span>mem = Memory::new(<span class="kw-2">&amp;mut </span>store, ty).map_err(|err| {
-                    <span class="macro">tracing::error!</span>(<span class="string">&quot;could not create memory: {err}&quot;</span>);
+                    <span class="macro">tracing::error!</span>(
+                        error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        memory_type=<span class="question-mark">?</span>ty,
+                        <span class="string">&quot;could not create memory&quot;</span>,
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem))
             }
             SpawnMemoryType::ShareMemory(mem, old_store) =&gt; {
                 <span class="kw">let </span>mem = mem.share_in_store(<span class="kw-2">&amp;</span>old_store, store).map_err(|err| {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;could not clone memory: {err}&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(
+                        error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        <span class="string">&quot;could not clone memory&quot;</span>,
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem))
             }
             SpawnMemoryType::CopyMemory(mem, old_store) =&gt; {
                 <span class="kw">let </span>mem = mem.copy_to_store(<span class="kw-2">&amp;</span>old_store, store).map_err(|err| {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;could not copy memory: {err}&quot;</span>);
+                    <span class="macro">tracing::warn!</span>(
+                        error = <span class="kw-2">&amp;</span>err <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        <span class="string">&quot;could not copy memory&quot;</span>,
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(mem))

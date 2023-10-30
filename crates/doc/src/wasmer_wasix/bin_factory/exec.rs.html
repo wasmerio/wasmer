@@ -290,10 +290,6 @@
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
@@ -319,18 +315,19 @@
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
-    <span class="kw">let </span>wasm = <span class="kw">match </span>binary.entrypoint_bytes() {
-        <span class="prelude-val">Some</span>(wasm) =&gt; wasm,
-        <span class="prelude-val">None </span>=&gt; {
-            <span class="macro">tracing::error!</span>(
-              command=name,
-              pkg.name=%binary.package_name,
-              pkg.version=%binary.version,
-              <span class="string">&quot;Unable to spawn a command because its package has no entrypoint&quot;</span>,
-            );
-            env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
-            <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
-        }
+    <span class="kw">let </span>wasm = <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_command(name) {
+        cmd.atom.as_ref()
+    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(wasm) = binary.entrypoint_bytes() {
+        wasm
+    } <span class="kw">else </span>{
+        <span class="macro">tracing::error!</span>(
+          command=name,
+          pkg.name=%binary.package_name,
+          pkg.version=%binary.version,
+          <span class="string">&quot;Unable to spawn a command because its package has no entrypoint&quot;</span>,
+        );
+        env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
     };
 
     <span class="kw">let </span>module = <span class="kw">match </span>runtime.load_module(wasm).<span class="kw">await </span>{
@@ -498,13 +495,8 @@
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = call_ret {
             <span class="kw">match </span>err.downcast::&lt;WasiError&gt;() {
-                <span class="prelude-val">Ok</span>(WasiError::Exit(code)) =&gt; {
-                    <span class="kw">if </span>code.is_success() {
-                        <span class="prelude-val">Ok</span>(Errno::Success)
-                    } <span class="kw">else </span>{
-                        <span class="prelude-val">Ok</span>(Errno::Noexec)
-                    }
-                }
+                <span class="prelude-val">Ok</span>(WasiError::Exit(code)) <span class="kw">if </span>code.is_success() =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
+                <span class="prelude-val">Ok</span>(err @ WasiError::Exit(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Err</span>(err.into()),
                 <span class="prelude-val">Ok</span>(WasiError::DeepSleep(deep)) =&gt; {
                     <span class="comment">// Create the callback that will be invoked when the thread respawns after a deep sleep
                     </span><span class="kw">let </span>rewind = deep.rewind;

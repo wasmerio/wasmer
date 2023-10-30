@@ -13,7 +13,7 @@ mutable from both host and WebAssembly.</p>
     ty: <a class="struct" href="../../wasmer_types/types/struct.MemoryType.html" title="struct wasmer_types::types::MemoryType">MemoryType</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="struct.Memory.html" title="struct wasmer_wasix::syscalls::Memory">Memory</a>, <a class="enum" href="enum.MemoryError.html" title="enum wasmer_wasix::syscalls::MemoryError">MemoryError</a>&gt;</h4></section></summary><div class="docblock"><p>Creates a new host <code>Memory</code> from the provided <a href="../../wasmer_types/types/struct.MemoryType.html" title="struct wasmer_types::types::MemoryType"><code>MemoryType</code></a>.</p>
 <p>This function will construct the <code>Memory</code> using the store
-<a href="../../wasmer_compiler/engine/tunables/struct.BaseTunables.html" title="struct wasmer_compiler::engine::tunables::BaseTunables"><code>BaseTunables</code></a>.</p>
+<code>BaseTunables</code>.</p>
 <h5 id="example"><a href="#example">Example</a></h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>m = Memory::new(<span class="kw-2">&amp;mut </span>store, MemoryType::new(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).unwrap();</code></pre></div>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_from_existing" class="method"><a class="srclink rightside" href="../../src/wasmer/externals/memory.rs.html#54">source</a><h4 class="code-header">pub fn <a href="#method.new_from_existing" class="fn">new_from_existing</a>(

@@ -238,7 +238,7 @@
 </span><span class="kw">const </span>DEFAULT_STACK_SIZE: u64 = <span class="number">1_048_576u64</span>;
 <span class="kw">const </span>DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
-<span class="attr">#[derive(Clone)]
+<span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WasiFunctionEnv {
     <span class="kw">pub </span>env: FunctionEnv&lt;WasiEnv&gt;,
 }

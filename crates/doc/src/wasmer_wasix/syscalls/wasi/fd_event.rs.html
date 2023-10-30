@@ -35,8 +35,6 @@
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{fs::NotificationInner, syscalls::<span class="kw-2">*</span>};
 
@@ -57,12 +55,10 @@
         inner: Arc::new(NotificationInner::new(initial_val, is_semaphore)),
     };
 
-    <span class="kw">let </span>inode = state.fs.create_inode_with_default_stat(
-        inodes.deref(),
-        kind,
-        <span class="bool-val">false</span>,
-        <span class="string">&quot;event&quot;</span>.to_string().into(),
-    );
+    <span class="kw">let </span>inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, kind, <span class="bool-val">false</span>, <span class="string">&quot;event&quot;</span>.to_string().into());
     <span class="kw">let </span>rights = Rights::FD_READ
         | Rights::FD_WRITE
         | Rights::POLL_FD_READWRITE

@@ -263,11 +263,28 @@
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
@@ -275,7 +292,8 @@
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    Runtime, WasiEnvBuilder,
+    runtime::task_manager::VirtualTaskManagerExt,
+    Runtime, WasiEnvBuilder, WasiRuntimeError,
 };
 
 <span class="attr">#[derive(Debug, Default, Clone)]
@@ -441,7 +459,8 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_webc_env(
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
@@ -493,25 +512,38 @@
             .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
 
-        <span class="kw">let </span>module = runtime.load_module_sync(cmd.atom())<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>store = runtime.new_store();
+        <span class="kw">let </span>store = runtime.new_store();
 
         <span class="kw">let </span>env = <span class="self">self
-            </span>.prepare_webc_env(command_name, <span class="kw-2">&amp;</span>wasi, pkg, runtime, <span class="prelude-val">None</span>)
-            .context(<span class="string">&quot;Unable to prepare the WASI environment&quot;</span>)<span class="question-mark">?</span>;
+            </span>.prepare_webc_env(command_name, <span class="kw-2">&amp;</span>wasi, pkg, Arc::clone(<span class="kw-2">&amp;</span>runtime), <span class="prelude-val">None</span>)
+            .context(<span class="string">&quot;Unable to prepare the WASI environment&quot;</span>)<span class="question-mark">?
+            </span>.build()<span class="question-mark">?</span>;
 
-        <span class="kw">if </span><span class="self">self
-            </span>.wasi
-            .capabilities
-            .threading
-            .enable_asynchronous_threading
-        {
-            env.run_with_store_async(module, store)<span class="question-mark">?</span>;
+        <span class="kw">let </span>command_name = command_name.to_string();
+        <span class="kw">let </span>tasks = runtime.task_manager().clone();
+        <span class="kw">let </span>pkg = pkg.clone();
+
+        <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
+            <span class="kw">async move </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
+                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, store, env, <span class="kw-2">&amp;</span>runtime)
+                        .<span class="kw">await
+                        </span>.context(<span class="string">&quot;Spawn failed&quot;</span>)<span class="question-mark">?</span>;
+
+                task_handle
+                    .wait_finished()
+                    .<span class="kw">await
+                    </span>.map_err(|err| Arc::into_inner(err).expect(<span class="string">&quot;Error shouldn&#39;t be shared&quot;</span>))
+                    .context(<span class="string">&quot;Unable to wait for the process to exit&quot;</span>)
+            }
+            .in_current_span(),
+        )<span class="question-mark">?</span>;
+
+        <span class="kw">if </span>exit_code.raw() == <span class="number">0 </span>{
+            <span class="prelude-val">Ok</span>(())
         } <span class="kw">else </span>{
-            env.run_with_store(module, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
+            <span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(<span class="kw">crate</span>::WasiError::Exit(exit_code)).into())
         }
-
-        <span class="prelude-val">Ok</span>(())
     }
 }
 

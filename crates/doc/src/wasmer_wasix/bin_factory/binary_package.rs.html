@@ -212,6 +212,14 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Context;
@@ -291,6 +299,7 @@
 <span class="kw">impl </span>BinaryPackage {
     <span class="doccomment">/// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">pub async fn </span>from_webc(
         container: <span class="kw-2">&amp;</span>Container,
         rt: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
@@ -313,6 +322,7 @@
     }
 
     <span class="doccomment">/// Load a [`BinaryPackage`] and all its dependencies from a registry.
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">pub async fn </span>from_registry(
         specifier: <span class="kw-2">&amp;</span>PackageSpecifier,
         runtime: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
@@ -369,13 +379,16 @@
     <span class="kw">use </span>tempfile::TempDir;
     <span class="kw">use </span>virtual_fs::AsyncReadExt;
 
-    <span class="kw">use crate</span>::{runtime::task_manager::VirtualTaskManager, PluggableRuntime};
+    <span class="kw">use crate</span>::{
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
+        PluggableRuntime,
+    };
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="kw">fn </span>task_manager() -&gt; Arc&lt;<span class="kw">dyn </span>VirtualTaskManager + Send + Sync&gt; {
         <span class="macro">cfg_if::cfg_if! </span>{
-            <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-threads&quot;</span>)] </span>{
+            <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)] </span>{
                 Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::new(tokio::runtime::Handle::current()))
             } <span class="kw">else </span>{
                 <span class="macro">unimplemented!</span>(<span class="string">&quot;Unable to get the task manager&quot;</span>)
@@ -385,7 +398,7 @@
 
     <span class="attr">#[tokio::test]
     #[cfg_attr(
-        not(feature = <span class="string">&quot;sys-threads&quot;</span>),
+        not(feature = <span class="string">&quot;sys-thread&quot;</span>),
         ignore = <span class="string">&quot;The tokio task manager isn&#39;t available on this platform&quot;
     </span>)]
     </span><span class="kw">async fn </span>fs_table_can_map_directories_to_different_names() {
@@ -409,7 +422,10 @@
             .unwrap()
             .into();
         <span class="kw">let </span>tasks = task_manager();
-        <span class="kw">let </span>runtime = PluggableRuntime::new(tasks);
+        <span class="kw">let </span><span class="kw-2">mut </span>runtime = PluggableRuntime::new(tasks);
+        runtime.set_package_loader(BuiltinPackageLoader::new_only_client(
+            runtime.http_client().unwrap().clone(),
+        ));
 
         <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>webc, <span class="kw-2">&amp;</span>runtime).<span class="kw">await</span>.unwrap();
 
