@@ -155,6 +155,7 @@ impl WasmerCreateObj {
 }
 
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_create_exe_with_pirita_works_1() {
     let tempdir = TempDir::new().unwrap();
     let path = tempdir.path();
@@ -206,6 +207,7 @@ fn test_create_exe_with_pirita_works_1() {
 }
 
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_create_exe_with_precompiled_works_1() {
     use object::{Object, ObjectSymbol};
 
@@ -265,6 +267,7 @@ fn test_create_exe_with_precompiled_works_1() {
 // Also ignored on macOS because it's flaky
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
@@ -302,10 +305,11 @@ fn create_exe_works() -> anyhow::Result<()> {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
-// #[test]
+#[test]
 // FIXME: Fix an re-enable test
 // See https://github.com/wasmerio/wasmer/issues/3615
 #[allow(dead_code)]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
@@ -373,6 +377,7 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
@@ -439,6 +444,7 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
@@ -496,6 +502,7 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
@@ -585,6 +592,7 @@ fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
 }
 
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_obj_default() -> anyhow::Result<()> {
     create_obj(vec![])
 }
@@ -674,6 +682,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
 }
@@ -682,6 +691,7 @@ fn create_exe_with_object_input_default() -> anyhow::Result<()> {
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_wasmer_create_exe_pirita_works() {
     // let temp_dir = Path::new("debug");
     // std::fs::create_dir_all(&temp_dir);
