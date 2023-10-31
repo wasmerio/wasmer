@@ -9,7 +9,8 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, Login, Publish, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, CmdPackage, Config, Init, Inspect, Login, Publish, Run, SelfUpdate, Validate,
+    Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -108,6 +109,11 @@ impl Args {
             Some(Cmd::Init(init)) => init.execute(),
             Some(Cmd::Login(login)) => login.execute(),
             Some(Cmd::Publish(publish)) => publish.execute(),
+            Some(Cmd::Package(cmd)) => match cmd {
+                CmdPackage::Download(cmd) => cmd.execute(),
+                CmdPackage::Unpack(cmd) => cmd.execute(),
+                CmdPackage::Build(cmd) => cmd.execute(),
+            },
             /*
             Some(Cmd::Connect(connect)) => connect.execute(),
             */
@@ -258,7 +264,10 @@ enum Cmd {
     #[clap(alias = "run-unstable")]
     Run(Run),
 
-    // DEPLOY commands
+    #[clap(subcommand)]
+    Package(crate::commands::CmdPackage),
+
+    // Edge commands
     /// Deploy apps to the Wasmer Edge.
     Deploy(wasmer_deploy_cli::cmd::deploy::CmdDeploy),
 
