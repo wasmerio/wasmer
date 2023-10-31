@@ -114,6 +114,9 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
     "fmt",
 ] }
 
+[patch.crates-io]
+region = { git = "https://github.com/wasmerio/region-rs", branch = "3.0.0-patch-mach2" }
+
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.

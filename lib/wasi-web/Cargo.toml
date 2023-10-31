@@ -138,6 +138,9 @@ wasm-bindgen-test = "^0.3"
 [build-dependencies]
 build-deps = "^0.1"
 
+[patch.crates-io]
+region = { git = "https://github.com/wasmerio/region-rs", branch = "3.0.0-patch-mach2" }
+
 [lib]
 crate-type = ["cdylib"]
 
