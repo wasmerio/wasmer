@@ -50,6 +50,9 @@ pub struct FuncEnvironment<'module_environment> {
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
 
+    /// Heaps implementing WebAssembly linear memories.
+    heaps: PrimaryMap<Heap, HeapData>,
+
     /// The Cranelift global holding the vmctx address.
     vmctx: Option<ir::GlobalValue>,
 
@@ -1138,9 +1141,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             global_type: pointer_type,
             readonly: readonly_base,
         });
-        Ok(func.create_heap(HeapData {
+        Ok(self.heaps.push(HeapData {
             base: heap_base,
-            min_size: 0.into(),
+            min_size: 0,
             offset_guard_size: offset_guard_size.into(),
             style: heap_style,
             index_type: I32,
