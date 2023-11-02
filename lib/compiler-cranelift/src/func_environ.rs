@@ -140,6 +140,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             module,
             signatures,
             type_stack: vec![],
+            heaps: PrimaryMap::new(),
             vmctx: None,
             memory32_size_sig: None,
             table_size_sig: None,
@@ -1609,5 +1610,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType> {
         self.module.signatures.get(sig_index)
+    }
+
+    fn get_heap(&self, heap: Heap) -> &HeapData {
+        &self.heaps[heap]
     }
 }
