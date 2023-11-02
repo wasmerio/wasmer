@@ -74,6 +74,8 @@
 //!   <https://github.com/bytecodealliance/cranelift/pull/1236>
 //!     ("Relax verification to allow I8X16 to act as a default vector type")
 
+mod bounds_checks;
+
 use super::func_environ::{FuncEnvironment, GlobalVariable, ReturnMode};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
@@ -2204,7 +2206,8 @@ fn get_heap_addr<FE: FuncEnvironment + ?Sized>(
     builder: &mut FunctionBuilder,
 ) -> (ir::Value, i32) {
     let addr_ty: Type = environ.pointer_type();
-    let offset_guard_size: u64 = environ.get_heap(heap).offset_guard_size;
+    let heap_data = environ.get_heap(heap);
+    let offset_guard_size: u64 = heap_data.offset_guard_size;
 
     // How exactly the bounds check is performed here and what it's performed
     // on is a bit tricky. Generally we want to rely on access violations (e.g.
@@ -2264,9 +2267,17 @@ fn get_heap_addr<FE: FuncEnvironment + ?Sized>(
     };
     debug_assert!(adjusted_offset > 0); // want to bounds check at least 1 byte
     let check_size = u32::try_from(adjusted_offset).unwrap_or(u32::MAX);
-    let base = builder
-        .ins()
-        .heap_addr(addr_ty, heap, addr32, 0u32, check_size as u8);
+
+    let access_size = check_size as u8;
+    let base = bounds_checks::bounds_check_and_compute_addr(
+        builder,
+        environ,
+        &heap_data,
+        addr32,
+        offset,
+        access_size,
+    )
+    .unwrap();
 
     // Native load/store instructions take a signed `Offset32` immediate, so adjust the base
     // pointer if necessary.
