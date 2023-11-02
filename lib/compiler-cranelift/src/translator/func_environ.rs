@@ -6,7 +6,7 @@
 
 use super::func_state::FuncTranslationState;
 use super::translation_utils::reference_type;
-use crate::heap::Heap;
+use crate::heap::{Heap, HeapData};
 use core::convert::From;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::Offset32;
@@ -496,4 +496,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Get the type of a function with the given signature index.
     #[allow(dead_code)]
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
+
+    /// Get the heap data for the given heap.
+    fn get_heap(&self, heap: Heap) -> &HeapData;
 }

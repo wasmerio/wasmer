@@ -77,7 +77,7 @@
 use super::func_environ::{FuncEnvironment, GlobalVariable, ReturnMode};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::heap::Heap;
+use crate::heap::{Heap, HeapData};
 use crate::{hash_map, HashMap};
 use core::cmp;
 use core::convert::TryFrom;
@@ -2240,15 +2240,16 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
 }
 
 /// Get the address+offset to use for a heap access.
-fn get_heap_addr(
+fn get_heap_addr<FE: FuncEnvironment + ?Sized>(
     heap: Heap,
     addr32: ir::Value,
     offset: u32,
     width: u32,
-    addr_ty: Type,
+    environ: &mut FE,
     builder: &mut FunctionBuilder,
 ) -> (ir::Value, i32) {
-    let offset_guard_size: u64 = builder.func.heaps[heap].offset_guard_size.into();
+    let addr_ty: Type = environ.pointer_type();
+    let offset_guard_size: u64 = environ.get_heap(heap).offset_guard_size;
 
     // How exactly the bounds check is performed here and what it's performed
     // on is a bit tricky. Generally we want to rely on access violations (e.g.
@@ -2339,7 +2340,7 @@ fn prepare_load<FE: FuncEnvironment + ?Sized>(
         addr32,
         memarg.offset as u32,
         loaded_bytes,
-        environ.pointer_type(),
+        environ,
         builder,
     );
 
@@ -2391,7 +2392,7 @@ fn translate_store<FE: FuncEnvironment + ?Sized>(
         addr32,
         memarg.offset as u32,
         mem_op_size(opcode, val_ty),
-        environ.pointer_type(),
+        environ,
         builder,
     );
     // See the comments in `prepare_load` about the flags.
@@ -2495,7 +2496,7 @@ fn finalise_atomic_mem_addr<FE: FuncEnvironment + ?Sized>(
         final_lma,
         /*offset=*/ 0,
         access_ty.bytes(),
-        environ.pointer_type(),
+        environ,
         builder,
     );
 
