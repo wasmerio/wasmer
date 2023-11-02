@@ -77,6 +77,7 @@
 use super::func_environ::{FuncEnvironment, GlobalVariable, ReturnMode};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
+use crate::heap::Heap;
 use crate::{hash_map, HashMap};
 use core::cmp;
 use core::convert::TryFrom;
@@ -2238,7 +2239,7 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
 
 /// Get the address+offset to use for a heap access.
 fn get_heap_addr(
-    heap: ir::Heap,
+    heap: Heap,
     addr32: ir::Value,
     offset: u32,
     width: u32,

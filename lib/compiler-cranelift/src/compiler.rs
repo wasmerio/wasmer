@@ -13,7 +13,7 @@ use crate::translator::{
     signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
 };
 use cranelift_codegen::ir::{ExternalName, UserFuncName};
-use cranelift_codegen::{ir, MachReloc};
+use cranelift_codegen::{ir, FinalizedMachReloc, FinalizedRelocTarget};
 use cranelift_codegen::{Context, MachTrap};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
@@ -415,24 +415,30 @@ impl Compiler for CraneliftCompiler {
     }
 }
 
-fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &MachReloc) -> Relocation {
-    let &MachReloc {
+fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Relocation {
+    let &FinalizedMachReloc {
         offset,
         kind,
-        ref name,
         addend,
+        target,
     } = reloc;
-    let reloc_target = if let ExternalName::User(extname_ref) = *name {
+    let name = match target {
+        FinalizedRelocTarget::ExternalName(external_name) => external_name,
+        FinalizedRelocTarget::Func(CodeOffset) => {
+            unimplemented!("relocations to offset in the same function are not yet supported")
+        }
+    };
+    let reloc_target: RelocationTarget = if let ExternalName::User(extname_ref) = name {
         //debug_assert_eq!(namespace, 0);
         RelocationTarget::LocalFunc(
             module
                 .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
                 .expect("The provided function should be local"),
         )
-    } else if let ExternalName::LibCall(libcall) = *name {
+    } else if let ExternalName::LibCall(libcall) = name {
         RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
     } else {
-        panic!("unrecognized external name")
+        panic!("unrecognized external target")
     };
     Relocation {
         kind: irreloc_to_relocationkind(kind),
@@ -464,6 +470,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
         ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
+        ir::TrapCode::NullReference => unimplemented!("Null reference not supported"),
         ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
         // ir::TrapCode::Interrupt => TrapCode::Interrupt,
         // ir::TrapCode::User(user_code) => TrapCode::User(user_code),

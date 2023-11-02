@@ -1,6 +1,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
+use crate::heap::{Heap, HeapData, HeapStyle};
 use crate::translator::{
     type_to_irtype, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
 };
@@ -1072,7 +1073,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         unreachable!("we don't make any custom globals")
     }
 
-    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<ir::Heap> {
+    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<Heap> {
         let pointer_type = self.pointer_type();
 
         let (ptr, base_offset, current_length_offset) = {
@@ -1113,7 +1114,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 });
                 (
                     Uimm64::new(offset_guard_size),
-                    ir::HeapStyle::Dynamic {
+                    HeapStyle::Dynamic {
                         bound_gv: heap_bound,
                     },
                     false,
@@ -1124,8 +1125,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 offset_guard_size,
             } => (
                 Uimm64::new(offset_guard_size),
-                ir::HeapStyle::Static {
-                    bound: Uimm64::new(bound.bytes().0 as u64),
+                HeapStyle::Static {
+                    bound: bound.bytes().0 as u64,
                 },
                 true,
             ),
@@ -1137,10 +1138,10 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             global_type: pointer_type,
             readonly: readonly_base,
         });
-        Ok(func.create_heap(ir::HeapData {
+        Ok(func.create_heap(HeapData {
             base: heap_base,
             min_size: 0.into(),
-            offset_guard_size,
+            offset_guard_size: offset_guard_size.into(),
             style: heap_style,
             index_type: I32,
         }))
@@ -1334,7 +1335,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor<'_>,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value> {
         let (func_sig, index_arg, func_idx) = self.get_memory_grow_func(pos.func, index);
@@ -1350,7 +1351,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor<'_>,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
     ) -> WasmResult<ir::Value> {
         let (func_sig, index_arg, func_idx) = self.get_memory_size_func(pos.func, index);
         let memory_index = pos.ins().iconst(I32, index_arg as i64);
@@ -1365,9 +1366,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         src_index: MemoryIndex,
-        _src_heap: ir::Heap,
+        _src_heap: Heap,
         _dst_index: MemoryIndex,
-        _dst_heap: ir::Heap,
+        _dst_heap: Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -1388,7 +1389,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         memory_index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,
@@ -1412,7 +1413,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         memory_index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         seg_index: u32,
         dst: ir::Value,
         src: ir::Value,
@@ -1536,7 +1537,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         addr: ir::Value,
         expected: ir::Value,
         timeout: ir::Value,
@@ -1560,7 +1561,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         index: MemoryIndex,
-        _heap: ir::Heap,
+        _heap: Heap,
         addr: ir::Value,
         count: ir::Value,
     ) -> WasmResult<ir::Value> {

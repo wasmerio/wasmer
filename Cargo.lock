@@ -6811,7 +6811,7 @@ dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
  "cranelift-frontend",
- "gimli 0.26.2",
+ "gimli 0.28.0",
  "hashbrown 0.11.2",
  "lazy_static",
  "more-asserts",

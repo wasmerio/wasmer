@@ -6,6 +6,7 @@
 
 use super::func_state::FuncTranslationState;
 use super::translation_utils::reference_type;
+use crate::heap::Heap;
 use core::convert::From;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::Offset32;
@@ -116,7 +117,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// by `index`.
     ///
     /// The index space covers both imported and locally declared memories.
-    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<ir::Heap>;
+    fn make_heap(&mut self, func: &mut ir::Function, index: MemoryIndex) -> WasmResult<Heap>;
 
     /// Set up the necessary preamble definitions in `func` to access the table identified
     /// by `index`.
@@ -206,7 +207,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         val: ir::Value,
     ) -> WasmResult<ir::Value>;
 
@@ -220,7 +221,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
     ) -> WasmResult<ir::Value>;
 
     /// Translate a `memory.copy` WebAssembly instruction.
@@ -232,9 +233,9 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         src_index: MemoryIndex,
-        src_heap: ir::Heap,
+        src_heap: Heap,
         dst_index: MemoryIndex,
-        dst_heap: ir::Heap,
+        dst_heap: Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -248,7 +249,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         dst: ir::Value,
         val: ir::Value,
         len: ir::Value,
@@ -264,7 +265,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         seg_index: u32,
         dst: ir::Value,
         src: ir::Value,
@@ -418,7 +419,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         addr: ir::Value,
         expected: ir::Value,
         timeout: ir::Value,
@@ -434,7 +435,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         index: MemoryIndex,
-        heap: ir::Heap,
+        heap: Heap,
         addr: ir::Value,
         count: ir::Value,
     ) -> WasmResult<ir::Value>;
