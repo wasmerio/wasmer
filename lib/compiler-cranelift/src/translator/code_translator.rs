@@ -457,7 +457,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 }
             };
             let val = state.pop1();
-            let mut data = JumpTableData::with_capacity(targets.len() as usize);
+            let mut data = Vec::with_capacity(targets.len() as usize);
             if jump_args_count == 0 {
                 // No jump arguments
                 for depth in targets.targets() {
@@ -468,16 +468,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                         frame.set_branched_to_exit();
                         frame.br_destination()
                     };
-                    data.push_entry(block);
+                    data.push(builder.func.dfg.block_call(block, &[]));
                 }
-                let jt = builder.create_jump_table(data);
                 let block = {
                     let i = state.control_stack.len() - 1 - (default as usize);
                     let frame = &mut state.control_stack[i];
                     frame.set_branched_to_exit();
                     frame.br_destination()
                 };
-                builder.ins().br_table(val, block, jt);
+                let block = builder.func.dfg.block_call(block, &[]);
+                let jt = builder.create_jump_table(JumpTableData::new(block, &data));
+                builder.ins().br_table(val, jt);
             } else {
                 // Here we have jump arguments, but Cranelift's br_table doesn't support them
                 // We then proceed to split the edges going out of the br_table
@@ -494,7 +495,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                             *entry.insert(block)
                         }
                     };
-                    data.push_entry(branch_block);
+                    data.push(builder.func.dfg.block_call(branch_block, &[]));
                 }
                 let default_branch_block = match dest_block_map.entry(default as usize) {
                     hash_map::Entry::Occupied(entry) => *entry.get(),
@@ -504,8 +505,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                         *entry.insert(block)
                     }
                 };
-                let jt = builder.create_jump_table(data);
-                builder.ins().br_table(val, default_branch_block, jt);
+                let default_branch_block = builder.func.dfg.block_call(default_branch_block, &[]);
+                let jt = builder.create_jump_table(JumpTableData::new(default_branch_block, &data));
+                builder.ins().br_table(val, jt);
                 for (depth, dest_block) in dest_block_sequence {
                     builder.switch_to_block(dest_block);
                     builder.seal_block(dest_block);
@@ -515,7 +517,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                         frame.set_branched_to_exit();
                         frame.br_destination()
                     };
-                    let destination_args = state.peekn(return_count);
+                    let destination_args = state.peekn_mut(return_count);
                     canonicalise_then_jump(builder, real_dest_block, destination_args);
                 }
                 state.popn(return_count);
