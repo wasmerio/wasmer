@@ -1,7 +1,7 @@
 //! Heaps to implement WebAssembly linear memories.
 
 use cranelift_codegen::ir::{GlobalValue, Type};
-use cranelift_entity::entity_impl;
+use wasmer_types::entity::entity_impl;
 
 /// An opaque reference to a [`HeapData`][crate::HeapData].
 ///
