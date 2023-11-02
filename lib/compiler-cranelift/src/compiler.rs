@@ -160,7 +160,7 @@ impl Compiler for CraneliftCompiler {
 
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
-                    .compile_and_emit(&*isa, &mut code_buf)
+                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
                     .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
                 let result = context.compiled_code().unwrap();
@@ -272,7 +272,7 @@ impl Compiler for CraneliftCompiler {
 
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
-                    .compile_and_emit(&*isa, &mut code_buf)
+                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
                     .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
                 let result = context.compiled_code().unwrap();
