@@ -88,8 +88,16 @@ impl Memory {
             js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
         }
 
-        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
-            .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
+        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor).map_err(|e| {
+            let error_message = if let Some(s) = e.as_string() {
+                s
+            } else if let Some(obj) = e.dyn_ref::<js_sys::Object>() {
+                obj.to_string().into()
+            } else {
+                "Error while creating the memory".to_string()
+            };
+            MemoryError::Generic(error_message)
+        })?;
 
         Ok(js_memory)
     }
@@ -161,6 +169,18 @@ impl Memory {
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
         self.handle == other.handle
+    }
+}
+
+impl From<Memory> for crate::Memory {
+    fn from(value: Memory) -> Self {
+        crate::Memory(value)
+    }
+}
+
+impl From<crate::Memory> for Memory {
+    fn from(value: crate::Memory) -> Self {
+        value.0
     }
 }
 

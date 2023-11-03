@@ -26,18 +26,19 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    let wasm = match binary.entrypoint_bytes() {
-        Some(wasm) => wasm,
-        None => {
-            tracing::error!(
-              command=name,
-              pkg.name=%binary.package_name,
-              pkg.version=%binary.version,
-              "Unable to spawn a command because its package has no entrypoint",
-            );
-            env.cleanup(Some(Errno::Noexec.into())).await;
-            return Err(SpawnError::CompileError);
-        }
+    let wasm = if let Some(cmd) = binary.get_command(name) {
+        cmd.atom.as_ref()
+    } else if let Some(wasm) = binary.entrypoint_bytes() {
+        wasm
+    } else {
+        tracing::error!(
+          command=name,
+          pkg.name=%binary.package_name,
+          pkg.version=%binary.version,
+          "Unable to spawn a command because its package has no entrypoint",
+        );
+        env.cleanup(Some(Errno::Noexec.into())).await;
+        return Err(SpawnError::CompileError);
     };
 
     let module = match runtime.load_module(wasm).await {

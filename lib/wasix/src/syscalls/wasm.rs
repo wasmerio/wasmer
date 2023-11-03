@@ -26,6 +26,8 @@ pub fn platform_clock_time_get(
     clock_id: Snapshot0Clockid,
     precision: Timestamp,
 ) -> Result<i64, Errno> {
-    let new_time: DateTime<Local> = Local::now();
-    Ok(new_time.timestamp_nanos() as i64)
+    Local::now()
+        .timestamp_nanos_opt()
+        .map(|ts| ts as i64)
+        .ok_or(Errno::Overflow)
 }

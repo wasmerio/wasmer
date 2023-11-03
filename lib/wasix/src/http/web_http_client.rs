@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use anyhow::{Context, Error};
-use futures::future::BoxFuture;
+use futures::{channel::oneshot, future::BoxFuture};
 use http::header::{HeaderMap, HeaderValue, IntoHeaderName};
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
@@ -8,19 +10,30 @@ use web_sys::{RequestInit, RequestMode, Window, WorkerGlobalScope};
 use crate::{
     http::{HttpClient, HttpRequest, HttpRequestOptions, HttpResponse},
     utils::web::js_error,
+    VirtualTaskManager, WasiThreadError,
 };
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone)]
 #[non_exhaustive]
 pub struct WebHttpClient {
     default_headers: HeaderMap,
+    tasks: Option<Arc<dyn VirtualTaskManager + Send + Sync>>,
 }
 
 impl WebHttpClient {
     pub fn new() -> Self {
         WebHttpClient {
             default_headers: HeaderMap::new(),
+            tasks: None,
         }
+    }
+
+    pub fn with_task_manager(
+        &mut self,
+        tasks: Arc<dyn VirtualTaskManager + Send + Sync>,
+    ) -> &mut Self {
+        self.tasks = Some(tasks);
+        self
     }
 
     pub fn with_default_header(
@@ -36,28 +49,84 @@ impl WebHttpClient {
         self.default_headers.extend(map);
         self
     }
+
+    /// Execute a `fetch()` request.
+    ///
+    /// # Hack
+    ///
+    /// This function is here to work around issues that are associated with the
+    /// promises we get when calling into JavaScript.
+    ///
+    /// Under most conditions it's perfectly fine to call
+    /// [`wasm_bindgen_futures::spawn_local()`] directly from the
+    /// [`WebHttpClient::request()`] method, however there is a pretty nasty
+    /// gotcha when it comes to syscalls.
+    ///
+    /// - The Wasmer VM doesn't support `async` host functions, so all
+    ///   syscalls must block
+    /// - Some syscalls need to run asynchronous operations
+    /// - To call async code from a sync function, we use
+    ///   [`crate::syscalls::__asyncify_light()`] which uses
+    ///   [`futures::executor::block_on()`] to poll the future on the current
+    ///   thread until it resolves
+    /// - In order for a [`wasm_bindgen_futures::spawn_local()`] future (i.e.
+    ///   `fetch()`) to run to completion, you need to return control to the
+    ///   JavaScript event loop
+    ///
+    /// This causes a nasty deadlock where the syscall won't return until the
+    /// `fetch()` promise resolves, but the `fetch()` promise can't resolve
+    /// until the syscall returns.
+    ///
+    /// We saw one example of this when a WASIX program uses the `wasmer run
+    /// ...` virtual command and the [`crate::Runtime`] needs to load a package
+    /// from the registry.
+    ///
+    /// The workaround is use a [`VirtualTaskManager`] to run `fetch()` on a
+    /// background thread and hope *that* thread doesn't get stuck in a
+    /// deadlock. Otherwise if no [`VirtualTaskManager`] was provided, we'll run
+    /// the `fetch()` request on the current event loop and hope for the best.
+    fn spawn_js(
+        &self,
+        request: HttpRequest,
+    ) -> Result<oneshot::Receiver<Result<HttpResponse, Error>>, WasiThreadError> {
+        let (sender, receiver) = oneshot::channel();
+
+        fn spawn_fetch(request: HttpRequest, sender: oneshot::Sender<Result<HttpResponse, Error>>) {
+            wasm_bindgen_futures::spawn_local(async move {
+                let result = fetch(request).await;
+                let _ = sender.send(result);
+            });
+        }
+
+        match self.tasks.as_deref() {
+            Some(tasks) => {
+                tasks.task_shared(Box::new(|| {
+                    Box::pin(async move {
+                        spawn_fetch(request, sender);
+                    })
+                }))?;
+            }
+            None => {
+                spawn_fetch(request, sender);
+            }
+        }
+
+        Ok(receiver)
+    }
 }
 
 impl HttpClient for WebHttpClient {
     fn request(&self, mut request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, Error>> {
-        let (sender, receiver) = futures::channel::oneshot::channel();
-
         for (name, value) in &self.default_headers {
             if !request.headers.contains_key(name) {
                 request.headers.insert(name, value.clone());
             }
         }
 
-        // Note: We can't spawn this on our normal thread-pool because
-        // JavaScript promises are !Send, so we run it on the browser's event
-        // loop directly.
-        wasm_bindgen_futures::spawn_local(async move {
-            let result = fetch(request).await;
-            let _ = sender.send(result);
-        });
+        let receiver = self.spawn_js(request);
 
         Box::pin(async move {
-            match receiver.await {
+            match receiver?.await {
                 Ok(result) => result,
                 Err(e) => Err(Error::new(e)),
             }

@@ -122,13 +122,20 @@ impl CacheError {
 }
 
 /// The SHA-256 hash of a WebAssembly module.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ModuleHash([u8; 32]);
 
 impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw SHA-256 hash.
     pub fn from_bytes(key: [u8; 32]) -> Self {
         ModuleHash(key)
+    }
+
+    /// Parse a sha256 hash from a hex-encoded string.
+    pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
+        let mut hash = [0_u8; 32];
+        hex::decode_to_slice(hex_str, &mut hash)?;
+        Ok(Self(hash))
     }
 
     /// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.

@@ -77,6 +77,7 @@ pub struct BinaryPackage {
 impl BinaryPackage {
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_webc(
         container: &Container,
         rt: &(dyn Runtime + Send + Sync),
@@ -99,6 +100,7 @@ impl BinaryPackage {
     }
 
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(
         specifier: &PackageSpecifier,
         runtime: &(dyn Runtime + Send + Sync),
@@ -155,13 +157,16 @@ mod tests {
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
 
-    use crate::{runtime::task_manager::VirtualTaskManager, PluggableRuntime};
+    use crate::{
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
+        PluggableRuntime,
+    };
 
     use super::*;
 
     fn task_manager() -> Arc<dyn VirtualTaskManager + Send + Sync> {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "sys-threads")] {
+            if #[cfg(feature = "sys-thread")] {
                 Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(tokio::runtime::Handle::current()))
             } else {
                 unimplemented!("Unable to get the task manager")
@@ -171,7 +176,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg_attr(
-        not(feature = "sys-threads"),
+        not(feature = "sys-thread"),
         ignore = "The tokio task manager isn't available on this platform"
     )]
     async fn fs_table_can_map_directories_to_different_names() {
@@ -195,7 +200,10 @@ mod tests {
             .unwrap()
             .into();
         let tasks = task_manager();
-        let runtime = PluggableRuntime::new(tasks);
+        let mut runtime = PluggableRuntime::new(tasks);
+        runtime.set_package_loader(BuiltinPackageLoader::new_only_client(
+            runtime.http_client().unwrap().clone(),
+        ));
 
         let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
 

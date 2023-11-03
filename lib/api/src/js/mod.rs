@@ -40,5 +40,4 @@ pub(crate) mod typed_function;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
-pub use crate::js::as_js::AsJs;
-pub use crate::js::module::ModuleTypeHints;
+pub use self::{as_js::AsJs, js_handle::current_thread_id, module::ModuleTypeHints};

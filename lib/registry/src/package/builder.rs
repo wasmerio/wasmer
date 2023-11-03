@@ -239,7 +239,15 @@ fn construct_tar_gz(
 
         if let Some(bindings) = &module.bindings {
             for path in bindings.referenced_files(manifest_dir)? {
-                append_path_to_tar_gz(&mut builder, manifest_dir, &path).map_err(
+                let relative_path = path.strip_prefix(manifest_dir).with_context(|| {
+                    format!(
+                        "\"{}\" should be inside \"{}\"",
+                        path.display(),
+                        manifest_dir.display(),
+                    )
+                })?;
+
+                append_path_to_tar_gz(&mut builder, manifest_dir, relative_path).map_err(
                     |(normalized_path, _)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -767,6 +775,65 @@ runner = "https://webc.org/runner/wcgi"
         let expected: std::collections::HashMap<String, String> = [
             ("wapm.toml".to_string(), manifest_str.to_string()),
             ("module.wasm".to_string(), "()".to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        pretty_assertions::assert_eq!(map, expected);
+    }
+
+    #[test]
+    fn test_construct_wai_package_tar_gz() {
+        let manifest_str = r#"[package]
+name = "wasmer/crumsort-wasm"
+version = "0.2.4"
+description = "Crumsort from Google made for WASM"
+
+[[module]]
+name = "crumsort-wasm"
+source = "crumsort_wasm.wasm"
+
+[module.bindings]
+wai-version = "0.2.0"
+exports = "crum-sort.wai"
+"#;
+
+        let archive_dir = tempfile::tempdir().unwrap();
+
+        let manifest_dir = tempfile::tempdir().unwrap();
+
+        let mp = manifest_dir.path();
+        let manifest_path = mp.join("wasmer.toml");
+
+        std::fs::write(&manifest_path, manifest_str).unwrap();
+        std::fs::write(mp.join("crumsort_wasm.wasm"), "()").unwrap();
+        std::fs::write(mp.join("crum-sort.wai"), "/// crum-sort.wai").unwrap();
+
+        let manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
+        let meta = construct_tar_gz(&archive_dir.path(), &manifest, &manifest_path).unwrap();
+
+        let mut data = std::io::Cursor::new(std::fs::read(&meta.archive_path).unwrap());
+
+        let gz = flate2::read::GzDecoder::new(&mut data);
+        let mut archive = tar::Archive::new(gz);
+
+        let map = archive
+            .entries()
+            .unwrap()
+            .map(|res| {
+                let mut entry = res.unwrap();
+                let name = entry.path().unwrap().to_str().unwrap().to_string();
+                let mut contents = String::new();
+                entry.read_to_string(&mut contents).unwrap();
+                eprintln!("{name}:\n{contents}\n\n");
+                (name, contents)
+            })
+            .collect::<std::collections::HashMap<String, String>>();
+
+        let expected: std::collections::HashMap<String, String> = [
+            ("wapm.toml".to_string(), manifest_str.to_string()),
+            ("crum-sort.wai".to_string(), "/// crum-sort.wai".to_string()),
+            ("crumsort_wasm.wasm".to_string(), "()".to_string()),
         ]
         .into_iter()
         .collect();

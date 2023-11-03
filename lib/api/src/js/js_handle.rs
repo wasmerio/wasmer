@@ -1,5 +1,9 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    sync::atomic::{AtomicU32, Ordering},
+};
 
+use js_sys::Symbol;
 use wasm_bindgen::JsValue;
 
 use self::integrity_check::IntegrityCheck;
@@ -101,14 +105,9 @@ mod integrity_check {
 
 #[cfg(debug_assertions)]
 mod integrity_check {
-    use std::{
-        fmt::Write as _,
-        panic::Location,
-        sync::atomic::{AtomicU32, Ordering},
-    };
+    use std::{fmt::Write as _, panic::Location};
 
-    use js_sys::{JsString, Symbol};
-    use wasm_bindgen::JsValue;
+    use js_sys::JsString;
 
     #[derive(Debug, Clone, PartialEq)]
     pub(crate) struct IntegrityCheck {
@@ -122,7 +121,7 @@ mod integrity_check {
         #[track_caller]
         pub(crate) fn new(type_name: &'static str) -> Self {
             IntegrityCheck {
-                original_thread: current_thread_id(),
+                original_thread: super::current_thread_id(),
                 created: Location::caller(),
                 type_name,
                 backtrace: record_backtrace(),
@@ -131,7 +130,7 @@ mod integrity_check {
 
         #[track_caller]
         pub(crate) fn check(&self) {
-            let current_thread = current_thread_id();
+            let current_thread = super::current_thread_id();
 
             if current_thread != self.original_thread {
                 let IntegrityCheck {
@@ -177,35 +176,6 @@ mod integrity_check {
         }
     }
 
-    /// Get a unique ID for the current "thread" (i.e. web worker or the main
-    /// thread).
-    ///
-    /// This works by creating a `$WASMER_THREAD_ID` symbol and setting it on
-    /// the global object.
-    fn current_thread_id() -> u32 {
-        static NEXT_ID: AtomicU32 = AtomicU32::new(0);
-
-        let global = js_sys::global();
-        let thread_id_symbol = Symbol::for_("$WASMER_THREAD_ID");
-
-        if let Some(v) = js_sys::Reflect::get(&global, &thread_id_symbol)
-            .ok()
-            .and_then(|v| v.as_f64())
-        {
-            // Note: we use a symbol so we know for sure that nobody else created
-            // this field.
-            return v as u32;
-        }
-
-        // Looks like we haven't set the thread ID yet.
-        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-
-        js_sys::Reflect::set(&global, &thread_id_symbol, &JsValue::from(id))
-            .expect("Setting a field on the global object should never fail");
-
-        id
-    }
-
     fn record_backtrace() -> Option<String> {
         let err = js_sys::Error::new("");
         let stack = JsString::from(wasm_bindgen::intern("stack"));
@@ -214,4 +184,38 @@ mod integrity_check {
             .ok()
             .and_then(|v| v.as_string())
     }
+}
+
+/// A browser polyfill for [`std::thread::ThreadId`] [`std::thread::current()`].
+///
+/// This works by creating a `$WASMER_THREAD_ID` symbol and setting it on
+/// the global object. As long as they use the same `SharedArrayBuffer` for
+/// their linear memory, each thread (i.e. web worker or the UI thread) is
+/// guaranteed to get a unique ID.
+///
+/// This is mainly intended for use in `wasmer-wasix` and `wasmer-js`, and may
+/// go away in the future.
+#[doc(hidden)]
+pub fn current_thread_id() -> u32 {
+    static NEXT_ID: AtomicU32 = AtomicU32::new(0);
+
+    let global = js_sys::global();
+    let thread_id_symbol = Symbol::for_("$WASMER_THREAD_ID");
+
+    if let Some(v) = js_sys::Reflect::get(&global, &thread_id_symbol)
+        .ok()
+        .and_then(|v| v.as_f64())
+    {
+        // Note: we use a symbol so we know for sure that nobody else created
+        // this field.
+        return v as u32;
+    }
+
+    // Looks like we haven't set the thread ID yet.
+    let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+
+    js_sys::Reflect::set(&global, &thread_id_symbol, &JsValue::from(id))
+        .expect("Setting a field on the global object should never fail");
+
+    id
 }
