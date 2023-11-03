@@ -311,17 +311,27 @@ impl Console {
             (_, true) => ConsoleConst::WELCOME_SMALL,
             (_, _) => ConsoleConst::WELCOME_LARGE,
         };
-        let mut data = welcome
-            .replace("\\x1B", "\x1B")
-            .replace("\\r", "\r")
-            .replace("\\n", "\n");
-        data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
 
         let mut stderr = self.stderr.clone();
-        virtual_fs::AsyncWriteExt::write_all(&mut stderr, data.as_str().as_bytes())
-            .await
-            .ok();
+        write_welcome(welcome, &mut stderr).await.ok();
     }
+}
+
+pub fn render_welcome(template: &str) -> String {
+    let mut data = template
+        .replace("\\x1B", "\x1B")
+        .replace("\\r", "\r")
+        .replace("\\n", "\n");
+    data.insert_str(0, ConsoleConst::TERM_NO_WRAPAROUND);
+    data
+}
+
+pub async fn write_welcome<F: virtual_fs::AsyncWrite + Unpin>(
+    welcome: &str,
+    file: &mut F,
+) -> std::io::Result<()> {
+    let data = render_welcome(welcome);
+    virtual_fs::AsyncWriteExt::write_all(file, data.as_str().as_bytes()).await
 }
 
 #[cfg(all(test, not(target_family = "wasm")))]
