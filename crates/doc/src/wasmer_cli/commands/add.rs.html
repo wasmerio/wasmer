@@ -190,6 +190,23 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::process::{Command, Stdio};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -207,6 +224,9 @@
     <span class="doccomment">/// Add the JavaScript bindings using &quot;yarn add&quot;.
     </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
     yarn: bool,
+    <span class="doccomment">/// Add the JavaScript bindings using &quot;pnpm add&quot;.
+    </span><span class="attr">#[clap(long, groups = <span class="kw-2">&amp;</span>[<span class="string">&quot;bindings&quot;</span>, <span class="string">&quot;js&quot;</span>]</span>)]
+    pnpm: bool,
     <span class="doccomment">/// Add the package as a dev-dependency.
     </span><span class="attr">#[clap(long, requires = <span class="string">&quot;js&quot;</span>)]
     </span>dev: bool,
@@ -264,13 +284,14 @@
     }
 
     <span class="kw">fn </span>target(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Target, Error&gt; {
-        <span class="kw">match </span>(<span class="self">self</span>.pip, <span class="self">self</span>.npm, <span class="self">self</span>.yarn) {
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;at least one of --npm, --pip or --yarn has to be specified&quot;
+        <span class="kw">match </span>(<span class="self">self</span>.pip, <span class="self">self</span>.npm, <span class="self">self</span>.yarn, <span class="self">self</span>.pnpm) {
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;at least one of --npm, --pip, --yarn or --pnpm has to be specified&quot;
             </span>)),
-            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Pip),
-            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Npm { dev: <span class="self">self</span>.dev }),
-            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Yarn { dev: <span class="self">self</span>.dev }),
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Pip),
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Npm { dev: <span class="self">self</span>.dev }),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Yarn { dev: <span class="self">self</span>.dev }),
+            (<span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="prelude-val">Ok</span>(Target::Pnpm { dev: <span class="self">self</span>.dev }),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;only one of --npm, --pip or --yarn has to be specified&quot;
             </span>)),
@@ -308,13 +329,16 @@
     Pip,
     Yarn { dev: bool },
     Npm { dev: bool },
+    Pnpm { dev: bool },
 }
 
 <span class="kw">impl </span>Target {
     <span class="kw">fn </span>language(<span class="self">self</span>) -&gt; ProgrammingLanguage {
         <span class="kw">match </span><span class="self">self </span>{
             Target::Pip =&gt; ProgrammingLanguage::PYTHON,
-            Target::Yarn { .. } | Target::Npm { .. } =&gt; ProgrammingLanguage::JAVASCRIPT,
+            Target::Pnpm { .. } | Target::Yarn { .. } | Target::Npm { .. } =&gt; {
+                ProgrammingLanguage::JAVASCRIPT
+            }
         }
     }
 
@@ -355,12 +379,22 @@
             }
             Target::Npm { dev } =&gt; {
                 <span class="kw">if </span>Command::new(<span class="string">&quot;npm&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;yarn not installed&quot;</span>));
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;npm not installed&quot;</span>));
                 }
                 <span class="kw">if </span>dev {
                     <span class="string">&quot;npm install --dev&quot;
                 </span>} <span class="kw">else </span>{
                     <span class="string">&quot;npm install&quot;
+                </span>}
+            }
+            Target::Pnpm { dev } =&gt; {
+                <span class="kw">if </span>Command::new(<span class="string">&quot;pnpm&quot;</span>).arg(<span class="string">&quot;--version&quot;</span>).output().is_err() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;pnpm not installed&quot;</span>));
+                }
+                <span class="kw">if </span>dev {
+                    <span class="string">&quot;pnpm add --dev&quot;
+                </span>} <span class="kw">else </span>{
+                    <span class="string">&quot;pnpm add&quot;
                 </span>}
             }
         };
