@@ -1044,12 +1044,7 @@ impl WasiEnv {
         if self.thread.is_main() {
             tracing::trace!(pid=%self.pid(), "cleaning up open file handles");
 
-            // Now send a signal that the thread is terminated
-            self.process.signal_process(Signal::Sigquit);
-
-            // Terminate the process
-            let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
-            self.process.terminate(exit_code);
+            let process = self.process.clone();
 
             let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
             let state = self.state.clone();
@@ -1063,6 +1058,13 @@ impl WasiEnv {
                     },
                     _ = state.fs.close_all() => { }
                 }
+
+                // Now send a signal that the thread is terminated
+                process.signal_process(Signal::Sigquit);
+
+                // Terminate the process
+                let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
+                process.terminate(exit_code);
             })
         } else {
             Box::pin(async {})
