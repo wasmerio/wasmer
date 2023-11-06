@@ -2482,11 +2482,7 @@
     </span><span class="kw">pub async fn </span>close_all(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="comment">// TODO: this should close all uniquely owned files instead of just flushing.
 
-        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>map) = <span class="self">self</span>.fd_map.write() {
-            map.clear();
-        }
-
-        <span class="kw">let </span>to_close = {
+        </span><span class="kw">let </span>to_close = {
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(map) = <span class="self">self</span>.fd_map.read() {
                 map.keys().copied().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             } <span class="kw">else </span>{
@@ -2495,7 +2491,7 @@
         };
 
         <span class="kw">let _ </span>= <span class="macro">tokio::join!</span>(
-            <span class="comment">// Make sure the STDOUT and STDERR are explicitely flushed
+            <span class="comment">// Make sure the STDOUT and STDERR are explicitly flushed
             </span><span class="self">self</span>.flush(__WASI_STDOUT_FILENO),
             <span class="self">self</span>.flush(__WASI_STDERR_FILENO),
             <span class="kw">async </span>{
@@ -2505,6 +2501,10 @@
                 }
             }
         );
+
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>map) = <span class="self">self</span>.fd_map.write() {
+            map.clear();
+        }
     }
 
     <span class="doccomment">/// Will conditionally union the binary file system with this one
