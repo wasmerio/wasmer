@@ -16,38 +16,84 @@ use std::task::Context;
 use std::task::Poll;
 use thiserror::Error;
 
-pub mod arc_box_file;
-pub mod arc_file;
-pub mod arc_fs;
-pub mod buffer_file;
+pub mod files;
+pub mod arc_box_file {
+    pub use super::files::arc_box::*;
+}
+pub mod arc_file {
+    pub use super::files::arc::*;
+}
+pub mod fs;
+pub mod arc_fs {
+    pub use super::fs::arc::*;
+}
+pub mod buffer_file {
+    pub use super::files::buffer::*;
+}
 pub mod builder;
-pub mod combine_file;
-pub mod cow_file;
-pub mod dual_write_file;
-pub mod empty_fs;
+pub mod combine_file {
+    pub use super::files::combine::*;
+}
+pub mod cow_file {
+    pub use super::files::cow::*;
+}
+pub mod dual_write_file {
+    pub use super::files::dual_write::*;
+}
+pub mod empty_fs {
+    pub use super::fs::empty::*;
+}
 #[cfg(feature = "host-fs")]
-pub mod host_fs;
+pub mod host_fs {
+    pub use super::fs::host::*;
+}
 pub mod mem_fs;
-pub mod null_file;
-pub mod passthru_fs;
-pub mod random_file;
-pub mod special_file;
-pub mod tmp_fs;
-pub mod union_fs;
-pub mod zero_file;
+pub mod null_file {
+    pub use super::files::null::*;
+}
+pub mod passthru_fs {
+    pub use super::fs::passthru::*;
+}
+pub mod random_file {
+    pub use super::files::random::*;
+}
+pub mod special_file {
+    pub use super::files::special::*;
+}
+pub mod tmp_fs {
+    pub use super::fs::tmp::*;
+}
+pub mod union_fs {
+    pub use super::fs::union::*;
+}
+pub mod zero_file {
+    pub use super::files::zero::*;
+}
 // tty_file -> see wasmer_wasi::tty_file
 mod filesystems;
 pub(crate) mod ops;
-mod overlay_fs;
+mod overlay_fs {
+    pub use super::fs::overlay::*;
+}
 pub mod pipe;
-mod static_file;
+mod static_file {
+    pub use super::files::_static::*;
+}
 #[cfg(feature = "static-fs")]
-pub mod static_fs;
-mod trace_fs;
+pub mod static_fs {
+    pub use super::fs::_static::*;
+}
+mod trace_fs {
+    pub use super::fs::trace::*;
+}
 #[cfg(feature = "webc-fs")]
-pub mod webc_fs;
+pub mod webc_fs {
+    pub use super::fs::webc::*;
+}
 #[cfg(feature = "webc-fs")]
-mod webc_volume_fs;
+mod webc_volume_fs {
+    pub use super::fs::webc_volume::*;
+}
 
 pub mod limiter;
 
@@ -60,6 +106,7 @@ pub use combine_file::*;
 pub use cow_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
+pub use files::zero::*;
 pub use filesystems::FileSystems;
 pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
@@ -72,7 +119,6 @@ pub use trace_fs::TraceFileSystem;
 pub use union_fs::*;
 #[cfg(feature = "webc-fs")]
 pub use webc_volume_fs::WebcVolumeFileSystem;
-pub use zero_file::*;
 
 pub type Result<T> = std::result::Result<T, FsError>;
 

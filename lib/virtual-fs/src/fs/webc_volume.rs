@@ -318,7 +318,7 @@ mod tests {
     use std::convert::TryFrom;
     use tokio::io::AsyncReadExt;
 
-    const PYTHON_WEBC: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON_WEBC: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     #[test]
     fn normalize_paths() {

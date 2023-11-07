@@ -462,7 +462,7 @@ mod tests {
 
     #[tokio::test]
     async fn read_a_file_from_the_webc_fs() {
-        let webc: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
+        let webc: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
         let options = ParseOptions::default();
         let webc = WebCOwned::parse(Bytes::from_static(webc), &options).unwrap();
 
