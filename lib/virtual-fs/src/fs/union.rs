@@ -497,7 +497,7 @@ mod tests {
         let fs = gen_filesystem();
         assert!(
             fs.read_dir(Path::new("/test_new_filesystem")).is_ok(),
-            "hostfs can read root"
+            "unionfs can read root"
         );
         let mut file_write = fs
             .new_open_options()

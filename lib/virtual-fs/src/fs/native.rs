@@ -889,7 +889,7 @@ mod tests {
         std::fs::write(temp.path().join("foo2.txt"), b"").unwrap();
 
         let fs = FileSystem::new(temp.path().into()).expect("get filesystem");
-        assert!(fs.read_dir(Path::new("/")).is_ok(), "hostfs can read root");
+        assert!(fs.read_dir(Path::new("/")).is_ok(), "NativeFS can read root");
         assert!(
             fs.new_open_options()
                 .read(true)
