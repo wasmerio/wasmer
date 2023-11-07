@@ -5074,6 +5074,7 @@ dependencies = [
  "indexmap 1.9.3",
  "lazy_static",
  "libc",
+ "path-clean",
  "pin-project-lite",
  "pretty_assertions",
  "replace_with",

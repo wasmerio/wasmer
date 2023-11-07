@@ -28,6 +28,7 @@ tokio = { version = "1", features = ["io-util", "sync", "macros"], default_featu
 pin-project-lite = "0.2.9"
 indexmap = "1.9.2"
 replace_with = "0.1.7"
+path-clean = "1.0"
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
 getrandom = { version = "0.2" }

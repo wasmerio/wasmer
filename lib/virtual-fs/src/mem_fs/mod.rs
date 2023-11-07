@@ -3,9 +3,9 @@ mod file_opener;
 mod filesystem;
 mod stdio;
 
-use file::{File, FileHandle, ReadOnlyFile};
-pub use filesystem::FileSystem;
-pub use stdio::{Stderr, Stdin, Stdout};
+use self::file::{File, FileHandle, ReadOnlyFile};
+pub use self::filesystem::FileSystem;
+pub use self::stdio::{Stderr, Stdin, Stdout};
 
 use crate::Metadata;
 use std::{
