@@ -804,6 +804,7 @@
 <a href="#804" id="804">804</a>
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -829,6 +830,7 @@
 /// It may either be a pointer to the [`VMContext`] if it&#39;s a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it&#39;s a host function.
 </span><span class="attr">#[derive(Copy, Clone, Eq)]
+#[repr(C)]
 </span><span class="kw">pub union </span>VMFunctionContext {
     <span class="doccomment">/// Wasm functions take a pointer to [`VMContext`].
     </span><span class="kw">pub </span>vmctx: <span class="kw-2">*mut </span>VMContext,
