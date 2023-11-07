@@ -1,6 +1,6 @@
 use crate::ops::PathClean;
 use crate::{
-    DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
+    DirEntry, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
     VirtualFile,
 };
 use bytes::{Buf, Bytes};
@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tokio::runtime::Handle;
@@ -65,7 +65,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?);
+        let path: PathBuf = self.base.join(path.clean_safely()?);
         if path == PathBuf::from(".") {
             return Err(FsError::BaseNotDirectory);
         }
@@ -134,7 +134,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?);
+        let path: PathBuf = self.base.join(path.clean_safely()?);
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
@@ -146,7 +146,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?);
+        let path: PathBuf = self.base.join(path.clean_safely()?);
         fs::metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
@@ -159,7 +159,7 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let path = self.base.join(&path.clean_safely()?);
+        let path = self.base.join(path.clean_safely()?);
 
         // TODO: handle create implying write, etc.
         let read = conf.read();
