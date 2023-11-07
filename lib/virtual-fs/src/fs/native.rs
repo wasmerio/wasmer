@@ -135,7 +135,7 @@ impl crate::FileSystem for FileSystem {
 
     fn remove_file(&self, path: &Path) -> Result<()> {
         let path: PathBuf = self.base.join(path.clean_safely()?);
-        if path.parent().is_none() {
+        if path == PathBuf::from(".") {
             return Err(FsError::BaseNotDirectory);
         }
         fs::remove_file(path).map_err(Into::into)
