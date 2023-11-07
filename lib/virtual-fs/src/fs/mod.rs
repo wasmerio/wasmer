@@ -1,7 +1,9 @@
 pub mod _static;
 pub mod arc;
 pub mod empty;
+#[cfg(feature = "host-fs")]
 pub mod host;
+#[cfg(feature = "native-fs")]
 pub mod native;
 pub mod overlay;
 pub mod passthru;

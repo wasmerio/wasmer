@@ -38,7 +38,7 @@ impl FileSystem {
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let mut base = self.base.clone();
-        let path = self.base.join(&path.clean_safely()?);
+        let path = self.base.join(path.clean_safely()?);
         let read_dir = fs::read_dir(path)?;
         let mut data = read_dir
             .map(|entry| {
@@ -56,7 +56,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?);
+        let path: PathBuf = self.base.join(path.clean_safely()?);
         if path == PathBuf::from(".") {
             // Creating the root should always work
             return Ok(());
@@ -65,7 +65,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?).to_owned();
+        let path: PathBuf = self.base.join(&path.clean_safely()?);
         if path == PathBuf::from(".") {
             return Err(FsError::BaseNotDirectory);
         }
@@ -92,8 +92,8 @@ impl crate::FileSystem for FileSystem {
             if to == PathBuf::from(".") {
                 return Err(FsError::BaseNotDirectory);
             }
-            let from: PathBuf = self.base.join(&from).to_owned();
-            let to: PathBuf = self.base.join(&to).to_owned();
+            let from: PathBuf = self.base.join(&from);
+            let to: PathBuf = self.base.join(&to);
 
             if !from.exists() {
                 return Err(FsError::EntryNotFound);
@@ -134,7 +134,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?).to_owned();
+        let path: PathBuf = self.base.join(&path.clean_safely()?);
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
@@ -146,7 +146,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        let path: PathBuf = self.base.join(&path.clean_safely()?).to_owned();
+        let path: PathBuf = self.base.join(&path.clean_safely()?);
         fs::metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
@@ -159,7 +159,7 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let path = self.base.join(&path.clean_safely()?).to_owned();
+        let path = self.base.join(&path.clean_safely()?);
 
         // TODO: handle create implying write, etc.
         let read = conf.read();
