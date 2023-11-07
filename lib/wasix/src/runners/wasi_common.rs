@@ -159,9 +159,7 @@ fn prepare_filesystem(
     }
 
     let temp_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(TmpFileSystem::new());
-    root_fs
-        .mount("/tmp".into(), &temp_fs, "/".into())
-        .unwrap();
+    root_fs.mount("/tmp".into(), &temp_fs, "/".into()).unwrap();
 
     // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
     // paths, but our Python executable will try to access its standard library
