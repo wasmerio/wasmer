@@ -1,10 +1,10 @@
+use crate::ops::PathClean;
 use crate::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
     VirtualFile,
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
-use path_clean::{clean, PathClean};
 #[cfg(feature = "enable-serde")]
 use serde::{de, Deserialize, Serialize};
 use std::convert::TryInto;
@@ -35,17 +35,10 @@ impl FileSystem {
     }
 }
 
-fn make_it_relative(path: &Path) -> PathBuf {
-    let mut path = path.to_owned();
-    if path.starts_with("/") {
-        path = path.strip_prefix("/").unwrap().to_owned();
-    }
-    path
-}
 impl crate::FileSystem for FileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let mut base = self.base.clone();
-        let path = self.base.join(make_it_relative(&path.clean()));
+        let path = self.base.join(&path.clean_safely()?);
         let read_dir = fs::read_dir(path)?;
         let mut data = read_dir
             .map(|entry| {
@@ -63,16 +56,17 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(make_it_relative(&path.clean()));
-        if path.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
+        let path: PathBuf = self.base.join(&path.clean_safely()?);
+        if path == PathBuf::from(".") {
+            // Creating the root should always work
+            return Ok(());
         }
         fs::create_dir(path).map_err(Into::into)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(make_it_relative(&path.clean())).to_owned();
-        if path.parent().is_none() {
+        let path: PathBuf = self.base.join(&path.clean_safely()?).to_owned();
+        if path == PathBuf::from(".") {
             return Err(FsError::BaseNotDirectory);
         }
         // https://github.com/rust-lang/rust/issues/86442
@@ -88,18 +82,18 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        let from = from.to_owned().clean();
-        let to = to.to_owned().clean();
         Box::pin(async move {
+            let from = from.to_owned().clean_safely()?;
+            let to = to.to_owned().clean_safely()?;
             use filetime::{set_file_mtime, FileTime};
-            if from.parent().is_none() {
+            if from == PathBuf::from(".") {
                 return Err(FsError::BaseNotDirectory);
             }
-            if to.parent().is_none() {
+            if to == PathBuf::from(".") {
                 return Err(FsError::BaseNotDirectory);
             }
-            let from: PathBuf = self.base.join(make_it_relative(&from)).to_owned();
-            let to: PathBuf = self.base.join(make_it_relative(&to)).to_owned();
+            let from: PathBuf = self.base.join(&from).to_owned();
+            let to: PathBuf = self.base.join(&to).to_owned();
 
             if !from.exists() {
                 return Err(FsError::EntryNotFound);
@@ -140,7 +134,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
-        let path: PathBuf = self.base.join(make_it_relative(&path.clean())).to_owned();
+        let path: PathBuf = self.base.join(&path.clean_safely()?).to_owned();
         if path.parent().is_none() {
             return Err(FsError::BaseNotDirectory);
         }
@@ -152,7 +146,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        let path: PathBuf = self.base.join(make_it_relative(&path.clean())).to_owned();
+        let path: PathBuf = self.base.join(&path.clean_safely()?).to_owned();
         fs::metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
@@ -165,7 +159,7 @@ impl crate::FileOpener for FileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let path = self.base.join(make_it_relative(&path.clean())).to_owned();
+        let path = self.base.join(&path.clean_safely()?).to_owned();
 
         // TODO: handle create implying write, etc.
         let read = conf.read();
@@ -889,7 +883,10 @@ mod tests {
         std::fs::write(temp.path().join("foo2.txt"), b"").unwrap();
 
         let fs = FileSystem::new(temp.path().into()).expect("get filesystem");
-        assert!(fs.read_dir(Path::new("/")).is_ok(), "NativeFS can read root");
+        assert!(
+            fs.read_dir(Path::new("/")).is_ok(),
+            "NativeFS can read root"
+        );
         assert!(
             fs.new_open_options()
                 .read(true)
@@ -906,8 +903,8 @@ mod tests {
 
         assert_eq!(
             fs.create_dir(Path::new("../")),
-            Err(FsError::AlreadyExists),
-            "creating a directory that already exists",
+            Err(FsError::InvalidInput),
+            "creating a directory out of bounds",
         );
 
         assert_eq!(

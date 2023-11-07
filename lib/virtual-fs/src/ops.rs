@@ -3,7 +3,7 @@
 
 use std::{
     collections::VecDeque,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
 use futures::future::BoxFuture;
@@ -328,4 +328,210 @@ mod tests {
 
         assert_eq!(super::read(&fs, "/file.txt").await.unwrap(), b"");
     }
+}
+
+/// The Clean trait implements a `clean` method.
+pub trait PathClean {
+    fn clean_safely(&self) -> crate::Result<PathBuf>;
+}
+
+/// PathClean implemented for `Path`
+impl PathClean for Path {
+    fn clean_safely(&self) -> crate::Result<PathBuf> {
+        clean_safely(self)
+    }
+}
+
+/// PathClean implemented for `PathBuf`
+impl PathClean for PathBuf {
+    fn clean_safely(&self) -> crate::Result<PathBuf> {
+        clean_safely(self)
+    }
+}
+
+/// The core implementation. It performs the following, lexically:
+/// 1. Reduce multiple slashes to a single slash.
+/// 2. Eliminate `.` path name elements (the current directory).
+/// 3. Eliminate `..` path name elements (the parent directory) and the non-`.` non-`..`, element that precedes them.
+/// 4. Eliminate `..` elements that begin a rooted path, that is, replace `/..` by `/` at the beginning of a path.
+/// 5. Leave intact `..` elements that begin a non-rooted path.
+///
+/// If the result of this process is an empty string, return the string `"."`, representing the current directory.
+///
+/// Code adapted from: https://github.com/danreeves/path-clean/blob/master/src/lib.rs#L50C1-L87C1
+pub fn clean_safely<P>(path: P) -> crate::Result<PathBuf>
+where
+    P: AsRef<Path>,
+{
+    let mut out = Vec::new();
+
+    for comp in path.as_ref().components() {
+        match comp {
+            Component::CurDir => (),
+            Component::RootDir => {
+                if !out.is_empty() {
+                    out.push(Component::RootDir);
+                }
+            }
+            Component::ParentDir => match out.last() {
+                Some(Component::RootDir) => (),
+                Some(Component::Normal(_)) => {
+                    out.pop();
+                }
+                None => {
+                    // We tried to go too up the stack
+                    return Err(crate::FsError::InvalidInput);
+                }
+                Some(Component::CurDir)
+                | Some(Component::ParentDir)
+                | Some(Component::Prefix(_)) => out.push(comp),
+            },
+            comp => out.push(comp),
+        }
+    }
+
+    if !out.is_empty() {
+        if out[0] == Component::RootDir {
+            return Ok(PathBuf::from("."));
+        }
+        Ok(out.iter().collect())
+    } else {
+        Ok(PathBuf::from("."))
+    }
+}
+
+#[cfg(test)]
+mod tests_clean {
+    use super::{clean_safely, PathClean};
+    use crate::FsError;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn test_empty_path_is_current_dir() {
+        assert_eq!(clean_safely(""), Ok(PathBuf::from(".")));
+    }
+
+    #[test]
+    fn test_root_is_current_dir() {
+        assert_eq!(clean_safely("/"), Ok(PathBuf::from(".")));
+    }
+
+    #[test]
+    fn test_clean_paths_dont_change() {
+        let tests = vec![
+            (".", Ok(PathBuf::from("."))),
+            ("..", Err(FsError::InvalidInput)),
+            ("/", Ok(PathBuf::from("."))),
+        ];
+
+        for test in tests {
+            assert_eq!(clean_safely(test.0), test.1);
+        }
+    }
+
+    #[test]
+    fn test_replace_multiple_slashes() {
+        let tests = vec![
+            ("/", Ok(PathBuf::from("."))),
+            ("//", Ok(PathBuf::from("."))),
+            ("///", Ok(PathBuf::from("."))),
+            (".//", Ok(PathBuf::from("."))),
+            ("//..", Err(FsError::InvalidInput)),
+            ("..//", Err(FsError::InvalidInput)),
+            ("/..//", Err(FsError::InvalidInput)),
+            ("/.//./", Ok(PathBuf::from("."))),
+            ("././/./", Ok(PathBuf::from("."))),
+            ("path//to///thing", Ok(PathBuf::from("path/to/thing"))),
+            ("/path//to///thing", Ok(PathBuf::from("path/to/thing"))),
+        ];
+
+        for test in tests {
+            assert_eq!(clean_safely(test.0), test.1, "test: {}", test.0);
+        }
+    }
+
+    #[test]
+    fn test_eliminate_current_dir() {
+        let tests = vec![
+            ("./", "."),
+            ("/./", "."),
+            ("./test", "test"),
+            ("./test/./path", "test/path"),
+            ("/test/./path/", "test/path"),
+            ("test/path/.", "test/path"),
+        ];
+
+        for test in tests {
+            assert_eq!(clean_safely(test.0), Ok(PathBuf::from(test.1)));
+        }
+    }
+
+    #[test]
+    fn test_eliminate_parent_dir() {
+        let tests = vec![
+            ("/..", Err(FsError::InvalidInput)),
+            ("/../test", Err(FsError::InvalidInput)),
+            ("test/..", Ok(PathBuf::from("."))),
+            ("test/path/..", Ok(PathBuf::from("test"))),
+            ("test/../path", Ok(PathBuf::from("path"))),
+            ("/test/../path", Ok(PathBuf::from("path"))),
+            ("test/path/../../", Ok(PathBuf::from("."))),
+            ("test/path/../../..", Err(FsError::InvalidInput)),
+            ("/test/path/../../..", Err(FsError::InvalidInput)),
+            ("/test/path/../../../..", Err(FsError::InvalidInput)),
+            ("test/path/../../../..", Err(FsError::InvalidInput)),
+            (
+                "test/path/../../another/path",
+                Ok(PathBuf::from("another/path")),
+            ),
+            (
+                "test/path/../../another/path/..",
+                Ok(PathBuf::from("another")),
+            ),
+            ("../test", Err(FsError::InvalidInput)),
+            ("../test/", Err(FsError::InvalidInput)),
+            ("../test/path", Err(FsError::InvalidInput)),
+            ("../test/..", Err(FsError::InvalidInput)),
+        ];
+
+        for test in tests {
+            assert_eq!(clean_safely(test.0), test.1, "test: {}", test.0);
+        }
+    }
+
+    #[test]
+    fn test_pathbuf_trait() {
+        assert_eq!(
+            PathBuf::from("/test/../path/").clean_safely(),
+            Ok(PathBuf::from("path"))
+        );
+    }
+
+    #[test]
+    fn test_path_trait() {
+        assert_eq!(
+            Path::new("/test/../path/").clean_safely(),
+            Ok(PathBuf::from("path"))
+        );
+    }
+
+    // #[test]
+    // #[cfg(target_os = "windows")]
+    // fn test_windows_paths() {
+    //     let tests = vec![
+    //         ("\\..", "\\"),
+    //         ("\\..\\test", "\\test"),
+    //         ("test\\..", "."),
+    //         ("test\\path\\..\\..\\..", ".."),
+    //         ("test\\path/..\\../another\\path", "another\\path"), // Mixed
+    //         ("test\\path\\my/path", "test\\path\\my\\path"),      // Mixed 2
+    //         ("/dir\\../otherDir/test.json", "/otherDir/test.json"), // User example
+    //         ("c:\\test\\..", "c:\\"),                             // issue #12
+    //         ("c:/test/..", "c:/"),                                // issue #12
+    //     ];
+
+    //     for test in tests {
+    //         assert_eq!(clean_safely(test.0), PathBuf::from(test.1));
+    //     }
+    // }
 }
