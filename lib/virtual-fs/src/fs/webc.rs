@@ -14,8 +14,7 @@ use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile, WebC};
 
 use crate::{
-    mem_fs::FileSystem as MemFileSystem, FileOpener, FileSystem, FsError, Metadata, OpenOptions,
-    OpenOptionsConfig, ReadDir, VirtualFile,
+    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
 };
 
 /// Custom file system wrapper to map requested file paths
@@ -313,86 +312,46 @@ where
 
         read_dir_result
     }
-    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
         Err(FsError::PermissionDenied)
     }
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Err(FsError::PermissionDenied)
     }
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
+    fn rename<'a>(&'a self, _from: &'a Path, _to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async { Err(FsError::PermissionDenied) })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
-        if let Some(fs_entry) = self
-            .volumes
-            .iter()
-            .filter_map(|v| v.get_file_entry(&path).ok())
-            .next()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::File),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: fs_entry.get_len(),
-            })
-        } else if self
-            .volumes
-            .iter()
-            .filter_map(|v| v.read_dir(&path).ok())
-            .next()
-            .is_some()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::Dir),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: 0,
-            })
-        } else {
-            Err(FsError::EntryNotFound)
+        for volume in self.volumes.iter() {
+            if let Some(fs_entry) = volume.get_file_entry(&path).ok() {
+                return Ok(Metadata {
+                    ft: translate_file_type(FsEntryType::File),
+                    accessed: 0,
+                    created: 0,
+                    modified: 0,
+                    len: fs_entry.get_len(),
+                });
+            } else if let Some(_fs_entry) = volume.read_dir(&path).ok() {
+                return Ok(Metadata {
+                    ft: translate_file_type(FsEntryType::Dir),
+                    accessed: 0,
+                    created: 0,
+                    modified: 0,
+                    len: 0,
+                });
+            }
         }
+        Err(FsError::EntryNotFound)
     }
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Err(FsError::PermissionDenied)
     }
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        let path = normalizes_path(path);
-        if let Some(fs_entry) = self
-            .volumes
-            .iter()
-            .filter_map(|v| v.get_file_entry(&path).ok())
-            .next()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::File),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: fs_entry.get_len(),
-            })
-        } else if self
-            .volumes
-            .iter()
-            .filter_map(|v| v.read_dir(&path).ok())
-            .next()
-            .is_some()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::Dir),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: 0,
-            })
-        } else {
-            Err(FsError::PermissionDenied)
-        }
+        self.metadata(path)
     }
 }
 
