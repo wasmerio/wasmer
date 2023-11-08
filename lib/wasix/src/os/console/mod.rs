@@ -225,7 +225,13 @@ impl Console {
             .with_stdin(Box::new(self.stdin.clone()))
             .with_stdout(Box::new(self.stdout.clone()))
             .with_stderr(Box::new(self.stderr.clone()))
-            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
+            .prepare_webc_env(
+                prog,
+                &wasi_opts,
+                Some(&pkg),
+                self.runtime.clone(),
+                Some(root_fs),
+            )
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
 
