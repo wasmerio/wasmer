@@ -84,9 +84,9 @@ rust-version = "1.70"
 version = "4.2.3"
 
 [workspace.dependencies]
-webc = { version = "5.5.1", default-features = false, features = ["package"] }
-wasmer-toml = "0.8.0"
 memoffset = "0.9.0"
+wasmer-toml = "0.9.2"
+webc = { version = "5.6.0", default-features = false, features = ["package"] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

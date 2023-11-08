@@ -16,3 +16,4 @@ wasi = '0.1.0-unstable'
 [[command]]
 name = 'wasmer'
 module = 'wasmer'
+runner = 'wasi'
