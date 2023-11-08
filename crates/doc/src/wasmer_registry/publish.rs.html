@@ -243,6 +243,7 @@
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::fmt::Write;
 <span class="kw">use </span>std::io::BufRead;
@@ -476,6 +477,7 @@
             file_name: <span class="prelude-val">Some</span>(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: <span class="prelude-val">Some</span>(signed_url),
+            private: <span class="prelude-val">Some</span>(package.private),
         });
 
     <span class="kw">let </span>_response: publish_package_mutation_chunked::ResponseData =

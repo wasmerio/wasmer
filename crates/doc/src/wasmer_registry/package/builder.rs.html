@@ -841,9 +841,213 @@
 <a href="#841" id="841">841</a>
 <a href="#842" id="842">842</a>
 <a href="#843" id="843">843</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
-<span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::{fs, io::IsTerminal};
 
 <span class="kw">use </span>anyhow::{anyhow, bail, Context};
 <span class="kw">use </span>flate2::{write::GzEncoder, Compression};
@@ -852,7 +1056,7 @@
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>time::{<span class="self">self</span>, OffsetDateTime};
 
-<span class="kw">use </span><span class="kw">crate</span>::publish::SignArchiveResult;
+<span class="kw">use crate</span>::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 <span class="kw">use crate</span>::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
 <span class="kw">const </span>MIGRATIONS: <span class="kw-2">&amp;</span>[(i32, <span class="kw-2">&amp;</span>str)] = <span class="kw-2">&amp;</span>[
@@ -972,8 +1176,10 @@
             }
         };
 
-        <span class="kw">if </span>!<span class="self">self</span>.no_validate {
-            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, manifest_dir)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>policy = <span class="self">self</span>.validation_policy();
+
+        <span class="kw">if </span>!policy.skip_validation() {
+            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, manifest_dir, <span class="kw-2">&amp;mut *</span>policy)<span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span>archive_path = <span class="kw-2">&amp;</span>archive_meta.archive_path;
@@ -1022,6 +1228,16 @@
             archived_data_size,
             <span class="self">self</span>.quiet,
         )
+    }
+
+    <span class="kw">fn </span>validation_policy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValidationPolicy&gt; {
+        <span class="kw">if </span><span class="self">self</span>.no_validate {
+            Box::&lt;validate::Skip&gt;::default()
+        } <span class="kw">else if </span>std::io::stdin().is_terminal() {
+            Box::&lt;validate::Interactive&gt;::default()
+        } <span class="kw">else </span>{
+            Box::&lt;validate::NonInteractive&gt;::default()
+        }
     }
 }
 
@@ -1420,85 +1636,137 @@
     <span class="kw">use </span>wasmer_wasm_interface::{validate, Interface};
 
     <span class="kw">use </span><span class="kw">super</span>::interfaces;
-    <span class="kw">use </span><span class="kw">crate</span>::interface::InterfaceFromServer;
+    <span class="kw">use crate</span>::{interface::InterfaceFromServer, QueryPackageError};
     <span class="kw">use </span>std::{
         fs,
         io::Read,
+        ops::ControlFlow,
         path::{Path, PathBuf},
     };
 
-    <span class="kw">pub fn </span>validate_directory(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate_directory(
         manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
         registry: <span class="kw-2">&amp;</span>str,
         pkg_path: PathBuf,
+        callbacks: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>ValidationPolicy,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="comment">// validate as dir
         </span><span class="kw">for </span>module <span class="kw">in </span>manifest.modules.iter() {
-            <span class="kw">let </span>source_path = <span class="kw">if </span>module.source.is_relative() {
-                pkg_path.join(<span class="kw-2">&amp;</span>module.source)
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = validate_module(module, registry, <span class="kw-2">&amp;</span>pkg_path) {
+                <span class="kw">if </span>callbacks.on_invalid_module(module, <span class="kw-2">&amp;</span>e).is_break() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(e.into());
+                }
+            }
+        }
+
+        <span class="kw">if </span>would_change_package_privacy(manifest, registry)<span class="question-mark">?
+            </span>&amp;&amp; callbacks.on_package_privacy_changed(manifest).is_break()
+        {
+            <span class="kw">if </span>manifest.package.private {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::WouldBecomePrivate.into());
             } <span class="kw">else </span>{
-                module.source.clone()
-            };
-            <span class="kw">let </span>source_path_string = source_path.to_string_lossy().to_string();
-            <span class="kw">let </span><span class="kw-2">mut </span>wasm_file =
-                fs::File::open(<span class="kw-2">&amp;</span>source_path).map_err(|<span class="kw">_</span>| ValidationError::MissingFile {
-                    file: source_path_string.clone(),
-                })<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>wasm_buffer = Vec::new();
-            wasm_file.read_to_end(<span class="kw-2">&amp;mut </span>wasm_buffer).map_err(|err| {
-                ValidationError::MiscCannotRead {
-                    file: source_path_string.clone(),
-                    error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err),
-                }
-            })<span class="question-mark">?</span>;
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
-                validate_bindings(bindings, <span class="kw-2">&amp;</span>pkg_path)<span class="question-mark">?</span>;
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::WouldBecomePublic.into());
             }
-
-            <span class="comment">// hack, short circuit if no interface for now
-            </span><span class="kw">if </span>module.interfaces.is_none() {
-                <span class="kw">return </span>validate_wasm_and_report_errors_old(<span class="kw-2">&amp;</span>wasm_buffer[..], source_path_string);
-            }
-
-            <span class="kw">let </span><span class="kw-2">mut </span>conn = <span class="kw">super</span>::open_db()<span class="question-mark">?</span>;
-            <span class="kw">let </span><span class="kw-2">mut </span>interface: Interface = Default::default();
-            <span class="kw">for </span>(interface_name, interface_version) <span class="kw">in
-                </span>module.interfaces.clone().unwrap_or_default().into_iter()
-            {
-                <span class="kw">if </span>!interfaces::interface_exists(<span class="kw-2">&amp;mut </span>conn, <span class="kw-2">&amp;</span>interface_name, <span class="kw-2">&amp;</span>interface_version)<span class="question-mark">? </span>{
-                    <span class="comment">// download interface and store it if we don&#39;t have it locally
-                    </span><span class="kw">let </span>interface_data_from_server = InterfaceFromServer::get(
-                        registry,
-                        interface_name.clone(),
-                        interface_version.clone(),
-                    )<span class="question-mark">?</span>;
-                    interfaces::import_interface(
-                        <span class="kw-2">&amp;mut </span>conn,
-                        <span class="kw-2">&amp;</span>interface_name,
-                        <span class="kw-2">&amp;</span>interface_version,
-                        <span class="kw-2">&amp;</span>interface_data_from_server.content,
-                    )<span class="question-mark">?</span>;
-                }
-                <span class="kw">let </span>sub_interface = interfaces::load_interface_from_db(
-                    <span class="kw-2">&amp;mut </span>conn,
-                    <span class="kw-2">&amp;</span>interface_name,
-                    <span class="kw-2">&amp;</span>interface_version,
-                )<span class="question-mark">?</span>;
-                interface = interface
-                    .merge(sub_interface)
-                    .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;Failed to merge interface {}: {}&quot;</span>, <span class="kw-2">&amp;</span>interface_name, e))<span class="question-mark">?</span>;
-            }
-            validate::validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm_buffer, <span class="kw-2">&amp;</span>interface).map_err(|e| {
-                ValidationError::InvalidWasm {
-                    file: source_path_string,
-                    error: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
-                }
-            })<span class="question-mark">?</span>;
         }
 
         <span class="macro">log::debug!</span>(<span class="string">&quot;package at path {:#?} validated&quot;</span>, <span class="kw-2">&amp;</span>pkg_path);
 
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Check if publishing this manifest would change the package&#39;s privacy.
+    </span><span class="kw">fn </span>would_change_package_privacy(
+        manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        registry: <span class="kw-2">&amp;</span>str,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ValidationError&gt; {
+        <span class="kw">let </span>package_version =
+            <span class="kw">crate</span>::query_package_from_registry(registry, <span class="kw-2">&amp;</span>manifest.package.name, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(package_version.is_private != manifest.package.private)
+    }
+
+    <span class="kw">fn </span>validate_module(
+        module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+        registry: <span class="kw-2">&amp;</span>str,
+        pkg_path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ValidationError&gt; {
+        <span class="kw">let </span>source_path = <span class="kw">if </span>module.source.is_relative() {
+            pkg_path.join(<span class="kw-2">&amp;</span>module.source)
+        } <span class="kw">else </span>{
+            module.source.clone()
+        };
+        <span class="kw">let </span>source_path_string = source_path.to_string_lossy().to_string();
+        <span class="kw">let </span><span class="kw-2">mut </span>wasm_file =
+            fs::File::open(<span class="kw-2">&amp;</span>source_path).map_err(|<span class="kw">_</span>| ValidationError::MissingFile {
+                file: source_path_string.clone(),
+            })<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>wasm_buffer = Vec::new();
+        wasm_file
+            .read_to_end(<span class="kw-2">&amp;mut </span>wasm_buffer)
+            .map_err(|err| ValidationError::MiscCannotRead {
+                file: source_path_string.clone(),
+                error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, err),
+            })<span class="question-mark">?</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(bindings) = <span class="kw-2">&amp;</span>module.bindings {
+            validate_bindings(bindings, pkg_path)<span class="question-mark">?</span>;
+        }
+
+        <span class="comment">// hack, short circuit if no interface for now
+        </span><span class="kw">if </span>module.interfaces.is_none() {
+            <span class="kw">return </span>validate_wasm_and_report_errors_old(<span class="kw-2">&amp;</span>wasm_buffer[..], source_path_string);
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>conn = <span class="kw">super</span>::open_db().map_err(ValidationError::UpdatingInterfaces)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>interface: Interface = Default::default();
+        <span class="kw">for </span>(interface_name, interface_version) <span class="kw">in
+            </span>module.interfaces.clone().unwrap_or_default().into_iter()
+        {
+            add_module_interface(
+                <span class="kw-2">&amp;mut </span>conn,
+                interface_name,
+                interface_version,
+                registry,
+                <span class="kw-2">&amp;mut </span>interface,
+            )
+            .map_err(ValidationError::UpdatingInterfaces)<span class="question-mark">?</span>;
+        }
+        validate::validate_wasm_and_report_errors(<span class="kw-2">&amp;</span>wasm_buffer, <span class="kw-2">&amp;</span>interface).map_err(|e| {
+            ValidationError::InvalidWasm {
+                file: source_path_string,
+                error: <span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, e),
+            }
+        })<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>add_module_interface(
+        conn: <span class="kw-2">&amp;mut </span>rusqlite::Connection,
+        interface_name: String,
+        interface_version: String,
+        registry: <span class="kw-2">&amp;</span>str,
+        interface: <span class="kw-2">&amp;mut </span>Interface,
+    ) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="kw">if </span>!interfaces::interface_exists(conn, <span class="kw-2">&amp;</span>interface_name, <span class="kw-2">&amp;</span>interface_version)<span class="question-mark">? </span>{
+            <span class="comment">// download interface and store it if we don&#39;t have it locally
+            </span><span class="kw">let </span>interface_data_from_server = InterfaceFromServer::get(
+                registry,
+                interface_name.clone(),
+                interface_version.clone(),
+            )<span class="question-mark">?</span>;
+            interfaces::import_interface(
+                conn,
+                <span class="kw-2">&amp;</span>interface_name,
+                <span class="kw-2">&amp;</span>interface_version,
+                <span class="kw-2">&amp;</span>interface_data_from_server.content,
+            )<span class="question-mark">?</span>;
+        }
+        <span class="kw">let </span>sub_interface =
+            interfaces::load_interface_from_db(conn, <span class="kw-2">&amp;</span>interface_name, <span class="kw-2">&amp;</span>interface_version)<span class="question-mark">?</span>;
+        <span class="kw-2">*</span>interface = interface
+            .merge(sub_interface)
+            .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;Failed to merge interface {}: {}&quot;</span>, <span class="kw-2">&amp;</span>interface_name, e))<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -1513,6 +1781,7 @@
     }
 
     <span class="attr">#[derive(Debug, Error)]
+    #[non_exhaustive]
     </span><span class="kw">pub enum </span>ValidationError {
         <span class="attr">#[error(<span class="string">&quot;WASM file \&quot;{file}\&quot; detected as invalid because {error}&quot;</span>)]
         </span>InvalidWasm { file: String, error: String },
@@ -1522,13 +1791,21 @@
         </span>MiscCannotRead { file: String, error: String },
         <span class="attr">#[error(transparent)]
         </span>Imports(<span class="attr">#[from] </span>wasmer_toml::ImportsError),
+        <span class="attr">#[error(<span class="string">&quot;Unable to update the interfaces database&quot;</span>)]
+        </span>UpdatingInterfaces(<span class="attr">#[source] </span>anyhow::Error),
+        <span class="attr">#[error(<span class="string">&quot;Aborting because publishing the package would make it public&quot;</span>)]
+        </span>WouldBecomePublic,
+        <span class="attr">#[error(<span class="string">&quot;Aborting because publishing the package would make it private&quot;</span>)]
+        </span>WouldBecomePrivate,
+        <span class="attr">#[error(<span class="string">&quot;Unable to look up package information&quot;</span>)]
+        </span>Registry(<span class="attr">#[from] </span>QueryPackageError),
     }
 
     <span class="comment">// legacy function, validates wasm.  TODO: clean up
     </span><span class="kw">pub fn </span>validate_wasm_and_report_errors_old(
         wasm: <span class="kw-2">&amp;</span>[u8],
         file_name: String,
-    ) -&gt; anyhow::Result&lt;()&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ValidationError&gt; {
         <span class="kw">use </span>wasmparser::WasmDecoder;
         <span class="kw">let </span><span class="kw-2">mut </span>parser = wasmparser::ValidatingParser::new(
             wasm,
@@ -1550,11 +1827,142 @@
                     <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::InvalidWasm {
                         file: file_name,
                         error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e),
-                    }
-                    .into());
+                    });
                 }
                 <span class="kw">_ </span>=&gt; {}
             }
+        }
+    }
+
+    <span class="doccomment">/// How should validation be treated by the publishing process?
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>ValidationPolicy {
+        <span class="doccomment">/// Should validation be skipped entirely?
+        </span><span class="kw">fn </span>skip_validation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool;
+
+        <span class="doccomment">/// How should publishing proceed when a module is invalid?
+        </span><span class="kw">fn </span>on_invalid_module(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            error: <span class="kw-2">&amp;</span>ValidationError,
+        ) -&gt; ControlFlow&lt;(), ()&gt;;
+
+        <span class="doccomment">/// How should publishing proceed when it might change a package&#39;s
+        /// privacy? (i.e. by making a private package publicly available).
+        </span><span class="kw">fn </span>on_package_privacy_changed(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        ) -&gt; ControlFlow&lt;(), ()&gt;;
+    }
+
+    <span class="attr">#[derive(Debug, Default, Copy, Clone, PartialEq)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Skip;
+
+    <span class="kw">impl </span>ValidationPolicy <span class="kw">for </span>Skip {
+        <span class="kw">fn </span>skip_validation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
+            <span class="bool-val">true
+        </span>}
+
+        <span class="kw">fn </span>on_invalid_module(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            _module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            _error: <span class="kw-2">&amp;</span>ValidationError,
+        ) -&gt; ControlFlow&lt;(), ()&gt; {
+            <span class="macro">unreachable!</span>()
+        }
+
+        <span class="kw">fn </span>on_package_privacy_changed(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            _manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        ) -&gt; ControlFlow&lt;(), ()&gt; {
+            <span class="macro">unreachable!</span>()
+        }
+    }
+
+    <span class="attr">#[derive(Debug, Default, Copy, Clone, PartialEq)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Interactive;
+
+    <span class="kw">impl </span>ValidationPolicy <span class="kw">for </span>Interactive {
+        <span class="kw">fn </span>skip_validation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
+            <span class="bool-val">false
+        </span>}
+
+        <span class="kw">fn </span>on_invalid_module(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            error: <span class="kw-2">&amp;</span>ValidationError,
+        ) -&gt; ControlFlow&lt;(), ()&gt; {
+            <span class="kw">let </span>module_name = <span class="kw-2">&amp;</span>module.name;
+            <span class="kw">let </span>prompt =
+                <span class="macro">format!</span>(<span class="string">&quot;Validation error with the \&quot;{module_name}\&quot; module: {error}. Would you like to continue?&quot;</span>);
+
+            <span class="kw">match </span>dialoguer::Confirm::new()
+                .with_prompt(prompt)
+                .default(<span class="bool-val">false</span>)
+                .interact()
+            {
+                <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; ControlFlow::Continue(()),
+                <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; ControlFlow::Break(()),
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::error!</span>(
+                        error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        <span class="string">&quot;Unable to check whether the user wants to change the package&#39;s privacy&quot;</span>,
+                    );
+                    ControlFlow::Break(())
+                }
+            }
+        }
+
+        <span class="kw">fn </span>on_package_privacy_changed(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        ) -&gt; ControlFlow&lt;(), ()&gt; {
+            <span class="kw">let </span>privacy = <span class="kw">if </span>manifest.package.private {
+                <span class="string">&quot;private&quot;
+            </span>} <span class="kw">else </span>{
+                <span class="string">&quot;public&quot;
+            </span>};
+            <span class="kw">let </span>prompt =
+                <span class="macro">format!</span>(<span class="string">&quot;This will make the package {privacy}. Would you like to continue?&quot;</span>);
+
+            <span class="kw">match </span>dialoguer::Confirm::new()
+                .with_prompt(prompt)
+                .default(<span class="bool-val">false</span>)
+                .interact()
+            {
+                <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; ControlFlow::Continue(()),
+                <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; ControlFlow::Break(()),
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::error!</span>(
+                        error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                        <span class="string">&quot;Unable to check whether the user wants to change the package&#39;s privacy&quot;</span>,
+                    );
+                    ControlFlow::Break(())
+                }
+            }
+        }
+    }
+
+    <span class="attr">#[derive(Debug, Default, Copy, Clone, PartialEq)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>NonInteractive;
+
+    <span class="kw">impl </span>ValidationPolicy <span class="kw">for </span>NonInteractive {
+        <span class="kw">fn </span>skip_validation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
+            <span class="bool-val">false
+        </span>}
+
+        <span class="kw">fn </span>on_invalid_module(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            _module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            _error: <span class="kw-2">&amp;</span>ValidationError,
+        ) -&gt; ControlFlow&lt;(), ()&gt; {
+            ControlFlow::Break(())
+        }
+
+        <span class="kw">fn </span>on_package_privacy_changed(
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+            _manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        ) -&gt; ControlFlow&lt;(), ()&gt; {
+            ControlFlow::Break(())
         }
     }
 }
@@ -1593,11 +2001,11 @@ runner = &quot;https://webc.org/runner/wcgi&quot;
         std::fs::write(<span class="kw-2">&amp;</span>manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join(<span class="string">&quot;module.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
 
-        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest_str).unwrap();
+        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
 
-        <span class="kw">let </span>meta = construct_tar_gz(<span class="kw-2">&amp;</span>archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
+        <span class="kw">let </span>meta = construct_tar_gz(archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(<span class="kw-2">&amp;</span>meta.archive_path).unwrap());
+        <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());
 
         <span class="kw">let </span>gz = flate2::read::GzDecoder::new(<span class="kw-2">&amp;mut </span>data);
         <span class="kw">let </span><span class="kw-2">mut </span>archive = tar::Archive::new(gz);
@@ -1652,10 +2060,10 @@ exports = &quot;crum-sort.wai&quot;
         std::fs::write(mp.join(<span class="string">&quot;crumsort_wasm.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
         std::fs::write(mp.join(<span class="string">&quot;crum-sort.wai&quot;</span>), <span class="string">&quot;/// crum-sort.wai&quot;</span>).unwrap();
 
-        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest_str).unwrap();
-        <span class="kw">let </span>meta = construct_tar_gz(<span class="kw-2">&amp;</span>archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
+        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        <span class="kw">let </span>meta = construct_tar_gz(archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(<span class="kw-2">&amp;</span>meta.archive_path).unwrap());
+        <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());
 
         <span class="kw">let </span>gz = flate2::read::GzDecoder::new(<span class="kw-2">&amp;mut </span>data);
         <span class="kw">let </span><span class="kw-2">mut </span>archive = tar::Archive::new(gz);

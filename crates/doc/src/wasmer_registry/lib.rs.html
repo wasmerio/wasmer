@@ -503,6 +503,13 @@
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
@@ -550,11 +557,14 @@
 <span class="kw">pub static </span>GLOBAL_CONFIG_FILE_NAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer.toml&quot;</span>;
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[non_exhaustive]
 </span><span class="kw">pub struct </span>PackageDownloadInfo {
     <span class="kw">pub </span>registry: String,
     <span class="kw">pub </span>package: String,
     <span class="kw">pub </span>version: String,
     <span class="kw">pub </span>is_latest_version: bool,
+    <span class="doccomment">/// Is the package private?
+    </span><span class="kw">pub </span>is_private: bool,
     <span class="kw">pub </span>commands: String,
     <span class="kw">pub </span>manifest: String,
     <span class="kw">pub </span>url: String,
@@ -595,6 +605,7 @@
         commands: command_name.to_string(),
         url,
         pirita_url,
+        is_private: command.package_version.package.private,
     })
 }
 
@@ -617,6 +628,8 @@
         }
     }
 }
+
+<span class="kw">impl </span>std::error::Error <span class="kw">for </span>QueryPackageError {}
 
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 </span><span class="kw">pub enum </span>GetIfPackageHasNewVersionResult {
@@ -682,6 +695,7 @@
 
         version: v.version.clone(),
         is_latest_version: v.is_last_version,
+        is_private: v.package.private,
         manifest: v.manifest.clone(),
 
         commands: manifest
