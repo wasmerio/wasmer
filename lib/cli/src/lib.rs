@@ -24,6 +24,7 @@ pub mod commands;
 pub mod common;
 #[macro_use]
 pub mod error;
+mod auth;
 pub mod c_gen;
 pub mod cli;
 pub mod logging;
@@ -31,7 +32,6 @@ pub mod package_source;
 pub mod store;
 pub mod suggestions;
 pub mod utils;
-mod auth;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
