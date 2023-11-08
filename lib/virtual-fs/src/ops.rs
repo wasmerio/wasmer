@@ -53,7 +53,7 @@ where
         create_dir_all(fs, parent)?;
     }
 
-    if let Ok(metadata) = fs.metadata(&path) {
+    if let Ok(metadata) = fs.metadata(path) {
         if metadata.is_dir() {
             return Ok(());
         }
@@ -62,7 +62,7 @@ where
         }
     }
 
-    fs.create_dir(&path)
+    fs.create_dir(path)
 }
 
 static WHITEOUT_PREFIX: &str = ".wh.";

@@ -324,7 +324,7 @@ where
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
         for volume in self.volumes.iter() {
-            if let Some(fs_entry) = volume.get_file_entry(&path).ok() {
+            if let Ok(fs_entry) = volume.get_file_entry(&path) {
                 return Ok(Metadata {
                     ft: translate_file_type(FsEntryType::File),
                     accessed: 0,
@@ -332,7 +332,7 @@ where
                     modified: 0,
                     len: fs_entry.get_len(),
                 });
-            } else if let Some(_fs_entry) = volume.read_dir(&path).ok() {
+            } else if let Ok(_fs_entry) = volume.read_dir(&path) {
                 return Ok(Metadata {
                     ft: translate_file_type(FsEntryType::Dir),
                     accessed: 0,
