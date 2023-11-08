@@ -25,7 +25,6 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
     pub webc: Arc<T>,
-    pub memory: Arc<MemFileSystem>,
     top_level_dirs: Vec<String>,
     volumes: Vec<webc::v1::Volume<'static>>,
 }
@@ -38,7 +37,6 @@ where
     pub fn init(webc: Arc<T>, package: &str) -> Self {
         let mut fs = Self {
             webc: webc.clone(),
-            memory: Arc::new(MemFileSystem::default()),
             top_level_dirs: Vec::new(),
             volumes: Vec::new(),
         };
@@ -58,7 +56,6 @@ where
     pub fn init_all(webc: Arc<T>) -> Self {
         let mut fs = Self {
             webc: webc.clone(),
-            memory: Arc::new(MemFileSystem::default()),
             top_level_dirs: Vec::new(),
             volumes: webc.volumes.clone().into_values().collect(),
         };
@@ -125,7 +122,7 @@ where
                         cursor: 0,
                     }));
                 }
-                self.memory.new_open_options().open(path)
+                Err(FsError::EntryNotFound)
             }
         }
     }
@@ -314,36 +311,16 @@ where
             .map(|o| transform_into_read_dir(Path::new(&path), o.as_ref()))
             .ok_or(FsError::EntryNotFound);
 
-        match read_dir_result {
-            Ok(o) => Ok(o),
-            Err(_) => self.memory.read_dir(Path::new(&path)),
-        }
+        read_dir_result
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
-        let path = normalizes_path(path);
-        let result = self.memory.create_dir(Path::new(&path));
-        result
+        Err(FsError::PermissionDenied)
     }
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
-        let path = normalizes_path(path);
-        let result = self.memory.remove_dir(Path::new(&path));
-        if self.volumes.iter().any(|v| v.get_file_entry(&path).is_ok()) {
-            Ok(())
-        } else {
-            result
-        }
+        Err(FsError::PermissionDenied)
     }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
-        Box::pin(async {
-            let from = normalizes_path(from);
-            let to = normalizes_path(to);
-            let result = self.memory.rename(Path::new(&from), Path::new(&to)).await;
-            if self.volumes.iter().any(|v| v.get_file_entry(&from).is_ok()) {
-                Ok(())
-            } else {
-                result
-            }
-        })
+        Box::pin(async { Err(FsError::PermissionDenied) })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
@@ -375,23 +352,11 @@ where
                 len: 0,
             })
         } else {
-            self.memory.metadata(Path::new(&path))
+            Err(FsError::EntryNotFound)
         }
     }
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        let path = normalizes_path(path);
-        let result = self.memory.remove_file(Path::new(&path));
-        if self
-            .volumes
-            .iter()
-            .filter_map(|v| v.get_file_entry(&path).ok())
-            .next()
-            .is_some()
-        {
-            Ok(())
-        } else {
-            result
-        }
+        Err(FsError::PermissionDenied)
     }
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
@@ -426,7 +391,7 @@ where
                 len: 0,
             })
         } else {
-            self.memory.symlink_metadata(Path::new(&path))
+            Err(FsError::PermissionDenied)
         }
     }
 }
@@ -468,7 +433,7 @@ mod tests {
 
         let fs = WebcFileSystem::init_all(Arc::new(webc));
 
-        let mut f = fs
+        let mut f: Box<dyn VirtualFile + Send + Sync> = fs
             .new_open_options()
             .read(true)
             .open(Path::new("/lib/python3.6/collections/abc.py"))

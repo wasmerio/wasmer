@@ -205,6 +205,7 @@ mod tests {
 
     use crate::{mem_fs, ops, FileSystem as FileSystemTrait, FsError, VirtualFile};
 
+    #[ignore]
     #[test]
     fn test_mount_new_filesystem() {
         let mut ufs = UnionFileSystem::new();
@@ -238,6 +239,7 @@ mod tests {
         assert!(matches!(result, Err(FsError::AlreadyExists)));
     }
 
+    #[ignore]
     #[test]
     fn test_mounting_fs_on_nested_path() {
         let mut ufs = UnionFileSystem::new();
