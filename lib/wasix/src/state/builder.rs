@@ -305,7 +305,6 @@ impl WasiEnvBuilder {
     }
 
     /// Map an atom to a local binary
-    #[cfg(feature = "sys")]
     pub fn map_command<Name, Target>(mut self, name: Name, target: Target) -> Self
     where
         Name: AsRef<str>,
@@ -316,7 +315,6 @@ impl WasiEnvBuilder {
     }
 
     /// Map an atom to a local binary
-    #[cfg(feature = "sys")]
     pub fn add_mapped_command<Name, Target>(&mut self, name: Name, target: Target)
     where
         Name: AsRef<str>,
@@ -328,7 +326,6 @@ impl WasiEnvBuilder {
     }
 
     /// Maps a series of atoms to the local binaries
-    #[cfg(feature = "sys")]
     pub fn map_commands<I, Name, Target>(mut self, map_commands: I) -> Self
     where
         I: IntoIterator<Item = (Name, Target)>,
@@ -340,7 +337,6 @@ impl WasiEnvBuilder {
     }
 
     /// Maps a series of atoms to local binaries.
-    #[cfg(feature = "sys")]
     pub fn add_mapped_commands<I, Name, Target>(&mut self, map_commands: I)
     where
         I: IntoIterator<Item = (Name, Target)>,
