@@ -335,7 +335,10 @@ mod tests {
         let tm = TokioTaskManager::new(tokio_rt);
         let mut rt = PluggableRuntime::new(Arc::new(tm));
         rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+            .set_package_loader(
+                BuiltinPackageLoader::new()
+                    .with_shared_http_client(rt.http_client().unwrap().clone()),
+            );
 
         let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
             .into_iter()
@@ -388,7 +391,10 @@ mod tests {
         let tm = TokioTaskManager::new(tokio_rt);
         let mut rt = PluggableRuntime::new(Arc::new(tm));
         rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+            .set_package_loader(
+                BuiltinPackageLoader::new()
+                    .with_shared_http_client(rt.http_client().unwrap().clone()),
+            );
 
         let cmd = "wasmer-tests/python-env-dump --help";
 

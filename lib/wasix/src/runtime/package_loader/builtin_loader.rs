@@ -22,6 +22,7 @@ use crate::{
         package_loader::PackageLoader,
         resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
     },
+    Authentication,
 };
 
 /// The builtin [`PackageLoader`] that is used by the `wasmer` CLI and
@@ -31,46 +32,45 @@ pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
     in_memory: InMemoryCache,
     cache: Option<FileSystemCache>,
+    auth: Option<Arc<dyn Authentication + Send + Sync>>,
 }
 
 impl BuiltinPackageLoader {
-    pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
-        let client = crate::http::default_http_client().unwrap();
-        BuiltinPackageLoader::new_with_client(cache_dir, Arc::new(client))
+    pub fn new() -> Self {
+        BuiltinPackageLoader {
+            in_memory: InMemoryCache::default(),
+            client: Arc::new(crate::http::default_http_client().unwrap()),
+            cache: None,
+            auth: None,
+        }
     }
 
-    pub fn new_with_client(
-        cache_dir: impl Into<PathBuf>,
-        client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Self {
+    pub fn with_cache_dir(self, cache_dir: impl Into<PathBuf>) -> Self {
         BuiltinPackageLoader {
             cache: Some(FileSystemCache {
                 cache_dir: cache_dir.into(),
             }),
-            in_memory: InMemoryCache::default(),
-            client,
+            ..self
         }
     }
 
-    pub fn new_only_client(client: Arc<dyn HttpClient + Send + Sync>) -> Self {
+    pub fn with_http_client(self, client: impl HttpClient + Send + Sync + 'static) -> Self {
+        self.with_shared_http_client(Arc::new(client))
+    }
+
+    pub fn with_shared_http_client(self, client: Arc<dyn HttpClient + Send + Sync>) -> Self {
+        BuiltinPackageLoader { client, ..self }
+    }
+
+    pub fn with_auth(self, auth: impl Authentication + Send + Sync + 'static) -> Self {
+        self.with_shared_auth(Arc::new(auth))
+    }
+
+    pub fn with_shared_auth(self, auth: Arc<dyn Authentication + Send + Sync>) -> Self {
         BuiltinPackageLoader {
-            cache: None,
-            in_memory: InMemoryCache::default(),
-            client,
+            auth: Some(auth),
+            ..self
         }
-    }
-
-    /// Create a new [`BuiltinPackageLoader`] based on `$WASMER_DIR` and the
-    /// global Wasmer config.
-    pub fn from_env() -> Result<Self, Error> {
-        let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
-        let client = crate::http::default_http_client().context("No HTTP client available")?;
-        let cache_dir = wasmer_dir.join("cache").join("");
-
-        Ok(BuiltinPackageLoader::new_with_client(
-            cache_dir,
-            Arc::new(client),
-        ))
     }
 
     /// Insert a container into the in-memory hash.
@@ -117,9 +117,9 @@ impl BuiltinPackageLoader {
         }
 
         let request = HttpRequest {
+            headers: self.headers(dist.webc.as_str()),
             url: dist.webc.clone(),
             method: Method::GET,
-            headers: headers(),
             body: None,
             options: Default::default(),
         };
@@ -148,6 +148,41 @@ impl BuiltinPackageLoader {
             .context("The response didn't contain a body")?;
 
         Ok(body.into())
+    }
+
+    fn headers(&self, url: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert("Accept", "application/webc".parse().unwrap());
+        headers.insert("User-Agent", USER_AGENT.parse().unwrap());
+
+        if let Some(auth) = self.auth.as_deref() {
+            match auth.get_token(url) {
+                Ok(Some(token)) => {
+                    let raw_header = format!("bearer {token}");
+                    match raw_header.parse() {
+                        Ok(header) => {
+                            headers.insert(http::header::AUTHORIZATION, header);
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                %raw_header,
+                                error = &e as &dyn std::error::Error,
+                                "An error occurred while constructing the authorization header",
+                            );
+                        }
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        error = &*e,
+                        "An error occurred while determining the authentication token",
+                    );
+                }
+            }
+        }
+
+        headers
     }
 }
 
@@ -213,24 +248,6 @@ impl PackageLoader for BuiltinPackageLoader {
     ) -> Result<BinaryPackage, Error> {
         super::load_package_tree(root, self, resolution).await
     }
-}
-
-fn headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert("Accept", "application/webc".parse().unwrap());
-    headers.insert("User-Agent", USER_AGENT.parse().unwrap());
-    headers
-}
-
-fn discover_wasmer_dir() -> Option<PathBuf> {
-    // TODO: We should reuse the same logic from the wasmer CLI.
-    std::env::var("WASMER_DIR")
-        .map(PathBuf::from)
-        .ok()
-        .or_else(|| {
-            #[allow(deprecated)]
-            std::env::home_dir().map(|home| home.join(".wasmer"))
-        })
 }
 
 // FIXME: This implementation will block the async runtime and should use
@@ -388,7 +405,9 @@ mod tests {
             status: StatusCode::OK,
             headers: HeaderMap::new(),
         }]));
-        let loader = BuiltinPackageLoader::new_with_client(temp.path(), client.clone());
+        let loader = BuiltinPackageLoader::new()
+            .with_cache_dir(temp.path())
+            .with_shared_http_client(client.clone());
         let summary = PackageSummary {
             pkg: PackageInfo {
                 name: "python/python".to_string(),

@@ -521,7 +521,9 @@ impl Wasi {
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
         let checkout_dir = env.cache_dir().join("checkouts");
-        let loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
+        let loader = BuiltinPackageLoader::new()
+            .with_cache_dir(checkout_dir)
+            .with_shared_http_client(client);
         Ok(loader)
     }
 

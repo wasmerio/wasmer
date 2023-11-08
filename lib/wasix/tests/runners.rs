@@ -256,10 +256,16 @@ fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
 
     std::fs::create_dir_all(&cache_dir).unwrap();
 
+    let http_client = Arc::new(wasmer_wasix::http::default_http_client().unwrap()) as _;
+
     rt.set_engine(Some(Engine::default()))
         .set_module_cache(cache)
-        .set_package_loader(BuiltinPackageLoader::new(cache_dir))
-        .set_http_client(wasmer_wasix::http::default_http_client().unwrap());
+        .set_package_loader(
+            BuiltinPackageLoader::new()
+                .with_cache_dir(cache_dir)
+                .with_shared_http_client(http_client.clone()),
+        )
+        .set_http_client(http_client);
 
     (rt, tasks)
 }
