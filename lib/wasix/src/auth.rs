@@ -23,7 +23,10 @@ where
     }
 }
 
-pub(crate) fn header(auth: &impl Authentication, url: &str) -> Result<Option<HeaderValue>, Error> {
+pub(crate) fn header(
+    auth: &(impl Authentication + ?Sized),
+    url: &str,
+) -> Result<Option<HeaderValue>, Error> {
     match auth.get_token(url)? {
         Some(token) => {
             let raw_header = format!("bearer {token}");

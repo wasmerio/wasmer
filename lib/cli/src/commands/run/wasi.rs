@@ -35,8 +35,8 @@ use wasmer_wasix::{
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
-    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiVersion,
+    Authentication, PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError,
+    WasiFunctionEnv, WasiVersion,
 };
 
 use crate::utils::{parse_envvar, parse_mapdir};
@@ -469,11 +469,13 @@ impl Wasi {
             wasmer_wasix::http::default_http_client().context("No HTTP client available")?;
         let client = Arc::new(client);
 
+        let auth = Arc::new(crate::auth::from_wasmer_env(env));
+
         let package_loader = self
-            .prepare_package_loader(env, client.clone())
+            .prepare_package_loader(env, client.clone(), auth.clone())
             .context("Unable to prepare the package loader")?;
 
-        let registry = self.prepare_source(env, client)?;
+        let registry = self.prepare_source(env, client, auth)?;
 
         let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
@@ -519,11 +521,13 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
+        auth: Arc<dyn Authentication + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let loader = BuiltinPackageLoader::new()
             .with_cache_dir(checkout_dir)
-            .with_shared_http_client(client);
+            .with_shared_http_client(client)
+            .with_shared_auth(auth);
         Ok(loader)
     }
 
@@ -531,6 +535,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
+        auth: Arc<dyn Authentication + Send + Sync>,
     ) -> Result<impl Source + Send + Sync> {
         let mut source = MultiSource::new();
 
@@ -547,7 +552,8 @@ impl Wasi {
         let graphql_endpoint = self.graphql_endpoint(env)?;
         let cache_dir = env.cache_dir().join("queries");
         let wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
-            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+            .with_shared_auth(auth);
         source.add_source(wapm_source);
 
         let cache_dir = env.cache_dir().join("downloads");

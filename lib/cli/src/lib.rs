@@ -31,6 +31,7 @@ pub mod package_source;
 pub mod store;
 pub mod suggestions;
 pub mod utils;
+mod auth;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
