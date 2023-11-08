@@ -141,7 +141,7 @@ impl WapmSource {
 
     fn headers(&self, url: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        headers.insert("Accept", "application/json".parse().unwrap());
+        headers.insert("Content-Type", "application/json".parse().unwrap());
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
         if let Some(auth) = self.auth.as_deref() {
@@ -159,7 +159,7 @@ impl WapmSource {
             }
         }
 
-        dbg!(headers)
+        headers
     }
 }
 
