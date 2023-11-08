@@ -29,7 +29,7 @@ pub(crate) fn header(
 ) -> Result<Option<HeaderValue>, Error> {
     match auth.get_token(url)? {
         Some(token) => {
-            let raw_header = format!("bearer {token}");
+            let raw_header = format!("Bearer {token}");
             let header = raw_header.parse()?;
             Ok(Some(header))
         }

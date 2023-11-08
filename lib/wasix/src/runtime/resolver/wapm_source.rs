@@ -141,7 +141,7 @@ impl WapmSource {
 
     fn headers(&self, url: &str) -> HeaderMap {
         let mut headers = HeaderMap::new();
-        headers.insert("Accept", "application/webc".parse().unwrap());
+        headers.insert("Accept", "application/json".parse().unwrap());
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
         if let Some(auth) = self.auth.as_deref() {
@@ -159,7 +159,7 @@ impl WapmSource {
             }
         }
 
-        headers
+        dbg!(headers)
     }
 }
 
@@ -205,7 +205,7 @@ impl Source for WapmSource {
             }
 
             if version_constraint.matches(&version) {
-                match decode_summary(pkg_version) {
+                match decode_summary(pkg_version, &response.data.info.default_frontend) {
                     Ok(summary) => summaries.push(summary),
                     Err(e) => {
                         tracing::debug!(
@@ -226,23 +226,30 @@ impl Source for WapmSource {
     }
 }
 
-fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
+fn decode_summary(
+    pkg_version: WapmWebQueryGetPackageVersion,
+    frontend_url: &str,
+) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
-        distribution:
-            WapmWebQueryGetPackageVersionDistribution {
-                pirita_download_url,
-                pirita_sha256_hash,
-            },
+        distribution: WapmWebQueryGetPackageVersionDistribution { pirita_sha256_hash },
         ..
     } = pkg_version;
 
     let manifest = manifest.context("missing Manifest")?;
     let hash = pirita_sha256_hash.context("missing sha256")?;
-    let url = pirita_download_url.context("missing download url")?;
 
     let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context("Unable to deserialize the manifest")?;
+
+    let wapm_metadata = manifest.wapm()?.context("Missing package metadata")?;
+    let package_name = &wapm_metadata.name;
+    let version = &wapm_metadata.version;
+
+    // Note: The backend gives us signed URLs, which aren't cacheable, so we'll
+    // download the *.webc file using the more human-friendly URL
+    // (https://wasmer.io/wasmer/python@0.1.0) and rely on redirects.
+    let url = format!("{frontend_url}/{package_name}@{version}");
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
@@ -409,6 +416,9 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
         }
         }
     }
+    info {
+        defaultFrontend
+    }
 }"#;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -421,6 +431,13 @@ pub struct WapmWebQuery {
 pub struct WapmWebQueryData {
     #[serde(rename = "getPackage")]
     pub get_package: Option<WapmWebQueryGetPackage>,
+    pub info: WapmWebQueryInfo,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct WapmWebQueryInfo {
+    #[serde(rename = "defaultFrontend")]
+    pub default_frontend: String,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -442,8 +459,6 @@ pub struct WapmWebQueryGetPackageVersion {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
-    #[serde(rename = "piritaDownloadUrl")]
-    pub pirita_download_url: Option<String>,
     #[serde(rename = "piritaSha256Hash")]
     pub pirita_sha256_hash: Option<String>,
 }

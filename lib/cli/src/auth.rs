@@ -28,7 +28,7 @@ struct ConfigAuthentication {
 impl Authentication for ConfigAuthentication {
     fn get_token(&self, url: &str) -> Result<Option<String>, anyhow::Error> {
         dbg!(url);
-        let config = WasmerConfig::from_file(&self.wasmer_dir)?;
+        let config = WasmerConfig::from_file(&self.wasmer_dir).map_err(anyhow::Error::msg)?;
 
         let mut url = Url::parse(url).context("Unable to parse the URL")?;
         url.set_path("");
@@ -37,7 +37,7 @@ impl Authentication for ConfigAuthentication {
         // Check if the user probably passed in --token because we may be
         // talking to their default registry.
         if let Some((default_registry, token)) = dbg!(&self.default_registry_and_token) {
-            if registry_url == default_registry {
+            if registry_url == default_registry.as_str() {
                 return Ok(Some(token.clone()));
             }
         }
