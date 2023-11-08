@@ -48,12 +48,12 @@ pub fn create_dir_all<F>(fs: &F, path: impl AsRef<Path>) -> Result<(), FsError>
 where
     F: FileSystem + ?Sized,
 {
-    let path = path.as_ref();
+    let path = path.as_ref().clean_safely()?;
     if let Some(parent) = path.parent() {
         create_dir_all(fs, parent)?;
     }
 
-    if let Ok(metadata) = fs.metadata(path) {
+    if let Ok(metadata) = fs.metadata(&path) {
         if metadata.is_dir() {
             return Ok(());
         }
@@ -62,7 +62,7 @@ where
         }
     }
 
-    fs.create_dir(path)
+    fs.create_dir(&path)
 }
 
 static WHITEOUT_PREFIX: &str = ".wh.";

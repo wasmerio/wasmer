@@ -1,7 +1,6 @@
 use crate::ops::PathClean;
 use crate::{
-    DirEntry, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
-    VirtualFile,
+    DirEntry, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result, VirtualFile,
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;

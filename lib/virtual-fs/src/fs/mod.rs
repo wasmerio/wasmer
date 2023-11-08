@@ -5,6 +5,7 @@ pub mod empty;
 pub mod host;
 #[cfg(feature = "native-fs")]
 pub mod native;
+pub mod new_union;
 pub mod overlay;
 pub mod passthru;
 pub mod tmp;
