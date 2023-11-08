@@ -589,7 +589,7 @@ mod validate {
     use wasmer_wasm_interface::{validate, Interface};
 
     use super::interfaces;
-    use crate::interface::InterfaceFromServer;
+    use crate::{interface::InterfaceFromServer, QueryPackageError};
     use std::{
         fs,
         io::Read,
@@ -627,12 +627,15 @@ mod validate {
         Ok(())
     }
 
+    /// Check if publishing this manifest would change the package's privacy.
     fn would_change_package_privacy(
         manifest: &wasmer_toml::Manifest,
         registry: &str,
     ) -> Result<bool, ValidationError> {
-        
-        todo!()
+        let package_version =
+            crate::query_package_from_registry(registry, &manifest.package.name, None)?;
+
+        Ok(package_version.is_private != manifest.package.private)
     }
 
     fn validate_module(
@@ -659,7 +662,7 @@ mod validate {
             })?;
 
         if let Some(bindings) = &module.bindings {
-            validate_bindings(bindings, &pkg_path)?;
+            validate_bindings(bindings, pkg_path)?;
         }
 
         // hack, short circuit if no interface for now
@@ -747,6 +750,8 @@ mod validate {
         WouldBecomePublic,
         #[error("Aborting because publishing the package would make it private")]
         WouldBecomePrivate,
+        #[error("Unable to look up package information")]
+        Registry(#[from] QueryPackageError),
     }
 
     // legacy function, validates wasm.  TODO: clean up
@@ -775,8 +780,7 @@ mod validate {
                     return Err(ValidationError::InvalidWasm {
                         file: file_name,
                         error: format!("{}", e),
-                    }
-                    .into());
+                    });
                 }
                 _ => {}
             }
@@ -837,17 +841,57 @@ mod validate {
 
         fn on_invalid_module(
             &mut self,
-            _module: &wasmer_toml::Module,
-            _error: &ValidationError,
+            module: &wasmer_toml::Module,
+            error: &ValidationError,
         ) -> ControlFlow<(), ()> {
-            todo!();
+            let module_name = &module.name;
+            let prompt =
+                format!("Validation error with the \"{module_name}\" module: {error}. Would you like to continue?");
+
+            match dialoguer::Confirm::new()
+                .with_prompt(prompt)
+                .default(false)
+                .interact()
+            {
+                Ok(true) => ControlFlow::Continue(()),
+                Ok(false) => ControlFlow::Break(()),
+                Err(e) => {
+                    tracing::error!(
+                        error = &e as &dyn std::error::Error,
+                        "Unable to check whether the user wants to change the package's privacy",
+                    );
+                    ControlFlow::Break(())
+                }
+            }
         }
 
         fn on_package_privacy_changed(
             &mut self,
-            _manifest: &wasmer_toml::Manifest,
+            manifest: &wasmer_toml::Manifest,
         ) -> ControlFlow<(), ()> {
-            todo!();
+            let privacy = if manifest.package.private {
+                "private"
+            } else {
+                "public"
+            };
+            let prompt =
+                format!("This will make the package {privacy}. Would you like to continue?");
+
+            match dialoguer::Confirm::new()
+                .with_prompt(prompt)
+                .default(false)
+                .interact()
+            {
+                Ok(true) => ControlFlow::Continue(()),
+                Ok(false) => ControlFlow::Break(()),
+                Err(e) => {
+                    tracing::error!(
+                        error = &e as &dyn std::error::Error,
+                        "Unable to check whether the user wants to change the package's privacy",
+                    );
+                    ControlFlow::Break(())
+                }
+            }
         }
     }
 
@@ -910,11 +954,11 @@ runner = "https://webc.org/runner/wcgi"
         std::fs::write(&manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join("module.wasm"), "()").unwrap();
 
-        let manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
+        let manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
 
-        let meta = construct_tar_gz(&archive_dir.path(), &manifest, &manifest_path).unwrap();
+        let meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path).unwrap();
 
-        let mut data = std::io::Cursor::new(std::fs::read(&meta.archive_path).unwrap());
+        let mut data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());
 
         let gz = flate2::read::GzDecoder::new(&mut data);
         let mut archive = tar::Archive::new(gz);
@@ -969,10 +1013,10 @@ exports = "crum-sort.wai"
         std::fs::write(mp.join("crumsort_wasm.wasm"), "()").unwrap();
         std::fs::write(mp.join("crum-sort.wai"), "/// crum-sort.wai").unwrap();
 
-        let manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
-        let meta = construct_tar_gz(&archive_dir.path(), &manifest, &manifest_path).unwrap();
+        let manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        let meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path).unwrap();
 
-        let mut data = std::io::Cursor::new(std::fs::read(&meta.archive_path).unwrap());
+        let mut data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());
 
         let gz = flate2::read::GzDecoder::new(&mut data);
         let mut archive = tar::Archive::new(gz);

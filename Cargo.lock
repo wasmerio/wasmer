@@ -1230,6 +1230,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "dialoguer"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
+dependencies = [
+ "console",
+ "shell-words",
+ "tempfile",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5668,7 +5681,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored 2.0.4",
- "dialoguer",
+ "dialoguer 0.10.4",
  "dirs",
  "distance",
  "flate2",
@@ -5848,7 +5861,7 @@ dependencies = [
  "clap-verbosity-flag",
  "colored 2.0.4",
  "comfy-table",
- "dialoguer",
+ "dialoguer 0.10.4",
  "futures",
  "is-terminal",
  "log",
@@ -6023,6 +6036,7 @@ dependencies = [
  "anyhow",
  "clap",
  "console",
+ "dialoguer 0.11.0",
  "dirs",
  "filetime",
  "flate2",
@@ -6050,6 +6064,7 @@ dependencies = [
  "tldextract",
  "tokio",
  "toml 0.5.11",
+ "tracing",
  "url",
  "wasmer-toml 0.9.2",
  "wasmer-wasm-interface 4.2.3",
