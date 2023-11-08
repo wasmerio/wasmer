@@ -16,7 +16,6 @@ use crate::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
         WebcHash,
     },
-    Authentication,
 };
 
 /// A [`Source`] which will resolve dependencies by pinging a Wasmer-like GraphQL
@@ -147,7 +146,10 @@ impl WapmSource {
                     headers.insert(http::header::AUTHORIZATION, header);
                 }
                 Err(e) => {
-                    tracing::warn!(error = &*e, "Unable to parse the token into a header",);
+                    tracing::warn!(
+                        error = &e as &dyn std::error::Error,
+                        "Unable to parse the token into a header",
+                    );
                 }
             }
         }
