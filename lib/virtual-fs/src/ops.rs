@@ -48,7 +48,7 @@ pub fn create_dir_all<F>(fs: &F, path: impl AsRef<Path>) -> Result<(), FsError>
 where
     F: FileSystem + ?Sized,
 {
-    let path = path.as_ref().clean_safely()?;
+    let path = path.as_ref();
     if let Some(parent) = path.parent() {
         create_dir_all(fs, parent)?;
     }
