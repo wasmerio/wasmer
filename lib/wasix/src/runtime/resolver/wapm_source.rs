@@ -26,7 +26,7 @@ pub struct WapmSource {
     registry_endpoint: Url,
     client: Arc<dyn HttpClient + Send + Sync>,
     cache: Option<FileSystemCache>,
-    auth: Option<Arc<dyn Authentication + Send + Sync>>,
+    token: Option<String>,
 }
 
 impl WapmSource {
@@ -38,7 +38,7 @@ impl WapmSource {
             registry_endpoint,
             client,
             cache: None,
-            auth: None,
+            token: None,
         }
     }
 
@@ -50,13 +50,9 @@ impl WapmSource {
         }
     }
 
-    pub fn with_auth(self, auth: impl Authentication + Send + Sync + 'static) -> Self {
-        self.with_shared_auth(Arc::new(auth))
-    }
-
-    pub fn with_shared_auth(self, auth: Arc<dyn Authentication + Send + Sync>) -> Self {
+    pub fn with_auth_token(self, token: impl Into<String>) -> Self {
         WapmSource {
-            auth: Some(auth),
+            token: Some(token.into()),
             ..self
         }
     }
@@ -104,13 +100,12 @@ impl WapmSource {
         let body = Body {
             query: WASMER_WEBC_QUERY_ALL.replace("$NAME", package_name),
         };
-        let headers = self.headers(self.registry_endpoint.as_str());
 
         let request = HttpRequest {
             url: self.registry_endpoint.clone(),
             method: Method::POST,
             body: Some(serde_json::to_string(&body)?.into_bytes()),
-            headers,
+            headers: self.headers(),
             options: Default::default(),
         };
 
@@ -139,22 +134,20 @@ impl WapmSource {
         Ok(response)
     }
 
-    fn headers(&self, url: &str) -> HeaderMap {
+    fn headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert("Content-Type", "application/json".parse().unwrap());
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
-        if let Some(auth) = self.auth.as_deref() {
-            match crate::auth::header(auth, url) {
-                Ok(Some(header)) => {
+        if let Some(token) = self.token.as_deref() {
+            let raw_header = format!("Bearer {token}");
+
+            match http::HeaderValue::from_str(&raw_header) {
+                Ok(header) => {
                     headers.insert(http::header::AUTHORIZATION, header);
                 }
-                Ok(None) => {}
                 Err(e) => {
-                    tracing::warn!(
-                        error = &*e,
-                        "An error occurred while determining the authentication token",
-                    );
+                    tracing::warn!(error = &*e, "Unable to parse the token into a header",);
                 }
             }
         }
