@@ -156,21 +156,9 @@ impl BuiltinPackageLoader {
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
         if let Some(auth) = self.auth.as_deref() {
-            match auth.get_token(url) {
-                Ok(Some(token)) => {
-                    let raw_header = format!("bearer {token}");
-                    match raw_header.parse() {
-                        Ok(header) => {
-                            headers.insert(http::header::AUTHORIZATION, header);
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                %raw_header,
-                                error = &e as &dyn std::error::Error,
-                                "An error occurred while constructing the authorization header",
-                            );
-                        }
-                    }
+            match crate::auth::header(auth, url) {
+                Ok(Some(header)) => {
+                    headers.insert(http::header::AUTHORIZATION, header);
                 }
                 Ok(None) => {}
                 Err(e) => {

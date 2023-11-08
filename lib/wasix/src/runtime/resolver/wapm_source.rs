@@ -16,6 +16,7 @@ use crate::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
         WebcHash,
     },
+    Authentication,
 };
 
 /// A [`Source`] which will resolve dependencies by pinging a Wasmer-like GraphQL
@@ -25,6 +26,7 @@ pub struct WapmSource {
     registry_endpoint: Url,
     client: Arc<dyn HttpClient + Send + Sync>,
     cache: Option<FileSystemCache>,
+    auth: Option<Arc<dyn Authentication + Send + Sync>>,
 }
 
 impl WapmSource {
@@ -36,6 +38,7 @@ impl WapmSource {
             registry_endpoint,
             client,
             cache: None,
+            auth: None,
         }
     }
 
@@ -43,6 +46,17 @@ impl WapmSource {
     pub fn with_local_cache(self, cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
         WapmSource {
             cache: Some(FileSystemCache::new(cache_dir, timeout)),
+            ..self
+        }
+    }
+
+    pub fn with_auth(self, auth: impl Authentication + Send + Sync + 'static) -> Self {
+        self.with_shared_auth(Arc::new(auth))
+    }
+
+    pub fn with_shared_auth(self, auth: Arc<dyn Authentication + Send + Sync>) -> Self {
+        WapmSource {
+            auth: Some(auth),
             ..self
         }
     }
@@ -90,12 +104,13 @@ impl WapmSource {
         let body = Body {
             query: WASMER_WEBC_QUERY_ALL.replace("$NAME", package_name),
         };
+        let headers = self.headers(self.registry_endpoint.as_str());
 
         let request = HttpRequest {
             url: self.registry_endpoint.clone(),
             method: Method::POST,
             body: Some(serde_json::to_string(&body)?.into_bytes()),
-            headers: headers(),
+            headers,
             options: Default::default(),
         };
 
@@ -122,6 +137,29 @@ impl WapmSource {
             serde_json::from_slice(&body).context("Unable to deserialize the response")?;
 
         Ok(response)
+    }
+
+    fn headers(&self, url: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert("Accept", "application/webc".parse().unwrap());
+        headers.insert("User-Agent", USER_AGENT.parse().unwrap());
+
+        if let Some(auth) = self.auth.as_deref() {
+            match crate::auth::header(auth, url) {
+                Ok(Some(header)) => {
+                    headers.insert(http::header::AUTHORIZATION, header);
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        error = &*e,
+                        "An error occurred while determining the authentication token",
+                    );
+                }
+            }
+        }
+
+        headers
     }
 }
 
@@ -186,13 +224,6 @@ impl Source for WapmSource {
             Ok(summaries)
         }
     }
-}
-
-fn headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert("Content-Type", "application/json".parse().unwrap());
-    headers.insert("User-Agent", USER_AGENT.parse().unwrap());
-    headers
 }
 
 fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {

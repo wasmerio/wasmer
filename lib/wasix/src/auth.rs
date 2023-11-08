@@ -1,6 +1,7 @@
 use std::{fmt::Debug, ops::Deref};
 
 use anyhow::Error;
+use http::HeaderValue;
 
 /// Authentication with the Wasmer registry.
 pub trait Authentication: Debug {
@@ -19,5 +20,16 @@ where
 {
     fn get_token(&self, url: &str) -> Result<Option<String>, Error> {
         (**self).get_token(url)
+    }
+}
+
+pub(crate) fn header(auth: &impl Authentication, url: &str) -> Result<Option<HeaderValue>, Error> {
+    match auth.get_token(url)? {
+        Some(token) => {
+            let raw_header = format!("bearer {token}");
+            let header = raw_header.parse()?;
+            Ok(Some(header))
+        }
+        None => Ok(None),
     }
 }
