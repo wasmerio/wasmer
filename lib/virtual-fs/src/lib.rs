@@ -672,6 +672,13 @@ impl FileType {
         }
     }
 
+    pub fn new_file() -> Self {
+        Self {
+            file: true,
+            ..Default::default()
+        }
+    }
+
     pub fn is_dir(&self) -> bool {
         self.dir
     }

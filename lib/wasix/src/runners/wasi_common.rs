@@ -7,14 +7,16 @@ use std::{
 use anyhow::{Context, Error};
 use derivative::Derivative;
 use futures::future::BoxFuture;
-use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
+use virtual_fs::{
+    DirEntry, FileOpener, FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder,
+    TmpFileSystem,
+};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
-    runners::MappedDirectory,
     WasiEnvBuilder,
 };
 
@@ -32,8 +34,8 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) forward_host_env: bool,
-    pub(crate) mapped_dirs: Vec<MappedDirectory>,
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
+    pub(crate) mounts: Vec<MountedDirectory>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     #[derivative(Debug = "ignore")]
@@ -52,12 +54,11 @@ impl CommonWasiOptions {
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
         let root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
-
-        let fs = prepare_filesystem(root_fs, &self.mapped_dirs, container_fs, builder)?;
+        let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
 
         builder.add_preopen_dir("/")?;
 
-        if self.mapped_dirs.iter().all(|m| m.guest != ".") {
+        if self.mounts.iter().all(|m| m.guest != ".") {
             // The user hasn't mounted "." to anything, so let's map it to "/"
             builder.add_map_dir(".", "/")?;
         }
@@ -117,30 +118,23 @@ impl CommonWasiOptions {
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
 fn build_directory_mappings(
-    builder: &mut WasiEnvBuilder,
     root_fs: &mut TmpFileSystem,
-    host_fs: &Arc<dyn FileSystem + Send + Sync>,
-    mapped_dirs: &[MappedDirectory],
+    mounted_dirs: &[MountedDirectory],
 ) -> Result<(), anyhow::Error> {
-    for dir in mapped_dirs {
-        let MappedDirectory {
-            host: host_path,
+    for dir in mounted_dirs {
+        let MountedDirectory {
             guest: guest_path,
+            fs,
         } = dir;
         let mut guest_path = PathBuf::from(guest_path);
         tracing::debug!(
             guest=%guest_path.display(),
-            host=%host_path.display(),
-            "Mounting host folder",
+            "Mounting",
         );
 
         if guest_path.is_relative() {
             guest_path = apply_relative_path_mounting_hack(&guest_path);
         }
-
-        let host_path = std::fs::canonicalize(host_path).with_context(|| {
-            format!("Unable to canonicalize host path '{}'", host_path.display())
-        })?;
 
         let guest_path = root_fs
             .canonicalize_unchecked(&guest_path)
@@ -153,28 +147,18 @@ fn build_directory_mappings(
 
         if guest_path == Path::new("/") {
             root_fs
-                .mount_directory_entries(&guest_path, host_fs, &host_path)
-                .with_context(|| format!("Unable to mount \"{}\" to root", host_path.display(),))?;
+                .mount_directory_entries(&guest_path, fs, "/".as_ref())
+                .context("Unable to mount to root")?;
         } else {
             if let Some(parent) = guest_path.parent() {
-                create_dir_all(root_fs, parent).with_context(|| {
+                create_dir_all(&*root_fs, parent).with_context(|| {
                     format!("Unable to create the \"{}\" directory", parent.display())
                 })?;
             }
 
             root_fs
-                .mount(guest_path.clone(), host_fs, host_path.clone())
-                .with_context(|| {
-                    format!(
-                        "Unable to mount \"{}\" to \"{}\"",
-                        host_path.display(),
-                        guest_path.display()
-                    )
-                })?;
-
-            builder
-                .add_preopen_dir(&guest_path)
-                .with_context(|| format!("Unable to preopen \"{}\"", guest_path.display()))?;
+                .mount(guest_path.clone(), fs, "/".into())
+                .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
         }
     }
 
@@ -183,13 +167,11 @@ fn build_directory_mappings(
 
 fn prepare_filesystem(
     mut root_fs: TmpFileSystem,
-    mapped_dirs: &[MappedDirectory],
+    mounted_dirs: &[MountedDirectory],
     container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
-    builder: &mut WasiEnvBuilder,
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
-    if !mapped_dirs.is_empty() {
-        let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
-        build_directory_mappings(builder, &mut root_fs, &host_fs, mapped_dirs)?;
+    if !mounted_dirs.is_empty() {
+        build_directory_mappings(&mut root_fs, mounted_dirs)?;
     }
 
     // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
@@ -255,6 +237,120 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
     fs.create_dir(path)?;
 
     Ok(())
+}
+
+/// A directory that should be mapped from the host filesystem into a WASI
+/// instance (the "guest").
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct MappedDirectory {
+    /// The absolute path for a directory on the host filesystem.
+    pub host: std::path::PathBuf,
+    /// The absolute path specifying where the host directory should be mounted
+    /// inside the guest.
+    pub guest: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct MountedDirectory {
+    pub guest: String,
+    pub fs: Arc<dyn FileSystem + Send + Sync>,
+}
+
+impl From<MappedDirectory> for MountedDirectory {
+    fn from(value: MappedDirectory) -> Self {
+        let MappedDirectory { host, guest } = value;
+        let fs: Arc<dyn FileSystem + Send + Sync> =
+            Arc::new(HostFolderFileSystem::new(crate::default_fs_backing(), host));
+
+        MountedDirectory { guest, fs }
+    }
+}
+
+/// A [`FileSystem`] implementation that is scoped to a specific directory on
+/// the host.
+#[derive(Debug, Clone)]
+struct HostFolderFileSystem<F> {
+    root: PathBuf,
+    inner: F,
+}
+
+impl<F> HostFolderFileSystem<F> {
+    fn new(inner: F, root: PathBuf) -> Self {
+        HostFolderFileSystem { root, inner }
+    }
+
+    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
+        let path = path.strip_prefix("/").unwrap_or(path);
+        Ok(self.root.join(path))
+    }
+}
+
+impl<F: FileSystem> FileSystem for HostFolderFileSystem<F> {
+    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
+        let path = self.path(path)?;
+
+        let mut entries = Vec::new();
+
+        for entry in self.inner.read_dir(&path)? {
+            let entry = entry?;
+            let path = entry
+                .path
+                .strip_prefix(&self.root)
+                .map_err(|_| FsError::InvalidData)?;
+            entries.push(DirEntry {
+                path: Path::new("/").join(path),
+                ..entry
+            });
+        }
+
+        Ok(virtual_fs::ReadDir::new(entries))
+    }
+
+    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.create_dir(&path)
+    }
+
+    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.remove_dir(&path)
+    }
+
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
+        Box::pin(async move {
+            let from = self.path(from)?;
+            let to = self.path(to)?;
+            self.inner.rename(&from, &to).await
+        })
+    }
+
+    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        let path = self.path(path)?;
+        self.inner.metadata(&path)
+    }
+
+    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.remove_file(&path)
+    }
+
+    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+        virtual_fs::OpenOptions::new(self)
+    }
+}
+
+impl<F: FileSystem> FileOpener for HostFolderFileSystem<F> {
+    fn open(
+        &self,
+        path: &Path,
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
+        let path = self.path(path)?;
+        self.inner
+            .new_open_options()
+            .options(conf.clone())
+            .open(&path)
+    }
 }
 
 #[derive(Debug)]
@@ -325,10 +421,13 @@ impl<F: FileSystem> virtual_fs::FileOpener for RelativeOrAbsolutePathHack<F> {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::TempDir;
+    use std::time::SystemTime;
 
-    use virtual_fs::WebcVolumeFileSystem;
+    use tempfile::TempDir;
+    use virtual_fs::{DirEntry, FileType, Metadata, WebcVolumeFileSystem};
     use webc::Container;
+
+    use crate::runners::MappedDirectory;
 
     use super::*;
 
@@ -400,17 +499,15 @@ mod tests {
         let sub_dir = temp.path().join("path").join("to");
         std::fs::create_dir_all(&sub_dir).unwrap();
         std::fs::write(sub_dir.join("file.txt"), b"Hello, World!").unwrap();
-        let mapping = [MappedDirectory {
+        let mapping = [MountedDirectory::from(MappedDirectory {
             guest: "/home".to_string(),
             host: sub_dir,
-        }];
+        })];
         let container = Container::from_bytes(PYTHON).unwrap();
         let webc_fs = WebcVolumeFileSystem::mount_all(&container);
-        let mut builder = WasiEnvBuilder::new("");
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs =
-            prepare_filesystem(root_fs, &mapping, Some(Arc::new(webc_fs)), &mut builder).unwrap();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(Arc::new(webc_fs))).unwrap();
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
@@ -422,5 +519,55 @@ mod tests {
             .metadata("lib/python3.6/encodings/__init__.py".as_ref())
             .unwrap()
             .is_file());
+    }
+
+    #[tokio::test]
+    async fn convert_mapped_directory_to_mounted_directory() {
+        let temp = TempDir::new().unwrap();
+        let dir = MappedDirectory {
+            guest: "/mnt/dir".to_string(),
+            host: temp.path().to_path_buf(),
+        };
+        let contents = "Hello, World!";
+        let file_txt = temp.path().join("file.txt");
+        std::fs::write(&file_txt, contents).unwrap();
+        let metadata = std::fs::metadata(&file_txt).unwrap();
+
+        let got = MountedDirectory::from(dir);
+
+        let directory_contents: Vec<_> = got
+            .fs
+            .read_dir("/".as_ref())
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .collect();
+        assert_eq!(
+            directory_contents,
+            vec![DirEntry {
+                path: PathBuf::from("/file.txt"),
+                metadata: Ok(Metadata {
+                    ft: FileType::new_file(),
+                    accessed: metadata
+                        .accessed()
+                        .unwrap()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_nanos() as u64,
+                    created: metadata
+                        .created()
+                        .unwrap()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_nanos() as u64,
+                    modified: metadata
+                        .modified()
+                        .unwrap()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_nanos() as u64,
+                    len: contents.len() as u64,
+                })
+            }]
+        );
     }
 }
