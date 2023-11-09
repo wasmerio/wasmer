@@ -292,10 +292,7 @@ impl VirtualFile for FileHandle {
             match inode {
                 Some(inode) => {
                     let metadata = Metadata {
-                        ft: crate::FileType {
-                            file: true,
-                            ..Default::default()
-                        },
+                        ft: crate::FileType::new_file(),
                         accessed: src.last_accessed(),
                         created: src.created_time(),
                         modified: src.last_modified(),

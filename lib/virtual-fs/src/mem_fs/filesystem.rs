@@ -215,10 +215,7 @@ impl FileSystem {
                     let time = time();
 
                     Metadata {
-                        ft: FileType {
-                            dir: true,
-                            ..Default::default()
-                        },
+                        ft: FileType::new_dir(),
                         accessed: time,
                         created: time,
                         modified: time,
@@ -334,10 +331,7 @@ impl crate::FileSystem for FileSystem {
                     let time = time();
 
                     Metadata {
-                        ft: FileType {
-                            dir: true,
-                            ..Default::default()
-                        },
+                        ft: FileType::new_dir(),
                         accessed: time,
                         created: time,
                         modified: time,
@@ -1002,10 +996,7 @@ impl Default for FileSystemInner {
             name: OsString::from("/"),
             children: Vec::new(),
             metadata: Metadata {
-                ft: FileType {
-                    dir: true,
-                    ..Default::default()
-                },
+                ft: FileType::new_dir(),
                 accessed: time,
                 created: time,
                 modified: time,

@@ -41,10 +41,7 @@ impl FileSystem {
                         let time = time();
 
                         Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
+                            ft: FileType::new_file(),
                             accessed: time,
                             created: time,
                             modified: time,
@@ -101,10 +98,7 @@ impl FileSystem {
                     _ => {
                         let time = time();
                         Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
+                            ft: FileType::new_file(),
                             accessed: time,
                             created: time,
                             modified: time,
@@ -186,10 +180,7 @@ impl FileSystem {
                         metadata: {
                             let time = time();
                             Metadata {
-                                ft: FileType {
-                                    file: true,
-                                    ..Default::default()
-                                },
+                                ft: FileType::new_file(),
                                 accessed: time,
                                 created: time,
                                 modified: time,
@@ -257,10 +248,7 @@ impl FileSystem {
             metadata: {
                 let time = time();
                 Metadata {
-                    ft: FileType {
-                        file: true,
-                        ..Default::default()
-                    },
+                    ft: FileType::new_file(),
                     accessed: time,
                     created: time,
                     modified: time,
@@ -482,10 +470,7 @@ impl crate::FileOpener for FileSystem {
                         let time = time();
 
                         Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
+                            ft: FileType::new_file(),
                             accessed: time,
                             created: time,
                             modified: time,
