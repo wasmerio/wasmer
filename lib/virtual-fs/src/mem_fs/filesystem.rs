@@ -50,6 +50,7 @@ impl FileSystem {
         other: &Arc<dyn crate::FileSystem + Send + Sync>,
         mut source_path: &Path,
     ) -> Result<()> {
+        // TODO: DELETE ME
         let fs_lock = self.inner.read().map_err(|_| FsError::Lock)?;
 
         if cfg!(windows) {
@@ -656,11 +657,13 @@ impl FileSystemInner {
                 Node::ArcDirectory(ArcDirectoryNode {
                     fs, path: fs_path, ..
                 }) => {
-                    let mut path = fs_path.clone();
+                    let mut path = PathBuf::new();
                     path.push(PathBuf::from(component.as_os_str()));
                     for component in components.by_ref() {
                         path.push(PathBuf::from(component.as_os_str()));
                     }
+                    // let mut path: PathBuf = components.collect();
+                    // path.push(component.as_os_str());
                     return Ok(InodeResolution::Redirect(fs.clone(), path));
                 }
                 _ => return Err(FsError::BaseNotDirectory),
@@ -677,11 +680,8 @@ impl FileSystemInner {
             InodeResolution::Found(inode_of_parent) => {
                 // Ensure it is a directory.
                 match self.storage.get(inode_of_parent) {
-                    Some(Node::Directory(DirectoryNode { .. })) => {
+                    Some(Node::Directory(DirectoryNode { .. })) | Some(Node::ArcDirectory(_)) => {
                         Ok(InodeResolution::Found(inode_of_parent))
-                    }
-                    Some(Node::ArcDirectory(ArcDirectoryNode { fs, path, .. })) => {
-                        Ok(InodeResolution::Redirect(fs.clone(), path.clone()))
                     }
                     _ => Err(FsError::BaseNotDirectory),
                 }

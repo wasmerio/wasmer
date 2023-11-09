@@ -1211,12 +1211,12 @@ mod tests {
         // (initialized with a set of unix-like folders), but certain folders
         // are first to the host.
         let primary = RootFileSystemBuilder::new().build();
-        let host_fs: Arc<dyn FileSystem + Send + Sync> =
-            Arc::new(crate::host_fs::FileSystem::default());
         let first_dirs = [(&first, "/first"), (&second, "/second")];
         for (host, guest) in first_dirs {
+            let host_fs: Arc<dyn FileSystem + Send + Sync> =
+                Arc::new(crate::fs::native::FileSystem::new(host.to_owned()).unwrap());
             primary
-                .mount(PathBuf::from(guest), &host_fs, host.clone())
+                .mount(PathBuf::from(guest), &host_fs, PathBuf::new())
                 .unwrap();
         }
         // Set up the secondary file systems
