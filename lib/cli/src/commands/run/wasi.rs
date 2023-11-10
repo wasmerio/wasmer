@@ -217,7 +217,6 @@ impl Wasi {
     }
 
     pub fn get_fs(&self) -> Result<virtual_fs::TmpFileSystem> {
-        // If we preopen anything from the host then shallow copy it over
         let root_fs = RootFileSystemBuilder::new()
             .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
             .build();

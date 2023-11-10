@@ -35,7 +35,7 @@ impl UnionFileSystem {
                 {
                     return union_fs.mount(&dir, fs);
                 }
-                return Err(FsError::AlreadyExists);
+                Err(FsError::AlreadyExists)
             }
             Err(FsError::EntryNotFound) | Err(_) => {
                 let mut path_iter = path.iter();
@@ -121,7 +121,7 @@ impl FileSystem for UnionFileSystem {
                 return Err(FsError::AlreadyExists);
             }
 
-            let _ = ops::create_dir_all(to_fs, to_dir.parent().ok_or(FsError::BaseNotDirectory)?)?;
+            ops::create_dir_all(to_fs, to_dir.parent().ok_or(FsError::BaseNotDirectory)?)?;
             if from_dir.is_dir() {
                 unimplemented!("rename dir not yet implemented in UnionFilesystem");
             } else {
@@ -133,7 +133,7 @@ impl FileSystem for UnionFileSystem {
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         println!("metadata: path={}", path.display());
         let path = path.clean_safely()?;
-        if path.to_owned() == Path::new(".") {
+        if path == Path::new(".") {
             return Ok(Metadata {
                 ft: FileType::new_dir(),
                 accessed: 0,
