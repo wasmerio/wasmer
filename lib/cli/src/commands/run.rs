@@ -208,6 +208,16 @@ impl Run {
         Ok(dependencies)
     }
 
+    fn get_fs(&self) -> Result<virtual_fs::TmpFileSystem, Error> {
+        let root_fs = virtual_fs::TmpFileSystem::new();
+        for MappedDirectory { host, guest } in self.wasi.mapped_dirs.clone() {
+            let native_fs = virtual_fs::fs::native::FileSystem::new(host.canonicalize()?)?;
+            let fs: Arc<dyn virtual_fs::FileSystem + Send + Sync + 'static> = Arc::new(native_fs);
+            root_fs.mount(guest.into(), &fs, PathBuf::new())?;
+        }
+        Ok(root_fs)
+    }
+
     fn run_wasi(
         &self,
         command_name: &str,
@@ -218,7 +228,7 @@ impl Run {
         let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
             .with_args(self.args.clone())
             .with_envs(self.wasi.env_vars.clone())
-            .with_mapped_directories(self.wasi.mapped_dirs.clone())
+            .with_fs(self.get_fs()?)
             .with_injected_packages(uses);
         if self.wasi.forward_host_env {
             runner.set_forward_host_env();

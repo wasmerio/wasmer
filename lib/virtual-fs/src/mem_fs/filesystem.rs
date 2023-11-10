@@ -654,9 +654,7 @@ impl FileSystemInner {
                     .filter_map(|inode| self.storage.get(*inode))
                     .find(|node| node.name() == component.as_os_str())
                     .ok_or(FsError::EntryNotFound)?,
-                Node::ArcDirectory(ArcDirectoryNode {
-                    fs, path: fs_path, ..
-                }) => {
+                Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
                     let mut path = PathBuf::new();
                     path.push(PathBuf::from(component.as_os_str()));
                     for component in components.by_ref() {

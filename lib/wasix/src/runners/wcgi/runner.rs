@@ -7,6 +7,7 @@ use hyper::Body;
 use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
+use virtual_fs::RootFileSystemBuilder;
 use wcgi_host::CgiDialect;
 use webc::metadata::{
     annotations::{Wasi, Wcgi},
@@ -66,8 +67,15 @@ impl WcgiRunner {
 
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
+
+        let root_fs = wasi_common
+            .fs
+            .clone()
+            .unwrap_or_else(|| RootFileSystemBuilder::default().build());
+
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi, None)?;
+            wasi_common.prepare_webc_env(builder, &wasi)?;
+            wasi_common.set_filesystem(builder, root_fs.clone(), Some(container_fs.clone()))?;
             builder.set_runtime(Arc::clone(&rt));
 
             Ok(())

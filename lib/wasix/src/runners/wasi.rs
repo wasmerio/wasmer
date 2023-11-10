@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Error};
 use tracing::Instrument;
+use virtual_fs::RootFileSystemBuilder;
 use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -27,6 +28,12 @@ impl WasiRunner {
     /// Constructs a new `WasiRunner`.
     pub fn new() -> Self {
         WasiRunner::default()
+    }
+
+    /// Builder method to provide a filesystem to the runner
+    pub fn with_fs(mut self, fs: TmpFileSystem) -> Self {
+        self.wasi.fs = Some(fs);
+        self
     }
 
     /// Returns the current arguments for this `WasiRunner`
@@ -180,17 +187,14 @@ impl WasiRunner {
 
     #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn prepare_webc_env(
-        &self,
+        &mut self,
         program_name: &str,
         wasi: &Wasi,
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        root_fs: Option<TmpFileSystem>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
-        let container_fs = Arc::clone(&pkg.webc_fs);
-        self.wasi
-            .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
+        self.wasi.prepare_webc_env(&mut builder, wasi)?;
 
         if let Some(stdin) = &self.stdin {
             builder.set_stdin(Box::new(stdin.clone()));
@@ -204,6 +208,15 @@ impl WasiRunner {
 
         builder.add_webc(pkg.clone());
         builder.set_runtime(runtime);
+
+        let container_fs = Arc::clone(&pkg.webc_fs);
+        let root_fs = self
+            .wasi
+            .fs
+            .clone()
+            .unwrap_or_else(|| RootFileSystemBuilder::default().build());
+        self.wasi
+            .set_filesystem(&mut builder, root_fs, Some(container_fs))?;
 
         Ok(builder)
     }
@@ -234,7 +247,7 @@ impl crate::runners::Runner for WasiRunner {
         let store = runtime.new_store();
 
         let env = self
-            .prepare_webc_env(command_name, &wasi, pkg, Arc::clone(&runtime), None)
+            .prepare_webc_env(command_name, &wasi, pkg, Arc::clone(&runtime))
             .context("Unable to prepare the WASI environment")?
             .build()?;
 
