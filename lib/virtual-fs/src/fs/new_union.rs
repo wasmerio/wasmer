@@ -104,10 +104,10 @@ impl FileSystem for UnionFileSystem {
             println!("rename: from={} to={}", from.display(), to.display());
             let from = from.clean_safely()?;
             let to = to.clean_safely()?;
-            if from == Path::new(".") {
+            if from.parent().is_none() {
                 return Err(FsError::BaseNotDirectory);
             }
-            if to == Path::new(".") {
+            if to.parent().is_none() {
                 return Err(FsError::BaseNotDirectory);
             }
             let (from_dir, from_fs) = self
@@ -152,6 +152,7 @@ impl FileSystem for UnionFileSystem {
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         debug!("symlink_metadata: path={}", path.display());
+        let path = path.clean_safely()?;
         if path == Path::new(".") {
             return Ok(Metadata {
                 ft: FileType::new_dir(),
@@ -185,11 +186,12 @@ impl FileOpener for UnionFileSystem {
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>> {
         debug!("open: path={}", path.display());
+        let path = path.clean_safely()?;
         if path == Path::new(".") {
             return Err(FsError::BaseNotDirectory);
         }
         let (dir, fs) = self
-            .get_dir_for_path(path.clean_safely()?)
+            .get_dir_for_path(path)
             .map_err(|_e| FsError::BaseNotDirectory)?;
         let mut open_options = fs.new_open_options();
         open_options.options(conf.clone()).open(&dir)
