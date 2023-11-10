@@ -84,7 +84,7 @@ pub use virtual_net::{
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 pub use crate::{
-    fs::{default_fs_backing, Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},
+    fs::{Fd, WasiFs, WasiInodes, VIRTUAL_ROOT_FD},
     os::{
         task::{
             control_plane::WasiControlPlane,

@@ -278,7 +278,7 @@ mod tests {
         let mut builder = WasiEnvBuilder::new("");
 
         let mut root_fs = RootFileSystemBuilder::default().build();
-        let home = virtual_fs::fs::native::FileSystem(sub_dir);
+        let home = virtual_fs::host::FileSystem::new(sub_dir);
         root_fs.mount(PathBuf::from("/home"), home, PathBuf::new());
         let fs = prepare_filesystem(root_fs, Arc::new(webc_fs)).unwrap();
 

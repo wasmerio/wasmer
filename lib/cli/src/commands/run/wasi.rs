@@ -10,14 +10,14 @@ use bytes::Bytes;
 use clap::Parser;
 use tokio::runtime::Handle;
 use url::Url;
-use virtual_fs::fs::native::FileSystem as NativeFileSystem;
+use virtual_fs::host_fs::FileSystem as HostFileSystem;
 use virtual_fs::{DeviceFile, FileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    default_fs_backing, get_wasi_versions,
+    get_wasi_versions,
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
@@ -224,7 +224,7 @@ impl Wasi {
         let mut mapped_dirs = self.build_mapped_directories()?;
         if !mapped_dirs.is_empty() {
             for MappedDirectory { host, guest } in mapped_dirs {
-                let native_fs = NativeFileSystem::new(host.canonicalize()?)?;
+                let native_fs = HostFileSystem::new(host.canonicalize()?)?;
                 let fs: Arc<dyn virtual_fs::FileSystem + Send + Sync + 'static> =
                     Arc::new(native_fs);
                 root_fs

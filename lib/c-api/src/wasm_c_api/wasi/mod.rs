@@ -19,7 +19,7 @@ use std::sync::Arc;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
-    default_fs_backing, get_wasi_version,
+    get_wasi_version,
     runtime::task_manager::{tokio::TokioTaskManager, InlineWaker},
     virtual_fs::AsyncReadExt,
     virtual_fs::VirtualFile,
@@ -55,7 +55,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
-        builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
+        builder: WasiEnv::builder(prog_name),
         runtime: Some(runtime),
     }))
 }

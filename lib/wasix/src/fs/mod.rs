@@ -1901,19 +1901,6 @@ impl std::fmt::Debug for WasiFs {
     }
 }
 
-/// Returns the default filesystem backing
-pub fn default_fs_backing() -> Box<dyn virtual_fs::FileSystem + Send + Sync> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "host-fs")] {
-            Box::<virtual_fs::host_fs::FileSystem>::default()
-        } else if #[cfg(not(feature = "host-fs"))] {
-            Box::<virtual_fs::mem_fs::FileSystem>::default()
-        } else {
-            Box::<FallbackFileSystem>::default()
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct FallbackFileSystem;
 

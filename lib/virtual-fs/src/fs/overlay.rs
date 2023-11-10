@@ -50,7 +50,7 @@ use crate::{
 ///     .unwrap();
 ///     let _guard = runtime.enter();
 ///
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::default()]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(PathBuf::from("/tmp"))]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.

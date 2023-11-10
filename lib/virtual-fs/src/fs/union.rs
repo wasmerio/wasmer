@@ -6,12 +6,9 @@ use crate::ops::PathClean;
 use crate::*;
 
 use std::collections::HashMap;
-use std::{
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex, Weak},
-};
+use std::path::{Path, PathBuf};
 
-use tracing::{debug, trace};
+use tracing::debug;
 
 /// Allows different filesystems of different types
 /// to be mounted at various mount points
