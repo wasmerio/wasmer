@@ -110,7 +110,7 @@ impl FileSystem for UnionFileSystem {
             .get_dir_for_path(&cleaned_dir)
             .map_err(|_e| FsError::PermissionDenied)?;
         // If we delete the dir, we just unmount it
-        self.dirs.remove(cleaned_dir.to_str().unwrap());
+        // self.dirs.remove(cleaned_dir.to_str().unwrap());
         if dir == Path::new("/") {
             return Ok(());
         }
