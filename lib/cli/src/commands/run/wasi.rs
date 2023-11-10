@@ -125,7 +125,7 @@ pub struct RunProperties {
 
 #[allow(dead_code)]
 impl Wasi {
-    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/home";
+    pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/home";
 
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push(MappedDirectory {

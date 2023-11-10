@@ -119,6 +119,7 @@ impl WasiRunner {
         self.wasi.current_dir = Some(dir.into());
     }
 
+    /// Builder method to provide the current Dir
     pub fn with_current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.set_current_dir(dir);
         self
@@ -244,6 +245,10 @@ impl WasiRunner {
         }
         if let Some(stderr) = &self.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
+        }
+        if let Some(current_dir) = &self.wasi.current_dir {
+            builder.add_env("HOME", current_dir.to_str().unwrap());
+            builder.set_current_dir(current_dir);
         }
 
         let container_fs = if let Some(pkg) = pkg {

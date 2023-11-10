@@ -300,6 +300,7 @@ impl Run {
             .with_injected_packages(packages)
             .with_envs(self.wasi.env_vars.clone())
             .with_fs(self.wasi.get_fs()?)
+            .with_current_dir(PathBuf::from(Wasi::MAPPED_CURRENT_DIR_DEFAULT_PATH))
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
