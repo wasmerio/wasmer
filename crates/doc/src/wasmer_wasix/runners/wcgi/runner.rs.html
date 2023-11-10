@@ -352,7 +352,7 @@
         <span class="kw">let </span>wasi_common = <span class="self">self</span>.config.wasi.clone();
         <span class="kw">let </span>rt = Arc::clone(<span class="kw-2">&amp;</span>runtime);
         <span class="kw">let </span>setup_builder = <span class="kw">move </span>|builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(<span class="kw-2">&amp;</span>container_fs), <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            wasi_common.prepare_webc_env(builder, <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>container_fs)), <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
             builder.set_runtime(Arc::clone(<span class="kw-2">&amp;</span>rt));
 
             <span class="prelude-val">Ok</span>(())

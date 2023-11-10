@@ -28,7 +28,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;webc_runner_rt_wcgi&quot;</span>)]
 </span><span class="kw">pub mod </span>wcgi;
 
-<span class="kw">pub use </span><span class="self">self</span>::runner::Runner;
+<span class="kw">pub use </span><span class="self">self</span>::{runner::Runner, wasi_common::MappedCommand};
 
 <span class="doccomment">/// A directory that should be mapped from the host filesystem into a WASI
 /// instance (the &quot;guest&quot;).

@@ -398,6 +398,12 @@
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
 <a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -625,7 +631,13 @@
             .with_stdin(Box::new(<span class="self">self</span>.stdin.clone()))
             .with_stdout(Box::new(<span class="self">self</span>.stdout.clone()))
             .with_stderr(Box::new(<span class="self">self</span>.stderr.clone()))
-            .prepare_webc_env(prog, <span class="kw-2">&amp;</span>wasi_opts, <span class="kw-2">&amp;</span>pkg, <span class="self">self</span>.runtime.clone(), <span class="prelude-val">Some</span>(root_fs))
+            .prepare_webc_env(
+                prog,
+                <span class="kw-2">&amp;</span>wasi_opts,
+                <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>pkg),
+                <span class="self">self</span>.runtime.clone(),
+                <span class="prelude-val">Some</span>(root_fs),
+            )
             <span class="comment">// TODO: better error conversion
             </span>.map_err(|err| SpawnError::Other(err.into()))<span class="question-mark">?</span>;
 
