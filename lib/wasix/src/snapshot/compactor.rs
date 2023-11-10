@@ -12,7 +12,7 @@ use super::*;
 
 struct State {
     memory_map: HashMap<Range<u64>, [u8; 32]>,
-    open_file: HashMap<Fd, FdSnapshot<'static>>,
+    open_file: HashMap<Fd, FdOpenSnapshot<'static>>,
     close_file: HashSet<Fd>,
 }
 

@@ -64,87 +64,71 @@ impl SnapshotCapturer for FilteredSnapshotCapturer {
         Box::pin(async {
             let evt = match entry {
                 SnapshotLog::Init { wasm_hash } => SnapshotLog::Init { wasm_hash },
-                SnapshotLog::TerminalData { data } => {
+                SnapshotLog::FileDescriptorWrite { .. } => {
                     if self.filter_terminal {
                         return Ok(());
                     }
-                    SnapshotLog::TerminalData { data }
+                    entry
                 }
-                SnapshotLog::UpdateMemoryRegion { region, data } => {
+                SnapshotLog::UpdateMemoryRegion { .. } => {
                     if self.filter_memory {
                         return Ok(());
                     }
-                    SnapshotLog::UpdateMemoryRegion { region, data }
+                    entry
                 }
-                SnapshotLog::CloseThread { id, exit_code } => {
+                SnapshotLog::CloseThread { .. } => {
                     if self.filter_threads {
                         return Ok(());
                     }
-                    SnapshotLog::CloseThread { id, exit_code }
+                    entry
                 }
-                SnapshotLog::SetThread {
-                    id,
-                    call_stack,
-                    memory_stack,
-                    store_data,
-                    is_64bit,
-                } => {
+                SnapshotLog::SetThread { .. } => {
                     if self.filter_threads {
                         return Ok(());
                     }
-                    SnapshotLog::SetThread {
-                        id,
-                        call_stack,
-                        memory_stack,
-                        store_data,
-                        is_64bit,
-                    }
+                    entry
                 }
-                SnapshotLog::CloseFileDescriptor { fd } => {
+                SnapshotLog::CloseFileDescriptor { .. } => {
                     if self.filter_descriptors {
                         return Ok(());
                     }
-                    SnapshotLog::CloseFileDescriptor { fd }
+                    entry
                 }
-                SnapshotLog::OpenFileDescriptor { fd, state } => {
+                SnapshotLog::OpenFileDescriptor { .. } => {
                     if self.filter_descriptors {
                         return Ok(());
                     }
-                    SnapshotLog::OpenFileDescriptor { fd, state }
+                    entry
                 }
-                SnapshotLog::RemoveFileSystemEntry { path } => {
+                SnapshotLog::RemoveDirectory { .. } => {
                     if self.filter_files {
                         return Ok(());
                     }
-                    SnapshotLog::RemoveFileSystemEntry { path }
+                    entry
                 }
-                SnapshotLog::UpdateFileSystemEntry {
-                    path,
-                    ft,
-                    accessed,
-                    created,
-                    modified,
-                    len,
-                    data,
-                } => {
+                SnapshotLog::UnlinkFile { .. } => {
                     if self.filter_files {
                         return Ok(());
                     }
-                    SnapshotLog::UpdateFileSystemEntry {
-                        path,
-                        ft,
-                        accessed,
-                        created,
-                        modified,
-                        len,
-                        data,
-                    }
+                    entry
                 }
-                SnapshotLog::Snapshot { when, trigger } => {
+                SnapshotLog::PathRename { .. } => {
+                    if self.filter_files {
+                        return Ok(());
+                    }
+                    entry
+                }
+                SnapshotLog::UpdateFileSystemEntry { .. } => {
+                    if self.filter_files {
+                        return Ok(());
+                    }
+                    entry
+                }
+                SnapshotLog::Snapshot { .. } => {
                     if self.filter_snapshots {
                         return Ok(());
                     }
-                    SnapshotLog::Snapshot { when, trigger }
+                    entry
                 }
             };
             self.inner.write(evt).await

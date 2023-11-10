@@ -3,7 +3,9 @@ use std::fmt;
 use std::net::SocketAddr;
 use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
-use wasmer_wasix_types::wasi::ExitCode;
+use wasmer_wasix_types::wasi::{
+    Advice, EpollCtl, ExitCode, Filesize, Fstflags, LookupFlags, Snapshot0Clockid, Timestamp, Tty,
+};
 
 use futures::future::LocalBoxFuture;
 use virtual_fs::Fd;
@@ -35,7 +37,7 @@ pub enum SocketSnapshot {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FdSnapshot<'a> {
+pub enum FdOpenSnapshot<'a> {
     Stdin {
         non_blocking: bool,
     },
@@ -58,29 +60,29 @@ pub enum FdSnapshot<'a> {
     },
 }
 
-impl<'a> FdSnapshot<'a> {
-    pub fn into_owned(self) -> FdSnapshot<'static> {
+impl<'a> FdOpenSnapshot<'a> {
+    pub fn into_owned(self) -> FdOpenSnapshot<'static> {
         match self {
-            FdSnapshot::Stdin { non_blocking } => FdSnapshot::Stdin { non_blocking },
-            FdSnapshot::Stdout { non_blocking } => FdSnapshot::Stdout { non_blocking },
-            FdSnapshot::Stderr { non_blocking } => FdSnapshot::Stderr { non_blocking },
-            FdSnapshot::OpenFile {
+            FdOpenSnapshot::Stdin { non_blocking } => FdOpenSnapshot::Stdin { non_blocking },
+            FdOpenSnapshot::Stdout { non_blocking } => FdOpenSnapshot::Stdout { non_blocking },
+            FdOpenSnapshot::Stderr { non_blocking } => FdOpenSnapshot::Stderr { non_blocking },
+            FdOpenSnapshot::OpenFile {
                 path,
                 offset,
                 read,
                 write,
                 non_blocking,
-            } => FdSnapshot::OpenFile {
+            } => FdOpenSnapshot::OpenFile {
                 path: Cow::Owned(path.into_owned()),
                 offset,
                 read,
                 write,
                 non_blocking,
             },
-            FdSnapshot::Socket {
+            FdOpenSnapshot::Socket {
                 state,
                 non_blocking,
-            } => FdSnapshot::Socket {
+            } => FdOpenSnapshot::Socket {
                 state,
                 non_blocking,
             },
@@ -105,12 +107,19 @@ pub enum SnapshotLog<'a> {
     Init {
         wasm_hash: [u8; 32],
     },
-    TerminalData {
+    FileDescriptorWrite {
+        fd: Fd,
+        offset: u64,
         data: Cow<'a, [u8]>,
+        is_64bit: bool,
     },
     UpdateMemoryRegion {
         region: Range<u64>,
         data: Cow<'a, [u8]>,
+    },
+    SetClockTime {
+        clock_id: Snapshot0Clockid,
+        time: Timestamp,
     },
     CloseThread {
         id: WasiThreadId,
@@ -128,19 +137,85 @@ pub enum SnapshotLog<'a> {
     },
     OpenFileDescriptor {
         fd: Fd,
-        state: FdSnapshot<'a>,
+        state: FdOpenSnapshot<'a>,
     },
-    RemoveFileSystemEntry {
+    RenumberFileDescriptor {
+        old_fd: Fd,
+        new_fd: Fd,
+    },
+    DuplicateFileDescriptor {
+        old_fd: Fd,
+        new_fd: Fd,
+    },
+    CreateDirectory {
+        fd: Fd,
         path: Cow<'a, str>,
     },
-    UpdateFileSystemEntry {
+    RemoveDirectory {
+        fd: Fd,
         path: Cow<'a, str>,
-        ft: FileEntryType,
-        accessed: u64,
-        created: u64,
-        modified: u64,
-        len: u64,
-        data: Cow<'a, [u8]>,
+    },
+    FileDescriptorSetTimes {
+        fd: Fd,
+        st_atim: Timestamp,
+        st_mtim: Timestamp,
+        fst_flags: Fstflags,
+    },
+    FileDescriptorSetSize {
+        fd: Fd,
+        size: Filesize,
+    },
+    FileDescriptorAdvise {
+        fd: Fd,
+        offset: Filesize,
+        len: Filesize,
+        advice: Advice,
+    },
+    FileDescriptorAllocate {
+        fd: Fd,
+        offset: Filesize,
+        len: Filesize,
+    },
+    CreateHardLink {
+        old_fd: Fd,
+        old_path: Cow<'a, str>,
+        old_flags: LookupFlags,
+        new_fd: Fd,
+        new_path: Cow<'a, str>,
+    },
+    CreateSymbolicLink {
+        old_fd: Fd,
+        old_path: Cow<'a, str>,
+        new_fd: Fd,
+        new_path: Cow<'a, str>,
+    },
+    UnlinkFile {
+        fd: Fd,
+        path: Cow<'a, str>,
+    },
+    PathRename {
+        old_fd: Fd,
+        old_path: Cow<'a, str>,
+        new_fd: Fd,
+        new_path: Cow<'a, str>,
+    },
+    ChangeDirectory {
+        path: Cow<'a, str>,
+    },
+    EpollCreate {
+        fd: Fd,
+    },
+    EpollCtl {
+        epfd: Fd,
+        op: EpollCtl,
+        fd: Fd,
+    },
+    TtySet {
+        tty: Tty,
+    },
+    CreatePipe {
+        fd1: Fd,
+        fd2: Fd,
     },
     /// Represents the marker for the end of a snapshot
     Snapshot {
@@ -156,9 +231,17 @@ impl fmt::Debug for SnapshotLog<'_> {
                 .debug_struct("Init")
                 .field("wasm_hash.len", &wasm_hash.len())
                 .finish(),
-            Self::TerminalData { data } => f
+            Self::FileDescriptorWrite {
+                fd,
+                offset,
+                data,
+                is_64bit,
+            } => f
                 .debug_struct("TerminalData")
+                .field("fd", &fd)
+                .field("offset", &offset)
                 .field("data.len", &data.len())
+                .field("is_64bit", &is_64bit)
                 .finish(),
             Self::UpdateMemoryRegion { region, data } => f
                 .debug_struct("UpdateMemoryRegion")
@@ -193,9 +276,27 @@ impl fmt::Debug for SnapshotLog<'_> {
                 .field("fd", fd)
                 .field("state", state)
                 .finish(),
-            Self::RemoveFileSystemEntry { path } => f
-                .debug_struct("RemoveFileSystemEntry")
+            Self::RemoveDirectory { fd, path } => f
+                .debug_struct("RemoveDirectory")
+                .field("fd", fd)
                 .field("path", path)
+                .finish(),
+            Self::UnlinkFile { fd, path } => f
+                .debug_struct("UnlinkFile")
+                .field("fd", fd)
+                .field("path", path)
+                .finish(),
+            Self::PathRename {
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+            } => f
+                .debug_struct("UnlinkFile")
+                .field("old_fd", old_fd)
+                .field("old_path", old_path)
+                .field("new_fd", new_fd)
+                .field("new_path", new_path)
                 .finish(),
             Self::UpdateFileSystemEntry {
                 path,

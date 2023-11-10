@@ -1,18 +1,19 @@
 use std::{borrow::Cow, collections::LinkedList, ops::Range, sync::MutexGuard, time::SystemTime};
 
 use bytes::Bytes;
-use virtual_fs::AsyncWriteExt;
-use wasmer::{FunctionEnvMut, WasmPtr};
+use wasmer::{FunctionEnvMut, RuntimeError, WasmPtr};
 use wasmer_types::MemorySize;
-use wasmer_wasix_types::{types::__wasi_ciovec_t, wasi::ExitCode};
+use wasmer_wasix_types::{
+    types::__wasi_ciovec_t,
+    wasi::{Errno, ExitCode, Fd},
+};
 
 use crate::{
-    fs::fs_error_into_wasi_err,
     mem_error_to_wasi,
     os::task::process::WasiProcessInner,
-    syscalls::__asyncify_light,
-    utils::{map_io_err, map_snapshot_err},
-    WasiEnv, WasiError, WasiThreadId,
+    syscalls::{__asyncify_light, fd_write_internal, FdWriteSource},
+    utils::map_snapshot_err,
+    WasiEnv, WasiError, WasiRuntimeError, WasiThreadId,
 };
 
 use super::*;
@@ -22,8 +23,11 @@ pub struct SnapshotEffector {}
 
 #[cfg(feature = "snapshot")]
 impl SnapshotEffector {
-    pub fn save_terminal_data<M: MemorySize>(
+    pub fn save_write<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        fd: Fd,
+        offset: u64,
+        written: usize,
         iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
         iovs_len: M::Offset,
     ) -> anyhow::Result<()> {
@@ -33,17 +37,27 @@ impl SnapshotEffector {
 
         __asyncify_light(env, None, async {
             let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+            let mut remaining: M::Offset = TryFrom::<usize>::try_from(written).unwrap_or_default();
             for iovs in iovs_arr.iter() {
+                let sub = iovs.buf_len.min(remaining);
+                if sub == M::ZERO {
+                    continue;
+                }
+                remaining -= sub;
+
                 let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                    .slice(&memory, iovs.buf_len)
+                    .slice(&memory, sub)
                     .map_err(mem_error_to_wasi)?
                     .access()
                     .map_err(mem_error_to_wasi)?;
                 ctx.data()
                     .runtime()
                     .snapshot_capturer()
-                    .write(SnapshotLog::TerminalData {
+                    .write(SnapshotLog::FileDescriptorWrite {
+                        fd,
+                        offset,
                         data: Cow::Borrowed(buf.as_ref()),
+                        is_64bit: M::is_64bit(),
                     })
                     .await
                     .map_err(map_snapshot_err)?;
@@ -54,18 +68,29 @@ impl SnapshotEffector {
         Ok(())
     }
 
-    pub fn apply_terminal_data<M: MemorySize>(
+    pub async fn apply_write<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        data: &[u8],
+        fd: Fd,
+        offset: u64,
+        data: Cow<'_, [u8]>,
     ) -> anyhow::Result<()> {
-        let env = ctx.data();
-        __asyncify_light(env, None, async {
-            if let Some(mut stdout) = ctx.data().stdout().map_err(fs_error_into_wasi_err)? {
-                stdout.write_all(data).await.map_err(map_io_err)?;
-            }
-            Ok(())
-        })?
-        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        let ret = fd_write_internal(
+            ctx,
+            fd,
+            FdWriteSource::<'_, M>::Buffer(data),
+            offset,
+            None,
+            true,
+            false,
+        )?;
+        if ret != Errno::Success {
+            tracing::debug!(
+                fd,
+                offset,
+                "restore error: failed to write to descriptor - {}",
+                ret
+            );
+        }
         Ok(())
     }
 
@@ -187,6 +212,139 @@ impl SnapshotEffector {
             Ok(())
         })?
         .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        Ok(())
+    }
+
+    pub fn apply_memory(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        region: Range<u64>,
+        data: &[u8],
+    ) -> anyhow::Result<()> {
+        let (env, mut store) = ctx.data_and_store_mut();
+        let memory = unsafe { env.memory_view(&mut store) };
+        memory
+            .write(region.start, data.as_ref())
+            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
+        Ok(())
+    }
+
+    pub fn save_remove_directory(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        fd: Fd,
+        path: String,
+    ) -> anyhow::Result<()> {
+        let env = ctx.data();
+
+        __asyncify_light(env, None, async {
+            ctx.data()
+                .runtime()
+                .snapshot_capturer()
+                .write(SnapshotLog::RemoveDirectory {
+                    fd,
+                    path: Cow::Owned(path),
+                })
+                .await
+                .map_err(map_snapshot_err)?;
+            Ok(())
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+
+        Ok(())
+    }
+
+    pub fn apply_remove_directory(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        fd: Fd,
+        path: &str,
+    ) -> anyhow::Result<()> {
+        if let Err(err) = crate::syscalls::path_remove_directory_internal(ctx, fd, path) {
+            tracing::debug!("restore error: failed to remove directory - {}", err);
+        }
+        Ok(())
+    }
+
+    pub fn save_unlink_file(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        fd: Fd,
+        path: String,
+    ) -> anyhow::Result<()> {
+        let env = ctx.data();
+
+        __asyncify_light(env, None, async {
+            ctx.data()
+                .runtime()
+                .snapshot_capturer()
+                .write(SnapshotLog::UnlinkFile {
+                    fd,
+                    path: Cow::Owned(path),
+                })
+                .await
+                .map_err(map_snapshot_err)?;
+            Ok(())
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+
+        Ok(())
+    }
+
+    pub fn apply_unlink_file(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        fd: Fd,
+        path: &str,
+    ) -> anyhow::Result<()> {
+        let ret = crate::syscalls::path_unlink_file_internal(ctx, fd, path)?;
+        if ret != Errno::Success {
+            tracing::debug!(fd, path, "restore error: failed to remove file - {}", ret);
+        }
+        Ok(())
+    }
+
+    pub fn save_rename(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        old_fd: Fd,
+        old_path: String,
+        new_fd: Fd,
+        new_path: String,
+    ) -> anyhow::Result<()> {
+        let env = ctx.data();
+
+        __asyncify_light(env, None, async {
+            ctx.data()
+                .runtime()
+                .snapshot_capturer()
+                .write(SnapshotLog::PathRename {
+                    old_fd,
+                    old_path: Cow::Owned(old_path),
+                    new_fd,
+                    new_path: Cow::Owned(new_path),
+                })
+                .await
+                .map_err(map_snapshot_err)?;
+            Ok(())
+        })?
+        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+
+        Ok(())
+    }
+
+    pub fn apply_rename(
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        old_fd: Fd,
+        old_path: &str,
+        new_fd: Fd,
+        new_path: &str,
+    ) -> anyhow::Result<()> {
+        let ret = crate::syscalls::path_rename_internal(ctx, old_fd, old_path, new_fd, new_path)?;
+        if ret != Errno::Success {
+            tracing::debug!(
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+                "restore error: failed to rename path - {}",
+                ret
+            );
+        }
         Ok(())
     }
 }

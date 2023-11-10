@@ -26,8 +26,11 @@ pub enum SnapshotLogEntry {
     InitV1 {
         wasm_hash: [u8; 32],
     },
-    TerminalDataV1 {
+    Write {
+        fd: Fd,
+        offset: Option<u64>,
         data: Vec<u8>,
+        is_64bit: bool,
     },
     UpdateMemoryRegionV1 {
         start: u64,
@@ -50,10 +53,21 @@ pub enum SnapshotLogEntry {
     },
     OpenFileDescriptorV1 {
         fd: Fd,
-        state: FdSnapshot<'static>,
+        state: FdOpenSnapshot<'static>,
     },
-    RemoveFileSystemEntryV1 {
+    RemoveDirectoryV1 {
+        fd: Fd,
         path: String,
+    },
+    UnlinkFileV1 {
+        fd: Fd,
+        path: String,
+    },
+    PathRenameV1 {
+        old_fd: Fd,
+        old_path: String,
+        new_fd: Fd,
+        new_path: String,
     },
     UpdateFileSystemEntryV1 {
         path: String,
@@ -74,8 +88,16 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
     fn from(value: SnapshotLog<'a>) -> Self {
         match value {
             SnapshotLog::Init { wasm_hash } => Self::InitV1 { wasm_hash },
-            SnapshotLog::TerminalData { data } => Self::TerminalDataV1 {
+            SnapshotLog::FileDescriptorWrite {
+                fd,
+                offset,
+                data,
+                is_64bit,
+            } => Self::Write {
+                fd,
+                offset,
                 data: data.into_owned(),
+                is_64bit,
             },
             SnapshotLog::UpdateMemoryRegion { region, data } => Self::UpdateMemoryRegionV1 {
                 start: region.start,
@@ -101,8 +123,24 @@ impl<'a> From<SnapshotLog<'a>> for SnapshotLogEntry {
                 fd,
                 state: state.into_owned(),
             },
-            SnapshotLog::RemoveFileSystemEntry { path } => Self::RemoveFileSystemEntryV1 {
+            SnapshotLog::RemoveDirectory { fd, path } => Self::RemoveDirectoryV1 {
+                fd,
                 path: path.into_owned(),
+            },
+            SnapshotLog::UnlinkFile { fd, path } => Self::UnlinkFileV1 {
+                fd,
+                path: path.into_owned(),
+            },
+            SnapshotLog::PathRename {
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+            } => Self::PathRenameV1 {
+                old_fd,
+                old_path: old_path.into_owned(),
+                new_fd,
+                new_path: new_path.into_owned(),
             },
             SnapshotLog::UpdateFileSystemEntry {
                 path,
@@ -130,7 +168,17 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
     fn from(value: SnapshotLogEntry) -> Self {
         match value {
             SnapshotLogEntry::InitV1 { wasm_hash } => Self::Init { wasm_hash },
-            SnapshotLogEntry::TerminalDataV1 { data } => Self::TerminalData { data: data.into() },
+            SnapshotLogEntry::Write {
+                data,
+                fd,
+                offset,
+                is_64bit,
+            } => Self::FileDescriptorWrite {
+                data: data.into(),
+                fd,
+                offset,
+                is_64bit,
+            },
             SnapshotLogEntry::UpdateMemoryRegionV1 { start, end, data } => {
                 Self::UpdateMemoryRegion {
                     region: start..end,
@@ -158,9 +206,25 @@ impl<'a> From<SnapshotLogEntry> for SnapshotLog<'a> {
                 fd,
                 state: state.clone(),
             },
-            SnapshotLogEntry::RemoveFileSystemEntryV1 { path } => {
-                Self::RemoveFileSystemEntry { path: path.into() }
-            }
+            SnapshotLogEntry::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
+                fd,
+                path: path.into(),
+            },
+            SnapshotLogEntry::UnlinkFileV1 { fd, path } => Self::UnlinkFile {
+                fd,
+                path: path.into(),
+            },
+            SnapshotLogEntry::PathRenameV1 {
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+            } => Self::PathRename {
+                old_fd,
+                old_path: old_path.into(),
+                new_fd,
+                new_path: new_path.into(),
+            },
             SnapshotLogEntry::UpdateFileSystemEntryV1 {
                 path,
                 ft,

@@ -122,7 +122,7 @@ use crate::{
     },
     os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
-    snapshot::DynSnapshotCapturer,
+    snapshot::{DynSnapshotCapturer, SnapshotEffector},
     utils::store::InstanceSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes, WasiResult,
     WasiRuntimeError,
@@ -1287,6 +1287,10 @@ pub fn maybe_snapshot<M: MemorySize>(
     Ok(Ok(ctx))
 }
 
+pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
+    WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
+}
+
 pub fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     restore: SnapshotRestore,
@@ -1296,33 +1300,28 @@ pub fn restore_snapshot(
 
     InlineWaker::block_on(async {
         let mut rewind = None;
-        while let Some(next) = restorer
-            .read()
-            .await
-            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?
-        {
+        while let Some(next) = restorer.read().await.map_err(anyhow_err_to_runtime_err)? {
             tracing::trace!("Restoring snapshot event - {next:?}");
             match next {
                 crate::snapshot::SnapshotLog::Init { .. } => {
                     // TODO: Here we need to check the hash matches the binary
                 }
-                crate::snapshot::SnapshotLog::TerminalData { data } => {
-                    if let Some(mut stdout) = ctx
-                        .data()
-                        .stdout()
-                        .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?
-                    {
-                        stdout.write_all(data.as_ref()).await.map_err(|err| {
-                            WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
-                        })?;
+                crate::snapshot::SnapshotLog::FileDescriptorWrite {
+                    fd,
+                    offset,
+                    data,
+                    is_64bit,
+                } => {
+                    if is_64bit {
+                        SnapshotEffector::apply_write::<Memory32>(&mut ctx, fd, offset, data).await
+                    } else {
+                        SnapshotEffector::apply_write::<Memory64>(&mut ctx, fd, offset, data).await
                     }
+                    .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::UpdateMemoryRegion { region, data } => {
-                    let (env, mut store) = ctx.data_and_store_mut();
-                    let memory = unsafe { env.memory_view(&mut store) };
-                    memory
-                        .write(region.start, data.as_ref())
-                        .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?
+                    SnapshotEffector::apply_memory(&mut ctx, region, &data)
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::CloseThread { id, exit_code } => {
                     if id == ctx.data().tid() {
@@ -1373,13 +1372,22 @@ pub fn restore_snapshot(
                         .into(),
                     )));
                 }
-                crate::snapshot::SnapshotLog::RemoveFileSystemEntry { path: _ } => {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                        anyhow::format_err!(
-                            "Snapshot restoration does not currently support local file changes."
-                        )
-                        .into(),
-                    )));
+                crate::snapshot::SnapshotLog::RemoveDirectory { fd, path } => {
+                    SnapshotEffector::apply_remove_directory(&mut ctx, fd, &path)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::UnlinkFile { fd, path } => {
+                    SnapshotEffector::apply_unlink_file(&mut ctx, fd, &path)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::PathRename {
+                    old_fd,
+                    old_path,
+                    new_fd,
+                    new_path,
+                } => {
+                    SnapshotEffector::apply_rename(&mut ctx, old_fd, &old_path, new_fd, &new_path)
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::UpdateFileSystemEntry {
                     path: _,
