@@ -52,14 +52,14 @@ pub async fn spawn_exec(
     };
 
     // If the file system has not already been union'ed then do so
-    env.state
-        .fs
-        .conditional_union(&binary)
-        .await
-        .map_err(|err| {
-            tracing::warn!("failed to union file system - {err}");
-            SpawnError::FileSystemError
-        })?;
+    // env.state
+    //     .fs
+    //     .conditional_union(&binary)
+    //     .await
+    //     .map_err(|err| {
+    //         tracing::warn!("failed to union file system - {err}");
+    //         SpawnError::FileSystemError
+    //     })?;
     tracing::debug!("{:?}", env.state.fs);
 
     // Now run the module

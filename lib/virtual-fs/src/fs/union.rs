@@ -62,15 +62,14 @@ impl UnionFileSystem {
             .get(base_dir.to_str().unwrap())
             .ok_or(FsError::EntryNotFound)
             .map(|fs| {
-                let path = std::iter::once(std::ffi::OsStr::new("/")).chain(path_iter).collect();
+                let path = std::iter::once(std::ffi::OsStr::new("/"))
+                    .chain(path_iter)
+                    .collect();
                 // if path == Path::new("") {
                 //     return (PathBuf::from("/"), fs.as_ref());
                 // }
                 // else {}
-                (
-                    path,
-                    fs.as_ref()
-                )
+                (path, fs.as_ref())
             })
     }
     fn get_dir_for_path_mut(
@@ -315,14 +314,30 @@ mod tests {
         let g = mem_fs::FileSystem::default();
         let h = mem_fs::FileSystem::default();
 
-        union.mount(&PathBuf::from("/test_new_filesystem"), Box::new(a)).unwrap();
-        union.mount(&PathBuf::from("/test_create_dir"), Box::new(b)).unwrap();
-        union.mount(&PathBuf::from("/test_remove_dir"), Box::new(c)).unwrap();
-        union.mount(&PathBuf::from("/test_rename"), Box::new(d)).unwrap();
-        union.mount(&PathBuf::from("/test_metadata"), Box::new(e)).unwrap();
-        union.mount(&PathBuf::from("/test_remove_file"), Box::new(f)).unwrap();
-        union.mount(&PathBuf::from("/test_readdir"), Box::new(g)).unwrap();
-        union.mount(&PathBuf::from("/test_canonicalize"), Box::new(h)).unwrap();
+        union
+            .mount(&PathBuf::from("/test_new_filesystem"), Box::new(a))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_create_dir"), Box::new(b))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_remove_dir"), Box::new(c))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_rename"), Box::new(d))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_metadata"), Box::new(e))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_remove_file"), Box::new(f))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_readdir"), Box::new(g))
+            .unwrap();
+        union
+            .mount(&PathBuf::from("/test_canonicalize"), Box::new(h))
+            .unwrap();
 
         union
     }

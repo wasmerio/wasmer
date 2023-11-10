@@ -238,20 +238,6 @@ impl Console {
 
         let wasi_process = env.process.clone();
 
-        if let Err(err) = env.uses(self.uses.clone()) {
-            let mut stderr = self.stderr.clone();
-            InlineWaker::block_on(async {
-                virtual_fs::AsyncWriteExt::write_all(
-                    &mut stderr,
-                    format!("{}\r\n", err).as_bytes(),
-                )
-                .await
-                .ok();
-            });
-            tracing::debug!("failed to load used dependency - {}", err);
-            return Err(SpawnError::BadRequest);
-        }
-
         // The custom readonly files have to be added after the uses packages
         // otherwise they will be overriden by their attached file systems
         for (path, data) in self.ro_files.clone() {

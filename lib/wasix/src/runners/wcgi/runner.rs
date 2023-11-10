@@ -74,9 +74,10 @@ impl WcgiRunner {
             .clone()
             .unwrap_or_else(|| RootFileSystemBuilder::default().build());
 
+        let pkg = pkg.clone();
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, &wasi)?;
-            wasi_common.set_filesystem(builder, root_fs.clone(), Some(container_fs.clone()))?;
+            wasi_common.prepare_webc_env(builder, &wasi, Some(&pkg))?;
+            wasi_common.set_filesystem(builder, root_fs.clone())?;
             builder.set_runtime(Arc::clone(&rt));
 
             Ok(())

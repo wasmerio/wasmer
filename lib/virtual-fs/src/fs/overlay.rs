@@ -1214,7 +1214,7 @@ mod tests {
         let first_dirs = [(&first, "/first"), (&second, "/second")];
         for (host, guest) in first_dirs {
             let host_fs: Arc<dyn FileSystem + Send + Sync> =
-                Arc::new(crate::fs::native::FileSystem::new(host.to_owned()).unwrap());
+                Arc::new(crate::host_fs::FileSystem::new(host.to_owned()).unwrap());
             primary
                 .mount(PathBuf::from(guest), &host_fs, PathBuf::new())
                 .unwrap();

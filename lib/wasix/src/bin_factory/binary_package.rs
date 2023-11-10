@@ -99,6 +99,26 @@ impl BinaryPackage {
         Ok(pkg)
     }
 
+
+    /// Load a [`BinaryPackage`] and all its dependencies from a registry.
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub async fn get_container_from_registry(
+        specifier: &PackageSpecifier,
+        runtime: &(dyn Runtime + Send + Sync),
+    ) -> Result<Container, anyhow::Error> {
+        let source = runtime.source();
+        let root_summary =
+            source
+                .latest(specifier)
+                .await
+                .map_err(|error| ResolveError::Registry {
+                    package: specifier.clone(),
+                    error,
+                })?;
+        let root = runtime.package_loader().load(&root_summary).await?;
+        Ok(root)
+    }
+
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(

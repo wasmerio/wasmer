@@ -235,7 +235,7 @@ impl WasiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
-        self.wasi.prepare_webc_env(&mut builder, wasi)?;
+        self.wasi.prepare_webc_env(&mut builder, wasi, pkg)?;
 
         if let Some(stdin) = &self.stdin {
             builder.set_stdin(Box::new(stdin.clone()));
@@ -251,12 +251,6 @@ impl WasiRunner {
             builder.set_current_dir(current_dir);
         }
 
-        let container_fs = if let Some(pkg) = pkg {
-            builder.add_webc(pkg.clone());
-            Some(Arc::clone(&pkg.webc_fs))
-        } else {
-            None
-        };
         builder.set_runtime(runtime);
 
         let root_fs = self
@@ -264,8 +258,7 @@ impl WasiRunner {
             .fs
             .clone()
             .unwrap_or_else(|| RootFileSystemBuilder::default().build());
-        self.wasi
-            .set_filesystem(&mut builder, root_fs, container_fs)?;
+        self.wasi.set_filesystem(&mut builder, root_fs)?;
 
         Ok(builder)
     }

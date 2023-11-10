@@ -9,6 +9,7 @@ use std::{
 use bytes::Bytes;
 use rand::Rng;
 use thiserror::Error;
+use virtual_fs::OverlayFileSystem;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
@@ -61,6 +62,7 @@ pub struct WasiEnvBuilder {
     pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) fs: Option<WasiFsRoot>,
+    pub(super) pkg: Option<BinaryPackage>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
     pub(super) current_dir: Option<PathBuf>,
 
@@ -270,6 +272,17 @@ impl WasiEnvBuilder {
     /// Get a mutable reference to the configured arguments.
     pub fn get_args_mut(&mut self) -> &mut Vec<String> {
         &mut self.args
+    }
+
+    /// Adds the main package to inherit from (useful for the filesystem)
+    pub fn with_package(mut self, pkg: BinaryPackage) -> Self {
+        self.set_package(pkg);
+        self
+    }
+
+    /// Adds the main package to inherit from (useful for the filesystem)
+    pub fn set_package(&mut self, pkg: BinaryPackage) {
+        self.pkg = Some(pkg);
     }
 
     /// Adds a container this module inherits from.
@@ -562,8 +575,15 @@ impl WasiEnvBuilder {
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
+        self.set_sandbox_fs(fs);
         self
+    }
+
+    /// Sets a new sandbox FileSystem to be used with this WASI instance.
+    ///
+    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
+    pub fn set_sandbox_fs(&mut self, fs: TmpFileSystem) {
+        self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
     }
 
     /// Configure the WASI filesystem before running.
@@ -671,7 +691,7 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::<super::Stdin>::default())));
 
-        let fs_backing = self
+        let mut fs_backing = self
             .fs
             .take()
             .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
@@ -696,6 +716,112 @@ impl WasiEnvBuilder {
                     )));
                 }
             }
+        }
+
+        let envs = self
+            .envs
+            .into_iter()
+            .map(|(key, value)| {
+                let mut env = Vec::with_capacity(key.len() + value.len() + 1);
+                env.extend_from_slice(key.as_bytes());
+                env.push(b'=');
+                env.extend_from_slice(&value);
+
+                env
+            })
+            .collect();
+
+        let runtime = self.runtime.unwrap_or_else(|| {
+            #[cfg(feature = "sys-thread")]
+            {
+                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default())))
+            }
+
+            #[cfg(not(feature = "sys-thread"))]
+            {
+                panic!("this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()");
+            }
+        });
+
+        let map_commands = self.map_commands;
+
+        let bin_factory = BinFactory::new(runtime.clone());
+
+        if let Some(pkg) = self.pkg {
+            /// Make all the commands in a [`BinaryPackage`] available to the WASI
+            /// instance.
+            ///
+            /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
+            /// `/bin/command`.
+            ///
+            /// This will also merge the command's filesystem
+            /// ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
+            ///
+            /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
+            /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
+            let root_fs = &fs_backing;
+
+            // Next, make sure all commands will be available
+
+            if !pkg.commands.is_empty() {
+                let bin_path = Path::new("/bin");
+                let _ = root_fs.create_dir(&bin_path);
+
+                for command in &pkg.commands {
+                    let path = bin_path.join(command.name());
+
+                    // FIXME(Michael-F-Bryan): This is pretty sketchy.
+                    // We should be using some sort of reference-counted
+                    // pointer to some bytes that are either on the heap
+                    // or from a memory-mapped file. However, that's not
+                    // possible here because things like memfs and
+                    // WasiEnv are expecting a Cow<'static, [u8]>. It's
+                    // too hard to refactor those at the moment, and we
+                    // were pulling the same trick before by storing an
+                    // "ownership" object in the BinaryPackageCommand,
+                    // so as long as packages aren't removed from the
+                    // module cache it should be fine.
+                    // See https://github.com/wasmerio/wasmer/issues/3875
+                    let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
+
+                    match root_fs {
+                        WasiFsRoot::Sandbox(root_fs) => {
+                            // As a short-cut, when we are using a TmpFileSystem
+                            // we can (unsafely) add the file to the filesystem
+                            // without any copying.
+                            if let Err(err) = root_fs
+                                .new_open_options_ext()
+                                .insert_ro_file(&path, atom.into())
+                            {
+                                tracing::debug!(
+                                    "failed to add package [{}] command [{}] - {}",
+                                    pkg.package_name,
+                                    command.name(),
+                                    err
+                                );
+                                continue;
+                            }
+                        }
+                        WasiFsRoot::Backing(fs) => {
+                            let mut f =
+                                fs.new_open_options().create(true).write(true).open(&path)?;
+                            f.copy_reference(Box::new(virtual_fs::StaticFile::new(atom.into())));
+                        }
+                    }
+
+                    let mut package = pkg.clone();
+                    package.entrypoint_cmd = Some(command.name().to_string());
+                    bin_factory.set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+
+                    tracing::debug!(
+                        package=%pkg.package_name,
+                        command_name=command.name(),
+                        path=%path.display(),
+                        "Injected a command into the filesystem",
+                    );
+                }
+            }
+            fs_backing = fs_backing.with_overlay([pkg.webc_fs]);
         }
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]
@@ -739,19 +865,6 @@ impl WasiEnvBuilder {
             wasi_fs.set_current_dir(s);
         }
 
-        let envs = self
-            .envs
-            .into_iter()
-            .map(|(key, value)| {
-                let mut env = Vec::with_capacity(key.len() + value.len() + 1);
-                env.extend_from_slice(key.as_bytes());
-                env.push(b'=');
-                env.extend_from_slice(&value);
-
-                env
-            })
-            .collect();
-
         let state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::<[u8; 32]>(),
@@ -762,23 +875,6 @@ impl WasiEnvBuilder {
             clock_offset: Default::default(),
             envs,
         };
-
-        let runtime = self.runtime.unwrap_or_else(|| {
-            #[cfg(feature = "sys-thread")]
-            {
-                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default())))
-            }
-
-            #[cfg(not(feature = "sys-thread"))]
-            {
-                panic!("this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()");
-            }
-        });
-
-        let uses = self.uses;
-        let map_commands = self.map_commands;
-
-        let bin_factory = BinFactory::new(runtime.clone());
 
         let capabilities = self.capabilites;
 
@@ -791,7 +887,6 @@ impl WasiEnvBuilder {
         let init = WasiEnvInit {
             state,
             runtime,
-            webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,
             bin_factory,

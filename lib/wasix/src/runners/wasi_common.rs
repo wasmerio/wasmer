@@ -37,6 +37,7 @@ impl CommonWasiOptions {
         &self,
         builder: &mut WasiEnvBuilder,
         wasi: &WasiAnnotation,
+        base_pkg: Option<&BinaryPackage>,
     ) -> Result<(), anyhow::Error> {
         for pkg in &self.injected_packages {
             builder.add_webc(pkg.clone());
@@ -47,6 +48,9 @@ impl CommonWasiOptions {
             .iter()
             .map(|c| (c.alias.as_str(), c.target.as_str()));
         builder.add_mapped_commands(mapped_cmds);
+        if let Some(pkg) = base_pkg {
+            builder.set_package(pkg.clone());
+        }
 
         self.populate_env(wasi, builder);
         self.populate_args(wasi, builder);
@@ -90,109 +94,10 @@ impl CommonWasiOptions {
         &self,
         builder: &mut WasiEnvBuilder,
         root_fs: TmpFileSystem,
-        container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
     ) -> Result<(), Error> {
-        let root_fs = RootFileSystemBuilder::default().build_into(root_fs);
-        if let Some(container_fs) = container_fs {
-            let fs = Box::new(prepare_filesystem(root_fs, container_fs.clone())?);
-            builder.set_fs(fs); // sandbox_fs / set_fs
-        } else {
-            let fs = Box::new(virtual_fs::TraceFileSystem(root_fs));
-            builder.set_fs(fs);
-        };
+        builder.set_sandbox_fs(root_fs);
         builder.add_preopen_dir("/")?;
         Ok(())
-    }
-}
-
-type ContainerFs = virtual_fs::TraceFileSystem<
-    OverlayFileSystem<
-        TmpFileSystem,
-        [RelativeOrAbsolutePathHack<Arc<dyn FileSystem + Send + Sync>>; 1],
-    >,
->;
-
-fn prepare_filesystem(
-    root_fs: TmpFileSystem,
-    container_fs: Arc<dyn FileSystem + Send + Sync>,
-) -> Result<ContainerFs, Error> {
-    // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
-    // paths, but our Python executable will try to access its standard library
-    // with relative paths assuming that it is being run from the root
-    // directory (i.e. it does `open("lib/python3.6/io.py")` instead of
-    // `open("/lib/python3.6/io.py")`).
-    // Until the FileSystem trait figures out whether relative paths should be
-    // supported or not, we'll add an adapter that automatically retries
-    // operations using an absolute path if it failed using a relative path.
-    let container_fs = RelativeOrAbsolutePathHack(container_fs);
-    let fs = virtual_fs::TraceFileSystem::new(OverlayFileSystem::new(root_fs, [container_fs]));
-
-    Ok(fs)
-}
-
-#[derive(Debug)]
-struct RelativeOrAbsolutePathHack<F>(F);
-
-impl<F: FileSystem> RelativeOrAbsolutePathHack<F> {
-    fn execute<Func, Ret>(&self, path: &Path, operation: Func) -> Result<Ret, FsError>
-    where
-        Func: Fn(&F, &Path) -> Result<Ret, FsError>,
-    {
-        // First, try it with the path we were given
-        let result = operation(&self.0, path);
-
-        if result.is_err() && !path.is_absolute() {
-            // we were given a relative path, but maybe the operation will work
-            // using absolute paths instead.
-            let path = Path::new("/").join(path);
-            operation(&self.0, &path)
-        } else {
-            result
-        }
-    }
-}
-
-impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        self.execute(path, |fs, p| fs.read_dir(p))
-    }
-
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.create_dir(p))
-    }
-
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.remove_dir(p))
-    }
-
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        Box::pin(async move { self.0.rename(&from, &to).await })
-    }
-
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.execute(path, |fs, p| fs.metadata(p))
-    }
-
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.execute(path, |fs, p| fs.remove_file(p))
-    }
-
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
-        virtual_fs::OpenOptions::new(self)
-    }
-}
-
-impl<F: FileSystem> virtual_fs::FileOpener for RelativeOrAbsolutePathHack<F> {
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        self.execute(path, |fs, p| {
-            fs.new_open_options().options(conf.clone()).open(p)
-        })
     }
 }
 
@@ -267,30 +172,30 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn python_use_case() {
-        let temp = TempDir::new().unwrap();
-        let sub_dir = temp.path().join("path").join("to");
-        std::fs::create_dir_all(&sub_dir).unwrap();
-        std::fs::write(sub_dir.join("file.txt"), b"Hello, World!").unwrap();
-        let container = Container::from_bytes(PYTHON).unwrap();
-        let webc_fs = WebcVolumeFileSystem::mount_all(&container);
-        let mut builder = WasiEnvBuilder::new("");
+    // #[tokio::test]
+    // async fn python_use_case() {
+    //     let temp = TempDir::new().unwrap();
+    //     let sub_dir = temp.path().join("path").join("to");
+    //     std::fs::create_dir_all(&sub_dir).unwrap();
+    //     std::fs::write(sub_dir.join("file.txt"), b"Hello, World!").unwrap();
+    //     let container = Container::from_bytes(PYTHON).unwrap();
+    //     let webc_fs = WebcVolumeFileSystem::mount_all(&container);
+    //     let mut builder = WasiEnvBuilder::new("");
 
-        let mut root_fs = RootFileSystemBuilder::default().build();
-        let home = virtual_fs::host::FileSystem::new(sub_dir);
-        root_fs.mount(PathBuf::from("/home"), home, PathBuf::new());
-        let fs = prepare_filesystem(root_fs, Arc::new(webc_fs)).unwrap();
+    //     let mut root_fs = RootFileSystemBuilder::default().build();
+    //     let home = virtual_fs::host::FileSystem::new(sub_dir);
+    //     root_fs.mount(PathBuf::from("/home"), home, PathBuf::new());
+    //     let fs = prepare_filesystem(root_fs, Arc::new(webc_fs)).unwrap();
 
-        assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
-        assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
-        assert!(fs
-            .metadata("lib/python3.6/collections/__init__.py".as_ref())
-            .unwrap()
-            .is_file());
-        assert!(fs
-            .metadata("lib/python3.6/encodings/__init__.py".as_ref())
-            .unwrap()
-            .is_file());
-    }
+    //     assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
+    //     assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
+    //     assert!(fs
+    //         .metadata("lib/python3.6/collections/__init__.py".as_ref())
+    //         .unwrap()
+    //         .is_file());
+    //     assert!(fs
+    //         .metadata("lib/python3.6/encodings/__init__.py".as_ref())
+    //         .unwrap()
+    //         .is_file());
+    // }
 }

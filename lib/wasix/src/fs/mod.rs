@@ -14,6 +14,7 @@ use std::{
     },
     task::{Context, Poll},
 };
+use virtual_fs::OverlayFileSystem;
 
 use crate::{
     net::socket::InodeSocketKind,
@@ -275,21 +276,20 @@ pub enum WasiFsRoot {
 }
 
 impl WasiFsRoot {
-    /// Merge the contents of a filesystem into this one.
-    pub(crate) async fn merge(
-        &self,
-        other: &Arc<dyn FileSystem + Send + Sync>,
-    ) -> Result<(), virtual_fs::FsError> {
-        match self {
+    pub(crate) fn with_overlay(mut self, overlays: [Arc<dyn FileSystem>; 1]) -> Self {
+        let overlay_fs: Arc<Box<dyn FileSystem>> = match self {
             WasiFsRoot::Sandbox(fs) => {
-                fs.union(other);
-                Ok(())
+                let overlay: OverlayFileSystem<Arc<dyn FileSystem>, [Arc<dyn FileSystem>; 1]> =
+                    OverlayFileSystem::new(fs, overlays);
+                Arc::new(Box::new(overlay))
             }
             WasiFsRoot::Backing(fs) => {
-                merge_filesystems(other, fs).await?;
-                Ok(())
+                let overlay: OverlayFileSystem<Arc<dyn FileSystem>, [Arc<dyn FileSystem>; 1]> =
+                    OverlayFileSystem::new(fs, overlays);
+                Arc::new(Box::new(overlay))
             }
-        }
+        };
+        WasiFsRoot::Backing(overlay_fs)
     }
 }
 
@@ -347,53 +347,6 @@ impl FileSystem for WasiFsRoot {
             WasiFsRoot::Backing(fs) => fs.new_open_options(),
         }
     }
-}
-
-/// Merge the contents of one filesystem into another.
-///
-#[tracing::instrument(level = "debug", skip_all)]
-async fn merge_filesystems(
-    source: &dyn FileSystem,
-    destination: &dyn FileSystem,
-) -> Result<(), virtual_fs::FsError> {
-    tracing::debug!("Falling back to a recursive copy to merge filesystems");
-    let files = futures::stream::FuturesUnordered::new();
-
-    let mut to_check = VecDeque::new();
-    to_check.push_back(PathBuf::from("/"));
-
-    while let Some(path) = to_check.pop_front() {
-        let metadata = match source.metadata(&path) {
-            Ok(m) => m,
-            Err(err) => {
-                tracing::debug!(path=%path.display(), source_fs=?source, ?err, "failed to get metadata for path while merging file systems");
-                return Err(err);
-            }
-        };
-
-        if metadata.is_dir() {
-            create_dir_all(destination, &path)?;
-
-            for entry in source.read_dir(&path)? {
-                let entry = entry?;
-                to_check.push_back(entry.path);
-            }
-        } else if metadata.is_file() {
-            files.push(async move {
-                copy_reference(source, destination, &path)
-                    .await
-                    .map_err(virtual_fs::FsError::from)
-            });
-        } else {
-            tracing::debug!(
-                path=%path.display(),
-                ?metadata,
-                "Skipping unknown file type while merging"
-            );
-        }
-    }
-
-    files.try_collect().await
 }
 
 fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
@@ -485,32 +438,6 @@ impl WasiFs {
         if let Ok(mut map) = self.fd_map.write() {
             map.clear();
         }
-    }
-
-    /// Will conditionally union the binary file system with this one
-    /// if it has not already been unioned
-    pub async fn conditional_union(
-        &self,
-        binary: &BinaryPackage,
-    ) -> Result<(), virtual_fs::FsError> {
-        let package_name = binary.package_name.clone();
-
-        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(package_name);
-
-        if !needs_to_be_unioned {
-            return Ok(());
-        }
-
-        match self.root_fs {
-            WasiFsRoot::Sandbox(ref sandbox_fs) => {
-                sandbox_fs.union(&binary.webc_fs);
-            }
-            WasiFsRoot::Backing(ref fs) => {
-                merge_filesystems(&binary.webc_fs, fs.deref()).await?;
-            }
-        }
-
-        Ok(())
     }
 
     /// Created for the builder API. like `new` but with more information
