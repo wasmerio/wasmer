@@ -9,7 +9,7 @@ use std::{
 use bytes::Bytes;
 use rand::Rng;
 use thiserror::Error;
-use virtual_fs::{ArcFile, FsError, TmpFileSystem, VirtualFile};
+use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
@@ -62,6 +62,7 @@ pub struct WasiEnvBuilder {
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) fs: Option<WasiFsRoot>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
+    pub(super) current_dir: Option<PathBuf>,
 
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
@@ -304,8 +305,17 @@ impl WasiEnvBuilder {
     }
 
     /// Map an atom to a local binary
-    #[cfg(feature = "sys")]
     pub fn map_command<Name, Target>(mut self, name: Name, target: Target) -> Self
+    where
+        Name: AsRef<str>,
+        Target: AsRef<str>,
+    {
+        self.add_mapped_command(name, target);
+        self
+    }
+
+    /// Map an atom to a local binary
+    pub fn add_mapped_command<Name, Target>(&mut self, name: Name, target: Target)
     where
         Name: AsRef<str>,
         Target: AsRef<str>,
@@ -313,23 +323,29 @@ impl WasiEnvBuilder {
         let path_buf = PathBuf::from(target.as_ref().to_string());
         self.map_commands
             .insert(name.as_ref().to_string(), path_buf);
-        self
     }
 
     /// Maps a series of atoms to the local binaries
-    #[cfg(feature = "sys")]
     pub fn map_commands<I, Name, Target>(mut self, map_commands: I) -> Self
     where
         I: IntoIterator<Item = (Name, Target)>,
         Name: AsRef<str>,
         Target: AsRef<str>,
     {
-        map_commands.into_iter().for_each(|(name, target)| {
-            let path_buf = PathBuf::from(target.as_ref().to_string());
-            self.map_commands
-                .insert(name.as_ref().to_string(), path_buf);
-        });
+        self.add_mapped_commands(map_commands);
         self
+    }
+
+    /// Maps a series of atoms to local binaries.
+    pub fn add_mapped_commands<I, Name, Target>(&mut self, map_commands: I)
+    where
+        I: IntoIterator<Item = (Name, Target)>,
+        Name: AsRef<str>,
+        Target: AsRef<str>,
+    {
+        for (alias, target) in map_commands {
+            self.add_mapped_command(alias, target);
+        }
     }
 
     /// Preopen a directory
@@ -478,6 +494,15 @@ impl WasiEnvBuilder {
         }
 
         Ok(self)
+    }
+
+    pub fn set_current_dir(&mut self, dir: impl Into<PathBuf>) {
+        self.current_dir = Some(dir.into());
+    }
+
+    pub fn current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.set_current_dir(dir);
+        self
     }
 
     /// Overwrite the default WASI `stdout`, if you want to hold on to the
@@ -651,6 +676,28 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
 
+        if let Some(dir) = &self.current_dir {
+            match fs_backing.read_dir(dir) {
+                Ok(_) => {
+                    // All good
+                }
+                Err(FsError::EntryNotFound) => {
+                    fs_backing.create_dir(dir).map_err(|err| {
+                        WasiStateCreationError::WasiFsSetupError(format!(
+                            "Could not create specified current directory at '{}': {err}",
+                            dir.display()
+                        ))
+                    })?;
+                }
+                Err(err) => {
+                    return Err(WasiStateCreationError::WasiFsSetupError(format!(
+                        "Could check specified current directory at '{}': {err}",
+                        dir.display()
+                    )));
+                }
+            }
+        }
+
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = crate::state::WasiInodes::new();
         let wasi_fs = {
@@ -681,6 +728,16 @@ impl WasiEnvBuilder {
             }
             wasi_fs
         };
+
+        if let Some(dir) = &self.current_dir {
+            let s = dir.to_str().ok_or_else(|| {
+                WasiStateCreationError::WasiFsSetupError(format!(
+                    "Specified current directory is not valid UTF-8: '{}'",
+                    dir.display()
+                ))
+            })?;
+            wasi_fs.set_current_dir(s);
+        }
 
         let envs = self
             .envs
