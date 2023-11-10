@@ -30,7 +30,7 @@ use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{MappedDirectory, Runner},
+    runners::{MappedCommand, MappedDirectory, Runner},
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -208,16 +208,6 @@ impl Run {
         Ok(dependencies)
     }
 
-    fn get_fs(&self) -> Result<virtual_fs::TmpFileSystem, Error> {
-        let root_fs = virtual_fs::TmpFileSystem::new();
-        for MappedDirectory { host, guest } in self.wasi.mapped_dirs.clone() {
-            let native_fs = virtual_fs::fs::native::FileSystem::new(host.canonicalize()?)?;
-            let fs: Arc<dyn virtual_fs::FileSystem + Send + Sync + 'static> = Arc::new(native_fs);
-            root_fs.mount(guest.into(), &fs, PathBuf::new())?;
-        }
-        Ok(root_fs)
-    }
-
     fn run_wasi(
         &self,
         command_name: &str,
@@ -225,17 +215,7 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
-            .with_args(self.args.clone())
-            .with_envs(self.wasi.env_vars.clone())
-            .with_fs(self.get_fs()?)
-            .with_injected_packages(uses);
-        if self.wasi.forward_host_env {
-            runner.set_forward_host_env();
-        }
-
-        *runner.capabilities() = self.wasi.capabilities();
-
+        let mut runner = self.build_wasi_runner(&runtime)?;
         runner.run_command(command_name, pkg, runtime)
     }
 
@@ -248,12 +228,13 @@ impl Run {
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
 
+        let root_fs = self.wasi.get_fs()?;
         runner
             .config()
             .args(self.args.clone())
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.mapped_dirs.clone())
+            .with_fs(root_fs)
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
         *runner.config().capabilities() = self.wasi.capabilities();
@@ -308,23 +289,41 @@ impl Run {
         Ok(())
     }
 
+    fn build_wasi_runner(
+        &self,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<WasiRunner, anyhow::Error> {
+        let packages = self.load_injected_packages(runtime)?;
+
+        let runner = WasiRunner::new()
+            .with_args(&self.args)
+            .with_injected_packages(packages)
+            .with_envs(self.wasi.env_vars.clone())
+            .with_fs(self.wasi.get_fs()?)
+            .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
+            .with_forward_host_env(self.wasi.forward_host_env)
+            .with_capabilities(self.wasi.capabilities());
+
+        Ok(runner)
+    }
+
     #[tracing::instrument(skip_all)]
     fn execute_wasi_module(
         &self,
         wasm_path: &Path,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        store: Store,
+        mut store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
-        let builder = self
-            .wasi
-            .prepare(module, program_name, self.args.clone(), runtime)?;
-
-        builder.run_with_store_async(module.clone(), store)?;
-
-        Ok(())
+        let mut runner = self.build_wasi_runner(&runtime)?;
+        runner.run_wasm(
+            runtime,
+            &program_name,
+            module,
+            self.wasi.enable_async_threads,
+        )
     }
 
     #[tracing::instrument(skip_all)]

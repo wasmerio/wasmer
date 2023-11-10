@@ -21,7 +21,7 @@ use wasmer_wasix::{
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
-    runners::MappedDirectory,
+    runners::{MappedCommand, MappedDirectory},
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
@@ -78,11 +78,11 @@ pub struct Wasi {
     /// List of webc packages that are explicitly included for execution
     /// Note: these packages will be used instead of those in the registry
     #[clap(long = "include-webc", name = "WEBC")]
-    include_webcs: Vec<PathBuf>,
+    pub(super) include_webcs: Vec<PathBuf>,
 
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
-    map_commands: Vec<String>,
+    pub(super) map_commands: Vec<String>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
@@ -126,6 +126,8 @@ pub struct RunProperties {
 
 #[allow(dead_code)]
 impl Wasi {
+    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/home";
+
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push(MappedDirectory {
             guest: alias.to_string(),
@@ -191,35 +193,14 @@ impl Wasi {
             .uses(uses)
             .map_commands(map_commands);
 
-        let mut builder = if wasmer_wasix::is_wasix_module(module) {
-            // If we preopen anything from the host then shallow copy it over
-            let root_fs = RootFileSystemBuilder::new()
-                .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
-                .build();
-            if !self.mapped_dirs.is_empty() {
-                for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
-                    let native_fs = NativeFileSystem::new(host.canonicalize()?)?;
-                    let fs: Arc<dyn virtual_fs::FileSystem + Send + Sync + 'static> =
-                        Arc::new(native_fs);
-                    root_fs.mount(guest.into(), &fs, PathBuf::new())?;
-                }
-            }
-
+        let mut builder = {
+            let root_fs = self.get_fs()?;
             // Open the root of the new filesystem
-            builder
+            let b = builder
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
-                .unwrap()
-                .map_dir(".", "/")?
-        } else {
-            builder
-                .fs(default_fs_backing())
-                .preopen_dirs(self.pre_opened_directories.clone())?
-                .map_dirs(
-                    self.mapped_dirs
-                        .iter()
-                        .map(|d| (d.guest.clone(), d.host.clone())),
-                )?
+                .unwrap();
+            b
         };
 
         *builder.capabilities_mut() = self.capabilities();
@@ -233,6 +214,108 @@ impl Wasi {
         }
 
         Ok(builder)
+    }
+
+    pub fn get_fs(&self) -> Result<virtual_fs::TmpFileSystem> {
+        // If we preopen anything from the host then shallow copy it over
+        let root_fs = RootFileSystemBuilder::new()
+            .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
+            .build();
+        let mut mapped_dirs = self.build_mapped_directories()?;
+        if !mapped_dirs.is_empty() {
+            for MappedDirectory { host, guest } in mapped_dirs {
+                let native_fs = NativeFileSystem::new(host.canonicalize()?)?;
+                let fs: Arc<dyn virtual_fs::FileSystem + Send + Sync + 'static> =
+                    Arc::new(native_fs);
+                root_fs
+                    .mount(guest.clone().into(), &fs, PathBuf::new())
+                    .map_err(|_e| {
+                        anyhow!(
+                            "There has been a collision. \nA folder might be already mounted in {} or it's parent.",
+                            guest
+                        )
+                        .context(format!(
+                            "Could not mount {} in {}",
+                            host.display(),
+                            guest
+                        ))
+                    })?;
+            }
+        }
+        Ok(root_fs)
+    }
+
+    fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>> {
+        let mut mapped_dirs = Vec::new();
+
+        // Process the --dirs flag and merge it with --mapdir flag.
+        for dir in &self.pre_opened_directories {
+            if !dir.is_relative() {
+                bail!(
+                    "Invalid argument '--dir {}': path must be relative",
+                    dir.display(),
+                );
+            }
+            let guest = PathBuf::from(Self::MAPPED_CURRENT_DIR_DEFAULT_PATH)
+                .join(dir)
+                .display()
+                .to_string();
+            let host = dir.canonicalize().with_context(|| {
+                format!(
+                    "could not canonicalize path for argument '--dir {}'",
+                    dir.display()
+                )
+            })?;
+            mapped_dirs.push(MappedDirectory { host, guest });
+        }
+
+        // Process the --mapdir flag.
+        for MappedDirectory { host, guest } in &self.mapped_dirs {
+            let host = host.canonicalize().with_context(|| {
+                format!(
+                    "could not canonicalize path for argument '--mapdir {}:{}'",
+                    host.display(),
+                    guest,
+                )
+            })?;
+            let guest = PathBuf::from(Self::MAPPED_CURRENT_DIR_DEFAULT_PATH)
+                .join(guest)
+                .display()
+                .to_string();
+
+            mapped_dirs.push(MappedDirectory { host, guest });
+        }
+
+        Ok(mapped_dirs)
+    }
+
+    pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {
+        self.map_commands
+            .iter()
+            .map(|item| {
+                let (a, b) = item.split_once('=').with_context(|| {
+                    format!(
+                        "Invalid --map-command flag: expected <ALIAS>=<HOST_PATH>, got '{item}'"
+                    )
+                })?;
+
+                let a = a.trim();
+                let b = b.trim();
+
+                if a.is_empty() {
+                    bail!("Invalid --map-command flag - alias cannot be empty: '{item}'");
+                }
+                // TODO(theduke): check if host command exists, and canonicalize PathBuf.
+                if b.is_empty() {
+                    bail!("Invalid --map-command flag - host path cannot be empty: '{item}'");
+                }
+
+                Ok(MappedCommand {
+                    alias: a.to_string(),
+                    target: b.to_string(),
+                })
+            })
+            .collect::<Result<Vec<_>, anyhow::Error>>()
     }
 
     pub fn capabilities(&self) -> Capabilities {

@@ -11,6 +11,7 @@ query GetPackageByCommandQuery($commandName: String!) {
       }
       package {
         displayName
+        private
       }
     }
   }

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::{collections::HashMap, path::Path, sync::Arc};
 
 use anyhow::Error;
@@ -10,15 +11,25 @@ use crate::{
     WasiEnvBuilder,
 };
 
+#[derive(Debug, Clone)]
+pub struct MappedCommand {
+    /// The new alias.
+    pub alias: String,
+    /// The original command.
+    pub target: String,
+}
+
 #[derive(Debug, Default, Clone)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
+    pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     pub(crate) fs: Option<TmpFileSystem>,
+    pub(crate) current_dir: Option<PathBuf>,
 }
 
 impl CommonWasiOptions {
@@ -30,6 +41,12 @@ impl CommonWasiOptions {
         for pkg in &self.injected_packages {
             builder.add_webc(pkg.clone());
         }
+
+        let mapped_cmds = self
+            .mapped_host_commands
+            .iter()
+            .map(|c| (c.alias.as_str(), c.target.as_str()));
+        builder.add_mapped_commands(mapped_cmds);
 
         self.populate_env(wasi, builder);
         self.populate_args(wasi, builder);

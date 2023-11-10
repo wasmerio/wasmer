@@ -231,6 +231,7 @@ pub fn try_chunked_uploading(
             file_name: Some(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: Some(signed_url),
+            private: Some(package.private),
         });
 
     let _response: publish_package_mutation_chunked::ResponseData =

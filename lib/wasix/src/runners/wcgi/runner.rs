@@ -8,6 +8,7 @@ use tower::{make::Shared, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
 use virtual_fs::RootFileSystemBuilder;
+use virtual_fs::TmpFileSystem;
 use wcgi_host::CgiDialect;
 use webc::metadata::{
     annotations::{Wasi, Wcgi},
@@ -165,6 +166,12 @@ pub struct Config {
 }
 
 impl Config {
+    /// Builder method to provide a filesystem to the runner
+    pub fn with_fs(&mut self, fs: TmpFileSystem) -> &mut Self {
+        self.wasi.fs = Some(fs);
+        self
+    }
+
     pub fn addr(&mut self, addr: SocketAddr) -> &mut Self {
         self.addr = addr;
         self
