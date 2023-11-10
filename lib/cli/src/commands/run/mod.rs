@@ -47,11 +47,56 @@ use wasmer_wasix::{
     },
     Runtime,
 };
-use webc::{metadata::Manifest, Container};
+use webc::{metadata::{Manifest, UrlOrManifest}, Container, AbstractWebc, Volume };
 
 use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions};
 
 const TICK: Duration = Duration::from_millis(250);
+
+
+use std::borrow::Cow;
+use shared_buffer::OwnedBuffer;
+
+#[derive(Debug)]
+struct WebcPatch {
+    pub(crate) base: Container,
+    pub patched_manifest: Manifest
+}
+
+impl WebcPatch {
+    pub fn new(base: Container, extra_uses: Vec<String>) -> Self {
+        let mut patched_manifest = base.manifest().clone();
+        for use_ in extra_uses {
+            patched_manifest.use_map.insert(use_.clone(), UrlOrManifest::RegistryDependentUrl(use_));
+        }
+        Self { base, patched_manifest }
+    }
+}
+
+/// We use this to patch the dependencies at runtime
+/// So the user can do `--use` to set their own dependencies
+impl AbstractWebc for WebcPatch {
+    fn manifest(&self) -> &Manifest {
+        &self.patched_manifest
+    }
+
+    fn atom_names(&self) -> Vec<Cow<'_, str>> {
+        self.base.atoms().keys().map(String::to_owned).map(Cow::from).collect()
+    }
+
+    fn get_atom(&self, name: &str) -> Option<OwnedBuffer> {
+        self.base.get_atom(name)
+    }
+
+    fn volume_names(&self) -> Vec<Cow<'_, str>> {
+        self.base.volumes().keys().map(String::to_owned).map(Cow::from).collect()
+    }
+
+    fn get_volume(&self, name: &str) -> Option<Volume> {
+        self.base.get_volume(name)
+    }
+}
+
 
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
@@ -124,7 +169,17 @@ impl Run {
                 ExecutableTarget::WebAssembly { module, path } => {
                     self.execute_wasm(&path, &module, store, runtime)
                 }
-                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
+                ExecutableTarget::Container(container) => {
+                    pb.set_message("Resolving dependencies");
+
+                    let patched_container = Container::new(WebcPatch::new(container, self.wasi.uses.clone()));
+                    let inner_runtime = runtime.clone();
+                    let pkg = runtime.task_manager().spawn_and_block_on(async move {
+                        BinaryPackage::from_webc(&patched_container, inner_runtime.as_ref()).await
+                    })?;
+
+                    self.execute_webc(&pkg, runtime)
+                },
             }
         };
 
@@ -490,10 +545,10 @@ impl PackageSource {
                 pb.set_message("Loading from the registry");
                 let inner_pck = pkg.clone();
                 let inner_rt = rt.clone();
-                let pkg = rt.task_manager().spawn_and_block_on(async move {
-                    BinaryPackage::from_registry(&inner_pck, inner_rt.as_ref()).await
+                let container = rt.task_manager().spawn_and_block_on(async move {
+                    BinaryPackage::get_container_from_registry(&inner_pck, inner_rt.as_ref()).await
                 })?;
-                Ok(ExecutableTarget::Package(pkg))
+                Ok(ExecutableTarget::Container(container))
             }
         }
     }
@@ -559,7 +614,7 @@ impl TargetOnDisk {
 #[derive(Debug, Clone)]
 enum ExecutableTarget {
     WebAssembly { module: Module, path: PathBuf },
-    Package(BinaryPackage),
+    Container(Container),
 }
 
 impl ExecutableTarget {
@@ -576,14 +631,7 @@ impl ExecutableTarget {
         let manifest_path = dir.join("wasmer.toml");
         let webc = webc::wasmer_package::Package::from_manifest(manifest_path)?;
         let container = Container::from(webc);
-
-        pb.set_message("Resolving dependencies");
-        let inner_runtime = runtime.clone();
-        let pkg = runtime.task_manager().spawn_and_block_on(async move {
-            BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
-        })?;
-
-        Ok(ExecutableTarget::Package(pkg))
+        Ok(ExecutableTarget::Container(container))
     }
 
     /// Try to load a file into something that can be used to run it.
@@ -621,13 +669,7 @@ impl ExecutableTarget {
             }
             TargetOnDisk::LocalWebc => {
                 let container = Container::from_disk(path)?;
-                pb.set_message("Resolving dependencies");
-
-                let inner_runtime = runtime.clone();
-                let pkg = runtime.task_manager().spawn_and_block_on(async move {
-                    BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
-                })?;
-                Ok(ExecutableTarget::Package(pkg))
+                Ok(ExecutableTarget::Container(container))
             }
         }
     }
