@@ -17,7 +17,6 @@ use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    get_wasi_versions,
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
@@ -137,83 +136,6 @@ impl Wasi {
 
     pub fn set_env(&mut self, key: &str, value: &str) {
         self.env_vars.push((key.to_string(), value.to_string()));
-    }
-
-    /// Gets the WASI version (if any) for the provided module
-    pub fn get_versions(module: &Module) -> Option<BTreeSet<WasiVersion>> {
-        // Get the wasi version in non-strict mode, so multiple wasi versions
-        // are potentially allowed.
-        //
-        // Checking for multiple wasi versions is handled outside this function.
-        get_wasi_versions(module, false)
-    }
-
-    /// Checks if a given module has any WASI imports at all.
-    pub fn has_wasi_imports(module: &Module) -> bool {
-        // Get the wasi version in non-strict mode, so no other imports
-        // are allowed
-        get_wasi_versions(module, false).is_some()
-    }
-
-    pub fn prepare(
-        &self,
-        module: &Module,
-        program_name: String,
-        args: Vec<String>,
-        rt: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<WasiEnvBuilder> {
-        let args = args.into_iter().map(|arg| arg.into_bytes());
-
-        let map_commands = self
-            .map_commands
-            .iter()
-            .map(|map| map.split_once('=').unwrap())
-            .map(|(a, b)| (a.to_string(), b.to_string()))
-            .collect::<HashMap<_, _>>();
-
-        let mut uses = Vec::new();
-        for name in &self.uses {
-            let specifier = PackageSpecifier::parse(name)
-                .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
-            let pkg = {
-                let inner_rt = rt.clone();
-                rt.task_manager()
-                    .spawn_and_block_on(async move {
-                        BinaryPackage::from_registry(&specifier, &*inner_rt).await
-                    })
-                    .with_context(|| format!("Unable to load \"{name}\""))?
-            };
-            uses.push(pkg);
-        }
-
-        let builder = WasiEnv::builder(program_name)
-            .runtime(Arc::clone(&rt))
-            .args(args)
-            .envs(self.env_vars.clone())
-            .uses(uses)
-            .map_commands(map_commands);
-
-        let mut builder = {
-            let root_fs = self.get_fs()?;
-            // Open the root of the new filesystem
-            let b = builder
-                .sandbox_fs(root_fs)
-                .preopen_dir(Path::new("/"))
-                .unwrap();
-            b
-        };
-
-        *builder.capabilities_mut() = self.capabilities();
-
-        #[cfg(feature = "experimental-io-devices")]
-        {
-            if self.enable_experimental_io_devices {
-                wasi_state_builder
-                    .setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
-            }
-        }
-
-        Ok(builder)
     }
 
     pub fn get_fs(&self) -> Result<virtual_fs::TmpFileSystem> {
@@ -372,21 +294,6 @@ impl Wasi {
             .set_engine(Some(engine));
 
         Ok(rt)
-    }
-
-    /// Helper function for instantiating a module with Wasi imports for the `Run` command.
-    pub fn instantiate(
-        &self,
-        module: &Module,
-        program_name: String,
-        args: Vec<String>,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-        store: &mut Store,
-    ) -> Result<(WasiFunctionEnv, Instance)> {
-        let builder = self.prepare(module, program_name, args, runtime)?;
-        let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
-
-        Ok((wasi_env, instance))
     }
 
     pub fn for_binfmt_interpreter() -> Result<Self> {
