@@ -56,7 +56,7 @@ heapless = "0.7.16"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
 semver = "1.0.17"
-dashmap = "5.4.0"
+dashmap.workspace = true
 tempfile = "3.6.0"
 # Used by the WCGI runner
 hyper = { version = "0.14", features = ["server", "stream"], optional = true }
