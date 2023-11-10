@@ -54,14 +54,24 @@ impl UnionFileSystem {
     }
     fn get_dir_for_path(
         &self,
-        path: PathBuf,
+        path: &PathBuf,
     ) -> Result<(PathBuf, &(dyn FileSystem + Send + Sync + 'static))> {
         let mut path_iter = path.iter();
         let base_dir = path_iter.next().unwrap();
         self.dirs
             .get(base_dir.to_str().unwrap())
             .ok_or(FsError::EntryNotFound)
-            .map(|fs| (path_iter.collect(), fs.as_ref()))
+            .map(|fs| {
+                let path = std::iter::once(std::ffi::OsStr::new("/")).chain(path_iter).collect();
+                // if path == Path::new("") {
+                //     return (PathBuf::from("/"), fs.as_ref());
+                // }
+                // else {}
+                (
+                    path,
+                    fs.as_ref()
+                )
+            })
     }
     fn get_dir_for_path_mut(
         &mut self,
@@ -79,21 +89,31 @@ impl UnionFileSystem {
 impl FileSystem for UnionFileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         println!("read_dir: path={}", path.display());
-        let (dir, fs) = self.get_dir_for_path(path.clean_safely()?)?;
+        let (dir, fs) = self.get_dir_for_path(&path.clean_safely()?)?;
+        println!("READDIR {}", dir.display());
         fs.read_dir(&dir)
     }
     fn create_dir(&self, path: &Path) -> Result<()> {
         debug!("create_dir: path={}", path.display());
+        if path == Path::new("/") {
+            return Err(FsError::BaseNotDirectory);
+        }
         let (dir, fs) = self
-            .get_dir_for_path(path.clean_safely()?)
+            .get_dir_for_path(&path.clean_safely()?)
             .map_err(|_e| FsError::PermissionDenied)?;
         fs.create_dir(&dir)
     }
     fn remove_dir(&self, path: &Path) -> Result<()> {
         debug!("remove_dir: path={}", path.display());
+        let cleaned_dir = path.clean_safely()?;
         let (dir, fs) = self
-            .get_dir_for_path(path.clean_safely()?)
+            .get_dir_for_path(&cleaned_dir)
             .map_err(|_e| FsError::PermissionDenied)?;
+        // If we delete the dir, we just unmount it
+        self.dirs.remove(cleaned_dir.to_str().unwrap());
+        if dir == Path::new("/") {
+            return Ok(());
+        }
         fs.remove_dir(&dir)
     }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
@@ -108,10 +128,10 @@ impl FileSystem for UnionFileSystem {
                 return Err(FsError::BaseNotDirectory);
             }
             let (from_dir, from_fs) = self
-                .get_dir_for_path(from)
+                .get_dir_for_path(&from)
                 .map_err(|_e| FsError::PermissionDenied)?;
             let (to_dir, to_fs) = self
-                .get_dir_for_path(to)
+                .get_dir_for_path(&to)
                 .map_err(|_e| FsError::PermissionDenied)?;
             // We indirectly check that the from_dir path exists by calling metadata
             let _from_metadata = from_fs.metadata(&from_dir)?;
@@ -143,7 +163,7 @@ impl FileSystem for UnionFileSystem {
             });
         }
         let (dir, fs) = self
-            .get_dir_for_path(path)
+            .get_dir_for_path(&path)
             .map_err(|_e| FsError::PermissionDenied)?;
         fs.metadata(&dir)
     }
@@ -160,14 +180,14 @@ impl FileSystem for UnionFileSystem {
             });
         }
         let (dir, fs) = self
-            .get_dir_for_path(path.clean_safely()?)
+            .get_dir_for_path(&path.clean_safely()?)
             .map_err(|_e| FsError::PermissionDenied)?;
         fs.symlink_metadata(&dir)
     }
     fn remove_file(&self, path: &Path) -> Result<()> {
         println!("remove_file: path={}", path.display());
         let (dir, fs) = self
-            .get_dir_for_path(path.clean_safely()?)
+            .get_dir_for_path(&path.clean_safely()?)
             .map_err(|_e| FsError::BaseNotDirectory)?;
         fs.remove_file(&dir)
     }
@@ -188,7 +208,7 @@ impl FileOpener for UnionFileSystem {
             return Err(FsError::BaseNotDirectory);
         }
         let (dir, fs) = self
-            .get_dir_for_path(path)
+            .get_dir_for_path(&path)
             .map_err(|_e| FsError::BaseNotDirectory)?;
         let mut open_options = fs.new_open_options();
         open_options.options(conf.clone()).open(&dir)
@@ -283,104 +303,104 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    // fn gen_filesystem() -> UnionFileSystem {
-    //     let mut union = UnionFileSystem::new();
-    //     // fs.mount("/", Box::new(mem_fs::FileSystem::default()));
-    //     let a = mem_fs::FileSystem::default();
-    //     let b = mem_fs::FileSystem::default();
-    //     let c = mem_fs::FileSystem::default();
-    //     let d = mem_fs::FileSystem::default();
-    //     let e = mem_fs::FileSystem::default();
-    //     let f = mem_fs::FileSystem::default();
-    //     let g = mem_fs::FileSystem::default();
-    //     let h = mem_fs::FileSystem::default();
+    fn gen_filesystem() -> UnionFileSystem {
+        let mut union = UnionFileSystem::new();
+        // fs.mount("/", Box::new(mem_fs::FileSystem::default()));
+        let a = mem_fs::FileSystem::default();
+        let b = mem_fs::FileSystem::default();
+        let c = mem_fs::FileSystem::default();
+        let d = mem_fs::FileSystem::default();
+        let e = mem_fs::FileSystem::default();
+        let f = mem_fs::FileSystem::default();
+        let g = mem_fs::FileSystem::default();
+        let h = mem_fs::FileSystem::default();
 
-    //     union.mount("mem_fs_1", "/test_new_filesystem", false, Box::new(a), None);
-    //     union.mount("mem_fs_2", "/test_create_dir", false, Box::new(b), None);
-    //     union.mount("mem_fs_3", "/test_remove_dir", false, Box::new(c), None);
-    //     union.mount("mem_fs_4", "/test_rename", false, Box::new(d), None);
-    //     union.mount("mem_fs_5", "/test_metadata", false, Box::new(e), None);
-    //     union.mount("mem_fs_6", "/test_remove_file", false, Box::new(f), None);
-    //     union.mount("mem_fs_6", "/test_readdir", false, Box::new(g), None);
-    //     union.mount("mem_fs_6", "/test_canonicalize", false, Box::new(h), None);
+        union.mount(&PathBuf::from("/test_new_filesystem"), Box::new(a)).unwrap();
+        union.mount(&PathBuf::from("/test_create_dir"), Box::new(b)).unwrap();
+        union.mount(&PathBuf::from("/test_remove_dir"), Box::new(c)).unwrap();
+        union.mount(&PathBuf::from("/test_rename"), Box::new(d)).unwrap();
+        union.mount(&PathBuf::from("/test_metadata"), Box::new(e)).unwrap();
+        union.mount(&PathBuf::from("/test_remove_file"), Box::new(f)).unwrap();
+        union.mount(&PathBuf::from("/test_readdir"), Box::new(g)).unwrap();
+        union.mount(&PathBuf::from("/test_canonicalize"), Box::new(h)).unwrap();
 
-    //     union
-    // }
+        union
+    }
 
-    // #[tokio::test]
-    // async fn test_new_filesystem() {
-    //     let fs = gen_filesystem();
-    //     assert!(
-    //         fs.read_dir(Path::new("/test_new_filesystem")).is_ok(),
-    //         "unionfs can read root"
-    //     );
-    //     let mut file_write: Box<dyn VirtualFile + Send + Sync> = fs
-    //         .new_open_options()
-    //         .read(true)
-    //         .write(true)
-    //         .create_new(true)
-    //         .open(Path::new("/test_new_filesystem/foo2.txt"))
-    //         .unwrap();
-    //     file_write.write_all(b"hello").await.unwrap();
-    //     let _ = std::fs::remove_file("/test_new_filesystem/foo2.txt");
-    // }
+    #[tokio::test]
+    async fn test_new_filesystem() {
+        let fs = gen_filesystem();
+        assert!(
+            fs.read_dir(Path::new("/test_new_filesystem")).is_ok(),
+            "unionfs can read root"
+        );
+        let mut file_write: Box<dyn VirtualFile + Send + Sync> = fs
+            .new_open_options()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/test_new_filesystem/foo2.txt"))
+            .unwrap();
+        file_write.write_all(b"hello").await.unwrap();
+        let _ = std::fs::remove_file("/test_new_filesystem/foo2.txt");
+    }
 
-    // #[tokio::test]
-    // async fn test_create_dir() {
-    //     let fs = gen_filesystem();
+    #[tokio::test]
+    async fn test_create_dir() {
+        let fs = gen_filesystem();
 
-    //     assert_eq!(
-    //         fs.create_dir(Path::new("/")),
-    //         Err(FsError::BaseNotDirectory),
-    //         "creating a directory that has no parent",
-    //     );
+        assert_eq!(
+            fs.create_dir(Path::new("/")),
+            Err(FsError::BaseNotDirectory),
+            "creating a directory that has no parent",
+        );
 
-    //     let _ = fs_extra::remove_items(&["/test_create_dir"]);
+        let _ = fs_extra::remove_items(&["/test_create_dir"]);
 
-    //     assert_eq!(
-    //         fs.create_dir(Path::new("/test_create_dir")),
-    //         Ok(()),
-    //         "creating a directory",
-    //     );
+        assert_eq!(
+            fs.create_dir(Path::new("/test_create_dir")),
+            Ok(()),
+            "creating a directory",
+        );
 
-    //     assert_eq!(
-    //         fs.create_dir(Path::new("/test_create_dir/foo")),
-    //         Ok(()),
-    //         "creating a directory",
-    //     );
+        assert_eq!(
+            fs.create_dir(Path::new("/test_create_dir/foo")),
+            Ok(()),
+            "creating a directory",
+        );
 
-    //     let cur_dir = read_dir_names(&fs, "/test_create_dir");
+        let cur_dir = read_dir_names(&fs, "/test_create_dir");
 
-    //     if !cur_dir.contains(&"foo".to_string()) {
-    //         panic!("cur_dir does not contain foo: {:#?}", cur_dir);
-    //     }
+        if !cur_dir.contains(&"foo".to_string()) {
+            panic!("cur_dir does not contain foo: {:#?}", cur_dir);
+        }
 
-    //     assert!(
-    //         cur_dir.contains(&"foo".to_string()),
-    //         "the root is updated and well-defined"
-    //     );
+        assert!(
+            cur_dir.contains(&"foo".to_string()),
+            "the root is updated and well-defined"
+        );
 
-    //     assert_eq!(
-    //         fs.create_dir(Path::new("/test_create_dir/foo/bar")),
-    //         Ok(()),
-    //         "creating a sub-directory",
-    //     );
+        assert_eq!(
+            fs.create_dir(Path::new("/test_create_dir/foo/bar")),
+            Ok(()),
+            "creating a sub-directory",
+        );
 
-    //     let foo_dir = read_dir_names(&fs, "/test_create_dir/foo");
+        let foo_dir = read_dir_names(&fs, "/test_create_dir/foo");
 
-    //     assert!(
-    //         foo_dir.contains(&"bar".to_string()),
-    //         "the foo directory is updated and well-defined"
-    //     );
+        assert!(
+            foo_dir.contains(&"bar".to_string()),
+            "the foo directory is updated and well-defined"
+        );
 
-    //     let bar_dir = read_dir_names(&fs, "/test_create_dir/foo/bar");
+        let bar_dir = read_dir_names(&fs, "/test_create_dir/foo/bar");
 
-    //     assert!(
-    //         bar_dir.is_empty(),
-    //         "the foo directory is updated and well-defined"
-    //     );
-    //     let _ = fs_extra::remove_items(&["/test_create_dir"]);
-    // }
+        assert!(
+            bar_dir.is_empty(),
+            "the foo directory is updated and well-defined"
+        );
+        let _ = fs_extra::remove_items(&["/test_create_dir"]);
+    }
 
     // #[tokio::test]
     // async fn test_remove_dir() {
@@ -449,12 +469,12 @@ mod tests {
     //     let _ = fs_extra::remove_items(&["/test_remove_dir"]);
     // }
 
-    // fn read_dir_names(fs: &dyn crate::FileSystem, path: &str) -> Vec<String> {
-    //     fs.read_dir(Path::new(path))
-    //         .unwrap()
-    //         .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
-    //         .collect::<Vec<_>>()
-    // }
+    fn read_dir_names(fs: &dyn crate::FileSystem, path: &str) -> Vec<String> {
+        fs.read_dir(Path::new(path))
+            .unwrap()
+            .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
+            .collect::<Vec<_>>()
+    }
 
     // #[tokio::test]
     // async fn test_rename() {
