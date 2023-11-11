@@ -63,9 +63,6 @@ pub mod special_file {
 pub mod tmp_fs {
     pub use super::fs::tmp::*;
 }
-pub mod union_fs {
-    pub use super::fs::union::*;
-}
 pub mod zero_file {
     pub use super::files::zero::*;
 }
@@ -116,7 +113,6 @@ pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
-pub use union_fs::*;
 #[cfg(feature = "webc-fs")]
 pub use webc_volume_fs::WebcVolumeFileSystem;
 

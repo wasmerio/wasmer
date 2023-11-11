@@ -240,14 +240,22 @@ impl<'a> WasiTest<'a> {
                         let e = mem_fs::FileSystem::default();
                         let f = mem_fs::FileSystem::default();
 
-                        let mut union = union_fs::UnionFileSystem::new();
+                        let mut union = tmp_fs::TmpFileSystem::new();
 
-                        union.mount(&PathBuf::from("/test_fs"), Box::new(a))?;
-                        union.mount(&PathBuf::from("/snapshot1"), Box::new(b))?;
-                        union.mount(&PathBuf::from("/tests"), Box::new(c))?;
-                        union.mount(&PathBuf::from("/nightly_2022_10_18"), Box::new(d))?;
-                        union.mount(&PathBuf::from("/unstable"), Box::new(e))?;
-                        union.mount(&PathBuf::from("/.tmp_wasmer_wast_0"), Box::new(f))?;
+                        union.mount(PathBuf::from("/test_fs"), &Arc::new(a), PathBuf::new())?;
+                        union.mount(PathBuf::from("/snapshot1"), &Arc::new(b), PathBuf::new())?;
+                        union.mount(PathBuf::from("/tests"), &Arc::new(c), PathBuf::new())?;
+                        union.mount(
+                            PathBuf::from("/nightly_2022_10_18"),
+                            &Arc::new(d),
+                            PathBuf::new(),
+                        )?;
+                        union.mount(PathBuf::from("/unstable"), &Arc::new(e))?;
+                        union.mount(
+                            PathBuf::from("/.tmp_wasmer_wast_0"),
+                            &Arc::new(f),
+                            PathBuf::new(),
+                        )?;
 
                         Box::new(union)
                     }
