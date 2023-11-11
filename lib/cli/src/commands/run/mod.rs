@@ -61,21 +61,31 @@ use std::borrow::Cow;
 
 #[derive(Debug)]
 struct WebcPatch {
-    pub(crate) base: Container,
+    pub(crate) base: Option<Container>,
     pub patched_manifest: Manifest,
 }
 
 impl WebcPatch {
-    pub fn new(base: Container, extra_uses: Vec<String>) -> Self {
-        let mut patched_manifest = base.manifest().clone();
-        for use_ in extra_uses {
-            patched_manifest
+    pub fn new(base: Container, uses: Vec<String>) -> Self {
+        let mut manifest = base.manifest().clone();
+        Self {
+            base: Some(base),
+            patched_manifest: Self::add_uses_to_manifest(manifest, uses),
+        }
+    }
+    fn add_uses_to_manifest(mut manifest: Manifest, uses: Vec<String>) -> Manifest {
+        for use_ in uses {
+            manifest
                 .use_map
                 .insert(use_.clone(), UrlOrManifest::RegistryDependentUrl(use_));
         }
+        manifest
+    }
+    pub fn with_uses(uses: Vec<String>) -> Self {
+        let manifest = Manifest::default();
         Self {
-            base,
-            patched_manifest,
+            base: None,
+            patched_manifest: Self::add_uses_to_manifest(manifest, uses),
         }
     }
 }
@@ -89,28 +99,39 @@ impl AbstractWebc for WebcPatch {
 
     fn atom_names(&self) -> Vec<Cow<'_, str>> {
         self.base
-            .atoms()
-            .keys()
-            .map(String::to_owned)
-            .map(Cow::from)
-            .collect()
+            .as_ref()
+            .map(|base| {
+                base.atoms()
+                    .keys()
+                    .map(String::to_owned)
+                    .map(Cow::from)
+                    .collect()
+            })
+            .unwrap_or(vec![])
     }
 
     fn get_atom(&self, name: &str) -> Option<OwnedBuffer> {
-        self.base.get_atom(name)
+        self.base.as_ref().map(|base| base.get_atom(name)).flatten()
     }
 
     fn volume_names(&self) -> Vec<Cow<'_, str>> {
         self.base
-            .volumes()
-            .keys()
-            .map(String::to_owned)
-            .map(Cow::from)
-            .collect()
+            .as_ref()
+            .map(|base| {
+                base.volumes()
+                    .keys()
+                    .map(String::to_owned)
+                    .map(Cow::from)
+                    .collect()
+            })
+            .unwrap_or(vec![])
     }
 
     fn get_volume(&self, name: &str) -> Option<Volume> {
-        self.base.get_volume(name)
+        self.base
+            .as_ref()
+            .map(|base| base.get_volume(name))
+            .flatten()
     }
 }
 
@@ -183,7 +204,20 @@ impl Run {
         let result = {
             match target {
                 ExecutableTarget::WebAssembly { module, path } => {
-                    self.execute_wasm(&path, &module, store, runtime)
+                    let pkg = if self.wasi.uses.len() > 0 {
+                        let patched_container =
+                            Container::new(WebcPatch::with_uses(self.wasi.uses.clone()));
+                        let inner_runtime = runtime.clone();
+                        let pkg = runtime.task_manager().spawn_and_block_on(async move {
+                            BinaryPackage::from_webc(&patched_container, inner_runtime.as_ref())
+                                .await
+                        })?;
+                        Some(pkg)
+                    } else {
+                        None
+                    };
+
+                    self.execute_wasm(&path, &module, store, pkg.as_ref(), runtime)
                 }
                 ExecutableTarget::Container(container) => {
                     pb.set_message("Resolving dependencies");
@@ -213,12 +247,13 @@ impl Run {
         path: &Path,
         module: &Module,
         mut store: Store,
+        pkg: Option<&BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(path, module, runtime, store)
+            self.execute_wasi_module(path, module, runtime, pkg, store)
         } else {
             self.execute_pure_wasm_module(module, &mut store)
         }
@@ -386,6 +421,7 @@ impl Run {
         wasm_path: &Path,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
+        pkg: Option<&BinaryPackage>,
         mut store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
@@ -395,6 +431,7 @@ impl Run {
             runtime,
             &program_name,
             module,
+            pkg,
             self.wasi.enable_async_threads,
         )
     }

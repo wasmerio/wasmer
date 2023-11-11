@@ -1,5 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1193
 expression: snapshot
 ---
 {
@@ -20,7 +21,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "bin\ndev\netc\ntmp\nusr\n",
+      "stdout": "bin\ndev\netc\nhome\ntmp\nusr\n",
       "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
       "exit_code": 0
     }

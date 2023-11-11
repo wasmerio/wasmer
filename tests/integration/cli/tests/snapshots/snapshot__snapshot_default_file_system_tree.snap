@@ -1,5 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 481
 expression: snapshot
 ---
 {
@@ -15,7 +16,7 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "bin\ndev\netc\ntmp\n",
+      "stdout": "bin\ndev\netc\nhome\ntmp\n",
       "stderr": "",
       "exit_code": 0
     }

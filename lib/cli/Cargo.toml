@@ -79,7 +79,7 @@ distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0"
 cfg-if = "1.0"
-tempfile = "3.6.0"
+tempfile.workspace = true
 serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }

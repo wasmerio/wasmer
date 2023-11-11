@@ -60,7 +60,7 @@ winapi = "0.3"
 # - Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 wat = "1.0"
-tempfile = "3.6.0"
+tempfile.workspace = true
 anyhow = "1.0"
 macro-wasmer-universal-test = { version = "4.2.3", path = "./macro-wasmer-universal-test" }
 

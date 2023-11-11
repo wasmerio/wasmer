@@ -17,7 +17,7 @@ wasmer-wasix = { path = "../../../lib/wasix", version = "0.16.0" }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.9.0" }
 wast = "38.0"
 serde = "1"
-tempfile = "3.6.0"
+tempfile.workspace = true
 thiserror = "1.0"
 futures = "0.3"
 tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
