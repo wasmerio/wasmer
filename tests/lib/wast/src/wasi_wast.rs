@@ -246,7 +246,7 @@ impl<'a> WasiTest<'a> {
                         let f: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
                             Arc::new(mem_fs::FileSystem::default());
 
-                        let mut union = tmp_fs::TmpFileSystem::new();
+                        let union = tmp_fs::TmpFileSystem::new();
 
                         union.mount(PathBuf::from("/test_fs"), &a, PathBuf::new())?;
                         union.mount(PathBuf::from("/snapshot1"), &b, PathBuf::new())?;

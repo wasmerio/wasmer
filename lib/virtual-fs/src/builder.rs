@@ -63,7 +63,15 @@ impl RootFileSystemBuilder {
 
     pub fn build_into(self, fs: TmpFileSystem) -> TmpFileSystem {
         if self.default_root_dirs {
-            for root_dir in &["/.app", "/.private", "/bin", "/dev", "/etc", "/tmp", "/home"] {
+            for root_dir in &[
+                "/.app",
+                "/.private",
+                "/bin",
+                "/dev",
+                "/etc",
+                "/tmp",
+                "/home",
+            ] {
                 if let Err(err) = fs.create_dir(Path::new(root_dir)) {
                     debug!("failed to create dir [{}] - {}", root_dir, err);
                 }

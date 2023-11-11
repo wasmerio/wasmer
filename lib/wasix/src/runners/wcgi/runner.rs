@@ -64,8 +64,6 @@ impl WcgiRunner {
             None => CgiDialect::Wcgi,
         };
 
-        let container_fs = Arc::clone(&pkg.webc_fs);
-
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
 

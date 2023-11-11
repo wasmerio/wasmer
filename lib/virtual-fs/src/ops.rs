@@ -49,10 +49,6 @@ where
     F: FileSystem + ?Sized,
 {
     let path = path.as_ref();
-    if let Some(parent) = path.parent() {
-        create_dir_all(fs, parent)?;
-    }
-
     if let Ok(metadata) = fs.metadata(path) {
         if metadata.is_dir() {
             return Ok(());
@@ -61,7 +57,9 @@ where
             return Err(FsError::BaseNotDirectory);
         }
     }
-
+    if let Some(parent) = path.parent() {
+        create_dir_all(fs, parent)?;
+    }
     fs.create_dir(path)
 }
 

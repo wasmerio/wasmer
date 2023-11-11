@@ -1,10 +1,9 @@
 //! This module contains the [`FileSystem`] type itself.
 
 use super::*;
-use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use futures::future::BoxFuture;
 use slab::Slab;
-use std::collections::VecDeque;
 use std::convert::identity;
 use std::ffi::OsString;
 use std::fmt;

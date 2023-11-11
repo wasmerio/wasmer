@@ -1,15 +1,9 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
-};
+use std::{collections::HashMap, ops::Deref, path::PathBuf, sync::Arc, time::Duration};
 
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use rand::Rng;
-use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
+use virtual_fs::{FileSystem, FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
@@ -21,7 +15,7 @@ use wasmer_wasix_types::{
 };
 
 use crate::{
-    bin_factory::{BinFactory, BinaryPackage},
+    bin_factory::BinFactory,
     capabilities::Capabilities,
     fs::WasiInodes,
     import_object_for_all_wasi_versions,
@@ -30,7 +24,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
+    runtime::{task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -885,12 +879,12 @@ impl WasiEnv {
                     err
                 ))
             })?;
-            let file: std::borrow::Cow<'static, [u8]> = file.into();
+            let _file: std::borrow::Cow<'static, [u8]> = file.into();
 
             let _ = self.state.fs.root_fs.create_dir(Path::new("/bin"));
 
             let path = format!("/bin/{}", command);
-            let path = Path::new(path.as_str());
+            let _path = Path::new(path.as_str());
             // if let Err(err) = self.state.fs.root_fs.new_open_options_ext().insert_ro_file(path, file) {
             //     tracing::debug!("failed to add atom command [{}] - {}", command, err);
             //     continue;

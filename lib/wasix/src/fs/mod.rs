@@ -4,7 +4,7 @@ mod notification;
 
 use std::{
     borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, HashSet},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
@@ -14,18 +14,17 @@ use std::{
     },
     task::{Context, Poll},
 };
-use virtual_fs::OverlayFileSystem;
 
 use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-use futures::{future::BoxFuture, Future, TryStreamExt};
+use futures::{future::BoxFuture, Future};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{FileSystem, FsError, VirtualFile};
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -41,7 +40,7 @@ pub(crate) use self::inode_guard::{
 };
 pub use self::notification::NotificationInner;
 use crate::syscalls::map_io_err;
-use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
+use crate::{state::PreopenedDir, ALL_RIGHTS};
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
@@ -267,20 +266,6 @@ impl Default for WasiInodes {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
-    if fs.metadata(path).is_ok() {
-        return Ok(());
-    }
-
-    if let Some(parent) = path.parent() {
-        create_dir_all(fs, parent)?;
-    }
-
-    fs.create_dir(path)?;
-
-    Ok(())
 }
 
 /// Warning, modifying these fields directly may cause invariants to break and

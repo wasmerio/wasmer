@@ -4,7 +4,6 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
 use tracing::Instrument;
-use virtual_fs::RootFileSystemBuilder;
 use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
 use wasmer::Module;
 use webc::metadata::{annotations::Wasi, Command};

@@ -1,9 +1,8 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
-use std::{collections::HashMap, path::Path, sync::Arc};
 
 use anyhow::Error;
-use futures::future::BoxFuture;
-use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
+use virtual_fs::TmpFileSystem;
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{

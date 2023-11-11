@@ -147,15 +147,18 @@ impl Wasi {
             .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
             .build();
         let mut mapped_dirs = self.build_mapped_directories()?;
-        let has_mapped_tmp = mapped_dirs.iter().any(|dir| dir.guest == "/tmp" || dir.guest.starts_with("/tmp/"));
-        if !has_mapped_tmp {
-            if self.mount_host_tmp {
-                let tmp_folder_path = tempfile::Builder::new().prefix("wasmer-").tempdir()?.into_path();
-                mapped_dirs.push(MappedDirectory {
-                    host: tmp_folder_path,
-                    guest: "/tmp".to_string(),
-                });
-            }
+        let has_mapped_tmp = mapped_dirs
+            .iter()
+            .any(|dir| dir.guest == "/tmp" || dir.guest.starts_with("/tmp/"));
+        if !has_mapped_tmp && self.mount_host_tmp {
+            let tmp_folder_path = tempfile::Builder::new()
+                .prefix("wasmer-")
+                .tempdir()?
+                .into_path();
+            mapped_dirs.push(MappedDirectory {
+                host: tmp_folder_path,
+                guest: "/tmp".to_string(),
+            });
         }
         if !mapped_dirs.is_empty() {
             let has_root_tmp = false;

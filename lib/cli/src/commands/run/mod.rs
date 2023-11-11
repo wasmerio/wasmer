@@ -111,7 +111,7 @@ impl AbstractWebc for WebcPatch {
     }
 
     fn get_atom(&self, name: &str) -> Option<OwnedBuffer> {
-        self.base.as_ref().map(|base| base.get_atom(name)).flatten()
+        self.base.as_ref().and_then(|base| base.get_atom(name))
     }
 
     fn volume_names(&self) -> Vec<Cow<'_, str>> {
@@ -128,10 +128,7 @@ impl AbstractWebc for WebcPatch {
     }
 
     fn get_volume(&self, name: &str) -> Option<Volume> {
-        self.base
-            .as_ref()
-            .map(|base| base.get_volume(name))
-            .flatten()
+        self.base.as_ref().and_then(|base| base.get_volume(name))
     }
 }
 
@@ -204,7 +201,7 @@ impl Run {
         let result = {
             match target {
                 ExecutableTarget::WebAssembly { module, path } => {
-                    let pkg = if self.wasi.uses.len() > 0 {
+                    let pkg = if !self.wasi.uses.is_empty() {
                         let patched_container =
                             Container::new(WebcPatch::with_uses(self.wasi.uses.clone()));
                         let inner_runtime = runtime.clone();

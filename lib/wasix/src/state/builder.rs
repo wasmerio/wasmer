@@ -748,24 +748,24 @@ impl WasiEnvBuilder {
         let bin_factory = BinFactory::new(runtime.clone());
 
         if let Some(pkg) = self.pkg {
-            /// Make all the commands in a [`BinaryPackage`] available to the WASI
-            /// instance.
-            ///
-            /// The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
-            /// `/bin/command`.
-            ///
-            /// This will also merge the command's filesystem
-            /// ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
-            ///
-            /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
-            /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
+            // Make all the commands in a [`BinaryPackage`] available to the WASI
+            // instance.
+            //
+            // The [`BinaryPackageCommand::atom()`][cmd-atom] will be saved to
+            // `/bin/command`.
+            //
+            // This will also merge the command's filesystem
+            // ([`BinaryPackage::webc_fs`][pkg-fs]) into the current filesystem.
+            //
+            // [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
+            // [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
             let root_fs = &fs_backing;
 
             // Next, make sure all commands will be available
 
             if !pkg.commands.is_empty() {
                 let bin_path = Path::new("/bin");
-                let _ = root_fs.create_dir(&bin_path);
+                let _ = root_fs.create_dir(bin_path);
 
                 for command in &pkg.commands {
                     let path = bin_path.join(command.name());
