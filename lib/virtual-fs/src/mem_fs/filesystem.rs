@@ -35,74 +35,6 @@ impl FileSystem {
         lock.canonicalize_without_inode(path)
     }
 
-    /// Merge all items from a given source path (directory) of a different file
-    /// system into this file system.
-    ///
-    /// Individual files and directories of the given path are mounted.
-    ///
-    /// This function is not recursive, only the items in the source_path are
-    /// mounted.
-    ///
-    /// See [`Self::union`] for mounting all inodes recursively.
-    pub fn mount_directory_entries(
-        &self,
-        target_path: &Path,
-        other: &Arc<dyn crate::FileSystem + Send + Sync>,
-        mut source_path: &Path,
-    ) -> Result<()> {
-        // TODO: DELETE ME
-        let fs_lock = self.inner.read().map_err(|_| FsError::Lock)?;
-
-        if cfg!(windows) {
-            // We need to take some care here because
-            // canonicalize_without_inode() doesn't accept Windows paths that
-            // start with a prefix (drive letters, UNC paths, etc.). If we
-            // somehow get one of those paths, we'll automatically trim it away.
-            let mut components = source_path.components();
-
-            if let Some(Component::Prefix(_)) = components.next() {
-                source_path = components.as_path();
-            }
-        }
-
-        let (_target_path, root_inode) = match fs_lock.canonicalize(target_path) {
-            Ok((p, InodeResolution::Found(inode))) => (p, inode),
-            Ok((_p, InodeResolution::Redirect(..))) => {
-                return Err(FsError::AlreadyExists);
-            }
-            Err(_) => {
-                // Root directory does not exist, so we can just mount.
-                return self.mount(target_path.to_path_buf(), other, source_path.to_path_buf());
-            }
-        };
-
-        let _root_node = match fs_lock.storage.get(root_inode).unwrap() {
-            Node::Directory(dir) => dir,
-            _ => {
-                return Err(FsError::AlreadyExists);
-            }
-        };
-
-        let source_path = fs_lock.canonicalize_without_inode(source_path)?;
-
-        std::mem::drop(fs_lock);
-
-        let source = other.read_dir(&source_path)?;
-        for entry in source.data {
-            let meta = entry.metadata?;
-
-            let entry_target_path = target_path.join(entry.path.file_name().unwrap());
-
-            if meta.is_file() {
-                self.insert_arc_file_at(entry_target_path, other.clone(), entry.path)?;
-            } else if meta.is_dir() {
-                self.insert_arc_directory_at(entry_target_path, other.clone(), entry.path)?;
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn union(&self, other: &Arc<dyn crate::FileSystem + Send + Sync>) {
         // Iterate all the directories and files in the other filesystem
         // and create references back to them in this filesystem
@@ -684,7 +616,10 @@ impl FileSystemInner {
                     _ => Err(FsError::BaseNotDirectory),
                 }
             }
-            InodeResolution::Redirect(fs, path) => Ok(InodeResolution::Redirect(fs, path)),
+            InodeResolution::Redirect(fs, path) => {
+                println!("Inode of parent found -> Redirect: {}", path.display());
+                Ok(InodeResolution::Redirect(fs, path))
+            },
         }
     }
 
@@ -1823,9 +1758,6 @@ mod test_filesystem {
         dbg!(&out);
 
         let other: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(other);
-
-        main.mount_directory_entries(&Path::new("/"), &other, &Path::new("/a"))
-            .unwrap();
 
         let mut buf = Vec::new();
 
