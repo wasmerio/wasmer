@@ -19,7 +19,7 @@ use crate::PluggableRuntime;
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
-    fs::{WasiFs, WasiFsRoot, WasiInodes},
+    fs::{WasiFs, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::task_manager::InlineWaker,
     state::WasiState,
@@ -61,7 +61,7 @@ pub struct WasiEnvBuilder {
     pub(super) stdout: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
-    pub(super) fs: Option<WasiFsRoot>,
+    pub(super) fs: Option<Arc<dyn FileSystem + Send + Sync>>,
     pub(super) pkg: Option<BinaryPackage>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
     pub(super) current_dir: Option<PathBuf>,
@@ -568,7 +568,7 @@ impl WasiEnvBuilder {
     }
 
     pub fn set_fs(&mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) {
-        self.fs = Some(WasiFsRoot::Backing(Arc::new(fs)));
+        self.fs = Some(Arc::new(fs));
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
@@ -583,7 +583,7 @@ impl WasiEnvBuilder {
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn set_sandbox_fs(&mut self, fs: TmpFileSystem) {
-        self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
+        self.fs = Some(Arc::new(fs));
     }
 
     /// Configure the WASI filesystem before running.
@@ -694,7 +694,7 @@ impl WasiEnvBuilder {
         let mut fs_backing = self
             .fs
             .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
+            .unwrap_or_else(|| Arc::new(TmpFileSystem::new()));
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {
@@ -784,30 +784,12 @@ impl WasiEnvBuilder {
                     // See https://github.com/wasmerio/wasmer/issues/3875
                     let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
 
-                    match root_fs {
-                        WasiFsRoot::Sandbox(root_fs) => {
-                            // As a short-cut, when we are using a TmpFileSystem
-                            // we can (unsafely) add the file to the filesystem
-                            // without any copying.
-                            if let Err(err) = root_fs
-                                .new_open_options_ext()
-                                .insert_ro_file(&path, atom.into())
-                            {
-                                tracing::debug!(
-                                    "failed to add package [{}] command [{}] - {}",
-                                    pkg.package_name,
-                                    command.name(),
-                                    err
-                                );
-                                continue;
-                            }
-                        }
-                        WasiFsRoot::Backing(fs) => {
-                            let mut f =
-                                fs.new_open_options().create(true).write(true).open(&path)?;
-                            f.copy_reference(Box::new(virtual_fs::StaticFile::new(atom.into())));
-                        }
-                    }
+                    let mut f = root_fs
+                        .new_open_options()
+                        .create(true)
+                        .write(true)
+                        .open(&path)?;
+                    f.copy_reference(Box::new(virtual_fs::StaticFile::new(atom.into())));
 
                     let mut package = pkg.clone();
                     package.entrypoint_cmd = Some(command.name().to_string());
@@ -821,7 +803,7 @@ impl WasiEnvBuilder {
                     );
                 }
             }
-            fs_backing = fs_backing.with_overlay([pkg.webc_fs]);
+            fs_backing = Arc::new(OverlayFileSystem::new(fs_backing, [pkg.webc_fs]));
         }
 
         // self.preopens are checked in [`PreopenDirBuilder::build`]

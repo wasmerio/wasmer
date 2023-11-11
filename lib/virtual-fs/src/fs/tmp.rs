@@ -30,10 +30,6 @@ impl TmpFileSystem {
         self.fs.new_open_options_ext()
     }
 
-    pub fn union(&self, other: &Arc<dyn FileSystem + Send + Sync>) {
-        self.fs.union(other)
-    }
-
     pub fn mount(
         &self,
         src_path: PathBuf,

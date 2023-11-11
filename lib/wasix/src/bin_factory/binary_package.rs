@@ -99,7 +99,6 @@ impl BinaryPackage {
         Ok(pkg)
     }
 
-
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn get_container_from_registry(

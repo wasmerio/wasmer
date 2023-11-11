@@ -24,7 +24,7 @@ mod types;
 use std::{
     collections::{BTreeMap, HashMap},
     path::Path,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     task::Waker,
     time::Duration,
 };
@@ -42,7 +42,7 @@ pub use self::{
 };
 pub use crate::fs::{InodeGuard, InodeWeakGuard};
 use crate::{
-    fs::{fs_error_into_wasi_err, WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard},
+    fs::{fs_error_into_wasi_err, WasiFs, WasiInodes, WasiStateFileGuard},
     syscalls::types::*,
     utils::WasiParkingLot,
 };
@@ -52,7 +52,7 @@ pub(crate) use handles::*;
 pub const ALL_RIGHTS: Rights = Rights::all();
 
 struct WasiStateOpener {
-    root_fs: WasiFsRoot,
+    root_fs: Arc<dyn FileSystem>,
 }
 
 impl FileOpener for WasiStateOpener {

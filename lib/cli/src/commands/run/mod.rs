@@ -47,29 +47,36 @@ use wasmer_wasix::{
     },
     Runtime,
 };
-use webc::{metadata::{Manifest, UrlOrManifest}, Container, AbstractWebc, Volume };
+use webc::{
+    metadata::{Manifest, UrlOrManifest},
+    AbstractWebc, Container, Volume,
+};
 
 use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions};
 
 const TICK: Duration = Duration::from_millis(250);
 
-
-use std::borrow::Cow;
 use shared_buffer::OwnedBuffer;
+use std::borrow::Cow;
 
 #[derive(Debug)]
 struct WebcPatch {
     pub(crate) base: Container,
-    pub patched_manifest: Manifest
+    pub patched_manifest: Manifest,
 }
 
 impl WebcPatch {
     pub fn new(base: Container, extra_uses: Vec<String>) -> Self {
         let mut patched_manifest = base.manifest().clone();
         for use_ in extra_uses {
-            patched_manifest.use_map.insert(use_.clone(), UrlOrManifest::RegistryDependentUrl(use_));
+            patched_manifest
+                .use_map
+                .insert(use_.clone(), UrlOrManifest::RegistryDependentUrl(use_));
         }
-        Self { base, patched_manifest }
+        Self {
+            base,
+            patched_manifest,
+        }
     }
 }
 
@@ -81,7 +88,12 @@ impl AbstractWebc for WebcPatch {
     }
 
     fn atom_names(&self) -> Vec<Cow<'_, str>> {
-        self.base.atoms().keys().map(String::to_owned).map(Cow::from).collect()
+        self.base
+            .atoms()
+            .keys()
+            .map(String::to_owned)
+            .map(Cow::from)
+            .collect()
     }
 
     fn get_atom(&self, name: &str) -> Option<OwnedBuffer> {
@@ -89,14 +101,18 @@ impl AbstractWebc for WebcPatch {
     }
 
     fn volume_names(&self) -> Vec<Cow<'_, str>> {
-        self.base.volumes().keys().map(String::to_owned).map(Cow::from).collect()
+        self.base
+            .volumes()
+            .keys()
+            .map(String::to_owned)
+            .map(Cow::from)
+            .collect()
     }
 
     fn get_volume(&self, name: &str) -> Option<Volume> {
         self.base.get_volume(name)
     }
 }
-
 
 /// The unstable `wasmer run` subcommand.
 #[derive(Debug, Parser)]
@@ -172,14 +188,15 @@ impl Run {
                 ExecutableTarget::Container(container) => {
                     pb.set_message("Resolving dependencies");
 
-                    let patched_container = Container::new(WebcPatch::new(container, self.wasi.uses.clone()));
+                    let patched_container =
+                        Container::new(WebcPatch::new(container, self.wasi.uses.clone()));
                     let inner_runtime = runtime.clone();
                     let pkg = runtime.task_manager().spawn_and_block_on(async move {
                         BinaryPackage::from_webc(&patched_container, inner_runtime.as_ref()).await
                     })?;
 
                     self.execute_webc(&pkg, runtime)
-                },
+                }
             }
         };
 

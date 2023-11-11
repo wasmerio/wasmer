@@ -35,66 +35,6 @@ impl FileSystem {
         lock.canonicalize_without_inode(path)
     }
 
-    pub fn union(&self, other: &Arc<dyn crate::FileSystem + Send + Sync>) {
-        // Iterate all the directories and files in the other filesystem
-        // and create references back to them in this filesystem
-        let mut remaining = VecDeque::new();
-        remaining.push_back(PathBuf::from("/"));
-        while let Some(next) = remaining.pop_back() {
-            if next
-                .file_name()
-                .map(|n| n.to_string_lossy().starts_with(".wh."))
-                .unwrap_or(false)
-            {
-                let rm = next.to_string_lossy();
-                let rm = &rm[".wh.".len()..];
-                let rm = PathBuf::from(rm);
-                let _ = crate::FileSystem::remove_dir(self, rm.as_path());
-                let _ = crate::FileSystem::remove_file(self, rm.as_path());
-                continue;
-            }
-            let _ = crate::FileSystem::create_dir(self, next.as_path());
-
-            let dir = match other.read_dir(next.as_path()) {
-                Ok(dir) => dir,
-                Err(_) => {
-                    // TODO: propagate errors (except NotFound)
-                    continue;
-                }
-            };
-
-            for sub_dir_res in dir {
-                let sub_dir = match sub_dir_res {
-                    Ok(sub_dir) => sub_dir,
-                    Err(_) => {
-                        // TODO: propagate errors (except NotFound)
-                        continue;
-                    }
-                };
-
-                match sub_dir.file_type() {
-                    Ok(t) if t.is_dir() => {
-                        remaining.push_back(sub_dir.path());
-                    }
-                    Ok(t) if t.is_file() => {
-                        if sub_dir.file_name().to_string_lossy().starts_with(".wh.") {
-                            let rm = next.to_string_lossy();
-                            let rm = &rm[".wh.".len()..];
-                            let rm = PathBuf::from(rm);
-                            let _ = crate::FileSystem::remove_dir(self, rm.as_path());
-                            let _ = crate::FileSystem::remove_file(self, rm.as_path());
-                            continue;
-                        }
-                        let _ = self
-                            .new_open_options_ext()
-                            .insert_arc_file(sub_dir.path(), other.clone());
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
     pub fn mount(
         &self,
         target_path: PathBuf,
@@ -619,7 +559,7 @@ impl FileSystemInner {
             InodeResolution::Redirect(fs, path) => {
                 println!("Inode of parent found -> Redirect: {}", path.display());
                 Ok(InodeResolution::Redirect(fs, path))
-            },
+            }
         }
     }
 
@@ -1761,6 +1701,7 @@ mod test_filesystem {
 
         let mut buf = Vec::new();
 
+        main.mount("/x".into(), &other, "/a/x".into()).unwrap();
         let mut f = main
             .new_open_options()
             .read(true)

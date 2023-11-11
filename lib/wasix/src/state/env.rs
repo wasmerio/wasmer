@@ -23,7 +23,7 @@ use wasmer_wasix_types::{
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
-    fs::{WasiFsRoot, WasiInodes},
+    fs::WasiInodes,
     import_object_for_all_wasi_versions,
     os::task::{
         control_plane::ControlPlaneError,
@@ -540,7 +540,7 @@ impl WasiEnv {
         self.runtime.task_manager()
     }
 
-    pub fn fs_root(&self) -> &WasiFsRoot {
+    pub fn fs_root(&self) -> &dyn FileSystem {
         &self.state.fs.root_fs
     }
 
@@ -887,19 +887,14 @@ impl WasiEnv {
             })?;
             let file: std::borrow::Cow<'static, [u8]> = file.into();
 
-            if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-                let _ = root_fs.create_dir(Path::new("/bin"));
+            let _ = self.state.fs.root_fs.create_dir(Path::new("/bin"));
 
-                let path = format!("/bin/{}", command);
-                let path = Path::new(path.as_str());
-                if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
-                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
-                    continue;
-                }
-            } else {
-                tracing::debug!("failed to add atom command [{}] to the root file system as it is not sandboxed", command);
-                continue;
-            }
+            let path = format!("/bin/{}", command);
+            let path = Path::new(path.as_str());
+            // if let Err(err) = self.state.fs.root_fs.new_open_options_ext().insert_ro_file(path, file) {
+            //     tracing::debug!("failed to add atom command [{}] - {}", command, err);
+            //     continue;
+            // }
         }
         Ok(())
     }

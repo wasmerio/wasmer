@@ -269,86 +269,6 @@ impl Default for WasiInodes {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum WasiFsRoot {
-    Sandbox(Arc<virtual_fs::tmp_fs::TmpFileSystem>),
-    Backing(Arc<Box<dyn FileSystem>>),
-}
-
-impl WasiFsRoot {
-    pub(crate) fn with_overlay(mut self, overlays: [Arc<dyn FileSystem>; 1]) -> Self {
-        let overlay_fs: Arc<Box<dyn FileSystem>> = match self {
-            WasiFsRoot::Sandbox(fs) => {
-                let overlay: OverlayFileSystem<Arc<dyn FileSystem>, [Arc<dyn FileSystem>; 1]> =
-                    OverlayFileSystem::new(fs, overlays);
-                Arc::new(Box::new(overlay))
-            }
-            WasiFsRoot::Backing(fs) => {
-                let overlay: OverlayFileSystem<Arc<dyn FileSystem>, [Arc<dyn FileSystem>; 1]> =
-                    OverlayFileSystem::new(fs, overlays);
-                Arc::new(Box::new(overlay))
-            }
-        };
-        WasiFsRoot::Backing(overlay_fs)
-    }
-}
-
-impl FileSystem for WasiFsRoot {
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.read_dir(path),
-            WasiFsRoot::Backing(fs) => fs.read_dir(path),
-        }
-    }
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.create_dir(path),
-            WasiFsRoot::Backing(fs) => fs.create_dir(path),
-        }
-    }
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.remove_dir(path),
-            WasiFsRoot::Backing(fs) => fs.remove_dir(path),
-        }
-    }
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        let this = self.clone();
-        Box::pin(async move {
-            match this {
-                WasiFsRoot::Sandbox(fs) => fs.rename(&from, &to).await,
-                WasiFsRoot::Backing(fs) => fs.rename(&from, &to).await,
-            }
-        })
-    }
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.metadata(path),
-            WasiFsRoot::Backing(fs) => fs.metadata(path),
-        }
-    }
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.symlink_metadata(path),
-            WasiFsRoot::Backing(fs) => fs.symlink_metadata(path),
-        }
-    }
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.remove_file(path),
-            WasiFsRoot::Backing(fs) => fs.remove_file(path),
-        }
-    }
-    fn new_open_options(&self) -> OpenOptions {
-        match self {
-            WasiFsRoot::Sandbox(fs) => fs.new_open_options(),
-            WasiFsRoot::Backing(fs) => fs.new_open_options(),
-        }
-    }
-}
-
 fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
     if fs.metadata(path).is_ok() {
         return Ok(());
@@ -373,7 +293,7 @@ pub struct WasiFs {
     pub next_fd: AtomicU32,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
-    pub root_fs: WasiFsRoot,
+    pub root_fs: Arc<dyn FileSystem>,
     pub root_inode: InodeGuard,
     pub has_unioned: Arc<Mutex<HashSet<String>>>,
 
@@ -445,7 +365,7 @@ impl WasiFs {
         inodes: &WasiInodes,
         preopens: &[PreopenedDir],
         vfs_preopens: &[String],
-        fs_backing: WasiFsRoot,
+        fs_backing: Arc<dyn FileSystem>,
     ) -> Result<Self, String> {
         let (wasi_fs, root_inode) = Self::new_init(fs_backing, inodes)?;
 
@@ -633,7 +553,10 @@ impl WasiFs {
 
     /// Private helper function to init the filesystem, called in `new` and
     /// `new_with_preopen`
-    fn new_init(fs_backing: WasiFsRoot, inodes: &WasiInodes) -> Result<(Self, InodeGuard), String> {
+    fn new_init(
+        fs_backing: Arc<dyn FileSystem>,
+        inodes: &WasiInodes,
+    ) -> Result<(Self, InodeGuard), String> {
         debug!("Initializing WASI filesystem");
 
         let stat = Filestat {
