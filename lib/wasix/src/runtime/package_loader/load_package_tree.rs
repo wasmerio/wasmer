@@ -346,9 +346,12 @@ fn filesystem(
             }
         };
 
-        let volume = container_volumes.get(volume_name).with_context(|| {
-            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
-        })?;
+        let volume = if let Some(volume) = container_volumes.get(volume_name) {
+            volume
+        } else {
+            // format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+            continue;
+        };
 
         let original_path = PathBuf::from(original_path);
         let mount_path = mount_path.clone();

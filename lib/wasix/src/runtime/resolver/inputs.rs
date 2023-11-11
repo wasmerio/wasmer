@@ -195,9 +195,10 @@ pub struct PackageInfo {
 
 impl PackageInfo {
     pub fn from_manifest(manifest: &Manifest) -> Result<Self, Error> {
-        let WapmAnnotations { name, version, .. } = manifest
+        let (name, version) = manifest
             .wapm()?
-            .context("Unable to find the \"wapm\" annotations")?;
+            .map(|WapmAnnotations { name, version, .. }| (name, version))
+            .unwrap_or(("unnamed-package".to_owned(), "0.0.0".to_owned()));
 
         let dependencies = manifest
             .use_map

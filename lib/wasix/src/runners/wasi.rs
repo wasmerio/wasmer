@@ -253,12 +253,9 @@ impl WasiRunner {
 
         builder.set_runtime(runtime);
 
-        let root_fs = self
-            .wasi
-            .fs
-            .clone()
-            .unwrap_or_else(|| RootFileSystemBuilder::default().build());
-        self.wasi.set_filesystem(&mut builder, root_fs)?;
+        if let Some(root_fs) = self.wasi.fs.take() {
+            self.wasi.set_filesystem(&mut builder, root_fs)?;
+        }
 
         Ok(builder)
     }
@@ -268,11 +265,12 @@ impl WasiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
         program_name: &str,
         module: &Module,
+        pkg: Option<&BinaryPackage>,
         asyncify: bool,
     ) -> Result<(), Error> {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
         let mut store = runtime.new_store();
-        let env = self.prepare_webc_env(program_name, &wasi, None, runtime)?;
+        let env = self.prepare_webc_env(program_name, &wasi, pkg, runtime)?;
 
         if asyncify {
             env.run_with_store_async(module.clone(), store)?;
