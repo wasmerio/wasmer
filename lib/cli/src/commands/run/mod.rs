@@ -30,7 +30,7 @@ use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{MappedDirectory, Runner},
+    runners::{MappedCommand, MappedDirectory, Runner},
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -216,43 +216,7 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::wasi::WasiRunner::new()
-            .with_args(self.args.clone())
-            .with_envs(self.wasi.env_vars.clone())
-            .with_mapped_directories(self.wasi.mapped_dirs.clone())
-            .with_injected_packages(uses);
-        if self.wasi.forward_host_env {
-            runner.set_forward_host_env();
-        }
-
-        #[cfg(feature = "snapshot")]
-        for trigger in self.wasi.snapshot_on.iter().cloned() {
-            runner.add_snapshot_trigger(trigger);
-        }
-
-        #[cfg(feature = "snapshot")]
-        match (self.wasi.snapshot_to.clone(), self.wasi.resume_from.clone()) {
-            (Some(save), Some(restore)) if save == restore => {
-                return Err(anyhow::format_err!(
-                    "The snapshot save path and snapshot restore path can not be the same"
-                ));
-            }
-            (_, _) => {
-                if let Some(path) = self.wasi.snapshot_to.clone() {
-                    runner.with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
-                }
-                if let Some(path) = self.wasi.resume_from.clone() {
-                    let n_snapshots = self.wasi.resume_num_snapshots;
-                    runner.with_snapshot_restore(
-                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
-                        n_snapshots,
-                    );
-                }
-            }
-        }
-
-        *runner.capabilities() = self.wasi.capabilities();
-
+        let mut runner = self.build_wasi_runner(&runtime)?;
         runner.run_command(command_name, pkg, runtime)
     }
 
@@ -353,24 +317,67 @@ impl Run {
         Ok(())
     }
 
+    fn build_wasi_runner(
+        &self,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<WasiRunner, anyhow::Error> {
+        let packages = self.load_injected_packages(runtime)?;
+
+        let mut runner = WasiRunner::new()
+            .with_args(&self.args)
+            .with_injected_packages(packages)
+            .with_envs(self.wasi.env_vars.clone())
+            .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
+            .with_mapped_directories(self.wasi.build_mapped_directories()?)
+            .with_forward_host_env(self.wasi.forward_host_env)
+            .with_capabilities(self.wasi.capabilities());
+
+        #[cfg(feature = "snapshot")]
+        for trigger in self.wasi.snapshot_on.iter().cloned() {
+            runner.add_snapshot_trigger(trigger);
+        }
+
+        #[cfg(feature = "snapshot")]
+        match (self.wasi.snapshot_to.clone(), self.wasi.resume_from.clone()) {
+            (Some(save), Some(restore)) if save == restore => {
+                return Err(anyhow::format_err!(
+                    "The snapshot save path and snapshot restore path can not be the same"
+                ));
+            }
+            (_, _) => {
+                if let Some(path) = self.wasi.snapshot_to.clone() {
+                    runner.with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                }
+                if let Some(path) = self.wasi.resume_from.clone() {
+                    let n_snapshots = self.wasi.resume_num_snapshots;
+                    runner.with_snapshot_restore(
+                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
+                        n_snapshots,
+                    );
+                }
+            }
+        }
+
+        Ok(runner)
+    }
+
     #[tracing::instrument(skip_all)]
     fn execute_wasi_module(
         &self,
         wasm_path: &Path,
         module: &Module,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        store: Store,
+        mut store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
-        #[allow(unused_mut)]
-        let mut builder = self
-            .wasi
-            .prepare(module, program_name, self.args.clone(), runtime)?;
-
-        builder.run_with_store_async(module.clone(), store)?;
-
-        Ok(())
+        let runner = self.build_wasi_runner(&runtime)?;
+        runner.run_wasm(
+            runtime,
+            &program_name,
+            module,
+            self.wasi.enable_async_threads,
+        )
     }
 
     #[tracing::instrument(skip_all)]

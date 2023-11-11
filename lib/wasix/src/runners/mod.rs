@@ -7,7 +7,7 @@ mod wasi_common;
 #[cfg(feature = "webc_runner_rt_wcgi")]
 pub mod wcgi;
 
-pub use self::runner::Runner;
+pub use self::{runner::Runner, wasi_common::MappedCommand};
 
 /// A directory that should be mapped from the host filesystem into a WASI
 /// instance (the "guest").

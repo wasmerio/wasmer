@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "5.8.0"
+version = "5.9.0"
 description = "Crate to interact with the wasmer registry, download packages, etc."
 authors.workspace = true
 edition.workspace = true
@@ -16,6 +16,7 @@ build-package  = ["rusqlite", "indexmap", "wasmer-wasm-interface", "wasmparser",
 anyhow = "1.0.65"
 clap = { version = "4.3.5", default-features = false, features = ["derive", "env"], optional = true }
 console = "0.15.2"
+dialoguer = "0.11.0"
 dirs = "4.0.0"
 filetime = "0.2.19"
 flate2 = "1.0.24"
@@ -42,9 +43,10 @@ time = { version = "0.3.17", default-features = false, features = ["parsing", "s
 tldextract = "0.6.0"
 tokio = "1.24.0"
 toml = "0.5.9"
+tracing = "0.1.40"
 url = "2.3.1"
 wasmer-toml = { workspace = true }
-wasmer-wasm-interface = { version = "4.2.2", path = "../wasm-interface", optional = true }
+wasmer-wasm-interface = { version = "4.2.3", path = "../wasm-interface", optional = true }
 wasmparser = { version = "0.51.4", optional = true }
 whoami = "1.2.3"
 

@@ -25,7 +25,7 @@ enumset = "1.0"
 bytecheck = "0.6.8"
 
 [dev-dependencies]
-memoffset = "0.6"
+memoffset.workspace = true
 
 [features]
 default = ["std"]

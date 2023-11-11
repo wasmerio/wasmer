@@ -9,6 +9,25 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.3 - 26/10/2023
+
+This new version fixes a bug in module bindings path.
+
+## Added
+
+
+## Changed
+
+
+## Fixed
+
+  - [#4272](https://github.com/wasmerio/wasmer/pull/4272) fix: Fix async runtime mismatch in virtual "wasmer run" command
+  - [#4276](https://github.com/wasmerio/wasmer/pull/4276) fix: module path using stripping a prefix
+  - [#4241](https://github.com/wasmerio/wasmer/pull/4241) Fix FreeBSD ucontext_t issues
+  - [#4246](https://github.com/wasmerio/wasmer/pull/4246) Fix Cargo.lock for 4.2.2 release
+
+
+
 ## 4.2.2 - 04/10/2023
 New wasmer version that utilizes the more recent LLVM15 to compile WASM modules. Also adds new application templates for Wasmer Edge.
 

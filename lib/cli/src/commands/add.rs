@@ -15,6 +15,9 @@ pub struct Add {
     /// Add the JavaScript bindings using "yarn add".
     #[clap(long, groups = &["bindings", "js"])]
     yarn: bool,
+    /// Add the JavaScript bindings using "pnpm add".
+    #[clap(long, groups = &["bindings", "js"])]
+    pnpm: bool,
     /// Add the package as a dev-dependency.
     #[clap(long, requires = "js")]
     dev: bool,
@@ -72,13 +75,14 @@ impl Add {
     }
 
     fn target(&self) -> Result<Target, Error> {
-        match (self.pip, self.npm, self.yarn) {
-            (false, false, false) => Err(anyhow::anyhow!(
-                "at least one of --npm, --pip or --yarn has to be specified"
+        match (self.pip, self.npm, self.yarn, self.pnpm) {
+            (false, false, false, false) => Err(anyhow::anyhow!(
+                "at least one of --npm, --pip, --yarn or --pnpm has to be specified"
             )),
-            (true, false, false) => Ok(Target::Pip),
-            (false, true, false) => Ok(Target::Npm { dev: self.dev }),
-            (false, false, true) => Ok(Target::Yarn { dev: self.dev }),
+            (true, false, false, false) => Ok(Target::Pip),
+            (false, true, false, false) => Ok(Target::Npm { dev: self.dev }),
+            (false, false, true, false) => Ok(Target::Yarn { dev: self.dev }),
+            (false, false, false, true) => Ok(Target::Pnpm { dev: self.dev }),
             _ => Err(anyhow::anyhow!(
                 "only one of --npm, --pip or --yarn has to be specified"
             )),
@@ -116,13 +120,16 @@ enum Target {
     Pip,
     Yarn { dev: bool },
     Npm { dev: bool },
+    Pnpm { dev: bool },
 }
 
 impl Target {
     fn language(self) -> ProgrammingLanguage {
         match self {
             Target::Pip => ProgrammingLanguage::PYTHON,
-            Target::Yarn { .. } | Target::Npm { .. } => ProgrammingLanguage::JAVASCRIPT,
+            Target::Pnpm { .. } | Target::Yarn { .. } | Target::Npm { .. } => {
+                ProgrammingLanguage::JAVASCRIPT
+            }
         }
     }
 
@@ -163,12 +170,22 @@ impl Target {
             }
             Target::Npm { dev } => {
                 if Command::new("npm").arg("--version").output().is_err() {
-                    return Err(anyhow::anyhow!("yarn not installed"));
+                    return Err(anyhow::anyhow!("npm not installed"));
                 }
                 if dev {
                     "npm install --dev"
                 } else {
                     "npm install"
+                }
+            }
+            Target::Pnpm { dev } => {
+                if Command::new("pnpm").arg("--version").output().is_err() {
+                    return Err(anyhow::anyhow!("pnpm not installed"));
+                }
+                if dev {
+                    "pnpm add --dev"
+                } else {
+                    "pnpm add"
                 }
             }
         };

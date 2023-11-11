@@ -11,7 +11,6 @@ use std::{
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use rand::Rng;
-use tracing::{trace, warn};
 use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
@@ -524,7 +523,11 @@ impl WasiEnv {
         let instance = match Instance::new(&mut store, &module, &import_object) {
             Ok(a) => a,
             Err(err) => {
-                tracing::error!("wasi[{}]::wasm instantiate error ({})", pid, err);
+                tracing::error!(
+                    %pid,
+                    error = &err as &dyn std::error::Error,
+                    "Instantiation failed",
+                );
                 func_env
                     .data(&store)
                     .blocking_cleanup(Some(Errno::Noexec.into()));
@@ -539,7 +542,11 @@ impl WasiEnv {
         if let Err(err) =
             func_env.initialize_with_memory(&mut store, instance.clone(), imported_memory, true)
         {
-            tracing::error!("wasi[{}]::wasi initialize error ({})", pid, err);
+            tracing::error!(
+                %pid,
+                error = &err as &dyn std::error::Error,
+                "Initialization failed",
+            );
             func_env
                 .data(&store)
                 .blocking_cleanup(Some(Errno::Noexec.into()));
@@ -608,7 +615,7 @@ impl WasiEnv {
                         let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
                         return Err(WasiError::Exit(exit_code));
                     } else {
-                        trace!("wasi[{}]::signal-ignored: {:?}", env.pid(), sig);
+                        tracing::trace!(pid=%env.pid(), ?sig, "Signal ignored");
                     }
                 }
                 return Ok(Ok(true));
@@ -686,18 +693,17 @@ impl WasiEnv {
 
             for signal in signals {
                 tracing::trace!(
-                    "wasi[{}]::processing-signal: {:?}",
-                    ctx.data().pid(),
-                    signal
+                    pid=%ctx.data().pid(),
+                    ?signal,
+                    "Processing signal",
                 );
                 if let Err(err) = handler.call(ctx, signal as i32) {
                     match err.downcast::<WasiError>() {
                         Ok(wasi_err) => {
-                            warn!(
-                                "wasi[{}]::signal handler wasi error (sig={:?}) - {}",
-                                ctx.data().pid(),
-                                signal,
-                                wasi_err
+                            tracing::warn!(
+                                pid=%ctx.data().pid(),
+                                wasi_err=&wasi_err as &dyn std::error::Error,
+                                "signal handler wasi error",
                             );
                             return Err(wasi_err);
                         }
@@ -705,11 +711,10 @@ impl WasiEnv {
                             // anything other than a kill command should report
                             // the error, killed things may not gracefully close properly
                             if signal != Signal::Sigkill {
-                                warn!(
-                                    "wasi[{}]::signal handler runtime error (sig={:?}) - {}",
-                                    ctx.data().pid(),
-                                    signal,
-                                    runtime_err
+                                tracing::warn!(
+                                    pid=%ctx.data().pid(),
+                                    runtime_err=&runtime_err as &dyn std::error::Error,
+                                    "signal handler runtime error",
                                 );
                             }
                             return Err(WasiError::Exit(Errno::Intr.into()));
@@ -728,13 +733,19 @@ impl WasiEnv {
         // Check for forced exit
         if let Some(forced_exit) = self.thread.try_join() {
             return Some(forced_exit.unwrap_or_else(|err| {
-                tracing::debug!("exit runtime error - {}", err);
+                tracing::debug!(
+                    error = &*err as &dyn std::error::Error,
+                    "exit runtime error",
+                );
                 Errno::Child.into()
             }));
         }
         if let Some(forced_exit) = self.process.try_join() {
             return Some(forced_exit.unwrap_or_else(|err| {
-                tracing::debug!("exit runtime error - {}", err);
+                tracing::debug!(
+                    error = &*err as &dyn std::error::Error,
+                    "exit runtime error",
+                );
                 Errno::Child.into()
             }));
         }
@@ -925,7 +936,7 @@ impl WasiEnv {
         // We first need to copy any files in the package over to the
         // main file system
         if let Err(e) = InlineWaker::block_on(root_fs.merge(&pkg.webc_fs)) {
-            warn!(
+            tracing::warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
             );
@@ -1087,14 +1098,9 @@ impl WasiEnv {
 
         // If this is the main thread then also close all the files
         if self.thread.is_main() {
-            trace!("wasi[{}]:: cleaning up open file handles", self.pid());
+            tracing::trace!(pid=%self.pid(), "cleaning up open file handles");
 
-            // Now send a signal that the thread is terminated
-            self.process.signal_process(Signal::Sigquit);
-
-            // Terminate the process
-            let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
-            self.process.terminate(exit_code);
+            let process = self.process.clone();
 
             let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
             let state = self.state.clone();
@@ -1108,6 +1114,13 @@ impl WasiEnv {
                     },
                     _ = state.fs.close_all() => { }
                 }
+
+                // Now send a signal that the thread is terminated
+                process.signal_process(Signal::Sigquit);
+
+                // Terminate the process
+                let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());
+                process.terminate(exit_code);
             })
         } else {
             Box::pin(async {})

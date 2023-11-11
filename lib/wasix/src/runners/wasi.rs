@@ -1,19 +1,23 @@
 //! WebC container support for running WASI modules
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
+use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
+use wasmer::Module;
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
+    runtime::task_manager::VirtualTaskManagerExt,
     snapshot::{DynSnapshotCapturer, SnapshotTrigger},
-    state::SnapshotRestore,
-    Runtime, WasiEnvBuilder,
+    Runtime, SnapshotRestore, WasiEnvBuilder, WasiRuntimeError,
 };
+
+use super::wasi_common::MappedCommand;
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -85,13 +89,13 @@ impl WasiRunner {
         }
     }
 
-    pub fn with_forward_host_env(mut self) -> Self {
-        self.set_forward_host_env();
+    pub fn with_forward_host_env(mut self, forward: bool) -> Self {
+        self.set_forward_host_env(forward);
         self
     }
 
-    pub fn set_forward_host_env(&mut self) {
-        self.wasi.forward_host_env = true;
+    pub fn set_forward_host_env(&mut self, forward: bool) {
+        self.wasi.forward_host_env = forward;
     }
 
     pub fn with_mapped_directories<I, D>(mut self, dirs: I) -> Self
@@ -102,6 +106,15 @@ impl WasiRunner {
         self.wasi
             .mapped_dirs
             .extend(dirs.into_iter().map(|d| d.into()));
+        self
+    }
+
+    pub fn set_current_dir(&mut self, dir: impl Into<PathBuf>) {
+        self.wasi.current_dir = Some(dir.into());
+    }
+
+    pub fn with_current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.set_current_dir(dir);
         self
     }
 
@@ -135,7 +148,35 @@ impl WasiRunner {
         self
     }
 
-    pub fn capabilities(&mut self) -> &mut Capabilities {
+    pub fn add_mapped_host_command(&mut self, alias: impl Into<String>, target: impl Into<String>) {
+        self.wasi.mapped_host_commands.push(MappedCommand {
+            alias: alias.into(),
+            target: target.into(),
+        });
+    }
+
+    pub fn with_mapped_host_command(
+        mut self,
+        alias: impl Into<String>,
+        target: impl Into<String>,
+    ) -> Self {
+        self.add_mapped_host_command(alias, target);
+        self
+    }
+
+    pub fn add_mapped_host_commands(&mut self, commands: impl IntoIterator<Item = MappedCommand>) {
+        self.wasi.mapped_host_commands.extend(commands);
+    }
+
+    pub fn with_mapped_host_commands(
+        mut self,
+        commands: impl IntoIterator<Item = MappedCommand>,
+    ) -> Self {
+        self.add_mapped_host_commands(commands);
+        self
+    }
+
+    pub fn capabilities_mut(&mut self) -> &mut Capabilities {
         &mut self.wasi.capabilities
     }
 
@@ -200,16 +241,24 @@ impl WasiRunner {
         self
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn prepare_webc_env(
         &self,
         program_name: &str,
         wasi: &Wasi,
-        pkg: &BinaryPackage,
+        pkg: Option<&BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let mut builder = WasiEnvBuilder::new(program_name);
-        let container_fs = Arc::clone(&pkg.webc_fs);
+        let mut builder = WasiEnvBuilder::new(program_name).runtime(runtime);
+
+        let container_fs = if let Some(pkg) = pkg {
+            builder.add_webc(pkg.clone());
+            Some(Arc::clone(&pkg.webc_fs))
+        } else {
+            None
+        };
+
         self.wasi
             .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
 
@@ -223,10 +272,27 @@ impl WasiRunner {
             builder.set_stderr(Box::new(stderr.clone()));
         }
 
-        builder.add_webc(pkg.clone());
-        builder.set_runtime(runtime);
-
         Ok(builder)
+    }
+
+    pub fn run_wasm(
+        &self,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+        program_name: &str,
+        module: &Module,
+        asyncify: bool,
+    ) -> Result<(), Error> {
+        let wasi = webc::metadata::annotations::Wasi::new(program_name);
+        let mut store = runtime.new_store();
+        let env = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
+
+        if asyncify {
+            env.run_with_store_async(module.clone(), store)?;
+        } else {
+            env.run_with_store(module.clone(), &mut store)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -252,12 +318,8 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_module_sync(cmd.atom())?;
-        let mut store = runtime.new_store();
-
-        #[allow(unused_mut)]
         let mut env = self
-            .prepare_webc_env(command_name, &wasi, pkg, runtime, None)
+            .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "snapshot")]
@@ -275,18 +337,34 @@ impl crate::runners::Runner for WasiRunner {
             env = env.with_snapshot_restore(restore.restorer, restore.n_snapshots);
         }
 
-        if self
-            .wasi
-            .capabilities
-            .threading
-            .enable_asynchronous_threading
-        {
-            env.run_with_store_async(module, store)?;
-        } else {
-            env.run_with_store(module, &mut store)?;
-        }
+        let env = env.build()?;
+        let store = runtime.new_store();
 
-        Ok(())
+        let command_name = command_name.to_string();
+        let tasks = runtime.task_manager().clone();
+        let pkg = pkg.clone();
+
+        let exit_code = tasks.spawn_and_block_on(
+            async move {
+                let mut task_handle =
+                    crate::bin_factory::spawn_exec(pkg, &command_name, store, env, &runtime)
+                        .await
+                        .context("Spawn failed")?;
+
+                task_handle
+                    .wait_finished()
+                    .await
+                    .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
+                    .context("Unable to wait for the process to exit")
+            }
+            .in_current_span(),
+        )?;
+
+        if exit_code.raw() == 0 {
+            Ok(())
+        } else {
+            Err(WasiRuntimeError::Wasi(crate::WasiError::Exit(exit_code)).into())
+        }
     }
 }
 

@@ -18,12 +18,10 @@ pub fn fd_event<M: MemorySize>(
         inner: Arc::new(NotificationInner::new(initial_val, is_semaphore)),
     };
 
-    let inode = state.fs.create_inode_with_default_stat(
-        inodes.deref(),
-        kind,
-        false,
-        "event".to_string().into(),
-    );
+    let inode =
+        state
+            .fs
+            .create_inode_with_default_stat(inodes, kind, false, "event".to_string().into());
     let rights = Rights::FD_READ
         | Rights::FD_WRITE
         | Rights::POLL_FD_READWRITE

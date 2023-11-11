@@ -48,7 +48,7 @@ jobs:
             artifact_name: 'wasmer-linux-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
-            use_sccache: true
+            use_sccache: false
             use_llvm: true
             build_wasm: true
           - build: macos-x64
@@ -56,14 +56,14 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: true
+            use_sccache: false
             use_llvm: true
             build_wasm: false
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
-            use_sccache: true
+            use_sccache: false
             use_llvm: false
             build_wasm: false
           - build: windows-x64
@@ -71,7 +71,7 @@ jobs:
             artifact_name: 'wasmer-windows-amd64'
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: true
+            use_sccache: false
             use_llvm: true
             build_wasm: false
           - build: linux-musl-x64

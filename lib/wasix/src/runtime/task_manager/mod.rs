@@ -38,6 +38,7 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
     + Sync;
 
 /// The properties passed to the task
+#[derive(Debug)]
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
@@ -120,22 +121,37 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         match spawn_type {
             SpawnMemoryType::CreateMemoryOfType(mut ty) => {
                 ty.shared = true;
+
+                // Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
                 let mem = Memory::new(&mut store, ty).map_err(|err| {
-                    tracing::error!("could not create memory: {err}");
+                    tracing::error!(
+                        error = &err as &dyn std::error::Error,
+                        memory_type=?ty,
+                        "could not create memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
             }
             SpawnMemoryType::ShareMemory(mem, old_store) => {
                 let mem = mem.share_in_store(&old_store, store).map_err(|err| {
-                    tracing::warn!("could not clone memory: {err}");
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "could not clone memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
             }
             SpawnMemoryType::CopyMemory(mem, old_store) => {
                 let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
-                    tracing::warn!("could not copy memory: {err}");
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "could not copy memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))

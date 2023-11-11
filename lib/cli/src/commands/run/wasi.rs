@@ -21,7 +21,7 @@ use wasmer_wasix::{
     http::HttpClient,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
-    runners::MappedDirectory,
+    runners::{MappedCommand, MappedDirectory},
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
@@ -79,11 +79,11 @@ pub struct Wasi {
     /// List of webc packages that are explicitly included for execution
     /// Note: these packages will be used instead of those in the registry
     #[clap(long = "include-webc", name = "WEBC")]
-    include_webcs: Vec<PathBuf>,
+    pub(super) include_webcs: Vec<PathBuf>,
 
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
-    map_commands: Vec<String>,
+    pub(super) map_commands: Vec<String>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
@@ -162,6 +162,8 @@ pub struct RunProperties {
 
 #[allow(dead_code)]
 impl Wasi {
+    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/mnt/host";
+
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push(MappedDirectory {
             guest: alias.to_string(),
@@ -227,12 +229,93 @@ impl Wasi {
             .uses(uses)
             .map_commands(map_commands);
 
-        let mut builder = if wasmer_wasix::is_wasix_module(module) {
+        let mut builder = {
             // If we preopen anything from the host then shallow copy it over
             let root_fs = RootFileSystemBuilder::new()
                 .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
                 .build();
-            if !self.mapped_dirs.is_empty() {
+
+            let mut mapped_dirs = Vec::new();
+
+            // Process the --dirs flag and merge it with --mapdir.
+            let mut have_current_dir = false;
+            for dir in &self.pre_opened_directories {
+                let mapping = if dir == Path::new(".") {
+                    if have_current_dir {
+                        bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
+                    }
+                    have_current_dir = true;
+
+                    let current_dir =
+                        std::env::current_dir().context("could not determine current directory")?;
+
+                    MappedDirectory {
+                        host: current_dir,
+                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    }
+                } else {
+                    let resolved = dir.canonicalize().with_context(|| {
+                        format!(
+                            "could not canonicalize path for argument '--dir {}'",
+                            dir.display()
+                        )
+                    })?;
+
+                    if &resolved != dir {
+                        bail!(
+                            "Invalid argument '--dir {}': path must either be absolute, or '.'",
+                            dir.display(),
+                        );
+                    }
+
+                    let guest = resolved
+                        .to_str()
+                        .with_context(|| {
+                            format!(
+                                "invalid argument '--dir {}': path must be valid utf-8",
+                                dir.display(),
+                            )
+                        })?
+                        .to_string();
+
+                    MappedDirectory {
+                        host: resolved,
+                        guest,
+                    }
+                };
+
+                mapped_dirs.push(mapping);
+            }
+
+            for MappedDirectory { host, guest } in &self.mapped_dirs {
+                let resolved_host = host.canonicalize().with_context(|| {
+                    format!(
+                        "could not canonicalize path for argument '--mapdir {}:{}'",
+                        host.display(),
+                        guest,
+                    )
+                })?;
+
+                let mapping = if guest == "." {
+                    if have_current_dir {
+                        bail!("Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once");
+                    }
+                    have_current_dir = true;
+
+                    MappedDirectory {
+                        host: resolved_host,
+                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    }
+                } else {
+                    MappedDirectory {
+                        host: resolved_host,
+                        guest: guest.clone(),
+                    }
+                };
+                mapped_dirs.push(mapping);
+            }
+
+            if !mapped_dirs.is_empty() {
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
@@ -246,20 +329,16 @@ impl Wasi {
             }
 
             // Open the root of the new filesystem
-            builder
+            let b = builder
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
-                .unwrap()
-                .map_dir(".", "/")?
-        } else {
-            builder
-                .fs(default_fs_backing())
-                .preopen_dirs(self.pre_opened_directories.clone())?
-                .map_dirs(
-                    self.mapped_dirs
-                        .iter()
-                        .map(|d| (d.guest.clone(), d.host.clone())),
-                )?
+                .unwrap();
+
+            if have_current_dir {
+                b.map_dir(".", Self::MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+            } else {
+                b.map_dir(".", "/")?
+            }
         };
 
         *builder.capabilities_mut() = self.capabilities();
@@ -300,6 +379,119 @@ impl Wasi {
         }
 
         Ok(builder)
+    }
+
+    pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {
+        let mut mapped_dirs = Vec::new();
+
+        // Process the --dirs flag and merge it with --mapdir.
+        let mut have_current_dir = false;
+        for dir in &self.pre_opened_directories {
+            let mapping = if dir == Path::new(".") {
+                if have_current_dir {
+                    bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
+                }
+                have_current_dir = true;
+
+                let current_dir =
+                    std::env::current_dir().context("could not determine current directory")?;
+
+                MappedDirectory {
+                    host: current_dir,
+                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                }
+            } else {
+                let resolved = dir.canonicalize().with_context(|| {
+                    format!(
+                        "could not canonicalize path for argument '--dir {}'",
+                        dir.display()
+                    )
+                })?;
+
+                if &resolved != dir {
+                    bail!(
+                        "Invalid argument '--dir {}': path must either be absolute, or '.'",
+                        dir.display(),
+                    );
+                }
+
+                let guest = resolved
+                    .to_str()
+                    .with_context(|| {
+                        format!(
+                            "invalid argument '--dir {}': path must be valid utf-8",
+                            dir.display(),
+                        )
+                    })?
+                    .to_string();
+
+                MappedDirectory {
+                    host: resolved,
+                    guest,
+                }
+            };
+
+            mapped_dirs.push(mapping);
+        }
+
+        for MappedDirectory { host, guest } in &self.mapped_dirs {
+            let resolved_host = host.canonicalize().with_context(|| {
+                format!(
+                    "could not canonicalize path for argument '--mapdir {}:{}'",
+                    host.display(),
+                    guest,
+                )
+            })?;
+
+            let mapping = if guest == "." {
+                if have_current_dir {
+                    bail!("Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once");
+                }
+                have_current_dir = true;
+
+                MappedDirectory {
+                    host: resolved_host,
+                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                }
+            } else {
+                MappedDirectory {
+                    host: resolved_host,
+                    guest: guest.clone(),
+                }
+            };
+            mapped_dirs.push(mapping);
+        }
+
+        Ok(mapped_dirs)
+    }
+
+    pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {
+        self.map_commands
+            .iter()
+            .map(|item| {
+                let (a, b) = item.split_once('=').with_context(|| {
+                    format!(
+                        "Invalid --map-command flag: expected <ALIAS>=<HOST_PATH>, got '{item}'"
+                    )
+                })?;
+
+                let a = a.trim();
+                let b = b.trim();
+
+                if a.is_empty() {
+                    bail!("Invalid --map-command flag - alias cannot be empty: '{item}'");
+                }
+                // TODO(theduke): check if host command exists, and canonicalize PathBuf.
+                if b.is_empty() {
+                    bail!("Invalid --map-command flag - host path cannot be empty: '{item}'");
+                }
+
+                Ok(MappedCommand {
+                    alias: a.to_string(),
+                    target: b.to_string(),
+                })
+            })
+            .collect::<Result<Vec<_>, anyhow::Error>>()
     }
 
     pub fn capabilities(&self) -> Capabilities {
