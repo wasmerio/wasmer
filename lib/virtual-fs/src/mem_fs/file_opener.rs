@@ -35,6 +35,7 @@ impl FileSystem {
                 let inode_of_file = fs.storage.vacant_entry().key();
                 let real_inode_of_file = fs.storage.insert(Node::ReadOnlyFile(ReadOnlyFileNode {
                     inode: inode_of_file,
+                    parent_inode: inode_of_parent,
                     name: name_of_file,
                     file,
                     metadata: {
@@ -111,6 +112,7 @@ impl FileSystem {
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
                 let real_inode_of_file = fs_lock.storage.insert(Node::ArcFile(ArcFileNode {
                     inode: inode_of_file,
+                    parent_inode: inode_of_parent,
                     name: name_of_file,
                     fs,
                     path: source_path,
@@ -173,6 +175,7 @@ impl FileSystem {
                 let inode_of_file = fs_lock.storage.vacant_entry().key();
                 let real_inode_of_file =
                     fs_lock.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
+                        parent_inode: inode_of_parent,
                         inode: inode_of_file,
                         name: name_of_file,
                         fs: other,
@@ -243,6 +246,7 @@ impl FileSystem {
         let inode_of_file = fs_lock.storage.vacant_entry().key();
         let real_inode_of_file = fs_lock.storage.insert(Node::CustomFile(CustomFileNode {
             inode: inode_of_file,
+            parent_inode: inode_of_parent,
             name: name_of_file,
             file: Mutex::new(file),
             metadata: {
@@ -464,6 +468,7 @@ impl crate::FileOpener for FileSystem {
                 let inode_of_file = fs.storage.vacant_entry().key();
                 let real_inode_of_file = fs.storage.insert(Node::File(FileNode {
                     inode: inode_of_file,
+                    parent_inode: inode_of_parent,
                     name: name_of_file,
                     file,
                     metadata: {

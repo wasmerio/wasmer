@@ -80,6 +80,7 @@ impl FileSystem {
             let inode_of_directory = fs.storage.vacant_entry().key();
             let real_inode_of_directory = fs.storage.insert(Node::ArcDirectory(ArcDirectoryNode {
                 inode: inode_of_directory,
+                parent_inode: inode_of_parent,
                 name: name_of_directory,
                 fs: other.clone(),
                 path: source_path,
@@ -197,6 +198,7 @@ impl crate::FileSystem for FileSystem {
             let inode_of_directory = fs.storage.vacant_entry().key();
             let real_inode_of_directory = fs.storage.insert(Node::Directory(DirectoryNode {
                 inode: inode_of_directory,
+                parent_inode: inode_of_parent,
                 name: name_of_directory,
                 children: Vec::new(),
                 metadata: {
@@ -378,6 +380,12 @@ impl crate::FileSystem for FileSystem {
                     // Add the file to its new parent, and update the modified
                     // time.
                     fs.add_child_to_node(inode_of_to_parent, inode)?;
+
+                    // Replace the inode parent
+                    let mut inode = fs.storage.get_mut(inode);
+                    if let Some(inode_mut) = inode.as_mut() {
+                        inode_mut.set_parent_inode(inode_of_to_parent);
+                    };
                 }
                 // Otherwise, we need to at least update the modified time of the parent.
                 else {
@@ -507,6 +515,10 @@ impl InodeResolution {
 }
 
 impl FileSystemInner {
+    pub(super) fn get_node(&self, inode: Inode) -> Option<&Node> {
+        self.storage.get(inode)
+    }
+
     /// Get the inode associated to a path if it exists.
     pub(super) fn inode_of(&self, path: &Path) -> Result<InodeResolution> {
         // SAFETY: The root node always exists, so it's safe to unwrap here.
@@ -865,6 +877,8 @@ impl Default for FileSystemInner {
         let mut slab = Slab::new();
         slab.insert(Node::Directory(DirectoryNode {
             inode: ROOT_INODE,
+            // TODO: Fix this
+            parent_inode: ROOT_INODE,
             name: OsString::from("/"),
             children: Vec::new(),
             metadata: Metadata {
@@ -1170,6 +1184,7 @@ mod test_filesystem {
                 matches!(
                     fs_inner.storage.get(2),
                     Some(Node::Directory(DirectoryNode {
+                        parent_inode: 1,
                         inode: 2,
                         name,
                         children,
@@ -1183,6 +1198,7 @@ mod test_filesystem {
                     fs_inner.storage.get(3),
                     Some(Node::Directory(DirectoryNode {
                         inode: 3,
+                        parent_inode: ROOT_INODE,
                         name,
                         children,
                         ..
@@ -1195,6 +1211,7 @@ mod test_filesystem {
                     fs_inner.storage.get(4),
                     Some(Node::File(FileNode {
                         inode: 4,
+                        parent_inode: 3,
                         name,
                         ..
                     })) if name == "hello1.txt"
@@ -1206,6 +1223,7 @@ mod test_filesystem {
                     fs_inner.storage.get(5),
                     Some(Node::File(FileNode {
                         inode: 5,
+                        parent_inode: 3,
                         name,
                         ..
                     })) if name == "hello2.txt"
@@ -1258,8 +1276,9 @@ mod test_filesystem {
             );
             assert!(
                 matches!(
-                    fs_inner.storage.get(1),
+                    dbg!(fs_inner.storage.get(1)),
                     Some(Node::Directory(DirectoryNode {
+                        parent_inode: 3,
                         inode: 1,
                         name,
                         children,
@@ -1272,6 +1291,7 @@ mod test_filesystem {
                 matches!(
                     fs_inner.storage.get(2),
                     Some(Node::Directory(DirectoryNode {
+                        parent_inode: 1,
                         inode: 2,
                         name,
                         children,
@@ -1284,6 +1304,7 @@ mod test_filesystem {
                 matches!(
                     fs_inner.storage.get(3),
                     Some(Node::Directory(DirectoryNode {
+                        parent_inode: ROOT_INODE,
                         inode: 3,
                         name,
                         children,
@@ -1305,9 +1326,10 @@ mod test_filesystem {
             );
             assert!(
                 matches!(
-                    fs_inner.storage.get(5),
+                    dbg!(fs_inner.storage.get(5)),
                     Some(Node::File(FileNode {
                         inode: 5,
+                        parent_inode: 1,
                         name,
                         ..
                     })) if name == "world2.txt"

@@ -301,6 +301,7 @@ impl VirtualFile for FileHandle {
 
                     *inode = Node::CustomFile(CustomFileNode {
                         inode: inode.inode(),
+                        parent_inode: inode.parent_inode(),
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
                         metadata,

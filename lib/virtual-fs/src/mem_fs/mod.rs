@@ -1,8 +1,10 @@
+mod dir;
 mod file;
 mod file_opener;
 mod filesystem;
 mod stdio;
 
+use self::dir::Directory;
 use self::file::{File, FileHandle, ReadOnlyFile};
 pub use self::filesystem::FileSystem;
 pub use self::stdio::{Stderr, Stdin, Stdout};
@@ -20,6 +22,7 @@ const ROOT_INODE: Inode = 0;
 #[derive(Debug)]
 struct FileNode {
     inode: Inode,
+    parent_inode: Inode,
     name: OsString,
     file: File,
     metadata: Metadata,
@@ -28,6 +31,7 @@ struct FileNode {
 #[derive(Debug)]
 struct ReadOnlyFileNode {
     inode: Inode,
+    parent_inode: Inode,
     name: OsString,
     file: ReadOnlyFile,
     metadata: Metadata,
@@ -36,6 +40,7 @@ struct ReadOnlyFileNode {
 #[derive(Debug)]
 struct ArcFileNode {
     inode: Inode,
+    parent_inode: Inode,
     name: OsString,
     fs: Arc<dyn crate::FileSystem + Send + Sync>,
     path: PathBuf,
@@ -45,6 +50,7 @@ struct ArcFileNode {
 #[derive(Debug)]
 struct CustomFileNode {
     inode: Inode,
+    parent_inode: Inode,
     name: OsString,
     file: Mutex<Box<dyn crate::VirtualFile + Send + Sync>>,
     metadata: Metadata,
@@ -53,6 +59,7 @@ struct CustomFileNode {
 #[derive(Debug)]
 struct DirectoryNode {
     inode: Inode,
+    parent_inode: Inode,
     name: OsString,
     children: Vec<Inode>,
     metadata: Metadata,
@@ -61,6 +68,7 @@ struct DirectoryNode {
 #[derive(Debug)]
 struct ArcDirectoryNode {
     inode: Inode,
+    parent_inode: Inode,
     name: OsString,
     fs: Arc<dyn crate::FileSystem + Send + Sync>,
     path: PathBuf,
@@ -87,6 +95,27 @@ impl Node {
             Self::Directory(DirectoryNode { inode, .. }) => inode,
             Self::ArcDirectory(ArcDirectoryNode { inode, .. }) => inode,
         }
+    }
+    fn parent_inode(&self) -> Inode {
+        *match self {
+            Self::File(FileNode { parent_inode, .. }) => parent_inode,
+            Self::ReadOnlyFile(ReadOnlyFileNode { parent_inode, .. }) => parent_inode,
+            Self::ArcFile(ArcFileNode { parent_inode, .. }) => parent_inode,
+            Self::CustomFile(CustomFileNode { parent_inode, .. }) => parent_inode,
+            Self::Directory(DirectoryNode { parent_inode, .. }) => parent_inode,
+            Self::ArcDirectory(ArcDirectoryNode { parent_inode, .. }) => parent_inode,
+        }
+    }
+    fn set_parent_inode(&mut self, parent_inode: Inode) {
+        match self {
+            Self::File(f) => {f.parent_inode = parent_inode;},
+            Self::ReadOnlyFile(f) => {f.parent_inode = parent_inode;},
+            Self::ArcFile(f) => {f.parent_inode = parent_inode;},
+            Self::CustomFile(f) => {f.parent_inode = parent_inode;},
+            Self::Directory(d) => {d.parent_inode = parent_inode;},
+            Self::ArcDirectory(d) => {d.parent_inode = parent_inode;},
+        }
+
     }
 
     fn name(&self) -> &OsStr {

@@ -128,8 +128,12 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext};
 
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
+    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
+        unimplemented!();
+    }
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
@@ -416,6 +420,29 @@ pub trait VirtualFile:
 
     /// Polls the file for when it is available for writing
     fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
+}
+
+
+pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
+    /// The parent directory of this dir
+    fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
+    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
+        unimplemented!();
+    }
+    fn read_dir(&self, path: &Path) -> Result<ReadDir>;
+    fn create_dir(&self, path: &Path) -> Result<()>;
+    fn remove_dir(&self, path: &Path) -> Result<()>;
+    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
+    fn metadata(&self, path: &Path) -> Result<Metadata>;
+    /// This method gets metadata without following symlinks in the path.
+    /// Currently identical to `metadata` because symlinks aren't implemented
+    /// yet.
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        self.metadata(path)
+    }
+    fn remove_file(&self, path: &Path) -> Result<()>;
+
+    fn new_open_options(&self) -> OpenOptions;
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
