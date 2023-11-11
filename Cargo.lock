@@ -5705,6 +5705,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "shared-buffer",
  "spinoff",
  "tar",
  "target-lexicon 0.12.12",
@@ -6584,8 +6585,7 @@ dependencies = [
 [[package]]
 name = "webc"
 version = "5.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac815d472f09ed064ef70a3046843972646727cbe55db795dd8a9925b76ed0c4"
+source = "git+https://github.com/wasmerio/pirita.git?branch=pub-traits#879b6dd05bdb8abc930842c69768eaab51392092"
 dependencies = [
  "anyhow",
  "base64",

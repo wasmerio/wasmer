@@ -63,8 +63,9 @@ virtual-fs = { version = "0.9.0", path = "../virtual-fs", default-features = fal
 virtual-net = { version = "0.6.1", path = "../virtual-net" }
 
 # Wasmer-owned dependencies.
-webc = { workspace = true }
 wasmer-deploy-cli = { version = "=0.1.29", default-features = false }
+webc.workspace = true
+shared-buffer.workspace = true
 
 # Third-party dependencies.
 

@@ -34,7 +34,7 @@ bytes = "1"
 wat = { version = "=1.0.71", optional = true }
 tracing = { version = "0.1", optional = true }
 rustc-demangle = "0.1"
-shared-buffer = "0.1"
+shared-buffer.workspace = true
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
