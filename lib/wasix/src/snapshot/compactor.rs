@@ -12,7 +12,7 @@ use super::*;
 
 struct State {
     memory_map: HashMap<Range<u64>, [u8; 32]>,
-    open_file: HashMap<Fd, FdOpenSnapshot<'static>>,
+    open_file: HashMap<Fd, SnapshotLog<'static>>,
     close_file: HashSet<Fd>,
 }
 
@@ -96,11 +96,31 @@ impl SnapshotCapturer for CompactingSnapshotCapturer {
                 }
                 SnapshotLog::OpenFileDescriptor {
                     fd,
-                    state: fd_state,
+                    dirfd,
+                    dirflags,
+                    path,
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    is_64bit,
                 } => {
                     let mut state = self.state.lock().unwrap();
                     state.close_file.remove(&fd);
-                    state.open_file.insert(fd, fd_state.into_owned());
+                    state.open_file.insert(
+                        fd,
+                        SnapshotLog::OpenFileDescriptor {
+                            fd,
+                            dirfd,
+                            dirflags,
+                            path: path.into_owned().into(),
+                            o_flags,
+                            fs_rights_base,
+                            fs_rights_inheriting,
+                            fs_flags,
+                            is_64bit,
+                        },
+                    );
                 }
                 SnapshotLog::Snapshot { .. } => {
                     let (to_close, to_open) = {
@@ -115,13 +135,8 @@ impl SnapshotCapturer for CompactingSnapshotCapturer {
                             .write(SnapshotLog::CloseFileDescriptor { fd })
                             .await?;
                     }
-                    for (fd, fd_state) in to_open {
-                        self.inner
-                            .write(SnapshotLog::OpenFileDescriptor {
-                                fd,
-                                state: fd_state,
-                            })
-                            .await?;
+                    for (_, entry) in to_open {
+                        self.inner.write(entry).await?;
                     }
                     return self.inner.write(entry).await;
                 }

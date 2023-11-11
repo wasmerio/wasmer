@@ -16,25 +16,15 @@ use crate::syscalls::*;
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
 #[instrument(level = "trace", skip_all, fields(%fd, path = field::Empty), ret)]
 pub fn path_create_directory<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let working_dir = wasi_try!(state.fs.get_fd(fd));
-    {
-        let guard = working_dir.inode.read();
-        if let Kind::Root { .. } = guard.deref() {
-            return Errno::Access;
-        }
-    }
-    if !working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
-        return Errno::Access;
-    }
-    let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
+    let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
@@ -45,8 +35,43 @@ pub fn path_create_directory<M: MemorySize>(
         );
     }
 
-    let path = std::path::PathBuf::from(&path_string);
-    let path_vec = wasi_try!(path
+    wasi_try_ok!(path_create_directory_internal(&mut ctx, fd, &path_string));
+    let env = ctx.data();
+
+    #[cfg(feature = "snapshot")]
+    if env.enable_snapshot_capture {
+        SnapshotEffector::save_path_create_directory(&mut ctx, fd, path_string).map_err(|err| {
+            tracing::error!(
+                "failed to save create directory event to snapshot capturer - {}",
+                err
+            );
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn path_create_directory_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    path: &str,
+) -> Result<(), Errno> {
+    let env = ctx.data();
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let working_dir = state.fs.get_fd(fd)?;
+    {
+        let guard = working_dir.inode.read();
+        if let Kind::Root { .. } = guard.deref() {
+            return Err(Errno::Access);
+        }
+    }
+    if !working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+        return Err(Errno::Access);
+    }
+
+    let path = std::path::PathBuf::from(path);
+    let path_vec = path
         .components()
         .map(|comp| {
             comp.as_os_str()
@@ -54,9 +79,9 @@ pub fn path_create_directory<M: MemorySize>(
                 .map(|inner_str| inner_str.to_string())
                 .ok_or(Errno::Inval)
         })
-        .collect::<Result<Vec<String>, Errno>>());
+        .collect::<Result<Vec<String>, Errno>>()?;
     if path_vec.is_empty() {
-        return Errno::Inval;
+        return Err(Errno::Inval);
     }
 
     let mut cur_dir_inode = working_dir.inode;
@@ -96,18 +121,19 @@ pub fn path_create_directory<M: MemorySize>(
                         &adjusted_path.to_string_lossy(),
                     ) {
                         if adjusted_path_stat.st_filetype != Filetype::Directory {
-                            return Errno::Notdir;
+                            return Err(Errno::Notdir);
                         }
                     } else {
-                        wasi_try!(state.fs_create_dir(&adjusted_path));
+                        state.fs_create_dir(&adjusted_path)?;
                     }
                     let kind = Kind::Dir {
                         parent: cur_dir_inode.downgrade(),
                         path: adjusted_path,
                         entries: Default::default(),
                     };
-                    let new_inode =
-                        wasi_try!(state.fs.create_inode(inodes, kind, false, comp.to_string()));
+                    let new_inode = state
+                        .fs
+                        .create_inode(inodes, kind, false, comp.to_string())?;
 
                     // reborrow to insert
                     {
@@ -122,10 +148,10 @@ pub fn path_create_directory<M: MemorySize>(
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } => return Errno::Access,
-            _ => return Errno::Notdir,
+            Kind::Root { .. } => return Err(Errno::Access),
+            _ => return Err(Errno::Notdir),
         }
     }
 
-    Errno::Success
+    Ok(())
 }

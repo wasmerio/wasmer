@@ -3,7 +3,7 @@ use tokio::sync::{mpsc::UnboundedSender, watch};
 use virtual_mio::{InterestHandler, InterestType};
 use virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::wasi::{
-    EpollCtl, EpollEvent, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
+    EpollCtl, EpollEvent, EpollEventCtl, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
 };
 
 use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
@@ -43,7 +43,43 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
         None
     };
 
-    let fd_entry = wasi_try_ok!(env.state.fs.get_fd(epfd));
+    let event_ctl = event.map(|evt| EpollEventCtl {
+        events: evt.events,
+        ptr: evt.data.ptr.into(),
+        fd: evt.data.fd,
+        data1: evt.data.data1,
+        data2: evt.data.data2,
+    });
+
+    wasi_try_ok!(epoll_ctl_internal(
+        &mut ctx,
+        epfd,
+        op,
+        fd,
+        event_ctl.as_ref()
+    )?);
+    let env = ctx.data();
+
+    #[cfg(feature = "snapshot")]
+    if env.enable_snapshot_capture {
+        SnapshotEffector::save_epoll_ctl(&mut ctx, epfd, op, fd, event_ctl).map_err(|err| {
+            tracing::error!("failed to save epoll_create event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn epoll_ctl_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    epfd: WasiFd,
+    op: EpollCtl,
+    fd: WasiFd,
+    event_ctl: Option<&EpollEventCtl>,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
+    let fd_entry = wasi_try_ok_ok!(env.state.fs.get_fd(epfd));
 
     let tasks = env.tasks().clone();
     let mut inode_guard = fd_entry.inode.read();
@@ -58,22 +94,22 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
                 tracing::trace!(fd, "unregistering waker");
             }
             if let EpollCtl::Add | EpollCtl::Mod = op {
-                if let Some(event) = event {
+                if let Some(event) = event_ctl {
                     let epoll_fd = EpollFd {
                         events: event.events,
-                        ptr: wasi_try_ok!(event.data.ptr.try_into().map_err(|_| Errno::Overflow)),
-                        fd: event.data.fd,
-                        data1: event.data.data1,
-                        data2: event.data.data2,
+                        ptr: wasi_try_ok_ok!(event.ptr.try_into().map_err(|_| Errno::Overflow)),
+                        fd: event.fd,
+                        data1: event.data1,
+                        data2: event.data2,
                     };
 
                     // Output debug
                     tracing::trace!(
                         peb = ?event.events,
-                        ptr = ?event.data.ptr,
-                        data1 = event.data.data1,
-                        data2 = event.data.data2,
-                        fd = event.data.fd,
+                        ptr = ?event.ptr,
+                        data1 = event.data1,
+                        data2 = event.data2,
+                        fd = event.fd,
                         "registering waker"
                     );
 
@@ -81,24 +117,24 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
                         // We have to register the subscription before we register the waker
                         // as otherwise there is a race condition
                         let mut guard = subscriptions.lock().unwrap();
-                        guard.insert(event.data.fd, (epoll_fd.clone(), Vec::new()));
+                        guard.insert(event.fd, (epoll_fd.clone(), Vec::new()));
                     }
 
                     // Now we register the epoll waker
                     let tx = tx.clone();
                     let mut fd_guards =
-                        wasi_try_ok!(register_epoll_waker(&env.state, &epoll_fd, tx));
+                        wasi_try_ok_ok!(register_epoll_waker(&env.state, &epoll_fd, tx));
 
                     // After the guards are created we need to attach them to the subscription
                     let mut guard = subscriptions.lock().unwrap();
-                    if let Some(subs) = guard.get_mut(&event.data.fd) {
+                    if let Some(subs) = guard.get_mut(&event.fd) {
                         subs.1.append(&mut fd_guards);
                     }
                 }
             }
-            Ok(Errno::Success)
+            Ok(Ok(()))
         }
-        _ => Ok(Errno::Inval),
+        _ => Ok(Err(Errno::Inval)),
     }
 }
 

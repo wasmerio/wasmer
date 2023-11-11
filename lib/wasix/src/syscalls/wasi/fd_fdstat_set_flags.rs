@@ -14,6 +14,27 @@ pub fn fd_fdstat_set_flags(
     fd: WasiFd,
     flags: Fdflags,
 ) -> Result<Errno, WasiError> {
+    let ret = fd_fdstat_set_flags_internal(&mut ctx, fd, flags)?;
+    let env = ctx.data();
+
+    if ret == Errno::Success {
+        #[cfg(feature = "snapshot")]
+        if env.enable_snapshot_capture {
+            SnapshotEffector::save_fd_set_flags(&mut ctx, fd, flags).map_err(|err| {
+                tracing::error!("failed to save file set flags event - {}", err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })?;
+        }
+    }
+
+    Ok(ret)
+}
+
+pub(crate) fn fd_fdstat_set_flags_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    flags: Fdflags,
+) -> Result<Errno, WasiError> {
     {
         let env = ctx.data();
         let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };

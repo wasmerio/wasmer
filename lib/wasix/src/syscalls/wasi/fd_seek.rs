@@ -23,20 +23,51 @@ pub fn fd_seek<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    let new_offset = wasi_try_ok!(fd_seek_internal(&mut ctx, fd, offset, whence)?);
+    let env = ctx.data();
+
+    #[cfg(feature = "snapshot")]
+    if env.enable_snapshot_capture {
+        SnapshotEffector::save_fd_seek(&mut ctx, fd, offset, whence).map_err(|err| {
+            tracing::error!("failed to save file descriptor seek event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    // reborrow
+    let env = ctx.data();
+    let memory = unsafe { env.memory_view(&ctx) };
+    let new_offset_ref = newoffset.deref(&memory);
+    let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
+    wasi_try_mem_ok!(new_offset_ref.write(new_offset));
+
+    trace!(
+        %new_offset,
+    );
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn fd_seek_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    offset: FileDelta,
+    whence: Whence,
+) -> Result<Result<Filesize, Errno>, WasiError> {
     let env = ctx.data();
     let state = env.state.clone();
     let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
-    let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
+    let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
 
     if !fd_entry.rights.contains(Rights::FD_SEEK) {
-        return Ok(Errno::Access);
+        return Ok(Err(Errno::Access));
     }
 
     // TODO: handle case if fd is a dir?
     let new_offset = match whence {
         Whence::Cur => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
 
             #[allow(clippy::comparison_chain)]
             if offset > 0 {
@@ -62,7 +93,7 @@ pub fn fd_seek<M: MemorySize>(
                         let handle = handle.clone();
                         drop(guard);
 
-                        wasi_try_ok!(__asyncify(&mut ctx, None, async move {
+                        wasi_try_ok_ok!(__asyncify(ctx, None, async move {
                             let mut handle = handle.write().unwrap();
                             let end = handle
                                 .seek(SeekFrom::End(offset))
@@ -77,7 +108,7 @@ pub fn fd_seek<M: MemorySize>(
                             Ok(())
                         })?);
                     } else {
-                        return Ok(Errno::Inval);
+                        return Ok(Err(Errno::Inval));
                     }
                 }
                 Kind::Symlink { .. } => {
@@ -90,34 +121,24 @@ pub fn fd_seek<M: MemorySize>(
                 | Kind::EventNotifications { .. }
                 | Kind::Epoll { .. } => {
                     // TODO: check this
-                    return Ok(Errno::Inval);
+                    return Ok(Err(Errno::Inval));
                 }
                 Kind::Buffer { .. } => {
                     // seeking buffers probably makes sense
                     // FIXME: implement this
-                    return Ok(Errno::Inval);
+                    return Ok(Err(Errno::Inval));
                 }
             }
             fd_entry.offset.load(Ordering::Acquire)
         }
         Whence::Set => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
             fd_entry.offset.store(offset as u64, Ordering::Release);
             offset as u64
         }
-        _ => return Ok(Errno::Inval),
+        _ => return Ok(Err(Errno::Inval)),
     };
-    // reborrow
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-    let new_offset_ref = newoffset.deref(&memory);
-    let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
-    wasi_try_mem_ok!(new_offset_ref.write(new_offset));
 
-    trace!(
-        %new_offset,
-    );
-
-    Ok(Errno::Success)
+    Ok(Ok(new_offset))
 }

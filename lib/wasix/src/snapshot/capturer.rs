@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::net::SocketAddr;
 use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
 use wasmer_wasix_types::wasi::{
-    Advice, EpollCtl, ExitCode, Filesize, Fstflags, LookupFlags, Snapshot0Clockid, Timestamp, Tty,
+    Advice, EpollCtl, EpollEventCtl, ExitCode, Fdflags, FileDelta, Filesize, Fstflags, LookupFlags,
+    Oflags, Rights, Snapshot0Clockid, Timestamp, Tty, Whence,
 };
 
 use futures::future::LocalBoxFuture;
@@ -36,76 +36,17 @@ pub enum SocketSnapshot {
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FdOpenSnapshot<'a> {
-    Stdin {
-        non_blocking: bool,
-    },
-    Stdout {
-        non_blocking: bool,
-    },
-    Stderr {
-        non_blocking: bool,
-    },
-    OpenFile {
-        path: Cow<'a, str>,
-        offset: u64,
-        read: bool,
-        write: bool,
-        non_blocking: bool,
-    },
-    Socket {
-        state: SocketSnapshot,
-        non_blocking: bool,
-    },
-}
-
-impl<'a> FdOpenSnapshot<'a> {
-    pub fn into_owned(self) -> FdOpenSnapshot<'static> {
-        match self {
-            FdOpenSnapshot::Stdin { non_blocking } => FdOpenSnapshot::Stdin { non_blocking },
-            FdOpenSnapshot::Stdout { non_blocking } => FdOpenSnapshot::Stdout { non_blocking },
-            FdOpenSnapshot::Stderr { non_blocking } => FdOpenSnapshot::Stderr { non_blocking },
-            FdOpenSnapshot::OpenFile {
-                path,
-                offset,
-                read,
-                write,
-                non_blocking,
-            } => FdOpenSnapshot::OpenFile {
-                path: Cow::Owned(path.into_owned()),
-                offset,
-                read,
-                write,
-                non_blocking,
-            },
-            FdOpenSnapshot::Socket {
-                state,
-                non_blocking,
-            } => FdOpenSnapshot::Socket {
-                state,
-                non_blocking,
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum FileEntryType {
-    Directory,
-    File,
-    Symlink,
-    CharDevice,
-    BlockDevice,
-    Socket,
-    Fifo,
-}
-
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
+#[derive(Debug)]
 pub enum SnapshotLog<'a> {
     Init {
         wasm_hash: [u8; 32],
+    },
+    FileDescriptorSeek {
+        fd: Fd,
+        offset: FileDelta,
+        whence: Whence,
     },
     FileDescriptorWrite {
         fd: Fd,
@@ -137,15 +78,22 @@ pub enum SnapshotLog<'a> {
     },
     OpenFileDescriptor {
         fd: Fd,
-        state: FdOpenSnapshot<'a>,
+        dirfd: Fd,
+        dirflags: LookupFlags,
+        path: Cow<'a, str>,
+        o_flags: Oflags,
+        fs_rights_base: Rights,
+        fs_rights_inheriting: Rights,
+        fs_flags: Fdflags,
+        is_64bit: bool,
     },
     RenumberFileDescriptor {
         old_fd: Fd,
         new_fd: Fd,
     },
     DuplicateFileDescriptor {
-        old_fd: Fd,
-        new_fd: Fd,
+        original_fd: Fd,
+        copied_fd: Fd,
     },
     CreateDirectory {
         fd: Fd,
@@ -155,15 +103,32 @@ pub enum SnapshotLog<'a> {
         fd: Fd,
         path: Cow<'a, str>,
     },
+    PathSetTimes {
+        fd: Fd,
+        flags: LookupFlags,
+        path: Cow<'a, str>,
+        st_atim: Timestamp,
+        st_mtim: Timestamp,
+        fst_flags: Fstflags,
+    },
     FileDescriptorSetTimes {
         fd: Fd,
         st_atim: Timestamp,
         st_mtim: Timestamp,
         fst_flags: Fstflags,
     },
+    FileDescriptorSetFlags {
+        fd: Fd,
+        flags: Fdflags,
+    },
+    FileDescriptorSetRights {
+        fd: Fd,
+        fs_rights_base: Rights,
+        fs_rights_inheriting: Rights,
+    },
     FileDescriptorSetSize {
         fd: Fd,
-        size: Filesize,
+        st_size: Filesize,
     },
     FileDescriptorAdvise {
         fd: Fd,
@@ -184,9 +149,8 @@ pub enum SnapshotLog<'a> {
         new_path: Cow<'a, str>,
     },
     CreateSymbolicLink {
-        old_fd: Fd,
         old_path: Cow<'a, str>,
-        new_fd: Fd,
+        fd: Fd,
         new_path: Cow<'a, str>,
     },
     UnlinkFile {
@@ -209,9 +173,11 @@ pub enum SnapshotLog<'a> {
         epfd: Fd,
         op: EpollCtl,
         fd: Fd,
+        event: Option<EpollEventCtl>,
     },
     TtySet {
         tty: Tty,
+        line_feeds: bool,
     },
     CreatePipe {
         fd1: Fd,
@@ -222,107 +188,6 @@ pub enum SnapshotLog<'a> {
         when: SystemTime,
         trigger: SnapshotTrigger,
     },
-}
-
-impl fmt::Debug for SnapshotLog<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Init { wasm_hash } => f
-                .debug_struct("Init")
-                .field("wasm_hash.len", &wasm_hash.len())
-                .finish(),
-            Self::FileDescriptorWrite {
-                fd,
-                offset,
-                data,
-                is_64bit,
-            } => f
-                .debug_struct("TerminalData")
-                .field("fd", &fd)
-                .field("offset", &offset)
-                .field("data.len", &data.len())
-                .field("is_64bit", &is_64bit)
-                .finish(),
-            Self::UpdateMemoryRegion { region, data } => f
-                .debug_struct("UpdateMemoryRegion")
-                .field("region", region)
-                .field("data.len", &data.len())
-                .finish(),
-            Self::CloseThread { id, exit_code } => f
-                .debug_struct("CloseThread")
-                .field("id", id)
-                .field("exit_code", exit_code)
-                .finish(),
-            Self::SetThread {
-                id,
-                call_stack,
-                memory_stack,
-                store_data,
-                is_64bit,
-            } => f
-                .debug_struct("SetThread")
-                .field("id", id)
-                .field("call_stack.len", &call_stack.len())
-                .field("memory_stack.len", &memory_stack.len())
-                .field("store_data.len", &store_data.len())
-                .field("is_64bit", is_64bit)
-                .finish(),
-            Self::CloseFileDescriptor { fd } => f
-                .debug_struct("CloseFileDescriptor")
-                .field("fd", fd)
-                .finish(),
-            Self::OpenFileDescriptor { fd, state } => f
-                .debug_struct("OpenFileDescriptor")
-                .field("fd", fd)
-                .field("state", state)
-                .finish(),
-            Self::RemoveDirectory { fd, path } => f
-                .debug_struct("RemoveDirectory")
-                .field("fd", fd)
-                .field("path", path)
-                .finish(),
-            Self::UnlinkFile { fd, path } => f
-                .debug_struct("UnlinkFile")
-                .field("fd", fd)
-                .field("path", path)
-                .finish(),
-            Self::PathRename {
-                old_fd,
-                old_path,
-                new_fd,
-                new_path,
-            } => f
-                .debug_struct("UnlinkFile")
-                .field("old_fd", old_fd)
-                .field("old_path", old_path)
-                .field("new_fd", new_fd)
-                .field("new_path", new_path)
-                .finish(),
-            Self::UpdateFileSystemEntry {
-                path,
-                ft,
-                accessed,
-                created,
-                modified,
-                len,
-                data,
-            } => f
-                .debug_struct("UpdateFileSystemEntry")
-                .field("path", path)
-                .field("ft", ft)
-                .field("accessed", accessed)
-                .field("created", created)
-                .field("modified", modified)
-                .field("len", len)
-                .field("data.len", &data.len())
-                .finish(),
-            Self::Snapshot { when, trigger } => f
-                .debug_struct("Snapshot")
-                .field("when", when)
-                .field("trigger", trigger)
-                .finish(),
-        }
-    }
 }
 
 /// The snapshot capturer will take a series of objects that represents the state of

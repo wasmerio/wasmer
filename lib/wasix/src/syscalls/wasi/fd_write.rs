@@ -103,7 +103,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     should_update_cursor: bool,
     should_snapshot: bool,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let mut env = ctx.data();
     let state = env.state.clone();
@@ -375,14 +375,14 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         #[cfg(feature = "snapshot")]
         if should_snapshot && can_snapshot && bytes_written > 0 {
             if let FdWriteSource::Iovs { iovs, iovs_len } = data {
-                SnapshotEffector::save_write(&mut ctx, fd, offset, bytes_written, iovs, iovs_len)
+                SnapshotEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
                     .map_err(|err| {
-                    tracing::error!(
-                        "failed to save terminal data to snapshot capturer - {}",
-                        err
-                    );
-                    WasiError::Exit(ExitCode::Errno(Errno::Fault))
-                })?;
+                        tracing::error!(
+                            "failed to save terminal data to snapshot capturer - {}",
+                            err
+                        );
+                        WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                    })?;
             }
         }
 

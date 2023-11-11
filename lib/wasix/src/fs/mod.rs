@@ -1671,6 +1671,22 @@ impl WasiFs {
         Ok(idx)
     }
 
+    pub fn make_max_fd(&self, fd: u32) {
+        loop {
+            let existing = self.next_fd.load(Ordering::SeqCst);
+            if existing >= fd {
+                return;
+            }
+            if self
+                .next_fd
+                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
+                .is_ok()
+            {
+                break;
+            }
+        }
+    }
+
     pub fn create_fd_ext(
         &self,
         rights: Rights,

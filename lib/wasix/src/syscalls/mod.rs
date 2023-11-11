@@ -1313,11 +1313,18 @@ pub fn restore_snapshot(
                     is_64bit,
                 } => {
                     if is_64bit {
-                        SnapshotEffector::apply_write::<Memory32>(&mut ctx, fd, offset, data).await
+                        SnapshotEffector::apply_fd_write::<Memory64>(&mut ctx, fd, offset, data)
+                            .await
                     } else {
-                        SnapshotEffector::apply_write::<Memory64>(&mut ctx, fd, offset, data).await
+                        SnapshotEffector::apply_fd_write::<Memory32>(&mut ctx, fd, offset, data)
+                            .await
                     }
                     .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorSeek { fd, offset, whence } => {
+                    SnapshotEffector::apply_fd_seek(&mut ctx, fd, offset, whence)
+                        .await
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::UpdateMemoryRegion { region, data } => {
                     SnapshotEffector::apply_memory(&mut ctx, region, &data)
@@ -1356,28 +1363,41 @@ pub fn restore_snapshot(
                         )));
                     }
                 }
-                crate::snapshot::SnapshotLog::CloseFileDescriptor { fd: _ } => {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                        anyhow::format_err!(
-                            "Snapshot restoration does not currently support file descriptors."
-                        )
-                        .into(),
-                    )));
+                crate::snapshot::SnapshotLog::CloseFileDescriptor { fd } => {
+                    SnapshotEffector::apply_fd_close(&mut ctx, fd)
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::snapshot::SnapshotLog::OpenFileDescriptor { fd: _, state: _ } => {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                        anyhow::format_err!(
-                            "Snapshot restoration does not currently support file descriptors."
-                        )
-                        .into(),
-                    )));
+                crate::snapshot::SnapshotLog::OpenFileDescriptor {
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path,
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    is_64bit,
+                } => {
+                    SnapshotEffector::apply_path_open(
+                        &mut ctx,
+                        fd,
+                        dirfd,
+                        dirflags,
+                        &path,
+                        o_flags,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        is_64bit,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::RemoveDirectory { fd, path } => {
-                    SnapshotEffector::apply_remove_directory(&mut ctx, fd, &path)
+                    SnapshotEffector::apply_path_remove_directory(&mut ctx, fd, &path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::UnlinkFile { fd, path } => {
-                    SnapshotEffector::apply_unlink_file(&mut ctx, fd, &path)
+                    SnapshotEffector::apply_path_unlink(&mut ctx, fd, &path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::PathRename {
@@ -1386,24 +1406,10 @@ pub fn restore_snapshot(
                     new_fd,
                     new_path,
                 } => {
-                    SnapshotEffector::apply_rename(&mut ctx, old_fd, &old_path, new_fd, &new_path)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::snapshot::SnapshotLog::UpdateFileSystemEntry {
-                    path: _,
-                    ft: _,
-                    accessed: _,
-                    created: _,
-                    modified: _,
-                    len: _,
-                    data: _,
-                } => {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                        anyhow::format_err!(
-                            "Snapshot restoration does not currently support local file changes."
-                        )
-                        .into(),
-                    )));
+                    SnapshotEffector::apply_path_rename(
+                        &mut ctx, old_fd, &old_path, new_fd, &new_path,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::snapshot::SnapshotLog::Snapshot {
                     when: _,
@@ -1415,6 +1421,140 @@ pub fn restore_snapshot(
                         }
                         *n_snapshots -= 1;
                     }
+                }
+                crate::snapshot::SnapshotLog::SetClockTime { clock_id, time } => {
+                    SnapshotEffector::apply_clock_time_set(&mut ctx, clock_id, time)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::RenumberFileDescriptor { old_fd, new_fd } => {
+                    SnapshotEffector::apply_fd_renumber(&mut ctx, old_fd, new_fd)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::DuplicateFileDescriptor {
+                    original_fd,
+                    copied_fd,
+                } => {
+                    SnapshotEffector::apply_fd_duplicate(&mut ctx, original_fd, copied_fd)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::CreateDirectory { fd, path } => {
+                    SnapshotEffector::apply_path_create_directory(&mut ctx, fd, &path)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::PathSetTimes {
+                    fd,
+                    flags,
+                    path,
+                    st_atim,
+                    st_mtim,
+                    fst_flags,
+                } => {
+                    SnapshotEffector::apply_path_set_times(
+                        &mut ctx, fd, flags, &path, st_atim, st_mtim, fst_flags,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorSetTimes {
+                    fd,
+                    st_atim,
+                    st_mtim,
+                    fst_flags,
+                } => {
+                    SnapshotEffector::apply_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorSetSize { fd, st_size } => {
+                    SnapshotEffector::apply_fd_set_size(&mut ctx, fd, st_size)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorSetFlags { fd, flags } => {
+                    SnapshotEffector::apply_fd_set_flags(&mut ctx, fd, flags)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorSetRights {
+                    fd,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                } => {
+                    SnapshotEffector::apply_fd_set_rights(
+                        &mut ctx,
+                        fd,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorAdvise {
+                    fd,
+                    offset,
+                    len,
+                    advice,
+                } => {
+                    SnapshotEffector::apply_fd_advise(&mut ctx, fd, offset, len, advice)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::FileDescriptorAllocate { fd, offset, len } => {
+                    SnapshotEffector::apply_fd_allocate(&mut ctx, fd, offset, len)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::CreateHardLink {
+                    old_fd,
+                    old_path,
+                    old_flags,
+                    new_fd,
+                    new_path,
+                } => {
+                    SnapshotEffector::apply_path_link(
+                        &mut ctx, old_fd, old_flags, &old_path, new_fd, &new_path,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::CreateSymbolicLink {
+                    old_path,
+                    fd,
+                    new_path,
+                } => {
+                    SnapshotEffector::apply_path_symlink(&mut ctx, &old_path, fd, &new_path)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::ChangeDirectory { path } => {
+                    SnapshotEffector::apply_chdir(&mut ctx, &path)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::CreatePipe { fd1, fd2 } => {
+                    SnapshotEffector::apply_fd_pipe(&mut ctx, fd1, fd2)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::EpollCreate { fd } => {
+                    SnapshotEffector::apply_epoll_create(&mut ctx, fd)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::EpollCtl {
+                    epfd,
+                    op,
+                    fd,
+                    event,
+                } => {
+                    SnapshotEffector::apply_epoll_ctl(&mut ctx, epfd, op, fd, event)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::snapshot::SnapshotLog::TtySet { tty, line_feeds } => {
+                    SnapshotEffector::apply_tty_set(
+                        &mut ctx,
+                        crate::WasiTtyState {
+                            cols: tty.cols,
+                            rows: tty.rows,
+                            width: tty.width,
+                            height: tty.height,
+                            stdin_tty: tty.stdin_tty,
+                            stdout_tty: tty.stdout_tty,
+                            stderr_tty: tty.stderr_tty,
+                            echo: tty.echo,
+                            line_buffered: tty.line_buffered,
+                            line_feeds: line_feeds,
+                        },
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
                 }
             }
         }

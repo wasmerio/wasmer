@@ -1,3 +1,4 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
@@ -100,7 +101,7 @@ impl core::fmt::Debug for Clockid {
 #[doc = " API; some are used in higher-level library layers, and others are provided"]
 #[doc = " merely for alignment with POSIX."]
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, TryFromPrimitive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Errno {
     #[doc = " No error occurred. System call completed successfully."]
@@ -639,7 +640,7 @@ impl core::fmt::Debug for Dirent {
 }
 #[doc = " File or memory access pattern advisory information."]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
 pub enum Advice {
     #[doc = " The application has no advice to give on its behavior with respect to the specified data."]
     Normal,
@@ -1186,7 +1187,7 @@ impl core::fmt::Debug for Whence {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Tty {
     pub cols: u32,
     pub rows: u32,
