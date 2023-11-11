@@ -320,6 +320,10 @@ impl WasiFs {
     pub async fn close_all(&self) {
         // TODO: this should close all uniquely owned files instead of just flushing.
 
+        if let Ok(mut map) = self.fd_map.write() {
+            map.clear();
+        }
+
         let to_close = {
             if let Ok(map) = self.fd_map.read() {
                 map.keys().copied().collect::<Vec<_>>()
@@ -329,7 +333,7 @@ impl WasiFs {
         };
 
         let _ = tokio::join!(
-            // Make sure the STDOUT and STDERR are explicitly flushed
+            // Make sure the STDOUT and STDERR are explicitely flushed
             self.flush(__WASI_STDOUT_FILENO),
             self.flush(__WASI_STDERR_FILENO),
             async {
@@ -339,10 +343,6 @@ impl WasiFs {
                 }
             }
         );
-
-        if let Ok(mut map) = self.fd_map.write() {
-            map.clear();
-        }
     }
 
     /// Created for the builder API. like `new` but with more information
