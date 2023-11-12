@@ -15,7 +15,7 @@ use webc::{
     Container,
 };
 
-use crate::runtime::resolver::PackageId;
+use crate::resolver::PackageId;
 
 /// A reference to *some* package somewhere that the user wants to run.
 ///
@@ -25,7 +25,7 @@ use crate::runtime::resolver::PackageId;
 /// [`Source`][source] will eventually query. Consumers of [`PackageSpecifier`]
 /// should be wary of sandbox escapes.
 ///
-/// [source]: crate::runtime::resolver::Source
+/// [source]: crate::resolver::Source
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PackageSpecifier {
     Registry {
@@ -146,7 +146,7 @@ impl Dependency {
 /// Some metadata a [`Source`][source] can provide about a package without
 /// needing to download the entire `*.webc` file.
 ///
-/// [source]: crate::runtime::resolver::Source
+/// [source]: crate::resolver::Source
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageSummary {
     pub pkg: PackageInfo,
@@ -162,7 +162,7 @@ impl PackageSummary {
         let path = path.as_ref().canonicalize()?;
         let container = Container::from_disk(&path)?;
         let webc_sha256 = WebcHash::for_file(&path)?;
-        let url = crate::runtime::resolver::utils::url_from_file_path(&path).ok_or_else(|| {
+        let url = crate::resolver::utils::url_from_file_path(&path).ok_or_else(|| {
             anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
         })?;
 
@@ -213,7 +213,7 @@ impl PackageInfo {
         let commands = manifest
             .commands
             .iter()
-            .map(|(name, _value)| crate::runtime::resolver::Command {
+            .map(|(name, _value)| crate::resolver::Command {
                 name: name.to_string(),
             })
             .collect();

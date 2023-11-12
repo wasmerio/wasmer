@@ -4,8 +4,8 @@ use anyhow::Error;
 use webc::compat::Container;
 
 use crate::{
-    bin_factory::BinaryPackage,
-    runtime::resolver::{PackageSummary, Resolution},
+    binary_package::BinaryPackage,
+    resolver::{PackageSummary, Resolution},
 };
 
 #[async_trait::async_trait]

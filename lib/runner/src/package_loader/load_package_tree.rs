@@ -16,13 +16,11 @@ use webc::{
 };
 
 use crate::{
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
-    runtime::{
-        package_loader::PackageLoader,
-        resolver::{
-            DependencyGraph, ItemLocation, PackageId, PackageSummary, Resolution,
-            ResolvedFileSystemMapping, ResolvedPackage,
-        },
+    binary_package::{BinaryPackage, BinaryPackageCommand},
+    package_loader::PackageLoader,
+    resolver::{
+        DependencyGraph, ItemLocation, PackageId, PackageSummary, Resolution,
+        ResolvedFileSystemMapping, ResolvedPackage,
     },
 };
 
@@ -244,7 +242,7 @@ async fn fetch_dependencies(
     packages.remove(&pkg.root_package);
 
     let packages = packages.into_iter().filter_map(|id| {
-        let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
+        let crate::resolver::Node { pkg, dist, .. } = &graph[&id];
         let summary = PackageSummary {
             pkg: pkg.clone(),
             dist: dist.clone()?,

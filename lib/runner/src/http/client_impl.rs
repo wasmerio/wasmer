@@ -7,7 +7,7 @@ use crate::{
     bindings::wasix_http_client_v1 as sys,
     capabilities::Capabilities,
     http::{DynHttpClient, HttpClientCapabilityV1},
-    runtime::task_manager::InlineWaker,
+    task_manager::InlineWaker,
     Runtime, WasiEnv,
 };
 

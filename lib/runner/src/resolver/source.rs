@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display};
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary};
+use crate::resolver::{PackageSpecifier, PackageSummary};
 
 /// Something that packages can be downloaded from.
 #[async_trait::async_trait]
@@ -14,7 +14,7 @@ pub trait Source: Sync + Debug {
     /// will be at least one [`PackageSummary`], otherwise implementations
     /// should return [`QueryError::NotFound`] or [`QueryError::NoMatches`].
     ///
-    /// [dep]: crate::runtime::resolver::Dependency
+    /// [dep]: crate::resolver::Dependency
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError>;
 
     /// Run [`Source::query()`] and get the [`PackageSummary`] for the latest

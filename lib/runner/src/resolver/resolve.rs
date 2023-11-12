@@ -9,7 +9,7 @@ use petgraph::{
 };
 use semver::Version;
 
-use crate::runtime::resolver::{
+use crate::resolver::{
     outputs::{Edge, Node},
     DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSpecifier, PackageSummary,
     QueryError, Resolution, ResolvedPackage, Source,
@@ -395,7 +395,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 mod tests {
     use std::path::PathBuf;
 
-    use crate::runtime::resolver::{
+    use crate::resolver::{
         inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
         Dependency, InMemorySource, MultiSource, PackageSpecifier,
     };
@@ -482,12 +482,9 @@ mod tests {
         }
 
         fn with_command(&mut self, name: &str) -> &mut Self {
-            self.summary
-                .pkg
-                .commands
-                .push(crate::runtime::resolver::Command {
-                    name: name.to_string(),
-                });
+            self.summary.pkg.commands.push(crate::resolver::Command {
+                name: name.to_string(),
+            });
             self
         }
 

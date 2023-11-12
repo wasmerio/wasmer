@@ -2,11 +2,9 @@ use anyhow::Error;
 use webc::compat::Container;
 
 use crate::{
-    bin_factory::BinaryPackage,
-    runtime::{
-        package_loader::PackageLoader,
-        resolver::{PackageSummary, Resolution},
-    },
+    binary_package::BinaryPackage,
+    package_loader::PackageLoader,
+    resolver::{PackageSummary, Resolution},
 };
 
 /// A [`PackageLoader`] implementation which will always error out.

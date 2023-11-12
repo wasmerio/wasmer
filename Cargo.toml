@@ -26,6 +26,7 @@ wasi-test-generator = { version = "=4.2.3", path = "tests/wasi-wast", optional =
 wasmer-cache = { version = "=4.2.3", path = "lib/cache", optional = true }
 wasmer-types = { version = "=4.2.3", path = "lib/types" }
 wasmer-middlewares = { version = "=4.2.3", path = "lib/middlewares", optional = true }
+wasmer-runner = { version = "=0.1.0", path = "lib/runner", optional = true }
 cfg-if = "1.0"
 tokio = { version = "1", features = [
     "rt",

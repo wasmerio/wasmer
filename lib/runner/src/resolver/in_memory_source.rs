@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use semver::Version;
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+use crate::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -126,17 +126,17 @@ impl Source for InMemorySource {
 mod tests {
     use tempfile::TempDir;
 
-    use crate::runtime::resolver::{
+    use crate::resolver::{
         inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
         Dependency, WebcHash,
     };
 
     use super::*;
 
-    const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
-    const COREUTILS_16: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
-    const COREUTILS_11: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
-    const BASH: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
+    const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const COREUTILS_16: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
+    const COREUTILS_11: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
+    const BASH: &[u8] = include_bytes!("../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
 
     #[test]
     fn load_a_directory_tree() {
@@ -170,7 +170,7 @@ mod tests {
                         alias: "coreutils".to_string(),
                         pkg: "sharrattj/coreutils@^1.0.16".parse().unwrap()
                     }],
-                    commands: vec![crate::runtime::resolver::Command {
+                    commands: vec![crate::resolver::Command {
                         name: "bash".to_string(),
                     }],
                     entrypoint: Some("bash".to_string()),
@@ -182,10 +182,8 @@ mod tests {
                     }],
                 },
                 dist: DistributionInfo {
-                    webc: crate::runtime::resolver::utils::url_from_file_path(
-                        bash.canonicalize().unwrap()
-                    )
-                    .unwrap(),
+                    webc: crate::resolver::utils::url_from_file_path(bash.canonicalize().unwrap())
+                        .unwrap(),
                     webc_sha256: WebcHash::from_bytes([
                         161, 101, 23, 194, 244, 92, 186, 213, 143, 33, 200, 128, 238, 23, 185, 174,
                         180, 195, 144, 145, 78, 17, 227, 159, 118, 64, 83, 153, 0, 205, 253, 215,

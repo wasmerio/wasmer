@@ -12,7 +12,7 @@ use webc::metadata::Manifest;
 
 use crate::{
     http::{HttpClient, HttpRequest, USER_AGENT},
-    runtime::resolver::{
+    resolver::{
         DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
         WebcHash,
     },
@@ -425,7 +425,7 @@ mod tests {
 
     use crate::{
         http::HttpResponse,
-        runtime::resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+        resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
     };
 
     use super::*;
@@ -494,7 +494,7 @@ mod tests {
                     version: Version::new(0, 6, 0),
                     dependencies: Vec::new(),
                     commands: vec![
-                        crate::runtime::resolver::Command {
+                        crate::resolver::Command {
                             name: "wasmer-pack".to_string(),
                         },
                     ],

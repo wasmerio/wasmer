@@ -13,8 +13,12 @@ use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
-use crate::syscalls::AsyncifyFuture;
-use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::snapshot::{capture_snapshot, InstanceSnapshot};
+use crate::{WasiEnv, WasiFunctionEnv, WasiThread};
+
+/// Future that will be polled by asyncify methods
+#[doc(hidden)]
+pub type AsyncifyFuture = dyn Future<Output = Bytes> + Send + Sync + 'static;
 
 pub use virtual_mio::waker::*;
 

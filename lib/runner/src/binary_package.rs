@@ -8,10 +8,8 @@ use virtual_fs::FileSystem;
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
-    runtime::{
-        module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
-    },
+    module_cache::ModuleHash,
+    resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
     Runtime,
 };
 
@@ -89,7 +87,7 @@ impl BinaryPackage {
             version: root.version.clone(),
         };
 
-        let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
+        let resolution = crate::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
             .package_loader()
             .load_package_tree(container, &resolution)
@@ -117,7 +115,7 @@ impl BinaryPackage {
         let root = runtime.package_loader().load(&root_summary).await?;
         let id = root_summary.package_id();
 
-        let resolution = crate::runtime::resolver::resolve(&id, &root_summary.pkg, &source)
+        let resolution = crate::resolver::resolve(&id, &root_summary.pkg, &source)
             .await
             .context("Dependency resolution failed")?;
         let pkg = runtime
@@ -158,8 +156,7 @@ mod tests {
     use virtual_fs::AsyncReadExt;
 
     use crate::{
-        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
-        PluggableRuntime,
+        package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager, PluggableRuntime,
     };
 
     use super::*;
@@ -167,7 +164,7 @@ mod tests {
     fn task_manager() -> Arc<dyn VirtualTaskManager + Send + Sync> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "sys-thread")] {
-                Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(tokio::runtime::Handle::current()))
+                Arc::new(crate::task_manager::tokio::TokioTaskManager::new(tokio::runtime::Handle::current()))
             } else {
                 unimplemented!("Unable to get the task manager")
             }

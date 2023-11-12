@@ -1,6 +1,6 @@
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::module_cache::{CacheError, ModuleCache, ModuleHash};
 
 /// [`FallbackCache`] is a combinator for the [`ModuleCache`] trait that enables
 /// the chaining of two caching strategies together, typically via
@@ -104,7 +104,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
-    use crate::runtime::module_cache::SharedCache;
+    use crate::module_cache::SharedCache;
 
     const ADD_WAT: &[u8] = br#"(
         module

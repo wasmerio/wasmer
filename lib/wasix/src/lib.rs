@@ -42,20 +42,13 @@ mod macros;
 pub mod bin_factory;
 pub mod os;
 // TODO: should this be pub?
-pub mod net;
-// TODO: should this be pub?
-pub mod capabilities;
 pub mod fs;
-pub mod http;
+pub mod net;
 mod rewind;
 pub mod runners;
-pub mod runtime;
 mod state;
 mod syscalls;
 mod utils;
-
-/// WAI based bindings.
-mod bindings;
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};

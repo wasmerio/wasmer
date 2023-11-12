@@ -6,7 +6,7 @@ use std::{
 use tempfile::NamedTempFile;
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::module_cache::{CacheError, ModuleCache, ModuleHash};
 
 /// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].

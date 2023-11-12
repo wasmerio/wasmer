@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+use crate::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
 
 /// A [`Source`] that works by querying multiple [`Source`]s in succession.
 ///
@@ -15,7 +15,7 @@ use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Sou
 /// will be treated as the canonical source for that [`Dependency`][dep] and no
 /// further [`Source`]s will be queried.
 ///
-/// [dep]: crate::runtime::resolver::Dependency
+/// [dep]: crate::resolver::Dependency
 #[derive(Debug, Clone)]
 pub struct MultiSource {
     sources: Vec<Arc<dyn Source + Send + Sync>>,

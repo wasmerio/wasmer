@@ -1,8 +1,12 @@
 pub mod binary_package;
+pub mod bindings;
+pub mod capabilities;
+pub mod http;
 pub mod module_cache;
 pub mod package_loader;
 pub mod resolver;
 pub mod runner;
+pub mod snapshot;
 pub mod task_manager;
 pub mod tty_sys;
 
@@ -23,11 +27,9 @@ use wasmer::Module;
 
 use crate::{
     http::{DynHttpClient, HttpClient},
-    runtime::{
-        module_cache::{ModuleCache, ThreadLocalCache},
-        package_loader::{PackageLoader, UnsupportedPackageLoader},
-        resolver::{MultiSource, Source, WapmSource},
-    },
+    module_cache::{ModuleCache, ThreadLocalCache},
+    package_loader::{PackageLoader, UnsupportedPackageLoader},
+    resolver::{MultiSource, Source, WapmSource},
 };
 
 /// Runtime components used when running WebAssembly programs.

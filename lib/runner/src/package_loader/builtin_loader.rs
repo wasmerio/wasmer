@@ -16,12 +16,10 @@ use webc::{
 };
 
 use crate::{
-    bin_factory::BinaryPackage,
+    binary_package::BinaryPackage,
     http::{HttpClient, HttpRequest, USER_AGENT},
-    runtime::{
-        package_loader::PackageLoader,
-        resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
-    },
+    package_loader::PackageLoader,
+    resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
 };
 
 /// The builtin [`PackageLoader`] that is used by the `wasmer` CLI and
@@ -99,7 +97,7 @@ impl BuiltinPackageLoader {
     #[tracing::instrument(level = "debug", skip_all, fields(%dist.webc, %dist.webc_sha256))]
     async fn download(&self, dist: &DistributionInfo) -> Result<Bytes, Error> {
         if dist.webc.scheme() == "file" {
-            match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
+            match crate::resolver::utils::file_path_from_url(&dist.webc) {
                 Ok(path) => {
                     // FIXME: This will block the thread
                     let bytes = std::fs::read(&path)
@@ -139,7 +137,7 @@ impl BuiltinPackageLoader {
 
         if !response.is_ok() {
             let url = &dist.webc;
-            return Err(crate::runtime::resolver::utils::http_error(&response)
+            return Err(crate::resolver::utils::http_error(&response)
                 .context(format!("The GET request to \"{url}\" failed")));
         }
 
@@ -347,12 +345,12 @@ mod tests {
 
     use crate::{
         http::{HttpRequest, HttpResponse},
-        runtime::resolver::PackageInfo,
+        resolver::PackageInfo,
     };
 
     use super::*;
 
-    const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     #[derive(Debug)]
     pub(crate) struct DummyClient {

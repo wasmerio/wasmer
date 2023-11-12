@@ -7,7 +7,7 @@ use std::{
 use sha2::{Digest, Sha256};
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::FallbackCache;
+use crate::module_cache::FallbackCache;
 
 /// A cache for compiled WebAssembly modules.
 ///
@@ -52,7 +52,7 @@ pub trait ModuleCache: Debug {
     /// be significantly slower than the previous one.
     ///
     /// ```rust
-    /// use wasmer_wasix::runtime::module_cache::{
+    /// use wasmer_runner::module_cache::{
     ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
     /// };
     ///

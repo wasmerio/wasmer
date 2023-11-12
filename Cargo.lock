@@ -6114,6 +6114,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-runner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "bytes",
+ "cfg-if",
+ "dashmap",
+ "derivative",
+ "futures",
+ "hex",
+ "http",
+ "libc",
+ "once_cell",
+ "petgraph",
+ "semver 1.0.20",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "term_size",
+ "termios",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "url",
+ "virtual-fs",
+ "virtual-mio 0.3.0",
+ "virtual-net 0.6.1",
+ "wai-bindgen-wasmer",
+ "wasm-bindgen",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-wasix-types",
+ "webc",
+ "weezl",
+]
+
+[[package]]
 name = "wasmer-sys-utils"
 version = "0.16.0"
 dependencies = [
@@ -6385,6 +6426,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-middlewares",
+ "wasmer-runner",
  "wasmer-types",
  "wasmer-wasix",
  "wasmer-wast",
