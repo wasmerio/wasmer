@@ -13,8 +13,8 @@ use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
-use crate::snapshot::{capture_snapshot, InstanceSnapshot};
 use crate::{WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::snapshot::{InstanceSnapshot, capture_snapshot};
 
 /// Future that will be polled by asyncify methods
 #[doc(hidden)]
