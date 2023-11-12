@@ -2,17 +2,16 @@ pub mod module_cache;
 pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
+pub mod tty_sys;
 
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
+pub use self::tty_sys::{SysTty, TtyBridge, TtyState};
 use self::{
     module_cache::{CacheError, ModuleHash},
     task_manager::InlineWaker,
 };
 
-use std::{
-    fmt,
-    sync::{Arc, Mutex},
-};
+use std::{fmt, sync::Arc};
 
 use derivative::Derivative;
 use futures::future::BoxFuture;
@@ -21,13 +20,11 @@ use wasmer::Module;
 
 use crate::{
     http::{DynHttpClient, HttpClient},
-    os::TtyBridge,
     runtime::{
         module_cache::{ModuleCache, ThreadLocalCache},
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
-    WasiTtyState,
 };
 
 /// Runtime components used when running WebAssembly programs.
@@ -142,30 +139,6 @@ pub async fn load_module(
     }
 
     Ok(module)
-}
-
-#[derive(Debug, Default)]
-pub struct DefaultTty {
-    state: Mutex<WasiTtyState>,
-}
-
-impl TtyBridge for DefaultTty {
-    fn reset(&self) {
-        let mut state = self.state.lock().unwrap();
-        state.echo = false;
-        state.line_buffered = false;
-        state.line_feeds = false
-    }
-
-    fn tty_get(&self) -> WasiTtyState {
-        let state = self.state.lock().unwrap();
-        state.clone()
-    }
-
-    fn tty_set(&self, tty_state: WasiTtyState) {
-        let mut state = self.state.lock().unwrap();
-        *state = tty_state;
-    }
 }
 
 #[derive(Clone, Derivative)]

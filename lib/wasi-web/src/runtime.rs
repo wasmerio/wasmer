@@ -19,14 +19,14 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use wasmer_wasix::{
     http::{DynHttpClient, HttpRequest, HttpResponse},
-    os::{TtyBridge, TtyOptions},
     runtime::{
+        TtyBridge, TtyOptions,
         module_cache::ModuleCache,
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{Source, WapmSource},
         task_manager::TaskWasm,
     },
-    VirtualFile, VirtualTaskManager, WasiThreadError, WasiTtyState,
+    VirtualFile, VirtualTaskManager, WasiThreadError, TtyState,
 };
 use web_sys::WebGl2RenderingContext;
 
@@ -458,8 +458,8 @@ impl TtyBridge for WebRuntime {
         self.tty.set_line_feeds(true);
     }
 
-    fn tty_get(&self) -> WasiTtyState {
-        WasiTtyState {
+    fn tty_get(&self) -> TtyState {
+        TtyState {
             cols: self.tty.cols(),
             rows: self.tty.rows(),
             width: 800,
@@ -473,7 +473,7 @@ impl TtyBridge for WebRuntime {
         }
     }
 
-    fn tty_set(&self, tty_state: WasiTtyState) {
+    fn tty_set(&self, tty_state: TtyState) {
         self.tty.set_cols(tty_state.cols);
         self.tty.set_rows(tty_state.rows);
         self.tty.set_echo(tty_state.echo);

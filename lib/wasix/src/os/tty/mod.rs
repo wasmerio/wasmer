@@ -14,8 +14,6 @@ use super::task::signal::SignalHandlerAbi;
 
 const TTY_MOBILE_PAUSE: u128 = std::time::Duration::from_millis(200).as_nanos();
 
-pub mod tty_sys;
-
 #[derive(Debug)]
 pub enum InputEvent {
     Key,
@@ -410,47 +408,4 @@ impl Tty {
             self
         })
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct WasiTtyState {
-    pub cols: u32,
-    pub rows: u32,
-    pub width: u32,
-    pub height: u32,
-    pub stdin_tty: bool,
-    pub stdout_tty: bool,
-    pub stderr_tty: bool,
-    pub echo: bool,
-    pub line_buffered: bool,
-    pub line_feeds: bool,
-}
-
-impl Default for WasiTtyState {
-    fn default() -> Self {
-        Self {
-            rows: 80,
-            cols: 25,
-            width: 800,
-            height: 600,
-            stdin_tty: true,
-            stdout_tty: true,
-            stderr_tty: true,
-            echo: false,
-            line_buffered: false,
-            line_feeds: true,
-        }
-    }
-}
-
-/// Provides access to a TTY.
-pub trait TtyBridge {
-    /// Resets the values
-    fn reset(&self);
-
-    /// Retrieve the current TTY state.
-    fn tty_get(&self) -> WasiTtyState;
-
-    /// Set the TTY state.
-    fn tty_set(&self, _tty_state: WasiTtyState);
 }

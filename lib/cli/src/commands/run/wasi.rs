@@ -18,7 +18,6 @@ use wasmer_wasix::{
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
-    os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
@@ -32,6 +31,7 @@ use wasmer_wasix::{
             tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
         },
+        SysTty, TtyBridge,
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,

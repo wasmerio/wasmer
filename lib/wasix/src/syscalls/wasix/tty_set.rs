@@ -26,7 +26,7 @@ pub fn tty_set<M: MemorySize>(
         %line_feeds
     );
 
-    let state = crate::os::tty::WasiTtyState {
+    let state = crate::runtime::TtyState {
         cols: state.cols,
         rows: state.rows,
         width: state.width,

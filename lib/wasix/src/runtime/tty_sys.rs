@@ -1,5 +1,48 @@
-use super::TtyBridge;
-use crate::WasiTtyState;
+/// A module to handle the Tty state (via [`TtyState`]) and
+/// bridge it to the host system via the [`TtyBridge`] trait.
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct TtyState {
+    pub cols: u32,
+    pub rows: u32,
+    pub width: u32,
+    pub height: u32,
+    pub stdin_tty: bool,
+    pub stdout_tty: bool,
+    pub stderr_tty: bool,
+    pub echo: bool,
+    pub line_buffered: bool,
+    pub line_feeds: bool,
+}
+
+impl Default for TtyState {
+    fn default() -> Self {
+        Self {
+            rows: 80,
+            cols: 25,
+            width: 800,
+            height: 600,
+            stdin_tty: true,
+            stdout_tty: true,
+            stderr_tty: true,
+            echo: false,
+            line_buffered: false,
+            line_feeds: true,
+        }
+    }
+}
+
+/// Provides access to a TTY.
+pub trait TtyBridge {
+    /// Resets the values
+    fn reset(&self);
+
+    /// Retrieve the current TTY state.
+    fn tty_get(&self) -> TtyState;
+
+    /// Set the TTY state.
+    fn tty_set(&self, _tty_state: TtyState);
+}
 
 /// [`TtyBridge`] implementation for Unix systems.
 #[derive(Debug, Default, Clone)]
@@ -10,7 +53,7 @@ impl TtyBridge for SysTty {
         sys::reset().ok();
     }
 
-    fn tty_get(&self) -> WasiTtyState {
+    fn tty_get(&self) -> TtyState {
         let echo = sys::is_mode_echo();
         let line_buffered = sys::is_mode_line_buffering();
         let line_feeds = sys::is_mode_line_feeds();
@@ -19,7 +62,7 @@ impl TtyBridge for SysTty {
         let stderr_tty = sys::is_stderr_tty();
 
         if let Some((w, h)) = term_size::dimensions() {
-            WasiTtyState {
+            TtyState {
                 cols: w as u32,
                 rows: h as u32,
                 width: 800,
@@ -32,7 +75,7 @@ impl TtyBridge for SysTty {
                 line_feeds,
             }
         } else {
-            WasiTtyState {
+            TtyState {
                 rows: 80,
                 cols: 25,
                 width: 800,
@@ -47,7 +90,7 @@ impl TtyBridge for SysTty {
         }
     }
 
-    fn tty_set(&self, tty_state: WasiTtyState) {
+    fn tty_set(&self, tty_state: TtyState) {
         if tty_state.echo {
             sys::set_mode_echo().ok();
         } else {
