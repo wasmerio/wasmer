@@ -9,13 +9,10 @@ use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use webc::Container;
 
-mod binary_package;
 mod exec;
 
-pub use self::{
-    binary_package::*,
-    exec::{spawn_exec, spawn_exec_module},
-};
+pub use self::exec::{spawn_exec, spawn_exec_module};
+pub use crate::runtime::binary_package::{BinaryPackage, BinaryPackageCommand};
 use crate::{os::command::Commands, Runtime};
 
 #[derive(Debug, Clone)]

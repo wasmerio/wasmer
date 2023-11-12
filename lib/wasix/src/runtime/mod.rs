@@ -1,15 +1,18 @@
+pub mod binary_package;
 pub mod module_cache;
 pub mod package_loader;
 pub mod resolver;
+pub mod runner;
 pub mod task_manager;
 pub mod tty_sys;
 
+pub use self::binary_package::{BinaryPackage, BinaryPackageCommand};
+pub use self::runner::Runner;
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
 pub use self::tty_sys::{SysTty, TtyBridge, TtyState};
-use self::{
-    module_cache::{CacheError, ModuleHash},
-    task_manager::InlineWaker,
-};
+
+use self::module_cache::{CacheError, ModuleHash};
+use self::task_manager::InlineWaker;
 
 use std::{fmt, sync::Arc};
 
