@@ -96,6 +96,7 @@ impl Node {
             Self::ArcDirectory(ArcDirectoryNode { inode, .. }) => inode,
         }
     }
+
     fn parent_inode(&self) -> Inode {
         *match self {
             Self::File(FileNode { parent_inode, .. }) => parent_inode,
@@ -108,14 +109,25 @@ impl Node {
     }
     fn set_parent_inode(&mut self, parent_inode: Inode) {
         match self {
-            Self::File(f) => {f.parent_inode = parent_inode;},
-            Self::ReadOnlyFile(f) => {f.parent_inode = parent_inode;},
-            Self::ArcFile(f) => {f.parent_inode = parent_inode;},
-            Self::CustomFile(f) => {f.parent_inode = parent_inode;},
-            Self::Directory(d) => {d.parent_inode = parent_inode;},
-            Self::ArcDirectory(d) => {d.parent_inode = parent_inode;},
+            Self::File(f) => {
+                f.parent_inode = parent_inode;
+            }
+            Self::ReadOnlyFile(f) => {
+                f.parent_inode = parent_inode;
+            }
+            Self::ArcFile(f) => {
+                f.parent_inode = parent_inode;
+            }
+            Self::CustomFile(f) => {
+                f.parent_inode = parent_inode;
+            }
+            Self::Directory(d) => {
+                d.parent_inode = parent_inode;
+            }
+            Self::ArcDirectory(d) => {
+                d.parent_inode = parent_inode;
+            }
         }
-
     }
 
     fn name(&self) -> &OsStr {

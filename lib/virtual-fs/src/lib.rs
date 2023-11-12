@@ -128,7 +128,6 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext};
 
-
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
@@ -421,7 +420,6 @@ pub trait VirtualFile:
     /// Polls the file for when it is available for writing
     fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
 }
-
 
 pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
     /// The parent directory of this dir

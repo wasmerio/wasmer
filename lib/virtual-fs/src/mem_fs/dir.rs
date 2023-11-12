@@ -1,10 +1,9 @@
-
-use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use super::{FileSystem, Inode};
+use crate::FileSystem as _;
+use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use futures::future::BoxFuture;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use futures::future::BoxFuture;
-use crate::FileSystem as _;
 
 #[derive(Debug)]
 pub struct Directory {

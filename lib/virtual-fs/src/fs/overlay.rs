@@ -1198,15 +1198,14 @@ mod tests {
         );
     }
 
-    use crate::{EmptyFileSystem, TraceFileSystem, TmpFileSystem};
+    use crate::{EmptyFileSystem, TmpFileSystem, TraceFileSystem};
     use tracing_test::traced_test;
 
     #[tokio::test]
     #[traced_test]
     async fn wasi_challenge_example() {
         type TypeWebC = OverlayFileSystem<EmptyFileSystem, [crate::mem_fs::FileSystem; 0]>;
-        let primary = TraceFileSystem::new(
-            RootFileSystemBuilder::new().build());
+        let primary = TraceFileSystem::new(RootFileSystemBuilder::new().build());
         let other = crate::mem_fs::FileSystem::default();
         let webc = OverlayFileSystem::new(EmptyFileSystem::default(), [other]);
         // let fs: OverlayFileSystem<RootFileSystemBuilder, EmptyFileSystem> = OverlayFileSystem::new(primary, []);
@@ -1214,13 +1213,17 @@ mod tests {
         // let fs = primary;
         fs.create_dir(&Path::new("/tmp-dir/")).unwrap();
         dbg!(fs.read_dir(&Path::new("/tmp-dir/")));
-        let mut file = fs.new_open_options()
-                    .write(true)
-                    .create(true)
-                    .open("/tmp-dir/a").unwrap();
+        let mut file = fs
+            .new_open_options()
+            .write(true)
+            .create(true)
+            .open("/tmp-dir/a")
+            .unwrap();
         file.write("a".as_bytes()).await.unwrap();
         drop(file);
-        fs.rename(&Path::new("/tmp-dir/a"), &Path::new("/tmp-dir/b")).await.unwrap();
+        fs.rename(&Path::new("/tmp-dir/a"), &Path::new("/tmp-dir/b"))
+            .await
+            .unwrap();
         // file.write("b".as_bytes()).await.unwrap();
     }
 
