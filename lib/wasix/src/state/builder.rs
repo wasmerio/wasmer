@@ -1058,7 +1058,12 @@ fn handle_result(
             // Spawns the WASM process after a trigger
             unsafe {
                 tasks
-                    .resume_wasm_after_poller(Box::new(respawn), env, store, work.trigger)
+                    .resume_wasm_after_poller(
+                        Box::new(respawn),
+                        env.data(&store).clone(),
+                        store,
+                        work.trigger,
+                    )
                     .unwrap();
             }
 

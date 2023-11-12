@@ -285,7 +285,7 @@ impl dyn VirtualTaskManager {
     pub unsafe fn resume_wasm_after_poller(
         &self,
         task: Box<WasmResumeTask>,
-        ctx: WasiFunctionEnv,
+        env: WasiEnv,
         mut store: Store,
         trigger: Pin<Box<AsyncifyFuture>>,
     ) -> Result<(), WasiThreadError> {
@@ -312,7 +312,6 @@ impl dyn VirtualTaskManager {
         }
 
         let snapshot = capture_snapshot(&mut store.as_store_mut());
-        let env = ctx.data(&store);
         let module = env.inner().module_clone();
         let memory = env.inner().memory_clone();
         let thread = env.thread.clone();
