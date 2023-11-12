@@ -380,6 +380,14 @@ impl FileSystemInner {
         }
     }
 
+    pub(super) fn get_node_directory_mut(&mut self, inode: Inode) -> Result<&mut DirectoryNode> {
+        let node = self.storage.get_mut(inode);
+        match node {
+            Some(Node::Directory(dir_node)) => Ok(dir_node),
+            _ => Err(FsError::BaseNotDirectory),
+        }
+    }
+
     #[inline]
     fn absolute_path(&self, node: &Node) -> PathBuf {
         let parent = self.get_node(node.parent_inode()).unwrap();
@@ -471,12 +479,14 @@ impl FileSystemInner {
     }
 
     fn remove_inode_inside_dir(&mut self, inode: Inode, child: Inode) -> Result<()> {
-        let parent_node = self.get_node_directory(inode).unwrap();
+        let mut parent_node = self.get_node_directory_mut(inode)?;
         let position = parent_node
             .children
             .iter()
             .position(|&r| r == child)
             .ok_or(FsError::EntryNotFound)?;
+
+        parent_node.metadata.modified = time();
 
         // Remove the child from the parent directory.
         self.remove_child_from_node(inode, position)?;
