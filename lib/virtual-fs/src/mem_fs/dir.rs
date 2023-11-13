@@ -1,55 +1,22 @@
-use super::{FileSystem, FileHandle, Inode, FileNode, DirectoryNode, ArcDirectoryNode, ReadOnlyFileNode, CustomFileNode, Node};
+use super::{
+    ArcDirectoryNode, CustomFileNode, DirectoryNode, FileHandle, FileNode, FileSystem, Inode, Node,
+    ReadOnlyFileNode,
+};
 use crate::FileSystem as _;
-use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use crate::{
+    DescriptorType, DirEntry, DirectoryEntry, FileType, FsError, Metadata, OpenOptions, ReadDir,
+    ReaddirIterator, Result,
+};
 use futures::future::BoxFuture;
-use std::path::{Path, PathBuf, Components, Component};
-use std::sync::Arc;
 use std::ffi::OsString;
+use std::path::{Component, Components, Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
 pub struct Directory {
     inode: Inode,
     unique_id: usize,
     fs: FileSystem,
-}
-
-pub enum DescriptorType {
-    File,
-    Directory,
-}
-
-pub struct DirectoryEntry {
-    pub(crate) type_: DescriptorType,
-    pub(crate) name: OsString,
-}
-
-// pub enum Descriptor {
-//     File(Box<dyn crate::VirtualFile>),
-//     Directory(Box<dyn crate::Directory>),
-// }
-
-pub struct ReaddirIterator(
-    std::sync::Mutex<Box<dyn Iterator<Item = Result<DirectoryEntry>> + Send + 'static>>,
-);
-
-impl ReaddirIterator {
-    pub(crate) fn new(
-        i: impl Iterator<Item = Result<DirectoryEntry>> + Send + 'static,
-    ) -> Self {
-        ReaddirIterator(std::sync::Mutex::new(Box::new(i)))
-    }
-    pub(crate) fn next(&self) -> Result<Option<DirectoryEntry>> {
-        self.0.lock().unwrap().next().transpose()
-    }
-}
-
-impl IntoIterator for ReaddirIterator {
-    type Item = Result<DirectoryEntry>;
-    type IntoIter = Box<dyn Iterator<Item = Self::Item> + Send>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_inner().unwrap()
-    }
 }
 
 impl Directory {
@@ -59,10 +26,6 @@ impl Directory {
             fs,
             unique_id: crate::generate_next_unique_id(),
         }
-    }
-
-    fn children(self) -> ReaddirIterator {
-        unimplemented!();
     }
 
     // fn get_child(self, name: OsString) -> Option<Descriptor> {
@@ -80,45 +43,62 @@ impl crate::Directory for Directory {
         self.unique_id
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send>> {
+    fn iter(&self) -> ReaddirIterator {
+        let guard = self.fs.inner.read().unwrap();
+        let node = guard.get_node_directory(self.inode).unwrap();
+        let fs = self.fs.clone();
+        ReaddirIterator(Mutex::new(Box::new(node.children.clone().into_iter().map(
+            move |child_inode| {
+                let guard = fs.inner.read().unwrap();
+                let node = guard.storage.get(child_inode).unwrap();
+                Ok(DirectoryEntry {
+                    type_: match node {
+                        Node::Directory(_) => DescriptorType::Directory,
+                        Node::File(_) => DescriptorType::File,
+                        Node::ReadOnlyFile(_) => DescriptorType::File,
+                        Node::CustomFile(_) => DescriptorType::File,
+                        Node::ArcDirectory(_) => DescriptorType::Directory,
+                    },
+                    name: node.name().to_owned(),
+                })
+            },
+        ))))
+    }
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>> {
         let guard = self.fs.inner.read().map_err(|_| FsError::Lock)?;
         let mut node = guard.storage.get(self.inode).unwrap();
 
-        let to = to.components();
+        let mut to = to.components();
         while let Some(component) = to.next() {
             node = match node {
-                Node::Directory(DirectoryNode { children, .. }) => {
-                    match component {
-                        Component::CurDir => node,
-                        Component::ParentDir => {
-                            let parent_inode = node.parent_inode();
-                            if parent_inode == super::ROOT_INODE {
-                                drop(guard);
-                                let remaining_components: PathBuf = to.collect();
-                                if let Some(parent) = guard.parent {
-                                    return parent.as_dir().walk_to(remaining_components)?;
-                                }
-                                else {
-                                    return Err(FsError::BaseNotDirectory);
-                                }
+                Node::Directory(DirectoryNode { children, .. }) => match component {
+                    Component::CurDir => node,
+                    Component::ParentDir => {
+                        let parent_inode = node.parent_inode();
+                        if parent_inode == super::ROOT_INODE {
+                            let remaining_components: PathBuf = to.collect();
+                            if let Some(parent) = &guard.parent {
+                                return parent.walk_to(remaining_components);
+                            } else {
+                                return Err(FsError::BaseNotDirectory);
                             }
-                            else {
-                                guard.storage.get(parent_inode).unwrap()
-                            }
-                        },
-                        Component::Normal(name) => {
-                            children
-                                .iter()
-                                .find_map(|inode| guard.storage.get(*inode).and_then(|node| {
-                                    if node.name() == name {
-                                        Some(node)
-                                    }
-                                    else {
-                                        None
-                                    }
-                                })).ok_or(Err(FsError::EntryNotFound))?
+                        } else {
+                            guard.storage.get(parent_inode).unwrap()
                         }
                     }
+                    Component::Normal(name) => children
+                        .iter()
+                        .find_map(|inode| {
+                            guard.storage.get(*inode).and_then(|node| {
+                                if node.name() == name {
+                                    Some(node)
+                                } else {
+                                    None
+                                }
+                            })
+                        })
+                        .ok_or(FsError::EntryNotFound)?,
+                    _ => return Err(FsError::InvalidData),
                 },
                 // Node::File(FileNode {inode,..}) | Node::ReadOnlyFile(ReadOnlyFileNode { inode, ..}) => {
                 //     // We are trying to get a path from a file
@@ -145,7 +125,6 @@ impl crate::Directory for Directory {
                 //     return Ok(Descriptor::File(Box::new(file)));
                 // },
                 Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
-                    drop(guard);
                     let remaining_components: PathBuf = to.collect();
                     return fs.as_dir().walk_to(remaining_components);
                 }
@@ -161,7 +140,7 @@ impl crate::Directory for Directory {
         }
     }
 
-    fn parent(self) -> Option<Box<dyn crate::Directory + Send>> {
+    fn parent(self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
         unimplemented!();
         // let parent_inode = {
         //     let guard = self.fs.inner.read().ok()?;
@@ -205,22 +184,31 @@ impl crate::Directory for Directory {
 #[cfg(test)]
 mod tests {
     use super::FileSystem;
-    use crate::{FsError, FileSystem as _};
+    use crate::{DescriptorType, DirectoryEntry, FileSystem as _, FsError};
+    use std::ffi::OsString;
     use std::path::{Path, PathBuf};
 
-#[tokio::test]
-async fn test_create_dir_dot() -> anyhow::Result<()> {
-    let fs = FileSystem::default();
-    // fs.create_dir(".").unwrap();
-    assert_eq!(
-        fs.create_dir(&PathBuf::from("/base_dir")),
-        Ok(()),
-        "creating the root which already exists",
-    );
+    #[tokio::test]
+    async fn test_create_dir_dot() -> anyhow::Result<()> {
+        let fs = FileSystem::default();
+        // fs.create_dir(".").unwrap();
+        assert_eq!(
+            fs.create_dir(&PathBuf::from("/base_dir")),
+            Ok(()),
+            "creating the root which already exists",
+        );
 
-    let dir = fs.as_dir();
-    assert!(dir.parent().is_none());
-    Ok(())
-
-}
+        let dir = fs.as_dir();
+        let iter_items = dir.iter().into_iter().collect::<Vec<_>>();
+        assert_eq!(iter_items.len(), 1);
+        assert_eq!(
+            iter_items[0].as_ref().unwrap(),
+            &DirectoryEntry {
+                type_: DescriptorType::Directory,
+                name: OsString::from("base_dir"),
+            }
+        );
+        let base_dir = dir.walk_to(PathBuf::from("base_dir"))?;
+        Ok(())
+    }
 }

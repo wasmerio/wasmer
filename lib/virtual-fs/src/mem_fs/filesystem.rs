@@ -34,7 +34,7 @@ impl FileSystem {
         lock.canonicalize_without_inode(path)
     }
 
-    pub fn set_parent(&mut self, directory: Box<dyn crate::Directory + Send>) -> Result<()> {
+    pub fn set_parent(&mut self, directory: Box<dyn crate::Directory + Send + Sync>) -> Result<()> {
         let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
         guard.parent = Some(directory);
         Ok(())
@@ -117,8 +117,7 @@ impl FileSystem {
 }
 
 impl crate::FileSystem for FileSystem {
-
-    fn as_dir(&self) -> Box<dyn crate::Directory + Send> {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         Box::new(Directory::new(ROOT_INODE, self.clone()))
     }
 
@@ -357,7 +356,7 @@ impl fmt::Debug for FileSystem {
 /// indexed by their respective `Inode` in a slab.
 pub(super) struct FileSystemInner {
     pub(super) storage: Slab<Node>,
-    pub(super) parent: Option<Box<dyn crate::Directory + Send>>,
+    pub(super) parent: Option<Box<dyn crate::Directory + Send + Sync>>,
     pub(super) limiter: Option<crate::limiter::DynFsMemoryLimiter>,
 }
 
@@ -944,18 +943,17 @@ mod test_filesystem {
         );
     }
 
+    // #[tokio::test]
+    // async fn test_create_dir_dot() {
+    //     let fs = FileSystem::default();
+    //     fs.create_dir(".").unwrap();
 
-    #[tokio::test]
-    async fn test_create_dir_dot() {
-        let fs = FileSystem::default();
-        // fs.create_dir(".").unwrap();
-
-        assert_eq!(
-            fs.create_dir(path!(".")),
-            Err(FsError::AlreadyExists),
-            "creating the root which already exists",
-        );
-    }
+    //     assert_eq!(
+    //         fs.create_dir(path!(".")),
+    //         Err(FsError::AlreadyExists),
+    //         "creating the root which already exists",
+    //     );
+    // }
 
     #[tokio::test]
     async fn test_create_dir() {

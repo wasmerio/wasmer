@@ -13,7 +13,10 @@ use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering::SeqCst}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering::SeqCst},
+    Arc,
+};
 use std::task::Context;
 use std::task::Poll;
 use thiserror::Error;
@@ -123,11 +126,11 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 pub use ops::{copy_reference, copy_reference_ext};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
-    fn as_dir(&self) -> Box<dyn crate::Directory + Send> {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         unimplemented!();
     }
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
-    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send>> {
+    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
         unimplemented!();
     }
     fn create_dir(&self, path: &Path) -> Result<()>;
@@ -162,7 +165,7 @@ where
     D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
     F: FileSystem + ?Sized,
 {
-    fn as_dir(&self) -> Box<dyn crate::Directory + Send> {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         (**self).as_dir()
     }
 
@@ -455,15 +458,18 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
         unimplemented!();
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send>> {
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send + Sync>> {
         unimplemented!();
     }
 
-    fn parent(self) -> Option<Box<dyn Directory + Send>>;
+    fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
 
+    fn iter(&self) -> ReaddirIterator {
+        unimplemented!();
+    }
     // /// The parent directory of this dir
-    // fn parent(self) -> Option<Box<dyn Directory + Send>>;
-    // fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send>> {
+    // fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
+    // fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
     //     unimplemented!();
     // }
     // fn read_dir(&self, path: &Path) -> Result<ReadDir>;
@@ -484,6 +490,45 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
 impl Hash for dyn Directory {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.unique_id().hash(state);
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum DescriptorType {
+    File,
+    Directory,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct DirectoryEntry {
+    pub(crate) type_: DescriptorType,
+    pub(crate) name: OsString,
+}
+
+// pub enum Descriptor {
+//     File(Box<dyn crate::VirtualFile>),
+//     Directory(Box<dyn crate::Directory>),
+// }
+
+pub struct ReaddirIterator(
+    std::sync::Mutex<Box<dyn Iterator<Item = Result<DirectoryEntry>> + Send + 'static>>,
+);
+
+impl ReaddirIterator {
+    pub(crate) fn new(i: impl Iterator<Item = Result<DirectoryEntry>> + Send + 'static) -> Self {
+        ReaddirIterator(std::sync::Mutex::new(Box::new(i)))
+    }
+    pub(crate) fn next(&self) -> Result<Option<DirectoryEntry>> {
+        self.0.lock().unwrap().next().transpose()
+    }
+}
+
+impl IntoIterator for ReaddirIterator {
+    type Item = Result<DirectoryEntry>;
+    type IntoIter = Box<dyn Iterator<Item = Self::Item> + Send>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_inner().unwrap()
     }
 }
 
