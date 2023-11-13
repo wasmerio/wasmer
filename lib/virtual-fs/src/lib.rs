@@ -13,7 +13,7 @@ use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering::SeqCst}};
 use std::task::Context;
 use std::task::Poll;
 use thiserror::Error;
@@ -123,8 +123,11 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 pub use ops::{copy_reference, copy_reference_ext};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send> {
+        unimplemented!();
+    }
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
-    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
+    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send>> {
         unimplemented!();
     }
     fn create_dir(&self, path: &Path) -> Result<()>;
@@ -159,6 +162,10 @@ where
     D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
     F: FileSystem + ?Sized,
 {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send> {
+        (**self).as_dir()
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         (**self).read_dir(path)
     }
@@ -448,25 +455,31 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
         unimplemented!();
     }
 
-    /// The parent directory of this dir
-    fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
-    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send>> {
         unimplemented!();
     }
-    fn read_dir(&self, path: &Path) -> Result<ReadDir>;
-    fn create_dir(&self, path: &Path) -> Result<()>;
-    fn remove_dir(&self, path: &Path) -> Result<()>;
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
-    fn metadata(&self, path: &Path) -> Result<Metadata>;
-    /// This method gets metadata without following symlinks in the path.
-    /// Currently identical to `metadata` because symlinks aren't implemented
-    /// yet.
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        self.metadata(path)
-    }
-    fn remove_file(&self, path: &Path) -> Result<()>;
 
-    fn new_open_options(&self) -> OpenOptions;
+    fn parent(self) -> Option<Box<dyn Directory + Send>>;
+
+    // /// The parent directory of this dir
+    // fn parent(self) -> Option<Box<dyn Directory + Send>>;
+    // fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send>> {
+    //     unimplemented!();
+    // }
+    // fn read_dir(&self, path: &Path) -> Result<ReadDir>;
+    // fn create_dir(&self, path: &Path) -> Result<()>;
+    // fn remove_dir(&self, path: &Path) -> Result<()>;
+    // fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
+    // fn metadata(&self, path: &Path) -> Result<Metadata>;
+    // /// This method gets metadata without following symlinks in the path.
+    // /// Currently identical to `metadata` because symlinks aren't implemented
+    // /// yet.
+    // fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+    //     self.metadata(path)
+    // }
+    // fn remove_file(&self, path: &Path) -> Result<()>;
+
+    // fn new_open_options(&self) -> OpenOptions;
 }
 impl Hash for dyn Directory {
     fn hash<H: Hasher>(&self, state: &mut H) {

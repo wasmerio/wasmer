@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock};
 ///
 /// This `FileSystem` type can be cloned, it's a light copy of the
 /// `FileSystemInner` (which is behind a `Arc` + `RwLock`).
-#[derive(Clone, Default)]
+#[derive(Default, Clone)]
 pub struct FileSystem {
     pub(super) inner: Arc<RwLock<FileSystemInner>>,
 }
@@ -32,6 +32,12 @@ impl FileSystem {
     pub fn canonicalize_unchecked(&self, path: &Path) -> Result<PathBuf> {
         let lock = self.inner.read().map_err(|_| FsError::Lock)?;
         lock.canonicalize_without_inode(path)
+    }
+
+    pub fn set_parent(&mut self, directory: Box<dyn crate::Directory + Send>) -> Result<()> {
+        let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
+        guard.parent = Some(directory);
+        Ok(())
     }
 
     pub fn mount(
@@ -111,6 +117,11 @@ impl FileSystem {
 }
 
 impl crate::FileSystem for FileSystem {
+
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send> {
+        Box::new(Directory::new(ROOT_INODE, self.clone()))
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
@@ -346,6 +357,7 @@ impl fmt::Debug for FileSystem {
 /// indexed by their respective `Inode` in a slab.
 pub(super) struct FileSystemInner {
     pub(super) storage: Slab<Node>,
+    pub(super) parent: Option<Box<dyn crate::Directory + Send>>,
     pub(super) limiter: Option<crate::limiter::DynFsMemoryLimiter>,
 }
 
@@ -872,6 +884,7 @@ impl Default for FileSystemInner {
 
         Self {
             storage: slab,
+            parent: None,
             limiter: None,
         }
     }
@@ -928,6 +941,19 @@ mod test_filesystem {
                 })) if name == "/" && children.is_empty(),
             ),
             "storage has a well-defined root",
+        );
+    }
+
+
+    #[tokio::test]
+    async fn test_create_dir_dot() {
+        let fs = FileSystem::default();
+        // fs.create_dir(".").unwrap();
+
+        assert_eq!(
+            fs.create_dir(path!(".")),
+            Err(FsError::AlreadyExists),
+            "creating the root which already exists",
         );
     }
 

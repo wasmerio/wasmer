@@ -32,7 +32,6 @@ pub(super) struct FileHandle {
     writable: bool,
     append_mode: bool,
     cursor: u64,
-    arc_file: Option<Result<Box<dyn VirtualFile + Send + Sync + 'static>>>,
 }
 
 impl Clone for FileHandle {
@@ -45,7 +44,6 @@ impl Clone for FileHandle {
             writable: self.writable,
             append_mode: self.append_mode,
             cursor: self.cursor,
-            arc_file: None,
         }
     }
 }
@@ -67,29 +65,7 @@ impl FileHandle {
             writable,
             append_mode,
             cursor,
-            arc_file: None,
         }
-    }
-
-    fn lazy_load_arc_file_mut(&mut self) -> Result<&mut dyn VirtualFile> {
-        if self.arc_file.is_none() {
-            let fs = match self.filesystem.inner.read() {
-                Ok(fs) => fs,
-                _ => return Err(FsError::EntryNotFound),
-            };
-
-            let inode = fs.storage.get(self.inode);
-            match inode {
-                _ => return Err(FsError::EntryNotFound),
-            }
-        }
-        Ok(self
-            .arc_file
-            .as_mut()
-            .unwrap()
-            .as_mut()
-            .map_err(|err| *err)?
-            .as_mut())
     }
 }
 
