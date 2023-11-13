@@ -1,23 +1,36 @@
-//! Wraps a clonable Arc of a file system - in practice this is useful so you
-//! can pass clonable file systems with a `Box<dyn FileSystem>` to other
-//! interfaces
+//! A filesystem that is created on demand
 
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tempfile::TempDir;
 
-use crate::*;
+use crate::{
+    host_fs, BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir,
+    Result,
+};
 
-#[derive(Debug)]
-pub struct ArcFileSystem {
-    fs: Arc<dyn FileSystem + Send + Sync + 'static>,
+#[derive(Debug, Clone)]
+pub struct TempDirHostFileSystem {
+    fs: host_fs::FileSystem,
+    temp_dir: TempDir,
 }
 
-impl ArcFileSystem {
-    pub fn new(inner: Arc<dyn FileSystem + Send + Sync + 'static>) -> Self {
-        Self { fs: inner }
+impl TempDirHostFileSystem {
+    pub fn new() -> Result<Self> {
+        Self {
+            fs: host_fs::FileSystem::new(),
+            temp_dir: TempDir::new()?,
+        }
+    }
+
+    pub fn new_open_options_ext(&self) -> &mem_fs::FileSystem {
+        self.fs.new_open_options_ext()
     }
 }
 
-impl FileSystem for ArcFileSystem {
+impl FileSystem for TempDirHostFileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         self.fs.read_dir(path)
     }

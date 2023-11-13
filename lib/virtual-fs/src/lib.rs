@@ -8,10 +8,12 @@ use futures::future::BoxFuture;
 use std::any::Any;
 use std::ffi::OsString;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::task::Context;
 use std::task::Poll;
 use thiserror::Error;
@@ -24,9 +26,6 @@ pub mod arc_file {
     pub use super::files::arc::*;
 }
 pub mod fs;
-pub mod arc_fs {
-    pub use super::fs::arc::*;
-}
 pub mod buffer_file {
     pub use super::files::buffer::*;
 }
@@ -50,9 +49,6 @@ pub mod host_fs {
 pub mod mem_fs;
 pub mod null_file {
     pub use super::files::null::*;
-}
-pub mod passthru_fs {
-    pub use super::fs::passthru::*;
 }
 pub mod random_file {
     pub use super::files::random::*;
@@ -78,7 +74,7 @@ mod static_file {
 }
 #[cfg(feature = "static-fs")]
 pub mod static_fs {
-    pub use super::fs::_static::*;
+    pub use super::fs::webc_static::*;
 }
 mod trace_fs {
     pub use super::fs::trace::*;
@@ -96,7 +92,6 @@ pub mod limiter;
 
 pub use arc_box_file::*;
 pub use arc_file::*;
-pub use arc_fs::*;
 pub use buffer_file::*;
 pub use builder::*;
 pub use combine_file::*;
@@ -107,7 +102,6 @@ pub use files::zero::*;
 pub use filesystems::FileSystems;
 pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
-pub use passthru_fs::*;
 pub use pipe::*;
 pub use special_file::*;
 pub use static_file::StaticFile;
@@ -363,11 +357,31 @@ impl<'a> OpenOptions<'a> {
     }
 }
 
+/// A unique ID generator for virtual files and directories
+/// Every `VirtualFile` and `Directory` should have a unique ID
+/// associated to it.
+///
+/// This can help, for example, to be able to have `PartialEq` and `Hash`
+/// over those elements.
+static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+
+/// Generates a unique next ID for a virtual file or directory
+pub(crate) fn generate_next_unique_id() -> usize {
+    NEXT_ID.fetch_add(1, SeqCst)
+}
+
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
+    /// The unique id associated to the file.
+    /// The `virtual-fs` crate assure uniqueness on this ids even
+    /// accross different `VirtualFile` and `Directory` implementations.
+    fn unique_id(&self) -> usize {
+        unimplemented!();
+    }
+
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
@@ -420,8 +434,20 @@ pub trait VirtualFile:
     /// Polls the file for when it is available for writing
     fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
 }
+impl Hash for dyn VirtualFile {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.unique_id().hash(state);
+    }
+}
 
 pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
+    /// The unique id associated to the file.
+    /// The `virtual-fs` crate assure uniqueness on this ids even
+    /// accross different `VirtualFile` and `Directory` implementations.
+    fn unique_id(&self) -> usize {
+        unimplemented!();
+    }
+
     /// The parent directory of this dir
     fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
     fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
@@ -441,6 +467,11 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+}
+impl Hash for dyn Directory {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.unique_id().hash(state);
+    }
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .

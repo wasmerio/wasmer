@@ -95,6 +95,7 @@ where
 
                 Ok(Box::new(WebCFile {
                     volume,
+                    unique_id: crate::generate_next_unique_id(),
                     webc: self.webc.clone(),
                     path: path.to_path_buf(),
                     entry: file,
@@ -115,6 +116,7 @@ where
 
                     return Ok(Box::new(WebCFile {
                         volume: volume.clone(),
+                        unique_id: crate::generate_next_unique_id(),
                         webc: self.webc.clone(),
                         path: path.to_path_buf(),
                         entry,
@@ -133,6 +135,7 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
 {
     pub webc: Arc<T>,
+    unique_id: usize,
     pub volume: String,
     #[allow(dead_code)]
     pub path: PathBuf,
@@ -145,6 +148,10 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
     fn last_accessed(&self) -> u64 {
         0
     }

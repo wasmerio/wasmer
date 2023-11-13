@@ -173,7 +173,10 @@ impl FileOpener for WebcVolumeFileSystem {
         }
 
         match self.volume().read_file(path) {
-            Some(bytes) => Ok(Box::new(File(Cursor::new(bytes)))),
+            Some(bytes) => Ok(Box::new(File(
+                Cursor::new(bytes),
+                crate::generate_next_unique_id(),
+            ))),
             None => {
                 // The metadata() call should guarantee this, so something
                 // probably went wrong internally
@@ -184,9 +187,13 @@ impl FileOpener for WebcVolumeFileSystem {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct File(Cursor<SharedBytes>);
+struct File(Cursor<SharedBytes>, usize);
 
 impl VirtualFile for File {
+    fn unique_id(&self) -> usize {
+        self.1
+    }
+
     fn last_accessed(&self) -> u64 {
         0
     }

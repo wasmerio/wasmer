@@ -19,13 +19,13 @@ use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
 /// Custom file system wrapper to map requested file paths
 #[derive(Debug)]
-pub struct StaticFileSystem {
+pub struct WebCStaticFileSystem {
     pub package: String,
     pub volumes: Arc<IndexMap<String, webc::v1::Volume<'static>>>,
     pub memory: Arc<MemFileSystem>,
 }
 
-impl StaticFileSystem {
+impl WebCStaticFileSystem {
     pub fn init(bytes: &'static [u8], package: &str) -> Option<Self> {
         let volumes = Arc::new(webc::v1::WebC::parse_volumes_from_fileblock(bytes).ok()?);
         let fs = Self {
@@ -45,7 +45,7 @@ impl StaticFileSystem {
 }
 
 /// Custom file opener, returns a WebCFile
-impl FileOpener for StaticFileSystem {
+impl FileOpener for WebCStaticFileSystem {
     fn open(
         &self,
         path: &Path,
@@ -61,6 +61,7 @@ impl FileOpener for StaticFileSystem {
 
                 Ok(Box::new(WebCFile {
                     package: self.package.clone(),
+                    unique_id: crate::generate_next_unique_id(),
                     volume,
                     volumes: self.volumes.clone(),
                     path: path.to_path_buf(),
@@ -77,6 +78,7 @@ impl FileOpener for StaticFileSystem {
 
                     return Ok(Box::new(WebCFile {
                         package: self.package.clone(),
+                        unique_id: crate::generate_next_unique_id(),
                         volume: volume.clone(),
                         volumes: self.volumes.clone(),
                         path: path.to_path_buf(),
@@ -93,6 +95,7 @@ impl FileOpener for StaticFileSystem {
 #[derive(Debug)]
 pub struct WebCFile {
     pub volumes: Arc<IndexMap<String, webc::v1::Volume<'static>>>,
+    unique_id: usize,
     pub package: String,
     pub volume: String,
     pub path: PathBuf,
@@ -102,6 +105,10 @@ pub struct WebCFile {
 
 #[async_trait::async_trait]
 impl VirtualFile for WebCFile {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
     fn last_accessed(&self) -> u64 {
         0
     }
@@ -237,7 +244,7 @@ fn transform_into_read_dir(path: &Path, fs_entries: &[FsEntry<'_>]) -> crate::Re
     crate::ReadDir::new(entries)
 }
 
-impl FileSystem for StaticFileSystem {
+impl FileSystem for WebCStaticFileSystem {
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         for volume in self.volumes.values() {

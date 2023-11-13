@@ -26,6 +26,7 @@ use std::task::{Context, Poll};
 /// delegated to the file itself.
 pub(super) struct FileHandle {
     inode: Inode,
+    unique_id: usize,
     filesystem: FileSystem,
     readable: bool,
     writable: bool,
@@ -38,6 +39,7 @@ impl Clone for FileHandle {
     fn clone(&self) -> Self {
         Self {
             inode: self.inode,
+            unique_id: self.unique_id,
             filesystem: self.filesystem.clone(),
             readable: self.readable,
             writable: self.writable,
@@ -59,6 +61,7 @@ impl FileHandle {
     ) -> Self {
         Self {
             inode,
+            unique_id: crate::generate_next_unique_id(),
             filesystem,
             readable,
             writable,
@@ -101,6 +104,10 @@ impl FileHandle {
 }
 
 impl VirtualFile for FileHandle {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
     fn last_accessed(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,

@@ -8,16 +8,25 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Directory {
     inode: Inode,
+    unique_id: usize,
     fs: FileSystem,
 }
 
 impl Directory {
     pub fn new(inode: Inode, fs: FileSystem) -> Self {
-        Self { inode, fs }
+        Self {
+            inode,
+            fs,
+            unique_id: crate::generate_next_unique_id(),
+        }
     }
 }
 
 impl crate::Directory for Directory {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
     fn parent(self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
         unimplemented!();
     }
@@ -52,7 +61,6 @@ impl crate::Directory for Directory {
     }
 
     fn new_open_options(&self) -> OpenOptions {
-        unimplemented!();
-        // OpenOptions::new(self)
+        self.fs.new_open_options()
     }
 }

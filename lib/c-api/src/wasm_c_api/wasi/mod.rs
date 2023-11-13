@@ -259,7 +259,7 @@ fn prepare_webc_env(
     len: usize,
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
-    use virtual_fs::static_fs::StaticFileSystem;
+    use virtual_fs::static_fs::WebCStaticFileSystem;
     use webc::v1::{FsEntryType, WebC};
 
     let store_mut = store.as_store_mut();
@@ -294,7 +294,7 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
+    let filesystem = Box::new(WebCStaticFileSystem::init(slice, package_name)?);
     let mut builder = config.builder.runtime(Arc::new(rt));
 
     if !config.inherit_stdout {

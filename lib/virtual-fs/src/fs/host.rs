@@ -256,6 +256,7 @@ pub struct File {
     pub host_path: PathBuf,
     #[cfg(feature = "enable-serde")]
     flags: u16,
+    unique_id: usize,
 }
 
 #[cfg(feature = "enable-serde")]
@@ -380,6 +381,7 @@ impl File {
             inner_std: file,
             inner: async_file,
             host_path,
+            unique_id: crate::generate_next_unique_id(),
             #[cfg(feature = "enable-serde")]
             flags: _flags,
         }
@@ -394,6 +396,10 @@ impl File {
 //#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for File {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
     fn last_accessed(&self) -> u64 {
         self.metadata()
             .accessed()

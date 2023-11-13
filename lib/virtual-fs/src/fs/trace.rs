@@ -92,6 +92,7 @@ where
         let file = self.0.new_open_options().options(conf.clone()).open(path)?;
         Ok(Box::new(TraceFile {
             file,
+            unique_id: crate::generate_next_unique_id(),
             path: path.to_owned(),
         }))
     }
@@ -100,10 +101,15 @@ where
 #[derive(Debug)]
 struct TraceFile {
     path: PathBuf,
+    unique_id: usize,
     file: Box<dyn crate::VirtualFile + Send + Sync + 'static>,
 }
 
 impl VirtualFile for TraceFile {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
     fn last_accessed(&self) -> u64 {
         self.file.last_accessed()
