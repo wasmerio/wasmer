@@ -38,16 +38,6 @@ struct ReadOnlyFileNode {
 }
 
 #[derive(Debug)]
-struct ArcFileNode {
-    inode: Inode,
-    parent_inode: Inode,
-    name: OsString,
-    fs: Arc<dyn crate::FileSystem + Send + Sync>,
-    path: PathBuf,
-    metadata: Metadata,
-}
-
-#[derive(Debug)]
 struct CustomFileNode {
     inode: Inode,
     parent_inode: Inode,
@@ -79,7 +69,6 @@ struct ArcDirectoryNode {
 enum Node {
     File(FileNode),
     ReadOnlyFile(ReadOnlyFileNode),
-    ArcFile(ArcFileNode),
     CustomFile(CustomFileNode),
     Directory(DirectoryNode),
     ArcDirectory(ArcDirectoryNode),
@@ -90,7 +79,6 @@ impl Node {
         *match self {
             Self::File(FileNode { inode, .. }) => inode,
             Self::ReadOnlyFile(ReadOnlyFileNode { inode, .. }) => inode,
-            Self::ArcFile(ArcFileNode { inode, .. }) => inode,
             Self::CustomFile(CustomFileNode { inode, .. }) => inode,
             Self::Directory(DirectoryNode { inode, .. }) => inode,
             Self::ArcDirectory(ArcDirectoryNode { inode, .. }) => inode,
@@ -101,7 +89,6 @@ impl Node {
         *match self {
             Self::File(FileNode { parent_inode, .. }) => parent_inode,
             Self::ReadOnlyFile(ReadOnlyFileNode { parent_inode, .. }) => parent_inode,
-            Self::ArcFile(ArcFileNode { parent_inode, .. }) => parent_inode,
             Self::CustomFile(CustomFileNode { parent_inode, .. }) => parent_inode,
             Self::Directory(DirectoryNode { parent_inode, .. }) => parent_inode,
             Self::ArcDirectory(ArcDirectoryNode { parent_inode, .. }) => parent_inode,
@@ -113,9 +100,6 @@ impl Node {
                 f.parent_inode = parent_inode;
             }
             Self::ReadOnlyFile(f) => {
-                f.parent_inode = parent_inode;
-            }
-            Self::ArcFile(f) => {
                 f.parent_inode = parent_inode;
             }
             Self::CustomFile(f) => {
@@ -134,7 +118,6 @@ impl Node {
         match self {
             Self::File(FileNode { name, .. }) => name.as_os_str(),
             Self::ReadOnlyFile(ReadOnlyFileNode { name, .. }) => name.as_os_str(),
-            Self::ArcFile(ArcFileNode { name, .. }) => name.as_os_str(),
             Self::CustomFile(CustomFileNode { name, .. }) => name.as_os_str(),
             Self::Directory(DirectoryNode { name, .. }) => name.as_os_str(),
             Self::ArcDirectory(ArcDirectoryNode { name, .. }) => name.as_os_str(),
@@ -145,7 +128,6 @@ impl Node {
         match self {
             Self::File(FileNode { metadata, .. }) => metadata,
             Self::ReadOnlyFile(ReadOnlyFileNode { metadata, .. }) => metadata,
-            Self::ArcFile(ArcFileNode { metadata, .. }) => metadata,
             Self::CustomFile(CustomFileNode { metadata, .. }) => metadata,
             Self::Directory(DirectoryNode { metadata, .. }) => metadata,
             Self::ArcDirectory(ArcDirectoryNode { metadata, .. }) => metadata,
@@ -156,7 +138,6 @@ impl Node {
         match self {
             Self::File(FileNode { metadata, .. }) => metadata,
             Self::ReadOnlyFile(ReadOnlyFileNode { metadata, .. }) => metadata,
-            Self::ArcFile(ArcFileNode { metadata, .. }) => metadata,
             Self::CustomFile(CustomFileNode { metadata, .. }) => metadata,
             Self::Directory(DirectoryNode { metadata, .. }) => metadata,
             Self::ArcDirectory(ArcDirectoryNode { metadata, .. }) => metadata,
@@ -167,7 +148,6 @@ impl Node {
         match self {
             Self::File(FileNode { name, .. }) => *name = new_name,
             Self::ReadOnlyFile(ReadOnlyFileNode { name, .. }) => *name = new_name,
-            Self::ArcFile(ArcFileNode { name, .. }) => *name = new_name,
             Self::CustomFile(CustomFileNode { name, .. }) => *name = new_name,
             Self::Directory(DirectoryNode { name, .. }) => *name = new_name,
             Self::ArcDirectory(ArcDirectoryNode { name, .. }) => *name = new_name,

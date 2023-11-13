@@ -617,7 +617,6 @@ impl FileSystemInner {
                     Node::File(FileNode { inode, name, .. })
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
-                    | Node::ArcFile(ArcFileNode { inode, name, .. })
                         if name.as_os_str() == name_of_file =>
                     {
                         Some(Some((nth, InodeResolution::Found(*inode))))
@@ -657,7 +656,6 @@ impl FileSystemInner {
                     | Node::Directory(DirectoryNode { inode, name, .. })
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
-                    | Node::ArcFile(ArcFileNode { inode, name, .. })
                         if name.as_os_str() == name_of =>
                     {
                         Some(Some((nth, InodeResolution::Found(*inode))))
@@ -818,7 +816,6 @@ impl fmt::Debug for FileSystemInner {
                     ty = match node {
                         Node::File { .. } => "file",
                         Node::ReadOnlyFile { .. } => "ro-file",
-                        Node::ArcFile { .. } => "arc-file",
                         Node::CustomFile { .. } => "custom-file",
                         Node::Directory { .. } => "dir",
                         Node::ArcDirectory { .. } => "arc-dir",

@@ -65,84 +65,6 @@ impl FileSystem {
         Ok(())
     }
 
-    /// Inserts a arc file into the file system that references another file
-    /// in another file system (does not copy the real data)
-    pub fn insert_arc_file_at(
-        &self,
-        target_path: PathBuf,
-        fs: Arc<dyn crate::FileSystem + Send + Sync>,
-        source_path: PathBuf,
-    ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, target_path.as_path());
-        let (inode_of_parent, maybe_inode_of_file, name_of_file) =
-            self.insert_inode(target_path.as_path())?;
-
-        let inode_of_parent = match inode_of_parent {
-            InodeResolution::Found(a) => a,
-            InodeResolution::Redirect(..) => {
-                return Err(FsError::InvalidInput);
-            }
-        };
-
-        match maybe_inode_of_file {
-            // The file already exists, then it can not be inserted.
-            Some(_inode_of_file) => return Err(FsError::AlreadyExists),
-
-            // The file doesn't already exist; it's OK to create it if
-            None => {
-                // Write lock.
-                let mut fs_lock = self.inner.write().map_err(|_| FsError::Lock)?;
-
-                // Read the metadata or generate a dummy one
-                let meta = match fs.metadata(&target_path) {
-                    Ok(meta) => meta,
-                    _ => {
-                        let time = time();
-                        Metadata {
-                            ft: FileType::new_file(),
-                            accessed: time,
-                            created: time,
-                            modified: time,
-                            len: 0,
-                        }
-                    }
-                };
-
-                // Creating the file in the storage.
-                let inode_of_file = fs_lock.storage.vacant_entry().key();
-                let real_inode_of_file = fs_lock.storage.insert(Node::ArcFile(ArcFileNode {
-                    inode: inode_of_file,
-                    parent_inode: inode_of_parent,
-                    name: name_of_file,
-                    fs,
-                    path: source_path,
-                    metadata: meta,
-                }));
-
-                assert_eq!(
-                    inode_of_file, real_inode_of_file,
-                    "new file inode should have been correctly calculated",
-                );
-
-                // Adding the new directory to its parent.
-                fs_lock.add_child_to_node(inode_of_parent, inode_of_file)?;
-
-                inode_of_file
-            }
-        };
-        Ok(())
-    }
-
-    /// Inserts a arc file into the file system that references another file
-    /// in another file system (does not copy the real data)
-    pub fn insert_arc_file(
-        &self,
-        target_path: PathBuf,
-        fs: Arc<dyn crate::FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        self.insert_arc_file_at(target_path.clone(), fs, target_path)
-    }
-
     /// Inserts a arc directory into the file system that references another file
     /// in another file system (does not copy the real data)
     pub fn insert_arc_directory_at(
@@ -410,33 +332,6 @@ impl crate::FileOpener for FileSystem {
 
                         // Truncate if needed.
                         let mut file = node.file.lock().unwrap();
-                        if truncate {
-                            file.set_len(0)?;
-                            node.metadata.len = 0;
-                        }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.size();
-                        }
-                    }
-
-                    Some(Node::ArcFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        let mut file = node
-                            .fs
-                            .new_open_options()
-                            .read(read)
-                            .write(write)
-                            .append(append)
-                            .truncate(truncate)
-                            .create(create)
-                            .create_new(create_new)
-                            .open(node.path.as_path())?;
-
-                        // Truncate if needed.
                         if truncate {
                             file.set_len(0)?;
                             node.metadata.len = 0;
