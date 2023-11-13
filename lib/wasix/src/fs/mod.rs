@@ -1736,42 +1736,6 @@ impl std::fmt::Debug for WasiFs {
     }
 }
 
-#[derive(Debug, Default)]
-pub struct FallbackFileSystem;
-
-impl FallbackFileSystem {
-    fn fail() -> ! {
-        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`");
-    }
-}
-
-impl FileSystem for FallbackFileSystem {
-    fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
-        Self::fail();
-    }
-    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
-        Self::fail();
-    }
-    fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
-        Self::fail();
-    }
-    fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
-        Self::fail();
-    }
-    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
-        Self::fail();
-    }
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
-        Self::fail();
-    }
-}
-
 pub fn virtual_file_type_to_wasi_file_type(file_type: virtual_fs::FileType) -> Filetype {
     // TODO: handle other file types
     if file_type.is_dir() {
