@@ -35,7 +35,7 @@ impl Publish {
         let token = self
             .env
             .token()
-            .context("could not determine auth token for registry - runer 'wasmer login'")?;
+            .context("could not determine auth token for registry - run 'wasmer login'")?;
 
         let publish = wasmer_registry::package::builder::Publish {
             registry: self.env.registry_endpoint().map(|u| u.to_string()).ok(),
