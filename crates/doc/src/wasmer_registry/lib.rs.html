@@ -510,6 +510,7 @@
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
@@ -665,6 +666,7 @@
     registry_url: <span class="kw-2">&amp;</span>str,
     name: <span class="kw-2">&amp;</span>str,
     version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    auth_token: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;PackageDownloadInfo, QueryPackageError&gt; {
     <span class="kw">use </span><span class="kw">crate</span>::graphql::{
         execute_query,
@@ -676,8 +678,8 @@
         version: version.map(|s| s.to_string()),
     });
 
-    <span class="kw">let </span>response: get_package_version_query::ResponseData = execute_query(registry_url, <span class="string">&quot;&quot;</span>, <span class="kw-2">&amp;</span>q)
-        .map_err(|e| {
+    <span class="kw">let </span>response: get_package_version_query::ResponseData =
+        execute_query(registry_url, auth_token.unwrap_or_default(), <span class="kw-2">&amp;</span>q).map_err(|e| {
             QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;Error sending GetPackagesQuery: {e}&quot;</span>))
         })<span class="question-mark">?</span>;
 

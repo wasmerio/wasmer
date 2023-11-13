@@ -72,7 +72,14 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>clap::Parser;
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context <span class="kw">as _</span>;
+<span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 
 <span class="doccomment">/// Publish a package to the package registry.
@@ -105,13 +112,18 @@
 <span class="kw">impl </span>Publish {
     <span class="doccomment">/// Executes `wasmer publish`
     </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>token = <span class="self">self
+            </span>.env
+            .token()
+            .context(<span class="string">&quot;could not determine auth token for registry - run &#39;wasmer login&#39;&quot;</span>)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>publish = wasmer_registry::package::builder::Publish {
             registry: <span class="self">self</span>.env.registry_endpoint().map(|u| u.to_string()).ok(),
             dry_run: <span class="self">self</span>.dry_run,
             quiet: <span class="self">self</span>.quiet,
             package_name: <span class="self">self</span>.package_name.clone(),
             version: <span class="self">self</span>.version.clone(),
-            token: <span class="self">self</span>.env.token(),
+            token,
             no_validate: <span class="self">self</span>.no_validate,
             package_path: <span class="self">self</span>.package_path.clone(),
         };

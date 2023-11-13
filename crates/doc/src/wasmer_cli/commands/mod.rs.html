@@ -37,6 +37,9 @@
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
 <a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
@@ -45,6 +48,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">mod </span>compile;
 <span class="kw">mod </span>config;
+<span class="kw">mod </span>container;
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;wasmer-artifact-create&quot;</span>))]
 </span><span class="kw">mod </span>create_exe;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
@@ -54,6 +58,7 @@
 <span class="kw">mod </span>init;
 <span class="kw">mod </span>inspect;
 <span class="kw">mod </span>login;
+<span class="kw">mod </span>package;
 <span class="kw">mod </span>publish;
 <span class="kw">mod </span>run;
 <span class="kw">mod </span>self_update;
@@ -61,6 +66,11 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;wast&quot;</span>)]
 </span><span class="kw">mod </span>wast;
 <span class="kw">mod </span>whoami;
+
+<span class="kw">pub use </span><span class="self">self</span>::{
+    add::<span class="kw-2">*</span>, cache::<span class="kw-2">*</span>, config::<span class="kw-2">*</span>, container::<span class="kw-2">*</span>, init::<span class="kw-2">*</span>, inspect::<span class="kw-2">*</span>, login::<span class="kw-2">*</span>, package::<span class="kw-2">*</span>,
+    publish::<span class="kw-2">*</span>, run::Run, self_update::<span class="kw-2">*</span>, validate::<span class="kw-2">*</span>, whoami::<span class="kw-2">*</span>,
+};
 
 <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 </span><span class="kw">pub use </span>binfmt::<span class="kw-2">*</span>;
@@ -70,10 +80,6 @@
 </span><span class="kw">pub use </span>create_exe::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;wast&quot;</span>)]
 </span><span class="kw">pub use </span>wast::<span class="kw-2">*</span>;
-<span class="kw">pub use </span>{
-    add::<span class="kw-2">*</span>, cache::<span class="kw-2">*</span>, config::<span class="kw-2">*</span>, init::<span class="kw-2">*</span>, inspect::<span class="kw-2">*</span>, login::<span class="kw-2">*</span>, publish::<span class="kw-2">*</span>, run::Run,
-    self_update::<span class="kw-2">*</span>, validate::<span class="kw-2">*</span>, whoami::<span class="kw-2">*</span>,
-};
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">pub use </span>{create_obj::<span class="kw-2">*</span>, gen_c_header::<span class="kw-2">*</span>};
 </code></pre></div></section></main></body></html>

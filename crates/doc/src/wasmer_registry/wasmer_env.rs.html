@@ -271,6 +271,30 @@
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use </span><span class="kw">crate</span>::WasmerConfig;
@@ -315,6 +339,22 @@
         }
     }
 
+    <span class="kw">pub fn </span>registry_public_url(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Url, Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>url = <span class="self">self</span>.registry_endpoint()<span class="question-mark">?</span>;
+        url.set_path(<span class="string">&quot;&quot;</span>);
+
+        <span class="kw">let </span>domain = url
+            .host_str()
+            .context(<span class="string">&quot;url has no host&quot;</span>)<span class="question-mark">?
+            </span>.strip_prefix(<span class="string">&quot;registry.&quot;</span>)
+            .context(<span class="string">&quot;could not derive registry public url&quot;</span>)<span class="question-mark">?
+            </span>.to_string();
+        url.set_host(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>domain))
+            .context(<span class="string">&quot;could not derive registry public url&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(url)
+    }
+
     <span class="doccomment">/// Get the GraphQL endpoint used to query the registry.
     </span><span class="kw">pub fn </span>registry_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Url, Error&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(registry) = <span class="kw-2">&amp;</span><span class="self">self</span>.registry {
@@ -350,6 +390,14 @@
             <span class="prelude-val">Some</span>(cache_dir) =&gt; cache_dir.clone(),
             <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.dir().join(<span class="string">&quot;cache&quot;</span>),
         }
+    }
+
+    <span class="doccomment">/// Retrieve the specified token.
+    ///
+    /// NOTE: In contrast to [`Self::token`], this will not fall back to loading
+    /// the token from the confg file.
+    </span><span class="kw">pub fn </span>get_token_opt(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+        <span class="self">self</span>.token.as_deref()
     }
 
     <span class="doccomment">/// The API token for the active registry.

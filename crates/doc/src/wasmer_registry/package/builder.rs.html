@@ -1045,6 +1045,18 @@
 <a href="#1045" id="1045">1045</a>
 <a href="#1046" id="1046">1046</a>
 <a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::{fs, io::IsTerminal};
@@ -1079,8 +1091,8 @@
     </span><span class="kw">pub </span>package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Override the package version of the uploaded package in the wasmer.toml
     </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
-    <span class="doccomment">/// Override the token (by default, it will use the current logged in user)
-    </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// The auth token to use.
+    </span><span class="kw">pub </span>token: String,
     <span class="doccomment">/// Skip validation of the uploaded package
     </span><span class="kw">pub </span>no_validate: bool,
     <span class="doccomment">/// Directory containing the `wasmer.toml` (defaults to current root dir)
@@ -1179,7 +1191,13 @@
         <span class="kw">let </span><span class="kw-2">mut </span>policy = <span class="self">self</span>.validation_policy();
 
         <span class="kw">if </span>!policy.skip_validation() {
-            validate::validate_directory(<span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>registry, manifest_dir, <span class="kw-2">&amp;mut *</span>policy)<span class="question-mark">?</span>;
+            validate::validate_directory(
+                <span class="kw-2">&amp;</span>manifest,
+                <span class="kw-2">&amp;</span>registry,
+                manifest_dir,
+                <span class="kw-2">&amp;mut *</span>policy,
+                <span class="kw-2">&amp;</span><span class="self">self</span>.token,
+            )<span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span>archive_path = <span class="kw-2">&amp;</span>archive_meta.archive_path;
@@ -1211,7 +1229,7 @@
 
         <span class="kw">crate</span>::publish::try_chunked_uploading(
             <span class="prelude-val">Some</span>(registry),
-            <span class="self">self</span>.token.clone(),
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.token.clone()),
             <span class="kw-2">&amp;</span>manifest.package,
             <span class="kw-2">&amp;</span>archive_meta.manifest_toml,
             <span class="kw-2">&amp;</span>archive_meta.license,
@@ -1649,6 +1667,7 @@
         registry: <span class="kw-2">&amp;</span>str,
         pkg_path: PathBuf,
         callbacks: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>ValidationPolicy,
+        auth_token: <span class="kw-2">&amp;</span>str,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="comment">// validate as dir
         </span><span class="kw">for </span>module <span class="kw">in </span>manifest.modules.iter() {
@@ -1659,7 +1678,7 @@
             }
         }
 
-        <span class="kw">if </span>would_change_package_privacy(manifest, registry)<span class="question-mark">?
+        <span class="kw">if </span>would_change_package_privacy(manifest, registry, auth_token)<span class="question-mark">?
             </span>&amp;&amp; callbacks.on_package_privacy_changed(manifest).is_break()
         {
             <span class="kw">if </span>manifest.package.private {
@@ -1678,9 +1697,14 @@
     </span><span class="kw">fn </span>would_change_package_privacy(
         manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
         registry: <span class="kw-2">&amp;</span>str,
+        auth_token: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ValidationError&gt; {
-        <span class="kw">let </span>package_version =
-            <span class="kw">crate</span>::query_package_from_registry(registry, <span class="kw-2">&amp;</span>manifest.package.name, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>package_version = <span class="kw">crate</span>::query_package_from_registry(
+            registry,
+            <span class="kw-2">&amp;</span>manifest.package.name,
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(auth_token),
+        )<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(package_version.is_private != manifest.package.private)
     }
