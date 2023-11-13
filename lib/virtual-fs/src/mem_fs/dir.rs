@@ -4,8 +4,8 @@ use super::{
 };
 use crate::FileSystem as _;
 use crate::{
-    DescriptorType, DirEntry, DirectoryEntry, FileType, FsError, Metadata, OpenOptions, ReadDir,
-    ReaddirIterator, Result,
+    Descriptor, DescriptorType, DirEntry, DirectoryEntry, FileType, FsError, Metadata, OpenOptions,
+    ReadDir, ReaddirIterator, Result,
 };
 use futures::future::BoxFuture;
 use std::ffi::OsString;
@@ -28,9 +28,39 @@ impl Directory {
         }
     }
 
-    // fn get_child(self, name: OsString) -> Option<Descriptor> {
-    //     unimplemented!();
-    // }
+    fn get_child(self, name: OsString) -> Result<Descriptor> {
+        let guard = self.fs.inner.read().unwrap();
+        let node = guard.get_node_directory(self.inode).unwrap();
+        let found_node = node
+            .children
+            .iter()
+            .find_map(|inode| {
+                guard.storage.get(*inode).and_then(|node| {
+                    if node.name() == name {
+                        Some(node)
+                    } else {
+                        None
+                    }
+                })
+            })
+            .ok_or(FsError::EntryNotFound)?;
+        match found_node {
+            Node::Directory(DirectoryNode { inode, .. }) => {
+                let directory = Directory::new(*inode, self.fs.clone());
+                return Ok(Descriptor::Directory(Box::new(directory)));
+            }
+            Node::File(FileNode { inode, .. })
+            | Node::ReadOnlyFile(ReadOnlyFileNode { inode, .. })
+            | Node::CustomFile(CustomFileNode { inode, .. }) => {
+                let file = FileHandle::new(*inode, self.fs.clone(), false, false, false, 0);
+                return Ok(Descriptor::File(Box::new(file)));
+            }
+            Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
+                return Ok(Descriptor::Directory(Box::new(fs.as_dir())));
+            }
+            _ => return Err(FsError::InvalidData),
+        }
+    }
 
     fn remove_child(&self, name: OsString) -> Result<()> {
         // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
@@ -140,7 +170,7 @@ impl crate::Directory for Directory {
         }
     }
 
-    fn parent(self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
+    fn parent(&self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
         unimplemented!();
         // let parent_inode = {
         //     let guard = self.fs.inner.read().ok()?;

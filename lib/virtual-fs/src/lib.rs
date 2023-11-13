@@ -462,7 +462,7 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
         unimplemented!();
     }
 
-    fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
+    fn parent(&self) -> Option<Box<dyn Directory + Send + Sync>>;
 
     fn iter(&self) -> ReaddirIterator {
         unimplemented!();
@@ -487,10 +487,38 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
 
     // fn new_open_options(&self) -> OpenOptions;
 }
+
+impl<D, F> Directory for D
+where
+    D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
+    F: Directory + ?Sized,
+{
+    fn unique_id(&self) -> usize {
+        (*self).unique_id()
+    }
+
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send + Sync>> {
+        (*self).walk_to(to)
+    }
+
+    fn parent(&self) -> Option<Box<dyn Directory + Send + Sync>> {
+        (*self).parent()
+    }
+
+    fn iter(&self) -> ReaddirIterator {
+        (*self).iter()
+    }
+}
 impl Hash for dyn Directory {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.unique_id().hash(state);
     }
+}
+
+#[derive(Debug)]
+pub enum Descriptor {
+    File(Box<dyn VirtualFile + Send + Sync>),
+    Directory(Box<dyn Directory + Send + Sync>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
