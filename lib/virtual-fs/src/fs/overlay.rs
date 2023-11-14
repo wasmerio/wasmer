@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    ffi::OsString,
     fmt::Debug,
     io::{self, SeekFrom},
     path::{Path, PathBuf},
@@ -13,8 +14,8 @@ use replace_with::replace_with_or_abort;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{
-    ops, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    ops, Descriptor, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions,
+    OpenOptionsConfig, ReadDir, ReaddirIterator, VirtualFile,
 };
 
 /// A primary filesystem and chain of secondary filesystems that are overlayed
@@ -65,7 +66,7 @@ use crate::{
 #[derive(Clone, PartialEq, Eq)]
 pub struct OverlayFileSystem<P, S> {
     primary: Arc<P>,
-    secondaries: S,
+    secondaries: Arc<S>,
 }
 
 impl<P, S> OverlayFileSystem<P, S>
@@ -78,7 +79,7 @@ where
     pub fn new(primary: P, secondaries: S) -> Self {
         OverlayFileSystem {
             primary: Arc::new(primary),
-            secondaries,
+            secondaries: Arc::new(secondaries),
         }
     }
 
@@ -90,11 +91,6 @@ where
     /// Get a reference to the secondary filesystems.
     pub fn secondaries(&self) -> &S {
         &self.secondaries
-    }
-
-    /// Get a mutable reference to the secondary filesystems.
-    pub fn secondaries_mut(&mut self) -> &mut S {
-        &mut self.secondaries
     }
 
     fn permission_error_or_not_found(&self, path: &Path) -> Result<(), FsError> {
@@ -114,6 +110,16 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
+        let fs = OverlayFileSystem {
+            primary: self.primary.clone(),
+            secondaries: self.secondaries.clone(),
+        };
+        // let fs: OverlayFileSystem<P, S> = *self.clone();
+        let dir: OverlayDirectory<P, S> = OverlayDirectory::new(PathBuf::new(), fs);
+        Box::new(dir)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(path=%path.display()))]
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
@@ -357,6 +363,117 @@ where
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
+    }
+}
+
+#[derive(Clone)]
+pub struct OverlayDirectory<P, S> {
+    path: PathBuf,
+    unique_id: usize,
+    fs: OverlayFileSystem<P, S>,
+}
+
+impl<P, S> Debug for OverlayDirectory<P, S>
+where
+    P: FileSystem,
+    S: for<'a> FileSystems<'a>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OverlayDirectory")
+            .field("path", &self.path)
+            .field("fs", &self.fs)
+            .finish()
+    }
+}
+
+impl<P, S> OverlayDirectory<P, S>
+where
+    P: FileSystem + Send + Sync + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
+{
+    pub fn new(path: PathBuf, fs: OverlayFileSystem<P, S>) -> Self {
+        Self {
+            path,
+            fs,
+            unique_id: crate::generate_next_unique_id(),
+        }
+    }
+
+    fn get_child(self, name: OsString) -> Result<Descriptor, FsError> {
+        unimplemented!();
+        // let guard = self.fs.inner.read().unwrap();
+        // let node = guard.get_node_directory(self.inode).unwrap();
+        // let found_node = node
+        //     .children
+        //     .iter()
+        //     .find_map(|inode| {
+        //         guard.storage.get(*inode).and_then(|node| {
+        //             if node.name() == name {
+        //                 Some(node)
+        //             } else {
+        //                 None
+        //             }
+        //         })
+        //     })
+        //     .ok_or(FsError::EntryNotFound)?;
+        // match found_node {
+        //     Node::Directory(DirectoryNode { inode, .. }) => {
+        //         let directory = Directory::new(*inode, self.fs.clone());
+        //         return Ok(Descriptor::Directory(Box::new(directory)));
+        //     }
+        //     Node::File(FileNode { inode, .. })
+        //     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, .. })
+        //     | Node::CustomFile(CustomFileNode { inode, .. }) => {
+        //         let file = FileHandle::new(*inode, self.fs.clone(), false, false, false, 0);
+        //         return Ok(Descriptor::File(Box::new(file)));
+        //     }
+        //     Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
+        //         return Ok(Descriptor::Directory(Box::new(fs.as_dir())));
+        //     }
+        //     _ => return Err(FsError::InvalidData),
+        // }
+    }
+
+    fn remove_child(&self, name: OsString) -> Result<(), FsError> {
+        // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
+        unimplemented!();
+    }
+}
+
+impl<P, S> crate::Directory for OverlayDirectory<P, S>
+where
+    P: FileSystem + Send + 'static,
+    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
+    for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
+{
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
+    fn iter(&self) -> ReaddirIterator {
+        unimplemented!();
+    }
+    fn absolute_path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>, FsError> {
+        // TODO: Manage whiteouts
+        let primary_dir = self.fs.primary.as_dir().walk_to(to.clone());
+        if primary_dir.is_ok() {
+            return primary_dir;
+        }
+        for secondary in self.fs.secondaries.filesystems() {
+            let secondary_dir = secondary.as_dir().walk_to(to.clone());
+            if secondary_dir.is_ok() {
+                return secondary_dir;
+            }
+        }
+        Err(FsError::EntryNotFound)
+    }
+
+    fn parent(&self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
+        unimplemented!();
     }
 }
 
@@ -1014,25 +1131,25 @@ where
     S: for<'a> FileSystems<'a>,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        struct IterFilesystems<'a, S>(&'a S);
-        impl<'a, S> Debug for IterFilesystems<'a, S>
-        where
-            S: for<'b> FileSystems<'b>,
-        {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let mut f = f.debug_list();
+        // struct IterFilesystems<'a, S>(&'a S);
+        // impl<'a, S> Debug for IterFilesystems<'a, S>
+        // where
+        //     S: for<'b> FileSystems<'b>,
+        // {
+        //     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        //         let mut f = f.debug_list();
 
-                for fs in self.0.filesystems() {
-                    f.entry(&fs);
-                }
+        //         for fs in self.0.filesystems() {
+        //             f.entry(&fs);
+        //         }
 
-                f.finish()
-            }
-        }
+        //         f.finish()
+        //     }
+        // }
 
         f.debug_struct("OverlayFileSystem")
             .field("primary", &self.primary)
-            .field("secondaries", &IterFilesystems(&self.secondaries))
+            // .field("secondaries", &IterFilesystems(&self.secondaries))
             .finish()
     }
 }

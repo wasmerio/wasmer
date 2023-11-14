@@ -467,6 +467,8 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
     fn iter(&self) -> ReaddirIterator {
         unimplemented!();
     }
+
+    fn absolute_path(&self) -> PathBuf;
     // /// The parent directory of this dir
     // fn parent(self) -> Option<Box<dyn Directory + Send + Sync>>;
     // fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
@@ -508,7 +510,12 @@ where
     fn iter(&self) -> ReaddirIterator {
         (*self).iter()
     }
+
+    fn absolute_path(&self) -> PathBuf {
+        (*self).absolute_path()
+    }
 }
+
 impl Hash for dyn Directory {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.unique_id().hash(state);

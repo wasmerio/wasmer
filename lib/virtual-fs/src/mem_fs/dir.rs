@@ -94,7 +94,16 @@ impl crate::Directory for Directory {
             },
         ))))
     }
+    fn absolute_path(&self) -> PathBuf {
+        let guard = self.fs.inner.read().unwrap();
+        let node = guard.get_node(self.inode).unwrap();
+        guard.absolute_path(node)
+    }
+
     fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>> {
+        if to == PathBuf::from(".") || to == PathBuf::from("") {
+            return Ok(Box::new(self.clone()));
+        }
         let guard = self.fs.inner.read().map_err(|_| FsError::Lock)?;
         let mut node = guard.storage.get(self.inode).unwrap();
 
@@ -223,7 +232,7 @@ mod tests {
         let fs = FileSystem::default();
         // fs.create_dir(".").unwrap();
         assert_eq!(
-            fs.create_dir(&PathBuf::from("/base_dir")),
+            fs.create_dir(&PathBuf::from("/a")),
             Ok(()),
             "creating the root which already exists",
         );
@@ -235,10 +244,26 @@ mod tests {
             iter_items[0].as_ref().unwrap(),
             &DirectoryEntry {
                 type_: DescriptorType::Directory,
-                name: OsString::from("base_dir"),
+                name: OsString::from("a"),
             }
         );
-        let base_dir = dir.walk_to(PathBuf::from("base_dir"))?;
+        let dir_a = dir.walk_to(PathBuf::from("a"))?;
+
+        assert_eq!(dir_a.absolute_path(), PathBuf::from("/a"));
+        assert_eq!(fs.create_dir(&PathBuf::from("/a/b")), Ok(()),);
+
+        assert_eq!(fs.create_dir(&PathBuf::from("/b")), Ok(()),);
+
+        let dir_b = dir.walk_to(PathBuf::from("b"))?;
+
+        let dir_a_b = dir_a.walk_to(PathBuf::from("b"))?;
+
+        fs.rename(&PathBuf::from("/a"), &PathBuf::from("/b/a"))
+            .await?;
+
+        assert_eq!(dir_a.absolute_path(), PathBuf::from("/b/a"));
+        assert_eq!(dir_a_b.absolute_path(), PathBuf::from("/b/a/b"));
+
         Ok(())
     }
 }

@@ -400,9 +400,12 @@ impl FileSystemInner {
     }
 
     #[inline]
-    fn absolute_path(&self, node: &Node) -> PathBuf {
+    pub(super) fn absolute_path(&self, node: &Node) -> PathBuf {
         let parent = self.get_node(node.parent_inode()).unwrap();
         if parent.inode() == ROOT_INODE {
+            if let Some(parent) = &self.parent {
+                return parent.absolute_path().join(node.name());
+            }
             return PathBuf::from("/").join(node.name());
         }
         self.absolute_path(&parent).join(node.name())
