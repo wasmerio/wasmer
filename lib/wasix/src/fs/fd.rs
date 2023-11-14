@@ -11,7 +11,7 @@ use futures::Future;
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::{watch, Mutex as AsyncMutex};
-use virtual_fs::{Pipe, VirtualFile};
+use virtual_fs::{Directory, Pipe, VirtualFile};
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
 
 use crate::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
@@ -194,6 +194,9 @@ pub enum Kind {
         path: PathBuf,
         /// The entries of a directory are lazily filled.
         entries: HashMap<String, InodeGuard>,
+        /// The directory referencing this one
+        #[cfg_attr(feature = "enable-serde", serde(skip))]
+        dir: Arc<dyn Directory + Send + Sync + 'static>,
     },
     /// The same as Dir but without the irrelevant bits
     /// The root is immutable after creation; generally the Kind::Root

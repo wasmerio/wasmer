@@ -105,8 +105,7 @@ pub(crate) use crate::{
     },
     runtime::SpawnMemoryType,
     state::{
-        self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
-        WasiFutex, WasiState,
+        self, iterate_poll_events, InodeGuard, PollEvent, PollEventBuilder, WasiFutex, WasiState,
     },
     utils::{self, map_io_err},
     Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles,

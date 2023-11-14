@@ -40,7 +40,7 @@ pub use self::{
     func_env::WasiFunctionEnv,
     types::*,
 };
-pub use crate::fs::{InodeGuard, InodeWeakGuard};
+pub use crate::fs::InodeGuard;
 use crate::{
     fs::{fs_error_into_wasi_err, WasiFs, WasiInodes, WasiStateFileGuard},
     syscalls::types::*,
