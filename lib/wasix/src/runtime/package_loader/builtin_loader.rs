@@ -190,6 +190,12 @@ impl BuiltinPackageLoader {
     }
 }
 
+impl Default for BuiltinPackageLoader {
+    fn default() -> Self {
+        BuiltinPackageLoader::new()
+    }
+}
+
 #[async_trait::async_trait]
 impl PackageLoader for BuiltinPackageLoader {
     #[tracing::instrument(
