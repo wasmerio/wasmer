@@ -10,7 +10,7 @@ use std::{
 
 use futures::future::BoxFuture;
 use virtual_fs::{
-    host_fs, mem_fs, passthru_fs, tmp_fs, AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt,
+    host_fs, mem_fs, tmp_fs, AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt,
     FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
@@ -33,9 +33,6 @@ pub enum WasiFileSystemKind {
 
     /// Instruct the test runner to use `virtual_fs::tmp_fs`
     Tmp,
-
-    /// Instruct the test runner to use `virtual_fs::passtru_fs`
-    PassthruMemory,
 
     /// Instruct the test runner to use `virtual_fs::union_fs<host_fs, mem_fs>`
     UnionHostMemory,
@@ -225,10 +222,6 @@ impl<'a> WasiTest<'a> {
                 let fs: Box<dyn FileSystem + Send + Sync> = match other {
                     WasiFileSystemKind::InMemory => Box::<mem_fs::FileSystem>::default(),
                     WasiFileSystemKind::Tmp => Box::<tmp_fs::TmpFileSystem>::default(),
-                    WasiFileSystemKind::PassthruMemory => {
-                        let fs = Box::<mem_fs::FileSystem>::default();
-                        Box::new(passthru_fs::PassthruFileSystem::new(fs))
-                    }
                     WasiFileSystemKind::RootFileSystemBuilder => {
                         Box::new(RootFileSystemBuilder::new().build())
                     }

@@ -186,40 +186,6 @@ wasitests::nightly_2022_10_18::tmp_fs::readlink
 wasitests::nightly_2022_10_18::tmp_fs::unix_open_special_files
 wasitests::nightly_2022_10_18::tmp_fs::writing
 
-wasitests::snapshot1::passthru_fs::close_preopen_fd
-wasitests::snapshot1::passthru_fs::create_dir
-wasitests::snapshot1::passthru_fs::envvar
-wasitests::snapshot1::passthru_fs::fd_allocate
-wasitests::snapshot1::passthru_fs::fd_close
-wasitests::snapshot1::passthru_fs::fd_pread
-wasitests::snapshot1::passthru_fs::fd_read
-wasitests::snapshot1::passthru_fs::poll_oneoff
-wasitests::snapshot1::passthru_fs::readlink
-wasitests::snapshot1::passthru_fs::unix_open_special_files
-wasitests::snapshot1::passthru_fs::writing
-wasitests::unstable::passthru_fs::close_preopen_fd
-wasitests::unstable::passthru_fs::create_dir
-wasitests::unstable::passthru_fs::envvar
-wasitests::unstable::passthru_fs::fd_allocate
-wasitests::unstable::passthru_fs::fd_close
-wasitests::unstable::passthru_fs::fd_pread
-wasitests::unstable::passthru_fs::fd_read
-wasitests::unstable::passthru_fs::poll_oneoff
-wasitests::unstable::passthru_fs::readlink
-wasitests::unstable::passthru_fs::unix_open_special_files
-wasitests::unstable::passthru_fs::writing
-wasitests::nightly_2022_10_18::passthru_fs::close_preopen_fd
-wasitests::nightly_2022_10_18::passthru_fs::create_dir
-wasitests::nightly_2022_10_18::passthru_fs::envvar
-wasitests::nightly_2022_10_18::passthru_fs::fd_allocate
-wasitests::nightly_2022_10_18::passthru_fs::fd_close
-wasitests::nightly_2022_10_18::passthru_fs::fd_pread
-wasitests::nightly_2022_10_18::passthru_fs::fd_read
-wasitests::nightly_2022_10_18::passthru_fs::poll_oneoff
-wasitests::nightly_2022_10_18::passthru_fs::readlink
-wasitests::nightly_2022_10_18::passthru_fs::unix_open_special_files
-wasitests::nightly_2022_10_18::passthru_fs::writing
-
 wasitests::snapshot1::tmp_fs::close_preopen_fd
 wasitests::snapshot1::tmp_fs::create_dir
 wasitests::snapshot1::tmp_fs::envvar
@@ -323,7 +289,6 @@ wasitests::nightly_2022_10_18::root_fs::unix_open_special_files
 wasitests::nightly_2022_10_18::root_fs::writing
 
 # These tests are failing in CI for some reason, but didn't fail on older compiler versions
-wasitests::nightly_2022_10_18::passthru_fs::path_symlink
 wasitests::nightly_2022_10_18::root_fs::path_symlink
 wasitests::nightly_2022_10_18::tmp_fs::path_symlink
 wasitests::nightly_2022_10_18::union_fs::path_symlink
@@ -332,7 +297,6 @@ wasitests::nightly_2022_10_18::host_fs::path_symlink
 
 wasitests::nightly_2022_10_18::mem_fs::fd_append
 wasitests::nightly_2022_10_18::host_fs::fd_append
-wasitests::nightly_2022_10_18::passthru_fs::fd_append
 wasitests::nightly_2022_10_18::root_fs::fd_append
 wasitests::nightly_2022_10_18::tmp_fs::fd_append
 wasitests::nightly_2022_10_18::union_fs::fd_append

@@ -79,7 +79,6 @@ fn main() -> anyhow::Result<()> {
                         ("host_fs", "WasiFileSystemKind::Host"),
                         ("mem_fs", "WasiFileSystemKind::InMemory"),
                         ("tmp_fs", "WasiFileSystemKind::Tmp"),
-                        ("passthru_fs", "WasiFileSystemKind::PassthruMemory"),
                         ("union_fs", "WasiFileSystemKind::UnionHostMemory"),
                         ("root_fs", "WasiFileSystemKind::RootFileSystemBuilder"),
                     ] {
