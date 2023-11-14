@@ -12,6 +12,7 @@ use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
 use wasmer_wasix::{
+    http::HttpClient,
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
@@ -256,7 +257,8 @@ fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
 
     std::fs::create_dir_all(&cache_dir).unwrap();
 
-    let http_client = Arc::new(wasmer_wasix::http::default_http_client().unwrap()) as _;
+    let http_client: Arc<dyn HttpClient + Send + Sync> =
+        Arc::new(wasmer_wasix::http::default_http_client().unwrap());
 
     rt.set_engine(Some(Engine::default()))
         .set_module_cache(cache)
