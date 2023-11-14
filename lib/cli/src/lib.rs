@@ -24,7 +24,6 @@ pub mod commands;
 pub mod common;
 #[macro_use]
 pub mod error;
-mod auth;
 pub mod c_gen;
 pub mod cli;
 pub mod logging;

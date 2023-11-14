@@ -10,6 +10,7 @@ use anyhow::{Context, Error};
 use bytes::Bytes;
 use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
+use url::Url;
 use webc::{
     compat::{Container, ContainerError},
     DetectError,
@@ -22,7 +23,6 @@ use crate::{
         package_loader::PackageLoader,
         resolver::{DistributionInfo, PackageSummary, Resolution, WebcHash},
     },
-    Authentication,
 };
 
 /// The builtin [`PackageLoader`] that is used by the `wasmer` CLI and
@@ -32,7 +32,8 @@ pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
     in_memory: InMemoryCache,
     cache: Option<FileSystemCache>,
-    auth: Option<Arc<dyn Authentication + Send + Sync>>,
+    /// A mapping from hostnames to tokens
+    tokens: HashMap<String, String>,
 }
 
 impl BuiltinPackageLoader {
@@ -41,7 +42,7 @@ impl BuiltinPackageLoader {
             in_memory: InMemoryCache::default(),
             client: Arc::new(crate::http::default_http_client().unwrap()),
             cache: None,
-            auth: None,
+            tokens: HashMap::new(),
         }
     }
 
@@ -62,15 +63,28 @@ impl BuiltinPackageLoader {
         BuiltinPackageLoader { client, ..self }
     }
 
-    pub fn with_auth(self, auth: impl Authentication + Send + Sync + 'static) -> Self {
-        self.with_shared_auth(Arc::new(auth))
+    pub fn with_tokens<I, K, V>(mut self, tokens: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        for (hostname, token) in tokens {
+            self = self.with_token(hostname, token);
+        }
+
+        self
     }
 
-    pub fn with_shared_auth(self, auth: Arc<dyn Authentication + Send + Sync>) -> Self {
-        BuiltinPackageLoader {
-            auth: Some(auth),
-            ..self
-        }
+    /// Add an API token that will be used whenever sending requests to a
+    /// particular hostname.
+    ///
+    /// Note that this uses [`Url::authority()`] when looking up tokens, so it
+    /// will match both plain hostnames (e.g. `registry.wasmer.io`) and hosts
+    /// with a port number (e.g. `localhost:8000`).
+    pub fn with_token(mut self, hostname: impl Into<String>, token: impl Into<String>) -> Self {
+        self.tokens.insert(hostname.into(), token.into());
+        self
     }
 
     /// Insert a container into the in-memory hash.
@@ -117,7 +131,7 @@ impl BuiltinPackageLoader {
         }
 
         let request = HttpRequest {
-            headers: self.headers(dist.webc.as_str()),
+            headers: self.headers(&dist.webc),
             url: dist.webc.clone(),
             method: Method::GET,
             body: None,
@@ -150,22 +164,24 @@ impl BuiltinPackageLoader {
         Ok(body.into())
     }
 
-    fn headers(&self, url: &str) -> HeaderMap {
+    fn headers(&self, url: &Url) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert("Accept", "application/webc".parse().unwrap());
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
-        if let Some(auth) = self.auth.as_deref() {
-            match crate::auth::header(auth, url) {
-                Ok(Some(header)) => {
-                    headers.insert(http::header::AUTHORIZATION, header);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        error = &*e,
-                        "An error occurred while determining the authentication token",
-                    );
+        if url.has_authority() {
+            if let Some(token) = self.tokens.get(url.authority()) {
+                let header = format!("Bearer {token}");
+                match header.parse() {
+                    Ok(header) => {
+                        headers.insert(http::header::AUTHORIZATION, header);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            error = &e as &dyn std::error::Error,
+                            "An error occurred while parsing the authorization header",
+                        );
+                    }
                 }
             }
         }
