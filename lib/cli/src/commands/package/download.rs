@@ -1,7 +1,8 @@
-use std::{io::Write, path::PathBuf};
-
 use anyhow::Context;
-use futures::StreamExt;
+use dialoguer::console::{style, Emoji};
+use indicatif::{ProgressBar, ProgressStyle};
+use std::path::PathBuf;
+use tempfile::NamedTempFile;
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;
 
@@ -20,6 +21,10 @@ pub struct PackageDownload {
     #[clap(short = 'o', long)]
     out_path: PathBuf,
 
+    /// Run the download command without any output
+    #[clap(long)]
+    pub quiet: bool,
+
     /// The package to download.
     /// Can be:
     /// * a pakage specifier: `namespace/package[@vesion]`
@@ -27,13 +32,38 @@ pub struct PackageDownload {
     package: PackageSpecifier,
 }
 
+static CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji<'_, '_> = Emoji("📁 ", "");
+static DOWNLOADING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("🌐 ", "");
+static RETRIEVING_PACKAGE_INFORMATION_EMOJI: Emoji<'_, '_> = Emoji("📜 ", "");
+static VALIDATING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("🔍 ", "");
+static WRITING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
+
 impl PackageDownload {
     pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(self.run())
-    }
+        let total_steps = if self.validate { 5 } else { 4 };
+        let mut step_num = 1;
 
-    async fn run(&self) -> Result<(), anyhow::Error> {
+        // Setup the progress bar
+        let pb = if self.quiet {
+            ProgressBar::hidden()
+        } else {
+            ProgressBar::new_spinner()
+        };
+
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+                                .unwrap()
+                                .progress_chars("#>-"));
+
+        pb.println(format!(
+            "{} {}Creating output directory...",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            CREATING_OUTPUT_DIRECTORY_EMOJI,
+        ));
+
+        step_num += 1;
+
         if let Some(parent) = self.out_path.parent() {
             match parent.metadata() {
                 Ok(m) => {
@@ -51,6 +81,16 @@ impl PackageDownload {
                 Err(err) => return Err(err.into()),
             }
         };
+
+        pb.println(format!(
+            "{} {}Retrieving package information...",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            RETRIEVING_PACKAGE_INFORMATION_EMOJI
+        ));
+
+        step_num += 1;
 
         let (full_name, version, api_endpoint, token) = match &self.package {
             PackageSpecifier::Registry { full_name, version } => {
@@ -90,30 +130,45 @@ impl PackageDownload {
             .pirita_url
             .context("registry does provide a container download container download URL")?;
 
-        let client = reqwest::Client::new();
+        let client = reqwest::blocking::Client::new();
         let mut b = client
-            .get(&download_url)
+            .get(download_url)
             .header(http::header::ACCEPT, "application/webc");
         if let Some(token) = token {
             b = b.header(http::header::AUTHORIZATION, format!("Bearer {token}"));
         };
 
-        eprintln!("Downloading package...");
+        pb.println(format!(
+            "{} {}Downloading package...",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            DOWNLOADING_PACKAGE_EMOJI
+        ));
+
+        step_num += 1;
 
         let res = b
             .send()
-            .await
             .context("http request failed")?
             .error_for_status()
             .context("http request failed with non-success status code")?;
 
-        let tmp_path = self.out_path.with_extension("webc_tmp");
-        let mut tmpfile = std::fs::File::create(&tmp_path).with_context(|| {
-            format!(
-                "could not create temporary file at '{}'",
-                tmp_path.display()
-            )
-        })?;
+        let webc_total_size = res
+            .headers()
+            .get(http::header::CONTENT_LENGTH)
+            .and_then(|t| t.to_str().ok())
+            .and_then(|t| t.parse::<u64>().ok())
+            .unwrap_or_default();
+
+        if webc_total_size == 0 {
+            anyhow::bail!("Package is empty");
+        }
+
+        // Set the length of the progress bar
+        pb.set_length(webc_total_size);
+
+        let mut tmpfile = NamedTempFile::new_in(self.out_path.parent().unwrap())?;
 
         let ty = res
             .headers()
@@ -127,36 +182,46 @@ impl PackageDownload {
             );
         }
 
-        let mut body = res.bytes_stream();
+        std::io::copy(&mut pb.wrap_read(res), &mut tmpfile)
+            .context("could not write downloaded data to temporary file")?;
 
-        while let Some(res) = body.next().await {
-            let chunk = res.context("could not read response body")?;
-            // Yes, we are mixing async and sync code here, but since this is
-            // a top-level command, this can't interfere with other tasks.
-            tmpfile
-                .write_all(&chunk)
-                .context("could not write to temporary file")?;
-        }
-
-        tmpfile.sync_all()?;
-        std::mem::drop(tmpfile);
+        tmpfile.as_file_mut().sync_all()?;
 
         if self.validate {
-            eprintln!("Validating package...");
-            webc::compat::Container::from_disk(&tmp_path)
+            if !self.quiet {
+                println!(
+                    "{} {}Validating package...",
+                    style(format!("[{}/{}]", step_num, total_steps))
+                        .bold()
+                        .dim(),
+                    VALIDATING_PACKAGE_EMOJI
+                );
+            }
+
+            step_num += 1;
+
+            webc::compat::Container::from_disk(tmpfile.path())
                 .context("could not parse downloaded file as a package - invalid download?")?;
-            eprintln!("Downloaded package is valid!");
         }
 
-        std::fs::rename(&tmp_path, &self.out_path).with_context(|| {
+        tmpfile.persist(&self.out_path).with_context(|| {
             format!(
-                "could not move temporary file from '{}' to '{}'",
-                tmp_path.display(),
+                "could not persist temporary file to '{}'",
                 self.out_path.display()
             )
         })?;
 
-        eprintln!("Package downloaded to '{}'", self.out_path.display());
+        pb.println(format!(
+            "{} {}Package downloaded to '{}'",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            WRITING_PACKAGE_EMOJI,
+            self.out_path.display()
+        ));
+
+        // We're done, so finish the progress bar
+        pb.finish();
 
         Ok(())
     }
@@ -180,6 +245,7 @@ mod tests {
             validate: true,
             out_path: out_path.clone(),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
+            quiet: true,
         };
 
         cmd.execute().unwrap();

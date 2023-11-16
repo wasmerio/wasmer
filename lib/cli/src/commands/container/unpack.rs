@@ -1,6 +1,7 @@
-use std::path::PathBuf;
-
 use anyhow::Context;
+use dialoguer::console::{style, Emoji};
+use indicatif::ProgressBar;
+use std::path::PathBuf;
 
 /// Extract contents of a container to a directory.
 #[derive(clap::Parser, Debug)]
@@ -13,13 +14,31 @@ pub struct PackageUnpack {
     #[clap(long)]
     overwrite: bool,
 
+    /// Run the unpack command without any output
+    #[clap(long)]
+    pub quiet: bool,
+
     /// Path to the package.
     package_path: PathBuf,
 }
 
+static PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
+static EXTRACTED_TO_EMOJI: Emoji<'_, '_> = Emoji("📂 ", "");
+
 impl PackageUnpack {
     pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
-        eprintln!("Unpacking...");
+        // Setup the progress bar
+        let pb = if self.quiet {
+            ProgressBar::hidden()
+        } else {
+            ProgressBar::new_spinner()
+        };
+
+        pb.println(format!(
+            "{} {}Unpacking...",
+            style("[1/2]").bold().dim(),
+            PACKAGE_EMOJI
+        ));
 
         let pkg = webc::compat::Container::from_disk(&self.package_path).with_context(|| {
             format!(
@@ -35,7 +54,14 @@ impl PackageUnpack {
         pkg.unpack(outdir, self.overwrite)
             .with_context(|| "could not extract package".to_string())?;
 
-        eprintln!("Extracted package contents to '{}'", self.out_dir.display());
+        pb.println(format!(
+            "{} {}Extracted package contents to '{}'",
+            style("[2/2]").bold().dim(),
+            EXTRACTED_TO_EMOJI,
+            self.out_dir.display()
+        ));
+
+        pb.finish();
 
         Ok(())
     }
@@ -61,6 +87,7 @@ mod tests {
             out_dir: dir.path().to_owned(),
             overwrite: false,
             package_path,
+            quiet: true,
         };
 
         cmd.execute().unwrap();
