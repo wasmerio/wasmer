@@ -179,6 +179,14 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{io::Write, path::PathBuf};
 
 <span class="kw">use </span>anyhow::Context;
@@ -288,7 +296,13 @@
             </span>.error_for_status()
             .context(<span class="string">&quot;http request failed with non-success status code&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>tmpfile = tempfile::NamedTempFile::new()<span class="question-mark">?</span>;
+        <span class="kw">let </span>tmp_path = <span class="self">self</span>.out_path.with_extension(<span class="string">&quot;webc_tmp&quot;</span>);
+        <span class="kw">let </span><span class="kw-2">mut </span>tmpfile = std::fs::File::create(<span class="kw-2">&amp;</span>tmp_path).with_context(|| {
+            <span class="macro">format!</span>(
+                <span class="string">&quot;could not create temporary file at &#39;{}&#39;&quot;</span>,
+                tmp_path.display()
+            )
+        })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>ty = res
             .headers()
@@ -313,18 +327,20 @@
                 .context(<span class="string">&quot;could not write to temporary file&quot;</span>)<span class="question-mark">?</span>;
         }
 
-        tmpfile.as_file_mut().sync_all()<span class="question-mark">?</span>;
+        tmpfile.sync_all()<span class="question-mark">?</span>;
+        std::mem::drop(tmpfile);
 
         <span class="kw">if </span><span class="self">self</span>.validate {
             <span class="macro">eprintln!</span>(<span class="string">&quot;Validating package...&quot;</span>);
-            webc::compat::Container::from_disk(tmpfile.path())
+            webc::compat::Container::from_disk(<span class="kw-2">&amp;</span>tmp_path)
                 .context(<span class="string">&quot;could not parse downloaded file as a package - invalid download?&quot;</span>)<span class="question-mark">?</span>;
             <span class="macro">eprintln!</span>(<span class="string">&quot;Downloaded package is valid!&quot;</span>);
         }
 
-        tmpfile.persist(<span class="kw-2">&amp;</span><span class="self">self</span>.out_path).with_context(|| {
+        std::fs::rename(<span class="kw-2">&amp;</span>tmp_path, <span class="kw-2">&amp;</span><span class="self">self</span>.out_path).with_context(|| {
             <span class="macro">format!</span>(
-                <span class="string">&quot;could not persist temporary file to &#39;{}&#39;&quot;</span>,
+                <span class="string">&quot;could not move temporary file from &#39;{}&#39; to &#39;{}&#39;&quot;</span>,
+                tmp_path.display(),
                 <span class="self">self</span>.out_path.display()
             )
         })<span class="question-mark">?</span>;
