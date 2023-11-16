@@ -53,7 +53,7 @@ impl PackageDownload {
         let pb = if self.quiet {
             ProgressBar::hidden()
         } else {
-            ProgressBar::new(0)
+            ProgressBar::new_spinner()
         };
 
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
