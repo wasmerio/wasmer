@@ -132,7 +132,7 @@ impl PackageDownload {
 
         let client = reqwest::blocking::Client::new();
         let mut b = client
-            .get(&download_url)
+            .get(download_url)
             .header(http::header::ACCEPT, "application/webc");
         if let Some(token) = token {
             b = b.header(http::header::AUTHORIZATION, format!("Bearer {token}"));
