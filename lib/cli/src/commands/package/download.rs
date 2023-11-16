@@ -162,7 +162,13 @@ impl PackageDownload {
             .unwrap()
             .progress_chars("#>-"));
 
-        let mut tmpfile = tempfile::NamedTempFile::new()?;
+        let tmp_path = self.out_path.with_extension("webc_tmp");
+        let mut tmpfile = std::fs::File::create(&tmp_path).with_context(|| {
+            format!(
+                "could not create temporary file at '{}'",
+                tmp_path.display()
+            )
+        })?;
 
         let ty = res
             .headers()
@@ -193,7 +199,8 @@ impl PackageDownload {
 
         pb.finish();
 
-        tmpfile.as_file_mut().sync_all()?;
+        tmpfile.sync_all()?;
+        std::mem::drop(tmpfile);
 
         if self.validate {
             println!(
@@ -206,13 +213,14 @@ impl PackageDownload {
 
             step_num += 1;
 
-            webc::compat::Container::from_disk(tmpfile.path())
+            webc::compat::Container::from_disk(&tmp_path)
                 .context("could not parse downloaded file as a package - invalid download?")?;
         }
 
-        tmpfile.persist(&self.out_path).with_context(|| {
+        std::fs::rename(&tmp_path, &self.out_path).with_context(|| {
             format!(
-                "could not persist temporary file to '{}'",
+                "could not move temporary file from '{}' to '{}'",
+                tmp_path.display(),
                 self.out_path.display()
             )
         })?;
