@@ -175,8 +175,7 @@ impl PackageDownload {
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
-        let tmp_path = self.out_path.with_extension("webc_tmp");
-        let mut tmpfile = NamedTempFile::new_in(tmp_path.parent().unwrap())?;
+        let mut tmpfile = NamedTempFile::new_in(self.out_path.parent().unwrap())?;
 
         let ty = res
             .headers()
@@ -220,7 +219,7 @@ impl PackageDownload {
 
             step_num += 1;
 
-            webc::compat::Container::from_disk(&tmp_path)
+            webc::compat::Container::from_disk(tmpfile.path())
                 .context("could not parse downloaded file as a package - invalid download?")?;
         }
 
