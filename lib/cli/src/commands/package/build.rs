@@ -1,6 +1,6 @@
-use std::path::PathBuf;
-
 use anyhow::Context;
+use dialoguer::console::{style, Emoji};
+use std::path::PathBuf;
 
 /// Build a container from a package manifest.
 #[derive(clap::Parser, Debug)]
@@ -16,10 +16,21 @@ pub struct PackageBuild {
     package: Option<PathBuf>,
 }
 
+static READING_MANIFEST_EMOJI: Emoji<'_, '_> = Emoji("📖 ", "");
+static CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji<'_, '_> = Emoji("📁 ", "");
+static WRITING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
+static SPARKLE: Emoji<'_, '_> = Emoji("✨ ", ":-)");
+
 impl PackageBuild {
     pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
         let manifest_path = self.manifest_path()?;
         let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
+
+        println!(
+            "{} {}Reading manifest...",
+            style("[1/3]").bold().dim(),
+            READING_MANIFEST_EMOJI
+        );
 
         let manifest = pkg
             .manifest()
@@ -29,6 +40,13 @@ impl PackageBuild {
 
         let pkgname = manifest.name.replace('/', "-");
         let name = format!("{}-{}.webc", pkgname, manifest.version,);
+
+        println!(
+            "{} {}Creating output directory...",
+            style("[2/3]").bold().dim(),
+            CREATING_OUTPUT_DIRECTORY_EMOJI
+        );
+
         let out_path = if let Some(p) = &self.out {
             if p.is_dir() {
                 p.join(name)
@@ -53,10 +71,17 @@ impl PackageBuild {
         }
 
         let data = pkg.serialize()?;
+
+        println!(
+            "{} {}Writing package...",
+            style("[3/3]").bold().dim(),
+            WRITING_PACKAGE_EMOJI
+        );
+
         std::fs::write(&out_path, &data)
             .with_context(|| format!("could not write contents to '{}'", out_path.display()))?;
 
-        eprintln!("Package written to '{}'", out_path.display());
+        println!("{} Package written to '{}'", SPARKLE, out_path.display());
 
         Ok(())
     }
