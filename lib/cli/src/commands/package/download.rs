@@ -1,7 +1,8 @@
-use std::{io::Write, path::PathBuf};
-
 use anyhow::Context;
+use dialoguer::console::{style, Emoji};
 use futures::StreamExt;
+use indicatif::{ProgressBar, ProgressStyle};
+use std::{io::Write, path::PathBuf};
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;
 
@@ -27,6 +28,12 @@ pub struct PackageDownload {
     package: PackageSpecifier,
 }
 
+static CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji<'_, '_> = Emoji("📁 ", "");
+static DOWNLOADING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("🌐 ", "");
+static RETRIEVING_PACKAGE_INFORMATION_EMOJI: Emoji<'_, '_> = Emoji("📜 ", "");
+static VALIDATING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("🔍 ", "");
+static WRITING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
+
 impl PackageDownload {
     pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
         let rt = tokio::runtime::Runtime::new()?;
@@ -34,6 +41,19 @@ impl PackageDownload {
     }
 
     async fn run(&self) -> Result<(), anyhow::Error> {
+        let total_steps = if self.validate { 5 } else { 4 };
+        let mut step_num = 1;
+
+        println!(
+            "{} {}Creating output directory...",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            CREATING_OUTPUT_DIRECTORY_EMOJI
+        );
+
+        step_num += 1;
+
         if let Some(parent) = self.out_path.parent() {
             match parent.metadata() {
                 Ok(m) => {
@@ -51,6 +71,16 @@ impl PackageDownload {
                 Err(err) => return Err(err.into()),
             }
         };
+
+        println!(
+            "{} {}Retrieving package information...",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            RETRIEVING_PACKAGE_INFORMATION_EMOJI
+        );
+
+        step_num += 1;
 
         let (full_name, version, api_endpoint, token) = match &self.package {
             PackageSpecifier::Registry { full_name, version } => {
@@ -98,7 +128,15 @@ impl PackageDownload {
             b = b.header(http::header::AUTHORIZATION, format!("Bearer {token}"));
         };
 
-        eprintln!("Downloading package...");
+        println!(
+            "{} {}Downloading package...",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            DOWNLOADING_PACKAGE_EMOJI
+        );
+
+        step_num += 1;
 
         let res = b
             .send()
@@ -106,6 +144,23 @@ impl PackageDownload {
             .context("http request failed")?
             .error_for_status()
             .context("http request failed with non-success status code")?;
+
+        let webc_total_size = res
+            .headers()
+            .get(http::header::CONTENT_LENGTH)
+            .and_then(|t| t.to_str().ok())
+            .and_then(|t| t.parse::<u64>().ok())
+            .unwrap_or_default();
+
+        if webc_total_size == 0 {
+            anyhow::bail!("Package is empty");
+        }
+
+        // Setup the progress bar
+        let pb = ProgressBar::new(webc_total_size);
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+            .unwrap()
+            .progress_chars("#>-"));
 
         let mut tmpfile = tempfile::NamedTempFile::new()?;
 
@@ -125,6 +180,10 @@ impl PackageDownload {
 
         while let Some(res) = body.next().await {
             let chunk = res.context("could not read response body")?;
+            let len = chunk.len() as u64;
+
+            pb.inc(len);
+
             // Yes, we are mixing async and sync code here, but since this is
             // a top-level command, this can't interfere with other tasks.
             tmpfile
@@ -132,13 +191,23 @@ impl PackageDownload {
                 .context("could not write to temporary file")?;
         }
 
+        pb.finish();
+
         tmpfile.as_file_mut().sync_all()?;
 
         if self.validate {
-            eprintln!("Validating package...");
+            println!(
+                "{} {}Validating package...",
+                style(format!("[{}/{}]", step_num, total_steps))
+                    .bold()
+                    .dim(),
+                VALIDATING_PACKAGE_EMOJI
+            );
+
+            step_num += 1;
+
             webc::compat::Container::from_disk(tmpfile.path())
                 .context("could not parse downloaded file as a package - invalid download?")?;
-            eprintln!("Downloaded package is valid!");
         }
 
         tmpfile.persist(&self.out_path).with_context(|| {
@@ -148,7 +217,14 @@ impl PackageDownload {
             )
         })?;
 
-        eprintln!("Package downloaded to '{}'", self.out_path.display());
+        println!(
+            "{} {}Package downloaded to '{}'",
+            style(format!("[{}/{}]", step_num, total_steps))
+                .bold()
+                .dim(),
+            WRITING_PACKAGE_EMOJI,
+            self.out_path.display()
+        );
 
         Ok(())
     }
