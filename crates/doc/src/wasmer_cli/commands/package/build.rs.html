@@ -133,9 +133,52 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
-
-<span class="kw">use </span>anyhow::Context;
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>dialoguer::console::{style, Emoji};
+<span class="kw">use </span>indicatif::ProgressBar;
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Build a container from a package manifest.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -145,16 +188,38 @@
     </span><span class="attr">#[clap(short = <span class="string">&#39;o&#39;</span>, long)]
     </span>out: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
+    <span class="doccomment">/// Run the publish command without any output
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>quiet: bool,
+
     <span class="doccomment">/// Path of the package or wasmer.toml manifest.
     ///
     /// Defaults to current directory.
     </span>package: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
+<span class="kw">static </span>READING_MANIFEST_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📖 &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📁 &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>WRITING_PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦 &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>SPARKLE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;✨ &quot;</span>, <span class="string">&quot;:-)&quot;</span>);
+
 <span class="kw">impl </span>PackageBuild {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>manifest_path = <span class="self">self</span>.manifest_path()<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
+
+        <span class="comment">// Setup the progress bar
+        </span><span class="kw">let </span>pb = <span class="kw">if </span><span class="self">self</span>.quiet {
+            ProgressBar::hidden()
+        } <span class="kw">else </span>{
+            ProgressBar::new_spinner()
+        };
+
+        pb.println(<span class="macro">format!</span>(
+            <span class="string">&quot;{} {}Reading manifest...&quot;</span>,
+            style(<span class="string">&quot;[1/3]&quot;</span>).bold().dim(),
+            READING_MANIFEST_EMOJI
+        ));
 
         <span class="kw">let </span>manifest = pkg
             .manifest()
@@ -164,6 +229,13 @@
 
         <span class="kw">let </span>pkgname = manifest.name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>);
         <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;{}-{}.webc&quot;</span>, pkgname, manifest.version,);
+
+        pb.println(<span class="macro">format!</span>(
+            <span class="string">&quot;{} {}Creating output directory...&quot;</span>,
+            style(<span class="string">&quot;[2/3]&quot;</span>).bold().dim(),
+            CREATING_OUTPUT_DIRECTORY_EMOJI
+        ));
+
         <span class="kw">let </span>out_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span><span class="self">self</span>.out {
             <span class="kw">if </span>p.is_dir() {
                 p.join(name)
@@ -188,10 +260,21 @@
         }
 
         <span class="kw">let </span>data = pkg.serialize()<span class="question-mark">?</span>;
+
+        pb.println(<span class="macro">format!</span>(
+            <span class="string">&quot;{} {}Writing package...&quot;</span>,
+            style(<span class="string">&quot;[3/3]&quot;</span>).bold().dim(),
+            WRITING_PACKAGE_EMOJI
+        ));
+
         std::fs::write(<span class="kw-2">&amp;</span>out_path, <span class="kw-2">&amp;</span>data)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not write contents to &#39;{}&#39;&quot;</span>, out_path.display()))<span class="question-mark">?</span>;
 
-        <span class="macro">eprintln!</span>(<span class="string">&quot;Package written to &#39;{}&#39;&quot;</span>, out_path.display());
+        pb.finish_with_message(<span class="macro">format!</span>(
+            <span class="string">&quot;{} Package written to &#39;{}&#39;&quot;</span>,
+            SPARKLE,
+            out_path.display()
+        ));
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -261,6 +344,7 @@ description = &quot;hello&quot;
         <span class="kw">let </span>cmd = PackageBuild {
             package: <span class="prelude-val">Some</span>(path.to_owned()),
             out: <span class="prelude-val">Some</span>(path.to_owned()),
+            quiet: <span class="bool-val">true</span>,
         };
 
         cmd.execute().unwrap();

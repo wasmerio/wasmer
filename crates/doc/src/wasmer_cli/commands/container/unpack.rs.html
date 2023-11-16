@@ -88,9 +88,37 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
-
-<span class="kw">use </span>anyhow::Context;
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>dialoguer::console::{style, Emoji};
+<span class="kw">use </span>indicatif::ProgressBar;
+<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Extract contents of a container to a directory.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -103,13 +131,31 @@
     </span><span class="attr">#[clap(long)]
     </span>overwrite: bool,
 
+    <span class="doccomment">/// Run the unpack command without any output
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>quiet: bool,
+
     <span class="doccomment">/// Path to the package.
     </span>package_path: PathBuf,
 }
 
+<span class="kw">static </span>PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦 &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>EXTRACTED_TO_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📂 &quot;</span>, <span class="string">&quot;&quot;</span>);
+
 <span class="kw">impl </span>PackageUnpack {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="macro">eprintln!</span>(<span class="string">&quot;Unpacking...&quot;</span>);
+        <span class="comment">// Setup the progress bar
+        </span><span class="kw">let </span>pb = <span class="kw">if </span><span class="self">self</span>.quiet {
+            ProgressBar::hidden()
+        } <span class="kw">else </span>{
+            ProgressBar::new_spinner()
+        };
+
+        pb.println(<span class="macro">format!</span>(
+            <span class="string">&quot;{} {}Unpacking...&quot;</span>,
+            style(<span class="string">&quot;[1/2]&quot;</span>).bold().dim(),
+            PACKAGE_EMOJI
+        ));
 
         <span class="kw">let </span>pkg = webc::compat::Container::from_disk(<span class="kw-2">&amp;</span><span class="self">self</span>.package_path).with_context(|| {
             <span class="macro">format!</span>(
@@ -125,7 +171,14 @@
         pkg.unpack(outdir, <span class="self">self</span>.overwrite)
             .with_context(|| <span class="string">&quot;could not extract package&quot;</span>.to_string())<span class="question-mark">?</span>;
 
-        <span class="macro">eprintln!</span>(<span class="string">&quot;Extracted package contents to &#39;{}&#39;&quot;</span>, <span class="self">self</span>.out_dir.display());
+        pb.println(<span class="macro">format!</span>(
+            <span class="string">&quot;{} {}Extracted package contents to &#39;{}&#39;&quot;</span>,
+            style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(),
+            EXTRACTED_TO_EMOJI,
+            <span class="self">self</span>.out_dir.display()
+        ));
+
+        pb.finish();
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -151,6 +204,7 @@
             out_dir: dir.path().to_owned(),
             overwrite: <span class="bool-val">false</span>,
             package_path,
+            quiet: <span class="bool-val">true</span>,
         };
 
         cmd.execute().unwrap();

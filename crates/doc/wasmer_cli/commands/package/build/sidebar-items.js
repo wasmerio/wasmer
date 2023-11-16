@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["PackageBuild"]};
+window.SIDEBAR_ITEMS = {"static":["CREATING_OUTPUT_DIRECTORY_EMOJI","READING_MANIFEST_EMOJI","SPARKLE","WRITING_PACKAGE_EMOJI"],"struct":["PackageBuild"]};
