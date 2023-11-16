@@ -22,6 +22,10 @@ pub struct PackageDownload {
     #[clap(short = 'o', long)]
     out_path: PathBuf,
 
+    /// Run the download command without any output
+    #[clap(long)]
+    pub quiet: bool,
+
     /// The package to download.
     /// Can be:
     /// * a pakage specifier: `namespace/package[@vesion]`
@@ -45,13 +49,24 @@ impl PackageDownload {
         let total_steps = if self.validate { 5 } else { 4 };
         let mut step_num = 1;
 
-        println!(
+        // Setup the progress bar
+        let pb = if self.quiet {
+            ProgressBar::hidden()
+        } else {
+            ProgressBar::new(0)
+        };
+
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+                                .unwrap()
+                                .progress_chars("#>-"));
+
+        pb.println(format!(
             "{} {}Creating output directory...",
             style(format!("[{}/{}]", step_num, total_steps))
                 .bold()
                 .dim(),
-            CREATING_OUTPUT_DIRECTORY_EMOJI
-        );
+            CREATING_OUTPUT_DIRECTORY_EMOJI,
+        ));
 
         step_num += 1;
 
@@ -73,13 +88,13 @@ impl PackageDownload {
             }
         };
 
-        println!(
+        pb.println(format!(
             "{} {}Retrieving package information...",
             style(format!("[{}/{}]", step_num, total_steps))
                 .bold()
                 .dim(),
             RETRIEVING_PACKAGE_INFORMATION_EMOJI
-        );
+        ));
 
         step_num += 1;
 
@@ -129,13 +144,13 @@ impl PackageDownload {
             b = b.header(http::header::AUTHORIZATION, format!("Bearer {token}"));
         };
 
-        println!(
+        pb.println(format!(
             "{} {}Downloading package...",
             style(format!("[{}/{}]", step_num, total_steps))
                 .bold()
                 .dim(),
             DOWNLOADING_PACKAGE_EMOJI
-        );
+        ));
 
         step_num += 1;
 
@@ -157,11 +172,8 @@ impl PackageDownload {
             anyhow::bail!("Package is empty");
         }
 
-        // Setup the progress bar
-        let pb = ProgressBar::new(webc_total_size);
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
-            .unwrap()
-            .progress_chars("#>-"));
+        // Set the length of the progress bar
+        pb.set_length(webc_total_size);
 
         let tmp_path = self.out_path.with_extension("webc_tmp");
         let mut tmpfile = NamedTempFile::new_in(tmp_path.parent().unwrap())?;
@@ -193,18 +205,18 @@ impl PackageDownload {
                 .context("could not write to temporary file")?;
         }
 
-        pb.finish();
-
         tmpfile.as_file_mut().sync_all()?;
 
         if self.validate {
-            println!(
-                "{} {}Validating package...",
-                style(format!("[{}/{}]", step_num, total_steps))
-                    .bold()
-                    .dim(),
-                VALIDATING_PACKAGE_EMOJI
-            );
+            if !self.quiet {
+                println!(
+                    "{} {}Validating package...",
+                    style(format!("[{}/{}]", step_num, total_steps))
+                        .bold()
+                        .dim(),
+                    VALIDATING_PACKAGE_EMOJI
+                );
+            }
 
             step_num += 1;
 
@@ -219,14 +231,17 @@ impl PackageDownload {
             )
         })?;
 
-        println!(
+        pb.println(format!(
             "{} {}Package downloaded to '{}'",
             style(format!("[{}/{}]", step_num, total_steps))
                 .bold()
                 .dim(),
             WRITING_PACKAGE_EMOJI,
             self.out_path.display()
-        );
+        ));
+
+        // We're done, so finish the progress bar
+        pb.finish();
 
         Ok(())
     }
@@ -250,6 +265,7 @@ mod tests {
             validate: true,
             out_path: out_path.clone(),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
+            quiet: true,
         };
 
         cmd.execute().unwrap();

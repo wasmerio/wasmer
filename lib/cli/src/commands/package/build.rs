@@ -1,5 +1,6 @@
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
+use indicatif::ProgressBar;
 use std::path::PathBuf;
 
 /// Build a container from a package manifest.
@@ -9,6 +10,10 @@ pub struct PackageBuild {
     /// Defaults to current directory + [name]-[version].webc.
     #[clap(short = 'o', long)]
     out: Option<PathBuf>,
+
+    /// Run the publish command without any output
+    #[clap(long)]
+    pub quiet: bool,
 
     /// Path of the package or wasmer.toml manifest.
     ///
@@ -26,11 +31,18 @@ impl PackageBuild {
         let manifest_path = self.manifest_path()?;
         let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
 
-        println!(
+        // Setup the progress bar
+        let pb = if self.quiet {
+            ProgressBar::hidden()
+        } else {
+            ProgressBar::new_spinner()
+        };
+
+        pb.println(format!(
             "{} {}Reading manifest...",
             style("[1/3]").bold().dim(),
             READING_MANIFEST_EMOJI
-        );
+        ));
 
         let manifest = pkg
             .manifest()
@@ -41,11 +53,11 @@ impl PackageBuild {
         let pkgname = manifest.name.replace('/', "-");
         let name = format!("{}-{}.webc", pkgname, manifest.version,);
 
-        println!(
+        pb.println(format!(
             "{} {}Creating output directory...",
             style("[2/3]").bold().dim(),
             CREATING_OUTPUT_DIRECTORY_EMOJI
-        );
+        ));
 
         let out_path = if let Some(p) = &self.out {
             if p.is_dir() {
@@ -72,16 +84,20 @@ impl PackageBuild {
 
         let data = pkg.serialize()?;
 
-        println!(
+        pb.println(format!(
             "{} {}Writing package...",
             style("[3/3]").bold().dim(),
             WRITING_PACKAGE_EMOJI
-        );
+        ));
 
         std::fs::write(&out_path, &data)
             .with_context(|| format!("could not write contents to '{}'", out_path.display()))?;
 
-        println!("{} Package written to '{}'", SPARKLE, out_path.display());
+        pb.finish_with_message(format!(
+            "{} Package written to '{}'",
+            SPARKLE,
+            out_path.display()
+        ));
 
         Ok(())
     }
@@ -151,6 +167,7 @@ description = "hello"
         let cmd = PackageBuild {
             package: Some(path.to_owned()),
             out: Some(path.to_owned()),
+            quiet: true,
         };
 
         cmd.execute().unwrap();
