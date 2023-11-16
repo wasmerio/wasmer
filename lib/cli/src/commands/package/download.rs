@@ -3,6 +3,7 @@ use dialoguer::console::{style, Emoji};
 use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{io::Write, path::PathBuf};
+use tempfile::NamedTempFile;
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;
 
@@ -163,12 +164,7 @@ impl PackageDownload {
             .progress_chars("#>-"));
 
         let tmp_path = self.out_path.with_extension("webc_tmp");
-        let mut tmpfile = std::fs::File::create(&tmp_path).with_context(|| {
-            format!(
-                "could not create temporary file at '{}'",
-                tmp_path.display()
-            )
-        })?;
+        let mut tmpfile = NamedTempFile::new_in(tmp_path.parent().unwrap())?;
 
         let ty = res
             .headers()
@@ -199,8 +195,7 @@ impl PackageDownload {
 
         pb.finish();
 
-        tmpfile.sync_all()?;
-        std::mem::drop(tmpfile);
+        tmpfile.as_file_mut().sync_all()?;
 
         if self.validate {
             println!(
@@ -217,10 +212,9 @@ impl PackageDownload {
                 .context("could not parse downloaded file as a package - invalid download?")?;
         }
 
-        std::fs::rename(&tmp_path, &self.out_path).with_context(|| {
+        tmpfile.persist(&self.out_path).with_context(|| {
             format!(
-                "could not move temporary file from '{}' to '{}'",
-                tmp_path.display(),
+                "could not persist temporary file to '{}'",
                 self.out_path.display()
             )
         })?;
