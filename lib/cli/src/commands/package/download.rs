@@ -1,8 +1,7 @@
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
-use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 use tempfile::NamedTempFile;
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;
@@ -41,11 +40,6 @@ static WRITING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
 
 impl PackageDownload {
     pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
-        let rt = tokio::runtime::Runtime::new()?;
-        rt.block_on(self.run())
-    }
-
-    async fn run(&self) -> Result<(), anyhow::Error> {
         let total_steps = if self.validate { 5 } else { 4 };
         let mut step_num = 1;
 
@@ -136,7 +130,7 @@ impl PackageDownload {
             .pirita_url
             .context("registry does provide a container download container download URL")?;
 
-        let client = reqwest::Client::new();
+        let client = reqwest::blocking::Client::new();
         let mut b = client
             .get(&download_url)
             .header(http::header::ACCEPT, "application/webc");
@@ -156,7 +150,6 @@ impl PackageDownload {
 
         let res = b
             .send()
-            .await
             .context("http request failed")?
             .error_for_status()
             .context("http request failed with non-success status code")?;
@@ -189,20 +182,8 @@ impl PackageDownload {
             );
         }
 
-        let mut body = res.bytes_stream();
-
-        while let Some(res) = body.next().await {
-            let chunk = res.context("could not read response body")?;
-            let len = chunk.len() as u64;
-
-            pb.inc(len);
-
-            // Yes, we are mixing async and sync code here, but since this is
-            // a top-level command, this can't interfere with other tasks.
-            tmpfile
-                .write_all(&chunk)
-                .context("could not write to temporary file")?;
-        }
+        std::io::copy(&mut pb.wrap_read(res), &mut tmpfile)
+            .context("could not write downloaded data to temporary file")?;
 
         tmpfile.as_file_mut().sync_all()?;
 
