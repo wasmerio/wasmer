@@ -63,10 +63,19 @@ use crate::{
 /// ```
 ///
 /// A more complex example is
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct OverlayFileSystem<P, S> {
-    primary: Arc<P>,
+    pub primary: Arc<P>,
     secondaries: Arc<S>,
+}
+
+impl<P, S> Clone for OverlayFileSystem<P, S> {
+    fn clone(&self) -> Self {
+        Self {
+            primary: self.primary.clone(),
+            secondaries: self.secondaries.clone(),
+        }
+    }
 }
 
 impl<P, S> OverlayFileSystem<P, S>
@@ -111,12 +120,7 @@ where
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
     fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
-        let fs = OverlayFileSystem {
-            primary: self.primary.clone(),
-            secondaries: self.secondaries.clone(),
-        };
-        // let fs: OverlayFileSystem<P, S> = *self.clone();
-        let dir: OverlayDirectory<P, S> = OverlayDirectory::new(PathBuf::new(), fs);
+        let dir = OverlayDirectory::new(PathBuf::new(), self.clone());
         Box::new(dir)
     }
 
@@ -459,12 +463,14 @@ where
 
     fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>, FsError> {
         // TODO: Manage whiteouts
-        let primary_dir = self.fs.primary.as_dir().walk_to(to.clone());
+        let to_path = self.path.join(to.clone());
+        let primary_dir = self.fs.primary.as_dir().walk_to(to_path.clone());
         if primary_dir.is_ok() {
             return primary_dir;
         }
+
         for secondary in self.fs.secondaries.filesystems() {
-            let secondary_dir = secondary.as_dir().walk_to(to.clone());
+            let secondary_dir = secondary.as_dir().walk_to(to_path.clone());
             if secondary_dir.is_ok() {
                 return secondary_dir;
             }

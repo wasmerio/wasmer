@@ -496,23 +496,23 @@ where
     F: Directory + ?Sized,
 {
     fn unique_id(&self) -> usize {
-        (*self).unique_id()
+        (**self).unique_id()
     }
 
     fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send + Sync>> {
-        (*self).walk_to(to)
+        (**self).walk_to(to)
     }
 
     fn parent(&self) -> Option<Box<dyn Directory + Send + Sync>> {
-        (*self).parent()
+        (**self).parent()
     }
 
     fn iter(&self) -> ReaddirIterator {
-        (*self).iter()
+        (**self).iter()
     }
 
     fn absolute_path(&self) -> PathBuf {
-        (*self).absolute_path()
+        (**self).absolute_path()
     }
 }
 

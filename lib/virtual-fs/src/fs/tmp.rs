@@ -46,6 +46,10 @@ impl TmpFileSystem {
 }
 
 impl FileSystem for TmpFileSystem {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
+        self.fs.as_dir()
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         self.fs.read_dir(path)
     }

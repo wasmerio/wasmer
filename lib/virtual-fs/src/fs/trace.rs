@@ -39,6 +39,11 @@ impl<F> FileSystem for TraceFileSystem<F>
 where
     F: FileSystem,
 {
+    #[tracing::instrument(level = "trace", skip(self))]
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
+        self.0.as_dir()
+    }
+
     #[tracing::instrument(level = "trace", skip(self), err)]
     fn read_dir(&self, path: &std::path::Path) -> crate::Result<crate::ReadDir> {
         self.0.read_dir(path)

@@ -7,16 +7,16 @@ use std::{
     task::Poll,
 };
 
+use crate::{
+    DescriptorType, DirEntry, DirectoryEntry, EmptyFileSystem, FileOpener, FileSystem, FileType,
+    FsError, Metadata, OpenOptionsConfig, OverlayFileSystem, ReadDir, ReaddirIterator, VirtualFile,
+};
 use futures::future::BoxFuture;
+use std::sync::Mutex;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
     PathSegmentError, PathSegments, ToPathSegments,
-};
-
-use crate::{
-    DirEntry, EmptyFileSystem, FileOpener, FileSystem, FileType, FsError, Metadata,
-    OpenOptionsConfig, OverlayFileSystem, ReadDir, VirtualFile,
 };
 
 #[derive(Debug, Clone)]
@@ -49,6 +49,9 @@ impl WebcVolumeFileSystem {
 }
 
 impl FileSystem for WebcVolumeFileSystem {
+    fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
+        Box::new(WebcDirectory::new(PathBuf::from("/"), self.clone()))
+    }
     fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
         let meta = self.metadata(path)?;
 
@@ -146,6 +149,68 @@ impl FileSystem for WebcVolumeFileSystem {
 
     fn new_open_options(&self) -> crate::OpenOptions {
         crate::OpenOptions::new(self)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct WebcDirectory {
+    path: PathBuf,
+    unique_id: usize,
+    fs: WebcVolumeFileSystem,
+}
+
+impl WebcDirectory {
+    pub fn new(path: PathBuf, fs: WebcVolumeFileSystem) -> Self {
+        Self {
+            path,
+            fs,
+            unique_id: crate::generate_next_unique_id(),
+        }
+    }
+}
+
+impl crate::Directory for WebcDirectory {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
+    fn iter(&self) -> ReaddirIterator {
+        ReaddirIterator(Mutex::new(Box::new(
+            self.fs
+                .volume
+                .read_dir(&self.path)
+                .unwrap()
+                .into_iter()
+                .map(move |(segment, metadata)| {
+                    Ok(DirectoryEntry {
+                        type_: match metadata {
+                            webc::Metadata::Dir => DescriptorType::Directory,
+                            webc::Metadata::File { .. } => DescriptorType::File,
+                        },
+                        name: segment.to_string().into(),
+                    })
+                }),
+        )))
+    }
+
+    fn absolute_path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>, FsError> {
+        let to_path = self.path.join(to.clone());
+        match self.fs.volume.metadata(&to_path) {
+            Some(m) if m.is_dir() => {
+                let dir = WebcDirectory::new(to_path, self.fs.clone());
+                return Ok(Box::new(dir));
+            }
+            Some(_) => return Err(FsError::BaseNotDirectory),
+            None => return Err(FsError::EntryNotFound),
+        }
+    }
+
+    fn parent(&self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
+        unimplemented!();
     }
 }
 
@@ -652,5 +717,17 @@ mod tests {
                 .unwrap_err(),
             FsError::PermissionDenied,
         );
+    }
+
+    #[tokio::test]
+    async fn webc_overlay_as_dir_iter() -> anyhow::Result<()> {
+        let container = webc::Container::from_bytes(PYTHON_WEBC).unwrap();
+        let volumes = container.volumes();
+        let volume = volumes["atom"].clone();
+        let fs = WebcVolumeFileSystem::new(volume);
+        let dir = fs.as_dir().walk_to(PathBuf::from("./"))?;
+        let file_dirs = dir.iter().into_iter().collect::<Vec<_>>();
+        // dbg!(volumes.keys());
+        Ok(())
     }
 }

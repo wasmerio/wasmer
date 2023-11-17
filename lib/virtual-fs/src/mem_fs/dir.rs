@@ -223,9 +223,13 @@ impl crate::Directory for Directory {
 #[cfg(test)]
 mod tests {
     use super::FileSystem;
+    use crate::overlay_fs::OverlayFileSystem;
+    use crate::WebcVolumeFileSystem;
     use crate::{DescriptorType, DirectoryEntry, FileSystem as _, FsError};
     use std::ffi::OsString;
     use std::path::{Path, PathBuf};
+
+    const PYTHON_WEBC: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     #[tokio::test]
     async fn test_create_dir_dot() -> anyhow::Result<()> {
@@ -263,6 +267,32 @@ mod tests {
 
         assert_eq!(dir_a.absolute_path(), PathBuf::from("/b/a"));
         assert_eq!(dir_a_b.absolute_path(), PathBuf::from("/b/a/b"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_create_dir_overlay() -> anyhow::Result<()> {
+        let fs = FileSystem::default();
+        assert_eq!(
+            fs.create_dir(&PathBuf::from("/a")),
+            Ok(()),
+            "creating the root which already exists",
+        );
+
+        assert_eq!(fs.create_dir(&PathBuf::from("/a/b")), Ok(()),);
+        assert_eq!(fs.create_dir(&PathBuf::from("/b")), Ok(()),);
+
+        let fs2 = FileSystem::default();
+        assert_eq!(fs2.create_dir(&PathBuf::from("/d")), Ok(()),);
+        assert_eq!(fs2.create_dir(&PathBuf::from("/e")), Ok(()),);
+
+        let overlay = OverlayFileSystem::new(fs.clone(), [fs2]);
+
+        // let dir = dbg!(overlay.primary.as_dir().walk_to(PathBuf::from(".")));
+
+        let dir = overlay.as_dir().walk_to(PathBuf::from("."))?;
+        // dbg!(dir.iter().into_iter().collect::<Vec<_>>());
 
         Ok(())
     }
