@@ -32,8 +32,8 @@ pub struct Publish {
     pub package_name: Option<String>,
     /// Override the package version of the uploaded package in the wasmer.toml
     pub version: Option<semver::Version>,
-    /// Override the token (by default, it will use the current logged in user)
-    pub token: Option<String>,
+    /// The auth token to use.
+    pub token: String,
     /// Skip validation of the uploaded package
     pub no_validate: bool,
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
@@ -132,7 +132,13 @@ impl Publish {
         let mut policy = self.validation_policy();
 
         if !policy.skip_validation() {
-            validate::validate_directory(&manifest, &registry, manifest_dir, &mut *policy)?;
+            validate::validate_directory(
+                &manifest,
+                &registry,
+                manifest_dir,
+                &mut *policy,
+                &self.token,
+            )?;
         }
 
         let archive_path = &archive_meta.archive_path;
@@ -164,7 +170,7 @@ impl Publish {
 
         crate::publish::try_chunked_uploading(
             Some(registry),
-            self.token.clone(),
+            Some(self.token.clone()),
             &manifest.package,
             &archive_meta.manifest_toml,
             &archive_meta.license,
@@ -602,6 +608,7 @@ mod validate {
         registry: &str,
         pkg_path: PathBuf,
         callbacks: &mut dyn ValidationPolicy,
+        auth_token: &str,
     ) -> anyhow::Result<()> {
         // validate as dir
         for module in manifest.modules.iter() {
@@ -612,7 +619,7 @@ mod validate {
             }
         }
 
-        if would_change_package_privacy(manifest, registry)?
+        if would_change_package_privacy(manifest, registry, auth_token)?
             && callbacks.on_package_privacy_changed(manifest).is_break()
         {
             if manifest.package.private {
@@ -631,9 +638,14 @@ mod validate {
     fn would_change_package_privacy(
         manifest: &wasmer_toml::Manifest,
         registry: &str,
+        auth_token: &str,
     ) -> Result<bool, ValidationError> {
-        let package_version =
-            crate::query_package_from_registry(registry, &manifest.package.name, None)?;
+        let package_version = crate::query_package_from_registry(
+            registry,
+            &manifest.package.name,
+            None,
+            Some(auth_token),
+        )?;
 
         Ok(package_version.is_private != manifest.package.private)
     }

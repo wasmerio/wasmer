@@ -42,6 +42,22 @@ impl WasmerEnv {
         }
     }
 
+    pub fn registry_public_url(&self) -> Result<Url, Error> {
+        let mut url = self.registry_endpoint()?;
+        url.set_path("");
+
+        let domain = url
+            .host_str()
+            .context("url has no host")?
+            .strip_prefix("registry.")
+            .context("could not derive registry public url")?
+            .to_string();
+        url.set_host(Some(&domain))
+            .context("could not derive registry public url")?;
+
+        Ok(url)
+    }
+
     /// Get the GraphQL endpoint used to query the registry.
     pub fn registry_endpoint(&self) -> Result<Url, Error> {
         if let Some(registry) = &self.registry {
@@ -77,6 +93,14 @@ impl WasmerEnv {
             Some(cache_dir) => cache_dir.clone(),
             None => self.dir().join("cache"),
         }
+    }
+
+    /// Retrieve the specified token.
+    ///
+    /// NOTE: In contrast to [`Self::token`], this will not fall back to loading
+    /// the token from the confg file.
+    pub fn get_token_opt(&self) -> Option<&str> {
+        self.token.as_deref()
     }
 
     /// The API token for the active registry.
