@@ -34,12 +34,6 @@ impl FileSystem {
         lock.canonicalize_without_inode(path)
     }
 
-    pub fn set_parent(&mut self, directory: Box<dyn crate::Directory + Send + Sync>) -> Result<()> {
-        let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
-        guard.parent = Some(directory);
-        Ok(())
-    }
-
     pub fn mount(
         &self,
         target_path: PathBuf,
@@ -117,6 +111,16 @@ impl FileSystem {
 }
 
 impl crate::FileSystem for FileSystem {
+    fn set_parent(&mut self, directory: Arc<dyn crate::Directory + Send + Sync>) -> Result<()> {
+        let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
+        guard.parent = Some(directory);
+        Ok(())
+    }
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        let mut guard = self.inner.write().ok()?;
+        guard.parent.clone()
+    }
+
     fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         Box::new(Directory::new(ROOT_INODE, self.clone()))
     }
@@ -356,7 +360,7 @@ impl fmt::Debug for FileSystem {
 /// indexed by their respective `Inode` in a slab.
 pub(super) struct FileSystemInner {
     pub(super) storage: Slab<Node>,
-    pub(super) parent: Option<Box<dyn crate::Directory + Send + Sync>>,
+    pub(super) parent: Option<Arc<dyn crate::Directory + Send + Sync>>,
     pub(super) limiter: Option<crate::limiter::DynFsMemoryLimiter>,
 }
 

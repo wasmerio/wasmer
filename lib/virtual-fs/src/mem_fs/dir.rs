@@ -28,7 +28,18 @@ impl Directory {
         }
     }
 
-    fn get_child(self, name: OsString) -> Result<Descriptor> {
+    fn remove_child(&self, name: OsString) -> Result<()> {
+        // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
+        unimplemented!();
+    }
+}
+
+impl crate::Directory for Directory {
+    fn unique_id(&self) -> usize {
+        self.unique_id
+    }
+
+    fn get_child(&self, name: OsString) -> Result<Descriptor> {
         let guard = self.fs.inner.read().unwrap();
         let node = guard.get_node_directory(self.inode).unwrap();
         let found_node = node
@@ -62,17 +73,6 @@ impl Directory {
         }
     }
 
-    fn remove_child(&self, name: OsString) -> Result<()> {
-        // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
-        unimplemented!();
-    }
-}
-
-impl crate::Directory for Directory {
-    fn unique_id(&self) -> usize {
-        self.unique_id
-    }
-
     fn iter(&self) -> ReaddirIterator {
         let guard = self.fs.inner.read().unwrap();
         let node = guard.get_node_directory(self.inode).unwrap();
@@ -100,9 +100,9 @@ impl crate::Directory for Directory {
         guard.absolute_path(node)
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>> {
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>> {
         if to == PathBuf::from(".") || to == PathBuf::from("") {
-            return Ok(Box::new(self.clone()));
+            return Ok(Arc::new(self.clone()));
         }
         let guard = self.fs.inner.read().map_err(|_| FsError::Lock)?;
         let mut node = guard.storage.get(self.inode).unwrap();
@@ -173,13 +173,13 @@ impl crate::Directory for Directory {
         match node {
             Node::Directory(DirectoryNode { inode, .. }) => {
                 let directory = Directory::new(*inode, self.fs.clone());
-                return Ok(Box::new(directory));
+                return Ok(Arc::new(directory));
             }
             _ => return Err(FsError::BaseNotDirectory),
         }
     }
 
-    fn parent(&self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
         unimplemented!();
         // let parent_inode = {
         //     let guard = self.fs.inner.read().ok()?;

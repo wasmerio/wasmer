@@ -63,10 +63,10 @@ use crate::{
 /// ```
 ///
 /// A more complex example is
-#[derive(PartialEq, Eq)]
 pub struct OverlayFileSystem<P, S> {
     pub primary: Arc<P>,
     secondaries: Arc<S>,
+    parent: Option<Arc<dyn crate::Directory + Send + Sync>>,
 }
 
 impl<P, S> Clone for OverlayFileSystem<P, S> {
@@ -74,6 +74,7 @@ impl<P, S> Clone for OverlayFileSystem<P, S> {
         Self {
             primary: self.primary.clone(),
             secondaries: self.secondaries.clone(),
+            parent: self.parent.clone(),
         }
     }
 }
@@ -89,6 +90,7 @@ where
         OverlayFileSystem {
             primary: Arc::new(primary),
             secondaries: Arc::new(secondaries),
+            parent: None,
         }
     }
 
@@ -119,6 +121,17 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
+    fn set_parent(
+        &mut self,
+        directory: Arc<dyn crate::Directory + Send + Sync>,
+    ) -> Result<(), FsError> {
+        self.parent = Some(directory);
+        Ok(())
+    }
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        self.parent.clone()
+    }
+
     fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         let dir = OverlayDirectory::new(PathBuf::new(), self.clone());
         Box::new(dir)
@@ -403,41 +416,6 @@ where
         }
     }
 
-    fn get_child(self, name: OsString) -> Result<Descriptor, FsError> {
-        unimplemented!();
-        // let guard = self.fs.inner.read().unwrap();
-        // let node = guard.get_node_directory(self.inode).unwrap();
-        // let found_node = node
-        //     .children
-        //     .iter()
-        //     .find_map(|inode| {
-        //         guard.storage.get(*inode).and_then(|node| {
-        //             if node.name() == name {
-        //                 Some(node)
-        //             } else {
-        //                 None
-        //             }
-        //         })
-        //     })
-        //     .ok_or(FsError::EntryNotFound)?;
-        // match found_node {
-        //     Node::Directory(DirectoryNode { inode, .. }) => {
-        //         let directory = Directory::new(*inode, self.fs.clone());
-        //         return Ok(Descriptor::Directory(Box::new(directory)));
-        //     }
-        //     Node::File(FileNode { inode, .. })
-        //     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, .. })
-        //     | Node::CustomFile(CustomFileNode { inode, .. }) => {
-        //         let file = FileHandle::new(*inode, self.fs.clone(), false, false, false, 0);
-        //         return Ok(Descriptor::File(Box::new(file)));
-        //     }
-        //     Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
-        //         return Ok(Descriptor::Directory(Box::new(fs.as_dir())));
-        //     }
-        //     _ => return Err(FsError::InvalidData),
-        // }
-    }
-
     fn remove_child(&self, name: OsString) -> Result<(), FsError> {
         // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
         unimplemented!();
@@ -450,6 +428,32 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
+    fn get_child(&self, name: OsString) -> Result<Descriptor, FsError> {
+        if let Ok(primary) = self.fs.primary.as_dir().walk_to(self.path.clone()) {
+            match primary.get_child(name.clone()) {
+                Ok(child) => return Ok(child),
+                _ => {}
+            }
+        }
+        for secondary in self.fs.secondaries.filesystems() {
+            if let Ok(secondary) = secondary.as_dir().walk_to(self.path.clone()) {
+                match secondary.get_child(name.clone()) {
+                    Ok(child) => return Ok(child),
+                    _ => {}
+                }
+            }
+        }
+        Err(FsError::EntryNotFound)
+    }
+
+    fn absolute_path(&self) -> PathBuf {
+        if let Some(parent) = &self.fs.parent {
+            parent.absolute_path().join(&self.path)
+        } else {
+            self.path.clone()
+        }
+    }
+
     fn unique_id(&self) -> usize {
         self.unique_id
     }
@@ -457,11 +461,8 @@ where
     fn iter(&self) -> ReaddirIterator {
         unimplemented!();
     }
-    fn absolute_path(&self) -> PathBuf {
-        self.path.clone()
-    }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>, FsError> {
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>, FsError> {
         // TODO: Manage whiteouts
         let to_path = self.path.join(to.clone());
         let primary_dir = self.fs.primary.as_dir().walk_to(to_path.clone());
@@ -478,7 +479,7 @@ where
         Err(FsError::EntryNotFound)
     }
 
-    fn parent(&self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
         unimplemented!();
     }
 }

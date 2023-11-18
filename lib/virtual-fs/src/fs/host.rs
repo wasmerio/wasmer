@@ -24,6 +24,7 @@ use tokio::runtime::Handle;
 pub struct FileSystem {
     handle: Handle,
     base: PathBuf,
+    parent: Option<Arc<dyn crate::Directory + Send + Sync>>,
 }
 
 impl FileSystem {
@@ -31,11 +32,19 @@ impl FileSystem {
         Ok(FileSystem {
             handle: Handle::current(),
             base: base.canonicalize()?,
+            parent: None,
         })
     }
 }
 
 impl crate::FileSystem for FileSystem {
+    fn set_parent(&mut self, directory: Arc<dyn crate::Directory + Send + Sync>) -> Result<()> {
+        self.parent = Some(directory);
+        Ok(())
+    }
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        self.parent.clone()
+    }
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let mut base = self.base.clone();
         let path = self.base.join(path.clean_safely()?);

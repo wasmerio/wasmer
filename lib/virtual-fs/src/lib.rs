@@ -126,6 +126,14 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 pub use ops::{copy_reference, copy_reference_ext};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
+    fn set_parent(&mut self, directory: Arc<dyn crate::Directory + Send + Sync>) -> Result<()> {
+        unimplemented!();
+    }
+
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        unimplemented!();
+    }
+
     fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         unimplemented!();
     }
@@ -458,11 +466,15 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
         unimplemented!();
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send + Sync>> {
+    fn get_child(&self, name: OsString) -> Result<Descriptor> {
         unimplemented!();
     }
 
-    fn parent(&self) -> Option<Box<dyn Directory + Send + Sync>>;
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn Directory + Send + Sync>> {
+        unimplemented!();
+    }
+
+    fn parent(&self) -> Option<Arc<dyn Directory + Send + Sync>>;
 
     fn iter(&self) -> ReaddirIterator {
         unimplemented!();
@@ -499,11 +511,11 @@ where
         (**self).unique_id()
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn Directory + Send + Sync>> {
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn Directory + Send + Sync>> {
         (**self).walk_to(to)
     }
 
-    fn parent(&self) -> Option<Box<dyn Directory + Send + Sync>> {
+    fn parent(&self) -> Option<Arc<dyn Directory + Send + Sync>> {
         (**self).parent()
     }
 

@@ -1,5 +1,6 @@
 use std::{
     convert::{TryFrom, TryInto},
+    ffi::OsString,
     io::Cursor,
     path::{Path, PathBuf},
     pin::Pin,
@@ -8,11 +9,12 @@ use std::{
 };
 
 use crate::{
-    DescriptorType, DirEntry, DirectoryEntry, EmptyFileSystem, FileOpener, FileSystem, FileType,
-    FsError, Metadata, OpenOptionsConfig, OverlayFileSystem, ReadDir, ReaddirIterator, VirtualFile,
+    Descriptor, DescriptorType, DirEntry, DirectoryEntry, EmptyFileSystem, FileOpener, FileSystem,
+    FileType, FsError, Metadata, OpenOptionsConfig, OverlayFileSystem, ReadDir, ReaddirIterator,
+    VirtualFile,
 };
 use futures::future::BoxFuture;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     compat::{Container, SharedBytes, Volume},
@@ -22,11 +24,15 @@ use webc::{
 #[derive(Debug, Clone)]
 pub struct WebcVolumeFileSystem {
     volume: Volume,
+    parent: Option<Arc<dyn crate::Directory + Send + Sync>>,
 }
 
 impl WebcVolumeFileSystem {
     pub fn new(volume: Volume) -> Self {
-        WebcVolumeFileSystem { volume }
+        WebcVolumeFileSystem {
+            volume,
+            parent: None,
+        }
     }
 
     pub fn volume(&self) -> &Volume {
@@ -49,6 +55,16 @@ impl WebcVolumeFileSystem {
 }
 
 impl FileSystem for WebcVolumeFileSystem {
+    fn set_parent(
+        &mut self,
+        directory: Arc<dyn crate::Directory + Send + Sync>,
+    ) -> Result<(), FsError> {
+        self.parent = Some(directory);
+        Ok(())
+    }
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        self.parent.clone()
+    }
     fn as_dir(&self) -> Box<dyn crate::Directory + Send + Sync> {
         Box::new(WebcDirectory::new(PathBuf::from("/"), self.clone()))
     }
@@ -174,6 +190,10 @@ impl crate::Directory for WebcDirectory {
         self.unique_id
     }
 
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        unimplemented!();
+    }
+
     fn iter(&self) -> ReaddirIterator {
         ReaddirIterator(Mutex::new(Box::new(
             self.fs
@@ -194,23 +214,47 @@ impl crate::Directory for WebcDirectory {
     }
 
     fn absolute_path(&self) -> PathBuf {
-        self.path.clone()
+        if let Some(parent) = &self.fs.parent {
+            parent.absolute_path().join(&self.path)
+        } else {
+            self.path.clone()
+        }
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Box<dyn crate::Directory + Send + Sync>, FsError> {
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>, FsError> {
         let to_path = self.path.join(to.clone());
         match self.fs.volume.metadata(&to_path) {
             Some(m) if m.is_dir() => {
                 let dir = WebcDirectory::new(to_path, self.fs.clone());
-                return Ok(Box::new(dir));
+                return Ok(Arc::new(dir));
             }
             Some(_) => return Err(FsError::BaseNotDirectory),
             None => return Err(FsError::EntryNotFound),
         }
     }
 
-    fn parent(&self) -> Option<Box<dyn crate::Directory + Send + Sync>> {
-        unimplemented!();
+    fn get_child(&self, name: OsString) -> Result<Descriptor, FsError> {
+        let to_path = self.path.join(name);
+        match self.fs.volume.metadata(&to_path) {
+            Some(f) if f.is_file() => {
+                match self.fs.volume().read_file(to_path) {
+                    Some(bytes) => Ok(Descriptor::File(Box::new(File(
+                        Cursor::new(bytes),
+                        crate::generate_next_unique_id(),
+                    )))),
+                    None => {
+                        // The metadata() call should guarantee this, so something
+                        // probably went wrong internally
+                        Err(FsError::UnknownError)
+                    }
+                }
+            }
+            Some(d) if d.is_dir() => {
+                let dir = WebcDirectory::new(to_path, self.fs.clone());
+                return Ok(Descriptor::Directory(Box::new(dir)));
+            }
+            _ => return Err(FsError::NotAFile),
+        }
     }
 }
 
