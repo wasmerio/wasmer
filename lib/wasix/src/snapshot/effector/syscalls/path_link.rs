@@ -16,7 +16,7 @@ impl SnapshotEffector {
                 old_flags,
                 old_path: old_path.into(),
                 new_fd,
-                new_path: new_path.into()
+                new_path: new_path.into(),
             },
         )
     }

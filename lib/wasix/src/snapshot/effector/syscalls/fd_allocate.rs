@@ -7,10 +7,7 @@ impl SnapshotEffector {
         offset: Filesize,
         len: Filesize,
     ) -> anyhow::Result<()> {
-        Self::save_event(
-            ctx,
-            SnapshotLog::FileDescriptorAllocate { fd, offset, len },
-        )
+        Self::save_event(ctx, SnapshotLog::FileDescriptorAllocate { fd, offset, len })
     }
 
     pub fn apply_fd_allocate(

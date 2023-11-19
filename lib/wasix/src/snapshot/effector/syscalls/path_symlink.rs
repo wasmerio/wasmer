@@ -12,7 +12,7 @@ impl SnapshotEffector {
             SnapshotLog::CreateSymbolicLink {
                 old_path: old_path.into(),
                 fd,
-                new_path: new_path.into()
+                new_path: new_path.into(),
             },
         )
     }
