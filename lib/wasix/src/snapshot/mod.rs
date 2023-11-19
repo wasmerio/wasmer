@@ -2,15 +2,19 @@ mod capturer;
 mod compactor;
 #[cfg(feature = "snapshot")]
 mod effector;
+#[cfg(not(feature = "snapshot"))]
+#[path = "effector/unimplemented.rs"]
+mod effector;
 mod filter;
+#[cfg(feature = "snapshot")]
 mod log_file;
 mod unsupported;
 
 pub use capturer::*;
 pub use compactor::*;
-#[cfg(feature = "snapshot")]
 pub use effector::*;
 pub use filter::*;
+#[cfg(feature = "snapshot")]
 pub use log_file::*;
 pub use unsupported::*;
 

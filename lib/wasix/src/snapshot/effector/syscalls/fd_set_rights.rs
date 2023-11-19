@@ -31,7 +31,7 @@ impl SnapshotEffector {
                     fs_rights_base,
                     fs_rights_inheriting,
                     err
-                )    
+                )
             })?;
         Ok(())
     }

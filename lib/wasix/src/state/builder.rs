@@ -13,8 +13,6 @@ use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
-#[cfg(feature = "snapshot")]
-use crate::snapshot::SnapshotTrigger;
 #[cfg(feature = "sys")]
 use crate::PluggableRuntime;
 use crate::{
@@ -25,12 +23,11 @@ use crate::{
     runtime::task_manager::InlineWaker,
     snapshot::DynSnapshotCapturer,
     state::WasiState,
-    syscalls::{
-        restore_snapshot,
-        types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    },
+    syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
+#[cfg(feature = "snapshot")]
+use crate::{snapshot::SnapshotTrigger, syscalls::restore_snapshot};
 
 use super::env::WasiEnvInit;
 
@@ -522,6 +519,7 @@ impl WasiEnvBuilder {
     /// Supplies a snapshot capturer which will be used to read the
     /// snapshot journal events and replay them into the WasiEnv
     /// rather than starting a new instance from scratch
+    #[cfg(feature = "snapshot")]
     pub fn with_snapshot_restore(
         mut self,
         restorer: Arc<DynSnapshotCapturer>,
@@ -536,6 +534,7 @@ impl WasiEnvBuilder {
 
     /// Supplies a snapshot capturer where the snapshot journal events
     /// will be sent to as they are generated
+    #[cfg(feature = "snapshot")]
     pub fn with_snapshot_save(mut self, snapshot_capturer: Arc<DynSnapshotCapturer>) -> Self {
         self.snapshot_save.replace(snapshot_capturer);
         self
@@ -934,14 +933,17 @@ impl WasiEnvBuilder {
             );
         }
 
-        let restore = self.snapshot_restore.clone();
+        #[cfg(feature = "snapshot")]
+        let snapshot_restore = self.snapshot_restore.clone();
+        #[cfg(not(feature = "snapshot"))]
+        let snapshot_restore = None;
 
         let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
 
-        let result = crate::run_wasi_func_start(start, store, restore);
+        let result = crate::run_wasi_func_start(start, store, snapshot_restore);
         let (result, exit_code) = wasi_exit_code(result);
 
         let pid = env.data(&store).pid();
@@ -980,16 +982,20 @@ impl WasiEnvBuilder {
         #[cfg(feature = "sys-thread")]
         let _guard = _guard.as_ref().map(|r| r.enter());
 
+        #[cfg(feature = "snapshot")]
         let snapshot_restore = self.snapshot_restore.clone();
 
         let (_, env) = self.instantiate(module, &mut store)?;
 
         env.data(&store).thread.set_status_running();
 
+        #[allow(unused_mut)]
         let mut rewind_state = None;
-        if let Some(restore) = snapshot_restore {
+
+        #[cfg(feature = "snapshot")]
+        if let Some(snapshot_restore) = snapshot_restore {
             let ctx = env.env.clone().into_mut(&mut store);
-            let rewind = restore_snapshot(ctx, restore)?;
+            let rewind = restore_snapshot(ctx, snapshot_restore)?;
             rewind_state = Some((rewind, None));
         }
 

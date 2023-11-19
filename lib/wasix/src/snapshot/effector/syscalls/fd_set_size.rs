@@ -21,7 +21,7 @@ impl SnapshotEffector {
                     fd,
                     st_size,
                     err
-                )    
+                )
             })?;
         Ok(())
     }

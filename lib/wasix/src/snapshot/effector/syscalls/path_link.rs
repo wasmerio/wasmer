@@ -39,7 +39,7 @@ impl SnapshotEffector {
                     new_fd,
                     new_path,
                     err
-                )    
+                )
             })?;
         Ok(())
     }

@@ -29,7 +29,6 @@ use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::JsFuture;
 use wasmer::AsStoreRef;
 use wasmer_wasix::{
-    capture_snapshot,
     runtime::{
         task_manager::{
             InlineWaker, TaskExecModule, TaskWasm, TaskWasmRun, TaskWasmRunProperties,

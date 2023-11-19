@@ -27,7 +27,7 @@ impl SnapshotEffector {
                     original_fd,
                     copied_fd,
                     err
-                )    
+                )
             })?;
 
         let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, copied_fd);

@@ -146,7 +146,7 @@ sys-default = [
 ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rayon"]
-snapshot = []
+snapshot = ["tokio/fs"]
 
 # Deprecated. Kept it for compatibility
 compiler = []

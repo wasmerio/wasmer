@@ -35,7 +35,7 @@ impl SnapshotEffector {
                     st_mtim,
                     fst_flags,
                     err
-                )    
+                )
             })?;
         Ok(())
     }

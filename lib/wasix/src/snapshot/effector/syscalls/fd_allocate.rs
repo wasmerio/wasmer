@@ -24,7 +24,7 @@ impl SnapshotEffector {
                     offset,
                     len,
                     err
-                )    
+                )
             })?;
         Ok(())
     }

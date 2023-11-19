@@ -1291,6 +1291,7 @@ pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
     WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
 }
 
+#[cfg(feature = "snapshot")]
 pub fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     restore: SnapshotRestore,
