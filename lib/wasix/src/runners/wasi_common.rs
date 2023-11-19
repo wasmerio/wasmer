@@ -13,9 +13,9 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
+    journal::{DynJournal, SnapshotTrigger},
     runners::MappedDirectory,
-    snapshot::{DynSnapshotCapturer, SnapshotTrigger},
-    state::SnapshotRestore,
+    state::JournalRestore,
     WasiEnvBuilder,
 };
 
@@ -38,9 +38,9 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     #[derivative(Debug = "ignore")]
-    pub(crate) snapshot_save: Option<Arc<DynSnapshotCapturer>>,
+    pub(crate) journal: Option<Arc<DynJournal>>,
     #[derivative(Debug = "ignore")]
-    pub(crate) snapshot_restore: Option<SnapshotRestore>,
+    pub(crate) journal_restore: Option<JournalRestore>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
     pub(crate) current_dir: Option<PathBuf>,
 }

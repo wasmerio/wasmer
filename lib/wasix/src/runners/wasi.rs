@@ -11,10 +11,10 @@ use webc::metadata::{annotations::Wasi, Command};
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
+    journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     runtime::task_manager::VirtualTaskManagerExt,
-    snapshot::{DynSnapshotCapturer, SnapshotTrigger},
-    Runtime, SnapshotRestore, WasiEnvBuilder, WasiRuntimeError,
+    JournalRestore, Runtime, WasiEnvBuilder, WasiRuntimeError,
 };
 
 use super::wasi_common::MappedCommand;
@@ -194,20 +194,15 @@ impl WasiRunner {
         self
     }
 
-    pub fn with_snapshot_restore(
-        &mut self,
-        restorer: Arc<DynSnapshotCapturer>,
-        n_snapshots: Option<usize>,
-    ) -> &mut Self {
-        self.wasi.snapshot_restore.replace(SnapshotRestore {
-            restorer,
-            n_snapshots,
-        });
+    pub fn with_journal_restore(&mut self, restorer: Arc<DynJournal>) -> &mut Self {
+        self.wasi
+            .journal_restore
+            .replace(JournalRestore { restorer });
         self
     }
 
-    pub fn with_snapshot_save(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
-        self.wasi.snapshot_save.replace(capturer);
+    pub fn with_journal(&mut self, capturer: Arc<DynJournal>) -> &mut Self {
+        self.wasi.journal.replace(capturer);
         self
     }
 
@@ -323,19 +318,19 @@ impl crate::runners::Runner for WasiRunner {
             .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
             env.add_snapshot_trigger(snapshot_trigger);
         }
 
-        #[cfg(feature = "snapshot")]
-        if let Some(capturer) = self.wasi.snapshot_save.clone() {
-            env = env.with_snapshot_save(capturer);
+        #[cfg(feature = "journal")]
+        if let Some(capturer) = self.wasi.journal.clone() {
+            env = env.with_journal(capturer);
         }
 
-        #[cfg(feature = "snapshot")]
-        if let Some(restore) = self.wasi.snapshot_restore.clone() {
-            env = env.with_snapshot_restore(restore.restorer, restore.n_snapshots);
+        #[cfg(feature = "journal")]
+        if let Some(restore) = self.wasi.journal_restore.clone() {
+            env = env.with_journal_restore(restore.restorer);
         }
 
         let env = env.build()?;

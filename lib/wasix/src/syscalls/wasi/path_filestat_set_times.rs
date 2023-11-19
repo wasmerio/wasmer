@@ -54,9 +54,9 @@ pub fn path_filestat_set_times<M: MemorySize>(
     ));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_path_set_times(
+        JournalEffector::save_path_set_times(
             &mut ctx,
             fd,
             flags,

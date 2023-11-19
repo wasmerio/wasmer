@@ -47,10 +47,10 @@ pub mod net;
 pub mod capabilities;
 pub mod fs;
 pub mod http;
+pub mod journal;
 mod rewind;
 pub mod runners;
 pub mod runtime;
-pub mod snapshot;
 mod state;
 mod syscalls;
 mod utils;
@@ -61,7 +61,7 @@ mod bindings;
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
-use syscalls::state::SnapshotRestore;
+use syscalls::state::JournalRestore;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -232,7 +232,7 @@ impl WasiRuntimeError {
 pub(crate) fn run_wasi_func(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
-    restorer: Option<SnapshotRestore>,
+    restorer: Option<JournalRestore>,
     params: &[wasmer::Value],
 ) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
     if restorer.is_some() {
@@ -264,7 +264,7 @@ pub(crate) fn run_wasi_func(
 pub(crate) fn run_wasi_func_start(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
-    restore: Option<SnapshotRestore>,
+    restore: Option<JournalRestore>,
 ) -> Result<(), WasiRuntimeError> {
     run_wasi_func(func, store, restore, &[])?;
     Ok(())

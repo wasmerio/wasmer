@@ -40,9 +40,9 @@ pub fn path_symlink<M: MemorySize>(
     ));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_path_symlink(&mut ctx, old_path_str, fd, new_path_str).map_err(
+        JournalEffector::save_path_symlink(&mut ctx, old_path_str, fd, new_path_str).map_err(
             |err| {
                 tracing::error!("failed to save path symbolic link event - {}", err);
                 WasiError::Exit(ExitCode::Errno(Errno::Fault))

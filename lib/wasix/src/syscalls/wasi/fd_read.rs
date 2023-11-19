@@ -5,9 +5,9 @@ use virtual_fs::{AsyncReadExt, DeviceFile, ReadBuf};
 use super::*;
 use crate::{
     fs::NotificationInner,
+    journal::SnapshotTrigger,
     net::socket::TimeType,
     os::task::process::{MaybeCheckpointResult, WasiProcessCheckpoint, WasiProcessInner},
-    snapshot::SnapshotTrigger,
     syscalls::*,
 };
 

@@ -28,10 +28,10 @@ pub fn path_remove_directory<M: MemorySize>(
     wasi_try!(path_remove_directory_internal(&mut ctx, fd, &path_str));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
         wasi_try!(
-            SnapshotEffector::save_path_remove_directory(&mut ctx, fd, path_str).map_err(|err| {
+            JournalEffector::save_path_remove_directory(&mut ctx, fd, path_str).map_err(|err| {
                 tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
                 Errno::Fault
             })

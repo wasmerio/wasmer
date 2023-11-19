@@ -1,4 +1,4 @@
-#[cfg(feature = "snapshot")]
+#[cfg(feature = "journal")]
 use std::collections::HashSet;
 use std::{
     collections::HashMap,
@@ -22,8 +22,8 @@ use wasmer_wasix_types::{
     wasi::{Errno, ExitCode, Snapshot0Clockid},
 };
 
-#[cfg(feature = "snapshot")]
-use crate::snapshot::{SnapshotEffector, SnapshotTrigger};
+#[cfg(feature = "journal")]
+use crate::journal::{JournalEffector, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -235,7 +235,7 @@ pub struct WasiEnvInit {
     pub extra_tracing: bool,
 
     /// Indicates triggers that will cause a snapshot to be taken
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
 }
 
@@ -273,7 +273,7 @@ impl WasiEnvInit {
             call_initialize: self.call_initialize,
             can_deep_sleep: self.can_deep_sleep,
             extra_tracing: false,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         }
     }
@@ -312,7 +312,7 @@ pub struct WasiEnv {
     pub enable_snapshot_capture: bool,
 
     /// List of situations that the process will checkpoint on
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     snapshot_on: HashSet<SnapshotTrigger>,
 
     /// Inner functions and references that are loaded before the environment starts
@@ -345,7 +345,7 @@ impl Clone for WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_snapshot_capture: self.enable_snapshot_capture,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         }
     }
@@ -384,7 +384,7 @@ impl WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_snapshot_capture: self.enable_snapshot_capture,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         };
         Ok((new_env, handle))
@@ -449,11 +449,11 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             enable_snapshot_capture: !init.snapshot_on.is_empty(),
-            #[cfg(not(feature = "snapshot"))]
+            #[cfg(not(feature = "journal"))]
             enable_snapshot_capture: false,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             snapshot_on: init.snapshot_on.into_iter().collect(),
         };
         env.owned_handles.push(thread);
@@ -855,19 +855,19 @@ impl WasiEnv {
     }
 
     /// Returns true if the process should perform snapshots or not
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub fn should_feed_snapshot(&self) -> bool {
         !self.snapshot_on.is_empty()
     }
 
     /// Returns true if a particular snapshot trigger is enabled
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, trigger: SnapshotTrigger) -> bool {
         self.snapshot_on.contains(&trigger)
     }
 
     /// Returns true if a particular snapshot trigger is enabled
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
         self.snapshot_on.remove(&trigger)
     }
@@ -1089,9 +1089,9 @@ impl WasiEnv {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         if self.should_feed_snapshot() {
-            if let Err(err) = SnapshotEffector::save_thread_exit(self, self.tid(), exit_code) {
+            if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }
         }

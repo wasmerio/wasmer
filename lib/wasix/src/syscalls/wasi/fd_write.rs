@@ -1,12 +1,12 @@
 use std::task::Waker;
 
 use super::*;
-use crate::{net::socket::TimeType, syscalls::*};
-#[cfg(feature = "snapshot")]
+#[cfg(feature = "journal")]
 use crate::{
-    snapshot::{SnapshotEffector, SnapshotLog},
+    journal::{JournalEffector, JournalEntry},
     utils::map_snapshot_err,
 };
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -372,10 +372,10 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             }
         };
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         if should_snapshot && can_snapshot && bytes_written > 0 {
             if let FdWriteSource::Iovs { iovs, iovs_len } = data {
-                SnapshotEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
+                JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
                     .map_err(|err| {
                         tracing::error!(
                             "failed to save terminal data to snapshot capturer - {}",

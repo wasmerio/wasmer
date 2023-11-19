@@ -23,9 +23,9 @@ pub fn fd_filestat_set_times(
     ));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags).map_err(
+        JournalEffector::save_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags).map_err(
             |err| {
                 tracing::error!("failed to save file set times event - {}", err);
                 WasiError::Exit(ExitCode::Errno(Errno::Fault))

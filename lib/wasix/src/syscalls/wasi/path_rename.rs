@@ -39,9 +39,9 @@ pub fn path_rename<M: MemorySize>(
     let env = ctx.data();
 
     if ret == Errno::Success {
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         if env.enable_snapshot_capture {
-            SnapshotEffector::save_path_rename(&mut ctx, old_fd, source_str, new_fd, target_str)
+            JournalEffector::save_path_rename(&mut ctx, old_fd, source_str, new_fd, target_str)
                 .map_err(|err| {
                     tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
                     WasiError::Exit(ExitCode::Errno(Errno::Fault))

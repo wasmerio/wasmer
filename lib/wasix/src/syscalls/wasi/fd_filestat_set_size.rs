@@ -17,9 +17,9 @@ pub fn fd_filestat_set_size(
     wasi_try_ok!(fd_filestat_set_size_internal(&mut ctx, fd, st_size));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_fd_set_size(&mut ctx, fd, st_size).map_err(|err| {
+        JournalEffector::save_fd_set_size(&mut ctx, fd, st_size).map_err(|err| {
             tracing::error!("failed to save file set size event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;

@@ -162,11 +162,11 @@ default = [
   "wat",
   "wast",
   "compiler",
-  "snapshot",
+  "journal",
   "wasmer-artifact-create",
   "static-artifact-create",
 ]
-snapshot = ["wasmer-wasix/snapshot"]
+journal = ["wasmer-wasix/journal"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]

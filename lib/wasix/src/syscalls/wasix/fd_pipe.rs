@@ -19,9 +19,9 @@ pub fn fd_pipe<M: MemorySize>(
     let (fd1, fd2) = wasi_try_ok!(fd_pipe_internal(&mut ctx));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_fd_pipe(&mut ctx, fd1, fd2).map_err(|err| {
+        JournalEffector::save_fd_pipe(&mut ctx, fd1, fd2).map_err(|err| {
             tracing::error!("failed to save create pipe event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;

@@ -19,15 +19,15 @@ use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
+    journal::DynJournal,
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::task_manager::InlineWaker,
-    snapshot::DynSnapshotCapturer,
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
-#[cfg(feature = "snapshot")]
-use crate::{snapshot::SnapshotTrigger, syscalls::restore_snapshot};
+#[cfg(feature = "journal")]
+use crate::{journal::SnapshotTrigger, syscalls::restore_snapshot};
 
 use super::env::WasiEnvInit;
 
@@ -75,22 +75,20 @@ pub struct WasiEnvBuilder {
 
     pub(super) capabilites: Capabilities,
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
 
-    #[cfg(feature = "snapshot")]
-    pub(super) snapshot_restore: Option<SnapshotRestore>,
+    #[cfg(feature = "journal")]
+    pub(super) snapshot_restore: Option<JournalRestore>,
 
-    #[cfg(feature = "snapshot")]
-    pub(super) snapshot_save: Option<Arc<DynSnapshotCapturer>>,
+    #[cfg(feature = "journal")]
+    pub(super) snapshot_save: Option<Arc<DynJournal>>,
 }
 
 #[derive(Clone)]
-pub struct SnapshotRestore {
+pub struct JournalRestore {
     /// Snapshot capturer that will be used to restore state
-    pub restorer: Arc<DynSnapshotCapturer>,
-    /// Maximum number of snapshots taken before execution resumes
-    pub n_snapshots: Option<usize>,
+    pub restorer: Arc<DynJournal>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -519,23 +517,16 @@ impl WasiEnvBuilder {
     /// Supplies a snapshot capturer which will be used to read the
     /// snapshot journal events and replay them into the WasiEnv
     /// rather than starting a new instance from scratch
-    #[cfg(feature = "snapshot")]
-    pub fn with_snapshot_restore(
-        mut self,
-        restorer: Arc<DynSnapshotCapturer>,
-        n_snapshots: Option<usize>,
-    ) -> Self {
-        self.snapshot_restore.replace(SnapshotRestore {
-            restorer,
-            n_snapshots,
-        });
+    #[cfg(feature = "journal")]
+    pub fn with_journal_restore(mut self, restorer: Arc<DynJournal>) -> Self {
+        self.snapshot_restore.replace(JournalRestore { restorer });
         self
     }
 
     /// Supplies a snapshot capturer where the snapshot journal events
     /// will be sent to as they are generated
-    #[cfg(feature = "snapshot")]
-    pub fn with_snapshot_save(mut self, snapshot_capturer: Arc<DynSnapshotCapturer>) -> Self {
+    #[cfg(feature = "journal")]
+    pub fn with_journal(mut self, snapshot_capturer: Arc<DynJournal>) -> Self {
         self.snapshot_save.replace(snapshot_capturer);
         self
     }
@@ -642,7 +633,7 @@ impl WasiEnvBuilder {
         self.capabilites = capabilities;
     }
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) {
         self.snapshot_on.push(on);
     }
@@ -817,7 +808,7 @@ impl WasiEnvBuilder {
             {
                 #[allow(unused_mut)]
                 let mut runtime = PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
-                #[cfg(feature = "snapshot")]
+                #[cfg(feature = "journal")]
                 if let Some(capturer) = self.snapshot_save.clone() {
                     runtime.set_snapshot_capturer(capturer);
                 }
@@ -843,7 +834,7 @@ impl WasiEnvBuilder {
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         let snapshot_on = self.snapshot_on;
 
         let init = WasiEnvInit {
@@ -857,13 +848,13 @@ impl WasiEnvBuilder {
             memory_ty: None,
             process: None,
             thread: None,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             call_initialize: self.snapshot_restore.is_none(),
-            #[cfg(not(feature = "snapshot"))]
+            #[cfg(not(feature = "journal"))]
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
-            #[cfg(feature = "snapshot")]
+            #[cfg(feature = "journal")]
             snapshot_on,
         };
 
@@ -935,9 +926,9 @@ impl WasiEnvBuilder {
             );
         }
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         let snapshot_restore = self.snapshot_restore.clone();
-        #[cfg(not(feature = "snapshot"))]
+        #[cfg(not(feature = "journal"))]
         let snapshot_restore = None;
 
         let (instance, env) = self.instantiate(module, store)?;
@@ -984,7 +975,7 @@ impl WasiEnvBuilder {
         #[cfg(feature = "sys-thread")]
         let _guard = _guard.as_ref().map(|r| r.enter());
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         let snapshot_restore = self.snapshot_restore.clone();
 
         let (_, env) = self.instantiate(module, &mut store)?;
@@ -994,7 +985,7 @@ impl WasiEnvBuilder {
         #[allow(unused_mut)]
         let mut rewind_state = None;
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         if let Some(snapshot_restore) = snapshot_restore {
             let ctx = env.env.clone().into_mut(&mut store);
             let rewind = restore_snapshot(ctx, snapshot_restore)?;

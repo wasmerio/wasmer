@@ -1,8 +1,8 @@
 use std::f32::consts::E;
 
 use super::*;
-#[cfg(feature = "snapshot")]
-use crate::snapshot::SnapshotEffector;
+#[cfg(feature = "journal")]
+use crate::journal::JournalEffector;
 use crate::{
     capture_instance_snapshot,
     os::task::thread::WasiMemoryLayout,

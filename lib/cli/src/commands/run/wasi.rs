@@ -19,6 +19,7 @@ use wasmer_wasix::{
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
+    journal::{self, LogFileJournal, SnapshotTrigger},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
@@ -34,7 +35,6 @@ use wasmer_wasix::{
             VirtualTaskManagerExt,
         },
     },
-    snapshot::{self, LogFileSnapshotCapturer, SnapshotTrigger},
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
     PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
@@ -107,40 +107,35 @@ pub struct Wasi {
     #[clap(long = "enable-async-threads")]
     pub enable_async_threads: bool,
 
-    /// Specifies the snapshot file that Wasmer will use to store
-    /// the state of the WASM process so that it can be later restored
-    #[cfg(feature = "snapshot")]
-    #[clap(long = "snapshot-to")]
-    pub snapshot_to: Option<PathBuf>,
+    /// Specifies the journal file that Wasmer will use to store and restore
+    /// the state of the WASM process
+    #[cfg(feature = "journal")]
+    #[clap(long = "journal")]
+    pub journal: Option<PathBuf>,
+
+    /// When specified, the runtime will restore a previous snapshot using a different journal
+    /// then the one specified in the `--journal` argument. If no argument is specified for
+    /// `--journal` then the state of the process will be restored however no more events
+    /// will be recorded.
+    #[cfg(feature = "journal")]
+    #[clap(long = "journal-restore")]
+    pub journal_restore: Option<PathBuf>,
 
     /// Indicates what events will cause a snapshot to be taken
-    /// and written to the snapshot file.
+    /// and written to the journal file.
     ///
-    /// If not specified, the default is to snapshot on idle plus if a
-    /// snapshot period is provided it will also default to periodic snapshots
-    /// as well.
-    #[cfg(feature = "snapshot")]
+    /// If not specified, the default is to snapshot when the process idles, when
+    /// the process exits or periodically if an interval argument is also supplied.
+    #[cfg(feature = "journal")]
     #[clap(long = "snapshot-on")]
     pub snapshot_on: Vec<SnapshotTrigger>,
 
-    /// Adds a timer (measured in seconds) that takes snapshots of the process and dumps the
-    /// journal of events to the snapshot file. When specifying this parameter it implies
-    /// that `--snapshot-on timer` has also been specified.
-    #[cfg(feature = "snapshot")]
-    #[clap(long = "snapshot-timer")]
-    pub snapshot_timer: Option<u64>,
-
-    /// When specified, the runtime will restore a previous snapshot
-    /// using the supplied file.
-    #[cfg(feature = "snapshot")]
-    #[clap(long = "resume-from")]
-    pub resume_from: Option<PathBuf>,
-
-    /// When specified this limits the number of restoration points
-    /// that the resume will take before it resumes execution.
-    #[cfg(feature = "snapshot")]
-    #[clap(long = "resume-snapshot-limit")]
-    pub resume_num_snapshots: Option<usize>,
+    /// Adds a periodic interval (measured in seconds) that the runtime will automatically
+    /// takes snapshots of the running process and write them to the journal. When specifying
+    /// this parameter it implies that `--snapshot-on interval` has also been specified.
+    #[cfg(feature = "journal")]
+    #[clap(long = "snapshot-period")]
+    pub snapshot_interval: Option<u64>,
 
     /// Allow instances to send http requests.
     ///
@@ -343,29 +338,25 @@ impl Wasi {
 
         *builder.capabilities_mut() = self.capabilities();
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         for trigger in self.snapshot_on.iter().cloned() {
             builder.add_snapshot_trigger(trigger);
         }
 
-        #[cfg(feature = "snapshot")]
-        match (self.snapshot_to.clone(), self.resume_from.clone()) {
+        #[cfg(feature = "journal")]
+        match (self.journal.clone(), self.journal_restore.clone()) {
             (Some(save), Some(restore)) if save == restore => {
                 return Err(anyhow::format_err!(
                     "The snapshot save path and snapshot restore path can not be the same"
                 ));
             }
             (_, _) => {
-                if let Some(path) = self.snapshot_to.clone() {
-                    builder = builder
-                        .with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                if let Some(path) = self.journal.clone() {
+                    builder = builder.with_journal(Arc::new(LogFileJournal::new_std(path)?));
                 }
-                if let Some(path) = self.resume_from.clone() {
-                    let n_snapshots = self.resume_num_snapshots;
-                    builder = builder.with_snapshot_restore(
-                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
-                        n_snapshots,
-                    );
+                if let Some(path) = self.journal_restore.clone() {
+                    builder =
+                        builder.with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
                 }
             }
         }
@@ -523,9 +514,9 @@ impl Wasi {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
         }
 
-        #[cfg(feature = "snapshot")]
-        if let Some(path) = &self.snapshot_to {
-            rt.set_snapshot_capturer(Arc::new(snapshot::LogFileSnapshotCapturer::new_std(path)?));
+        #[cfg(feature = "journal")]
+        if let Some(path) = &self.journal {
+            rt.set_snapshot_capturer(Arc::new(journal::LogFileJournal::new_std(path)?));
         }
 
         if !self.no_tty {

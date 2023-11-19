@@ -25,9 +25,9 @@ pub fn fd_fdstat_set_rights(
     ));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_fd_set_rights(&mut ctx, fd, fs_rights_base, fs_rights_inheriting)
+        JournalEffector::save_fd_set_rights(&mut ctx, fd, fs_rights_base, fs_rights_inheriting)
             .map_err(|err| {
                 tracing::error!("failed to save file set rights event - {}", err);
                 WasiError::Exit(ExitCode::Errno(Errno::Fault))

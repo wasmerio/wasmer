@@ -8,8 +8,8 @@ use self::{
     module_cache::{CacheError, ModuleHash},
     task_manager::InlineWaker,
 };
-#[cfg(feature = "snapshot")]
-use crate::snapshot::UNSUPPORTED_SNAPSHOT_CAPTURER;
+#[cfg(feature = "journal")]
+use crate::journal::UNSUPPORTED_SNAPSHOT_CAPTURER;
 
 use std::{
     fmt,
@@ -21,8 +21,8 @@ use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
-#[cfg(feature = "snapshot")]
-use crate::snapshot::{DynSnapshotCapturer, UnsupportedSnapshotCapturer};
+#[cfg(feature = "journal")]
+use crate::journal::{DynJournal, UnsupportedJournal};
 use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
@@ -112,8 +112,8 @@ where
 
     /// The snapshot capturer takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
-    #[cfg(feature = "snapshot")]
-    fn snapshot_capturer<'a>(&'a self) -> &'_ DynSnapshotCapturer {
+    #[cfg(feature = "journal")]
+    fn snapshot_capturer<'a>(&'a self) -> &'_ DynJournal {
         &UNSUPPORTED_SNAPSHOT_CAPTURER
     }
 }
@@ -191,9 +191,9 @@ pub struct PluggableRuntime {
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     #[derivative(Debug = "ignore")]
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     #[derivative(Debug = "ignore")]
-    pub snapshot_capturer: Arc<DynSnapshotCapturer>,
+    pub snapshot_capturer: Arc<DynJournal>,
 }
 
 impl PluggableRuntime {
@@ -228,9 +228,8 @@ impl PluggableRuntime {
             source: Arc::new(source),
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
-            #[cfg(feature = "snapshot")]
-            snapshot_capturer: Arc::new(UnsupportedSnapshotCapturer::default())
-                as Arc<DynSnapshotCapturer>,
+            #[cfg(feature = "journal")]
+            snapshot_capturer: Arc::new(UnsupportedJournal::default()) as Arc<DynJournal>,
         }
     }
 
@@ -281,8 +280,8 @@ impl PluggableRuntime {
         self
     }
 
-    #[cfg(feature = "snapshot")]
-    pub fn set_snapshot_capturer(&mut self, capturer: Arc<DynSnapshotCapturer>) -> &mut Self {
+    #[cfg(feature = "journal")]
+    pub fn set_snapshot_capturer(&mut self, capturer: Arc<DynJournal>) -> &mut Self {
         self.snapshot_capturer = capturer;
         self
     }
@@ -332,8 +331,8 @@ impl Runtime for PluggableRuntime {
         self.module_cache.clone()
     }
 
-    #[cfg(feature = "snapshot")]
-    fn snapshot_capturer<'a>(&'a self) -> &DynSnapshotCapturer {
+    #[cfg(feature = "journal")]
+    fn snapshot_capturer<'a>(&'a self) -> &DynJournal {
         self.snapshot_capturer.as_ref()
     }
 }

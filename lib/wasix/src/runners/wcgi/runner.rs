@@ -242,32 +242,24 @@ impl Config {
         &mut self.wasi.capabilities
     }
 
-    #[cfg(feature = "snapshot")]
-    pub fn add_snapshot_trigger(&mut self, on: crate::snapshot::SnapshotTrigger) {
+    #[cfg(feature = "journal")]
+    pub fn add_snapshot_trigger(&mut self, on: crate::journal::SnapshotTrigger) {
         self.wasi.snapshot_on.push(on);
     }
 
-    #[cfg(feature = "snapshot")]
-    pub fn with_snapshot_restore(
-        &mut self,
-        capturer: Arc<crate::snapshot::DynSnapshotCapturer>,
-        n_snapshots: Option<usize>,
-    ) -> &mut Self {
-        use crate::state::SnapshotRestore;
+    #[cfg(feature = "journal")]
+    pub fn with_journal_restore(&mut self, capturer: Arc<crate::journal::DynJournal>) -> &mut Self {
+        use crate::state::JournalRestore;
 
-        self.wasi.snapshot_restore.replace(SnapshotRestore {
-            restorer: capturer,
-            n_snapshots,
-        });
+        self.wasi
+            .journal_restore
+            .replace(JournalRestore { restorer: capturer });
         self
     }
 
-    #[cfg(feature = "snapshot")]
-    pub fn with_snapshot_save(
-        &mut self,
-        capturer: Arc<crate::snapshot::DynSnapshotCapturer>,
-    ) -> &mut Self {
-        self.wasi.snapshot_save.replace(capturer);
+    #[cfg(feature = "journal")]
+    pub fn with_journal(&mut self, capturer: Arc<crate::journal::DynJournal>) -> &mut Self {
+        self.wasi.journal.replace(capturer);
         self
     }
 }

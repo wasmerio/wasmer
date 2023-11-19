@@ -18,9 +18,9 @@ pub fn fd_dup<M: MemorySize>(
     let copied_fd = wasi_try_ok!(fd_dup_internal(&mut ctx, fd));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_fd_duplicate(&mut ctx, fd, copied_fd).map_err(|err| {
+        JournalEffector::save_fd_duplicate(&mut ctx, fd, copied_fd).map_err(|err| {
             tracing::error!("failed to save file descriptor renumber event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;

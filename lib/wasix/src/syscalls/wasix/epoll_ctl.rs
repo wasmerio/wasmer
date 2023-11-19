@@ -60,9 +60,9 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
     )?);
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_epoll_ctl(&mut ctx, epfd, op, fd, event_ctl).map_err(|err| {
+        JournalEffector::save_epoll_ctl(&mut ctx, epfd, op, fd, event_ctl).map_err(|err| {
             tracing::error!("failed to save epoll_create event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;

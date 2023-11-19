@@ -49,9 +49,9 @@ pub fn path_link<M: MemorySize>(
     ));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_path_link(
+        JournalEffector::save_path_link(
             &mut ctx,
             old_fd,
             old_flags,

@@ -79,9 +79,9 @@ pub fn path_open<M: MemorySize>(
     )?);
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_path_open(
+        JournalEffector::save_path_open(
             &mut ctx,
             out_fd,
             dirfd,

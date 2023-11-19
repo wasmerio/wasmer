@@ -1,5 +1,5 @@
 use super::*;
-use crate::{snapshot::SnapshotTrigger, syscalls::*};
+use crate::{journal::SnapshotTrigger, syscalls::*};
 
 /// ### `environ_get()`
 /// Read environment variable data.

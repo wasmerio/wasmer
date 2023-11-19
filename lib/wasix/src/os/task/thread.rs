@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "snapshot")]
+#[cfg(feature = "journal")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,
@@ -131,14 +131,14 @@ impl WasiThread {
 
     /// Sets a flag that tells others that this thread is currently
     /// check pointing itself
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub(crate) fn set_check_pointing(&self, val: bool) {
         self.state.check_pointing.store(val, Ordering::SeqCst);
     }
 
     /// Reads a flag that determines if this thread is currently
     /// check pointing itself or not
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub(crate) fn is_check_pointing(&self) -> bool {
         self.state.check_pointing.load(Ordering::SeqCst)
     }
@@ -213,7 +213,7 @@ struct WasiThreadState {
     signals: Mutex<(Vec<Signal>, Vec<Waker>)>,
     stack: Mutex<ThreadStack>,
     status: Arc<OwnedTaskStatus>,
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     check_pointing: AtomicBool,
 
     // Registers the task termination with the ControlPlane on drop.
@@ -240,7 +240,7 @@ impl WasiThread {
                 status,
                 signals: Mutex::new((Vec::new(), Vec::new())),
                 stack: Mutex::new(ThreadStack::default()),
-                #[cfg(feature = "snapshot")]
+                #[cfg(feature = "journal")]
                 check_pointing: AtomicBool::new(false),
                 _task_count_guard: guard,
             }),

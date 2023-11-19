@@ -36,10 +36,10 @@ pub fn path_unlink_file<M: MemorySize>(
     let env = ctx.data();
 
     if ret == Errno::Success {
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         if env.enable_snapshot_capture {
             wasi_try_ok!(
-                SnapshotEffector::save_path_unlink(&mut ctx, fd, path_str).map_err(|err| {
+                JournalEffector::save_path_unlink(&mut ctx, fd, path_str).map_err(|err| {
                     tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
                     Errno::Fault
                 })

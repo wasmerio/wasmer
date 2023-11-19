@@ -1,6 +1,6 @@
-#[cfg(feature = "snapshot")]
-use crate::{snapshot::SnapshotEffector, unwind, WasiResult};
-use crate::{snapshot::SnapshotTrigger, WasiEnv, WasiRuntimeError};
+#[cfg(feature = "journal")]
+use crate::{journal::JournalEffector, unwind, WasiResult};
+use crate::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -139,7 +139,7 @@ pub enum MaybeCheckpointResult<'a> {
 impl WasiProcessInner {
     /// Checkpoints the process which will cause all other threads to
     /// pause and for the thread and memory state to be saved
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub fn checkpoint<M: wasmer_types::MemorySize>(
         inner: LockableWasiProcessInner,
         ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -156,7 +156,7 @@ impl WasiProcessInner {
 
     /// If a checkpoint has been started this will block the current process
     /// until the checkpoint operation has completed
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     pub fn maybe_checkpoint<M: wasmer_types::MemorySize>(
         inner: LockableWasiProcessInner,
         ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -196,7 +196,7 @@ impl WasiProcessInner {
 
             // Write our thread state to the snapshot
             let tid = ctx.data().thread.tid();
-            if let Err(err) = SnapshotEffector::save_thread_state::<M>(
+            if let Err(err) = JournalEffector::save_thread_state::<M>(
                 &mut ctx,
                 tid,
                 memory_stack.clone(),
@@ -217,9 +217,9 @@ impl WasiProcessInner {
                     // Now if we are the last thread we also write the memory
                     let is_last_thread = guard.threads.values().all(WasiThread::is_check_pointing);
                     if is_last_thread {
-                        if let Err(err) = SnapshotEffector::save_memory_and_snapshot(
-                            &mut ctx, &mut guard, trigger,
-                        ) {
+                        if let Err(err) =
+                            JournalEffector::save_memory_and_snapshot(&mut ctx, &mut guard, trigger)
+                        {
                             inner.1.notify_all();
                             return wasmer_types::OnCalledAction::Trap(err.into());
                         }

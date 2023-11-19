@@ -32,9 +32,9 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     wasi_try_ok!(state.fs.close_fd(fd));
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_fd_close(&mut ctx, fd).map_err(|err| {
+        JournalEffector::save_fd_close(&mut ctx, fd).map_err(|err| {
             tracing::error!(
                 "failed to save close descriptor event to snapshot capturer - {}",
                 err

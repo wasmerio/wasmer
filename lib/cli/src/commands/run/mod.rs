@@ -30,6 +30,7 @@ use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
+    journal::{LogFileJournal, SnapshotTrigger},
     runners::{MappedCommand, MappedDirectory, Runner},
     runtime::{
         module_cache::{CacheError, ModuleHash},
@@ -37,7 +38,6 @@ use wasmer_wasix::{
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
     },
-    snapshot::{LogFileSnapshotCapturer, SnapshotTrigger},
     WasiError,
 };
 use wasmer_wasix::{
@@ -242,30 +242,28 @@ impl Run {
             runner.config().forward_host_env();
         }
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         for trigger in self.wasi.snapshot_on.iter().cloned() {
             runner.config().add_snapshot_trigger(trigger);
         }
 
-        #[cfg(feature = "snapshot")]
-        match (self.wasi.snapshot_to.clone(), self.wasi.resume_from.clone()) {
+        #[cfg(feature = "journal")]
+        match (self.wasi.journal.clone(), self.wasi.journal_restore.clone()) {
             (Some(save), Some(restore)) if save == restore => {
                 return Err(anyhow::format_err!(
                     "The snapshot save path and snapshot restore path can not be the same"
                 ));
             }
             (_, _) => {
-                if let Some(path) = self.wasi.snapshot_to.clone() {
+                if let Some(path) = self.wasi.journal.clone() {
                     runner
                         .config()
-                        .with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                        .with_journal(Arc::new(LogFileJournal::new_std(path)?));
                 }
-                if let Some(path) = self.wasi.resume_from.clone() {
-                    let n_snapshots = self.wasi.resume_num_snapshots;
-                    runner.config().with_snapshot_restore(
-                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
-                        n_snapshots,
-                    );
+                if let Some(path) = self.wasi.journal_restore.clone() {
+                    runner
+                        .config()
+                        .with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
                 }
             }
         }
@@ -332,28 +330,24 @@ impl Run {
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 
-        #[cfg(feature = "snapshot")]
+        #[cfg(feature = "journal")]
         for trigger in self.wasi.snapshot_on.iter().cloned() {
             runner.add_snapshot_trigger(trigger);
         }
 
-        #[cfg(feature = "snapshot")]
-        match (self.wasi.snapshot_to.clone(), self.wasi.resume_from.clone()) {
+        #[cfg(feature = "journal")]
+        match (self.wasi.journal.clone(), self.wasi.journal_restore.clone()) {
             (Some(save), Some(restore)) if save == restore => {
                 return Err(anyhow::format_err!(
                     "The snapshot save path and snapshot restore path can not be the same"
                 ));
             }
             (_, _) => {
-                if let Some(path) = self.wasi.snapshot_to.clone() {
-                    runner.with_snapshot_save(Arc::new(LogFileSnapshotCapturer::new_std(path)?));
+                if let Some(path) = self.wasi.journal.clone() {
+                    runner.with_journal(Arc::new(LogFileJournal::new_std(path)?));
                 }
-                if let Some(path) = self.wasi.resume_from.clone() {
-                    let n_snapshots = self.wasi.resume_num_snapshots;
-                    runner.with_snapshot_restore(
-                        Arc::new(LogFileSnapshotCapturer::new_std(path)?),
-                        n_snapshots,
-                    );
+                if let Some(path) = self.wasi.journal_restore.clone() {
+                    runner.with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
                 }
             }
         }

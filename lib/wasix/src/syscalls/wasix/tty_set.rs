@@ -37,9 +37,9 @@ pub fn tty_set<M: MemorySize>(
     wasi_try_ok!(tty_set_internal(&mut ctx, state.clone()));
     let env = ctx.data();
 
-    #[cfg(feature = "snapshot")]
+    #[cfg(feature = "journal")]
     if env.enable_snapshot_capture {
-        SnapshotEffector::save_tty_set(&mut ctx, state).map_err(|err| {
+        JournalEffector::save_tty_set(&mut ctx, state).map_err(|err| {
             tracing::error!("failed to save path symbolic link event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;
