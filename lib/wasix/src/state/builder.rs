@@ -815,7 +815,9 @@ impl WasiEnvBuilder {
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
+                #[allow(unused_mut)]
                 let mut runtime = PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
+                #[cfg(feature = "snapshot")]
                 if let Some(capturer) = self.snapshot_save.clone() {
                     runtime.set_snapshot_capturer(capturer);
                 }
