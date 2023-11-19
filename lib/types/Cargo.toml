@@ -21,7 +21,7 @@ indexmap = { version = "1.6" }
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 enum-iterator = "0.7.0"
 target-lexicon = { version = "0.12.2", default-features = false }
-enumset = "1.0"
+enumset = "1.1.0"
 bytecheck = "0.6.8"
 
 [dev-dependencies]
