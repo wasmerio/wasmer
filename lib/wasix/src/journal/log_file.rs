@@ -21,6 +21,7 @@ use super::*;
 /// Note: This structure is versioned which allows for
 /// changes to the journal entry types without having to
 /// worry about backward and forward compatibility
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum LogFileJournalEntry {
     InitV1 {

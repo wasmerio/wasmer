@@ -39,7 +39,7 @@ pub fn path_create_directory<M: MemorySize>(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         JournalEffector::save_path_create_directory(&mut ctx, fd, path_string).map_err(|err| {
             tracing::error!(
                 "failed to save create directory event to snapshot capturer - {}",

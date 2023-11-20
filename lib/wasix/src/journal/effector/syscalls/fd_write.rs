@@ -29,8 +29,7 @@ impl JournalEffector {
                     .access()
                     .map_err(mem_error_to_wasi)?;
                 ctx.data()
-                    .runtime()
-                    .snapshot_capturer()
+                    .active_journal()?
                     .write(JournalEntry::FileDescriptorWrite {
                         fd,
                         offset,

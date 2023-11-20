@@ -58,10 +58,12 @@ mod utils;
 /// WAI based bindings.
 mod bindings;
 
+use std::sync::Arc;
+
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
+use journal::DynJournal;
 use os::task::control_plane::ControlPlaneError;
-use syscalls::state::JournalRestore;
 use thiserror::Error;
 use tracing::error;
 // re-exports needed for OS
@@ -232,10 +234,10 @@ impl WasiRuntimeError {
 pub(crate) fn run_wasi_func(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
-    restorer: Option<JournalRestore>,
+    journals: Vec<Arc<DynJournal>>,
     params: &[wasmer::Value],
 ) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
-    if restorer.is_some() {
+    if !journals.is_empty() {
         return Err(WasiRuntimeError::Runtime(RuntimeError::user(
             anyhow::format_err!(
                 "snapshot restoration is not currently supported when running specific functions"
@@ -264,9 +266,9 @@ pub(crate) fn run_wasi_func(
 pub(crate) fn run_wasi_func_start(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
-    restore: Option<JournalRestore>,
+    journals: Vec<Arc<DynJournal>>,
 ) -> Result<(), WasiRuntimeError> {
-    run_wasi_func(func, store, restore, &[])?;
+    run_wasi_func(func, store, journals, &[])?;
     Ok(())
 }
 

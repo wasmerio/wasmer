@@ -1,4 +1,3 @@
-mod capturer;
 mod compactor;
 #[cfg(feature = "journal")]
 mod effector;
@@ -6,14 +5,15 @@ mod effector;
 #[path = "effector/unimplemented.rs"]
 mod effector;
 mod filter;
+mod journal;
 #[cfg(feature = "journal")]
 mod log_file;
 mod unsupported;
 
-pub use capturer::*;
 pub use compactor::*;
 pub use effector::*;
 pub use filter::*;
+pub use journal::*;
 #[cfg(feature = "journal")]
 pub use log_file::*;
 pub use unsupported::*;

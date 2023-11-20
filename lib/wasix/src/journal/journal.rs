@@ -38,6 +38,7 @@ pub enum SocketJournalEvent {
 
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum JournalEntry<'a> {
     Init {

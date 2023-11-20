@@ -8,8 +8,6 @@ use self::{
     module_cache::{CacheError, ModuleHash},
     task_manager::InlineWaker,
 };
-#[cfg(feature = "journal")]
-use crate::journal::UNSUPPORTED_SNAPSHOT_CAPTURER;
 
 use std::{
     fmt,
@@ -22,7 +20,7 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
 #[cfg(feature = "journal")]
-use crate::journal::{DynJournal, UnsupportedJournal};
+use crate::journal::DynJournal;
 use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
@@ -110,13 +108,23 @@ where
         InlineWaker::block_on(self.load_module(wasm))
     }
 
+    /// The list of journals which will be used to restore the state of the
+    /// runtime at a particular point in time
+    #[cfg(feature = "journal")]
+    fn journals(&self) -> &'static Vec<Arc<DynJournal>> {
+        &EMPTY_JOURNAL_LIST
+    }
+
     /// The snapshot capturer takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
     #[cfg(feature = "journal")]
-    fn snapshot_capturer(&self) -> &'_ DynJournal {
-        &UNSUPPORTED_SNAPSHOT_CAPTURER
+    fn active_journal(&self) -> Option<&'_ DynJournal> {
+        None
     }
 }
+
+#[cfg(feature = "journal")]
+static EMPTY_JOURNAL_LIST: Vec<Arc<DynJournal>> = Vec::new();
 
 /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
 ///
@@ -193,7 +201,7 @@ pub struct PluggableRuntime {
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
     #[derivative(Debug = "ignore")]
-    pub snapshot_capturer: Arc<DynJournal>,
+    pub journals: Vec<Arc<DynJournal>>,
 }
 
 impl PluggableRuntime {
@@ -229,7 +237,7 @@ impl PluggableRuntime {
             package_loader: Arc::new(loader),
             module_cache: Arc::new(module_cache::in_memory()),
             #[cfg(feature = "journal")]
-            snapshot_capturer: Arc::new(UnsupportedJournal::default()) as Arc<DynJournal>,
+            journals: Vec::new(),
         }
     }
 
@@ -281,8 +289,8 @@ impl PluggableRuntime {
     }
 
     #[cfg(feature = "journal")]
-    pub fn set_snapshot_capturer(&mut self, capturer: Arc<DynJournal>) -> &mut Self {
-        self.snapshot_capturer = capturer;
+    pub fn add_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
+        self.journals.push(journal);
         self
     }
 }
@@ -332,7 +340,7 @@ impl Runtime for PluggableRuntime {
     }
 
     #[cfg(feature = "journal")]
-    fn snapshot_capturer(&self) -> &DynJournal {
-        self.snapshot_capturer.as_ref()
+    fn active_journal(&self) -> Option<&DynJournal> {
+        self.journals.iter().last().map(|a| a.as_ref())
     }
 }

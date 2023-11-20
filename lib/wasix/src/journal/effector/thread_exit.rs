@@ -7,8 +7,7 @@ impl JournalEffector {
         exit_code: Option<ExitCode>,
     ) -> anyhow::Result<()> {
         __asyncify_light(env, None, async {
-            env.runtime()
-                .snapshot_capturer()
+            env.active_journal()?
                 .write(JournalEntry::CloseThread { id, exit_code })
                 .await
                 .map_err(map_snapshot_err)?;

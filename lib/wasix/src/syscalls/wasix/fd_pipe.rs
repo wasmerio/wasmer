@@ -20,7 +20,7 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         JournalEffector::save_fd_pipe(&mut ctx, fd1, fd2).map_err(|err| {
             tracing::error!("failed to save create pipe event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))

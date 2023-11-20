@@ -14,7 +14,7 @@ use crate::{
     journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     runtime::task_manager::VirtualTaskManagerExt,
-    JournalRestore, Runtime, WasiEnvBuilder, WasiRuntimeError,
+    Runtime, WasiEnvBuilder, WasiRuntimeError,
 };
 
 use super::wasi_common::MappedCommand;
@@ -215,15 +215,8 @@ impl WasiRunner {
         self
     }
 
-    pub fn with_journal_restore(&mut self, restorer: Arc<DynJournal>) -> &mut Self {
-        self.wasi
-            .journal_restore
-            .replace(JournalRestore { restorer });
-        self
-    }
-
-    pub fn with_journal(&mut self, capturer: Arc<DynJournal>) -> &mut Self {
-        self.wasi.journal.replace(capturer);
+    pub fn add_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
+        self.wasi.journals.push(journal);
         self
     }
 
@@ -340,17 +333,11 @@ impl crate::runners::Runner for WasiRunner {
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "journal")]
-        if let Some(capturer) = self.wasi.journal.clone() {
-            env = env.with_journal(capturer);
-        }
-
-        #[cfg(feature = "journal")]
-        if let Some(restore) = self.wasi.journal_restore.clone() {
-            env = env.with_journal_restore(restore.restorer);
-        }
-
-        #[cfg(feature = "journal")]
         {
+            for journal in self.wasi.journals.clone() {
+                env.add_journal(journal);
+            }
+
             for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }

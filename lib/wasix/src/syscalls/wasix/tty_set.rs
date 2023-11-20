@@ -41,7 +41,7 @@ pub fn tty_set<M: MemorySize>(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         JournalEffector::save_tty_set(&mut ctx, state).map_err(|err| {
             tracing::error!("failed to save path symbolic link event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))

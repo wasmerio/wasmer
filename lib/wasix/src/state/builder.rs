@@ -19,7 +19,6 @@ use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
-    journal::DynJournal,
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::task_manager::InlineWaker,
     state::WasiState,
@@ -27,7 +26,10 @@ use crate::{
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 #[cfg(feature = "journal")]
-use crate::{journal::SnapshotTrigger, syscalls::restore_snapshot};
+use crate::{
+    journal::{DynJournal, SnapshotTrigger},
+    syscalls::restore_snapshot,
+};
 
 use super::env::WasiEnvInit;
 
@@ -79,16 +81,10 @@ pub struct WasiEnvBuilder {
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
 
     #[cfg(feature = "journal")]
-    pub(super) snapshot_restore: Option<JournalRestore>,
+    pub(super) snapshot_interval: Option<std::time::Duration>,
 
     #[cfg(feature = "journal")]
-    pub(super) snapshot_save: Option<Arc<DynJournal>>,
-}
-
-#[derive(Clone)]
-pub struct JournalRestore {
-    /// Snapshot capturer that will be used to restore state
-    pub restorer: Arc<DynJournal>,
+    pub(super) journals: Vec<Arc<DynJournal>>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -514,21 +510,18 @@ impl WasiEnvBuilder {
         Ok(self)
     }
 
-    /// Supplies a snapshot capturer which will be used to read the
-    /// snapshot journal events and replay them into the WasiEnv
-    /// rather than starting a new instance from scratch
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied use
+    /// the journals in the order that you specify here.
+    ///
+    /// The last journal file specified will be created if it does not exist
+    /// and opened for read and write. New journal events will be written to this
+    /// file
     #[cfg(feature = "journal")]
-    pub fn with_journal_restore(mut self, restorer: Arc<DynJournal>) -> Self {
-        self.snapshot_restore.replace(JournalRestore { restorer });
-        self
-    }
-
-    /// Supplies a snapshot capturer where the snapshot journal events
-    /// will be sent to as they are generated
-    #[cfg(feature = "journal")]
-    pub fn with_journal(mut self, snapshot_capturer: Arc<DynJournal>) -> Self {
-        self.snapshot_save.replace(snapshot_capturer);
-        self
+    pub fn add_journal(&mut self, journal: Arc<DynJournal>) {
+        self.journals.push(journal);
     }
 
     pub fn set_current_dir(&mut self, dir: impl Into<PathBuf>) {
@@ -636,6 +629,11 @@ impl WasiEnvBuilder {
     #[cfg(feature = "journal")]
     pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) {
         self.snapshot_on.push(on);
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_snapshot_interval(&mut self, interval: std::time::Duration) {
+        self.snapshot_interval.replace(interval);
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
@@ -809,8 +807,8 @@ impl WasiEnvBuilder {
                 #[allow(unused_mut)]
                 let mut runtime = PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
                 #[cfg(feature = "journal")]
-                if let Some(capturer) = self.snapshot_save.clone() {
-                    runtime.set_snapshot_capturer(capturer);
+                for journal in self.journals.clone() {
+                    runtime.add_journal(journal);
                 }
                 Arc::new(runtime)
             }
@@ -834,9 +832,6 @@ impl WasiEnvBuilder {
         };
         let control_plane = WasiControlPlane::new(plane_config);
 
-        #[cfg(feature = "journal")]
-        let snapshot_on = self.snapshot_on;
-
         let init = WasiEnvInit {
             state,
             runtime,
@@ -849,13 +844,13 @@ impl WasiEnvBuilder {
             process: None,
             thread: None,
             #[cfg(feature = "journal")]
-            call_initialize: self.snapshot_restore.is_none(),
+            call_initialize: self.journals.is_empty(),
             #[cfg(not(feature = "journal"))]
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
             #[cfg(feature = "journal")]
-            snapshot_on,
+            snapshot_on: self.snapshot_on,
         };
 
         Ok(init)
@@ -927,16 +922,16 @@ impl WasiEnvBuilder {
         }
 
         #[cfg(feature = "journal")]
-        let snapshot_restore = self.snapshot_restore.clone();
+        let journals: Vec<Arc<DynJournal>> = self.journals.clone();
         #[cfg(not(feature = "journal"))]
-        let snapshot_restore = None;
+        let journals = Vec::new();
 
         let (instance, env) = self.instantiate(module, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
 
-        let result = crate::run_wasi_func_start(start, store, snapshot_restore);
+        let result = crate::run_wasi_func_start(start, store, journals);
         let (result, exit_code) = wasi_exit_code(result);
 
         let pid = env.data(&store).pid();
@@ -976,7 +971,7 @@ impl WasiEnvBuilder {
         let _guard = _guard.as_ref().map(|r| r.enter());
 
         #[cfg(feature = "journal")]
-        let snapshot_restore = self.snapshot_restore.clone();
+        let journals = self.journals.clone();
 
         let (_, env) = self.instantiate(module, &mut store)?;
 
@@ -986,9 +981,9 @@ impl WasiEnvBuilder {
         let mut rewind_state = None;
 
         #[cfg(feature = "journal")]
-        if let Some(snapshot_restore) = snapshot_restore {
+        for journal in journals {
             let ctx = env.env.clone().into_mut(&mut store);
-            let rewind = restore_snapshot(ctx, snapshot_restore)?;
+            let rewind = restore_snapshot(ctx, journal)?;
             rewind_state = Some((rewind, None));
         }
 

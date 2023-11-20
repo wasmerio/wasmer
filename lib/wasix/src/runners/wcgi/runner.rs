@@ -263,16 +263,6 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
-    pub fn with_journal_restore(&mut self, capturer: Arc<crate::journal::DynJournal>) -> &mut Self {
-        use crate::state::JournalRestore;
-
-        self.wasi
-            .journal_restore
-            .replace(JournalRestore { restorer: capturer });
-        self
-    }
-
-    #[cfg(feature = "journal")]
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
         if !self.has_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval) {
             self.add_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval);
@@ -282,8 +272,8 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
-    pub fn with_journal(&mut self, capturer: Arc<crate::journal::DynJournal>) -> &mut Self {
-        self.wasi.journal.replace(capturer);
+    pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
+        self.wasi.journals.push(journal);
         self
     }
 }

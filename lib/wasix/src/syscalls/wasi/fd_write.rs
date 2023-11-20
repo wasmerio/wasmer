@@ -38,7 +38,7 @@ pub fn fd_write<M: MemorySize>(
         let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
-    let enable_snapshot_capture = env.enable_snapshot_capture;
+    let enable_snapshot_capture = env.enable_journal;
 
     fd_write_internal::<M>(
         &mut ctx,
@@ -74,7 +74,7 @@ pub fn fd_pwrite<M: MemorySize>(
     offset: Filesize,
     nwritten: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    let enable_snapshot_capture = ctx.data().enable_snapshot_capture;
+    let enable_snapshot_capture = ctx.data().enable_journal;
     fd_write_internal::<M>(
         &mut ctx,
         fd,

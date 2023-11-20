@@ -9,8 +9,7 @@ impl JournalEffector {
 
         __asyncify_light(env, None, async {
             ctx.data()
-                .runtime()
-                .snapshot_capturer()
+                .active_journal()?
                 .write(event)
                 .await
                 .map_err(map_snapshot_err)?;

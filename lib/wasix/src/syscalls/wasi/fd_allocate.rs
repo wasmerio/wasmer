@@ -21,7 +21,7 @@ pub fn fd_allocate(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         JournalEffector::save_fd_allocate(&mut ctx, fd, offset, len).map_err(|err| {
             tracing::error!("failed to save file descriptor allocate event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))

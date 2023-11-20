@@ -15,7 +15,6 @@ use crate::{
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
     runners::MappedDirectory,
-    state::JournalRestore,
     WasiEnvBuilder,
 };
 
@@ -38,9 +37,7 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     #[derivative(Debug = "ignore")]
-    pub(crate) journal: Option<Arc<DynJournal>>,
-    #[derivative(Debug = "ignore")]
-    pub(crate) journal_restore: Option<JournalRestore>,
+    pub(crate) journals: Vec<Arc<DynJournal>>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
     pub(crate) snapshot_interval: Option<std::time::Duration>,
     pub(crate) current_dir: Option<PathBuf>,

@@ -43,7 +43,7 @@ impl JournalEffector {
         // file in an orderly manner.
         __asyncify_light(env, None, async {
             let memory = unsafe { env.memory_view(ctx) };
-            let capturer = ctx.data().runtime().snapshot_capturer();
+            let journal = ctx.data().active_journal()?;
 
             for region in regions {
                 // We grab this region of memory as a vector and hash
@@ -54,7 +54,7 @@ impl JournalEffector {
                     .map_err(mem_error_to_wasi)?;
 
                 // Now we write it to the snap snapshot capturer
-                capturer
+                journal
                     .write(JournalEntry::UpdateMemoryRegion {
                         region,
                         data: data.into(),
@@ -66,7 +66,7 @@ impl JournalEffector {
             // Finally we mark the end of the snapshot so that
             // it can act as a restoration point
             let when = SystemTime::now();
-            capturer
+            journal
                 .write(JournalEntry::Snapshot { when, trigger })
                 .await
                 .map_err(map_snapshot_err)?;

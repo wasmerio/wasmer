@@ -18,7 +18,7 @@ pub fn chdir<M: MemorySize>(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         JournalEffector::save_chdir(&mut ctx, path).map_err(|err| {
             tracing::error!("failed to chdir event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))

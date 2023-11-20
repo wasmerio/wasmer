@@ -23,7 +23,7 @@ use wasmer_wasix_types::{
 };
 
 #[cfg(feature = "journal")]
-use crate::journal::{JournalEffector, SnapshotTrigger};
+use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -309,7 +309,7 @@ pub struct WasiEnv {
     pub enable_deep_sleep: bool,
 
     /// Enables the snap shotting functionality
-    pub enable_snapshot_capture: bool,
+    pub enable_journal: bool,
 
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "journal")]
@@ -344,7 +344,7 @@ impl Clone for WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
-            enable_snapshot_capture: self.enable_snapshot_capture,
+            enable_journal: self.enable_journal,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         }
@@ -383,7 +383,7 @@ impl WasiEnv {
             runtime: self.runtime.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
-            enable_snapshot_capture: self.enable_snapshot_capture,
+            enable_journal: self.enable_journal,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         };
@@ -445,14 +445,14 @@ impl WasiEnv {
             state: Arc::new(init.state),
             inner: Default::default(),
             owned_handles: Vec::new(),
+            #[cfg(feature = "journal")]
+            enable_journal: init.runtime.active_journal().is_some(),
+            #[cfg(not(feature = "journal"))]
+            enable_journal: false,
+            enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             runtime: init.runtime,
             bin_factory: init.bin_factory,
-            enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             capabilities: init.capabilities,
-            #[cfg(feature = "journal")]
-            enable_snapshot_capture: !init.snapshot_on.is_empty(),
-            #[cfg(not(feature = "journal"))]
-            enable_snapshot_capture: false,
             #[cfg(feature = "journal")]
             snapshot_on: init.snapshot_on.into_iter().collect(),
         };
@@ -556,7 +556,7 @@ impl WasiEnv {
         // If this module exports an _initialize function, run that first.
         if call_initialize {
             if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store, None) {
+                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store, Vec::new()) {
                     func_env
                         .data(&store)
                         .blocking_cleanup(Some(Errno::Noexec.into()));
@@ -855,9 +855,17 @@ impl WasiEnv {
     }
 
     /// Returns true if the process should perform snapshots or not
+    pub fn should_journal(&self) -> bool {
+        self.enable_journal
+    }
+
+    /// Returns the active journal or fails with an error
     #[cfg(feature = "journal")]
-    pub fn should_feed_snapshot(&self) -> bool {
-        !self.snapshot_on.is_empty()
+    pub fn active_journal(&self) -> Result<&DynJournal, Errno> {
+        self.runtime().active_journal().ok_or({
+            tracing::warn!("failed to save thread exit as there is not active journal");
+            Errno::Fault
+        })
     }
 
     /// Returns true if a particular snapshot trigger is enabled
@@ -1090,7 +1098,7 @@ impl WasiEnv {
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
         #[cfg(feature = "journal")]
-        if self.should_feed_snapshot() {
+        if self.should_journal() {
             if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }

@@ -80,7 +80,7 @@ pub fn path_open<M: MemorySize>(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         JournalEffector::save_path_open(
             &mut ctx,
             out_fd,

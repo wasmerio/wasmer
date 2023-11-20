@@ -29,7 +29,7 @@ pub fn path_remove_directory<M: MemorySize>(
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
-    if env.enable_snapshot_capture {
+    if env.enable_journal {
         wasi_try!(
             JournalEffector::save_path_remove_directory(&mut ctx, fd, path_str).map_err(|err| {
                 tracing::error!("failed to save unlink event to snapshot capturer - {}", err);

@@ -90,10 +90,7 @@ pub(crate) use self::types::{
     },
     *,
 };
-use self::{
-    state::{JournalRestore, WasiInstanceGuardMemory},
-    utils::WasiDummyWaker,
-};
+use self::{state::WasiInstanceGuardMemory, utils::WasiDummyWaker};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -1239,7 +1236,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
 
     unsafe { handle_rewind_ext::<M, ()>(&mut ctx, HandleRewindType::Resultless) };
 
-    if !ctx.data().enable_snapshot_capture {
+    if !ctx.data().enable_journal {
         return Ok(Ok(ctx));
     }
 
@@ -1274,7 +1271,7 @@ pub fn maybe_snapshot<M: MemorySize>(
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
-    if !ctx.data().enable_snapshot_capture {
+    if !ctx.data().enable_journal {
         return Ok(Ok(ctx));
     }
 
@@ -1297,12 +1294,11 @@ pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
 #[cfg(feature = "journal")]
 pub fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    restore: JournalRestore,
+    journal: Arc<DynJournal>,
 ) -> Result<RewindState, WasiRuntimeError> {
-    let restorer = restore.restorer;
     InlineWaker::block_on(async {
         let mut rewind = None;
-        while let Some(next) = restorer.read().await.map_err(anyhow_err_to_runtime_err)? {
+        while let Some(next) = journal.read().await.map_err(anyhow_err_to_runtime_err)? {
             tracing::trace!("Restoring snapshot event - {next:?}");
             match next {
                 crate::journal::JournalEntry::Init { .. } => {

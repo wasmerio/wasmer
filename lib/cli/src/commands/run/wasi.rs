@@ -108,19 +108,18 @@ pub struct Wasi {
     #[clap(long = "enable-async-threads")]
     pub enable_async_threads: bool,
 
-    /// Specifies the journal file that Wasmer will use to store and restore
-    /// the state of the WASM process
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// and save the state of the WASM process as it executes.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied using
+    /// the journals in the order that you specify here.
+    ///
+    /// The last journal file specified will be created if it does not exist
+    /// and opened for read and write. New journal events will be written to this
+    /// file
     #[cfg(feature = "journal")]
     #[clap(long = "journal")]
-    pub journal: Option<PathBuf>,
-
-    /// When specified, the runtime will restore a previous snapshot using a different journal
-    /// then the one specified in the `--journal` argument. If no argument is specified for
-    /// `--journal` then the state of the process will be restored however no more events
-    /// will be recorded.
-    #[cfg(feature = "journal")]
-    #[clap(long = "journal-restore")]
-    pub journal_restore: Option<PathBuf>,
+    pub journals: Vec<PathBuf>,
 
     /// Indicates what events will cause a snapshot to be taken
     /// and written to the journal file.
@@ -344,25 +343,15 @@ impl Wasi {
         *builder.capabilities_mut() = self.capabilities();
 
         #[cfg(feature = "journal")]
-        for trigger in self.snapshot_on.iter().cloned() {
-            builder.add_snapshot_trigger(trigger);
-        }
-
-        #[cfg(feature = "journal")]
-        match (self.journal.clone(), self.journal_restore.clone()) {
-            (Some(save), Some(restore)) if save == restore => {
-                return Err(anyhow::format_err!(
-                    "The snapshot save path and snapshot restore path can not be the same"
-                ));
+        {
+            for trigger in self.snapshot_on.iter().cloned() {
+                builder.add_snapshot_trigger(trigger);
             }
-            (_, _) => {
-                if let Some(path) = self.journal.clone() {
-                    builder = builder.with_journal(Arc::new(LogFileJournal::new_std(path)?));
-                }
-                if let Some(path) = self.journal_restore.clone() {
-                    builder =
-                        builder.with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
-                }
+            if let Some(interval) = self.snapshot_interval.clone() {
+                builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
+            }
+            for journal in self.journals.iter() {
+                builder.add_journal(Arc::new(LogFileJournal::new_std(journal)?));
             }
         }
 
@@ -520,8 +509,8 @@ impl Wasi {
         }
 
         #[cfg(feature = "journal")]
-        if let Some(path) = &self.journal {
-            rt.set_snapshot_capturer(Arc::new(LogFileJournal::new_std(path)?));
+        for journal in self.journals.clone() {
+            rt.add_journal(Arc::new(LogFileJournal::new_std(journal)?));
         }
 
         if !self.no_tty {

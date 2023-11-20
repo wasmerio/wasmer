@@ -142,6 +142,7 @@ impl Args {
 }
 
 #[derive(Parser, Debug)]
+#[allow(clippy::large_enum_variant)]
 /// The options for the wasmer Command Line Interface
 enum Cmd {
     /// Login into a wasmer.io-like registry

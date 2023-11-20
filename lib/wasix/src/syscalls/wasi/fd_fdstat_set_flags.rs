@@ -19,7 +19,7 @@ pub fn fd_fdstat_set_flags(
 
     if ret == Errno::Success {
         #[cfg(feature = "journal")]
-        if env.enable_snapshot_capture {
+        if env.enable_journal {
             JournalEffector::save_fd_set_flags(&mut ctx, fd, flags).map_err(|err| {
                 tracing::error!("failed to save file set flags event - {}", err);
                 WasiError::Exit(ExitCode::Errno(Errno::Fault))
