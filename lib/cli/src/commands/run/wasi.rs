@@ -347,7 +347,7 @@ impl Wasi {
             for trigger in self.snapshot_on.iter().cloned() {
                 builder.add_snapshot_trigger(trigger);
             }
-            if let Some(interval) = self.snapshot_interval.clone() {
+            if let Some(interval) = self.snapshot_interval {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
             }
             for journal in self.journals.iter() {
