@@ -55,6 +55,7 @@ impl Journal for CompactingJournal {
                                 *other = hash;
                             }
                         } else {
+                            #[allow(clippy::nonminimal_bool)]
                             let to_remove = state
                                 .memory_map
                                 .keys()
@@ -103,7 +104,6 @@ impl Journal for CompactingJournal {
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
-                    is_64bit,
                 } => {
                     let mut state = self.state.lock().unwrap();
                     state.close_file.remove(&fd);
@@ -118,7 +118,6 @@ impl Journal for CompactingJournal {
                             fs_rights_base,
                             fs_rights_inheriting,
                             fs_flags,
-                            is_64bit,
                         },
                     );
                 }

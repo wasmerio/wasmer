@@ -85,7 +85,6 @@ pub enum JournalEntry<'a> {
         fs_rights_base: Rights,
         fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
-        is_64bit: bool,
     },
     RenumberFileDescriptor {
         old_fd: Fd,
@@ -201,7 +200,7 @@ pub trait Journal {
 
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
-    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<JournalEntry<'a>>>>;
+    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>>;
 }
 
 pub type DynJournal = dyn Journal + Send + Sync;

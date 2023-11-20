@@ -249,14 +249,8 @@ impl Config {
 
     #[cfg(feature = "journal")]
     pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
-        let defs = [
-            crate::journal::SnapshotTrigger::Idle,
-            crate::journal::SnapshotTrigger::FirstEnviron,
-            crate::journal::SnapshotTrigger::FirstListen,
-            crate::journal::SnapshotTrigger::FirstStdin,
-        ];
-        for on in defs {
-            if self.has_snapshot_trigger(on) == false {
+        for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+            if !self.has_snapshot_trigger(on) {
                 self.add_snapshot_trigger(on);
             }
         }

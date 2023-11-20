@@ -47,6 +47,13 @@ pub enum SnapshotTrigger {
     NonDeterministicCall,
 }
 
+pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 4] = [
+    SnapshotTrigger::Idle,
+    SnapshotTrigger::FirstEnviron,
+    SnapshotTrigger::FirstListen,
+    SnapshotTrigger::FirstStdin,
+];
+
 impl FromStr for SnapshotTrigger {
     type Err = anyhow::Error;
 

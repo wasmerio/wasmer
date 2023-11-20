@@ -15,7 +15,7 @@ impl Journal for UnsupportedJournal {
         Box::pin(async { Err(anyhow::format_err!("unsupported")) })
     }
 
-    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<JournalEntry<'a>>>> {
+    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>> {
         Box::pin(async { Ok(None) })
     }
 }

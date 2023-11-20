@@ -11,7 +11,6 @@ impl JournalEffector {
         fs_rights_base: Rights,
         fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
-        is_64bit: bool,
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
@@ -24,7 +23,6 @@ impl JournalEffector {
                 fs_rights_base,
                 fs_rights_inheriting,
                 fs_flags,
-                is_64bit,
             },
         )
     }
@@ -39,31 +37,17 @@ impl JournalEffector {
         fs_rights_base: Rights,
         fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
-        is_64bit: bool,
     ) -> anyhow::Result<()> {
-        let res = if is_64bit {
-            crate::syscalls::path_open_internal::<Memory64>(
-                ctx,
-                dirfd,
-                dirflags,
-                path,
-                o_flags,
-                fs_rights_base,
-                fs_rights_inheriting,
-                fs_flags,
-            )
-        } else {
-            crate::syscalls::path_open_internal::<Memory32>(
-                ctx,
-                dirfd,
-                dirflags,
-                path,
-                o_flags,
-                fs_rights_base,
-                fs_rights_inheriting,
-                fs_flags,
-            )
-        };
+        let res = crate::syscalls::path_open_internal(
+            ctx,
+            dirfd,
+            dirflags,
+            path,
+            o_flags,
+            fs_rights_base,
+            fs_rights_inheriting,
+            fs_flags,
+        );
         let ret_fd = match res? {
             Ok(fd) => fd,
             Err(err) => {

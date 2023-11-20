@@ -49,7 +49,7 @@ pub(crate) fn path_remove_directory_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    let inode = state.fs.get_inode_at_path(inodes, fd, &path, false)?;
+    let inode = state.fs.get_inode_at_path(inodes, fd, path, false)?;
     let (parent_inode, childs_name) =
         state
             .fs

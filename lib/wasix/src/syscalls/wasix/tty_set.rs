@@ -34,7 +34,10 @@ pub fn tty_set<M: MemorySize>(
         line_feeds,
     };
 
-    wasi_try_ok!(tty_set_internal(&mut ctx, state.clone()));
+    wasi_try_ok!({
+        #[allow(clippy::redundant_clone)]
+        tty_set_internal(&mut ctx, state.clone())
+    });
     let env = ctx.data();
 
     #[cfg(feature = "journal")]

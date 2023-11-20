@@ -1221,6 +1221,7 @@ pub fn rewind_ext<M: MemorySize>(
     Errno::Success
 }
 
+#[allow(unused)]
 #[cfg(not(feature = "journal"))]
 pub fn maybe_snapshot_once<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -1259,6 +1260,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
     Ok(Ok(ctx))
 }
 
+#[allow(unused)]
 #[cfg(not(feature = "journal"))]
 pub fn maybe_snapshot<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -1375,7 +1377,6 @@ pub fn restore_snapshot(
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
-                    is_64bit,
                 } => {
                     JournalEffector::apply_path_open(
                         &mut ctx,
@@ -1387,7 +1388,6 @@ pub fn restore_snapshot(
                         fs_rights_base,
                         fs_rights_inheriting,
                         fs_flags,
-                        is_64bit,
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }

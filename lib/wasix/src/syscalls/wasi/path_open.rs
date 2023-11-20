@@ -67,7 +67,7 @@ pub fn path_open<M: MemorySize>(
         );
     }
 
-    let out_fd = wasi_try_ok!(path_open_internal::<M>(
+    let out_fd = wasi_try_ok!(path_open_internal(
         &mut ctx,
         dirfd,
         dirflags,
@@ -91,7 +91,6 @@ pub fn path_open<M: MemorySize>(
             fs_rights_base,
             fs_rights_inheriting,
             fs_flags,
-            M::is_64bit(),
         )
         .map_err(|err| {
             tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
@@ -111,7 +110,7 @@ pub fn path_open<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_open_internal<M: MemorySize>(
+pub(crate) fn path_open_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,
     dirflags: LookupFlags,
@@ -129,7 +128,7 @@ pub(crate) fn path_open_internal<M: MemorySize>(
     let maybe_inode = state.fs.get_inode_at_path(
         inodes,
         dirfd,
-        &path,
+        path,
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
 

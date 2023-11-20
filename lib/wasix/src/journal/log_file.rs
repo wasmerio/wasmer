@@ -69,7 +69,6 @@ pub(crate) enum LogFileJournalEntry {
         fs_rights_base: u64,
         fs_rights_inheriting: u64,
         fs_flags: u16,
-        is_64bit: bool,
     },
     RenumberFileDescriptorV1 {
         old_fd: u32,
@@ -439,7 +438,6 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 fs_rights_base,
                 fs_rights_inheriting,
                 fs_flags,
-                is_64bit,
             } => Self::OpenFileDescriptorV1 {
                 fd,
                 dirfd,
@@ -449,7 +447,6 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 fs_rights_base: fs_rights_base.bits(),
                 fs_rights_inheriting: fs_rights_inheriting.bits(),
                 fs_flags: fs_flags.bits(),
-                is_64bit,
             },
             JournalEntry::RemoveDirectory { fd, path } => Self::RemoveDirectoryV1 {
                 fd,
@@ -657,7 +654,6 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fs_rights_base,
                 fs_rights_inheriting,
                 fs_flags,
-                is_64bit,
             } => Self::OpenFileDescriptor {
                 fd,
                 dirfd,
@@ -667,7 +663,6 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fs_rights_base: wasi::Rights::from_bits_truncate(fs_rights_base),
                 fs_rights_inheriting: wasi::Rights::from_bits_truncate(fs_rights_inheriting),
                 fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags),
-                is_64bit,
             },
             LogFileJournalEntry::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
                 fd,

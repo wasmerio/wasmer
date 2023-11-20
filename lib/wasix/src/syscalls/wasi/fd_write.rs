@@ -79,7 +79,7 @@ pub fn fd_pwrite<M: MemorySize>(
         &mut ctx,
         fd,
         FdWriteSource::Iovs { iovs, iovs_len },
-        offset as u64,
+        offset,
         Some(nwritten),
         false,
         enable_snapshot_capture,
@@ -139,7 +139,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                 let mut handle = handle.write().unwrap();
                                 if !is_stdio {
                                     handle
-                                        .seek(std::io::SeekFrom::Start(offset as u64))
+                                        .seek(std::io::SeekFrom::Start(offset))
                                         .await
                                         .map_err(map_io_err)?;
                                 }
@@ -149,7 +149,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                 match &data {
                                     FdWriteSource::Iovs { iovs, iovs_len } => {
                                         let iovs_arr = iovs
-                                            .slice(&memory, iovs_len.clone())
+                                            .slice(&memory, *iovs_len)
                                             .map_err(mem_error_to_wasi)?;
                                         let iovs_arr =
                                             iovs_arr.access().map_err(mem_error_to_wasi)?;
@@ -211,9 +211,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                         match &data {
                             FdWriteSource::Iovs { iovs, iovs_len } => {
-                                let iovs_arr = iovs
-                                    .slice(&memory, iovs_len.clone())
-                                    .map_err(mem_error_to_wasi)?;
+                                let iovs_arr =
+                                    iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)?;
                                 let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
                                 for iovs in iovs_arr.iter() {
                                     let buf = WasmPtr::<u8, M>::new(iovs.buf)
@@ -252,7 +251,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
                             let iovs_arr = wasi_try_ok!(iovs
-                                .slice(&memory, iovs_len.clone())
+                                .slice(&memory, *iovs_len)
                                 .map_err(mem_error_to_wasi));
                             let iovs_arr =
                                 wasi_try_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
@@ -289,7 +288,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
                             let iovs_arr = wasi_try_ok!(iovs
-                                .slice(&memory, iovs_len.clone())
+                                .slice(&memory, *iovs_len)
                                 .map_err(mem_error_to_wasi));
                             let iovs_arr =
                                 wasi_try_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
@@ -341,7 +340,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
                             let iovs_arr = wasi_try_ok!(iovs
-                                .slice(&memory, iovs_len.clone())
+                                .slice(&memory, *iovs_len)
                                 .map_err(mem_error_to_wasi));
                             let iovs_arr =
                                 wasi_try_ok!(iovs_arr.access().map_err(mem_error_to_wasi));

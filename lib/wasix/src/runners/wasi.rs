@@ -195,14 +195,8 @@ impl WasiRunner {
     }
 
     pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
-        let defs = [
-            SnapshotTrigger::Idle,
-            SnapshotTrigger::FirstEnviron,
-            SnapshotTrigger::FirstListen,
-            SnapshotTrigger::FirstStdin,
-        ];
-        for on in defs {
-            if self.has_snapshot_trigger(on) == false {
+        for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+            if !self.has_snapshot_trigger(on) {
                 self.add_snapshot_trigger(on);
             }
         }
@@ -214,7 +208,7 @@ impl WasiRunner {
     }
 
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
-        if self.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) == false {
+        if !self.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) {
             self.add_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
         }
         self.wasi.snapshot_interval.replace(period);

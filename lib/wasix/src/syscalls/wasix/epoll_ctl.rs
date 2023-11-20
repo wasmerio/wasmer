@@ -97,7 +97,7 @@ pub(crate) fn epoll_ctl_internal(
                 if let Some(event) = event_ctl {
                     let epoll_fd = EpollFd {
                         events: event.events,
-                        ptr: wasi_try_ok_ok!(event.ptr.try_into().map_err(|_| Errno::Overflow)),
+                        ptr: event.ptr,
                         fd: event.fd,
                         data1: event.data1,
                         data2: event.data2,

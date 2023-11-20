@@ -5,7 +5,7 @@ pub(super) use std::{
 pub(super) use anyhow::bail;
 pub(super) use bytes::Bytes;
 pub(super) use wasmer::{FunctionEnvMut, RuntimeError, WasmPtr};
-pub(super) use wasmer_types::{Memory32, Memory64, MemorySize};
+pub(super) use wasmer_types::MemorySize;
 pub(super) use wasmer_wasix_types::{
     types::__wasi_ciovec_t,
     wasi::{
