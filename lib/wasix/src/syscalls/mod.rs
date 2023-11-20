@@ -1221,7 +1221,7 @@ pub fn rewind_ext<M: MemorySize>(
     Errno::Success
 }
 
-#[allow(unused)]
+#[allow(clippy::extra_unused_type_parameters)]
 #[cfg(not(feature = "journal"))]
 pub fn maybe_snapshot_once<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -1260,7 +1260,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
     Ok(Ok(ctx))
 }
 
-#[allow(unused)]
+#[allow(clippy::extra_unused_type_parameters)]
 #[cfg(not(feature = "journal"))]
 pub fn maybe_snapshot<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -1547,6 +1547,12 @@ pub fn restore_snapshot(
                         },
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
+                }
+                crate::journal::JournalEntry::Panic { stack_trace, .. } => {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::new(format!(
+                        "panic\r\nstack: {}",
+                        stack_trace
+                    ))));
                 }
             }
         }

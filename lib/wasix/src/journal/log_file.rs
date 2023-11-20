@@ -178,6 +178,10 @@ pub(crate) enum LogFileJournalEntry {
         when: SystemTime,
         trigger: JournalSnapshotTriggerV1,
     },
+    Panic {
+        when: SystemTime,
+        stack_trace: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -595,6 +599,10 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 line_feeds,
             },
             JournalEntry::CreatePipe { fd1, fd2 } => Self::CreatePipeV1 { fd1, fd2 },
+            JournalEntry::Panic { when, stack_trace } => Self::Panic {
+                when,
+                stack_trace: stack_trace.into_owned(),
+            },
         }
     }
 }
@@ -826,6 +834,10 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 line_feeds,
             },
             LogFileJournalEntry::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe { fd1, fd2 },
+            LogFileJournalEntry::Panic { when, stack_trace } => Self::Panic {
+                when,
+                stack_trace: stack_trace.into(),
+            },
         }
     }
 }
@@ -911,7 +923,7 @@ impl Journal for LogFileJournal {
 
     /// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
-    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<JournalEntry<'a>>>> {
+    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>> {
         Box::pin(async {
             let mut state = self.state.lock().await;
 

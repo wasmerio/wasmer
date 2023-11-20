@@ -16,6 +16,7 @@ pub struct FilteredJournal {
     filter_snapshots: bool,
     filter_descriptors: bool,
     filter_epoll: bool,
+    filter_panics: bool,
 }
 
 impl FilteredJournal {
@@ -31,6 +32,7 @@ impl FilteredJournal {
             filter_snapshots: false,
             filter_descriptors: false,
             filter_epoll: false,
+            filter_panics: false,
         }
     }
 
@@ -76,6 +78,11 @@ impl FilteredJournal {
 
     pub fn with_ignore_descriptors(mut self, val: bool) -> Self {
         self.filter_descriptors = val;
+        self
+    }
+
+    pub fn with_ignore_panics(mut self, val: bool) -> Self {
+        self.filter_panics = val;
         self
     }
 }
@@ -260,12 +267,18 @@ impl Journal for FilteredJournal {
                     }
                     entry
                 }
+                JournalEntry::Panic { .. } => {
+                    if self.filter_panics {
+                        return Ok(());
+                    }
+                    entry
+                }
             };
             self.inner.write(evt).await
         })
     }
 
-    fn read<'a>(&'a self) -> LocalBoxFuture<'a, anyhow::Result<Option<JournalEntry<'a>>>> {
+    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>> {
         Box::pin(async { self.inner.read().await })
     }
 }

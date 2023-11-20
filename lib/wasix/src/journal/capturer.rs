@@ -182,6 +182,10 @@ pub enum JournalEntry<'a> {
         fd1: Fd,
         fd2: Fd,
     },
+    Panic {
+        when: SystemTime,
+        stack_trace: Cow<'a, str>,
+    },
     /// Represents the marker for the end of a snapshot
     Snapshot {
         when: SystemTime,
