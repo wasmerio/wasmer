@@ -1,6 +1,6 @@
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
 use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+use wasmer_wasix::{runtime::module_cache::ModuleHash, Pipe, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -80,14 +80,18 @@ async fn test_stdout() {
 
     #[cfg(feature = "js")]
     {
-        builder.run_with_store(module, &mut store).unwrap();
+        builder
+            .run_with_store(module, ModuleHash::random(), &mut store)
+            .unwrap();
     }
     #[cfg(not(feature = "js"))]
     {
-        std::thread::spawn(move || builder.run_with_store(module, &mut store))
-            .join()
-            .unwrap()
-            .unwrap();
+        std::thread::spawn(move || {
+            builder.run_with_store(module, ModuleHash::random(), &mut store)
+        })
+        .join()
+        .unwrap()
+        .unwrap();
     }
 
     let mut stdout_str = String::new();
