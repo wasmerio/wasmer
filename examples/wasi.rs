@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // .args(&["world"])
         // .env("KEY", "Value")
         .stdout(Box::new(stdout_tx))
-        .run_with_store_ext(module, &mut store)?;
+        .run_with_store(module, &mut store)?;
 
     eprintln!("Run complete - reading output");
 

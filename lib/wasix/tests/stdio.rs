@@ -1,6 +1,6 @@
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
 use wasmer::{Module, Store};
-use wasmer_wasix::{runtime::module_cache::ModuleHash, Pipe, WasiEnv};
+use wasmer_wasix::{Pipe, WasiEnv};
 
 mod sys {
     #[tokio::test]
@@ -80,18 +80,14 @@ async fn test_stdout() {
 
     #[cfg(feature = "js")]
     {
-        builder
-            .run_with_store(module, ModuleHash::random(), &mut store)
-            .unwrap();
+        builder.run_with_store(module, &mut store).unwrap();
     }
     #[cfg(not(feature = "js"))]
     {
-        std::thread::spawn(move || {
-            builder.run_with_store_ext(module, ModuleHash::random(), &mut store)
-        })
-        .join()
-        .unwrap()
-        .unwrap();
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
+            .join()
+            .unwrap()
+            .unwrap();
     }
 
     let mut stdout_str = String::new();
@@ -102,9 +98,7 @@ async fn test_stdout() {
 
 async fn test_env() {
     let mut store = Store::default();
-    let module_bytes = include_bytes!("envvar.wasm");
-    let module = Module::new(&store, module_bytes).unwrap();
-    let module_hash = ModuleHash::sha256(module_bytes);
+    let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
 
     #[cfg(feature = "js")]
     tracing_wasm::set_as_global_default_with_config({
@@ -130,7 +124,7 @@ async fn test_env() {
 
     #[cfg(not(feature = "js"))]
     {
-        std::thread::spawn(move || builder.run_with_store_ext(module, module_hash, &mut store))
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
             .join()
             .unwrap()
             .unwrap();
@@ -144,9 +138,7 @@ async fn test_env() {
 
 async fn test_stdin() {
     let mut store = Store::default();
-    let module_bytes = include_bytes!("stdin-hello.wasm");
-    let module = Module::new(&store, module_bytes).unwrap();
-    let module_hash = ModuleHash::sha256(module_bytes);
+    let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
     let (mut pipe_tx, pipe_rx) = Pipe::channel();
@@ -166,7 +158,7 @@ async fn test_stdin() {
 
     #[cfg(not(feature = "js"))]
     {
-        std::thread::spawn(move || builder.run_with_store_ext(module, module_hash, &mut store))
+        std::thread::spawn(move || builder.run_with_store(module, &mut store))
             .join()
             .unwrap()
             .unwrap();
