@@ -12,7 +12,7 @@ impl JournalEffector {
             ctx,
             JournalEntry::EpollCtl {
                 epfd,
-                op: op.into(),
+                op,
                 fd,
                 event,
             },

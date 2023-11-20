@@ -81,8 +81,8 @@ impl JournalEffector {
         region: Range<u64>,
         data: &[u8],
     ) -> anyhow::Result<()> {
-        let (env, mut store) = ctx.data_and_store_mut();
-        let memory = unsafe { env.memory_view(&mut store) };
+        let (env, store) = ctx.data_and_store_mut();
+        let memory = unsafe { env.memory_view(&store) };
         memory
             .write(region.start, data.as_ref())
             .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;

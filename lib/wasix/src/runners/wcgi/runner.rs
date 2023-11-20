@@ -274,7 +274,7 @@ impl Config {
 
     #[cfg(feature = "journal")]
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
-        if self.has_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval) == false {
+        if !self.has_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval) {
             self.add_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval);
         }
         self.wasi.snapshot_interval.replace(period);

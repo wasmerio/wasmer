@@ -193,9 +193,9 @@ pub(crate) enum JournalSnapshot0ClockidV1 {
     Unknown = 255,
 }
 
-impl Into<JournalSnapshot0ClockidV1> for wasi::Snapshot0Clockid {
-    fn into(self) -> JournalSnapshot0ClockidV1 {
-        match self {
+impl From<wasi::Snapshot0Clockid> for JournalSnapshot0ClockidV1 {
+    fn from(val: wasi::Snapshot0Clockid) -> Self {
+        match val {
             Snapshot0Clockid::Realtime => JournalSnapshot0ClockidV1::Realtime,
             Snapshot0Clockid::Monotonic => JournalSnapshot0ClockidV1::Monotonic,
             Snapshot0Clockid::ProcessCputimeId => JournalSnapshot0ClockidV1::ProcessCputimeId,
@@ -205,9 +205,9 @@ impl Into<JournalSnapshot0ClockidV1> for wasi::Snapshot0Clockid {
     }
 }
 
-impl Into<wasi::Snapshot0Clockid> for JournalSnapshot0ClockidV1 {
-    fn into(self) -> wasi::Snapshot0Clockid {
-        match self {
+impl From<JournalSnapshot0ClockidV1> for wasi::Snapshot0Clockid {
+    fn from(val: JournalSnapshot0ClockidV1) -> Self {
+        match val {
             JournalSnapshot0ClockidV1::Realtime => Snapshot0Clockid::Realtime,
             JournalSnapshot0ClockidV1::Monotonic => Snapshot0Clockid::Monotonic,
             JournalSnapshot0ClockidV1::ProcessCputimeId => Snapshot0Clockid::ProcessCputimeId,
@@ -225,9 +225,9 @@ pub(crate) enum JournalWhenceV1 {
     Unknown = 255,
 }
 
-impl Into<JournalWhenceV1> for wasi::Whence {
-    fn into(self) -> JournalWhenceV1 {
-        match self {
+impl From<wasi::Whence> for JournalWhenceV1 {
+    fn from(val: wasi::Whence) -> Self {
+        match val {
             wasi::Whence::Set => JournalWhenceV1::Set,
             wasi::Whence::Cur => JournalWhenceV1::Cur,
             wasi::Whence::End => JournalWhenceV1::End,
@@ -236,9 +236,9 @@ impl Into<JournalWhenceV1> for wasi::Whence {
     }
 }
 
-impl Into<wasi::Whence> for JournalWhenceV1 {
-    fn into(self) -> wasi::Whence {
-        match self {
+impl From<JournalWhenceV1> for wasi::Whence {
+    fn from(val: JournalWhenceV1) -> Self {
+        match val {
             JournalWhenceV1::Set => Whence::Set,
             JournalWhenceV1::Cur => Whence::Cur,
             JournalWhenceV1::End => Whence::End,
@@ -258,9 +258,9 @@ pub(crate) enum JournalAdviceV1 {
     Unknown = 255,
 }
 
-impl Into<JournalAdviceV1> for wasi::Advice {
-    fn into(self) -> JournalAdviceV1 {
-        match self {
+impl From<wasi::Advice> for JournalAdviceV1 {
+    fn from(val: wasi::Advice) -> Self {
+        match val {
             Advice::Normal => JournalAdviceV1::Normal,
             Advice::Sequential => JournalAdviceV1::Sequential,
             Advice::Random => JournalAdviceV1::Random,
@@ -272,9 +272,9 @@ impl Into<JournalAdviceV1> for wasi::Advice {
     }
 }
 
-impl Into<wasi::Advice> for JournalAdviceV1 {
-    fn into(self) -> wasi::Advice {
-        match self {
+impl From<JournalAdviceV1> for wasi::Advice {
+    fn from(val: JournalAdviceV1) -> Self {
+        match val {
             JournalAdviceV1::Normal => Advice::Normal,
             JournalAdviceV1::Sequential => Advice::Sequential,
             JournalAdviceV1::Random => Advice::Random,
@@ -292,18 +292,18 @@ pub(crate) enum JournalExitCodeV1 {
     Other(i32),
 }
 
-impl Into<JournalExitCodeV1> for wasi::ExitCode {
-    fn into(self) -> JournalExitCodeV1 {
-        match self {
+impl From<wasi::ExitCode> for JournalExitCodeV1 {
+    fn from(val: wasi::ExitCode) -> Self {
+        match val {
             wasi::ExitCode::Errno(errno) => JournalExitCodeV1::Errno(errno as u16),
             wasi::ExitCode::Other(id) => JournalExitCodeV1::Other(id),
         }
     }
 }
 
-impl Into<wasi::ExitCode> for JournalExitCodeV1 {
-    fn into(self) -> wasi::ExitCode {
-        match self {
+impl From<JournalExitCodeV1> for wasi::ExitCode {
+    fn from(val: JournalExitCodeV1) -> Self {
+        match val {
             JournalExitCodeV1::Errno(errno) => {
                 wasi::ExitCode::Errno(errno.try_into().unwrap_or(wasi::Errno::Unknown))
             }
@@ -326,9 +326,9 @@ pub(crate) enum JournalSnapshotTriggerV1 {
     NonDeterministicCall,
 }
 
-impl Into<JournalSnapshotTriggerV1> for SnapshotTrigger {
-    fn into(self) -> JournalSnapshotTriggerV1 {
-        match self {
+impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
+    fn from(val: SnapshotTrigger) -> Self {
+        match val {
             SnapshotTrigger::Idle => JournalSnapshotTriggerV1::Idle,
             SnapshotTrigger::FirstListen => JournalSnapshotTriggerV1::Listen,
             SnapshotTrigger::FirstEnviron => JournalSnapshotTriggerV1::Environ,
@@ -343,9 +343,9 @@ impl Into<JournalSnapshotTriggerV1> for SnapshotTrigger {
     }
 }
 
-impl Into<SnapshotTrigger> for JournalSnapshotTriggerV1 {
-    fn into(self) -> SnapshotTrigger {
-        match self {
+impl From<JournalSnapshotTriggerV1> for SnapshotTrigger {
+    fn from(val: JournalSnapshotTriggerV1) -> Self {
+        match val {
             JournalSnapshotTriggerV1::Idle => SnapshotTrigger::Idle,
             JournalSnapshotTriggerV1::Listen => SnapshotTrigger::FirstListen,
             JournalSnapshotTriggerV1::Environ => SnapshotTrigger::FirstEnviron,
@@ -368,9 +368,9 @@ pub(crate) enum JournalEpollCtlV1 {
     Unknown,
 }
 
-impl Into<JournalEpollCtlV1> for wasi::EpollCtl {
-    fn into(self) -> JournalEpollCtlV1 {
-        match self {
+impl From<wasi::EpollCtl> for JournalEpollCtlV1 {
+    fn from(val: wasi::EpollCtl) -> Self {
+        match val {
             wasi::EpollCtl::Add => JournalEpollCtlV1::Add,
             wasi::EpollCtl::Mod => JournalEpollCtlV1::Mod,
             wasi::EpollCtl::Del => JournalEpollCtlV1::Del,
@@ -379,9 +379,9 @@ impl Into<JournalEpollCtlV1> for wasi::EpollCtl {
     }
 }
 
-impl Into<wasi::EpollCtl> for JournalEpollCtlV1 {
-    fn into(self) -> wasi::EpollCtl {
-        match self {
+impl From<JournalEpollCtlV1> for wasi::EpollCtl {
+    fn from(val: JournalEpollCtlV1) -> Self {
+        match val {
             JournalEpollCtlV1::Add => EpollCtl::Add,
             JournalEpollCtlV1::Mod => EpollCtl::Mod,
             JournalEpollCtlV1::Del => EpollCtl::Del,
@@ -646,7 +646,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 store_data,
                 is_64bit,
             } => Self::SetThread {
-                id: id,
+                id,
                 call_stack: call_stack.into(),
                 memory_stack: memory_stack.into(),
                 store_data: store_data.into(),
@@ -906,7 +906,7 @@ impl Journal for LogFileJournal {
 
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
             let mut state = self.state.lock().await;
-            if state.at_end == false {
+            if !state.at_end {
                 state.file.seek(SeekFrom::End(0)).await?;
                 state.at_end = true;
             }

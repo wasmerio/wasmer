@@ -640,7 +640,8 @@ impl core::fmt::Debug for Dirent {
 }
 #[doc = " File or memory access pattern advisory information."]
 #[repr(u8)]
-#[derive(Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Advice {
     #[doc = " The application has no advice to give on its behavior with respect to the specified data."]
     Normal,
@@ -1187,7 +1188,8 @@ impl core::fmt::Debug for Whence {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone, Serialize, Deserialize)]
+#[derive(Copy, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Tty {
     pub cols: u32,
     pub rows: u32,

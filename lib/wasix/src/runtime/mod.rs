@@ -113,7 +113,7 @@ where
     /// The snapshot capturer takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
     #[cfg(feature = "journal")]
-    fn snapshot_capturer<'a>(&'a self) -> &'_ DynJournal {
+    fn snapshot_capturer(&self) -> &'_ DynJournal {
         &UNSUPPORTED_SNAPSHOT_CAPTURER
     }
 }
@@ -332,7 +332,7 @@ impl Runtime for PluggableRuntime {
     }
 
     #[cfg(feature = "journal")]
-    fn snapshot_capturer<'a>(&'a self) -> &DynJournal {
+    fn snapshot_capturer(&self) -> &DynJournal {
         self.snapshot_capturer.as_ref()
     }
 }

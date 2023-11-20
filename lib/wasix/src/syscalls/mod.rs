@@ -1239,7 +1239,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
 
     unsafe { handle_rewind_ext::<M, ()>(&mut ctx, HandleRewindType::Resultless) };
 
-    if ctx.data().enable_snapshot_capture == false {
+    if !ctx.data().enable_snapshot_capture {
         return Ok(Ok(ctx));
     }
 
@@ -1248,7 +1248,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
         let res = wasi_try_ok_ok!(WasiProcessInner::checkpoint::<M>(
             inner,
             ctx,
-            WasiProcessCheckpoint::Snapshot { trigger: trigger },
+            WasiProcessCheckpoint::Snapshot { trigger },
         )?);
         match res {
             MaybeCheckpointResult::Unwinding => return Ok(Err(Errno::Success)),
@@ -1274,7 +1274,7 @@ pub fn maybe_snapshot<M: MemorySize>(
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
-    if ctx.data().enable_snapshot_capture == false {
+    if !ctx.data().enable_snapshot_capture {
         return Ok(Ok(ctx));
     }
 
@@ -1293,6 +1293,7 @@ pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
     WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
 }
 
+#[allow(clippy::result_large_err)]
 #[cfg(feature = "journal")]
 pub fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -1353,7 +1354,7 @@ pub fn restore_snapshot(
                             memory_stack: memory_stack.to_vec().into(),
                             rewind_stack: call_stack.to_vec().into(),
                             store_data: store_data.to_vec().into(),
-                            is_64bit: is_64bit,
+                            is_64bit,
                         });
                     } else {
                         return Err(WasiRuntimeError::Runtime(RuntimeError::user(
@@ -1543,7 +1544,7 @@ pub fn restore_snapshot(
                             stderr_tty: tty.stderr_tty,
                             echo: tty.echo,
                             line_buffered: tty.line_buffered,
-                            line_feeds: line_feeds,
+                            line_feeds,
                         },
                     )
                     .map_err(anyhow_err_to_runtime_err)?;

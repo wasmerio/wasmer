@@ -14,7 +14,7 @@ impl JournalEffector {
                 fd,
                 offset,
                 len,
-                advice: advice.into(),
+                advice,
             },
         )
     }

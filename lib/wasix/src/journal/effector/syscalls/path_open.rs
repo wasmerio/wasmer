@@ -1,6 +1,7 @@
 use super::*;
 
 impl JournalEffector {
+    #[allow(clippy::too_many_arguments)]
     pub fn save_path_open(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
@@ -27,6 +28,7 @@ impl JournalEffector {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_path_open(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
