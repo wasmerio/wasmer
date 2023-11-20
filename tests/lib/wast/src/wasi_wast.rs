@@ -131,7 +131,7 @@ impl<'a> WasiTest<'a> {
         let (instance, _wasi_env) =
             builder
                 .runtime(Arc::new(rt))
-                .instantiate(module, module_hash, store)?;
+                .instantiate_ext(module, module_hash, store)?;
 
         let start = instance.exports.get_function("_start")?;
 

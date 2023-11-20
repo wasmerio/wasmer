@@ -299,7 +299,7 @@ impl WasiRunner {
         if asyncify {
             env.run_with_store_async(module.clone(), module_hash, store)?;
         } else {
-            env.run_with_store(module.clone(), module_hash, &mut store)?;
+            env.run_with_store_ext(module.clone(), module_hash, &mut store)?;
         }
 
         Ok(())

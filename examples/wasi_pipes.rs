@@ -13,7 +13,7 @@
 
 use std::io::{Read, Write};
 use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+use wasmer_wasix::{runtime::module_cache::ModuleHash, Pipe, WasiEnv};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     WasiEnv::builder("hello")
         .stdin(Box::new(stdin_reader))
         .stdout(Box::new(stdout_sender))
-        .run_with_store(module, &mut store)?;
+        .run_with_store_ext(module, module_hash, &mut store)?;
 
     // To read from the stdout
     let mut buf = String::new();

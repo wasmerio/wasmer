@@ -887,6 +887,15 @@ impl WasiEnvBuilder {
     pub fn instantiate(
         self,
         module: Module,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
+        self.instantiate_ext(module, ModuleHash::random(), store)
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn instantiate_ext(
+        self,
+        module: Module,
         module_hash: ModuleHash,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
@@ -895,13 +904,23 @@ impl WasiEnvBuilder {
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn run(self, module: Module, module_hash: ModuleHash) -> Result<(), WasiRuntimeError> {
-        let mut store = wasmer::Store::default();
-        self.run_with_store(module, module_hash, &mut store)
+    pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
+        self.run_ext(module, ModuleHash::random())
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn run_with_store(
+    pub fn run_ext(self, module: Module, module_hash: ModuleHash) -> Result<(), WasiRuntimeError> {
+        let mut store = wasmer::Store::default();
+        self.run_with_store_ext(module, module_hash, &mut store)
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
+        self.run_with_store_ext(module, ModuleHash::random(), store)
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn run_with_store_ext(
         self,
         module: Module,
         module_hash: ModuleHash,
@@ -932,7 +951,7 @@ impl WasiEnvBuilder {
         #[cfg(not(feature = "journal"))]
         let journals = Vec::new();
 
-        let (instance, env) = self.instantiate(module, module_hash, store)?;
+        let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
@@ -980,7 +999,7 @@ impl WasiEnvBuilder {
         #[cfg(feature = "journal")]
         let journals = self.journals.clone();
 
-        let (_, env) = self.instantiate(module, module_hash, &mut store)?;
+        let (_, env) = self.instantiate_ext(module, module_hash, &mut store)?;
 
         env.data(&store).thread.set_status_running();
 

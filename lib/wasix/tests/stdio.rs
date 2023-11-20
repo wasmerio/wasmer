@@ -87,7 +87,7 @@ async fn test_stdout() {
     #[cfg(not(feature = "js"))]
     {
         std::thread::spawn(move || {
-            builder.run_with_store(module, ModuleHash::random(), &mut store)
+            builder.run_with_store_ext(module, ModuleHash::random(), &mut store)
         })
         .join()
         .unwrap()
@@ -130,7 +130,7 @@ async fn test_env() {
 
     #[cfg(not(feature = "js"))]
     {
-        std::thread::spawn(move || builder.run_with_store(module, module_hash, &mut store))
+        std::thread::spawn(move || builder.run_with_store_ext(module, module_hash, &mut store))
             .join()
             .unwrap()
             .unwrap();
@@ -166,7 +166,7 @@ async fn test_stdin() {
 
     #[cfg(not(feature = "js"))]
     {
-        std::thread::spawn(move || builder.run_with_store(module, module_hash, &mut store))
+        std::thread::spawn(move || builder.run_with_store_ext(module, module_hash, &mut store))
             .join()
             .unwrap()
             .unwrap();

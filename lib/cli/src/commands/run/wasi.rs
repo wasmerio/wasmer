@@ -552,7 +552,7 @@ impl Wasi {
         store: &mut Store,
     ) -> Result<(WasiFunctionEnv, Instance)> {
         let builder = self.prepare(module, program_name, args, runtime)?;
-        let (instance, wasi_env) = builder.instantiate(module.clone(), module_hash, store)?;
+        let (instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)?;
 
         Ok((wasi_env, instance))
     }
