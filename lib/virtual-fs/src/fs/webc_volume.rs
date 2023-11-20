@@ -237,10 +237,12 @@ impl crate::Directory for WebcDirectory {
         let to_path = self.path.join(name);
         match self.fs.volume.metadata(&to_path) {
             Some(f) if f.is_file() => {
-                match self.fs.volume().read_file(to_path) {
-                    Some(bytes) => Ok(Descriptor::File(Box::new(File(
+                match self.fs.volume().read_file(to_path.clone()) {
+                    Some(bytes) => Ok(Descriptor::File(Arc::new(File(
                         Cursor::new(bytes),
                         crate::generate_next_unique_id(),
+                        self.fs.parent.clone(),
+                        to_path,
                     )))),
                     None => {
                         // The metadata() call should guarantee this, so something
@@ -251,7 +253,7 @@ impl crate::Directory for WebcDirectory {
             }
             Some(d) if d.is_dir() => {
                 let dir = WebcDirectory::new(to_path, self.fs.clone());
-                return Ok(Descriptor::Directory(Box::new(dir)));
+                return Ok(Descriptor::Directory(Arc::new(dir)));
             }
             _ => return Err(FsError::NotAFile),
         }
@@ -285,6 +287,8 @@ impl FileOpener for WebcVolumeFileSystem {
             Some(bytes) => Ok(Box::new(File(
                 Cursor::new(bytes),
                 crate::generate_next_unique_id(),
+                self.parent.clone(),
+                path.clone().into(),
             ))),
             None => {
                 // The metadata() call should guarantee this, so something
@@ -295,10 +299,18 @@ impl FileOpener for WebcVolumeFileSystem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-struct File(Cursor<SharedBytes>, usize);
+#[derive(Debug, Clone)]
+struct File(Cursor<SharedBytes>, usize, Option<Arc<dyn crate::Directory + Send + Sync>>, PathBuf);
 
 impl VirtualFile for File {
+    fn absolute_path(&self) -> PathBuf {
+        if let Some(parent) = &self.2 {
+            parent.absolute_path().join(self.3.clone())
+        } else {
+            self.3.clone()
+        }
+    }
+
     fn unique_id(&self) -> usize {
         self.1
     }

@@ -393,6 +393,10 @@ pub(crate) fn generate_next_unique_id() -> usize {
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
+    fn absolute_path(&self) -> PathBuf {
+        unimplemented!();
+    }
+
     /// The unique id associated to the file.
     /// The `virtual-fs` crate assure uniqueness on this ids even
     /// accross different `VirtualFile` and `Directory` implementations.
@@ -466,9 +470,7 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
         unimplemented!();
     }
 
-    fn get_child(&self, name: OsString) -> Result<Descriptor> {
-        unimplemented!();
-    }
+    fn get_child(&self, name: OsString) -> Result<Descriptor>;
 
     fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn Directory + Send + Sync>> {
         unimplemented!();
@@ -507,6 +509,10 @@ where
     D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
     F: Directory + ?Sized,
 {
+    fn get_child(&self, name: OsString) -> Result<Descriptor> {
+        (**self).get_child(name)
+    }
+
     fn unique_id(&self) -> usize {
         (**self).unique_id()
     }
@@ -534,10 +540,20 @@ impl Hash for dyn Directory {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Descriptor {
-    File(Box<dyn VirtualFile + Send + Sync>),
-    Directory(Box<dyn Directory + Send + Sync>),
+    File(Arc<dyn VirtualFile + Send + Sync>),
+    Directory(Arc<dyn Directory + Send + Sync>),
+}
+
+impl Descriptor {
+    #[inline]
+    fn absolute_path(&self) -> PathBuf {
+        match self {
+            Self::File(f) => f.absolute_path(),
+            Self::Directory(d) => d.absolute_path(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -551,11 +567,6 @@ pub struct DirectoryEntry {
     pub(crate) type_: DescriptorType,
     pub(crate) name: OsString,
 }
-
-// pub enum Descriptor {
-//     File(Box<dyn crate::VirtualFile>),
-//     Directory(Box<dyn crate::Directory>),
-// }
 
 pub struct ReaddirIterator(
     std::sync::Mutex<Box<dyn Iterator<Item = Result<DirectoryEntry>> + Send + 'static>>,

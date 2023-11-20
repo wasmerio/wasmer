@@ -2,16 +2,20 @@
 //! as the name suggests it always returns file not found.
 
 use std::path::Path;
+use std::sync::Mutex;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 
 use crate::*;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EmptyFileSystem {}
 
 #[allow(unused_variables)]
 impl FileSystem for EmptyFileSystem {
+    fn as_dir(&self) -> Box<dyn Directory + Send + Sync> {
+        Box::new(self.clone())
+    }
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         // Special-case the root path by returning an empty iterator.
         // An empty file system should still be readable, just not contain
@@ -62,6 +66,34 @@ impl FileSystem for EmptyFileSystem {
 
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
+    }
+}
+
+impl crate::Directory for EmptyFileSystem {
+    fn unique_id(&self) -> usize {
+        unimplemented!();
+    }
+
+    fn get_child(&self, name: OsString) -> Result<Descriptor> {
+        Err(FsError::EntryNotFound)
+    }
+
+    fn iter(&self) -> ReaddirIterator {
+        ReaddirIterator(Mutex::new(Box::new(vec![].into_iter())))
+    }
+    fn absolute_path(&self) -> PathBuf {
+        // let guard = self.fs.inner.read().unwrap();
+        // let node = guard.get_node(self.inode).unwrap();
+        // guard.absolute_path(node)
+        PathBuf::from("/")
+    }
+
+    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>> {
+        Err(FsError::EntryNotFound)
+    }
+
+    fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
+        unimplemented!();
     }
 }
 

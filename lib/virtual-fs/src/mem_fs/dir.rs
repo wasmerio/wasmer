@@ -58,16 +58,16 @@ impl crate::Directory for Directory {
         match found_node {
             Node::Directory(DirectoryNode { inode, .. }) => {
                 let directory = Directory::new(*inode, self.fs.clone());
-                return Ok(Descriptor::Directory(Box::new(directory)));
+                return Ok(Descriptor::Directory(Arc::new(directory)));
             }
             Node::File(FileNode { inode, .. })
             | Node::ReadOnlyFile(ReadOnlyFileNode { inode, .. })
             | Node::CustomFile(CustomFileNode { inode, .. }) => {
                 let file = FileHandle::new(*inode, self.fs.clone(), false, false, false, 0);
-                return Ok(Descriptor::File(Box::new(file)));
+                return Ok(Descriptor::File(Arc::new(file)));
             }
             Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
-                return Ok(Descriptor::Directory(Box::new(fs.as_dir())));
+                return Ok(Descriptor::Directory(Arc::new(fs.as_dir())));
             }
             _ => return Err(FsError::InvalidData),
         }

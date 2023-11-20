@@ -70,6 +70,12 @@ impl FileHandle {
 }
 
 impl VirtualFile for FileHandle {
+    fn absolute_path(&self) -> PathBuf {
+        let guard = self.filesystem.inner.read().unwrap();
+        let node = guard.get_node(self.inode).unwrap();
+        guard.absolute_path(node)
+    }
+    
     fn unique_id(&self) -> usize {
         self.unique_id
     }
