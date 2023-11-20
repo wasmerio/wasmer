@@ -14,12 +14,13 @@ use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_registry::wasmer_env::WasmerEnv;
+#[cfg(feature = "journal")]
+use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
-    journal::{self, LogFileJournal, SnapshotTrigger},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
@@ -520,7 +521,7 @@ impl Wasi {
 
         #[cfg(feature = "journal")]
         if let Some(path) = &self.journal {
-            rt.set_snapshot_capturer(Arc::new(journal::LogFileJournal::new_std(path)?));
+            rt.set_snapshot_capturer(Arc::new(LogFileJournal::new_std(path)?));
         }
 
         if !self.no_tty {

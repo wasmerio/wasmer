@@ -28,9 +28,10 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
+#[cfg(feature = "journal")]
+use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    journal::{LogFileJournal, SnapshotTrigger},
     runners::{MappedCommand, MappedDirectory, Runner},
     runtime::{
         module_cache::{CacheError, ModuleHash},
