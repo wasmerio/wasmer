@@ -1,3 +1,5 @@
+use std::net::Shutdown;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -9,21 +11,35 @@ use crate::syscalls::*;
 ///
 /// * `how` - Which channels on the socket to shut down.
 #[instrument(level = "debug", skip_all, fields(%sock), ret)]
-pub fn sock_shutdown(mut ctx: FunctionEnvMut<'_, WasiEnv>, sock: WasiFd, how: SdFlags) -> Errno {
+pub fn sock_shutdown(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    how: SdFlags,
+) -> Result<Errno, WasiError> {
     let both = __WASI_SHUT_RD | __WASI_SHUT_WR;
-    let how = match how {
+    let shutdown = match how {
         __WASI_SHUT_RD => std::net::Shutdown::Read,
         __WASI_SHUT_WR => std::net::Shutdown::Write,
         a if a == both => std::net::Shutdown::Both,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
-    wasi_try!(__sock_actor_mut(
-        &mut ctx,
+    wasi_try_ok!(sock_shutdown_internal(&mut ctx, sock, shutdown)?);
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_shutdown_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    shutdown: Shutdown,
+) -> Result<Result<(), Errno>, WasiError> {
+    wasi_try_ok_ok!(__sock_actor_mut(
+        ctx,
         sock,
         Rights::SOCK_SHUTDOWN,
-        |mut socket, _| socket.shutdown(how)
+        |mut socket, _| socket.shutdown(shutdown)
     ));
 
-    Errno::Success
+    Ok(Ok(()))
 }

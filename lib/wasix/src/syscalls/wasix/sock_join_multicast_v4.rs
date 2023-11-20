@@ -15,16 +15,28 @@ pub fn sock_join_multicast_v4<M: MemorySize>(
     sock: WasiFd,
     multiaddr: WasmPtr<__wasi_addr_ip4_t, M>,
     iface: WasmPtr<__wasi_addr_ip4_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    let multiaddr = wasi_try!(crate::net::read_ip_v4(&memory, multiaddr));
-    let iface = wasi_try!(crate::net::read_ip_v4(&memory, iface));
-    wasi_try!(__sock_actor_mut(
-        &mut ctx,
-        sock,
-        Rights::empty(),
-        |socket, _| socket.join_multicast_v4(multiaddr, iface)
-    ));
-    Errno::Success
+    let multiaddr = wasi_try_ok!(crate::net::read_ip_v4(&memory, multiaddr));
+    let iface = wasi_try_ok!(crate::net::read_ip_v4(&memory, iface));
+
+    wasi_try_ok!(sock_join_multicast_v4_internal(
+        &mut ctx, sock, multiaddr, iface
+    )?);
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_join_multicast_v4_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    multiaddr: Ipv4Addr,
+    iface: Ipv4Addr,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
+    wasi_try_ok_ok!(__sock_actor_mut(ctx, sock, Rights::empty(), |socket, _| {
+        socket.join_multicast_v4(multiaddr, iface)
+    }));
+    Ok(Ok(()))
 }

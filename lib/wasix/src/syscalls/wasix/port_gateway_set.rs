@@ -18,9 +18,19 @@ pub fn port_gateway_set<M: MemorySize>(
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
     Span::current().record("ip", &format!("{:?}", ip));
 
+    wasi_try_ok!(port_gateway_set_internal(&mut ctx, ip)?);
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn port_gateway_set_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ip: IpAddr,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
     let net = env.net().clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async {
+    wasi_try_ok_ok!(__asyncify(ctx, None, async {
         net.gateway_set(ip).await.map_err(net_error_into_wasi_err)
     })?);
-    Ok(Errno::Success)
+    Ok(Ok(()))
 }

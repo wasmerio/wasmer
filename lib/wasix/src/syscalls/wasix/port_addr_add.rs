@@ -1,3 +1,5 @@
+use virtual_net::IpCidr;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -18,11 +20,20 @@ pub fn port_addr_add<M: MemorySize>(
     let cidr = wasi_try_ok!(crate::net::read_cidr(&memory, ip));
     Span::current().record("ip", &format!("{:?}", cidr));
 
+    wasi_try_ok!(port_addr_add_internal(&mut ctx, cidr)?);
+    Ok(Errno::Success)
+}
+
+pub(crate) fn port_addr_add_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    cidr: IpCidr,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
     let net = env.net().clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async {
+    wasi_try_ok_ok!(__asyncify(ctx, None, async {
         net.ip_add(cidr.ip, cidr.prefix)
             .await
             .map_err(net_error_into_wasi_err)
     })?);
-    Ok(Errno::Success)
+    Ok(Ok(()))
 }

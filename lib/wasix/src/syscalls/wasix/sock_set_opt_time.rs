@@ -15,14 +15,14 @@ pub fn sock_set_opt_time<M: MemorySize>(
     sock: WasiFd,
     opt: Sockoption,
     time: WasmPtr<OptionTimestamp, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    let time = wasi_try_mem!(time.read(&memory));
+    let time = wasi_try_mem_ok!(time.read(&memory));
     let time = match time.tag {
         OptionTag::None => None,
         OptionTag::Some => Some(Duration::from_nanos(time.u)),
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
     Span::current().record("time", &format!("{:?}", time));
 
@@ -32,15 +32,23 @@ pub fn sock_set_opt_time<M: MemorySize>(
         Sockoption::ConnectTimeout => TimeType::ConnectTimeout,
         Sockoption::AcceptTimeout => TimeType::AcceptTimeout,
         Sockoption::Linger => TimeType::Linger,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
-    let option: crate::net::socket::WasiSocketOption = opt.into();
-    wasi_try!(__sock_actor_mut(
-        &mut ctx,
-        sock,
-        Rights::empty(),
-        |socket, _| socket.set_opt_time(ty, time)
-    ));
-    Errno::Success
+    wasi_try_ok!(sock_set_opt_time_internal(&mut ctx, sock, ty, time)?);
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_set_opt_time_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    ty: TimeType,
+    time: Option<Duration>,
+) -> Result<Result<(), Errno>, WasiError> {
+    wasi_try_ok_ok!(__sock_actor_mut(ctx, sock, Rights::empty(), |socket, _| {
+        socket.set_opt_time(ty, time)
+    }));
+
+    Ok(Ok(()))
 }

@@ -27,26 +27,6 @@ pub fn sock_send_to<M: MemorySize>(
     addr: WasmPtr<__wasi_addr_port_t, M>,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    sock_send_to_internal(
-        ctx,
-        sock,
-        si_data,
-        si_data_len,
-        si_flags,
-        addr,
-        ret_data_len,
-    )
-}
-
-pub(super) fn sock_send_to_internal<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    sock: WasiFd,
-    si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
-    si_data_len: M::Offset,
-    _si_flags: SiFlags,
-    addr: WasmPtr<__wasi_addr_port_t, M>,
-    ret_data_len: WasmPtr<M::Offset, M>,
-) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));
@@ -58,8 +38,32 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
     let addr = SocketAddr::new(addr_ip, addr_port);
     Span::current().record("addr", &format!("{:?}", addr));
 
+    wasi_try_ok!(sock_send_to_internal(
+        ctx,
+        sock,
+        si_data,
+        si_data_len,
+        si_flags,
+        addr,
+        ret_data_len,
+    )?);
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_send_to_internal<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
+    si_data_len: M::Offset,
+    _si_flags: SiFlags,
+    addr: SocketAddr,
+    ret_data_len: WasmPtr<M::Offset, M>,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
+    let memory = unsafe { env.memory_view(&ctx) };
+
     let bytes_written = {
-        wasi_try_ok!(__sock_asyncify(
+        wasi_try_ok_ok!(__sock_asyncify(
             env,
             sock,
             Rights::SOCK_SEND_TO,
@@ -110,8 +114,8 @@ pub(super) fn sock_send_to_internal<M: MemorySize>(
 
     let memory = unsafe { env.memory_view(&ctx) };
     let bytes_written: M::Offset =
-        wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
-    wasi_try_mem_ok!(ret_data_len.write(&memory, bytes_written));
+        wasi_try_ok_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
+    wasi_try_mem_ok_ok!(ret_data_len.write(&memory, bytes_written));
 
-    Ok(Errno::Success)
+    Ok(Ok(()))
 }

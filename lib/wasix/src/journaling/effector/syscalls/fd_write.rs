@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_fd_write<M: MemorySize>(
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        ctx: &FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
         offset: u64,
         written: usize,
@@ -46,28 +46,27 @@ impl JournalEffector {
     }
 
     pub async fn apply_fd_write<M: MemorySize>(
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        ctx: &FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
         offset: u64,
         data: Cow<'_, [u8]>,
     ) -> anyhow::Result<()> {
-        let ret = fd_write_internal(
+        fd_write_internal(
             ctx,
             fd,
             FdWriteSource::<'_, M>::Buffer(data),
             offset,
-            None,
             true,
             false,
-        )?;
-        if ret != Errno::Success {
-            bail!(
+        )?
+        .map_err(|err| {
+            anyhow::format_err!(
                 "journal restore error: failed to write to descriptor (fd={}, offset={}) - {}",
                 fd,
                 offset,
-                ret
-            );
-        }
+                err
+            )
+        })?;
         Ok(())
     }
 }

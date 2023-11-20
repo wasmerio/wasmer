@@ -1560,6 +1560,66 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
+                crate::journaling::JournalEntry::PortAddAddr { cidr } => todo!(),
+                crate::journaling::JournalEntry::PortDelAddr { addr } => todo!(),
+                crate::journaling::JournalEntry::PortAddrClear => todo!(),
+                crate::journaling::JournalEntry::PortBridge {
+                    network,
+                    token,
+                    security,
+                } => todo!(),
+                crate::journaling::JournalEntry::PortUnbridge => todo!(),
+                crate::journaling::JournalEntry::PortDhcpAcquire => todo!(),
+                crate::journaling::JournalEntry::PortGatewaySet { ip } => todo!(),
+                crate::journaling::JournalEntry::PortRouteAdd {
+                    cidr,
+                    via_router,
+                    preferred_until,
+                    expires_at,
+                } => todo!(),
+                crate::journaling::JournalEntry::PortRouteClear => todo!(),
+                crate::journaling::JournalEntry::PortRouteDel { ip } => todo!(),
+                crate::journaling::JournalEntry::SocketOpen { af, ty, pt, fd } => todo!(),
+                crate::journaling::JournalEntry::SocketListen { fd, backlog } => todo!(),
+                crate::journaling::JournalEntry::SocketBind { fd, addr } => todo!(),
+                crate::journaling::JournalEntry::SocketConnect { fd, addr } => todo!(),
+                crate::journaling::JournalEntry::SocketAccept {
+                    listen_fd,
+                    fd,
+                    peer_addr,
+                } => todo!(),
+                crate::journaling::JournalEntry::SocketJoinIpv4Multicast {
+                    fd,
+                    multiaddr,
+                    iface,
+                } => todo!(),
+                crate::journaling::JournalEntry::SocketJoinIpv6Multicast {
+                    fd,
+                    multiaddr,
+                    iface,
+                } => todo!(),
+                crate::journaling::JournalEntry::SocketLeaveIpv4Multicast {
+                    fd,
+                    multiaddr,
+                    iface,
+                } => todo!(),
+                crate::journaling::JournalEntry::SocketLeaveIpv6Multicast {
+                    fd,
+                    multiaddr,
+                    iface,
+                } => todo!(),
+                crate::journaling::JournalEntry::SocketSendFile { socket_fd, file_fd } => todo!(),
+                crate::journaling::JournalEntry::SocketSendTo {
+                    fd,
+                    data,
+                    flags,
+                    addr,
+                } => todo!(),
+                crate::journaling::JournalEntry::SocketSend { fd, data, flags } => todo!(),
+                crate::journaling::JournalEntry::SocketSetOptFlag { fd, opt, flag } => todo!(),
+                crate::journaling::JournalEntry::SocketSetOptSize { fd, opt, size } => todo!(),
+                crate::journaling::JournalEntry::SocketSetOptTime { fd, opt, size } => todo!(),
+                crate::journaling::JournalEntry::SocketShutdown { fd, how } => todo!(),
             }
         }
         // If we are not in the same module then we fire off an exit

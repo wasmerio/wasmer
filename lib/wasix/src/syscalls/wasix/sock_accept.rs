@@ -31,7 +31,7 @@ pub fn sock_accept<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
 
@@ -66,7 +66,7 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
@@ -79,17 +79,17 @@ pub fn sock_accept_v2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub fn sock_accept_internal(
+pub(crate) fn sock_accept_internal(
     env: &WasiEnv,
     sock: WasiFd,
     mut fd_flags: Fdflags,
     mut nonblocking: bool,
-) -> Result<(WasiFd, SocketAddr), Errno> {
+) -> Result<Result<(WasiFd, SocketAddr), Errno>, WasiError> {
     let state = env.state();
     let inodes = &state.inodes;
 
     let tasks = env.tasks().clone();
-    let (child, addr, fd_flags) = __sock_asyncify(
+    let (child, addr, fd_flags) = wasi_try_ok_ok!(__sock_asyncify(
         env,
         sock,
         Rights::SOCK_ACCEPT,
@@ -108,15 +108,15 @@ pub fn sock_accept_internal(
                 .await
                 .map(|a| (a.0, a.1, fd_flags))
         },
-    )?;
+    ));
 
     let kind = Kind::Socket {
-        socket: InodeSocket::new(InodeSocketKind::TcpStream {
+        socket: wasi_try_ok_ok!(InodeSocket::new(InodeSocketKind::TcpStream {
             socket: child,
             write_timeout: None,
             read_timeout: None,
         })
-        .map_err(net_error_into_wasi_err)?,
+        .map_err(net_error_into_wasi_err)),
     };
     let inode = state
         .fs
@@ -133,8 +133,8 @@ pub fn sock_accept_internal(
     }
 
     let rights = Rights::all_socket();
-    let fd = state.fs.create_fd(rights, rights, new_flags, 0, inode)?;
+    let fd = wasi_try_ok_ok!(state.fs.create_fd(rights, rights, new_flags, 0, inode));
     Span::current().record("fd", fd);
 
-    Ok((fd, addr))
+    Ok(Ok((fd, addr)))
 }

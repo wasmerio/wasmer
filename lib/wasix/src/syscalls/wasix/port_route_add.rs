@@ -1,3 +1,5 @@
+use virtual_net::IpCidr;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -33,11 +35,31 @@ pub fn port_route_add<M: MemorySize>(
         _ => return Ok(Errno::Inval),
     };
 
+    wasi_try_ok!(port_route_add_internal(
+        &mut ctx,
+        cidr,
+        via_router,
+        preferred_until,
+        expires_at
+    )?);
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn port_route_add_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    cidr: IpCidr,
+    via_router: IpAddr,
+    preferred_until: Option<Duration>,
+    expires_at: Option<Duration>,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
     let net = env.net().clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async {
+    wasi_try_ok_ok!(__asyncify(ctx, None, async {
         net.route_add(cidr, via_router, preferred_until, expires_at)
             .await
             .map_err(net_error_into_wasi_err)
     })?);
-    Ok(Errno::Success)
+
+    Ok(Ok(()))
 }
