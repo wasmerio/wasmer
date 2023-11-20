@@ -306,7 +306,7 @@ fn run<M: MemorySize>(
     trace!(%pid, %tid, "child exited (code = {})", ret);
 
     // Clean up the environment and return the result
-    ctx.cleanup((&mut store), Some(ret));
+    ctx.on_exit((&mut store), Some(ret));
 
     // We drop the handle at the last moment which will close the thread
     drop(child_handle);

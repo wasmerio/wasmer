@@ -197,7 +197,7 @@ fn call_module<M: MemorySize>(
         trace!("callback finished (ret={})", ret);
 
         // Clean up the environment
-        env.cleanup(store, Some(ret.into()));
+        env.on_exit(store, Some(ret.into()));
 
         // Return the result
         Ok(ret as u32)

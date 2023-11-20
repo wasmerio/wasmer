@@ -1,11 +1,14 @@
 use super::*;
 
 impl JournalEffector {
-    pub(super) fn save_event(
+    pub(crate) fn save_event(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         event: JournalEntry,
     ) -> anyhow::Result<()> {
         let env = ctx.data();
+        if !env.should_journal() {
+            return Ok(());
+        }
 
         __asyncify_light(env, None, async {
             ctx.data()

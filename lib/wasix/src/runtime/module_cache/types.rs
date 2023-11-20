@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
 };
 
+use rand::RngCore;
 use sha2::{Digest, Sha256};
 use wasmer::{Engine, Module};
 
@@ -128,7 +129,15 @@ pub struct ModuleHash([u8; 32]);
 impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw SHA-256 hash.
     pub fn from_bytes(key: [u8; 32]) -> Self {
-        ModuleHash(key)
+        Self(key)
+    }
+
+    // Creates a random hash for the module
+    pub fn random() -> Self {
+        let mut rand = rand::thread_rng();
+        let mut key = [0u8; 32];
+        rand.fill_bytes(&mut key);
+        Self(key)
     }
 
     /// Parse a sha256 hash from a hex-encoded string.

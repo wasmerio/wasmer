@@ -1,6 +1,8 @@
 #[cfg(feature = "journal")]
 use crate::{journaling::JournalEffector, unwind, WasiResult};
-use crate::{journaling::SnapshotTrigger, WasiEnv, WasiRuntimeError};
+use crate::{
+    journaling::SnapshotTrigger, runtime::module_cache::ModuleHash, WasiEnv, WasiRuntimeError,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -84,6 +86,8 @@ pub type LockableWasiProcessInner = Arc<(Mutex<WasiProcessInner>, Condvar)>;
 pub struct WasiProcess {
     /// Unique ID of this process
     pub(crate) pid: WasiProcessId,
+    /// Hash of the module that this process is using
+    pub(crate) module_hash: ModuleHash,
     /// List of all the children spawned from this thread
     pub(crate) parent: Option<Weak<RwLock<WasiProcessInner>>>,
     /// The inner protected region of the process with a conditional
@@ -277,9 +281,10 @@ impl Drop for WasiProcessWait {
 }
 
 impl WasiProcess {
-    pub fn new(pid: WasiProcessId, plane: WasiControlPlaneHandle) -> Self {
+    pub fn new(pid: WasiProcessId, module_hash: ModuleHash, plane: WasiControlPlaneHandle) -> Self {
         WasiProcess {
             pid,
+            module_hash,
             parent: None,
             compute: plane,
             inner: Arc::new((

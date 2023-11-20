@@ -10,8 +10,8 @@ use wasmer::Module;
 use wcgi_host::CgiDialect;
 
 use crate::{
-    capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks, Pipe,
-    Runtime, VirtualTaskManager, WasiEnvBuilder,
+    capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks,
+    runtime::module_cache::ModuleHash, Pipe, Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
@@ -59,6 +59,7 @@ impl Handler {
             });
 
         let module = self.module.clone();
+        let module_hash = self.module_hash.clone();
 
         tracing::debug!(
             dialect=%self.dialect,
@@ -71,7 +72,7 @@ impl Handler {
         let (run_tx, mut run_rx) = tokio::sync::mpsc::unbounded_channel();
         task_manager.task_dedicated(Box::new(move || {
             run_tx
-                .send(builder.run_with_store_async(module, store))
+                .send(builder.run_with_store_async(module, module_hash, store))
                 .ok();
         }))?;
         let done = async move { run_rx.recv().await.unwrap().map_err(Error::from) };
@@ -203,6 +204,7 @@ type SetupBuilder = Box<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Error>
 #[derivative(Debug)]
 pub(crate) struct SharedState {
     pub(crate) module: Module,
+    pub(crate) module_hash: ModuleHash,
     pub(crate) dialect: CgiDialect,
     pub(crate) program_name: String,
     #[derivative(Debug = "ignore")]

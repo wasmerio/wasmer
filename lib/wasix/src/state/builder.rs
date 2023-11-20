@@ -20,7 +20,7 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    runtime::task_manager::InlineWaker,
+    runtime::{module_cache::ModuleHash, task_manager::InlineWaker},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
@@ -887,20 +887,26 @@ impl WasiEnvBuilder {
     pub fn instantiate(
         self,
         module: Module,
+        module_hash: ModuleHash,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let init = self.build_init()?;
-        WasiEnv::instantiate(init, module, store)
+        WasiEnv::instantiate(init, module, module_hash, store)
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
+    pub fn run(self, module: Module, module_hash: ModuleHash) -> Result<(), WasiRuntimeError> {
         let mut store = wasmer::Store::default();
-        self.run_with_store(module, &mut store)
+        self.run_with_store(module, module_hash, &mut store)
     }
 
     #[allow(clippy::result_large_err)]
-    pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
+    pub fn run_with_store(
+        self,
+        module: Module,
+        module_hash: ModuleHash,
+        store: &mut Store,
+    ) -> Result<(), WasiRuntimeError> {
         // If no handle or runtime exists then create one
         #[cfg(feature = "sys-thread")]
         let _guard = if tokio::runtime::Handle::try_current().is_err() {
@@ -926,7 +932,7 @@ impl WasiEnvBuilder {
         #[cfg(not(feature = "journal"))]
         let journals = Vec::new();
 
-        let (instance, env) = self.instantiate(module, store)?;
+        let (instance, env) = self.instantiate(module, module_hash, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
@@ -944,7 +950,7 @@ impl WasiEnvBuilder {
             "main exit",
         );
 
-        env.cleanup(store, Some(exit_code));
+        env.on_exit(store, Some(exit_code));
 
         result
     }
@@ -954,6 +960,7 @@ impl WasiEnvBuilder {
     pub fn run_with_store_async(
         self,
         module: Module,
+        module_hash: ModuleHash,
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
         // If no handle or runtime exists then create one
@@ -973,7 +980,7 @@ impl WasiEnvBuilder {
         #[cfg(feature = "journal")]
         let journals = self.journals.clone();
 
-        let (_, env) = self.instantiate(module, &mut store)?;
+        let (_, env) = self.instantiate(module, module_hash, &mut store)?;
 
         env.data(&store).thread.set_status_running();
 
@@ -981,10 +988,32 @@ impl WasiEnvBuilder {
         let mut rewind_state = None;
 
         #[cfg(feature = "journal")]
-        for journal in journals {
-            let ctx = env.env.clone().into_mut(&mut store);
-            let rewind = restore_snapshot(ctx, journal)?;
-            rewind_state = Some((rewind, None));
+        {
+            env.data_mut(&mut store).replaying_journal = true;
+
+            for journal in journals {
+                let ctx = env.env.clone().into_mut(&mut store);
+                let rewind = restore_snapshot(ctx, journal)?;
+                rewind_state = Some((rewind, None));
+            }
+
+            env.data_mut(&mut store).replaying_journal = false;
+
+            // The first event we save is an event that records the module hash.
+            // Note: This is used to detect if an incorrect journal is used on the wrong
+            // process or if a process has been recompiled
+            let wasm_hash = env.data(&store).process.module_hash.as_bytes();
+            let mut ctx = env.env.clone().into_mut(&mut store);
+            crate::journaling::JournalEffector::save_event(
+                &mut ctx,
+                crate::journaling::JournalEntry::InitModule { wasm_hash },
+            )
+            .map_err(|err| {
+                WasiRuntimeError::Runtime(RuntimeError::new(format!(
+                    "journal failied to save the module initialization event - {}",
+                    err
+                )))
+            })?;
         }
 
         let tasks = env.data(&store).tasks().clone();
@@ -1073,7 +1102,7 @@ fn run_with_deep_sleep(
 
         if errno != Errno::Success {
             let exit_code = ExitCode::from(errno);
-            env.cleanup(&mut store, Some(exit_code));
+            env.on_exit(&mut store, Some(exit_code));
             let _ = sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(exit_code))));
             return;
         }
@@ -1083,7 +1112,7 @@ fn run_with_deep_sleep(
         Some(instance) => instance,
         None => {
             tracing::debug!("Unable to clone the instance");
-            env.cleanup(&mut store, None);
+            env.on_exit(&mut store, None);
             let _ = sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(
                 Errno::Noexec.into(),
             ))));
@@ -1095,7 +1124,7 @@ fn run_with_deep_sleep(
         Ok(start) => start,
         Err(e) => {
             tracing::debug!("Unable to get the _start function");
-            env.cleanup(&mut store, None);
+            env.on_exit(&mut store, None);
             let _ = sender.send(Err(e.into()));
             return;
         }
@@ -1138,7 +1167,7 @@ fn handle_result(
     };
 
     let (result, exit_code) = wasi_exit_code(result);
-    env.cleanup(&mut store, Some(exit_code));
+    env.on_exit(&mut store, Some(exit_code));
     sender.send(result).ok();
 }
 

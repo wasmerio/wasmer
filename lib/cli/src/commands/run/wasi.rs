@@ -25,7 +25,7 @@ use wasmer_wasix::{
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
-        module_cache::{FileSystemCache, ModuleCache},
+        module_cache::{FileSystemCache, ModuleCache, ModuleHash},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{
             FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
@@ -545,13 +545,14 @@ impl Wasi {
     pub fn instantiate(
         &self,
         module: &Module,
+        module_hash: ModuleHash,
         program_name: String,
         args: Vec<String>,
         runtime: Arc<dyn Runtime + Send + Sync>,
         store: &mut Store,
     ) -> Result<(WasiFunctionEnv, Instance)> {
         let builder = self.prepare(module, program_name, args, runtime)?;
-        let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
+        let (instance, wasi_env) = builder.instantiate(module.clone(), module_hash, store)?;
 
         Ok((wasi_env, instance))
     }

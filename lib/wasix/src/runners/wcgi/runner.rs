@@ -75,6 +75,7 @@ impl WcgiRunner {
 
         let shared = SharedState {
             module,
+            module_hash: pkg.hash(),
             dialect,
             program_name: command_name.to_string(),
             setup_builder: Box::new(setup_builder),

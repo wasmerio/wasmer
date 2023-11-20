@@ -24,8 +24,22 @@ use super::*;
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) enum LogFileJournalEntry {
-    InitV1 {
+    InitModuleV1 {
         wasm_hash: [u8; 32],
+    },
+    ProcessExitV1 {
+        exit_code: Option<JournalExitCodeV1>,
+    },
+    SetThreadV1 {
+        id: WasiThreadId,
+        call_stack: Vec<u8>,
+        memory_stack: Vec<u8>,
+        store_data: Vec<u8>,
+        is_64bit: bool,
+    },
+    CloseThreadV1 {
+        id: WasiThreadId,
+        exit_code: Option<JournalExitCodeV1>,
     },
     FileDescriptorSeekV1 {
         fd: Fd,
@@ -47,20 +61,6 @@ pub(crate) enum LogFileJournalEntry {
         clock_id: JournalSnapshot0ClockidV1,
         time: u64,
     },
-    SetThreadV1 {
-        id: WasiThreadId,
-        call_stack: Vec<u8>,
-        memory_stack: Vec<u8>,
-        store_data: Vec<u8>,
-        is_64bit: bool,
-    },
-    CloseThreadV1 {
-        id: WasiThreadId,
-        exit_code: Option<JournalExitCodeV1>,
-    },
-    CloseFileDescriptorV1 {
-        fd: u32,
-    },
     OpenFileDescriptorV1 {
         fd: u32,
         dirfd: u32,
@@ -70,6 +70,9 @@ pub(crate) enum LogFileJournalEntry {
         fs_rights_base: u64,
         fs_rights_inheriting: u64,
         fs_flags: u16,
+    },
+    CloseFileDescriptorV1 {
+        fd: u32,
     },
     RenumberFileDescriptorV1 {
         old_fd: u32,
@@ -178,10 +181,6 @@ pub(crate) enum LogFileJournalEntry {
     SnapshotV1 {
         when: SystemTime,
         trigger: JournalSnapshotTriggerV1,
-    },
-    Panic {
-        when: SystemTime,
-        stack_trace: String,
     },
 }
 
@@ -394,7 +393,32 @@ impl From<JournalEpollCtlV1> for wasi::EpollCtl {
 impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
     fn from(value: JournalEntry<'a>) -> Self {
         match value {
-            JournalEntry::Init { wasm_hash } => Self::InitV1 { wasm_hash },
+            JournalEntry::InitModule { wasm_hash } => Self::InitModuleV1 { wasm_hash },
+            JournalEntry::UpdateMemoryRegion { region, data } => Self::UpdateMemoryRegionV1 {
+                start: region.start,
+                end: region.end,
+                data: data.into_owned(),
+            },
+            JournalEntry::ProcessExit { exit_code } => Self::ProcessExitV1 {
+                exit_code: exit_code.map(|code| code.into()),
+            },
+            JournalEntry::SetThread {
+                id,
+                call_stack,
+                memory_stack,
+                store_data,
+                is_64bit,
+            } => Self::SetThreadV1 {
+                id,
+                call_stack: call_stack.into_owned(),
+                memory_stack: memory_stack.into_owned(),
+                store_data: store_data.into_owned(),
+                is_64bit,
+            },
+            JournalEntry::CloseThread { id, exit_code } => Self::CloseThreadV1 {
+                id,
+                exit_code: exit_code.map(|code| code.into()),
+            },
             JournalEntry::FileDescriptorWrite {
                 fd,
                 offset,
@@ -411,29 +435,6 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 offset,
                 whence: whence.into(),
             },
-            JournalEntry::UpdateMemoryRegion { region, data } => Self::UpdateMemoryRegionV1 {
-                start: region.start,
-                end: region.end,
-                data: data.into_owned(),
-            },
-            JournalEntry::CloseThread { id, exit_code } => Self::CloseThreadV1 {
-                id,
-                exit_code: exit_code.map(|code| code.into()),
-            },
-            JournalEntry::SetThread {
-                id,
-                call_stack,
-                memory_stack,
-                store_data,
-                is_64bit,
-            } => Self::SetThreadV1 {
-                id,
-                call_stack: call_stack.into_owned(),
-                memory_stack: memory_stack.into_owned(),
-                store_data: store_data.into_owned(),
-                is_64bit,
-            },
-            JournalEntry::CloseFileDescriptor { fd } => Self::CloseFileDescriptorV1 { fd },
             JournalEntry::OpenFileDescriptor {
                 fd,
                 dirfd,
@@ -453,6 +454,7 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 fs_rights_inheriting: fs_rights_inheriting.bits(),
                 fs_flags: fs_flags.bits(),
             },
+            JournalEntry::CloseFileDescriptor { fd } => Self::CloseFileDescriptorV1 { fd },
             JournalEntry::RemoveDirectory { fd, path } => Self::RemoveDirectoryV1 {
                 fd,
                 path: path.into_owned(),
@@ -600,10 +602,6 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 line_feeds,
             },
             JournalEntry::CreatePipe { fd1, fd2 } => Self::CreatePipeV1 { fd1, fd2 },
-            JournalEntry::Panic { when, stack_trace } => Self::Panic {
-                when,
-                stack_trace: stack_trace.into_owned(),
-            },
         }
     }
 }
@@ -611,7 +609,33 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
 impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
     fn from(value: LogFileJournalEntry) -> Self {
         match value {
-            LogFileJournalEntry::InitV1 { wasm_hash } => Self::Init { wasm_hash },
+            LogFileJournalEntry::InitModuleV1 { wasm_hash } => Self::InitModule { wasm_hash },
+            LogFileJournalEntry::UpdateMemoryRegionV1 { start, end, data } => {
+                Self::UpdateMemoryRegion {
+                    region: start..end,
+                    data: data.into(),
+                }
+            }
+            LogFileJournalEntry::ProcessExitV1 { exit_code } => Self::ProcessExit {
+                exit_code: exit_code.map(|code| code.into()),
+            },
+            LogFileJournalEntry::SetThreadV1 {
+                id,
+                call_stack,
+                memory_stack,
+                store_data,
+                is_64bit,
+            } => Self::SetThread {
+                id,
+                call_stack: call_stack.into(),
+                memory_stack: memory_stack.into(),
+                store_data: store_data.into(),
+                is_64bit,
+            },
+            LogFileJournalEntry::CloseThreadV1 { id, exit_code } => Self::CloseThread {
+                id,
+                exit_code: exit_code.map(|code| code.into()),
+            },
             LogFileJournalEntry::FileDescriptorWriteV1 {
                 data,
                 fd,
@@ -630,30 +654,6 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                     whence: whence.into(),
                 }
             }
-            LogFileJournalEntry::UpdateMemoryRegionV1 { start, end, data } => {
-                Self::UpdateMemoryRegion {
-                    region: start..end,
-                    data: data.into(),
-                }
-            }
-            LogFileJournalEntry::CloseThreadV1 { id, exit_code } => Self::CloseThread {
-                id,
-                exit_code: exit_code.map(|code| code.into()),
-            },
-            LogFileJournalEntry::SetThreadV1 {
-                id,
-                call_stack,
-                memory_stack,
-                store_data,
-                is_64bit,
-            } => Self::SetThread {
-                id,
-                call_stack: call_stack.into(),
-                memory_stack: memory_stack.into(),
-                store_data: store_data.into(),
-                is_64bit,
-            },
-            LogFileJournalEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
             LogFileJournalEntry::OpenFileDescriptorV1 {
                 fd,
                 dirfd,
@@ -673,6 +673,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fs_rights_inheriting: wasi::Rights::from_bits_truncate(fs_rights_inheriting),
                 fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags),
             },
+            LogFileJournalEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
             LogFileJournalEntry::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
                 fd,
                 path: path.into(),
@@ -835,10 +836,6 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 line_feeds,
             },
             LogFileJournalEntry::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe { fd1, fd2 },
-            LogFileJournalEntry::Panic { when, stack_trace } => Self::Panic {
-                when,
-                stack_trace: stack_trace.into(),
-            },
         }
     }
 }

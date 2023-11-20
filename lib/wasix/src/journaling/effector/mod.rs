@@ -56,6 +56,8 @@ mod syscalls {
 #[cfg(feature = "journal")]
 mod memory_and_snapshot;
 #[cfg(feature = "journal")]
+mod process_exit;
+#[cfg(feature = "journal")]
 mod save_event;
 #[cfg(feature = "journal")]
 mod thread_exit;

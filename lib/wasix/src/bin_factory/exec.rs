@@ -34,7 +34,7 @@ pub async fn spawn_exec(
           pkg.version=%binary.version,
           "Unable to spawn a command because its package has no entrypoint",
         );
-        env.cleanup(Some(Errno::Noexec.into())).await;
+        env.on_exit(Some(Errno::Noexec.into())).await;
         return Err(SpawnError::CompileError);
     };
 
@@ -46,7 +46,7 @@ pub async fn spawn_exec(
                 error = &*err,
                 "Failed to compile the module",
             );
-            env.cleanup(Some(Errno::Noexec.into())).await;
+            env.on_exit(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }
     };
@@ -111,7 +111,7 @@ pub fn spawn_exec_module(
                         if let Err(err) = initialize.call(&mut store, &[]) {
                             thread.thread.set_status_finished(Err(err.into()));
                             ctx.data(&store)
-                                .blocking_cleanup(Some(Errno::Noexec.into()));
+                                .blocking_on_exit(Some(Errno::Noexec.into()));
                             return;
                         }
                     }
@@ -171,7 +171,7 @@ fn call_module(
                 Some(rewind_result),
             );
             if res != Errno::Success {
-                ctx.data(&store).blocking_cleanup(Some(res.into()));
+                ctx.data(&store).blocking_on_exit(Some(res.into()));
                 return;
             }
         } else {
@@ -183,7 +183,7 @@ fn call_module(
                 Some(rewind_result),
             );
             if res != Errno::Success {
-                ctx.data(&store).blocking_cleanup(Some(res.into()));
+                ctx.data(&store).blocking_on_exit(Some(res.into()));
                 return;
             }
         };
@@ -197,7 +197,7 @@ fn call_module(
         } else {
             debug!("wasi[{}]::exec-failed: missing _start function", pid);
             ctx.data(&store)
-                .blocking_cleanup(Some(Errno::Noexec.into()));
+                .blocking_on_exit(Some(Errno::Noexec.into()));
             return;
         };
 
@@ -241,7 +241,7 @@ fn call_module(
     };
 
     // Cleanup the environment
-    ctx.data(&store).blocking_cleanup(Some(code));
+    ctx.data(&store).blocking_on_exit(Some(code));
 
     debug!("wasi[{pid}]::main() has exited with {code}");
     handle.thread.set_status_finished(ret.map(|a| a.into()));
@@ -261,7 +261,7 @@ impl BinFactory {
                 .await
                 .ok_or(SpawnError::NotFound);
             if binary.is_err() {
-                env.cleanup(Some(Errno::Noent.into())).await;
+                env.on_exit(Some(Errno::Noent.into())).await;
             }
             let binary = binary?;
 

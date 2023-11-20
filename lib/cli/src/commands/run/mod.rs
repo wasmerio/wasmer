@@ -123,9 +123,11 @@ impl Run {
 
         let result = {
             match target {
-                ExecutableTarget::WebAssembly { module, path } => {
-                    self.execute_wasm(&path, &module, store, runtime)
-                }
+                ExecutableTarget::WebAssembly {
+                    module,
+                    module_hash,
+                    path,
+                } => self.execute_wasm(&path, &module, module_hash, store, runtime),
                 ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
             }
         };
@@ -142,13 +144,14 @@ impl Run {
         &self,
         path: &Path,
         module: &Module,
+        module_hash: ModuleHash,
         mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(path, module, runtime, store)
+            self.execute_wasi_module(path, module, module_hash, runtime, store)
         } else {
             self.execute_pure_wasm_module(module, &mut store)
         }
@@ -359,6 +362,7 @@ impl Run {
         &self,
         wasm_path: &Path,
         module: &Module,
+        module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
         mut store: Store,
     ) -> Result<(), Error> {
@@ -369,6 +373,7 @@ impl Run {
             runtime,
             &program_name,
             module,
+            module_hash,
             self.wasi.enable_async_threads,
         )
     }
@@ -604,7 +609,11 @@ impl TargetOnDisk {
 
 #[derive(Debug, Clone)]
 enum ExecutableTarget {
-    WebAssembly { module: Module, path: PathBuf },
+    WebAssembly {
+        module: Module,
+        module_hash: ModuleHash,
+        path: PathBuf,
+    },
     Package(BinaryPackage),
 }
 
@@ -652,6 +661,7 @@ impl ExecutableTarget {
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
+                    module_hash: ModuleHash::sha256(&wasm),
                     path: path.to_path_buf(),
                 })
             }
@@ -659,9 +669,14 @@ impl ExecutableTarget {
                 let engine = runtime.engine();
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
+                let module_hash = {
+                    let wasm = std::fs::read(path)?;
+                    ModuleHash::sha256(&wasm)
+                };
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
+                    module_hash,
                     path: path.to_path_buf(),
                 })
             }

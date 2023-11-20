@@ -1297,12 +1297,17 @@ pub fn restore_snapshot(
     journal: Arc<DynJournal>,
 ) -> Result<RewindState, WasiRuntimeError> {
     InlineWaker::block_on(async {
+        let mut is_same_module = false;
         let mut rewind = None;
         while let Some(next) = journal.read().await.map_err(anyhow_err_to_runtime_err)? {
             tracing::trace!("Restoring snapshot event - {next:?}");
             match next {
-                crate::journaling::JournalEntry::Init { .. } => {
-                    // TODO: Here we need to check the hash matches the binary
+                crate::journaling::JournalEntry::InitModule { wasm_hash } => {
+                    is_same_module = ctx.data().process.module_hash.as_bytes() == wasm_hash;
+                }
+                crate::journaling::JournalEntry::ProcessExit { exit_code } => {
+                    JournalEffector::apply_process_exit(ctx.data(), exit_code)
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::journaling::JournalEntry::FileDescriptorWrite {
                     fd,
@@ -1325,6 +1330,9 @@ pub fn restore_snapshot(
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::journaling::JournalEntry::UpdateMemoryRegion { region, data } => {
+                    if is_same_module == false {
+                        continue;
+                    }
                     JournalEffector::apply_memory(&mut ctx, region, &data)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
@@ -1345,6 +1353,9 @@ pub fn restore_snapshot(
                     store_data,
                     is_64bit,
                 } => {
+                    if is_same_module == false {
+                        continue;
+                    }
                     if id == ctx.data().tid() {
                         rewind.replace(RewindState {
                             memory_stack: memory_stack.to_vec().into(),
@@ -1410,7 +1421,11 @@ pub fn restore_snapshot(
                 crate::journaling::JournalEntry::Snapshot {
                     when: _,
                     trigger: _,
-                } => {}
+                } => {
+                    if is_same_module == false {
+                        continue;
+                    }
+                }
                 crate::journaling::JournalEntry::SetClockTime { clock_id, time } => {
                     JournalEffector::apply_clock_time_set(&mut ctx, clock_id, time)
                         .map_err(anyhow_err_to_runtime_err)?;
@@ -1545,14 +1560,20 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journaling::JournalEntry::Panic { stack_trace, .. } => {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::new(format!(
-                        "panic\r\nstack: {}",
-                        stack_trace
-                    ))));
-                }
             }
         }
+        // If we are not in the same module then we fire off an exit
+        // that simulates closing the process (hence keeps everything
+        // in a clean state)
+        if !is_same_module {
+            JournalEffector::apply_process_exit(ctx.data(), None)
+                .map_err(anyhow_err_to_runtime_err)?;
+        } else {
+            tracing::debug!(
+                "journal used on a different module - the process will simulate a restart."
+            );
+        }
+
         rewind.ok_or(WasiRuntimeError::Runtime(RuntimeError::user(anyhow::format_err!("The restored snapshot journal does not have a thread stack events and hence we can not restore the state of the process.").into())))
     })
 }

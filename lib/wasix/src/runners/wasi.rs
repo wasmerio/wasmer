@@ -13,7 +13,7 @@ use crate::{
     capabilities::Capabilities,
     journaling::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    runtime::task_manager::VirtualTaskManagerExt,
+    runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
     Runtime, WasiEnvBuilder, WasiRuntimeError,
 };
 
@@ -289,6 +289,7 @@ impl WasiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
         program_name: &str,
         module: &Module,
+        module_hash: ModuleHash,
         asyncify: bool,
     ) -> Result<(), Error> {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
@@ -296,9 +297,9 @@ impl WasiRunner {
         let env = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
 
         if asyncify {
-            env.run_with_store_async(module.clone(), store)?;
+            env.run_with_store_async(module.clone(), module_hash, store)?;
         } else {
-            env.run_with_store(module.clone(), &mut store)?;
+            env.run_with_store(module.clone(), module_hash, &mut store)?;
         }
 
         Ok(())

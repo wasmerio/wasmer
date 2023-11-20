@@ -16,7 +16,6 @@ pub struct FilteredJournal {
     filter_snapshots: bool,
     filter_descriptors: bool,
     filter_epoll: bool,
-    filter_panics: bool,
 }
 
 impl FilteredJournal {
@@ -32,7 +31,6 @@ impl FilteredJournal {
             filter_snapshots: false,
             filter_descriptors: false,
             filter_epoll: false,
-            filter_panics: false,
         }
     }
 
@@ -80,18 +78,42 @@ impl FilteredJournal {
         self.filter_descriptors = val;
         self
     }
-
-    pub fn with_ignore_panics(mut self, val: bool) -> Self {
-        self.filter_panics = val;
-        self
-    }
 }
 
 impl Journal for FilteredJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
         Box::pin(async {
             let evt = match entry {
-                JournalEntry::Init { wasm_hash } => JournalEntry::Init { wasm_hash },
+                JournalEntry::InitModule { .. } => {
+                    if self.filter_threads {
+                        return Ok(());
+                    }
+                    entry
+                }
+                JournalEntry::UpdateMemoryRegion { .. } => {
+                    if self.filter_memory {
+                        return Ok(());
+                    }
+                    entry
+                }
+                JournalEntry::ProcessExit { .. } => {
+                    if self.filter_threads {
+                        return Ok(());
+                    }
+                    entry
+                }
+                JournalEntry::SetThread { .. } => {
+                    if self.filter_threads {
+                        return Ok(());
+                    }
+                    entry
+                }
+                JournalEntry::CloseThread { .. } => {
+                    if self.filter_threads {
+                        return Ok(());
+                    }
+                    entry
+                }
                 JournalEntry::FileDescriptorSeek { .. } => {
                     if self.filter_descriptors {
                         return Ok(());
@@ -104,31 +126,13 @@ impl Journal for FilteredJournal {
                     }
                     entry
                 }
-                JournalEntry::UpdateMemoryRegion { .. } => {
-                    if self.filter_memory {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CloseThread { .. } => {
-                    if self.filter_threads {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::SetThread { .. } => {
-                    if self.filter_threads {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CloseFileDescriptor { .. } => {
+                JournalEntry::OpenFileDescriptor { .. } => {
                     if self.filter_descriptors {
                         return Ok(());
                     }
                     entry
                 }
-                JournalEntry::OpenFileDescriptor { .. } => {
+                JournalEntry::CloseFileDescriptor { .. } => {
                     if self.filter_descriptors {
                         return Ok(());
                     }
@@ -263,12 +267,6 @@ impl Journal for FilteredJournal {
                 }
                 JournalEntry::CreatePipe { .. } => {
                     if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::Panic { .. } => {
-                    if self.filter_panics {
                         return Ok(());
                     }
                     entry

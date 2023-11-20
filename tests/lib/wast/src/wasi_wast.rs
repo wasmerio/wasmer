@@ -14,7 +14,10 @@ use virtual_fs::{
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
-use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
+use wasmer_wasix::runtime::{
+    module_cache::ModuleHash,
+    task_manager::{tokio::TokioTaskManager, InlineWaker},
+};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
     generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
@@ -119,12 +122,16 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
+        let module_hash = ModuleHash::sha256(&wasm_bytes);
 
         let module = Module::new(store, wasm_bytes)?;
         let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
             { InlineWaker::block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
-        let (instance, _wasi_env) = builder.runtime(Arc::new(rt)).instantiate(module, store)?;
+        let (instance, _wasi_env) =
+            builder
+                .runtime(Arc::new(rt))
+                .instantiate(module, module_hash, store)?;
 
         let start = instance.exports.get_function("_start")?;
 

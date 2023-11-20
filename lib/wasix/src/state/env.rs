@@ -34,7 +34,10 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker, SpawnMemoryType},
+    runtime::{
+        module_cache::ModuleHash, resolver::PackageSpecifier, task_manager::InlineWaker,
+        SpawnMemoryType,
+    },
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -311,6 +314,10 @@ pub struct WasiEnv {
     /// Enables the snap shotting functionality
     pub enable_journal: bool,
 
+    /// Flag that indicatees if the environment is currently replaying the journal
+    /// (and hence it should not record new events)
+    pub replaying_journal: bool,
+
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "journal")]
     snapshot_on: HashSet<SnapshotTrigger>,
@@ -345,6 +352,7 @@ impl Clone for WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
+            replaying_journal: self.replaying_journal,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         }
@@ -359,7 +367,7 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
-        let process = self.control_plane.new_process()?;
+        let process = self.control_plane.new_process(self.process.module_hash)?;
         let handle = process.new_thread(self.layout.clone())?;
 
         let thread = handle.as_thread();
@@ -384,6 +392,7 @@ impl WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
+            replaying_journal: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
         };
@@ -425,7 +434,7 @@ impl WasiEnv {
         let process = if let Some(p) = init.process {
             p
         } else {
-            init.control_plane.new_process()?
+            init.control_plane.new_process(ModuleHash::random())?
         };
 
         let layout = WasiMemoryLayout::default();
@@ -449,6 +458,7 @@ impl WasiEnv {
             enable_journal: init.runtime.active_journal().is_some(),
             #[cfg(not(feature = "journal"))]
             enable_journal: false,
+            replaying_journal: false,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             runtime: init.runtime,
             bin_factory: init.bin_factory,
@@ -474,6 +484,7 @@ impl WasiEnv {
     pub(crate) fn instantiate(
         mut init: WasiEnvInit,
         module: Module,
+        module_hash: ModuleHash,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let call_initialize = init.call_initialize;
@@ -485,7 +496,8 @@ impl WasiEnv {
             }
         }
 
-        let env = Self::from_init(init)?;
+        let mut env = Self::from_init(init)?;
+        env.process.module_hash = module_hash;
 
         let pid = env.process.pid();
 
@@ -530,7 +542,7 @@ impl WasiEnv {
                 );
                 func_env
                     .data(&store)
-                    .blocking_cleanup(Some(Errno::Noexec.into()));
+                    .blocking_on_exit(Some(Errno::Noexec.into()));
                 return Err(err.into());
             }
         };
@@ -549,7 +561,7 @@ impl WasiEnv {
             );
             func_env
                 .data(&store)
-                .blocking_cleanup(Some(Errno::Noexec.into()));
+                .blocking_on_exit(Some(Errno::Noexec.into()));
             return Err(err.into());
         }
 
@@ -559,7 +571,7 @@ impl WasiEnv {
                 if let Err(err) = crate::run_wasi_func_start(initialize, &mut store, Vec::new()) {
                     func_env
                         .data(&store)
-                        .blocking_cleanup(Some(Errno::Noexec.into()));
+                        .blocking_on_exit(Some(Errno::Noexec.into()));
                     return Err(err);
                 }
             }
@@ -856,7 +868,7 @@ impl WasiEnv {
 
     /// Returns true if the process should perform snapshots or not
     pub fn should_journal(&self) -> bool {
-        self.enable_journal
+        self.enable_journal && !self.replaying_journal
     }
 
     /// Returns the active journal or fails with an error
@@ -1086,14 +1098,14 @@ impl WasiEnv {
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn blocking_cleanup(&self, exit_code: Option<ExitCode>) {
-        let cleanup = self.cleanup(exit_code);
+    pub fn blocking_on_exit(&self, exit_code: Option<ExitCode>) {
+        let cleanup = self.on_exit(exit_code);
         InlineWaker::block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)
     #[allow(clippy::await_holding_lock)]
-    pub fn cleanup(&self, exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
+    pub fn on_exit(&self, exit_code: Option<ExitCode>) -> BoxFuture<'static, ()> {
         const CLEANUP_TIMEOUT: Duration = Duration::from_secs(10);
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
@@ -1101,6 +1113,12 @@ impl WasiEnv {
         if self.should_journal() {
             if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
+            }
+
+            if self.thread.is_main() {
+                if let Err(err) = JournalEffector::save_process_exit(self, exit_code) {
+                    tracing::warn!("failed to save snapshot event for process exit - {}", err);
+                }
             }
         }
 

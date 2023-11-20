@@ -41,8 +41,26 @@ pub enum SocketJournalEvent {
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum JournalEntry<'a> {
-    Init {
+    InitModule {
         wasm_hash: [u8; 32],
+    },
+    UpdateMemoryRegion {
+        region: Range<u64>,
+        data: Cow<'a, [u8]>,
+    },
+    ProcessExit {
+        exit_code: Option<ExitCode>,
+    },
+    SetThread {
+        id: WasiThreadId,
+        call_stack: Cow<'a, [u8]>,
+        memory_stack: Cow<'a, [u8]>,
+        store_data: Cow<'a, [u8]>,
+        is_64bit: bool,
+    },
+    CloseThread {
+        id: WasiThreadId,
+        exit_code: Option<ExitCode>,
     },
     FileDescriptorSeek {
         fd: Fd,
@@ -55,24 +73,9 @@ pub enum JournalEntry<'a> {
         data: Cow<'a, [u8]>,
         is_64bit: bool,
     },
-    UpdateMemoryRegion {
-        region: Range<u64>,
-        data: Cow<'a, [u8]>,
-    },
     SetClockTime {
         clock_id: Snapshot0Clockid,
         time: Timestamp,
-    },
-    CloseThread {
-        id: WasiThreadId,
-        exit_code: Option<ExitCode>,
-    },
-    SetThread {
-        id: WasiThreadId,
-        call_stack: Cow<'a, [u8]>,
-        memory_stack: Cow<'a, [u8]>,
-        store_data: Cow<'a, [u8]>,
-        is_64bit: bool,
     },
     CloseFileDescriptor {
         fd: Fd,
@@ -182,10 +185,6 @@ pub enum JournalEntry<'a> {
     CreatePipe {
         fd1: Fd,
         fd2: Fd,
-    },
-    Panic {
-        when: SystemTime,
-        stack_trace: Cow<'a, str>,
     },
     /// Represents the marker for the end of a snapshot
     Snapshot {
