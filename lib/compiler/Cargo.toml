@@ -16,7 +16,7 @@ version.workspace = true
 wasmer-types = { path = "../types", version = "=4.2.3", default-features = false }
 wasmer-object = { path = "../object", version = "=4.2.3", optional = true }
 wasmparser = { version = "0.95", optional = true, default-features = false }
-enumset = "1.1.0"
+enumset.workspace = true
 hashbrown = { version = "0.11", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
