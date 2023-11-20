@@ -1330,7 +1330,7 @@ pub fn restore_snapshot(
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
                 crate::journaling::JournalEntry::UpdateMemoryRegion { region, data } => {
-                    if is_same_module == false {
+                    if !is_same_module {
                         continue;
                     }
                     JournalEffector::apply_memory(&mut ctx, region, &data)
@@ -1353,7 +1353,7 @@ pub fn restore_snapshot(
                     store_data,
                     is_64bit,
                 } => {
-                    if is_same_module == false {
+                    if !is_same_module {
                         continue;
                     }
                     if id == ctx.data().tid() {
@@ -1422,7 +1422,7 @@ pub fn restore_snapshot(
                     when: _,
                     trigger: _,
                 } => {
-                    if is_same_module == false {
+                    if !is_same_module {
                         continue;
                     }
                 }

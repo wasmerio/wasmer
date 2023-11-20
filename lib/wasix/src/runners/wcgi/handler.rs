@@ -59,7 +59,7 @@ impl Handler {
             });
 
         let module = self.module.clone();
-        let module_hash = self.module_hash.clone();
+        let module_hash = self.module_hash;
 
         tracing::debug!(
             dialect=%self.dialect,
