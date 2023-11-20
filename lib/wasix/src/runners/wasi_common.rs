@@ -42,6 +42,7 @@ pub(crate) struct CommonWasiOptions {
     #[derivative(Debug = "ignore")]
     pub(crate) journal_restore: Option<JournalRestore>,
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
+    pub(crate) snapshot_interval: Option<std::time::Duration>,
     pub(crate) current_dir: Option<PathBuf>,
 }
 

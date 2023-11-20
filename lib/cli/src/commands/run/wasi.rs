@@ -126,11 +126,15 @@ pub struct Wasi {
     ///
     /// If not specified, the default is to snapshot when the process idles, when
     /// the process exits or periodically if an interval argument is also supplied.
+    ///
+    /// Additionally if the snapshot-on is not specified it will also take a snapshot
+    /// on the first stdin, environ or socket listen - this can be used to accelerate
+    /// the boot up time of WASM processes.
     #[cfg(feature = "journal")]
     #[clap(long = "snapshot-on")]
     pub snapshot_on: Vec<SnapshotTrigger>,
 
-    /// Adds a periodic interval (measured in seconds) that the runtime will automatically
+    /// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
     /// takes snapshots of the running process and write them to the journal. When specifying
     /// this parameter it implies that `--snapshot-on interval` has also been specified.
     #[cfg(feature = "journal")]

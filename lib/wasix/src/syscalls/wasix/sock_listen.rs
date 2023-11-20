@@ -19,7 +19,7 @@ pub fn sock_listen<M: MemorySize>(
     sock: WasiFd,
     backlog: M::Offset,
 ) -> Result<Errno, WasiError> {
-    ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Listen)?);
+    ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstListen)?);
 
     let env = ctx.data();
     let net = env.net().clone();

@@ -15,7 +15,10 @@ pub fn environ_get<M: MemorySize>(
     environ: WasmPtr<WasmPtr<u8, M>, M>,
     environ_buf: WasmPtr<u8, M>,
 ) -> Result<Errno, WasiError> {
-    ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Environ)?);
+    ctx = wasi_try_ok!(maybe_snapshot_once::<M>(
+        ctx,
+        SnapshotTrigger::FirstEnviron
+    )?);
 
     let env = ctx.data();
     let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };

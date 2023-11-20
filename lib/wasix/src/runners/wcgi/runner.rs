@@ -248,12 +248,42 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
+    pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
+        let defs = [
+            crate::journal::SnapshotTrigger::Idle,
+            crate::journal::SnapshotTrigger::FirstEnviron,
+            crate::journal::SnapshotTrigger::FirstListen,
+            crate::journal::SnapshotTrigger::FirstStdin,
+        ];
+        for on in defs {
+            if self.has_snapshot_trigger(on) == false {
+                self.add_snapshot_trigger(on);
+            }
+        }
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn has_snapshot_trigger(&self, on: crate::journal::SnapshotTrigger) -> bool {
+        self.wasi.snapshot_on.iter().any(|t| *t == on)
+    }
+
+    #[cfg(feature = "journal")]
     pub fn with_journal_restore(&mut self, capturer: Arc<crate::journal::DynJournal>) -> &mut Self {
         use crate::state::JournalRestore;
 
         self.wasi
             .journal_restore
             .replace(JournalRestore { restorer: capturer });
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
+        if self.has_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval) == false {
+            self.add_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval);
+        }
+        self.wasi.snapshot_interval.replace(period);
         self
     }
 

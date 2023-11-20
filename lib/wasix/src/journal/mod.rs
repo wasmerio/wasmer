@@ -27,14 +27,14 @@ use std::str::FromStr;
 pub enum SnapshotTrigger {
     /// Triggered when all the threads in the process goes idle
     Idle,
-    /// Triggered when a listen syscall is invoked on a socket
-    Listen,
+    /// Triggered when a listen syscall is invoked on a socket for the first time
+    FirstListen,
     /// Triggered on reading the environment variables for the first time
-    Environ,
+    FirstEnviron,
     /// Triggered when the process reads stdin for the first time
-    Stdin,
+    FirstStdin,
     /// Triggered periodically based on a interval (default 10 seconds) which can be specified using the `snapshot-interval` option
-    Interval,
+    PeriodicInterval,
     /// Issued if the user sends an interrupt signal (Ctrl + C).
     Sigint,
     /// Alarm clock signal (used for timers)
@@ -54,10 +54,10 @@ impl FromStr for SnapshotTrigger {
         let s = s.trim().to_lowercase();
         Ok(match s.as_str() {
             "idle" => Self::Idle,
-            "listen" => Self::Listen,
-            "stdin" => Self::Stdin,
-            "environ" => Self::Environ,
-            "periodic" => Self::Interval,
+            "first-listen" => Self::FirstListen,
+            "first-stdin" => Self::FirstStdin,
+            "first-environ" => Self::FirstEnviron,
+            "periodic-interval" => Self::PeriodicInterval,
             "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
             "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
             "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,

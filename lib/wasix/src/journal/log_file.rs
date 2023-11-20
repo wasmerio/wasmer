@@ -327,10 +327,10 @@ impl Into<JournalSnapshotTriggerV1> for SnapshotTrigger {
     fn into(self) -> JournalSnapshotTriggerV1 {
         match self {
             SnapshotTrigger::Idle => JournalSnapshotTriggerV1::Idle,
-            SnapshotTrigger::Listen => JournalSnapshotTriggerV1::Listen,
-            SnapshotTrigger::Environ => JournalSnapshotTriggerV1::Environ,
-            SnapshotTrigger::Stdin => JournalSnapshotTriggerV1::Stdin,
-            SnapshotTrigger::Interval => JournalSnapshotTriggerV1::Timer,
+            SnapshotTrigger::FirstListen => JournalSnapshotTriggerV1::Listen,
+            SnapshotTrigger::FirstEnviron => JournalSnapshotTriggerV1::Environ,
+            SnapshotTrigger::FirstStdin => JournalSnapshotTriggerV1::Stdin,
+            SnapshotTrigger::PeriodicInterval => JournalSnapshotTriggerV1::Timer,
             SnapshotTrigger::Sigint => JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::Sigalrm => JournalSnapshotTriggerV1::Sigalrm,
             SnapshotTrigger::Sigtstp => JournalSnapshotTriggerV1::Sigtstp,
@@ -344,10 +344,10 @@ impl Into<SnapshotTrigger> for JournalSnapshotTriggerV1 {
     fn into(self) -> SnapshotTrigger {
         match self {
             JournalSnapshotTriggerV1::Idle => SnapshotTrigger::Idle,
-            JournalSnapshotTriggerV1::Listen => SnapshotTrigger::Listen,
-            JournalSnapshotTriggerV1::Environ => SnapshotTrigger::Environ,
-            JournalSnapshotTriggerV1::Stdin => SnapshotTrigger::Stdin,
-            JournalSnapshotTriggerV1::Timer => SnapshotTrigger::Interval,
+            JournalSnapshotTriggerV1::Listen => SnapshotTrigger::FirstListen,
+            JournalSnapshotTriggerV1::Environ => SnapshotTrigger::FirstEnviron,
+            JournalSnapshotTriggerV1::Stdin => SnapshotTrigger::FirstStdin,
+            JournalSnapshotTriggerV1::Timer => SnapshotTrigger::PeriodicInterval,
             JournalSnapshotTriggerV1::Sigint => SnapshotTrigger::Sigint,
             JournalSnapshotTriggerV1::Sigalrm => SnapshotTrigger::Sigalrm,
             JournalSnapshotTriggerV1::Sigtstp => SnapshotTrigger::Sigtstp,

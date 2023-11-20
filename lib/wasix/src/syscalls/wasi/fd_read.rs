@@ -45,7 +45,7 @@ pub fn fd_read<M: MemorySize>(
     };
 
     if fd == DeviceFile::STDIN {
-        ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Stdin)?);
+        ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset, nread, true)?;
@@ -80,7 +80,7 @@ pub fn fd_pread<M: MemorySize>(
     let tid = ctx.data().tid();
 
     if fd == DeviceFile::STDIN {
-        ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Stdin)?);
+        ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
 
     let res = fd_read_internal::<M>(&mut ctx, fd, iovs, iovs_len, offset as usize, nread, false)?;

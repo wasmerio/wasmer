@@ -194,6 +194,33 @@ impl WasiRunner {
         self
     }
 
+    pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
+        let defs = [
+            SnapshotTrigger::Idle,
+            SnapshotTrigger::FirstEnviron,
+            SnapshotTrigger::FirstListen,
+            SnapshotTrigger::FirstStdin,
+        ];
+        for on in defs {
+            if self.has_snapshot_trigger(on) == false {
+                self.add_snapshot_trigger(on);
+            }
+        }
+        self
+    }
+
+    pub fn has_snapshot_trigger(&self, on: SnapshotTrigger) -> bool {
+        self.wasi.snapshot_on.iter().any(|t| *t == on)
+    }
+
+    pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
+        if self.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) == false {
+            self.add_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
+        }
+        self.wasi.snapshot_interval.replace(period);
+        self
+    }
+
     pub fn with_journal_restore(&mut self, restorer: Arc<DynJournal>) -> &mut Self {
         self.wasi
             .journal_restore
@@ -319,11 +346,6 @@ impl crate::runners::Runner for WasiRunner {
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "journal")]
-        for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
-            env.add_snapshot_trigger(snapshot_trigger);
-        }
-
-        #[cfg(feature = "journal")]
         if let Some(capturer) = self.wasi.journal.clone() {
             env = env.with_journal(capturer);
         }
@@ -331,6 +353,13 @@ impl crate::runners::Runner for WasiRunner {
         #[cfg(feature = "journal")]
         if let Some(restore) = self.wasi.journal_restore.clone() {
             env = env.with_journal_restore(restore.restorer);
+        }
+
+        #[cfg(feature = "journal")]
+        {
+            for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
+                env.add_snapshot_trigger(snapshot_trigger);
+            }
         }
 
         let env = env.build()?;

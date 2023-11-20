@@ -243,27 +243,38 @@ impl Run {
         }
 
         #[cfg(feature = "journal")]
-        for trigger in self.wasi.snapshot_on.iter().cloned() {
-            runner.config().add_snapshot_trigger(trigger);
-        }
-
-        #[cfg(feature = "journal")]
-        match (self.wasi.journal.clone(), self.wasi.journal_restore.clone()) {
-            (Some(save), Some(restore)) if save == restore => {
-                return Err(anyhow::format_err!(
-                    "The snapshot save path and snapshot restore path can not be the same"
-                ));
+        {
+            for trigger in self.wasi.snapshot_on.iter().cloned() {
+                runner.config().add_snapshot_trigger(trigger);
             }
-            (_, _) => {
-                if let Some(path) = self.wasi.journal.clone() {
-                    runner
-                        .config()
-                        .with_journal(Arc::new(LogFileJournal::new_std(path)?));
+
+            if self.wasi.snapshot_on.is_empty() && self.wasi.journal.is_some() {
+                runner.config().add_default_snapshot_triggers();
+            }
+
+            if let Some(period) = self.wasi.snapshot_interval {
+                runner
+                    .config()
+                    .with_snapshot_interval(Duration::from_millis(period));
+            }
+
+            match (self.wasi.journal.clone(), self.wasi.journal_restore.clone()) {
+                (Some(save), Some(restore)) if save == restore => {
+                    return Err(anyhow::format_err!(
+                        "The snapshot save path and snapshot restore path can not be the same"
+                    ));
                 }
-                if let Some(path) = self.wasi.journal_restore.clone() {
-                    runner
-                        .config()
-                        .with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
+                (_, _) => {
+                    if let Some(path) = self.wasi.journal.clone() {
+                        runner
+                            .config()
+                            .with_journal(Arc::new(LogFileJournal::new_std(path)?));
+                    }
+                    if let Some(path) = self.wasi.journal_restore.clone() {
+                        runner
+                            .config()
+                            .with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
+                    }
                 }
             }
         }
@@ -331,23 +342,34 @@ impl Run {
             .with_capabilities(self.wasi.capabilities());
 
         #[cfg(feature = "journal")]
-        for trigger in self.wasi.snapshot_on.iter().cloned() {
-            runner.add_snapshot_trigger(trigger);
-        }
-
-        #[cfg(feature = "journal")]
-        match (self.wasi.journal.clone(), self.wasi.journal_restore.clone()) {
-            (Some(save), Some(restore)) if save == restore => {
-                return Err(anyhow::format_err!(
-                    "The snapshot save path and snapshot restore path can not be the same"
-                ));
+        {
+            for trigger in self.wasi.snapshot_on.iter().cloned() {
+                runner.add_snapshot_trigger(trigger);
             }
-            (_, _) => {
-                if let Some(path) = self.wasi.journal.clone() {
-                    runner.with_journal(Arc::new(LogFileJournal::new_std(path)?));
+
+            // If no events are specified then add all the defaults
+            if self.wasi.snapshot_on.is_empty() && self.wasi.journal.is_some() {
+                runner.add_default_snapshot_triggers();
+            }
+
+            // If a periodic interval is specified then make sure the event is also added
+            if let Some(period) = self.wasi.snapshot_interval {
+                runner.with_snapshot_interval(Duration::from_millis(period));
+            }
+
+            match (self.wasi.journal.clone(), self.wasi.journal_restore.clone()) {
+                (Some(save), Some(restore)) if save == restore => {
+                    return Err(anyhow::format_err!(
+                        "The snapshot save path and snapshot restore path can not be the same"
+                    ));
                 }
-                if let Some(path) = self.wasi.journal_restore.clone() {
-                    runner.with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
+                (_, _) => {
+                    if let Some(path) = self.wasi.journal.clone() {
+                        runner.with_journal(Arc::new(LogFileJournal::new_std(path)?));
+                    }
+                    if let Some(path) = self.wasi.journal_restore.clone() {
+                        runner.with_journal_restore(Arc::new(LogFileJournal::new_std(path)?));
+                    }
                 }
             }
         }

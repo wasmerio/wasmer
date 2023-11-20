@@ -41,18 +41,18 @@ is useful to take snapshots at convenient moments without causing unnecessary ov
 
 For processes that have TTY/STDIN input this is particularly useful.
 
-## On Listen / FirstListen
+## On FirstListen
 
 Triggered when a listen syscall is invoked on a socket. This can be an important
 milestone to take a snapshot when one wants to speed up the boot time of a WASM process
 up to the moment where it is ready to accept requests.
     
-## On Stdin / FirstStdin
+## On FirstStdin
 
 Triggered when the process reads stdin for the first time. This can be useful to
 speed up the boot time of a WASM process.
 
-## On Environ / FirstEnviron
+## On FirstEnviron
 
 Triggered when the process reads an environment variable for the first time. This can
 be useful to speed up the boot time of a CGI WASM process which reads the environment
