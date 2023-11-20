@@ -26,7 +26,7 @@ impl JournalEffector {
         crate::syscalls::fd_fdstat_set_rights_internal(ctx, fd, fs_rights_base, fs_rights_inheriting)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "snapshot restore error: failed to duplicate file descriptor (fd={}, fs_rights_base={:?}, fs_rights_inheriting={:?}) - {}",
+                    "journal restore error: failed to duplicate file descriptor (fd={}, fs_rights_base={:?}, fs_rights_inheriting={:?}) - {}",
                     fd,
                     fs_rights_base,
                     fs_rights_inheriting,

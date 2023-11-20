@@ -29,7 +29,7 @@ impl JournalEffector {
         let ret = crate::syscalls::path_rename_internal(ctx, old_fd, old_path, new_fd, new_path)?;
         if ret != Errno::Success {
             bail!(
-                "snapshot restore error: failed to rename path (old_fd={}, old_path={}, new_fd={}, new_path={}) - {}",
+                "journal restore error: failed to rename path (old_fd={}, old_path={}, new_fd={}, new_path={}) - {}",
                 old_fd,
                 old_path,
                 new_fd,

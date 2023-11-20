@@ -22,7 +22,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         crate::syscalls::path_create_directory_internal(ctx, fd, path).map_err(|err| {
             anyhow::format_err!(
-                "snapshot restore error: failed to create directory path (fd={}, path={}) - {}",
+                "journal restore error: failed to create directory path (fd={}, path={}) - {}",
                 fd,
                 path,
                 err

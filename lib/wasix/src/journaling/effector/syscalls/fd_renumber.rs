@@ -23,7 +23,7 @@ impl JournalEffector {
         let ret = crate::syscalls::fd_renumber_internal(ctx, from, to);
         if ret != Errno::Success {
             bail!(
-                "snapshot restore error: failed to renumber descriptor (from={}, to={}) - {}",
+                "journal restore error: failed to renumber descriptor (from={}, to={}) - {}",
                 from,
                 to,
                 ret

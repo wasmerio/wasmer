@@ -22,7 +22,7 @@ impl JournalEffector {
         crate::syscalls::fd_allocate_internal(ctx, fd, offset, len)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "snapshot restore error: failed to allocate on file descriptor (fd={}, offset={}, len={}) - {}",
+                    "journal restore error: failed to allocate on file descriptor (fd={}, offset={}, len={}) - {}",
                     fd,
                     offset,
                     len,

@@ -19,7 +19,7 @@ impl JournalEffector {
         crate::syscalls::fd_seek_internal(ctx, fd, offset, whence)?
         .map_err(|err| {
             anyhow::format_err!(
-                "snapshot restore error: failed to seek descriptor (fd={}, offset={}, whence={:?}) - {}",
+                "journal restore error: failed to seek descriptor (fd={}, offset={}, whence={:?}) - {}",
                 fd,
                 offset,
                 whence,

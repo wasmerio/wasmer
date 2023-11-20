@@ -240,7 +240,7 @@ pub(crate) fn run_wasi_func(
     if !journals.is_empty() {
         return Err(WasiRuntimeError::Runtime(RuntimeError::user(
             anyhow::format_err!(
-                "snapshot restoration is not currently supported when running specific functions"
+                "journal restoration is not currently supported when running specific functions"
             )
             .into(),
         )));

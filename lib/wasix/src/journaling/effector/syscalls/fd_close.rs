@@ -10,7 +10,7 @@ impl JournalEffector {
         let (_, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
         if let Err(err) = state.fs.close_fd(fd) {
             bail!(
-                "snapshot restore error: failed to close descriptor (fd={}) - {}",
+                "journal restore error: failed to close descriptor (fd={}) - {}",
                 fd,
                 err
             );

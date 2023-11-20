@@ -17,7 +17,7 @@ impl JournalEffector {
         crate::syscalls::fd_fdstat_set_flags_internal(ctx, fd, flags)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "snapshot restore error: failed to duplicate file descriptor (fd={}, flags={:?}) - {}",
+                    "journal restore error: failed to duplicate file descriptor (fd={}, flags={:?}) - {}",
                     fd,
                     flags,
                     err

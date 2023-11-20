@@ -22,7 +22,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         if let Err(err) = crate::syscalls::path_remove_directory_internal(ctx, fd, path) {
             bail!(
-                "snapshot restore error: failed to remove directory - {}",
+                "journal restore error: failed to remove directory - {}",
                 err
             );
         }

@@ -23,7 +23,7 @@ impl JournalEffector {
         let ret_fd = crate::syscalls::fd_dup_internal(ctx, original_fd)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "snapshot restore error: failed to duplicate file descriptor (original={}, copied={}) - {}",
+                    "journal restore error: failed to duplicate file descriptor (original={}, copied={}) - {}",
                     original_fd,
                     copied_fd,
                     err
@@ -33,7 +33,7 @@ impl JournalEffector {
         let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, copied_fd);
         if ret != Errno::Success {
             bail!(
-                "snapshot restore error: failed renumber file descriptor after duplicate (from={}, to={}) - {}",
+                "journal restore error: failed renumber file descriptor after duplicate (from={}, to={}) - {}",
                 ret_fd,
                 copied_fd,
                 ret

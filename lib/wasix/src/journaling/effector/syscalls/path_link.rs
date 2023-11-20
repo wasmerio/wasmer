@@ -32,7 +32,7 @@ impl JournalEffector {
         crate::syscalls::path_link_internal(ctx, old_fd, old_flags, old_path, new_fd, new_path)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "snapshot restore error: failed to create hard link (old_fd={}, old_flags={}, old_path={}, new_fd={}, new_path={}) - {}",
+                    "journal restore error: failed to create hard link (old_fd={}, old_flags={}, old_path={}, new_fd={}, new_path={}) - {}",
                     old_fd,
                     old_flags,
                     old_path,

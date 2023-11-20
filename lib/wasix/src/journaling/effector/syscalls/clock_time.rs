@@ -17,7 +17,7 @@ impl JournalEffector {
         let ret = crate::syscalls::clock_time_set_internal(ctx, clock_id, time);
         if ret != Errno::Success {
             bail!(
-                "snapshot restore error: failed to set clock time (clock_id={:?}, time={}) - {}",
+                "journal restore error: failed to set clock time (clock_id={:?}, time={}) - {}",
                 clock_id,
                 time,
                 ret

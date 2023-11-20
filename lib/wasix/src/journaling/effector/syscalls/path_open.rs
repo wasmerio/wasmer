@@ -54,7 +54,7 @@ impl JournalEffector {
             Ok(fd) => fd,
             Err(err) => {
                 bail!(
-                    "snapshot restore error: failed to open descriptor (fd={}, path={}) - {}",
+                    "journal restore error: failed to open descriptor (fd={}, path={}) - {}",
                     fd,
                     path,
                     err
@@ -65,7 +65,7 @@ impl JournalEffector {
         let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, fd);
         if ret != Errno::Success {
             bail!(
-                "snapshot restore error: failed renumber file descriptor after open (from={}, to={}) - {}",
+                "journal restore error: failed renumber file descriptor after open (from={}, to={}) - {}",
                 ret_fd,
                 fd,
                 ret

@@ -11,7 +11,7 @@ pub struct UnsupportedJournal {}
 
 impl Journal for UnsupportedJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
-        tracing::debug!("snapshot event: {:?}", entry);
+        tracing::debug!("journal event: {:?}", entry);
         Box::pin(async { Err(anyhow::format_err!("unsupported")) })
     }
 

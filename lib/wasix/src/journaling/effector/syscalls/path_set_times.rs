@@ -35,7 +35,7 @@ impl JournalEffector {
         crate::syscalls::path_filestat_set_times_internal(ctx, fd, flags, path, st_atim, st_mtim, fst_flags)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "snapshot restore error: failed to set path times (fd={}, flags={}, path={}, st_atim={}, st_mtim={}, fst_flags={:?}) - {}",
+                    "journal restore error: failed to set path times (fd={}, flags={}, path={}, st_atim={}, st_mtim={}, fst_flags={:?}) - {}",
                     fd,
                     flags,
                     path,

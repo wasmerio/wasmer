@@ -62,7 +62,7 @@ impl JournalEffector {
         )?;
         if ret != Errno::Success {
             bail!(
-                "snapshot restore error: failed to write to descriptor (fd={}, offset={}) - {}",
+                "journal restore error: failed to write to descriptor (fd={}, offset={}) - {}",
                 fd,
                 offset,
                 ret
