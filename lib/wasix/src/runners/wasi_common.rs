@@ -13,7 +13,7 @@ use webc::metadata::annotations::Wasi as WasiAnnotation;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournal, SnapshotTrigger},
+    journaling::{DynJournal, SnapshotTrigger},
     runners::MappedDirectory,
     WasiEnvBuilder,
 };

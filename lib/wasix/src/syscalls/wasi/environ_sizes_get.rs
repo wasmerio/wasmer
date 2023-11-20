@@ -1,5 +1,5 @@
 use super::*;
-use crate::{journal::SnapshotTrigger, syscalls::*};
+use crate::{journaling::SnapshotTrigger, syscalls::*};
 
 /// ### `environ_sizes_get()`
 /// Return command-line argument data sizes.

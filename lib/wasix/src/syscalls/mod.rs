@@ -117,7 +117,7 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    journal::{DynJournal, JournalEffector},
+    journaling::{DynJournal, JournalEffector},
     os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
@@ -1222,7 +1222,7 @@ pub fn rewind_ext<M: MemorySize>(
 #[cfg(not(feature = "journal"))]
 pub fn maybe_snapshot_once<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
-    _trigger: crate::journal::SnapshotTrigger,
+    _trigger: crate::journaling::SnapshotTrigger,
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     Ok(Ok(ctx))
 }
@@ -1230,7 +1230,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
 #[cfg(feature = "journal")]
 pub fn maybe_snapshot_once<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    trigger: crate::journal::SnapshotTrigger,
+    trigger: crate::journaling::SnapshotTrigger,
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
@@ -1301,10 +1301,10 @@ pub fn restore_snapshot(
         while let Some(next) = journal.read().await.map_err(anyhow_err_to_runtime_err)? {
             tracing::trace!("Restoring snapshot event - {next:?}");
             match next {
-                crate::journal::JournalEntry::Init { .. } => {
+                crate::journaling::JournalEntry::Init { .. } => {
                     // TODO: Here we need to check the hash matches the binary
                 }
-                crate::journal::JournalEntry::FileDescriptorWrite {
+                crate::journaling::JournalEntry::FileDescriptorWrite {
                     fd,
                     offset,
                     data,
@@ -1319,16 +1319,16 @@ pub fn restore_snapshot(
                     }
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorSeek { fd, offset, whence } => {
+                crate::journaling::JournalEntry::FileDescriptorSeek { fd, offset, whence } => {
                     JournalEffector::apply_fd_seek(&mut ctx, fd, offset, whence)
                         .await
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::UpdateMemoryRegion { region, data } => {
+                crate::journaling::JournalEntry::UpdateMemoryRegion { region, data } => {
                     JournalEffector::apply_memory(&mut ctx, region, &data)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::CloseThread { id, exit_code } => {
+                crate::journaling::JournalEntry::CloseThread { id, exit_code } => {
                     if id == ctx.data().tid() {
                         return Err(WasiRuntimeError::Runtime(RuntimeError::user(
                             anyhow::format_err!(
@@ -1338,7 +1338,7 @@ pub fn restore_snapshot(
                         )));
                     }
                 }
-                crate::journal::JournalEntry::SetThread {
+                crate::journaling::JournalEntry::SetThread {
                     id,
                     call_stack,
                     memory_stack,
@@ -1361,11 +1361,11 @@ pub fn restore_snapshot(
                         )));
                     }
                 }
-                crate::journal::JournalEntry::CloseFileDescriptor { fd } => {
+                crate::journaling::JournalEntry::CloseFileDescriptor { fd } => {
                     JournalEffector::apply_fd_close(&mut ctx, fd)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::OpenFileDescriptor {
+                crate::journaling::JournalEntry::OpenFileDescriptor {
                     fd,
                     dirfd,
                     dirflags,
@@ -1388,15 +1388,15 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::RemoveDirectory { fd, path } => {
+                crate::journaling::JournalEntry::RemoveDirectory { fd, path } => {
                     JournalEffector::apply_path_remove_directory(&mut ctx, fd, &path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::UnlinkFile { fd, path } => {
+                crate::journaling::JournalEntry::UnlinkFile { fd, path } => {
                     JournalEffector::apply_path_unlink(&mut ctx, fd, &path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::PathRename {
+                crate::journaling::JournalEntry::PathRename {
                     old_fd,
                     old_path,
                     new_fd,
@@ -1407,30 +1407,30 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::Snapshot {
+                crate::journaling::JournalEntry::Snapshot {
                     when: _,
                     trigger: _,
                 } => {}
-                crate::journal::JournalEntry::SetClockTime { clock_id, time } => {
+                crate::journaling::JournalEntry::SetClockTime { clock_id, time } => {
                     JournalEffector::apply_clock_time_set(&mut ctx, clock_id, time)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
+                crate::journaling::JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
                     JournalEffector::apply_fd_renumber(&mut ctx, old_fd, new_fd)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::DuplicateFileDescriptor {
+                crate::journaling::JournalEntry::DuplicateFileDescriptor {
                     original_fd,
                     copied_fd,
                 } => {
                     JournalEffector::apply_fd_duplicate(&mut ctx, original_fd, copied_fd)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::CreateDirectory { fd, path } => {
+                crate::journaling::JournalEntry::CreateDirectory { fd, path } => {
                     JournalEffector::apply_path_create_directory(&mut ctx, fd, &path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::PathSetTimes {
+                crate::journaling::JournalEntry::PathSetTimes {
                     fd,
                     flags,
                     path,
@@ -1443,7 +1443,7 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorSetTimes {
+                crate::journaling::JournalEntry::FileDescriptorSetTimes {
                     fd,
                     st_atim,
                     st_mtim,
@@ -1452,15 +1452,15 @@ pub fn restore_snapshot(
                     JournalEffector::apply_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorSetSize { fd, st_size } => {
+                crate::journaling::JournalEntry::FileDescriptorSetSize { fd, st_size } => {
                     JournalEffector::apply_fd_set_size(&mut ctx, fd, st_size)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorSetFlags { fd, flags } => {
+                crate::journaling::JournalEntry::FileDescriptorSetFlags { fd, flags } => {
                     JournalEffector::apply_fd_set_flags(&mut ctx, fd, flags)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorSetRights {
+                crate::journaling::JournalEntry::FileDescriptorSetRights {
                     fd,
                     fs_rights_base,
                     fs_rights_inheriting,
@@ -1473,7 +1473,7 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorAdvise {
+                crate::journaling::JournalEntry::FileDescriptorAdvise {
                     fd,
                     offset,
                     len,
@@ -1482,11 +1482,11 @@ pub fn restore_snapshot(
                     JournalEffector::apply_fd_advise(&mut ctx, fd, offset, len, advice)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::FileDescriptorAllocate { fd, offset, len } => {
+                crate::journaling::JournalEntry::FileDescriptorAllocate { fd, offset, len } => {
                     JournalEffector::apply_fd_allocate(&mut ctx, fd, offset, len)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::CreateHardLink {
+                crate::journaling::JournalEntry::CreateHardLink {
                     old_fd,
                     old_path,
                     old_flags,
@@ -1498,7 +1498,7 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::CreateSymbolicLink {
+                crate::journaling::JournalEntry::CreateSymbolicLink {
                     old_path,
                     fd,
                     new_path,
@@ -1506,19 +1506,19 @@ pub fn restore_snapshot(
                     JournalEffector::apply_path_symlink(&mut ctx, &old_path, fd, &new_path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::ChangeDirectory { path } => {
+                crate::journaling::JournalEntry::ChangeDirectory { path } => {
                     JournalEffector::apply_chdir(&mut ctx, &path)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::CreatePipe { fd1, fd2 } => {
+                crate::journaling::JournalEntry::CreatePipe { fd1, fd2 } => {
                     JournalEffector::apply_fd_pipe(&mut ctx, fd1, fd2)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::EpollCreate { fd } => {
+                crate::journaling::JournalEntry::EpollCreate { fd } => {
                     JournalEffector::apply_epoll_create(&mut ctx, fd)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::EpollCtl {
+                crate::journaling::JournalEntry::EpollCtl {
                     epfd,
                     op,
                     fd,
@@ -1527,7 +1527,7 @@ pub fn restore_snapshot(
                     JournalEffector::apply_epoll_ctl(&mut ctx, epfd, op, fd, event)
                         .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::TtySet { tty, line_feeds } => {
+                crate::journaling::JournalEntry::TtySet { tty, line_feeds } => {
                     JournalEffector::apply_tty_set(
                         &mut ctx,
                         crate::WasiTtyState {
@@ -1545,7 +1545,7 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journal::JournalEntry::Panic { stack_trace, .. } => {
+                crate::journaling::JournalEntry::Panic { stack_trace, .. } => {
                     return Err(WasiRuntimeError::Runtime(RuntimeError::new(format!(
                         "panic\r\nstack: {}",
                         stack_trace

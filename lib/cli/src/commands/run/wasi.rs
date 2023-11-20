@@ -15,7 +15,7 @@ use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuild
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_registry::wasmer_env::WasmerEnv;
 #[cfg(feature = "journal")]
-use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
+use wasmer_wasix::journaling::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,

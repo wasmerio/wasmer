@@ -23,7 +23,7 @@ use wasmer_wasix_types::{
 };
 
 #[cfg(feature = "journal")]
-use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
+use crate::journaling::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,

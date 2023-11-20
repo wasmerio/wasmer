@@ -1,6 +1,6 @@
 #[cfg(feature = "journal")]
-use crate::{journal::JournalEffector, unwind, WasiResult};
-use crate::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
+use crate::{journaling::JournalEffector, unwind, WasiResult};
+use crate::{journaling::SnapshotTrigger, WasiEnv, WasiRuntimeError};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,

@@ -27,7 +27,7 @@ use crate::{
 };
 #[cfg(feature = "journal")]
 use crate::{
-    journal::{DynJournal, SnapshotTrigger},
+    journaling::{DynJournal, SnapshotTrigger},
     syscalls::restore_snapshot,
 };
 

@@ -38,7 +38,7 @@ impl JournalEffector {
             cur = end;
         }
 
-        // Now that we known all the regions that need to be saved we
+        // Now that we know all the regions that need to be saved we
         // enter a processing loop that dumps all the data to the log
         // file in an orderly manner.
         __asyncify_light(env, None, async {

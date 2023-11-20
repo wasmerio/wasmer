@@ -20,7 +20,7 @@ use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::Module;
 
 #[cfg(feature = "journal")]
-use crate::journal::DynJournal;
+use crate::journaling::DynJournal;
 use crate::{
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
