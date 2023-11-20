@@ -671,7 +671,7 @@ impl ExecutableTarget {
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
                 let module_hash = {
                     let wasm = std::fs::read(path)?;
-                    ModuleHash::sha256(&wasm)
+                    ModuleHash::sha256(wasm)
                 };
 
                 Ok(ExecutableTarget::WebAssembly {
