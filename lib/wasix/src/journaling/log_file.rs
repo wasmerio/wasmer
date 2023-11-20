@@ -6,7 +6,10 @@ use std::{
     time::SystemTime,
 };
 use tokio::runtime::Handle;
-use wasmer_wasix_types::wasi::{self, EpollEventCtl};
+use virtual_net::{IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use wasmer_wasix_types::wasi::{
+    self, Addressfamily, EpollEventCtl, Sockoption, Socktype, Streamsecurity,
+};
 
 use futures::future::LocalBoxFuture;
 use virtual_fs::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
@@ -177,6 +180,110 @@ pub(crate) enum LogFileJournalEntry {
     CreatePipeV1 {
         fd1: u32,
         fd2: u32,
+    },
+    PortAddAddrV1 {
+        cidr: IpCidr,
+    },
+    PortDelAddrV1 {
+        addr: IpAddr,
+    },
+    PortAddrClearV1,
+    PortBridgeV1 {
+        network: String,
+        token: String,
+        security: JournalStreamSecurityV1,
+    },
+    PortUnbridgeV1,
+    PortDhcpAcquireV1,
+    PortGatewaySetV1 {
+        ip: IpAddr,
+    },
+    PortRouteAddV1 {
+        cidr: IpCidr,
+        via_router: IpAddr,
+        preferred_until: Option<Timestamp>,
+        expires_at: Option<Timestamp>,
+    },
+    PortRouteClearV1,
+    PortRouteDelV1 {
+        ip: IpAddr,
+    },
+    SocketOpenV1 {
+        af: JournalAddressfamilyV1,
+        ty: JournalSocktypeV1,
+        pt: u16,
+        fd: u32,
+    },
+    SocketListenV1 {
+        fd: u32,
+        backlog: u32,
+    },
+    SocketBindV1 {
+        fd: u32,
+        addr: SocketAddr,
+    },
+    SocketConnectV1 {
+        fd: u32,
+        addr: SocketAddr,
+    },
+    SocketAcceptV1 {
+        listen_fd: u32,
+        fd: u32,
+        peer_addr: SocketAddr,
+    },
+    SocketJoinIpv4MulticastV1 {
+        fd: u32,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+    },
+    SocketJoinIpv6MulticastV1 {
+        fd: u32,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+    },
+    SocketLeaveIpv4MulticastV1 {
+        fd: u32,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+    },
+    SocketLeaveIpv6MulticastV1 {
+        fd: u32,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+    },
+    SocketSendFileV1 {
+        socket_fd: u32,
+        file_fd: u32,
+    },
+    SocketSendToV1 {
+        fd: u32,
+        data: Vec<u8>,
+        flags: u16,
+        addr: SocketAddr,
+    },
+    SocketSendV1 {
+        fd: u32,
+        data: Vec<u8>,
+        flags: u16,
+    },
+    SocketSetOptFlagV1 {
+        fd: u32,
+        opt: JournalSockoptionV1,
+        flag: bool,
+    },
+    SocketSetOptSizeV1 {
+        fd: u32,
+        opt: JournalSockoptionV1,
+        size: u64,
+    },
+    SocketSetOptTimeV1 {
+        fd: u32,
+        opt: JournalSockoptionV1,
+        size: Option<u64>,
+    },
+    SocketShutdownV1 {
+        fd: u32,
+        how: u8,
     },
     SnapshotV1 {
         when: SystemTime,
@@ -386,6 +493,201 @@ impl From<JournalEpollCtlV1> for wasi::EpollCtl {
             JournalEpollCtlV1::Mod => EpollCtl::Mod,
             JournalEpollCtlV1::Del => EpollCtl::Del,
             JournalEpollCtlV1::Unknown => EpollCtl::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum JournalStreamSecurityV1 {
+    Unencrypted,
+    AnyEncryption,
+    ClassicEncryption,
+    DoubleEncryption,
+    Unknown,
+}
+
+impl From<Streamsecurity> for JournalStreamSecurityV1 {
+    fn from(val: Streamsecurity) -> Self {
+        match val {
+            Streamsecurity::Unencrypted => JournalStreamSecurityV1::Unencrypted,
+            Streamsecurity::AnyEncryption => JournalStreamSecurityV1::AnyEncryption,
+            Streamsecurity::ClassicEncryption => JournalStreamSecurityV1::ClassicEncryption,
+            Streamsecurity::DoubleEncryption => JournalStreamSecurityV1::DoubleEncryption,
+            Streamsecurity::Unknown => JournalStreamSecurityV1::Unknown,
+        }
+    }
+}
+
+impl From<JournalStreamSecurityV1> for Streamsecurity {
+    fn from(val: JournalStreamSecurityV1) -> Self {
+        match val {
+            JournalStreamSecurityV1::Unencrypted => Streamsecurity::Unencrypted,
+            JournalStreamSecurityV1::AnyEncryption => Streamsecurity::AnyEncryption,
+            JournalStreamSecurityV1::ClassicEncryption => Streamsecurity::ClassicEncryption,
+            JournalStreamSecurityV1::DoubleEncryption => Streamsecurity::DoubleEncryption,
+            JournalStreamSecurityV1::Unknown => Streamsecurity::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum JournalAddressfamilyV1 {
+    Unspec,
+    Inet4,
+    Inet6,
+    Unix,
+}
+
+impl From<Addressfamily> for JournalAddressfamilyV1 {
+    fn from(val: Addressfamily) -> Self {
+        match val {
+            Addressfamily::Unspec => JournalAddressfamilyV1::Unspec,
+            Addressfamily::Inet4 => JournalAddressfamilyV1::Inet4,
+            Addressfamily::Inet6 => JournalAddressfamilyV1::Inet6,
+            Addressfamily::Unix => JournalAddressfamilyV1::Unix,
+        }
+    }
+}
+
+impl From<JournalAddressfamilyV1> for Addressfamily {
+    fn from(val: JournalAddressfamilyV1) -> Self {
+        match val {
+            JournalAddressfamilyV1::Unspec => Addressfamily::Unspec,
+            JournalAddressfamilyV1::Inet4 => Addressfamily::Inet4,
+            JournalAddressfamilyV1::Inet6 => Addressfamily::Inet6,
+            JournalAddressfamilyV1::Unix => Addressfamily::Unix,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum JournalSocktypeV1 {
+    Unknown,
+    Stream,
+    Dgram,
+    Raw,
+    Seqpacket,
+}
+
+impl From<Socktype> for JournalSocktypeV1 {
+    fn from(val: Socktype) -> Self {
+        match val {
+            Socktype::Stream => JournalSocktypeV1::Stream,
+            Socktype::Dgram => JournalSocktypeV1::Dgram,
+            Socktype::Raw => JournalSocktypeV1::Raw,
+            Socktype::Seqpacket => JournalSocktypeV1::Seqpacket,
+            Socktype::Unknown => JournalSocktypeV1::Unknown,
+        }
+    }
+}
+
+impl From<JournalSocktypeV1> for Socktype {
+    fn from(val: JournalSocktypeV1) -> Self {
+        match val {
+            JournalSocktypeV1::Stream => Socktype::Stream,
+            JournalSocktypeV1::Dgram => Socktype::Dgram,
+            JournalSocktypeV1::Raw => Socktype::Raw,
+            JournalSocktypeV1::Seqpacket => Socktype::Seqpacket,
+            JournalSocktypeV1::Unknown => Socktype::Unknown,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum JournalSockoptionV1 {
+    Noop,
+    ReusePort,
+    ReuseAddr,
+    NoDelay,
+    DontRoute,
+    OnlyV6,
+    Broadcast,
+    MulticastLoopV4,
+    MulticastLoopV6,
+    Promiscuous,
+    Listening,
+    LastError,
+    KeepAlive,
+    Linger,
+    OobInline,
+    RecvBufSize,
+    SendBufSize,
+    RecvLowat,
+    SendLowat,
+    RecvTimeout,
+    SendTimeout,
+    ConnectTimeout,
+    AcceptTimeout,
+    Ttl,
+    MulticastTtlV4,
+    Type,
+    Proto,
+}
+
+impl From<Sockoption> for JournalSockoptionV1 {
+    fn from(val: Sockoption) -> Self {
+        match val {
+            Sockoption::Noop => JournalSockoptionV1::Noop,
+            Sockoption::ReusePort => JournalSockoptionV1::ReusePort,
+            Sockoption::ReuseAddr => JournalSockoptionV1::ReuseAddr,
+            Sockoption::NoDelay => JournalSockoptionV1::NoDelay,
+            Sockoption::DontRoute => JournalSockoptionV1::DontRoute,
+            Sockoption::OnlyV6 => JournalSockoptionV1::OnlyV6,
+            Sockoption::Broadcast => JournalSockoptionV1::Broadcast,
+            Sockoption::MulticastLoopV4 => JournalSockoptionV1::MulticastLoopV4,
+            Sockoption::MulticastLoopV6 => JournalSockoptionV1::MulticastLoopV6,
+            Sockoption::Promiscuous => JournalSockoptionV1::Promiscuous,
+            Sockoption::Listening => JournalSockoptionV1::Listening,
+            Sockoption::LastError => JournalSockoptionV1::LastError,
+            Sockoption::KeepAlive => JournalSockoptionV1::KeepAlive,
+            Sockoption::Linger => JournalSockoptionV1::Linger,
+            Sockoption::OobInline => JournalSockoptionV1::OobInline,
+            Sockoption::RecvBufSize => JournalSockoptionV1::RecvBufSize,
+            Sockoption::SendBufSize => JournalSockoptionV1::SendBufSize,
+            Sockoption::RecvLowat => JournalSockoptionV1::RecvLowat,
+            Sockoption::SendLowat => JournalSockoptionV1::SendLowat,
+            Sockoption::RecvTimeout => JournalSockoptionV1::RecvTimeout,
+            Sockoption::SendTimeout => JournalSockoptionV1::SendTimeout,
+            Sockoption::ConnectTimeout => JournalSockoptionV1::ConnectTimeout,
+            Sockoption::AcceptTimeout => JournalSockoptionV1::AcceptTimeout,
+            Sockoption::Ttl => JournalSockoptionV1::Ttl,
+            Sockoption::MulticastTtlV4 => JournalSockoptionV1::MulticastTtlV4,
+            Sockoption::Type => JournalSockoptionV1::Type,
+            Sockoption::Proto => JournalSockoptionV1::Proto,
+        }
+    }
+}
+
+impl From<JournalSockoptionV1> for Sockoption {
+    fn from(val: JournalSockoptionV1) -> Self {
+        match val {
+            JournalSockoptionV1::Noop => Sockoption::Noop,
+            JournalSockoptionV1::ReusePort => Sockoption::ReusePort,
+            JournalSockoptionV1::ReuseAddr => Sockoption::ReuseAddr,
+            JournalSockoptionV1::NoDelay => Sockoption::NoDelay,
+            JournalSockoptionV1::DontRoute => Sockoption::DontRoute,
+            JournalSockoptionV1::OnlyV6 => Sockoption::OnlyV6,
+            JournalSockoptionV1::Broadcast => Sockoption::Broadcast,
+            JournalSockoptionV1::MulticastLoopV4 => Sockoption::MulticastLoopV4,
+            JournalSockoptionV1::MulticastLoopV6 => Sockoption::MulticastLoopV6,
+            JournalSockoptionV1::Promiscuous => Sockoption::Promiscuous,
+            JournalSockoptionV1::Listening => Sockoption::Listening,
+            JournalSockoptionV1::LastError => Sockoption::LastError,
+            JournalSockoptionV1::KeepAlive => Sockoption::KeepAlive,
+            JournalSockoptionV1::Linger => Sockoption::Linger,
+            JournalSockoptionV1::OobInline => Sockoption::OobInline,
+            JournalSockoptionV1::RecvBufSize => Sockoption::RecvBufSize,
+            JournalSockoptionV1::SendBufSize => Sockoption::SendBufSize,
+            JournalSockoptionV1::RecvLowat => Sockoption::RecvLowat,
+            JournalSockoptionV1::SendLowat => Sockoption::SendLowat,
+            JournalSockoptionV1::RecvTimeout => Sockoption::RecvTimeout,
+            JournalSockoptionV1::SendTimeout => Sockoption::SendTimeout,
+            JournalSockoptionV1::ConnectTimeout => Sockoption::ConnectTimeout,
+            JournalSockoptionV1::AcceptTimeout => Sockoption::AcceptTimeout,
+            JournalSockoptionV1::Ttl => Sockoption::Ttl,
+            JournalSockoptionV1::MulticastTtlV4 => Sockoption::MulticastTtlV4,
+            JournalSockoptionV1::Type => Sockoption::Type,
+            JournalSockoptionV1::Proto => Sockoption::Proto,
         }
     }
 }
@@ -602,6 +904,123 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 line_feeds,
             },
             JournalEntry::CreatePipe { fd1, fd2 } => Self::CreatePipeV1 { fd1, fd2 },
+            JournalEntry::PortAddAddr { cidr } => Self::PortAddAddrV1 { cidr },
+            JournalEntry::PortDelAddr { addr } => Self::PortDelAddrV1 { addr },
+            JournalEntry::PortAddrClear => Self::PortAddrClearV1,
+            JournalEntry::PortBridge {
+                network,
+                token,
+                security,
+            } => Self::PortBridgeV1 {
+                network: network.into(),
+                token: token.into(),
+                security: security.into(),
+            },
+            JournalEntry::PortUnbridge => Self::PortUnbridgeV1,
+            JournalEntry::PortDhcpAcquire => Self::PortDhcpAcquireV1,
+            JournalEntry::PortGatewaySet { ip } => Self::PortGatewaySetV1 { ip },
+            JournalEntry::PortRouteAdd {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            } => Self::PortRouteAddV1 {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            },
+            JournalEntry::PortRouteClear => Self::PortRouteClearV1,
+            JournalEntry::PortRouteDel { ip } => Self::PortRouteDelV1 { ip },
+            JournalEntry::SocketOpen { af, ty, pt, fd } => Self::SocketOpenV1 {
+                af: af.into(),
+                ty: ty.into(),
+                pt: pt as u16,
+                fd,
+            },
+            JournalEntry::SocketListen { fd, backlog } => Self::SocketListenV1 { fd, backlog },
+            JournalEntry::SocketBind { fd, addr } => Self::SocketBindV1 { fd, addr },
+            JournalEntry::SocketConnect { fd, addr } => Self::SocketConnectV1 { fd, addr },
+            JournalEntry::SocketAccept {
+                listen_fd,
+                fd,
+                peer_addr,
+            } => Self::SocketAcceptV1 {
+                listen_fd,
+                fd,
+                peer_addr,
+            },
+            JournalEntry::SocketJoinIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketJoinIpv4MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            },
+            JournalEntry::SocketJoinIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketJoinIpv6MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            },
+            JournalEntry::SocketLeaveIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketLeaveIpv4MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            },
+            JournalEntry::SocketLeaveIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketLeaveIpv6MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            },
+            JournalEntry::SocketSendFile { socket_fd, file_fd } => {
+                Self::SocketSendFileV1 { socket_fd, file_fd }
+            }
+            JournalEntry::SocketSendTo {
+                fd,
+                data,
+                flags,
+                addr,
+            } => Self::SocketSendToV1 {
+                fd,
+                data: data.into(),
+                flags: flags as u16,
+                addr,
+            },
+            JournalEntry::SocketSend { fd, data, flags } => Self::SocketSendV1 {
+                fd,
+                data: data.into(),
+                flags: flags as u16,
+            },
+            JournalEntry::SocketSetOptFlag { fd, opt, flag } => Self::SocketSetOptFlagV1 {
+                fd,
+                opt: opt.into(),
+                flag,
+            },
+            JournalEntry::SocketSetOptSize { fd, opt, size } => Self::SocketSetOptSizeV1 {
+                fd,
+                opt: opt.into(),
+                size,
+            },
+            JournalEntry::SocketSetOptTime { fd, opt, size } => Self::SocketSetOptTimeV1 {
+                fd,
+                opt: opt.into(),
+                size,
+            },
+            JournalEntry::SocketShutdown { fd, how } => Self::SocketShutdownV1 { fd, how },
         }
     }
 }
@@ -836,6 +1255,125 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 line_feeds,
             },
             LogFileJournalEntry::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe { fd1, fd2 },
+            LogFileJournalEntry::PortAddAddrV1 { cidr } => Self::PortAddAddr { cidr },
+            LogFileJournalEntry::PortDelAddrV1 { addr } => Self::PortDelAddr { addr },
+            LogFileJournalEntry::PortAddrClearV1 => Self::PortAddrClear,
+            LogFileJournalEntry::PortBridgeV1 {
+                network,
+                token,
+                security,
+            } => Self::PortBridge {
+                network: network.into(),
+                token: token.into(),
+                security: security.into(),
+            },
+            LogFileJournalEntry::PortUnbridgeV1 => Self::PortUnbridge,
+            LogFileJournalEntry::PortDhcpAcquireV1 => Self::PortDhcpAcquire,
+            LogFileJournalEntry::PortGatewaySetV1 { ip } => Self::PortGatewaySet { ip },
+            LogFileJournalEntry::PortRouteAddV1 {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            } => Self::PortRouteAdd {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            },
+            LogFileJournalEntry::PortRouteClearV1 => Self::PortRouteClear,
+            LogFileJournalEntry::PortRouteDelV1 { ip } => Self::PortRouteDel { ip },
+            LogFileJournalEntry::SocketOpenV1 { af, ty, pt, fd } => Self::SocketOpen {
+                af: af.into(),
+                ty: ty.into(),
+                pt: pt.try_into().unwrap_or(wasi::SockProto::Max),
+                fd,
+            },
+            LogFileJournalEntry::SocketListenV1 { fd, backlog } => {
+                Self::SocketListen { fd, backlog }
+            }
+            LogFileJournalEntry::SocketBindV1 { fd, addr } => Self::SocketBind { fd, addr },
+            LogFileJournalEntry::SocketConnectV1 { fd, addr } => Self::SocketConnect { fd, addr },
+            LogFileJournalEntry::SocketAcceptV1 {
+                listen_fd,
+                fd,
+                peer_addr,
+            } => Self::SocketAccept {
+                listen_fd,
+                fd,
+                peer_addr,
+            },
+            LogFileJournalEntry::SocketJoinIpv4MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketJoinIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            LogFileJournalEntry::SocketJoinIpv6MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketJoinIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            LogFileJournalEntry::SocketLeaveIpv4MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketLeaveIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            LogFileJournalEntry::SocketLeaveIpv6MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            } => Self::SocketLeaveIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            LogFileJournalEntry::SocketSendFileV1 { socket_fd, file_fd } => {
+                Self::SocketSendFile { socket_fd, file_fd }
+            }
+            LogFileJournalEntry::SocketSendToV1 {
+                fd,
+                data,
+                flags,
+                addr,
+            } => Self::SocketSendTo {
+                fd,
+                data: data.into(),
+                flags,
+                addr,
+            },
+            LogFileJournalEntry::SocketSendV1 { fd, data, flags } => Self::SocketSend {
+                fd,
+                data: data.into(),
+                flags,
+            },
+            LogFileJournalEntry::SocketSetOptFlagV1 { fd, opt, flag } => Self::SocketSetOptFlag {
+                fd,
+                opt: opt.into(),
+                flag,
+            },
+            LogFileJournalEntry::SocketSetOptSizeV1 { fd, opt, size } => Self::SocketSetOptSize {
+                fd,
+                opt: opt.into(),
+                size,
+            },
+            LogFileJournalEntry::SocketSetOptTimeV1 { fd, opt, size } => Self::SocketSetOptTime {
+                fd,
+                opt: opt.into(),
+                size,
+            },
+            LogFileJournalEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown { fd, how },
         }
     }
 }

@@ -2,9 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
+use virtual_net::{IpAddr, IpCidr, Ipv4Addr, Ipv6Addr};
 use wasmer_wasix_types::wasi::{
-    Advice, EpollCtl, EpollEventCtl, ExitCode, Fdflags, FileDelta, Filesize, Fstflags, LookupFlags,
-    Oflags, Rights, Snapshot0Clockid, Timestamp, Tty, Whence,
+    Addressfamily, Advice, EpollCtl, EpollEventCtl, ExitCode, Fdflags, FileDelta, Filesize,
+    Fstflags, LookupFlags, Oflags, Rights, SdFlags, SiFlags, Snapshot0Clockid, SockProto,
+    Sockoption, Socktype, Streamsecurity, Timestamp, Tty, Whence,
 };
 
 use futures::future::LocalBoxFuture;
@@ -185,6 +187,110 @@ pub enum JournalEntry<'a> {
     CreatePipe {
         fd1: Fd,
         fd2: Fd,
+    },
+    PortAddAddr {
+        cidr: IpCidr,
+    },
+    PortDelAddr {
+        addr: IpAddr,
+    },
+    PortAddrClear,
+    PortBridge {
+        network: String,
+        token: String,
+        security: Streamsecurity,
+    },
+    PortUnbridge,
+    PortDhcpAcquire,
+    PortGatewaySet {
+        ip: IpAddr,
+    },
+    PortRouteAdd {
+        cidr: IpCidr,
+        via_router: IpAddr,
+        preferred_until: Option<Timestamp>,
+        expires_at: Option<Timestamp>,
+    },
+    PortRouteClear,
+    PortRouteDel {
+        ip: IpAddr,
+    },
+    SocketOpen {
+        af: Addressfamily,
+        ty: Socktype,
+        pt: SockProto,
+        fd: Fd,
+    },
+    SocketListen {
+        fd: Fd,
+        backlog: u32,
+    },
+    SocketBind {
+        fd: Fd,
+        addr: SocketAddr,
+    },
+    SocketConnect {
+        fd: Fd,
+        addr: SocketAddr,
+    },
+    SocketAccept {
+        listen_fd: Fd,
+        fd: Fd,
+        peer_addr: SocketAddr,
+    },
+    SocketJoinIpv4Multicast {
+        fd: Fd,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+    },
+    SocketJoinIpv6Multicast {
+        fd: Fd,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+    },
+    SocketLeaveIpv4Multicast {
+        fd: Fd,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+    },
+    SocketLeaveIpv6Multicast {
+        fd: Fd,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+    },
+    SocketSendFile {
+        socket_fd: Fd,
+        file_fd: Fd,
+    },
+    SocketSendTo {
+        fd: Fd,
+        data: Cow<'a, [u8]>,
+        flags: SiFlags,
+        addr: SocketAddr,
+    },
+    SocketSend {
+        fd: Fd,
+        data: Cow<'a, [u8]>,
+        flags: SiFlags,
+    },
+    SocketSetOptFlag {
+        fd: Fd,
+        opt: Sockoption,
+        flag: bool,
+    },
+    SocketSetOptSize {
+        fd: Fd,
+        opt: Sockoption,
+        size: u64,
+    },
+    SocketSetOptTime {
+        fd: Fd,
+        opt: Sockoption,
+        size: Option<Timestamp>,
+    },
+    SocketShutdown {
+        fd: Fd,
+        how: SdFlags,
     },
     /// Represents the marker for the end of a snapshot
     Snapshot {

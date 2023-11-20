@@ -9,13 +9,10 @@ pub struct FilteredJournal {
     inner: Box<DynJournal>,
     filter_memory: bool,
     filter_threads: bool,
-    filter_files: bool,
-    filter_chdir: bool,
-    filter_clock: bool,
-    filter_terminal: bool,
+    filter_fs: bool,
+    filter_core: bool,
     filter_snapshots: bool,
-    filter_descriptors: bool,
-    filter_epoll: bool,
+    filter_net: bool,
 }
 
 impl FilteredJournal {
@@ -24,13 +21,10 @@ impl FilteredJournal {
             inner,
             filter_memory: false,
             filter_threads: false,
-            filter_files: false,
-            filter_chdir: false,
-            filter_clock: false,
-            filter_terminal: false,
+            filter_fs: false,
+            filter_core: false,
             filter_snapshots: false,
-            filter_descriptors: false,
-            filter_epoll: false,
+            filter_net: false,
         }
     }
 
@@ -44,28 +38,13 @@ impl FilteredJournal {
         self
     }
 
-    pub fn with_ignore_files(mut self, val: bool) -> Self {
-        self.filter_files = val;
+    pub fn with_ignore_fs(mut self, val: bool) -> Self {
+        self.filter_fs = val;
         self
     }
 
-    pub fn with_ignore_chdir(mut self, val: bool) -> Self {
-        self.filter_chdir = val;
-        self
-    }
-
-    pub fn with_ignore_clock(mut self, val: bool) -> Self {
-        self.filter_clock = val;
-        self
-    }
-
-    pub fn with_ignore_epoll(mut self, val: bool) -> Self {
-        self.filter_epoll = val;
-        self
-    }
-
-    pub fn with_ignore_terminal(mut self, val: bool) -> Self {
-        self.filter_terminal = val;
+    pub fn with_ignore_core(mut self, val: bool) -> Self {
+        self.filter_core = val;
         self
     }
 
@@ -74,8 +53,8 @@ impl FilteredJournal {
         self
     }
 
-    pub fn with_ignore_descriptors(mut self, val: bool) -> Self {
-        self.filter_descriptors = val;
+    pub fn with_ignore_networking(mut self, val: bool) -> Self {
+        self.filter_net = val;
         self
     }
 }
@@ -84,7 +63,18 @@ impl Journal for FilteredJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
         Box::pin(async {
             let evt = match entry {
-                JournalEntry::InitModule { .. } => {
+                JournalEntry::SetClockTime { .. }
+                | JournalEntry::InitModule { .. }
+                | JournalEntry::ProcessExit { .. }
+                | JournalEntry::EpollCreate { .. }
+                | JournalEntry::EpollCtl { .. }
+                | JournalEntry::TtySet { .. } => {
+                    if self.filter_core {
+                        return Ok(());
+                    }
+                    entry
+                }
+                JournalEntry::SetThread { .. } | JournalEntry::CloseThread { .. } => {
                     if self.filter_threads {
                         return Ok(());
                     }
@@ -96,62 +86,28 @@ impl Journal for FilteredJournal {
                     }
                     entry
                 }
-                JournalEntry::ProcessExit { .. } => {
-                    if self.filter_threads {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::SetThread { .. } => {
-                    if self.filter_threads {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CloseThread { .. } => {
-                    if self.filter_threads {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorSeek { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorWrite { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::OpenFileDescriptor { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CloseFileDescriptor { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::RemoveDirectory { .. } => {
-                    if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::UnlinkFile { .. } => {
-                    if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::PathRename { .. } => {
-                    if self.filter_files {
+                JournalEntry::FileDescriptorSeek { .. }
+                | JournalEntry::FileDescriptorWrite { .. }
+                | JournalEntry::OpenFileDescriptor { .. }
+                | JournalEntry::CloseFileDescriptor { .. }
+                | JournalEntry::RemoveDirectory { .. }
+                | JournalEntry::UnlinkFile { .. }
+                | JournalEntry::PathRename { .. }
+                | JournalEntry::RenumberFileDescriptor { .. }
+                | JournalEntry::DuplicateFileDescriptor { .. }
+                | JournalEntry::CreateDirectory { .. }
+                | JournalEntry::PathSetTimes { .. }
+                | JournalEntry::FileDescriptorSetFlags { .. }
+                | JournalEntry::FileDescriptorAdvise { .. }
+                | JournalEntry::FileDescriptorAllocate { .. }
+                | JournalEntry::FileDescriptorSetRights { .. }
+                | JournalEntry::FileDescriptorSetTimes { .. }
+                | JournalEntry::FileDescriptorSetSize { .. }
+                | JournalEntry::CreateHardLink { .. }
+                | JournalEntry::CreateSymbolicLink { .. }
+                | JournalEntry::ChangeDirectory { .. }
+                | JournalEntry::CreatePipe { .. } => {
+                    if self.filter_fs {
                         return Ok(());
                     }
                     entry
@@ -162,111 +118,33 @@ impl Journal for FilteredJournal {
                     }
                     entry
                 }
-                JournalEntry::SetClockTime { .. } => {
-                    if self.filter_clock {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::RenumberFileDescriptor { .. } => {
-                    if self.filter_terminal {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::DuplicateFileDescriptor { .. } => {
-                    if self.filter_terminal {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CreateDirectory { .. } => {
-                    if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::PathSetTimes { .. } => {
-                    if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorSetFlags { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorAdvise { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorAllocate { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-
-                JournalEntry::FileDescriptorSetRights { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorSetTimes { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::FileDescriptorSetSize { .. } => {
-                    if self.filter_descriptors {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CreateHardLink { .. } => {
-                    if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CreateSymbolicLink { .. } => {
-                    if self.filter_files {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::ChangeDirectory { .. } => {
-                    if self.filter_chdir {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::EpollCreate { .. } => {
-                    if self.filter_memory {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::EpollCtl { .. } => {
-                    if self.filter_memory {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::TtySet { .. } => {
-                    if self.filter_terminal {
-                        return Ok(());
-                    }
-                    entry
-                }
-                JournalEntry::CreatePipe { .. } => {
-                    if self.filter_files {
+                JournalEntry::PortAddAddr { .. }
+                | JournalEntry::PortDelAddr { .. }
+                | JournalEntry::PortAddrClear
+                | JournalEntry::PortBridge { .. }
+                | JournalEntry::PortUnbridge
+                | JournalEntry::PortDhcpAcquire
+                | JournalEntry::PortGatewaySet { .. }
+                | JournalEntry::PortRouteAdd { .. }
+                | JournalEntry::PortRouteClear
+                | JournalEntry::PortRouteDel { .. }
+                | JournalEntry::SocketOpen { .. }
+                | JournalEntry::SocketListen { .. }
+                | JournalEntry::SocketBind { .. }
+                | JournalEntry::SocketConnect { .. }
+                | JournalEntry::SocketAccept { .. }
+                | JournalEntry::SocketJoinIpv4Multicast { .. }
+                | JournalEntry::SocketJoinIpv6Multicast { .. }
+                | JournalEntry::SocketLeaveIpv4Multicast { .. }
+                | JournalEntry::SocketLeaveIpv6Multicast { .. }
+                | JournalEntry::SocketSendFile { .. }
+                | JournalEntry::SocketSendTo { .. }
+                | JournalEntry::SocketSend { .. }
+                | JournalEntry::SocketSetOptFlag { .. }
+                | JournalEntry::SocketSetOptSize { .. }
+                | JournalEntry::SocketSetOptTime { .. }
+                | JournalEntry::SocketShutdown { .. } => {
+                    if self.filter_net {
                         return Ok(());
                     }
                     entry

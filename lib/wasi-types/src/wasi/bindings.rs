@@ -1351,7 +1351,7 @@ impl core::fmt::Debug for StdioMode {
     }
 }
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
 pub enum SockProto {
     Ip,
     Icmp,
