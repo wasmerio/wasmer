@@ -202,8 +202,8 @@ pub enum JournalEntry<'a> {
     },
     PortAddrClear,
     PortBridge {
-        network: String,
-        token: String,
+        network: Cow<'a, str>,
+        token: Cow<'a, str>,
         security: StreamSecurity,
     },
     PortUnbridge,

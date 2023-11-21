@@ -1318,11 +1318,9 @@ pub fn restore_snapshot(
                     is_64bit,
                 } => {
                     if is_64bit {
-                        JournalEffector::apply_fd_write::<Memory64>(&mut ctx, fd, offset, data)
-                            .await
+                        JournalEffector::apply_fd_write::<Memory64>(&ctx, fd, offset, data).await
                     } else {
-                        JournalEffector::apply_fd_write::<Memory32>(&mut ctx, fd, offset, data)
-                            .await
+                        JournalEffector::apply_fd_write::<Memory32>(&ctx, fd, offset, data).await
                     }
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
@@ -1693,10 +1691,10 @@ pub fn restore_snapshot(
                     addr,
                     is_64bit,
                 } => if is_64bit {
-                    JournalEffector::apply_sock_send_to::<Memory64>(&mut ctx, fd, data, flags, addr)
+                    JournalEffector::apply_sock_send_to::<Memory64>(&ctx, fd, data, flags, addr)
                         .await
                 } else {
-                    JournalEffector::apply_sock_send_to::<Memory32>(&mut ctx, fd, data, flags, addr)
+                    JournalEffector::apply_sock_send_to::<Memory32>(&ctx, fd, data, flags, addr)
                         .await
                 }
                 .map_err(anyhow_err_to_runtime_err)?,
@@ -1706,9 +1704,9 @@ pub fn restore_snapshot(
                     flags,
                     is_64bit,
                 } => if is_64bit {
-                    JournalEffector::apply_sock_send::<Memory64>(&mut ctx, fd, data, flags).await
+                    JournalEffector::apply_sock_send::<Memory64>(&ctx, fd, data, flags).await
                 } else {
-                    JournalEffector::apply_sock_send::<Memory32>(&mut ctx, fd, data, flags).await
+                    JournalEffector::apply_sock_send::<Memory32>(&ctx, fd, data, flags).await
                 }
                 .map_err(anyhow_err_to_runtime_err)?,
                 crate::journaling::JournalEntry::SocketSetOptFlag { fd, opt, flag } => {

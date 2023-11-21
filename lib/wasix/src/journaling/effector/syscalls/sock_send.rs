@@ -38,7 +38,7 @@ impl JournalEffector {
                         fd,
                         data: Cow::Borrowed(buf.as_ref()),
                         is_64bit: M::is_64bit(),
-                        flags: si_flags as u16,
+                        flags: si_flags,
                     })
                     .await
                     .map_err(map_snapshot_err)?;

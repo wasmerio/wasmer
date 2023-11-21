@@ -1082,7 +1082,7 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
             } => Self::SocketSendToV1 {
                 fd,
                 data: data.into(),
-                flags: flags as u16,
+                flags,
                 addr,
                 is_64bit,
             },
@@ -1094,7 +1094,7 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
             } => Self::SocketSendV1 {
                 fd,
                 data: data.into(),
-                flags: flags as u16,
+                flags,
                 is_64bit,
             },
             JournalEntry::SocketSetOptFlag { fd, opt, flag } => Self::SocketSetOptFlagV1 {
