@@ -10,8 +10,8 @@ use std::{
 
 use futures::future::BoxFuture;
 use virtual_fs::{
-    host_fs, mem_fs, tmp_fs, AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, FileSystem, Pipe,
-    ReadBuf, RootFileSystemBuilder,
+    host_fs, mem_fs, tmp_fs, AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt,
+    FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};

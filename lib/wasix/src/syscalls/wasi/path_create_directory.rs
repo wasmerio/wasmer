@@ -68,7 +68,6 @@ pub fn path_create_directory<M: MemorySize>(
                 ref mut entries,
                 path,
                 parent,
-                ..
             } => {
                 match comp.borrow() {
                     ".." => {
@@ -104,15 +103,8 @@ pub fn path_create_directory<M: MemorySize>(
                     }
                     let kind = Kind::Dir {
                         parent: cur_dir_inode.downgrade(),
-                        path: adjusted_path.clone(),
+                        path: adjusted_path,
                         entries: Default::default(),
-                        dir: state
-                            .fs
-                            .root_fs
-                            .as_dir()
-                            .walk_to(adjusted_path)
-                            .unwrap()
-                            .into(),
                     };
                     let new_inode =
                         wasi_try!(state.fs.create_inode(inodes, kind, false, comp.to_string()));
