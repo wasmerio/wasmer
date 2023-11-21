@@ -63,7 +63,7 @@ pub(crate) fn sock_open_internal(
 
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
-            socket: wasi_try_ok_ok!(InodeSocket::new(InodeSocketKind::PreSocket {
+            socket: InodeSocket::new(InodeSocketKind::PreSocket {
                 family: af,
                 ty,
                 pt,
@@ -81,8 +81,7 @@ pub(crate) fn sock_open_internal(
                 accept_timeout: None,
                 connect_timeout: None,
                 handler: None,
-            })
-            .map_err(net_error_into_wasi_err)),
+            }),
         },
         _ => return Ok(Err(Errno::Notsup)),
     };

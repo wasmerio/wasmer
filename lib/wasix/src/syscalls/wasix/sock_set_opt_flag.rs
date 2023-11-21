@@ -17,6 +17,12 @@ pub fn sock_set_opt_flag(
     opt: Sockoption,
     flag: Bool,
 ) -> Result<Errno, WasiError> {
+    let flag = match flag {
+        Bool::False => false,
+        Bool::True => true,
+        _ => return Ok(Errno::Inval),
+    };
+
     wasi_try_ok!(sock_set_opt_flag_internal(&mut ctx, sock, opt, flag)?);
 
     Ok(Errno::Success)
@@ -26,14 +32,8 @@ pub(crate) fn sock_set_opt_flag_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     opt: Sockoption,
-    flag: Bool,
+    flag: bool,
 ) -> Result<Result<(), Errno>, WasiError> {
-    let flag = match flag {
-        Bool::False => false,
-        Bool::True => true,
-        _ => return Ok(Err(Errno::Inval)),
-    };
-
     let option: crate::net::socket::WasiSocketOption = opt.into();
     wasi_try_ok_ok!(__sock_actor_mut(
         ctx,

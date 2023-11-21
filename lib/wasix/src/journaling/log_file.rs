@@ -2,19 +2,18 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::{self, ErrorKind, SeekFrom},
     mem::MaybeUninit,
+    net::Shutdown,
     path::Path,
     time::SystemTime,
 };
 use tokio::runtime::Handle;
-use virtual_net::{IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use wasmer_wasix_types::wasi::{
-    self, Addressfamily, EpollEventCtl, Sockoption, Socktype, Streamsecurity,
-};
+use virtual_net::{Duration, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, SocketAddr, StreamSecurity};
+use wasmer_wasix_types::wasi::{self, Addressfamily, EpollEventCtl, Sockoption, Socktype};
 
 use futures::future::LocalBoxFuture;
 use virtual_fs::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use crate::WasiThreadId;
+use crate::{net::socket::TimeType, WasiThreadId};
 
 use super::*;
 
@@ -201,8 +200,8 @@ pub(crate) enum LogFileJournalEntry {
     PortRouteAddV1 {
         cidr: IpCidr,
         via_router: IpAddr,
-        preferred_until: Option<Timestamp>,
-        expires_at: Option<Timestamp>,
+        preferred_until: Option<Duration>,
+        expires_at: Option<Duration>,
     },
     PortRouteClearV1,
     PortRouteDelV1 {
@@ -222,14 +221,16 @@ pub(crate) enum LogFileJournalEntry {
         fd: u32,
         addr: SocketAddr,
     },
-    SocketConnectV1 {
+    SocketConnectedV1 {
         fd: u32,
         addr: SocketAddr,
     },
-    SocketAcceptV1 {
+    SocketAcceptedV1 {
         listen_fd: u32,
         fd: u32,
         peer_addr: SocketAddr,
+        fd_flags: u16,
+        nonblocking: bool,
     },
     SocketJoinIpv4MulticastV1 {
         fd: u32,
@@ -254,17 +255,21 @@ pub(crate) enum LogFileJournalEntry {
     SocketSendFileV1 {
         socket_fd: u32,
         file_fd: u32,
+        offset: u64,
+        count: u64,
     },
     SocketSendToV1 {
         fd: u32,
         data: Vec<u8>,
         flags: u16,
         addr: SocketAddr,
+        is_64bit: bool,
     },
     SocketSendV1 {
         fd: u32,
         data: Vec<u8>,
         flags: u16,
+        is_64bit: bool,
     },
     SocketSetOptFlagV1 {
         fd: u32,
@@ -278,12 +283,12 @@ pub(crate) enum LogFileJournalEntry {
     },
     SocketSetOptTimeV1 {
         fd: u32,
-        opt: JournalSockoptionV1,
-        size: Option<u64>,
+        ty: JournalTimeTypeV1,
+        time: Option<Duration>,
     },
     SocketShutdownV1 {
         fd: u32,
-        how: u8,
+        how: JournalSocketShutdownV1,
     },
     SnapshotV1 {
         when: SystemTime,
@@ -506,26 +511,25 @@ pub enum JournalStreamSecurityV1 {
     Unknown,
 }
 
-impl From<Streamsecurity> for JournalStreamSecurityV1 {
-    fn from(val: Streamsecurity) -> Self {
+impl From<StreamSecurity> for JournalStreamSecurityV1 {
+    fn from(val: StreamSecurity) -> Self {
         match val {
-            Streamsecurity::Unencrypted => JournalStreamSecurityV1::Unencrypted,
-            Streamsecurity::AnyEncryption => JournalStreamSecurityV1::AnyEncryption,
-            Streamsecurity::ClassicEncryption => JournalStreamSecurityV1::ClassicEncryption,
-            Streamsecurity::DoubleEncryption => JournalStreamSecurityV1::DoubleEncryption,
-            Streamsecurity::Unknown => JournalStreamSecurityV1::Unknown,
+            StreamSecurity::Unencrypted => JournalStreamSecurityV1::Unencrypted,
+            StreamSecurity::AnyEncyption => JournalStreamSecurityV1::AnyEncryption,
+            StreamSecurity::ClassicEncryption => JournalStreamSecurityV1::ClassicEncryption,
+            StreamSecurity::DoubleEncryption => JournalStreamSecurityV1::DoubleEncryption,
         }
     }
 }
 
-impl From<JournalStreamSecurityV1> for Streamsecurity {
+impl From<JournalStreamSecurityV1> for StreamSecurity {
     fn from(val: JournalStreamSecurityV1) -> Self {
         match val {
-            JournalStreamSecurityV1::Unencrypted => Streamsecurity::Unencrypted,
-            JournalStreamSecurityV1::AnyEncryption => Streamsecurity::AnyEncryption,
-            JournalStreamSecurityV1::ClassicEncryption => Streamsecurity::ClassicEncryption,
-            JournalStreamSecurityV1::DoubleEncryption => Streamsecurity::DoubleEncryption,
-            JournalStreamSecurityV1::Unknown => Streamsecurity::Unknown,
+            JournalStreamSecurityV1::Unencrypted => StreamSecurity::Unencrypted,
+            JournalStreamSecurityV1::AnyEncryption => StreamSecurity::AnyEncyption,
+            JournalStreamSecurityV1::ClassicEncryption => StreamSecurity::ClassicEncryption,
+            JournalStreamSecurityV1::DoubleEncryption => StreamSecurity::DoubleEncryption,
+            JournalStreamSecurityV1::Unknown => StreamSecurity::AnyEncyption,
         }
     }
 }
@@ -688,6 +692,69 @@ impl From<JournalSockoptionV1> for Sockoption {
             JournalSockoptionV1::MulticastTtlV4 => Sockoption::MulticastTtlV4,
             JournalSockoptionV1::Type => Sockoption::Type,
             JournalSockoptionV1::Proto => Sockoption::Proto,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum JournalTimeTypeV1 {
+    ReadTimeout,
+    WriteTimeout,
+    AcceptTimeout,
+    ConnectTimeout,
+    BindTimeout,
+    Linger,
+}
+
+impl From<TimeType> for JournalTimeTypeV1 {
+    fn from(val: TimeType) -> Self {
+        match val {
+            TimeType::ReadTimeout => JournalTimeTypeV1::ReadTimeout,
+            TimeType::WriteTimeout => JournalTimeTypeV1::WriteTimeout,
+            TimeType::AcceptTimeout => JournalTimeTypeV1::AcceptTimeout,
+            TimeType::ConnectTimeout => JournalTimeTypeV1::ConnectTimeout,
+            TimeType::BindTimeout => JournalTimeTypeV1::BindTimeout,
+            TimeType::Linger => JournalTimeTypeV1::Linger,
+        }
+    }
+}
+
+impl From<JournalTimeTypeV1> for TimeType {
+    fn from(val: JournalTimeTypeV1) -> Self {
+        match val {
+            JournalTimeTypeV1::ReadTimeout => TimeType::ReadTimeout,
+            JournalTimeTypeV1::WriteTimeout => TimeType::WriteTimeout,
+            JournalTimeTypeV1::AcceptTimeout => TimeType::AcceptTimeout,
+            JournalTimeTypeV1::ConnectTimeout => TimeType::ConnectTimeout,
+            JournalTimeTypeV1::BindTimeout => TimeType::BindTimeout,
+            JournalTimeTypeV1::Linger => TimeType::Linger,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum JournalSocketShutdownV1 {
+    Read,
+    Write,
+    Both,
+}
+
+impl From<Shutdown> for JournalSocketShutdownV1 {
+    fn from(val: Shutdown) -> Self {
+        match val {
+            Shutdown::Read => JournalSocketShutdownV1::Read,
+            Shutdown::Write => JournalSocketShutdownV1::Write,
+            Shutdown::Both => JournalSocketShutdownV1::Both,
+        }
+    }
+}
+
+impl From<JournalSocketShutdownV1> for Shutdown {
+    fn from(val: JournalSocketShutdownV1) -> Self {
+        match val {
+            JournalSocketShutdownV1::Read => Shutdown::Read,
+            JournalSocketShutdownV1::Write => Shutdown::Write,
+            JournalSocketShutdownV1::Both => Shutdown::Both,
         }
     }
 }
@@ -940,15 +1007,19 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
             },
             JournalEntry::SocketListen { fd, backlog } => Self::SocketListenV1 { fd, backlog },
             JournalEntry::SocketBind { fd, addr } => Self::SocketBindV1 { fd, addr },
-            JournalEntry::SocketConnect { fd, addr } => Self::SocketConnectV1 { fd, addr },
-            JournalEntry::SocketAccept {
+            JournalEntry::SocketConnected { fd, addr } => Self::SocketConnectedV1 { fd, addr },
+            JournalEntry::SocketAccepted {
                 listen_fd,
                 fd,
                 peer_addr,
-            } => Self::SocketAcceptV1 {
+                fd_flags,
+                nonblocking,
+            } => Self::SocketAcceptedV1 {
                 listen_fd,
                 fd,
                 peer_addr,
+                fd_flags: fd_flags.bits(),
+                nonblocking,
             },
             JournalEntry::SocketJoinIpv4Multicast {
                 fd,
@@ -986,24 +1057,40 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 multiaddr,
                 iface,
             },
-            JournalEntry::SocketSendFile { socket_fd, file_fd } => {
-                Self::SocketSendFileV1 { socket_fd, file_fd }
-            }
+            JournalEntry::SocketSendFile {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            } => Self::SocketSendFileV1 {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            },
             JournalEntry::SocketSendTo {
                 fd,
                 data,
                 flags,
                 addr,
+                is_64bit,
             } => Self::SocketSendToV1 {
                 fd,
                 data: data.into(),
                 flags: flags as u16,
                 addr,
+                is_64bit,
             },
-            JournalEntry::SocketSend { fd, data, flags } => Self::SocketSendV1 {
+            JournalEntry::SocketSend {
+                fd,
+                data,
+                flags,
+                is_64bit,
+            } => Self::SocketSendV1 {
                 fd,
                 data: data.into(),
                 flags: flags as u16,
+                is_64bit,
             },
             JournalEntry::SocketSetOptFlag { fd, opt, flag } => Self::SocketSetOptFlagV1 {
                 fd,
@@ -1015,12 +1102,15 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 opt: opt.into(),
                 size,
             },
-            JournalEntry::SocketSetOptTime { fd, opt, size } => Self::SocketSetOptTimeV1 {
+            JournalEntry::SocketSetOptTime { fd, ty, time } => Self::SocketSetOptTimeV1 {
                 fd,
-                opt: opt.into(),
-                size,
+                ty: ty.into(),
+                time,
             },
-            JournalEntry::SocketShutdown { fd, how } => Self::SocketShutdownV1 { fd, how },
+            JournalEntry::SocketShutdown { fd, how } => Self::SocketShutdownV1 {
+                fd,
+                how: how.into(),
+            },
         }
     }
 }
@@ -1293,15 +1383,21 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 Self::SocketListen { fd, backlog }
             }
             LogFileJournalEntry::SocketBindV1 { fd, addr } => Self::SocketBind { fd, addr },
-            LogFileJournalEntry::SocketConnectV1 { fd, addr } => Self::SocketConnect { fd, addr },
-            LogFileJournalEntry::SocketAcceptV1 {
+            LogFileJournalEntry::SocketConnectedV1 { fd, addr } => {
+                Self::SocketConnected { fd, addr }
+            }
+            LogFileJournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
                 peer_addr,
-            } => Self::SocketAccept {
+                fd_flags,
+                nonblocking,
+            } => Self::SocketAccepted {
                 listen_fd,
                 fd,
                 peer_addr,
+                fd_flags: Fdflags::from_bits_truncate(fd_flags),
+                nonblocking,
             },
             LogFileJournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
@@ -1339,24 +1435,40 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 multiaddr,
                 iface,
             },
-            LogFileJournalEntry::SocketSendFileV1 { socket_fd, file_fd } => {
-                Self::SocketSendFile { socket_fd, file_fd }
-            }
+            LogFileJournalEntry::SocketSendFileV1 {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            } => Self::SocketSendFile {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            },
             LogFileJournalEntry::SocketSendToV1 {
                 fd,
                 data,
                 flags,
                 addr,
+                is_64bit,
             } => Self::SocketSendTo {
                 fd,
                 data: data.into(),
                 flags,
                 addr,
+                is_64bit,
             },
-            LogFileJournalEntry::SocketSendV1 { fd, data, flags } => Self::SocketSend {
+            LogFileJournalEntry::SocketSendV1 {
+                fd,
+                data,
+                flags,
+                is_64bit,
+            } => Self::SocketSend {
                 fd,
                 data: data.into(),
                 flags,
+                is_64bit,
             },
             LogFileJournalEntry::SocketSetOptFlagV1 { fd, opt, flag } => Self::SocketSetOptFlag {
                 fd,
@@ -1368,12 +1480,15 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 opt: opt.into(),
                 size,
             },
-            LogFileJournalEntry::SocketSetOptTimeV1 { fd, opt, size } => Self::SocketSetOptTime {
+            LogFileJournalEntry::SocketSetOptTimeV1 { fd, ty, time } => Self::SocketSetOptTime {
                 fd,
-                opt: opt.into(),
-                size,
+                ty: ty.into(),
+                time,
             },
-            LogFileJournalEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown { fd, how },
+            LogFileJournalEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown {
+                fd,
+                how: how.into(),
+            },
         }
     }
 }

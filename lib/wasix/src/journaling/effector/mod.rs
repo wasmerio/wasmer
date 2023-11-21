@@ -51,6 +51,32 @@ mod syscalls {
     mod path_set_times;
     mod path_symlink;
     mod path_unlink;
+    mod port_addr_add;
+    mod port_addr_clear;
+    mod port_addr_remove;
+    mod port_bridge;
+    mod port_dhcp_acquire;
+    mod port_gateway_set;
+    mod port_route_add;
+    mod port_route_clear;
+    mod port_route_remove;
+    mod port_unbridge;
+    mod sock_accept;
+    mod sock_bind;
+    mod sock_connect;
+    mod sock_join_ipv4_multicast;
+    mod sock_join_ipv6_multicast;
+    mod sock_leave_ipv4_multicast;
+    mod sock_leave_ipv6_multicast;
+    mod sock_listen;
+    mod sock_open;
+    mod sock_send;
+    mod sock_send_file;
+    mod sock_send_to;
+    mod sock_set_opt_flag;
+    mod sock_set_opt_size;
+    mod sock_set_opt_time;
+    mod sock_shutdown;
     mod tty_set;
 }
 #[cfg(feature = "journal")]

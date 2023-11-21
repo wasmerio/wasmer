@@ -55,7 +55,7 @@ pub fn sock_send<M: MemorySize>(
         )?)
     } else {
         wasi_try_ok!(sock_send_internal::<M>(
-            &mut ctx,
+            &ctx,
             fd,
             FdWriteSource::Iovs {
                 iovs: si_data,
@@ -76,7 +76,7 @@ pub fn sock_send<M: MemorySize>(
 }
 
 pub(crate) fn sock_send_internal<M: MemorySize>(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: FdWriteSource<'_, M>,
     si_flags: SiFlags,

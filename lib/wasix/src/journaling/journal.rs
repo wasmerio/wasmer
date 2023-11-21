@@ -1,17 +1,18 @@
 use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
+use std::net::{Shutdown, SocketAddr};
 use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
-use virtual_net::{IpAddr, IpCidr, Ipv4Addr, Ipv6Addr};
+use virtual_net::{Duration, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, StreamSecurity};
 use wasmer_wasix_types::wasi::{
     Addressfamily, Advice, EpollCtl, EpollEventCtl, ExitCode, Fdflags, FileDelta, Filesize,
-    Fstflags, LookupFlags, Oflags, Rights, SdFlags, SiFlags, Snapshot0Clockid, SockProto,
-    Sockoption, Socktype, Streamsecurity, Timestamp, Tty, Whence,
+    Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto, Sockoption,
+    Socktype, Timestamp, Tty, Whence,
 };
 
 use futures::future::LocalBoxFuture;
 use virtual_fs::Fd;
 
+use crate::net::socket::TimeType;
 use crate::WasiThreadId;
 
 use super::SnapshotTrigger;
@@ -198,7 +199,7 @@ pub enum JournalEntry<'a> {
     PortBridge {
         network: String,
         token: String,
-        security: Streamsecurity,
+        security: StreamSecurity,
     },
     PortUnbridge,
     PortDhcpAcquire,
@@ -208,8 +209,8 @@ pub enum JournalEntry<'a> {
     PortRouteAdd {
         cidr: IpCidr,
         via_router: IpAddr,
-        preferred_until: Option<Timestamp>,
-        expires_at: Option<Timestamp>,
+        preferred_until: Option<Duration>,
+        expires_at: Option<Duration>,
     },
     PortRouteClear,
     PortRouteDel {
@@ -229,14 +230,16 @@ pub enum JournalEntry<'a> {
         fd: Fd,
         addr: SocketAddr,
     },
-    SocketConnect {
+    SocketConnected {
         fd: Fd,
         addr: SocketAddr,
     },
-    SocketAccept {
+    SocketAccepted {
         listen_fd: Fd,
         fd: Fd,
         peer_addr: SocketAddr,
+        fd_flags: Fdflags,
+        nonblocking: bool,
     },
     SocketJoinIpv4Multicast {
         fd: Fd,
@@ -261,17 +264,21 @@ pub enum JournalEntry<'a> {
     SocketSendFile {
         socket_fd: Fd,
         file_fd: Fd,
+        offset: Filesize,
+        count: Filesize,
     },
     SocketSendTo {
         fd: Fd,
         data: Cow<'a, [u8]>,
         flags: SiFlags,
         addr: SocketAddr,
+        is_64bit: bool,
     },
     SocketSend {
         fd: Fd,
         data: Cow<'a, [u8]>,
         flags: SiFlags,
+        is_64bit: bool,
     },
     SocketSetOptFlag {
         fd: Fd,
@@ -285,12 +292,12 @@ pub enum JournalEntry<'a> {
     },
     SocketSetOptTime {
         fd: Fd,
-        opt: Sockoption,
-        size: Option<Timestamp>,
+        ty: TimeType,
+        time: Option<Duration>,
     },
     SocketShutdown {
         fd: Fd,
-        how: SdFlags,
+        how: Shutdown,
     },
     /// Represents the marker for the end of a snapshot
     Snapshot {

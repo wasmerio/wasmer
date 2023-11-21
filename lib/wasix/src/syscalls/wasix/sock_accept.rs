@@ -111,12 +111,11 @@ pub(crate) fn sock_accept_internal(
     ));
 
     let kind = Kind::Socket {
-        socket: wasi_try_ok_ok!(InodeSocket::new(InodeSocketKind::TcpStream {
+        socket: InodeSocket::new(InodeSocketKind::TcpStream {
             socket: child,
             write_timeout: None,
             read_timeout: None,
-        })
-        .map_err(net_error_into_wasi_err)),
+        }),
     };
     let inode = state
         .fs

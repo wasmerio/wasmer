@@ -14,15 +14,14 @@ impl JournalEffector {
         fd: Fd,
         flags: Fdflags,
     ) -> anyhow::Result<()> {
-        crate::syscalls::fd_fdstat_set_flags_internal(ctx, fd, flags)
-            .map_err(|err| {
-                anyhow::format_err!(
-                    "journal restore error: failed to duplicate file descriptor (fd={}, flags={:?}) - {}",
-                    fd,
-                    flags,
-                    err
-                )
-            })?;
+        crate::syscalls::fd_fdstat_set_flags_internal(ctx, fd, flags).map_err(|err| {
+            anyhow::format_err!(
+                "journal restore error: failed to set file flags (fd={}, flags={:?}) - {}",
+                fd,
+                flags,
+                err
+            )
+        })?;
         Ok(())
     }
 }

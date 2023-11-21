@@ -131,8 +131,8 @@ impl Journal for FilteredJournal {
                 | JournalEntry::SocketOpen { .. }
                 | JournalEntry::SocketListen { .. }
                 | JournalEntry::SocketBind { .. }
-                | JournalEntry::SocketConnect { .. }
-                | JournalEntry::SocketAccept { .. }
+                | JournalEntry::SocketConnected { .. }
+                | JournalEntry::SocketAccepted { .. }
                 | JournalEntry::SocketJoinIpv4Multicast { .. }
                 | JournalEntry::SocketJoinIpv6Multicast { .. }
                 | JournalEntry::SocketLeaveIpv4Multicast { .. }

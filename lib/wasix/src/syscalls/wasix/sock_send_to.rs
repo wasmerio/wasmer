@@ -38,27 +38,35 @@ pub fn sock_send_to<M: MemorySize>(
     let addr = SocketAddr::new(addr_ip, addr_port);
     Span::current().record("addr", &format!("{:?}", addr));
 
-    wasi_try_ok!(sock_send_to_internal(
-        ctx,
+    let bytes_written = wasi_try_ok!(sock_send_to_internal(
+        &ctx,
         sock,
-        si_data,
-        si_data_len,
+        FdWriteSource::Iovs {
+            iovs: si_data,
+            iovs_len: si_data_len
+        },
         si_flags,
         addr,
-        ret_data_len,
     )?);
+
+    Span::current().record("nsent", bytes_written);
+
+    let env = ctx.data();
+    let memory = unsafe { env.memory_view(&ctx) };
+    let bytes_written: M::Offset =
+        wasi_try_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
+    wasi_try_mem_ok!(ret_data_len.write(&memory, bytes_written));
+
     Ok(Errno::Success)
 }
 
 pub(crate) fn sock_send_to_internal<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    ctx: &FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
-    si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
-    si_data_len: M::Offset,
+    si_data: FdWriteSource<'_, M>,
     _si_flags: SiFlags,
     addr: SocketAddr,
-    ret_data_len: WasmPtr<M::Offset, M>,
-) -> Result<Result<(), Errno>, WasiError> {
+) -> Result<Result<usize, Errno>, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
@@ -68,11 +76,6 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
             sock,
             Rights::SOCK_SEND_TO,
             |socket, fd| async move {
-                let iovs_arr = si_data
-                    .slice(&memory, si_data_len)
-                    .map_err(mem_error_to_wasi)?;
-                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-
                 let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
                 let timeout = socket
                     .opt_time(TimeType::WriteTimeout)
@@ -80,42 +83,57 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
                     .flatten()
                     .unwrap_or(Duration::from_secs(30));
 
-                let mut sent = 0usize;
-                for iovs in iovs_arr.iter() {
-                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                        .slice(&memory, iovs.buf_len)
-                        .map_err(mem_error_to_wasi)?
-                        .access()
-                        .map_err(mem_error_to_wasi)?;
-                    let local_sent = match socket
-                        .send_to::<M>(
-                            env.tasks().deref(),
-                            buf.as_ref(),
-                            addr,
-                            Some(timeout),
-                            nonblocking,
-                        )
-                        .await
-                    {
-                        Ok(s) => s,
-                        Err(_) if sent > 0 => break,
-                        Err(err) => return Err(err),
-                    };
-                    sent += local_sent;
-                    if local_sent != buf.len() {
-                        break;
+                match si_data {
+                    FdWriteSource::Iovs { iovs, iovs_len } => {
+                        let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
+                        let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+                        let mut sent = 0usize;
+                        for iovs in iovs_arr.iter() {
+                            let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                                .slice(&memory, iovs.buf_len)
+                                .map_err(mem_error_to_wasi)?
+                                .access()
+                                .map_err(mem_error_to_wasi)?;
+                            let local_sent = match socket
+                                .send_to::<M>(
+                                    env.tasks().deref(),
+                                    buf.as_ref(),
+                                    addr,
+                                    Some(timeout),
+                                    nonblocking,
+                                )
+                                .await
+                            {
+                                Ok(s) => s,
+                                Err(_) if sent > 0 => break,
+                                Err(err) => return Err(err),
+                            };
+                            sent += local_sent;
+                            if local_sent != buf.len() {
+                                break;
+                            }
+                        }
+                        Ok(sent)
+                    }
+                    FdWriteSource::Buffer(data) => {
+                        socket
+                            .send_to::<M>(
+                                env.tasks().deref(),
+                                data.as_ref(),
+                                addr,
+                                Some(timeout),
+                                nonblocking,
+                            )
+                            .await
                     }
                 }
-                Ok(sent)
             },
         ))
     };
-    Span::current().record("nsent", bytes_written);
+    trace!(
+        %bytes_written,
+    );
 
-    let memory = unsafe { env.memory_view(&ctx) };
-    let bytes_written: M::Offset =
-        wasi_try_ok_ok!(bytes_written.try_into().map_err(|_| Errno::Overflow));
-    wasi_try_mem_ok_ok!(ret_data_len.write(&memory, bytes_written));
-
-    Ok(Ok(()))
+    Ok(Ok(bytes_written))
 }

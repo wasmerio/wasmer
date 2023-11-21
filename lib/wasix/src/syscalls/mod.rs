@@ -1296,6 +1296,8 @@ pub fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     journal: Arc<DynJournal>,
 ) -> Result<RewindState, WasiRuntimeError> {
+    use crate::journaling::Journal;
+
     InlineWaker::block_on(async {
         let mut is_same_module = false;
         let mut rewind = None;
@@ -1560,66 +1562,171 @@ pub fn restore_snapshot(
                     )
                     .map_err(anyhow_err_to_runtime_err)?;
                 }
-                crate::journaling::JournalEntry::PortAddAddr { cidr } => todo!(),
-                crate::journaling::JournalEntry::PortDelAddr { addr } => todo!(),
-                crate::journaling::JournalEntry::PortAddrClear => todo!(),
+                crate::journaling::JournalEntry::PortAddAddr { cidr } => {
+                    JournalEffector::apply_port_addr_add(&mut ctx, cidr)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::PortDelAddr { addr } => {
+                    JournalEffector::apply_port_addr_remove(&mut ctx, addr)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::PortAddrClear => {
+                    JournalEffector::apply_port_addr_clear(&mut ctx)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
                 crate::journaling::JournalEntry::PortBridge {
                     network,
                     token,
                     security,
-                } => todo!(),
-                crate::journaling::JournalEntry::PortUnbridge => todo!(),
-                crate::journaling::JournalEntry::PortDhcpAcquire => todo!(),
-                crate::journaling::JournalEntry::PortGatewaySet { ip } => todo!(),
+                } => JournalEffector::apply_port_bridge(&mut ctx, &network, &token, security)
+                    .map_err(anyhow_err_to_runtime_err)?,
+                crate::journaling::JournalEntry::PortUnbridge => {
+                    JournalEffector::apply_port_unbridge(&mut ctx)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::PortDhcpAcquire => {
+                    JournalEffector::apply_port_dhcp_acquire(&mut ctx)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::PortGatewaySet { ip } => {
+                    JournalEffector::apply_port_gateway_set(&mut ctx, ip)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
                 crate::journaling::JournalEntry::PortRouteAdd {
                     cidr,
                     via_router,
                     preferred_until,
                     expires_at,
-                } => todo!(),
-                crate::journaling::JournalEntry::PortRouteClear => todo!(),
-                crate::journaling::JournalEntry::PortRouteDel { ip } => todo!(),
-                crate::journaling::JournalEntry::SocketOpen { af, ty, pt, fd } => todo!(),
-                crate::journaling::JournalEntry::SocketListen { fd, backlog } => todo!(),
-                crate::journaling::JournalEntry::SocketBind { fd, addr } => todo!(),
-                crate::journaling::JournalEntry::SocketConnect { fd, addr } => todo!(),
-                crate::journaling::JournalEntry::SocketAccept {
+                } => JournalEffector::apply_port_route_add(
+                    &mut ctx,
+                    cidr,
+                    via_router,
+                    preferred_until,
+                    expires_at,
+                )
+                .map_err(anyhow_err_to_runtime_err)?,
+                crate::journaling::JournalEntry::PortRouteClear => {
+                    JournalEffector::apply_port_route_clear(&mut ctx)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::PortRouteDel { ip } => {
+                    JournalEffector::apply_port_route_remove(&mut ctx, ip)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketOpen { af, ty, pt, fd } => {
+                    JournalEffector::apply_sock_open(&mut ctx, af, ty, pt, fd)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketListen { fd, backlog } => {
+                    JournalEffector::apply_sock_listen(&mut ctx, fd, backlog as usize)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketBind { fd, addr } => {
+                    JournalEffector::apply_sock_bind(&mut ctx, fd, addr)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketConnected { fd, addr } => {
+                    JournalEffector::apply_sock_connect(&mut ctx, fd, addr)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketAccepted {
                     listen_fd,
                     fd,
                     peer_addr,
-                } => todo!(),
+                    fd_flags,
+                    nonblocking,
+                } => JournalEffector::apply_sock_accepted(
+                    &mut ctx,
+                    listen_fd,
+                    fd,
+                    peer_addr,
+                    fd_flags,
+                    nonblocking,
+                )
+                .map_err(anyhow_err_to_runtime_err)?,
                 crate::journaling::JournalEntry::SocketJoinIpv4Multicast {
                     fd,
                     multiaddr,
                     iface,
-                } => todo!(),
+                } => {
+                    JournalEffector::apply_sock_join_ipv4_multicast(&mut ctx, fd, multiaddr, iface)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
                 crate::journaling::JournalEntry::SocketJoinIpv6Multicast {
                     fd,
                     multiaddr,
                     iface,
-                } => todo!(),
+                } => {
+                    JournalEffector::apply_sock_join_ipv6_multicast(&mut ctx, fd, multiaddr, iface)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
                 crate::journaling::JournalEntry::SocketLeaveIpv4Multicast {
                     fd,
                     multiaddr,
                     iface,
-                } => todo!(),
+                } => {
+                    JournalEffector::apply_sock_leave_ipv4_multicast(&mut ctx, fd, multiaddr, iface)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
                 crate::journaling::JournalEntry::SocketLeaveIpv6Multicast {
                     fd,
                     multiaddr,
                     iface,
-                } => todo!(),
-                crate::journaling::JournalEntry::SocketSendFile { socket_fd, file_fd } => todo!(),
+                } => {
+                    JournalEffector::apply_sock_leave_ipv6_multicast(&mut ctx, fd, multiaddr, iface)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketSendFile {
+                    socket_fd,
+                    file_fd,
+                    offset,
+                    count,
+                } => JournalEffector::apply_sock_send_file(
+                    &mut ctx, socket_fd, file_fd, offset, count,
+                )
+                .await
+                .map_err(anyhow_err_to_runtime_err)?,
                 crate::journaling::JournalEntry::SocketSendTo {
                     fd,
                     data,
                     flags,
                     addr,
-                } => todo!(),
-                crate::journaling::JournalEntry::SocketSend { fd, data, flags } => todo!(),
-                crate::journaling::JournalEntry::SocketSetOptFlag { fd, opt, flag } => todo!(),
-                crate::journaling::JournalEntry::SocketSetOptSize { fd, opt, size } => todo!(),
-                crate::journaling::JournalEntry::SocketSetOptTime { fd, opt, size } => todo!(),
-                crate::journaling::JournalEntry::SocketShutdown { fd, how } => todo!(),
+                    is_64bit,
+                } => if is_64bit {
+                    JournalEffector::apply_sock_send_to::<Memory64>(&mut ctx, fd, data, flags, addr)
+                        .await
+                } else {
+                    JournalEffector::apply_sock_send_to::<Memory32>(&mut ctx, fd, data, flags, addr)
+                        .await
+                }
+                .map_err(anyhow_err_to_runtime_err)?,
+                crate::journaling::JournalEntry::SocketSend {
+                    fd,
+                    data,
+                    flags,
+                    is_64bit,
+                } => if is_64bit {
+                    JournalEffector::apply_sock_send::<Memory64>(&mut ctx, fd, data, flags).await
+                } else {
+                    JournalEffector::apply_sock_send::<Memory32>(&mut ctx, fd, data, flags).await
+                }
+                .map_err(anyhow_err_to_runtime_err)?,
+                crate::journaling::JournalEntry::SocketSetOptFlag { fd, opt, flag } => {
+                    JournalEffector::apply_sock_set_opt_flag(&mut ctx, fd, opt, flag)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketSetOptSize { fd, opt, size } => {
+                    JournalEffector::apply_sock_set_opt_size(&mut ctx, fd, opt, size)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketSetOptTime { fd, ty, time } => {
+                    JournalEffector::apply_sock_set_opt_time(&mut ctx, fd, ty, time)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
+                crate::journaling::JournalEntry::SocketShutdown { fd, how } => {
+                    JournalEffector::apply_sock_shutdown(&mut ctx, fd, how)
+                        .map_err(anyhow_err_to_runtime_err)?
+                }
             }
         }
         // If we are not in the same module then we fire off an exit
