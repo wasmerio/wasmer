@@ -147,7 +147,7 @@ impl Journal for CompactingJournal {
         })
     }
 
-    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>> {
+    fn read<'a>(&'a self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'a>>>> {
         Box::pin(async {
             Ok(match self.inner.read().await? {
                 Some(JournalEntry::UpdateMemoryRegion { region, data }) => {

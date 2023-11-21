@@ -1,19 +1,12 @@
-use serde::{Deserialize, Serialize};
-use std::{
-    io::{self, ErrorKind, SeekFrom},
-    mem::MaybeUninit,
-    net::Shutdown,
-    path::Path,
-    time::SystemTime,
-};
-use tokio::runtime::Handle;
+use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use serde;
+use std::{net::Shutdown, time::SystemTime};
 use virtual_net::{Duration, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, SocketAddr, StreamSecurity};
-use wasmer_wasix_types::wasi::{self, Addressfamily, EpollEventCtl, Sockoption, Socktype};
+use wasmer_wasix_types::wasi::{
+    self, Addressfamily, EpollEventCtl, EpollType, Sockoption, Socktype,
+};
 
-use futures::future::LocalBoxFuture;
-use virtual_fs::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-
-use crate::{net::socket::TimeType, WasiThreadId};
+use crate::net::socket::TimeType;
 
 use super::*;
 
@@ -24,8 +17,11 @@ use super::*;
 /// changes to the journal entry types without having to
 /// worry about backward and forward compatibility
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) enum LogFileJournalEntry {
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub(crate) enum ArchivedJournalEntry {
     InitModuleV1 {
         wasm_hash: [u8; 32],
     },
@@ -33,14 +29,14 @@ pub(crate) enum LogFileJournalEntry {
         exit_code: Option<JournalExitCodeV1>,
     },
     SetThreadV1 {
-        id: WasiThreadId,
+        id: u32,
         call_stack: Vec<u8>,
         memory_stack: Vec<u8>,
         store_data: Vec<u8>,
         is_64bit: bool,
     },
     CloseThreadV1 {
-        id: WasiThreadId,
+        id: u32,
         exit_code: Option<JournalExitCodeV1>,
     },
     FileDescriptorSeekV1 {
@@ -162,7 +158,7 @@ pub(crate) enum LogFileJournalEntry {
         epfd: u32,
         op: JournalEpollCtlV1,
         fd: u32,
-        event: Option<EpollEventCtl>,
+        event: Option<JournalEpollEventCtlV1>,
     },
     TtySetV1 {
         cols: u32,
@@ -296,12 +292,15 @@ pub(crate) enum LogFileJournalEntry {
         how: JournalSocketShutdownV1,
     },
     SnapshotV1 {
-        when: SystemTime,
+        since_epoch: Duration,
         trigger: JournalSnapshotTriggerV1,
     },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub(crate) enum JournalSnapshot0ClockidV1 {
     Realtime,
     Monotonic,
@@ -334,7 +333,10 @@ impl From<JournalSnapshot0ClockidV1> for wasi::Snapshot0Clockid {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub(crate) enum JournalWhenceV1 {
     Set,
     Cur,
@@ -364,7 +366,10 @@ impl From<JournalWhenceV1> for wasi::Whence {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub(crate) enum JournalAdviceV1 {
     Normal,
     Sequential,
@@ -403,7 +408,10 @@ impl From<JournalAdviceV1> for wasi::Advice {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub(crate) enum JournalExitCodeV1 {
     Errno(u16),
     Other(i32),
@@ -429,7 +437,22 @@ impl From<JournalExitCodeV1> for wasi::ExitCode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub(crate) enum JournalSnapshotTriggerV1 {
     Idle,
     Listen,
@@ -477,7 +500,22 @@ impl From<JournalSnapshotTriggerV1> for SnapshotTrigger {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub(crate) enum JournalEpollCtlV1 {
     Add,
     Mod,
@@ -507,7 +545,58 @@ impl From<JournalEpollCtlV1> for wasi::EpollCtl {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEpollEventCtlV1 {
+    pub events: u32,
+    pub ptr: u64,
+    pub fd: Fd,
+    pub data1: u32,
+    pub data2: u64,
+}
+
+impl From<EpollEventCtl> for JournalEpollEventCtlV1 {
+    fn from(val: EpollEventCtl) -> Self {
+        JournalEpollEventCtlV1 {
+            events: val.events.bits(),
+            ptr: val.ptr,
+            fd: val.fd,
+            data1: val.data1,
+            data2: val.data2,
+        }
+    }
+}
+
+impl From<JournalEpollEventCtlV1> for EpollEventCtl {
+    fn from(val: JournalEpollEventCtlV1) -> Self {
+        Self {
+            events: EpollType::from_bits_truncate(val.events),
+            ptr: val.ptr,
+            fd: val.fd,
+            data1: val.data1,
+            data2: val.data2,
+        }
+    }
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JournalStreamSecurityV1 {
     Unencrypted,
     AnyEncryption,
@@ -539,7 +628,22 @@ impl From<JournalStreamSecurityV1> for StreamSecurity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JournalAddressfamilyV1 {
     Unspec,
     Inet4,
@@ -569,7 +673,22 @@ impl From<JournalAddressfamilyV1> for Addressfamily {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JournalSocktypeV1 {
     Unknown,
     Stream,
@@ -602,7 +721,22 @@ impl From<JournalSocktypeV1> for Socktype {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JournalSockoptionV1 {
     Noop,
     ReusePort,
@@ -701,7 +835,22 @@ impl From<JournalSockoptionV1> for Sockoption {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JournalTimeTypeV1 {
     ReadTimeout,
     WriteTimeout,
@@ -737,7 +886,22 @@ impl From<JournalTimeTypeV1> for TimeType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JournalSocketShutdownV1 {
     Read,
     Write,
@@ -764,7 +928,7 @@ impl From<JournalSocketShutdownV1> for Shutdown {
     }
 }
 
-impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
+impl<'a> From<JournalEntry<'a>> for ArchivedJournalEntry {
     fn from(value: JournalEntry<'a>) -> Self {
         match value {
             JournalEntry::InitModule { wasm_hash } => Self::InitModuleV1 { wasm_hash },
@@ -783,14 +947,14 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 store_data,
                 is_64bit,
             } => Self::SetThreadV1 {
-                id,
+                id: id.into(),
                 call_stack: call_stack.into_owned(),
                 memory_stack: memory_stack.into_owned(),
                 store_data: store_data.into_owned(),
                 is_64bit,
             },
             JournalEntry::CloseThread { id, exit_code } => Self::CloseThreadV1 {
-                id,
+                id: id.into(),
                 exit_code: exit_code.map(|code| code.into()),
             },
             JournalEntry::FileDescriptorWrite {
@@ -849,7 +1013,9 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 new_path: new_path.into_owned(),
             },
             JournalEntry::Snapshot { when, trigger } => Self::SnapshotV1 {
-                when,
+                since_epoch: when
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or(Duration::ZERO),
                 trigger: trigger.into(),
             },
             JournalEntry::SetClockTime { clock_id, time } => Self::SetClockTimeV1 {
@@ -961,7 +1127,7 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 epfd,
                 op: op.into(),
                 fd,
-                event,
+                event: event.map(|e| e.into()),
             },
             JournalEntry::TtySet { tty, line_feeds } => Self::TtySetV1 {
                 cols: tty.cols,
@@ -1129,37 +1295,37 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
     }
 }
 
-impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
-    fn from(value: LogFileJournalEntry) -> Self {
+impl<'a> From<ArchivedJournalEntry> for JournalEntry<'a> {
+    fn from(value: ArchivedJournalEntry) -> Self {
         match value {
-            LogFileJournalEntry::InitModuleV1 { wasm_hash } => Self::InitModule { wasm_hash },
-            LogFileJournalEntry::UpdateMemoryRegionV1 { start, end, data } => {
+            ArchivedJournalEntry::InitModuleV1 { wasm_hash } => Self::InitModule { wasm_hash },
+            ArchivedJournalEntry::UpdateMemoryRegionV1 { start, end, data } => {
                 Self::UpdateMemoryRegion {
                     region: start..end,
                     data: data.into(),
                 }
             }
-            LogFileJournalEntry::ProcessExitV1 { exit_code } => Self::ProcessExit {
+            ArchivedJournalEntry::ProcessExitV1 { exit_code } => Self::ProcessExit {
                 exit_code: exit_code.map(|code| code.into()),
             },
-            LogFileJournalEntry::SetThreadV1 {
+            ArchivedJournalEntry::SetThreadV1 {
                 id,
                 call_stack,
                 memory_stack,
                 store_data,
                 is_64bit,
             } => Self::SetThread {
-                id,
+                id: id.into(),
                 call_stack: call_stack.into(),
                 memory_stack: memory_stack.into(),
                 store_data: store_data.into(),
                 is_64bit,
             },
-            LogFileJournalEntry::CloseThreadV1 { id, exit_code } => Self::CloseThread {
-                id,
+            ArchivedJournalEntry::CloseThreadV1 { id, exit_code } => Self::CloseThread {
+                id: id.into(),
                 exit_code: exit_code.map(|code| code.into()),
             },
-            LogFileJournalEntry::FileDescriptorWriteV1 {
+            ArchivedJournalEntry::FileDescriptorWriteV1 {
                 data,
                 fd,
                 offset,
@@ -1170,14 +1336,14 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 offset,
                 is_64bit,
             },
-            LogFileJournalEntry::FileDescriptorSeekV1 { fd, offset, whence } => {
+            ArchivedJournalEntry::FileDescriptorSeekV1 { fd, offset, whence } => {
                 Self::FileDescriptorSeek {
                     fd,
                     offset,
                     whence: whence.into(),
                 }
             }
-            LogFileJournalEntry::OpenFileDescriptorV1 {
+            ArchivedJournalEntry::OpenFileDescriptorV1 {
                 fd,
                 dirfd,
                 dirflags,
@@ -1196,16 +1362,16 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fs_rights_inheriting: wasi::Rights::from_bits_truncate(fs_rights_inheriting),
                 fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags),
             },
-            LogFileJournalEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
-            LogFileJournalEntry::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
+            ArchivedJournalEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
+            ArchivedJournalEntry::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
                 fd,
                 path: path.into(),
             },
-            LogFileJournalEntry::UnlinkFileV1 { fd, path } => Self::UnlinkFile {
+            ArchivedJournalEntry::UnlinkFileV1 { fd, path } => Self::UnlinkFile {
                 fd,
                 path: path.into(),
             },
-            LogFileJournalEntry::PathRenameV1 {
+            ArchivedJournalEntry::PathRenameV1 {
                 old_fd,
                 old_path,
                 new_fd,
@@ -1216,29 +1382,34 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 new_fd,
                 new_path: new_path.into(),
             },
-            LogFileJournalEntry::SnapshotV1 { when, trigger } => Self::Snapshot {
-                when,
+            ArchivedJournalEntry::SnapshotV1 {
+                since_epoch,
+                trigger,
+            } => Self::Snapshot {
+                when: SystemTime::UNIX_EPOCH
+                    .checked_add(since_epoch)
+                    .unwrap_or(SystemTime::UNIX_EPOCH),
                 trigger: trigger.into(),
             },
-            LogFileJournalEntry::SetClockTimeV1 { clock_id, time } => Self::SetClockTime {
+            ArchivedJournalEntry::SetClockTimeV1 { clock_id, time } => Self::SetClockTime {
                 clock_id: clock_id.into(),
                 time,
             },
-            LogFileJournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
+            ArchivedJournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 Self::RenumberFileDescriptor { old_fd, new_fd }
             }
-            LogFileJournalEntry::DuplicateFileDescriptorV1 {
+            ArchivedJournalEntry::DuplicateFileDescriptorV1 {
                 original_fd: old_fd,
                 copied_fd: new_fd,
             } => Self::DuplicateFileDescriptor {
                 original_fd: old_fd,
                 copied_fd: new_fd,
             },
-            LogFileJournalEntry::CreateDirectoryV1 { fd, path } => Self::CreateDirectory {
+            ArchivedJournalEntry::CreateDirectoryV1 { fd, path } => Self::CreateDirectory {
                 fd,
                 path: path.into(),
             },
-            LogFileJournalEntry::PathSetTimesV1 {
+            ArchivedJournalEntry::PathSetTimesV1 {
                 fd,
                 path,
                 flags,
@@ -1253,7 +1424,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 st_mtim,
                 fst_flags: wasi::Fstflags::from_bits_truncate(fst_flags),
             },
-            LogFileJournalEntry::FileDescriptorSetTimesV1 {
+            ArchivedJournalEntry::FileDescriptorSetTimesV1 {
                 fd,
                 st_atim,
                 st_mtim,
@@ -1264,16 +1435,16 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 st_mtim,
                 fst_flags: wasi::Fstflags::from_bits_truncate(fst_flags),
             },
-            LogFileJournalEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
+            ArchivedJournalEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
                 Self::FileDescriptorSetSize { fd, st_size }
             }
-            LogFileJournalEntry::FileDescriptorSetFlagsV1 { fd, flags } => {
+            ArchivedJournalEntry::FileDescriptorSetFlagsV1 { fd, flags } => {
                 Self::FileDescriptorSetFlags {
                     fd,
                     flags: Fdflags::from_bits_truncate(flags),
                 }
             }
-            LogFileJournalEntry::FileDescriptorSetRightsV1 {
+            ArchivedJournalEntry::FileDescriptorSetRightsV1 {
                 fd,
                 fs_rights_base,
                 fs_rights_inheriting,
@@ -1282,7 +1453,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fs_rights_base: Rights::from_bits_truncate(fs_rights_base),
                 fs_rights_inheriting: Rights::from_bits_truncate(fs_rights_inheriting),
             },
-            LogFileJournalEntry::FileDescriptorAdviseV1 {
+            ArchivedJournalEntry::FileDescriptorAdviseV1 {
                 fd,
                 offset,
                 len,
@@ -1293,10 +1464,10 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 len,
                 advice: advice.into(),
             },
-            LogFileJournalEntry::FileDescriptorAllocateV1 { fd, offset, len } => {
+            ArchivedJournalEntry::FileDescriptorAllocateV1 { fd, offset, len } => {
                 Self::FileDescriptorAllocate { fd, offset, len }
             }
-            LogFileJournalEntry::CreateHardLinkV1 {
+            ArchivedJournalEntry::CreateHardLinkV1 {
                 old_fd,
                 old_path,
                 old_flags,
@@ -1309,7 +1480,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 new_fd,
                 new_path: new_path.into(),
             },
-            LogFileJournalEntry::CreateSymbolicLinkV1 {
+            ArchivedJournalEntry::CreateSymbolicLinkV1 {
                 old_path,
                 fd,
                 new_path,
@@ -1318,11 +1489,11 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fd,
                 new_path: new_path.into(),
             },
-            LogFileJournalEntry::ChangeDirectoryV1 { path } => {
+            ArchivedJournalEntry::ChangeDirectoryV1 { path } => {
                 Self::ChangeDirectory { path: path.into() }
             }
-            LogFileJournalEntry::EpollCreateV1 { fd } => Self::EpollCreate { fd },
-            LogFileJournalEntry::EpollCtlV1 {
+            ArchivedJournalEntry::EpollCreateV1 { fd } => Self::EpollCreate { fd },
+            ArchivedJournalEntry::EpollCtlV1 {
                 epfd,
                 op,
                 fd,
@@ -1331,9 +1502,9 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 epfd,
                 op: op.into(),
                 fd,
-                event,
+                event: event.map(|e| e.into()),
             },
-            LogFileJournalEntry::TtySetV1 {
+            ArchivedJournalEntry::TtySetV1 {
                 cols,
                 rows,
                 width,
@@ -1358,11 +1529,11 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 },
                 line_feeds,
             },
-            LogFileJournalEntry::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe { fd1, fd2 },
-            LogFileJournalEntry::PortAddAddrV1 { cidr } => Self::PortAddAddr { cidr },
-            LogFileJournalEntry::PortDelAddrV1 { addr } => Self::PortDelAddr { addr },
-            LogFileJournalEntry::PortAddrClearV1 => Self::PortAddrClear,
-            LogFileJournalEntry::PortBridgeV1 {
+            ArchivedJournalEntry::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe { fd1, fd2 },
+            ArchivedJournalEntry::PortAddAddrV1 { cidr } => Self::PortAddAddr { cidr },
+            ArchivedJournalEntry::PortDelAddrV1 { addr } => Self::PortDelAddr { addr },
+            ArchivedJournalEntry::PortAddrClearV1 => Self::PortAddrClear,
+            ArchivedJournalEntry::PortBridgeV1 {
                 network,
                 token,
                 security,
@@ -1371,10 +1542,10 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 token: token.into(),
                 security: security.into(),
             },
-            LogFileJournalEntry::PortUnbridgeV1 => Self::PortUnbridge,
-            LogFileJournalEntry::PortDhcpAcquireV1 => Self::PortDhcpAcquire,
-            LogFileJournalEntry::PortGatewaySetV1 { ip } => Self::PortGatewaySet { ip },
-            LogFileJournalEntry::PortRouteAddV1 {
+            ArchivedJournalEntry::PortUnbridgeV1 => Self::PortUnbridge,
+            ArchivedJournalEntry::PortDhcpAcquireV1 => Self::PortDhcpAcquire,
+            ArchivedJournalEntry::PortGatewaySetV1 { ip } => Self::PortGatewaySet { ip },
+            ArchivedJournalEntry::PortRouteAddV1 {
                 cidr,
                 via_router,
                 preferred_until,
@@ -1385,22 +1556,22 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 preferred_until,
                 expires_at,
             },
-            LogFileJournalEntry::PortRouteClearV1 => Self::PortRouteClear,
-            LogFileJournalEntry::PortRouteDelV1 { ip } => Self::PortRouteDel { ip },
-            LogFileJournalEntry::SocketOpenV1 { af, ty, pt, fd } => Self::SocketOpen {
+            ArchivedJournalEntry::PortRouteClearV1 => Self::PortRouteClear,
+            ArchivedJournalEntry::PortRouteDelV1 { ip } => Self::PortRouteDel { ip },
+            ArchivedJournalEntry::SocketOpenV1 { af, ty, pt, fd } => Self::SocketOpen {
                 af: af.into(),
                 ty: ty.into(),
                 pt: pt.try_into().unwrap_or(wasi::SockProto::Max),
                 fd,
             },
-            LogFileJournalEntry::SocketListenV1 { fd, backlog } => {
+            ArchivedJournalEntry::SocketListenV1 { fd, backlog } => {
                 Self::SocketListen { fd, backlog }
             }
-            LogFileJournalEntry::SocketBindV1 { fd, addr } => Self::SocketBind { fd, addr },
-            LogFileJournalEntry::SocketConnectedV1 { fd, addr } => {
+            ArchivedJournalEntry::SocketBindV1 { fd, addr } => Self::SocketBind { fd, addr },
+            ArchivedJournalEntry::SocketConnectedV1 { fd, addr } => {
                 Self::SocketConnected { fd, addr }
             }
-            LogFileJournalEntry::SocketAcceptedV1 {
+            ArchivedJournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
                 peer_addr,
@@ -1413,7 +1584,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fd_flags: Fdflags::from_bits_truncate(fd_flags),
                 nonblocking,
             },
-            LogFileJournalEntry::SocketJoinIpv4MulticastV1 {
+            ArchivedJournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
@@ -1422,7 +1593,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 multiaddr,
                 iface,
             },
-            LogFileJournalEntry::SocketJoinIpv6MulticastV1 {
+            ArchivedJournalEntry::SocketJoinIpv6MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
@@ -1431,7 +1602,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 multiaddr,
                 iface,
             },
-            LogFileJournalEntry::SocketLeaveIpv4MulticastV1 {
+            ArchivedJournalEntry::SocketLeaveIpv4MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
@@ -1440,7 +1611,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 multiaddr,
                 iface,
             },
-            LogFileJournalEntry::SocketLeaveIpv6MulticastV1 {
+            ArchivedJournalEntry::SocketLeaveIpv6MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
@@ -1449,7 +1620,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 multiaddr,
                 iface,
             },
-            LogFileJournalEntry::SocketSendFileV1 {
+            ArchivedJournalEntry::SocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,
@@ -1460,7 +1631,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 offset,
                 count,
             },
-            LogFileJournalEntry::SocketSendToV1 {
+            ArchivedJournalEntry::SocketSendToV1 {
                 fd,
                 data,
                 flags,
@@ -1473,7 +1644,7 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 addr,
                 is_64bit,
             },
-            LogFileJournalEntry::SocketSendV1 {
+            ArchivedJournalEntry::SocketSendV1 {
                 fd,
                 data,
                 flags,
@@ -1484,26 +1655,26 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 flags,
                 is_64bit,
             },
-            LogFileJournalEntry::SocketSetOptFlagV1 { fd, opt, flag } => Self::SocketSetOptFlag {
+            ArchivedJournalEntry::SocketSetOptFlagV1 { fd, opt, flag } => Self::SocketSetOptFlag {
                 fd,
                 opt: opt.into(),
                 flag,
             },
-            LogFileJournalEntry::SocketSetOptSizeV1 { fd, opt, size } => Self::SocketSetOptSize {
+            ArchivedJournalEntry::SocketSetOptSizeV1 { fd, opt, size } => Self::SocketSetOptSize {
                 fd,
                 opt: opt.into(),
                 size,
             },
-            LogFileJournalEntry::SocketSetOptTimeV1 { fd, ty, time } => Self::SocketSetOptTime {
+            ArchivedJournalEntry::SocketSetOptTimeV1 { fd, ty, time } => Self::SocketSetOptTime {
                 fd,
                 ty: ty.into(),
                 time,
             },
-            LogFileJournalEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown {
+            ArchivedJournalEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown {
                 fd,
                 how: how.into(),
             },
-            LogFileJournalEntry::CreateEventV1 {
+            ArchivedJournalEntry::CreateEventV1 {
                 initial_val,
                 flags,
                 fd,
@@ -1513,112 +1684,5 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
                 fd,
             },
         }
-    }
-}
-
-struct State {
-    file: tokio::fs::File,
-    at_end: bool,
-}
-
-/// The LogFile snapshot capturer will write its snapshots to a linear journal
-/// and read them when restoring. It uses the `bincode` serializer which
-/// means that forwards and backwards compatibility must be dealt with
-/// carefully.
-///
-/// When opening an existing journal file that was previously saved
-/// then new entries will be added to the end regardless of if
-/// its been read.
-///
-/// The logfile snapshot capturer uses a 64bit number as a entry encoding
-/// delimiter.
-pub struct LogFileJournal {
-    state: tokio::sync::Mutex<State>,
-    handle: Handle,
-}
-
-impl LogFileJournal {
-    pub async fn new(path: impl AsRef<Path>) -> io::Result<Self> {
-        let state = State {
-            file: tokio::fs::File::options()
-                .read(true)
-                .write(true)
-                .create(true)
-                .open(path)
-                .await?,
-            at_end: false,
-        };
-        Ok(Self {
-            state: tokio::sync::Mutex::new(state),
-            handle: Handle::current(),
-        })
-    }
-
-    pub fn new_std(path: impl AsRef<Path>) -> io::Result<Self> {
-        let file = std::fs::File::options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
-        let state = State {
-            file: tokio::fs::File::from_std(file),
-            at_end: false,
-        };
-        Ok(Self {
-            state: tokio::sync::Mutex::new(state),
-            handle: Handle::current(),
-        })
-    }
-}
-
-#[async_trait::async_trait]
-impl Journal for LogFileJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
-        tracing::debug!("journal event: {:?}", entry);
-        Box::pin(async {
-            let entry: LogFileJournalEntry = entry.into();
-
-            let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            let mut state = self.state.lock().await;
-            if !state.at_end {
-                state.file.seek(SeekFrom::End(0)).await?;
-                state.at_end = true;
-            }
-
-            let data = bincode::serialize(&entry)?;
-            let data_len = data.len() as u64;
-            let data_len = data_len.to_ne_bytes();
-
-            state.file.write_all(&data_len).await?;
-            state.file.write_all(&data).await?;
-            Ok(())
-        })
-    }
-
-    /// UNSAFE: This method uses unsafe operations to remove the need to zero
-    /// the buffer before its read the log entries into it
-    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>> {
-        Box::pin(async {
-            let mut state = self.state.lock().await;
-
-            let mut data_len = [0u8; 8];
-            match state.file.read_exact(&mut data_len).await {
-                Err(err) if err.kind() == ErrorKind::UnexpectedEof => return Ok(None),
-                Err(err) => return Err(err.into()),
-                Ok(_) => {}
-            }
-
-            let data_len = u64::from_ne_bytes(data_len);
-            let mut data = Vec::with_capacity(data_len as usize);
-            let data_unsafe: &mut [MaybeUninit<u8>] = data.spare_capacity_mut();
-            let data_unsafe: &mut [u8] = unsafe { std::mem::transmute(data_unsafe) };
-            state.file.read_exact(data_unsafe).await?;
-            unsafe {
-                data.set_len(data_len as usize);
-            }
-
-            let entry: LogFileJournalEntry = bincode::deserialize(&data)?;
-            Ok(Some(entry.into()))
-        })
     }
 }

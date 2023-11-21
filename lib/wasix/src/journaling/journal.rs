@@ -311,6 +311,331 @@ pub enum JournalEntry<'a> {
     },
 }
 
+impl<'a> JournalEntry<'a> {
+    pub fn into_owned(self) -> JournalEntry<'static> {
+        match self {
+            Self::InitModule { wasm_hash } => JournalEntry::InitModule { wasm_hash },
+            Self::UpdateMemoryRegion { region, data } => JournalEntry::UpdateMemoryRegion {
+                region,
+                data: data.into_owned().into(),
+            },
+            Self::ProcessExit { exit_code } => JournalEntry::ProcessExit { exit_code },
+            Self::SetThread {
+                id,
+                call_stack,
+                memory_stack,
+                store_data,
+                is_64bit,
+            } => JournalEntry::SetThread {
+                id,
+                call_stack: call_stack.into_owned().into(),
+                memory_stack: memory_stack.into_owned().into(),
+                store_data: store_data.into_owned().into(),
+                is_64bit,
+            },
+            Self::CloseThread { id, exit_code } => JournalEntry::CloseThread { id, exit_code },
+            Self::FileDescriptorSeek { fd, offset, whence } => {
+                JournalEntry::FileDescriptorSeek { fd, offset, whence }
+            }
+            Self::FileDescriptorWrite {
+                fd,
+                offset,
+                data,
+                is_64bit,
+            } => JournalEntry::FileDescriptorWrite {
+                fd,
+                offset,
+                data: data.into_owned().into(),
+                is_64bit,
+            },
+            Self::SetClockTime { clock_id, time } => JournalEntry::SetClockTime { clock_id, time },
+            Self::CloseFileDescriptor { fd } => JournalEntry::CloseFileDescriptor { fd },
+            Self::OpenFileDescriptor {
+                fd,
+                dirfd,
+                dirflags,
+                path,
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+            } => JournalEntry::OpenFileDescriptor {
+                fd,
+                dirfd,
+                dirflags,
+                path: path.into_owned().into(),
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+            },
+            Self::RenumberFileDescriptor { old_fd, new_fd } => {
+                JournalEntry::RenumberFileDescriptor { old_fd, new_fd }
+            }
+            Self::DuplicateFileDescriptor {
+                original_fd,
+                copied_fd,
+            } => JournalEntry::DuplicateFileDescriptor {
+                original_fd,
+                copied_fd,
+            },
+            Self::CreateDirectory { fd, path } => JournalEntry::CreateDirectory {
+                fd,
+                path: path.into_owned().into(),
+            },
+            Self::RemoveDirectory { fd, path } => JournalEntry::RemoveDirectory {
+                fd,
+                path: path.into_owned().into(),
+            },
+            Self::PathSetTimes {
+                fd,
+                flags,
+                path,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            } => JournalEntry::PathSetTimes {
+                fd,
+                flags,
+                path: path.into_owned().into(),
+                st_atim,
+                st_mtim,
+                fst_flags,
+            },
+            Self::FileDescriptorSetTimes {
+                fd,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            } => JournalEntry::FileDescriptorSetTimes {
+                fd,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            },
+            Self::FileDescriptorSetFlags { fd, flags } => {
+                JournalEntry::FileDescriptorSetFlags { fd, flags }
+            }
+            Self::FileDescriptorSetRights {
+                fd,
+                fs_rights_base,
+                fs_rights_inheriting,
+            } => JournalEntry::FileDescriptorSetRights {
+                fd,
+                fs_rights_base,
+                fs_rights_inheriting,
+            },
+            Self::FileDescriptorSetSize { fd, st_size } => {
+                JournalEntry::FileDescriptorSetSize { fd, st_size }
+            }
+            Self::FileDescriptorAdvise {
+                fd,
+                offset,
+                len,
+                advice,
+            } => JournalEntry::FileDescriptorAdvise {
+                fd,
+                offset,
+                len,
+                advice,
+            },
+            Self::FileDescriptorAllocate { fd, offset, len } => {
+                JournalEntry::FileDescriptorAllocate { fd, offset, len }
+            }
+            Self::CreateHardLink {
+                old_fd,
+                old_path,
+                old_flags,
+                new_fd,
+                new_path,
+            } => JournalEntry::CreateHardLink {
+                old_fd,
+                old_path: old_path.into_owned().into(),
+                old_flags,
+                new_fd,
+                new_path: new_path.into_owned().into(),
+            },
+            Self::CreateSymbolicLink {
+                old_path,
+                fd,
+                new_path,
+            } => JournalEntry::CreateSymbolicLink {
+                old_path: old_path.into_owned().into(),
+                fd,
+                new_path: new_path.into_owned().into(),
+            },
+            Self::UnlinkFile { fd, path } => JournalEntry::UnlinkFile {
+                fd,
+                path: path.into_owned().into(),
+            },
+            Self::PathRename {
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+            } => JournalEntry::PathRename {
+                old_fd,
+                old_path: old_path.into_owned().into(),
+                new_fd,
+                new_path: new_path.into_owned().into(),
+            },
+            Self::ChangeDirectory { path } => JournalEntry::ChangeDirectory {
+                path: path.into_owned().into(),
+            },
+            Self::EpollCreate { fd } => JournalEntry::EpollCreate { fd },
+            Self::EpollCtl {
+                epfd,
+                op,
+                fd,
+                event,
+            } => JournalEntry::EpollCtl {
+                epfd,
+                op,
+                fd,
+                event,
+            },
+            Self::TtySet { tty, line_feeds } => JournalEntry::TtySet { tty, line_feeds },
+            Self::CreatePipe { fd1, fd2 } => JournalEntry::CreatePipe { fd1, fd2 },
+            Self::CreateEvent {
+                initial_val,
+                flags,
+                fd,
+            } => JournalEntry::CreateEvent {
+                initial_val,
+                flags,
+                fd,
+            },
+            Self::PortAddAddr { cidr } => JournalEntry::PortAddAddr { cidr },
+            Self::PortDelAddr { addr } => JournalEntry::PortDelAddr { addr },
+            Self::PortAddrClear => JournalEntry::PortAddrClear,
+            Self::PortBridge {
+                network,
+                token,
+                security,
+            } => JournalEntry::PortBridge {
+                network: network.into_owned().into(),
+                token: token.into_owned().into(),
+                security,
+            },
+            Self::PortUnbridge => JournalEntry::PortUnbridge,
+            Self::PortDhcpAcquire => JournalEntry::PortDhcpAcquire,
+            Self::PortGatewaySet { ip } => JournalEntry::PortGatewaySet { ip },
+            Self::PortRouteAdd {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            } => JournalEntry::PortRouteAdd {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            },
+            Self::PortRouteClear => JournalEntry::PortRouteClear,
+            Self::PortRouteDel { ip } => JournalEntry::PortRouteDel { ip },
+            Self::SocketOpen { af, ty, pt, fd } => JournalEntry::SocketOpen { af, ty, pt, fd },
+            Self::SocketListen { fd, backlog } => JournalEntry::SocketListen { fd, backlog },
+            Self::SocketBind { fd, addr } => JournalEntry::SocketBind { fd, addr },
+            Self::SocketConnected { fd, addr } => JournalEntry::SocketConnected { fd, addr },
+            Self::SocketAccepted {
+                listen_fd,
+                fd,
+                peer_addr,
+                fd_flags,
+                nonblocking,
+            } => JournalEntry::SocketAccepted {
+                listen_fd,
+                fd,
+                peer_addr,
+                fd_flags,
+                nonblocking,
+            },
+            Self::SocketJoinIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEntry::SocketJoinIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            Self::SocketJoinIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEntry::SocketJoinIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            Self::SocketLeaveIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEntry::SocketLeaveIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            Self::SocketLeaveIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEntry::SocketLeaveIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            },
+            Self::SocketSendFile {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            } => JournalEntry::SocketSendFile {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            },
+            Self::SocketSendTo {
+                fd,
+                data,
+                flags,
+                addr,
+                is_64bit,
+            } => JournalEntry::SocketSendTo {
+                fd,
+                data: data.into_owned().into(),
+                flags,
+                addr,
+                is_64bit,
+            },
+            Self::SocketSend {
+                fd,
+                data,
+                flags,
+                is_64bit,
+            } => JournalEntry::SocketSend {
+                fd,
+                data: data.into_owned().into(),
+                flags,
+                is_64bit,
+            },
+            Self::SocketSetOptFlag { fd, opt, flag } => {
+                JournalEntry::SocketSetOptFlag { fd, opt, flag }
+            }
+            Self::SocketSetOptSize { fd, opt, size } => {
+                JournalEntry::SocketSetOptSize { fd, opt, size }
+            }
+            Self::SocketSetOptTime { fd, ty, time } => {
+                JournalEntry::SocketSetOptTime { fd, ty, time }
+            }
+            Self::SocketShutdown { fd, how } => JournalEntry::SocketShutdown { fd, how },
+            Self::Snapshot { when, trigger } => JournalEntry::Snapshot { when, trigger },
+        }
+    }
+}
+
 /// The snapshot capturer will take a series of objects that represents the state of
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
@@ -322,7 +647,7 @@ pub trait Journal {
 
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
-    fn read(&self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'_>>>>;
+    fn read<'a>(&'a self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'a>>>>;
 }
 
 pub type DynJournal = dyn Journal + Send + Sync;

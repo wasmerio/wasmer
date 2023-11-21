@@ -22,7 +22,7 @@ wasmer-types = { path = "../types", version = "=4.2.3", default-features = false
 wasmer = { path = "../api", version = "=4.2.3", default-features = false, features = ["wat", "js-serializable-module"] }
 virtual-mio  = { path = "../virtual-io", version = "0.3.0", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.9.0", default-features = false, features = ["webc-fs"] }
-virtual-net = { path = "../virtual-net", version = "0.6.1", default-features = false }
+virtual-net = { path = "../virtual-net", version = "0.6.1", default-features = false, features = ["rkyv"] }
 wasmer-emscripten = { path = "../emscripten", version = "=4.2.3", optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
@@ -75,6 +75,8 @@ tower-http = { version = "0.4.0", features = [
 ], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
+rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+bytecheck = "0.6.8"
 petgraph = "0.6.3"
 rayon = { version = "1.7.0", optional = true }
 wasm-bindgen = { version = "0.2.87", optional = true }
