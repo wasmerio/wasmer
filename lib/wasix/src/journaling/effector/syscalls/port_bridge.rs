@@ -12,8 +12,8 @@ impl JournalEffector {
         Self::save_event(
             ctx,
             JournalEntry::PortBridge {
-                network,
-                token,
+                network: network.into(),
+                token: token.into(),
                 security,
             },
         )
