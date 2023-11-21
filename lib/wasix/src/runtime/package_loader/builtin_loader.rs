@@ -10,6 +10,7 @@ use anyhow::{Context, Error};
 use bytes::Bytes;
 use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
+use url::Url;
 use webc::{
     compat::{Container, ContainerError},
     DetectError,
@@ -31,46 +32,59 @@ pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
     in_memory: InMemoryCache,
     cache: Option<FileSystemCache>,
+    /// A mapping from hostnames to tokens
+    tokens: HashMap<String, String>,
 }
 
 impl BuiltinPackageLoader {
-    pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
-        let client = crate::http::default_http_client().unwrap();
-        BuiltinPackageLoader::new_with_client(cache_dir, Arc::new(client))
+    pub fn new() -> Self {
+        BuiltinPackageLoader {
+            in_memory: InMemoryCache::default(),
+            client: Arc::new(crate::http::default_http_client().unwrap()),
+            cache: None,
+            tokens: HashMap::new(),
+        }
     }
 
-    pub fn new_with_client(
-        cache_dir: impl Into<PathBuf>,
-        client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Self {
+    pub fn with_cache_dir(self, cache_dir: impl Into<PathBuf>) -> Self {
         BuiltinPackageLoader {
             cache: Some(FileSystemCache {
                 cache_dir: cache_dir.into(),
             }),
-            in_memory: InMemoryCache::default(),
-            client,
+            ..self
         }
     }
 
-    pub fn new_only_client(client: Arc<dyn HttpClient + Send + Sync>) -> Self {
-        BuiltinPackageLoader {
-            cache: None,
-            in_memory: InMemoryCache::default(),
-            client,
-        }
+    pub fn with_http_client(self, client: impl HttpClient + Send + Sync + 'static) -> Self {
+        self.with_shared_http_client(Arc::new(client))
     }
 
-    /// Create a new [`BuiltinPackageLoader`] based on `$WASMER_DIR` and the
-    /// global Wasmer config.
-    pub fn from_env() -> Result<Self, Error> {
-        let wasmer_dir = discover_wasmer_dir().context("Unable to determine $WASMER_DIR")?;
-        let client = crate::http::default_http_client().context("No HTTP client available")?;
-        let cache_dir = wasmer_dir.join("cache").join("");
+    pub fn with_shared_http_client(self, client: Arc<dyn HttpClient + Send + Sync>) -> Self {
+        BuiltinPackageLoader { client, ..self }
+    }
 
-        Ok(BuiltinPackageLoader::new_with_client(
-            cache_dir,
-            Arc::new(client),
-        ))
+    pub fn with_tokens<I, K, V>(mut self, tokens: I) -> Self
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        for (hostname, token) in tokens {
+            self = self.with_token(hostname, token);
+        }
+
+        self
+    }
+
+    /// Add an API token that will be used whenever sending requests to a
+    /// particular hostname.
+    ///
+    /// Note that this uses [`Url::authority()`] when looking up tokens, so it
+    /// will match both plain hostnames (e.g. `registry.wasmer.io`) and hosts
+    /// with a port number (e.g. `localhost:8000`).
+    pub fn with_token(mut self, hostname: impl Into<String>, token: impl Into<String>) -> Self {
+        self.tokens.insert(hostname.into(), token.into());
+        self
     }
 
     /// Insert a container into the in-memory hash.
@@ -117,9 +131,9 @@ impl BuiltinPackageLoader {
         }
 
         let request = HttpRequest {
+            headers: self.headers(&dist.webc),
             url: dist.webc.clone(),
             method: Method::GET,
-            headers: headers(),
             body: None,
             options: Default::default(),
         };
@@ -148,6 +162,37 @@ impl BuiltinPackageLoader {
             .context("The response didn't contain a body")?;
 
         Ok(body.into())
+    }
+
+    fn headers(&self, url: &Url) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert("Accept", "application/webc".parse().unwrap());
+        headers.insert("User-Agent", USER_AGENT.parse().unwrap());
+
+        if url.has_authority() {
+            if let Some(token) = self.tokens.get(url.authority()) {
+                let header = format!("Bearer {token}");
+                match header.parse() {
+                    Ok(header) => {
+                        headers.insert(http::header::AUTHORIZATION, header);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            error = &e as &dyn std::error::Error,
+                            "An error occurred while parsing the authorization header",
+                        );
+                    }
+                }
+            }
+        }
+
+        headers
+    }
+}
+
+impl Default for BuiltinPackageLoader {
+    fn default() -> Self {
+        BuiltinPackageLoader::new()
     }
 }
 
@@ -213,24 +258,6 @@ impl PackageLoader for BuiltinPackageLoader {
     ) -> Result<BinaryPackage, Error> {
         super::load_package_tree(root, self, resolution).await
     }
-}
-
-fn headers() -> HeaderMap {
-    let mut headers = HeaderMap::new();
-    headers.insert("Accept", "application/webc".parse().unwrap());
-    headers.insert("User-Agent", USER_AGENT.parse().unwrap());
-    headers
-}
-
-fn discover_wasmer_dir() -> Option<PathBuf> {
-    // TODO: We should reuse the same logic from the wasmer CLI.
-    std::env::var("WASMER_DIR")
-        .map(PathBuf::from)
-        .ok()
-        .or_else(|| {
-            #[allow(deprecated)]
-            std::env::home_dir().map(|home| home.join(".wasmer"))
-        })
 }
 
 // FIXME: This implementation will block the async runtime and should use
@@ -388,7 +415,9 @@ mod tests {
             status: StatusCode::OK,
             headers: HeaderMap::new(),
         }]));
-        let loader = BuiltinPackageLoader::new_with_client(temp.path(), client.clone());
+        let loader = BuiltinPackageLoader::new()
+            .with_cache_dir(temp.path())
+            .with_shared_http_client(client.clone());
         let summary = PackageSummary {
             pkg: PackageInfo {
                 name: "python/python".to_string(),
