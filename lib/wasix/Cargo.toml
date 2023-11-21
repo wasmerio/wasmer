@@ -77,6 +77,7 @@ tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 bytecheck = "0.6.8"
+shared-buffer = "0.1"
 petgraph = "0.6.3"
 rayon = { version = "1.7.0", optional = true }
 wasm-bindgen = { version = "0.2.87", optional = true }

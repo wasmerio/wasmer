@@ -647,7 +647,7 @@ pub trait Journal {
 
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
-    fn read<'a>(&'a self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'a>>>>;
+    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>>;
 }
 
 pub type DynJournal = dyn Journal + Send + Sync;

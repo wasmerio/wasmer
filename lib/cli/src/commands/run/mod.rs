@@ -267,7 +267,7 @@ impl Run {
             for journal in self.wasi.journals.clone() {
                 runner
                     .config()
-                    .add_journal(Arc::new(LogFileJournal::new_std(journal)?));
+                    .add_journal(Arc::new(LogFileJournal::new(journal)?));
             }
         }
 
@@ -350,7 +350,7 @@ impl Run {
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
             for journal in self.wasi.journals.clone() {
-                runner.add_journal(Arc::new(LogFileJournal::new_std(journal)?));
+                runner.add_journal(Arc::new(LogFileJournal::new(journal)?));
             }
         }
 

@@ -147,22 +147,20 @@ impl Journal for CompactingJournal {
         })
     }
 
-    fn read<'a>(&'a self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'a>>>> {
-        Box::pin(async {
-            Ok(match self.inner.read().await? {
-                Some(JournalEntry::UpdateMemoryRegion { region, data }) => {
-                    let mut hasher = Sha256::default();
-                    hasher.update(data.as_ref());
-                    let hash: [u8; 32] = hasher.finalize().try_into().unwrap();
+    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+        Ok(match self.inner.read()? {
+            Some(JournalEntry::UpdateMemoryRegion { region, data }) => {
+                let mut hasher = Sha256::default();
+                hasher.update(data.as_ref());
+                let hash: [u8; 32] = hasher.finalize().try_into().unwrap();
 
-                    let mut state = self.state.lock().unwrap();
-                    state.memory_map.insert(region.clone(), hash);
+                let mut state = self.state.lock().unwrap();
+                state.memory_map.insert(region.clone(), hash);
 
-                    Some(JournalEntry::UpdateMemoryRegion { region, data })
-                }
-                Some(entry) => Some(entry),
-                None => None,
-            })
+                Some(JournalEntry::UpdateMemoryRegion { region, data })
+            }
+            Some(entry) => Some(entry),
+            None => None,
         })
     }
 }

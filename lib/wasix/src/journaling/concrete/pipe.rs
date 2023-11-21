@@ -42,18 +42,16 @@ impl Journal for PipeJournal {
         })
     }
 
-    fn read<'a>(&'a self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'a>>>> {
-        Box::pin(async {
-            let mut rx = self.rx.lock().unwrap();
-            match rx.try_recv() {
-                Ok(e) => Ok(Some(e.into())),
-                Err(TryRecvError::Empty) => Ok(None),
-                Err(TryRecvError::Disconnected) => {
-                    return Err(anyhow::format_err!(
-                        "failed to receive journal event from the pipe as its disconnected"
-                    ))
-                }
+    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+        let mut rx = self.rx.lock().unwrap();
+        match rx.try_recv() {
+            Ok(e) => Ok(Some(e.into())),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Disconnected) => {
+                return Err(anyhow::format_err!(
+                    "failed to receive journal event from the pipe as its disconnected"
+                ))
             }
-        })
+        }
     }
 }

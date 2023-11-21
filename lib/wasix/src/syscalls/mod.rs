@@ -1298,455 +1298,443 @@ pub fn restore_snapshot(
 ) -> Result<RewindState, WasiRuntimeError> {
     use crate::journaling::Journal;
 
-    InlineWaker::block_on(async {
-        let mut is_same_module = false;
-        let mut rewind = None;
-        while let Some(next) = journal.read().await.map_err(anyhow_err_to_runtime_err)? {
-            tracing::trace!("Restoring snapshot event - {next:?}");
-            match next {
-                crate::journaling::JournalEntry::InitModule { wasm_hash } => {
-                    is_same_module = ctx.data().process.module_hash.as_bytes() == wasm_hash;
-                }
-                crate::journaling::JournalEntry::ProcessExit { exit_code } => {
-                    JournalEffector::apply_process_exit(ctx.data(), exit_code)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::FileDescriptorWrite {
-                    fd,
-                    offset,
-                    data,
-                    is_64bit,
-                } => {
+    let mut is_same_module = false;
+    let mut rewind = None;
+    while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
+        tracing::trace!("Restoring snapshot event - {next:?}");
+        match next {
+            crate::journaling::JournalEntry::InitModule { wasm_hash } => {
+                is_same_module = ctx.data().process.module_hash.as_bytes() == wasm_hash;
+            }
+            crate::journaling::JournalEntry::ProcessExit { exit_code } => {
+                JournalEffector::apply_process_exit(ctx.data(), exit_code)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorWrite {
+                fd,
+                offset,
+                data,
+                is_64bit,
+            } => {
+                InlineWaker::block_on(async {
                     if is_64bit {
                         JournalEffector::apply_fd_write::<Memory64>(&ctx, fd, offset, data).await
                     } else {
                         JournalEffector::apply_fd_write::<Memory32>(&ctx, fd, offset, data).await
                     }
+                })
+                .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorSeek { fd, offset, whence } => {
+                InlineWaker::block_on(JournalEffector::apply_fd_seek(&mut ctx, fd, offset, whence))
                     .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::UpdateMemoryRegion { region, data } => {
+                if !is_same_module {
+                    continue;
                 }
-                crate::journaling::JournalEntry::FileDescriptorSeek { fd, offset, whence } => {
-                    JournalEffector::apply_fd_seek(&mut ctx, fd, offset, whence)
-                        .await
-                        .map_err(anyhow_err_to_runtime_err)?;
+                JournalEffector::apply_memory(&mut ctx, region, &data)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::CloseThread { id, exit_code } => {
+                if id == ctx.data().tid() {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration has already closed the main thread."
+                        )
+                        .into(),
+                    )));
                 }
-                crate::journaling::JournalEntry::UpdateMemoryRegion { region, data } => {
-                    if !is_same_module {
-                        continue;
-                    }
-                    JournalEffector::apply_memory(&mut ctx, region, &data)
-                        .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::SetThread {
+                id,
+                call_stack,
+                memory_stack,
+                store_data,
+                is_64bit,
+            } => {
+                if !is_same_module {
+                    continue;
                 }
-                crate::journaling::JournalEntry::CloseThread { id, exit_code } => {
-                    if id == ctx.data().tid() {
-                        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                            anyhow::format_err!(
-                                "Snapshot restoration has already closed the main thread."
-                            )
-                            .into(),
-                        )));
-                    }
+                if id == ctx.data().tid() {
+                    rewind.replace(RewindState {
+                        memory_stack: memory_stack.to_vec().into(),
+                        rewind_stack: call_stack.to_vec().into(),
+                        store_data: store_data.to_vec().into(),
+                        is_64bit,
+                    });
+                } else {
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration does not currently support multiple threads."
+                        )
+                        .into(),
+                    )));
                 }
-                crate::journaling::JournalEntry::SetThread {
-                    id,
-                    call_stack,
-                    memory_stack,
-                    store_data,
-                    is_64bit,
-                } => {
-                    if !is_same_module {
-                        continue;
-                    }
-                    if id == ctx.data().tid() {
-                        rewind.replace(RewindState {
-                            memory_stack: memory_stack.to_vec().into(),
-                            rewind_stack: call_stack.to_vec().into(),
-                            store_data: store_data.to_vec().into(),
-                            is_64bit,
-                        });
-                    } else {
-                        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                            anyhow::format_err!(
-                                "Snapshot restoration does not currently support multiple threads."
-                            )
-                            .into(),
-                        )));
-                    }
-                }
-                crate::journaling::JournalEntry::CloseFileDescriptor { fd } => {
-                    JournalEffector::apply_fd_close(&mut ctx, fd)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::OpenFileDescriptor {
+            }
+            crate::journaling::JournalEntry::CloseFileDescriptor { fd } => {
+                JournalEffector::apply_fd_close(&mut ctx, fd).map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::OpenFileDescriptor {
+                fd,
+                dirfd,
+                dirflags,
+                path,
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+            } => {
+                JournalEffector::apply_path_open(
+                    &mut ctx,
                     fd,
                     dirfd,
                     dirflags,
-                    path,
+                    &path,
                     o_flags,
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
-                } => {
-                    JournalEffector::apply_path_open(
-                        &mut ctx,
-                        fd,
-                        dirfd,
-                        dirflags,
-                        &path,
-                        o_flags,
-                        fs_rights_base,
-                        fs_rights_inheriting,
-                        fs_flags,
-                    )
+                )
+                .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::RemoveDirectory { fd, path } => {
+                JournalEffector::apply_path_remove_directory(&mut ctx, fd, &path)
                     .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::RemoveDirectory { fd, path } => {
-                    JournalEffector::apply_path_remove_directory(&mut ctx, fd, &path)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::UnlinkFile { fd, path } => {
-                    JournalEffector::apply_path_unlink(&mut ctx, fd, &path)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::PathRename {
-                    old_fd,
-                    old_path,
-                    new_fd,
-                    new_path,
-                } => {
-                    JournalEffector::apply_path_rename(
-                        &mut ctx, old_fd, &old_path, new_fd, &new_path,
-                    )
+            }
+            crate::journaling::JournalEntry::UnlinkFile { fd, path } => {
+                JournalEffector::apply_path_unlink(&mut ctx, fd, &path)
                     .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::Snapshot {
-                    when: _,
-                    trigger: _,
-                } => {
-                    if !is_same_module {
-                        continue;
-                    }
-                }
-                crate::journaling::JournalEntry::SetClockTime { clock_id, time } => {
-                    JournalEffector::apply_clock_time_set(&mut ctx, clock_id, time)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
-                    JournalEffector::apply_fd_renumber(&mut ctx, old_fd, new_fd)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::DuplicateFileDescriptor {
-                    original_fd,
-                    copied_fd,
-                } => {
-                    JournalEffector::apply_fd_duplicate(&mut ctx, original_fd, copied_fd)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::CreateDirectory { fd, path } => {
-                    JournalEffector::apply_path_create_directory(&mut ctx, fd, &path)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::PathSetTimes {
-                    fd,
-                    flags,
-                    path,
-                    st_atim,
-                    st_mtim,
-                    fst_flags,
-                } => {
-                    JournalEffector::apply_path_set_times(
-                        &mut ctx, fd, flags, &path, st_atim, st_mtim, fst_flags,
-                    )
+            }
+            crate::journaling::JournalEntry::PathRename {
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+            } => {
+                JournalEffector::apply_path_rename(&mut ctx, old_fd, &old_path, new_fd, &new_path)
                     .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::Snapshot {
+                when: _,
+                trigger: _,
+            } => {
+                if !is_same_module {
+                    continue;
                 }
-                crate::journaling::JournalEntry::FileDescriptorSetTimes {
-                    fd,
-                    st_atim,
-                    st_mtim,
-                    fst_flags,
-                } => {
-                    JournalEffector::apply_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::FileDescriptorSetSize { fd, st_size } => {
-                    JournalEffector::apply_fd_set_size(&mut ctx, fd, st_size)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::FileDescriptorSetFlags { fd, flags } => {
-                    JournalEffector::apply_fd_set_flags(&mut ctx, fd, flags)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::FileDescriptorSetRights {
+            }
+            crate::journaling::JournalEntry::SetClockTime { clock_id, time } => {
+                JournalEffector::apply_clock_time_set(&mut ctx, clock_id, time)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
+                JournalEffector::apply_fd_renumber(&mut ctx, old_fd, new_fd)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::DuplicateFileDescriptor {
+                original_fd,
+                copied_fd,
+            } => {
+                JournalEffector::apply_fd_duplicate(&mut ctx, original_fd, copied_fd)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::CreateDirectory { fd, path } => {
+                JournalEffector::apply_path_create_directory(&mut ctx, fd, &path)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::PathSetTimes {
+                fd,
+                flags,
+                path,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            } => {
+                JournalEffector::apply_path_set_times(
+                    &mut ctx, fd, flags, &path, st_atim, st_mtim, fst_flags,
+                )
+                .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorSetTimes {
+                fd,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            } => {
+                JournalEffector::apply_fd_set_times(&mut ctx, fd, st_atim, st_mtim, fst_flags)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorSetSize { fd, st_size } => {
+                JournalEffector::apply_fd_set_size(&mut ctx, fd, st_size)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorSetFlags { fd, flags } => {
+                JournalEffector::apply_fd_set_flags(&mut ctx, fd, flags)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorSetRights {
+                fd,
+                fs_rights_base,
+                fs_rights_inheriting,
+            } => {
+                JournalEffector::apply_fd_set_rights(
+                    &mut ctx,
                     fd,
                     fs_rights_base,
                     fs_rights_inheriting,
-                } => {
-                    JournalEffector::apply_fd_set_rights(
-                        &mut ctx,
-                        fd,
-                        fs_rights_base,
-                        fs_rights_inheriting,
-                    )
+                )
+                .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::FileDescriptorAdvise {
+                fd,
+                offset,
+                len,
+                advice,
+            } => {
+                JournalEffector::apply_fd_advise(&mut ctx, fd, offset, len, advice)
                     .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::FileDescriptorAdvise {
-                    fd,
-                    offset,
-                    len,
-                    advice,
-                } => {
-                    JournalEffector::apply_fd_advise(&mut ctx, fd, offset, len, advice)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::FileDescriptorAllocate { fd, offset, len } => {
-                    JournalEffector::apply_fd_allocate(&mut ctx, fd, offset, len)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::CreateHardLink {
-                    old_fd,
-                    old_path,
-                    old_flags,
-                    new_fd,
-                    new_path,
-                } => {
-                    JournalEffector::apply_path_link(
-                        &mut ctx, old_fd, old_flags, &old_path, new_fd, &new_path,
-                    )
+            }
+            crate::journaling::JournalEntry::FileDescriptorAllocate { fd, offset, len } => {
+                JournalEffector::apply_fd_allocate(&mut ctx, fd, offset, len)
                     .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::CreateSymbolicLink {
-                    old_path,
-                    fd,
-                    new_path,
-                } => {
-                    JournalEffector::apply_path_symlink(&mut ctx, &old_path, fd, &new_path)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::ChangeDirectory { path } => {
-                    JournalEffector::apply_chdir(&mut ctx, &path)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::CreatePipe { fd1, fd2 } => {
-                    JournalEffector::apply_fd_pipe(&mut ctx, fd1, fd2)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::EpollCreate { fd } => {
-                    JournalEffector::apply_epoll_create(&mut ctx, fd)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::EpollCtl {
-                    epfd,
-                    op,
-                    fd,
-                    event,
-                } => {
-                    JournalEffector::apply_epoll_ctl(&mut ctx, epfd, op, fd, event)
-                        .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::TtySet { tty, line_feeds } => {
-                    JournalEffector::apply_tty_set(
-                        &mut ctx,
-                        crate::WasiTtyState {
-                            cols: tty.cols,
-                            rows: tty.rows,
-                            width: tty.width,
-                            height: tty.height,
-                            stdin_tty: tty.stdin_tty,
-                            stdout_tty: tty.stdout_tty,
-                            stderr_tty: tty.stderr_tty,
-                            echo: tty.echo,
-                            line_buffered: tty.line_buffered,
-                            line_feeds,
-                        },
-                    )
+            }
+            crate::journaling::JournalEntry::CreateHardLink {
+                old_fd,
+                old_path,
+                old_flags,
+                new_fd,
+                new_path,
+            } => {
+                JournalEffector::apply_path_link(
+                    &mut ctx, old_fd, old_flags, &old_path, new_fd, &new_path,
+                )
+                .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::CreateSymbolicLink {
+                old_path,
+                fd,
+                new_path,
+            } => {
+                JournalEffector::apply_path_symlink(&mut ctx, &old_path, fd, &new_path)
                     .map_err(anyhow_err_to_runtime_err)?;
-                }
-                crate::journaling::JournalEntry::PortAddAddr { cidr } => {
-                    JournalEffector::apply_port_addr_add(&mut ctx, cidr)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortDelAddr { addr } => {
-                    JournalEffector::apply_port_addr_remove(&mut ctx, addr)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortAddrClear => {
-                    JournalEffector::apply_port_addr_clear(&mut ctx)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortBridge {
-                    network,
-                    token,
-                    security,
-                } => JournalEffector::apply_port_bridge(&mut ctx, &network, &token, security)
-                    .map_err(anyhow_err_to_runtime_err)?,
-                crate::journaling::JournalEntry::PortUnbridge => {
-                    JournalEffector::apply_port_unbridge(&mut ctx)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortDhcpAcquire => {
-                    JournalEffector::apply_port_dhcp_acquire(&mut ctx)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortGatewaySet { ip } => {
-                    JournalEffector::apply_port_gateway_set(&mut ctx, ip)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortRouteAdd {
-                    cidr,
-                    via_router,
-                    preferred_until,
-                    expires_at,
-                } => JournalEffector::apply_port_route_add(
+            }
+            crate::journaling::JournalEntry::ChangeDirectory { path } => {
+                JournalEffector::apply_chdir(&mut ctx, &path).map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::CreatePipe { fd1, fd2 } => {
+                JournalEffector::apply_fd_pipe(&mut ctx, fd1, fd2)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::EpollCreate { fd } => {
+                JournalEffector::apply_epoll_create(&mut ctx, fd)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::EpollCtl {
+                epfd,
+                op,
+                fd,
+                event,
+            } => {
+                JournalEffector::apply_epoll_ctl(&mut ctx, epfd, op, fd, event)
+                    .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::TtySet { tty, line_feeds } => {
+                JournalEffector::apply_tty_set(
                     &mut ctx,
-                    cidr,
-                    via_router,
-                    preferred_until,
-                    expires_at,
+                    crate::WasiTtyState {
+                        cols: tty.cols,
+                        rows: tty.rows,
+                        width: tty.width,
+                        height: tty.height,
+                        stdin_tty: tty.stdin_tty,
+                        stdout_tty: tty.stdout_tty,
+                        stderr_tty: tty.stderr_tty,
+                        echo: tty.echo,
+                        line_buffered: tty.line_buffered,
+                        line_feeds,
+                    },
                 )
+                .map_err(anyhow_err_to_runtime_err)?;
+            }
+            crate::journaling::JournalEntry::PortAddAddr { cidr } => {
+                JournalEffector::apply_port_addr_add(&mut ctx, cidr)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortDelAddr { addr } => {
+                JournalEffector::apply_port_addr_remove(&mut ctx, addr)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortAddrClear => {
+                JournalEffector::apply_port_addr_clear(&mut ctx)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortBridge {
+                network,
+                token,
+                security,
+            } => JournalEffector::apply_port_bridge(&mut ctx, &network, &token, security)
                 .map_err(anyhow_err_to_runtime_err)?,
-                crate::journaling::JournalEntry::PortRouteClear => {
-                    JournalEffector::apply_port_route_clear(&mut ctx)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::PortRouteDel { ip } => {
-                    JournalEffector::apply_port_route_remove(&mut ctx, ip)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketOpen { af, ty, pt, fd } => {
-                    JournalEffector::apply_sock_open(&mut ctx, af, ty, pt, fd)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketListen { fd, backlog } => {
-                    JournalEffector::apply_sock_listen(&mut ctx, fd, backlog as usize)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketBind { fd, addr } => {
-                    JournalEffector::apply_sock_bind(&mut ctx, fd, addr)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketConnected { fd, addr } => {
-                    JournalEffector::apply_sock_connect(&mut ctx, fd, addr)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketAccepted {
-                    listen_fd,
-                    fd,
-                    peer_addr,
-                    fd_flags,
-                    nonblocking,
-                } => JournalEffector::apply_sock_accepted(
-                    &mut ctx,
-                    listen_fd,
-                    fd,
-                    peer_addr,
-                    fd_flags,
-                    nonblocking,
-                )
+            crate::journaling::JournalEntry::PortUnbridge => {
+                JournalEffector::apply_port_unbridge(&mut ctx).map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortDhcpAcquire => {
+                JournalEffector::apply_port_dhcp_acquire(&mut ctx)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortGatewaySet { ip } => {
+                JournalEffector::apply_port_gateway_set(&mut ctx, ip)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortRouteAdd {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            } => JournalEffector::apply_port_route_add(
+                &mut ctx,
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            )
+            .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::PortRouteClear => {
+                JournalEffector::apply_port_route_clear(&mut ctx)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::PortRouteDel { ip } => {
+                JournalEffector::apply_port_route_remove(&mut ctx, ip)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketOpen { af, ty, pt, fd } => {
+                JournalEffector::apply_sock_open(&mut ctx, af, ty, pt, fd)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketListen { fd, backlog } => {
+                JournalEffector::apply_sock_listen(&mut ctx, fd, backlog as usize)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketBind { fd, addr } => {
+                JournalEffector::apply_sock_bind(&mut ctx, fd, addr)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketConnected { fd, addr } => {
+                JournalEffector::apply_sock_connect(&mut ctx, fd, addr)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketAccepted {
+                listen_fd,
+                fd,
+                peer_addr,
+                fd_flags,
+                nonblocking,
+            } => JournalEffector::apply_sock_accepted(
+                &mut ctx,
+                listen_fd,
+                fd,
+                peer_addr,
+                fd_flags,
+                nonblocking,
+            )
+            .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::SocketJoinIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEffector::apply_sock_join_ipv4_multicast(&mut ctx, fd, multiaddr, iface)
                 .map_err(anyhow_err_to_runtime_err)?,
-                crate::journaling::JournalEntry::SocketJoinIpv4Multicast {
-                    fd,
-                    multiaddr,
-                    iface,
-                } => {
-                    JournalEffector::apply_sock_join_ipv4_multicast(&mut ctx, fd, multiaddr, iface)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketJoinIpv6Multicast {
-                    fd,
-                    multiaddr,
-                    iface,
-                } => {
-                    JournalEffector::apply_sock_join_ipv6_multicast(&mut ctx, fd, multiaddr, iface)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketLeaveIpv4Multicast {
-                    fd,
-                    multiaddr,
-                    iface,
-                } => {
-                    JournalEffector::apply_sock_leave_ipv4_multicast(&mut ctx, fd, multiaddr, iface)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketLeaveIpv6Multicast {
-                    fd,
-                    multiaddr,
-                    iface,
-                } => {
-                    JournalEffector::apply_sock_leave_ipv6_multicast(&mut ctx, fd, multiaddr, iface)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketSendFile {
-                    socket_fd,
-                    file_fd,
-                    offset,
-                    count,
-                } => JournalEffector::apply_sock_send_file(
-                    &mut ctx, socket_fd, file_fd, offset, count,
-                )
-                .await
+            crate::journaling::JournalEntry::SocketJoinIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEffector::apply_sock_join_ipv6_multicast(&mut ctx, fd, multiaddr, iface)
                 .map_err(anyhow_err_to_runtime_err)?,
-                crate::journaling::JournalEntry::SocketSendTo {
-                    fd,
-                    data,
-                    flags,
-                    addr,
-                    is_64bit,
-                } => if is_64bit {
+            crate::journaling::JournalEntry::SocketLeaveIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEffector::apply_sock_leave_ipv4_multicast(&mut ctx, fd, multiaddr, iface)
+                .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::SocketLeaveIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => JournalEffector::apply_sock_leave_ipv6_multicast(&mut ctx, fd, multiaddr, iface)
+                .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::SocketSendFile {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            } => InlineWaker::block_on(JournalEffector::apply_sock_send_file(
+                &mut ctx, socket_fd, file_fd, offset, count,
+            ))
+            .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::SocketSendTo {
+                fd,
+                data,
+                flags,
+                addr,
+                is_64bit,
+            } => InlineWaker::block_on(async {
+                if is_64bit {
                     JournalEffector::apply_sock_send_to::<Memory64>(&ctx, fd, data, flags, addr)
                         .await
                 } else {
                     JournalEffector::apply_sock_send_to::<Memory32>(&ctx, fd, data, flags, addr)
                         .await
                 }
-                .map_err(anyhow_err_to_runtime_err)?,
-                crate::journaling::JournalEntry::SocketSend {
-                    fd,
-                    data,
-                    flags,
-                    is_64bit,
-                } => if is_64bit {
+            })
+            .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::SocketSend {
+                fd,
+                data,
+                flags,
+                is_64bit,
+            } => InlineWaker::block_on(async {
+                if is_64bit {
                     JournalEffector::apply_sock_send::<Memory64>(&ctx, fd, data, flags).await
                 } else {
                     JournalEffector::apply_sock_send::<Memory32>(&ctx, fd, data, flags).await
                 }
-                .map_err(anyhow_err_to_runtime_err)?,
-                crate::journaling::JournalEntry::SocketSetOptFlag { fd, opt, flag } => {
-                    JournalEffector::apply_sock_set_opt_flag(&mut ctx, fd, opt, flag)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketSetOptSize { fd, opt, size } => {
-                    JournalEffector::apply_sock_set_opt_size(&mut ctx, fd, opt, size)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketSetOptTime { fd, ty, time } => {
-                    JournalEffector::apply_sock_set_opt_time(&mut ctx, fd, ty, time)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::SocketShutdown { fd, how } => {
-                    JournalEffector::apply_sock_shutdown(&mut ctx, fd, how)
-                        .map_err(anyhow_err_to_runtime_err)?
-                }
-                crate::journaling::JournalEntry::CreateEvent {
-                    initial_val,
-                    flags,
-                    fd,
-                } => JournalEffector::apply_fd_event(&mut ctx, initial_val, flags, fd)
-                    .map_err(anyhow_err_to_runtime_err)?,
+            })
+            .map_err(anyhow_err_to_runtime_err)?,
+            crate::journaling::JournalEntry::SocketSetOptFlag { fd, opt, flag } => {
+                JournalEffector::apply_sock_set_opt_flag(&mut ctx, fd, opt, flag)
+                    .map_err(anyhow_err_to_runtime_err)?
             }
+            crate::journaling::JournalEntry::SocketSetOptSize { fd, opt, size } => {
+                JournalEffector::apply_sock_set_opt_size(&mut ctx, fd, opt, size)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketSetOptTime { fd, ty, time } => {
+                JournalEffector::apply_sock_set_opt_time(&mut ctx, fd, ty, time)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::SocketShutdown { fd, how } => {
+                JournalEffector::apply_sock_shutdown(&mut ctx, fd, how)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
+            crate::journaling::JournalEntry::CreateEvent {
+                initial_val,
+                flags,
+                fd,
+            } => JournalEffector::apply_fd_event(&mut ctx, initial_val, flags, fd)
+                .map_err(anyhow_err_to_runtime_err)?,
         }
-        // If we are not in the same module then we fire off an exit
-        // that simulates closing the process (hence keeps everything
-        // in a clean state)
-        if !is_same_module {
-            JournalEffector::apply_process_exit(ctx.data(), None)
-                .map_err(anyhow_err_to_runtime_err)?;
-        } else {
-            tracing::debug!(
-                "journal used on a different module - the process will simulate a restart."
-            );
-        }
+    }
+    // If we are not in the same module then we fire off an exit
+    // that simulates closing the process (hence keeps everything
+    // in a clean state)
+    if !is_same_module {
+        JournalEffector::apply_process_exit(ctx.data(), None).map_err(anyhow_err_to_runtime_err)?;
+    } else {
+        tracing::debug!(
+            "journal used on a different module - the process will simulate a restart."
+        );
+    }
 
-        rewind.ok_or(WasiRuntimeError::Runtime(RuntimeError::user(anyhow::format_err!("The restored snapshot journal does not have a thread stack events and hence we can not restore the state of the process.").into())))
-    })
+    rewind.ok_or(WasiRuntimeError::Runtime(RuntimeError::user(anyhow::format_err!("The restored snapshot journal does not have a thread stack events and hence we can not restore the state of the process.").into())))
 }
 
 pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(

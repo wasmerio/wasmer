@@ -351,7 +351,7 @@ impl Wasi {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
             }
             for journal in self.journals.iter() {
-                builder.add_journal(Arc::new(LogFileJournal::new_std(journal)?));
+                builder.add_journal(Arc::new(LogFileJournal::new(journal)?));
             }
         }
 
@@ -510,7 +510,7 @@ impl Wasi {
 
         #[cfg(feature = "journal")]
         for journal in self.journals.clone() {
-            rt.add_journal(Arc::new(LogFileJournal::new_std(journal)?));
+            rt.add_journal(Arc::new(LogFileJournal::new(journal)?));
         }
 
         if !self.no_tty {

@@ -155,7 +155,7 @@ impl Journal for FilteredJournal {
         })
     }
 
-    fn read<'a>(&'a self) -> LocalBoxFuture<'_, anyhow::Result<Option<JournalEntry<'a>>>> {
-        Box::pin(async { self.inner.read().await })
+    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+        self.inner.read()
     }
 }
