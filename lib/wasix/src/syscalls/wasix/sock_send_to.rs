@@ -52,7 +52,7 @@ pub fn sock_send_to<M: MemorySize>(
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
         JournalEffector::save_sock_send_to::<M>(
-            &mut ctx,
+            &ctx,
             sock,
             bytes_written,
             si_data,
