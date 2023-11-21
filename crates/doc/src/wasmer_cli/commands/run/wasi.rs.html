@@ -575,6 +575,61 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -1080,13 +1135,12 @@
     }
 
     <span class="kw">pub fn </span>for_binfmt_interpreter() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">use </span>std::env;
-        <span class="kw">let </span>dir = env::var_os(<span class="string">&quot;WASMER_BINFMT_MISC_PREOPEN&quot;</span>)
+        <span class="kw">let </span>dir = std::env::var_os(<span class="string">&quot;WASMER_BINFMT_MISC_PREOPEN&quot;</span>)
             .map(Into::into)
             .unwrap_or_else(|| PathBuf::from(<span class="string">&quot;.&quot;</span>));
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
             deny_multiple_wasi_versions: <span class="bool-val">true</span>,
-            env_vars: env::vars().collect(),
+            env_vars: std::env::vars().collect(),
             pre_opened_directories: <span class="macro">vec!</span>[dir],
             ..<span class="self">Self</span>::default()
         })
@@ -1098,7 +1152,13 @@
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>PackageLoader + Send + Sync&gt; {
         <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">&quot;checkouts&quot;</span>);
-        <span class="kw">let </span>loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
+        <span class="kw">let </span>tokens = tokens_by_authority(env)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
+            .with_cache_dir(checkout_dir)
+            .with_shared_http_client(client)
+            .with_tokens(tokens);
+
         <span class="prelude-val">Ok</span>(loader)
     }
 
@@ -1121,8 +1181,15 @@
 
         <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
         <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;queries&quot;</span>);
-        <span class="kw">let </span>wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
+        <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = env
+            .config()<span class="question-mark">?
+            </span>.registry
+            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
+        {
+            wapm_source = wapm_source.with_auth_token(token);
+        }
         source.add_source(wapm_source);
 
         <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;downloads&quot;</span>);
@@ -1151,5 +1218,48 @@
 <span class="kw">fn </span>parse_registry(r: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
     <span class="kw">let </span>url = wasmer_registry::format_graphql(r).parse()<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(url)
+}
+
+<span class="kw">fn </span>tokens_by_authority(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, String&gt;&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>tokens = HashMap::new();
+    <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
+
+    <span class="kw">for </span>credentials <span class="kw">in </span>config.registry.tokens {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(<span class="kw-2">&amp;</span>credentials.registry) {
+            <span class="kw">if </span>url.has_authority() {
+                tokens.insert(url.authority().to_string(), credentials.token);
+            }
+        }
+    }
+
+    <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(current_registry), <span class="prelude-val">Some</span>(token)) = (env.registry_endpoint(), env.token()) {
+        <span class="kw">if </span>current_registry.has_authority() {
+            tokens.insert(current_registry.authority().to_string(), token);
+        }
+    }
+
+    <span class="comment">// Note: The global wasmer.toml config file stores URLs for the GraphQL
+    // endpoint, however that&#39;s often on the backend (i.e.
+    // https://registry.wasmer.io/graphql) and we also want to use the same API
+    // token when sending requests to the frontend (e.g. downloading a package
+    // using the `Accept: application/webc` header).
+    //
+    // As a workaround to avoid needing to query *all* backends to find out
+    // their frontend URL every time the `wasmer` CLI runs, we&#39;ll assume that
+    // when a backend is called something like `registry.wasmer.io`, the
+    // frontend will be at `wasmer.io`. This works everywhere except for people
+    // developing the backend locally... Sorry, Ayush.
+
+    </span><span class="kw">let </span><span class="kw-2">mut </span>frontend_tokens = HashMap::new();
+    <span class="kw">for </span>(hostname, token) <span class="kw">in </span><span class="kw-2">&amp;</span>tokens {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">&quot;registry.&quot;</span>) {
+            <span class="kw">if </span>!tokens.contains_key(frontend_url) {
+                frontend_tokens.insert(frontend_url.to_string(), token.clone());
+            }
+        }
+    }
+    tokens.extend(frontend_tokens);
+
+    <span class="prelude-val">Ok</span>(tokens)
 }
 </code></pre></div></section></main></body></html>

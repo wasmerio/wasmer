@@ -220,6 +220,7 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Context;
@@ -423,9 +424,10 @@
             .into();
         <span class="kw">let </span>tasks = task_manager();
         <span class="kw">let </span><span class="kw-2">mut </span>runtime = PluggableRuntime::new(tasks);
-        runtime.set_package_loader(BuiltinPackageLoader::new_only_client(
-            runtime.http_client().unwrap().clone(),
-        ));
+        runtime.set_package_loader(
+            BuiltinPackageLoader::new()
+                .with_shared_http_client(runtime.http_client().unwrap().clone()),
+        );
 
         <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>webc, <span class="kw-2">&amp;</span>runtime).<span class="kw">await</span>.unwrap();
 

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["WAPM_SOURCE_CACHE_TIMEOUT"],"fn":["parse_registry"],"struct":["RunProperties","Wasi"]};
+window.SIDEBAR_ITEMS = {"constant":["WAPM_SOURCE_CACHE_TIMEOUT"],"fn":["parse_registry","tokens_by_authority"],"struct":["RunProperties","Wasi"]};
