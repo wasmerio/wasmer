@@ -22,6 +22,8 @@ pub fn sock_bind<M: MemorySize>(
     let addr = SocketAddr::new(addr.0, addr.1);
     Span::current().record("addr", &format!("{:?}", addr));
 
+    wasi_try_ok!(sock_bind_internal(&mut ctx, sock, addr)?);
+
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
         JournalEffector::save_sock_bind(&mut ctx, sock, addr).map_err(|err| {
