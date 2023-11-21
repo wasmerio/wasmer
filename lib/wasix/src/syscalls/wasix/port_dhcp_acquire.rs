@@ -7,6 +7,14 @@ use crate::syscalls::*;
 pub fn port_dhcp_acquire(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     wasi_try_ok!(port_dhcp_acquire_internal(&mut ctx)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_port_dhcp_acquire(&mut ctx).map_err(|err| {
+            tracing::error!("failed to save port_dhcp_acquire event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

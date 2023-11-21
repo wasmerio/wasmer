@@ -25,6 +25,14 @@ pub fn sock_set_opt_flag(
 
     wasi_try_ok!(sock_set_opt_flag_internal(&mut ctx, sock, opt, flag)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_set_opt_flag(&mut ctx, sock, opt, flag).map_err(|err| {
+            tracing::error!("failed to save sock_set_opt_flag event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

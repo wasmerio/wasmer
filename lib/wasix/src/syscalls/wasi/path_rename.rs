@@ -43,7 +43,7 @@ pub fn path_rename<M: MemorySize>(
         if env.enable_journal {
             JournalEffector::save_path_rename(&mut ctx, old_fd, source_str, new_fd, target_str)
                 .map_err(|err| {
-                    tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
+                    tracing::error!("failed to save path rename event - {}", err);
                     WasiError::Exit(ExitCode::Errno(Errno::Fault))
                 })?;
         }

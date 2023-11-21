@@ -40,7 +40,7 @@ pub fn path_unlink_file<M: MemorySize>(
         if env.enable_journal {
             wasi_try_ok!(
                 JournalEffector::save_path_unlink(&mut ctx, fd, path_str).map_err(|err| {
-                    tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
+                    tracing::error!("failed to save unlink event - {}", err);
                     Errno::Fault
                 })
             )

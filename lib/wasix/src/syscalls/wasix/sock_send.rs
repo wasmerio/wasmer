@@ -64,6 +64,23 @@ pub fn sock_send<M: MemorySize>(
             si_flags,
         )?)
     };
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_send(
+            &mut ctx,
+            fd,
+            bytes_written,
+            si_data,
+            si_data_len,
+            si_flags,
+        )
+        .map_err(|err| {
+            tracing::error!("failed to save sock_send event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Span::current().record("nsent", bytes_written);
 
     let env = ctx.data();

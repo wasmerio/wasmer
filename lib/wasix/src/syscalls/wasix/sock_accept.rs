@@ -68,6 +68,17 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_accepted(&mut ctx, sock, fd, addr, fd_flags, nonblocking)
+            .map_err(|err| {
+                tracing::error!("failed to save sock_accepted event - {}", err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })?;
+    }
+
+    let env = ctx.data();
+    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
         &memory,

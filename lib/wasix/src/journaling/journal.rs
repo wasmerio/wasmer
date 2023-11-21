@@ -4,9 +4,9 @@ use std::time::SystemTime;
 use std::{borrow::Cow, ops::Range};
 use virtual_net::{Duration, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, StreamSecurity};
 use wasmer_wasix_types::wasi::{
-    Addressfamily, Advice, EpollCtl, EpollEventCtl, ExitCode, Fdflags, FileDelta, Filesize,
-    Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto, Sockoption,
-    Socktype, Timestamp, Tty, Whence,
+    Addressfamily, Advice, EpollCtl, EpollEventCtl, EventFdFlags, ExitCode, Fdflags, FileDelta,
+    Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto,
+    Sockoption, Socktype, Timestamp, Tty, Whence,
 };
 
 use futures::future::LocalBoxFuture;
@@ -188,6 +188,11 @@ pub enum JournalEntry<'a> {
     CreatePipe {
         fd1: Fd,
         fd2: Fd,
+    },
+    CreateEvent {
+        initial_val: u64,
+        flags: EventFdFlags,
+        fd: Fd,
     },
     PortAddAddr {
         cidr: IpCidr,

@@ -19,7 +19,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// Number of bytes transmitted.
 #[instrument(level = "trace", skip_all, fields(%sock, ?addr, nsent = field::Empty), ret)]
 pub fn sock_send_to<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: WasmPtr<__wasi_ciovec_t<M>, M>,
     si_data_len: M::Offset,
@@ -48,6 +48,23 @@ pub fn sock_send_to<M: MemorySize>(
         si_flags,
         addr,
     )?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_send_to::<M>(
+            &mut ctx,
+            sock,
+            bytes_written,
+            si_data,
+            si_data_len,
+            addr,
+            si_flags,
+        )
+        .map_err(|err| {
+            tracing::error!("failed to save sock_send_to event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
 
     Span::current().record("nsent", bytes_written);
 

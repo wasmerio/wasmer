@@ -93,7 +93,7 @@ pub fn path_open<M: MemorySize>(
             fs_flags,
         )
         .map_err(|err| {
-            tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
+            tracing::error!("failed to save unlink event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;
     }

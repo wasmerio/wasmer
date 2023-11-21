@@ -45,6 +45,14 @@ pub fn sock_open<M: MemorySize>(
 
     let fd = wasi_try_ok!(sock_open_internal(&mut ctx, af, ty, pt)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_open(&mut ctx, af, ty, pt, fd).map_err(|err| {
+            tracing::error!("failed to save sock_open event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     wasi_try_mem_ok!(ro_sock.write(&memory, fd));

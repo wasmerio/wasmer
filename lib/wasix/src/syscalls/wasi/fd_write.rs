@@ -402,10 +402,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             if let FdWriteSource::Iovs { iovs, iovs_len } = data {
                 JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
                     .map_err(|err| {
-                        tracing::error!(
-                            "failed to save terminal data to snapshot capturer - {}",
-                            err
-                        );
+                        tracing::error!("failed to save terminal data - {}", err);
                         WasiError::Exit(ExitCode::Errno(Errno::Fault))
                     })?;
             }

@@ -27,6 +27,14 @@ pub fn sock_connect<M: MemorySize>(
 
     wasi_try_ok!(sock_connect_internal(&mut ctx, sock, addr)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_connect(&mut ctx, sock, addr).map_err(|err| {
+            tracing::error!("failed to save sock_connected event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

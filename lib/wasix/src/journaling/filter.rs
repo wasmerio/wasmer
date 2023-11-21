@@ -106,7 +106,8 @@ impl Journal for FilteredJournal {
                 | JournalEntry::CreateHardLink { .. }
                 | JournalEntry::CreateSymbolicLink { .. }
                 | JournalEntry::ChangeDirectory { .. }
-                | JournalEntry::CreatePipe { .. } => {
+                | JournalEntry::CreatePipe { .. }
+                | JournalEntry::CreateEvent { .. } => {
                     if self.filter_fs {
                         return Ok(());
                     }

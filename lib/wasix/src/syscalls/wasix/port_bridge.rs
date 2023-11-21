@@ -40,6 +40,14 @@ pub fn port_bridge<M: MemorySize>(
         security
     )?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_port_bridge(&mut ctx, network, token, security).map_err(|err| {
+            tracing::error!("failed to save port_bridge event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

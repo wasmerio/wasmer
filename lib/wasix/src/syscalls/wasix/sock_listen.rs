@@ -24,6 +24,16 @@ pub fn sock_listen<M: MemorySize>(
     let env = ctx.data();
     let backlog: usize = wasi_try_ok!(backlog.try_into().map_err(|_| Errno::Inval));
 
+    wasi_try_ok!(sock_listen_internal(&mut ctx, sock, backlog)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_listen(&mut ctx, sock, backlog).map_err(|err| {
+            tracing::error!("failed to save sock_listen event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

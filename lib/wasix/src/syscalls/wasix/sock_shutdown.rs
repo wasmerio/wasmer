@@ -26,6 +26,14 @@ pub fn sock_shutdown(
 
     wasi_try_ok!(sock_shutdown_internal(&mut ctx, sock, shutdown)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_shutdown(&mut ctx, sock, shutdown).map_err(|err| {
+            tracing::error!("failed to save sock_shutdown event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

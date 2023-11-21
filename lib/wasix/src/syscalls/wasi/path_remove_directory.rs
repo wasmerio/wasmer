@@ -32,7 +32,7 @@ pub fn path_remove_directory<M: MemorySize>(
     if env.enable_journal {
         wasi_try!(
             JournalEffector::save_path_remove_directory(&mut ctx, fd, path_str).map_err(|err| {
-                tracing::error!("failed to save unlink event to snapshot capturer - {}", err);
+                tracing::error!("failed to save remove directory event - {}", err);
                 Errno::Fault
             })
         )

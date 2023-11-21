@@ -35,6 +35,7 @@ mod syscalls {
     mod fd_allocate;
     mod fd_close;
     mod fd_duplicate;
+    mod fd_event;
     mod fd_pipe;
     mod fd_renumber;
     mod fd_seek;

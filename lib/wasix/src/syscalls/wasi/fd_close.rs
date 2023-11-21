@@ -35,10 +35,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     #[cfg(feature = "journal")]
     if env.enable_journal {
         JournalEffector::save_fd_close(&mut ctx, fd).map_err(|err| {
-            tracing::error!(
-                "failed to save close descriptor event to snapshot capturer - {}",
-                err
-            );
+            tracing::error!("failed to save close descriptor event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;
     }

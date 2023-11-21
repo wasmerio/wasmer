@@ -1727,6 +1727,12 @@ pub fn restore_snapshot(
                     JournalEffector::apply_sock_shutdown(&mut ctx, fd, how)
                         .map_err(anyhow_err_to_runtime_err)?
                 }
+                crate::journaling::JournalEntry::CreateEvent {
+                    initial_val,
+                    flags,
+                    fd,
+                } => JournalEffector::apply_fd_event(&mut ctx, initial_val, flags, fd)
+                    .map_err(anyhow_err_to_runtime_err)?,
             }
         }
         // If we are not in the same module then we fire off an exit

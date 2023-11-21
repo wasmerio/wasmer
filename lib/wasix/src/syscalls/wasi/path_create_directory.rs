@@ -41,10 +41,7 @@ pub fn path_create_directory<M: MemorySize>(
     #[cfg(feature = "journal")]
     if env.enable_journal {
         JournalEffector::save_path_create_directory(&mut ctx, fd, path_string).map_err(|err| {
-            tracing::error!(
-                "failed to save create directory event to snapshot capturer - {}",
-                err
-            );
+            tracing::error!("failed to save create directory event - {}", err);
             WasiError::Exit(ExitCode::Errno(Errno::Fault))
         })?;
     }

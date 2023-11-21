@@ -43,6 +43,21 @@ pub fn port_route_add<M: MemorySize>(
         expires_at
     )?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_port_route_add(
+            &mut ctx,
+            cidr,
+            via_router,
+            preferred_until,
+            expires_at,
+        )
+        .map_err(|err| {
+            tracing::error!("failed to save port_route_add event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }
 

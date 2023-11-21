@@ -992,6 +992,9 @@ impl InodeSocket {
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
                         }
+                        InodeSocketKind::RemoteTcpStream { .. } => {
+                            return Poll::Ready(Ok(self.data.len()))
+                        }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
                     return match res {
@@ -1068,6 +1071,9 @@ impl InodeSocket {
                         }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
+                        }
+                        InodeSocketKind::RemoteTcpStream { .. } => {
+                            return Poll::Ready(Ok(self.data.len()))
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };

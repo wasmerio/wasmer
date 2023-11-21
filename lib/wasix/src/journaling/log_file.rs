@@ -180,6 +180,11 @@ pub(crate) enum LogFileJournalEntry {
         fd1: u32,
         fd2: u32,
     },
+    CreateEventV1 {
+        initial_val: u64,
+        flags: u16,
+        fd: u32,
+    },
     PortAddAddrV1 {
         cidr: IpCidr,
     },
@@ -1111,6 +1116,15 @@ impl<'a> From<JournalEntry<'a>> for LogFileJournalEntry {
                 fd,
                 how: how.into(),
             },
+            JournalEntry::CreateEvent {
+                initial_val,
+                flags,
+                fd,
+            } => Self::CreateEventV1 {
+                initial_val,
+                flags,
+                fd,
+            },
         }
     }
 }
@@ -1488,6 +1502,15 @@ impl<'a> From<LogFileJournalEntry> for JournalEntry<'a> {
             LogFileJournalEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown {
                 fd,
                 how: how.into(),
+            },
+            LogFileJournalEntry::CreateEventV1 {
+                initial_val,
+                flags,
+                fd,
+            } => Self::CreateEvent {
+                initial_val,
+                flags,
+                fd,
             },
         }
     }
