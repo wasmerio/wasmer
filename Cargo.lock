@@ -1366,6 +1366,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-schema"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37f4d009ae866a6010c28fc2590976fdc35c81544000604f0137277c0153d165"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "once_cell",
+ "parking_lot 0.12.1",
+ "rand_chacha",
+ "rand_core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_yaml 0.8.26",
+ "sparx",
+ "time",
+ "url",
+ "uuid",
+ "wcgi-host",
+]
+
+[[package]]
+name = "edge-util"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d665cdd8fd34e6faf57815d007ec4d5853f2c79d8cb37b9293225f3555ed239"
+dependencies = [
+ "edge-schema",
+ "http",
+ "serde",
+ "wasmparser 0.95.0",
+]
+
+[[package]]
 name = "educe"
 version = "0.4.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5568,12 +5604,13 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.21"
+version = "0.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00fc0940fb8afac4ea89188642fe5c79344d2a9c1eed5f97dca31e1b77bc94b0"
+checksum = "256a9856e530f01598bce05d1c09ee3c72165f7fdaaf33b9ce4f5921d9439df4"
 dependencies = [
  "anyhow",
  "cynic",
+ "edge-schema",
  "futures",
  "harsh",
  "pin-project-lite",
@@ -5584,7 +5621,6 @@ dependencies = [
  "time",
  "tracing",
  "url",
- "wasmer-deploy-schema",
  "webc",
 ]
 
@@ -5729,7 +5765,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-deploy-cli",
+ "wasmer-edge-cli",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry 5.9.0",
@@ -5853,21 +5889,36 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-deploy-cli"
-version = "0.1.29"
+name = "wasmer-derive"
+version = "4.2.3"
+dependencies = [
+ "compiletest_rs",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-edge-cli"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c56e0442e54a80664e98695e8d107ae9b96cc8c2fefd37724afc0ab87ae7d2bd"
+checksum = "e7a4fd3142520febcdaa8771517de6b4a87546472dd92e273323146827d61e17"
 dependencies = [
  "anyhow",
  "clap",
  "clap-verbosity-flag",
  "colored 2.0.4",
  "comfy-table",
- "dialoguer 0.10.4",
+ "dialoguer 0.11.0",
+ "edge-schema",
+ "edge-util",
  "futures",
  "is-terminal",
  "log",
  "once_cell",
+ "parking_lot 0.12.1",
  "regex",
  "reqwest",
  "semver 1.0.20",
@@ -5884,58 +5935,9 @@ dependencies = [
  "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "virtual-net 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-api",
- "wasmer-deploy-schema",
- "wasmer-deploy-util",
  "wasmer-registry 5.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-toml 0.9.2",
  "webc",
-]
-
-[[package]]
-name = "wasmer-deploy-schema"
-version = "0.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "834e0556431a342b332b1c3f9da9bdd82e7aaf8bf04bb35459a6f0c2dccce45c"
-dependencies = [
- "anyhow",
- "bytesize",
- "once_cell",
- "rand_chacha",
- "rand_core",
- "schemars",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_yaml 0.8.26",
- "sparx",
- "time",
- "url",
- "uuid",
- "wcgi-host",
-]
-
-[[package]]
-name = "wasmer-deploy-util"
-version = "0.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fea1339e7e1bda2e8ceac2181261ca36ae2fd665a745d02e072df992f3cec98"
-dependencies = [
- "http",
- "serde",
- "wasmer-deploy-schema",
- "wasmparser 0.95.0",
-]
-
-[[package]]
-name = "wasmer-derive"
-version = "4.2.3"
-dependencies = [
- "compiletest_rs",
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "wasmer-types",
 ]
 
 [[package]]
