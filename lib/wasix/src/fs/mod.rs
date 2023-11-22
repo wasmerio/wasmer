@@ -1233,7 +1233,8 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
-        let start_inode = if (!base_inode.deref().name.starts_with('/') || !path.starts_with('/'))
+        let start_inode = if (!base_inode.deref().name.starts_with('/')
+            || (base == VIRTUAL_ROOT_FD && !path.starts_with('/')))
             && self.is_wasix.load(Ordering::Acquire)
         {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
