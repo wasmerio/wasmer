@@ -215,7 +215,7 @@ impl WritableJournal for CompactingJournalTx {
                 state.thread_map.insert(*id, event_index);
             }
             JournalEntry::CloseThread { id, .. } => {
-                state.thread_map.remove(&id);
+                state.thread_map.remove(id);
             }
             JournalEntry::ProcessExit { .. } => {
                 state.thread_map.clear();
@@ -225,7 +225,7 @@ impl WritableJournal for CompactingJournalTx {
             }
             JournalEntry::CloseFileDescriptor { fd } => {
                 // If its not suspect we need to record this event
-                if state.suspect_descriptors.remove(&fd).is_some() {
+                if state.suspect_descriptors.remove(fd).is_some() {
                     // suspect descriptors that are closed are dropped
                     // as they made no material difference to the state
                 } else if let Some(e) = state.keep_descriptors.get_mut(fd) {
@@ -242,9 +242,9 @@ impl WritableJournal for CompactingJournalTx {
             }
             // We keep non-mutable events for file descriptors that are suspect
             JournalEntry::FileDescriptorSeek { fd, .. } => {
-                if let Some(events) = state.suspect_descriptors.get_mut(&fd) {
+                if let Some(events) = state.suspect_descriptors.get_mut(fd) {
                     events.push(event_index);
-                } else if let Some(s) = state.keep_descriptors.get_mut(&fd) {
+                } else if let Some(s) = state.keep_descriptors.get_mut(fd) {
                     s.events.push(event_index);
                 } else {
                     state.whitelist.insert(event_index);
@@ -261,7 +261,7 @@ impl WritableJournal for CompactingJournalTx {
                 original_fd: fd, ..
             } => {
                 // Its no longer suspect
-                if let Some(events) = state.suspect_descriptors.remove(&fd) {
+                if let Some(events) = state.suspect_descriptors.remove(fd) {
                     state.keep_descriptors.insert(
                         *fd,
                         StateDescriptor {
@@ -351,9 +351,12 @@ impl Journal for CompactingJournal {
     }
 }
 
+#[cfg(feature = "journal")]
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use wasmer_wasix_types::wasi;
 
     pub fn run_test<'a>(
         in_records: Vec<JournalEntry<'a>>,
@@ -401,6 +404,84 @@ mod tests {
             vec![JournalEntry::UpdateMemoryRegion {
                 region: 0..16,
                 data: [22u8; 16].to_vec().into(),
+            }],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_keep_overlapping_memory() {
+        run_test(
+            vec![
+                JournalEntry::UpdateMemoryRegion {
+                    region: 0..16,
+                    data: [11u8; 16].to_vec().into(),
+                },
+                JournalEntry::UpdateMemoryRegion {
+                    region: 20..36,
+                    data: [22u8; 16].to_vec().into(),
+                },
+            ],
+            vec![
+                JournalEntry::UpdateMemoryRegion {
+                    region: 0..16,
+                    data: [11u8; 16].to_vec().into(),
+                },
+                JournalEntry::UpdateMemoryRegion {
+                    region: 20..36,
+                    data: [22u8; 16].to_vec().into(),
+                },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_keep_adjacent_memory_writes() {
+        run_test(
+            vec![
+                JournalEntry::UpdateMemoryRegion {
+                    region: 0..16,
+                    data: [11u8; 16].to_vec().into(),
+                },
+                JournalEntry::UpdateMemoryRegion {
+                    region: 16..32,
+                    data: [22u8; 16].to_vec().into(),
+                },
+            ],
+            vec![
+                JournalEntry::UpdateMemoryRegion {
+                    region: 0..16,
+                    data: [11u8; 16].to_vec().into(),
+                },
+                JournalEntry::UpdateMemoryRegion {
+                    region: 16..32,
+                    data: [22u8; 16].to_vec().into(),
+                },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_purge_identical_memory_writes() {
+        run_test(
+            vec![
+                JournalEntry::UpdateMemoryRegion {
+                    region: 0..16,
+                    data: [11u8; 16].to_vec().into(),
+                },
+                JournalEntry::UpdateMemoryRegion {
+                    region: 0..16,
+                    data: [11u8; 16].to_vec().into(),
+                },
+            ],
+            vec![JournalEntry::UpdateMemoryRegion {
+                region: 0..16,
+                data: [11u8; 16].to_vec().into(),
             }],
         )
         .unwrap()
@@ -478,14 +559,245 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: Oflags::all(),
-                    fs_rights_base: Rights::all(),
-                    fs_rights_inheriting: Rights::all(),
-                    fs_flags: Fdflags::all(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
                 },
                 JournalEntry::ProcessExit { exit_code: None },
             ],
             vec![JournalEntry::ProcessExit { exit_code: None }],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_partial_write_survives() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+            ],
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_write_survives_close() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptor { fd: 1234 },
+            ],
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptor { fd: 1234 },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_write_survives_exit() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::ProcessExit { exit_code: None },
+            ],
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::ProcessExit { exit_code: None },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_read_is_ignored() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorSeek {
+                    fd: 1234,
+                    offset: 1234,
+                    whence: wasi::Whence::End,
+                },
+                JournalEntry::CloseFileDescriptor { fd: 1234 },
+            ],
+            Vec::new(),
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_ignore_double_writes() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [1u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [5u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptor { fd: 1234 },
+            ],
+            vec![
+                JournalEntry::OpenFileDescriptor {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::all(),
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWrite {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [5u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptor { fd: 1234 },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_create_directory() {
+        run_test(
+            vec![JournalEntry::CreateDirectory {
+                fd: 1234,
+                path: "/blah".into(),
+            }],
+            vec![JournalEntry::CreateDirectory {
+                fd: 1234,
+                path: "/blah".into(),
+            }],
         )
         .unwrap()
     }

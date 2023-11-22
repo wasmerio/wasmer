@@ -3,7 +3,7 @@ use std::ops::Deref;
 use super::*;
 
 impl ReadableJournal for Box<DynReadableJournal> {
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
         self.deref().read()
     }
 
@@ -19,7 +19,7 @@ impl WritableJournal for Box<DynWritableJournal> {
 }
 
 impl ReadableJournal for Box<DynJournal> {
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
         self.deref().read()
     }
 

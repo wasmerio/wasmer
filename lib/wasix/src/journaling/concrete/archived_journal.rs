@@ -2846,7 +2846,7 @@ mod tests {
     #[test]
     pub fn test_record_process_exit() {
         run_test(JournalEntry::ProcessExit {
-            exit_code: Some(ExitCode::Errno(wasi::Errno::Fault)),
+            exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
         });
     }
 
@@ -2867,7 +2867,7 @@ mod tests {
     pub fn test_record_close_thread() {
         run_test(JournalEntry::CloseThread {
             id: 987u32.into(),
-            exit_code: Some(ExitCode::Errno(wasi::Errno::Fault)),
+            exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
         });
     }
 

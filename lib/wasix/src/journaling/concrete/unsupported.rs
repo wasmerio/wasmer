@@ -13,7 +13,7 @@ impl ReadableJournal for UnsupportedJournal {
     }
 
     fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
-        Ok(Box::new(UnsupportedJournal::default()))
+        Ok(Box::<UnsupportedJournal>::default())
     }
 }
 
@@ -27,8 +27,8 @@ impl WritableJournal for UnsupportedJournal {
 impl Journal for UnsupportedJournal {
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
         (
-            Box::new(UnsupportedJournal::default()),
-            Box::new(UnsupportedJournal::default()),
+            Box::<UnsupportedJournal>::default(),
+            Box::<UnsupportedJournal>::default(),
         )
     }
 }
