@@ -6587,8 +6587,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.8.0"
-source = "git+https://github.com/wasmerio/pirita.git?branch=pub-traits#879b6dd05bdb8abc930842c69768eaab51392092"
+version = "5.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "973ca5a91b4fb3e4bb37cfebe03ef9364d0aff2765256abefdb7e79dc9188483"
 dependencies = [
  "anyhow",
  "base64",
