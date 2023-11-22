@@ -114,6 +114,8 @@ once_cell = "1.17.1"
 indicatif = "0.17.5"
 opener = "0.6.1"
 hyper = { version = "0.14.27", features = ["server"] }
+http = "0.2.9"
+futures = "0.3.29"
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
@@ -156,14 +158,7 @@ unix_mode = "0.1.3"
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = [
-  "sys",
-  "wat",
-  "wast",
-  "compiler",
-  "wasmer-artifact-create",
-  "static-artifact-create",
-]
+default = ["sys", "wat", "wast", "compiler", "wasmer-artifact-create", "static-artifact-create"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
@@ -171,56 +166,21 @@ jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
-compiler = [
-  "backend",
-  "wasmer/compiler",
-  "wasmer-compiler/translator",
-  "wasmer-compiler/compiler",
-]
-wasmer-artifact-create = [
-  "compiler",
-  "wasmer/wasmer-artifact-load",
-  "wasmer/wasmer-artifact-create",
-  "wasmer-compiler/wasmer-artifact-load",
-  "wasmer-compiler/wasmer-artifact-create",
-  "wasmer-object",
-]
-static-artifact-create = [
-  "compiler",
-  "wasmer/static-artifact-load",
-  "wasmer/static-artifact-create",
-  "wasmer-compiler/static-artifact-load",
-  "wasmer-compiler/static-artifact-create",
-  "wasmer-object",
-]
-wasmer-artifact-load = [
-  "compiler",
-  "wasmer/wasmer-artifact-load",
-  "wasmer-compiler/wasmer-artifact-load",
-]
-static-artifact-load = [
-  "compiler",
-  "wasmer/static-artifact-load",
-  "wasmer-compiler/static-artifact-load",
-]
+compiler = ["backend", "wasmer/compiler", "wasmer-compiler/translator", "wasmer-compiler/compiler"]
+wasmer-artifact-create = ["compiler", "wasmer/wasmer-artifact-load", "wasmer/wasmer-artifact-create", "wasmer-compiler/wasmer-artifact-load", "wasmer-compiler/wasmer-artifact-create", "wasmer-object"]
+static-artifact-create = ["compiler", "wasmer/static-artifact-load", "wasmer/static-artifact-create", "wasmer-compiler/static-artifact-load", "wasmer-compiler/static-artifact-create", "wasmer-object"]
+wasmer-artifact-load = ["compiler", "wasmer/wasmer-artifact-load", "wasmer-compiler/wasmer-artifact-load"]
+static-artifact-load = ["compiler", "wasmer/static-artifact-load", "wasmer-compiler/static-artifact-load"]
 experimental-io-devices = ["wasmer-wasix-experimental-io-devices"]
 singlepass = ["wasmer-compiler-singlepass", "compiler"]
 cranelift = ["wasmer-compiler-cranelift", "compiler"]
 llvm = ["wasmer-compiler-llvm", "compiler"]
-disable-all-logging = [
-  "wasmer-wasix/disable-all-logging",
-  "log/release_max_level_off",
-]
+disable-all-logging = ["wasmer-wasix/disable-all-logging", "log/release_max_level_off"]
 headless = []
 headless-minimal = ["headless", "disable-all-logging"]
 
 # Optional
-enable-serde = [
-  "wasmer/enable-serde",
-  "wasmer-vm/enable-serde",
-  "wasmer-compiler/enable-serde",
-  "wasmer-wasix/enable-serde",
-]
+enable-serde = ["wasmer/enable-serde", "wasmer-vm/enable-serde", "wasmer-compiler/enable-serde", "wasmer-wasix/enable-serde"]
 
 [dev-dependencies]
 assert_cmd = "2.0.11"

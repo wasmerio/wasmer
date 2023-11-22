@@ -220,9 +220,10 @@ mod tests {
             .into();
         let tasks = task_manager();
         let mut runtime = PluggableRuntime::new(tasks);
-        runtime.set_package_loader(BuiltinPackageLoader::new_only_client(
-            runtime.http_client().unwrap().clone(),
-        ));
+        runtime.set_package_loader(
+            BuiltinPackageLoader::new()
+                .with_shared_http_client(runtime.http_client().unwrap().clone()),
+        );
 
         let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
 

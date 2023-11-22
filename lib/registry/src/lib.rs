@@ -153,6 +153,7 @@ pub fn query_package_from_registry(
     registry_url: &str,
     name: &str,
     version: Option<&str>,
+    auth_token: Option<&str>,
 ) -> Result<PackageDownloadInfo, QueryPackageError> {
     use crate::graphql::{
         execute_query,
@@ -164,8 +165,8 @@ pub fn query_package_from_registry(
         version: version.map(|s| s.to_string()),
     });
 
-    let response: get_package_version_query::ResponseData = execute_query(registry_url, "", &q)
-        .map_err(|e| {
+    let response: get_package_version_query::ResponseData =
+        execute_query(registry_url, auth_token.unwrap_or_default(), &q).map_err(|e| {
             QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery: {e}"))
         })?;
 

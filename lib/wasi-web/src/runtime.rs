@@ -87,7 +87,8 @@ impl WebRuntime {
         // even if the filesystem cache fails (i.e. because we're compiled to
         // wasm32-unknown-unknown and running in a browser), the in-memory layer
         // should still work.
-        let package_loader = BuiltinPackageLoader::new_only_client(http_client.clone());
+        let package_loader =
+            BuiltinPackageLoader::new().with_shared_http_client(http_client.clone());
         let module_cache = WebWorkerModuleCache::default();
         WebRuntime {
             pool,

@@ -316,13 +316,12 @@ impl Wasi {
     }
 
     pub fn for_binfmt_interpreter() -> Result<Self> {
-        use std::env;
-        let dir = env::var_os("WASMER_BINFMT_MISC_PREOPEN")
+        let dir = std::env::var_os("WASMER_BINFMT_MISC_PREOPEN")
             .map(Into::into)
             .unwrap_or_else(|| PathBuf::from("."));
         Ok(Self {
             deny_multiple_wasi_versions: true,
-            env_vars: env::vars().collect(),
+            env_vars: std::env::vars().collect(),
             pre_opened_directories: vec![dir],
             ..Self::default()
         })
@@ -334,7 +333,13 @@ impl Wasi {
         client: Arc<dyn HttpClient + Send + Sync>,
     ) -> Result<impl PackageLoader + Send + Sync> {
         let checkout_dir = env.cache_dir().join("checkouts");
-        let loader = BuiltinPackageLoader::new_with_client(checkout_dir, Arc::new(client));
+        let tokens = tokens_by_authority(env)?;
+
+        let loader = BuiltinPackageLoader::new()
+            .with_cache_dir(checkout_dir)
+            .with_shared_http_client(client)
+            .with_tokens(tokens);
+
         Ok(loader)
     }
 
@@ -357,8 +362,15 @@ impl Wasi {
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
         let cache_dir = env.cache_dir().join("queries");
-        let wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
+        let mut wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+        if let Some(token) = env
+            .config()?
+            .registry
+            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
+        {
+            wapm_source = wapm_source.with_auth_token(token);
+        }
         source.add_source(wapm_source);
 
         let cache_dir = env.cache_dir().join("downloads");
@@ -387,4 +399,47 @@ impl Wasi {
 fn parse_registry(r: &str) -> Result<Url> {
     let url = wasmer_registry::format_graphql(r).parse()?;
     Ok(url)
+}
+
+fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
+    let mut tokens = HashMap::new();
+    let config = env.config()?;
+
+    for credentials in config.registry.tokens {
+        if let Ok(url) = Url::parse(&credentials.registry) {
+            if url.has_authority() {
+                tokens.insert(url.authority().to_string(), credentials.token);
+            }
+        }
+    }
+
+    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token()) {
+        if current_registry.has_authority() {
+            tokens.insert(current_registry.authority().to_string(), token);
+        }
+    }
+
+    // Note: The global wasmer.toml config file stores URLs for the GraphQL
+    // endpoint, however that's often on the backend (i.e.
+    // https://registry.wasmer.io/graphql) and we also want to use the same API
+    // token when sending requests to the frontend (e.g. downloading a package
+    // using the `Accept: application/webc` header).
+    //
+    // As a workaround to avoid needing to query *all* backends to find out
+    // their frontend URL every time the `wasmer` CLI runs, we'll assume that
+    // when a backend is called something like `registry.wasmer.io`, the
+    // frontend will be at `wasmer.io`. This works everywhere except for people
+    // developing the backend locally... Sorry, Ayush.
+
+    let mut frontend_tokens = HashMap::new();
+    for (hostname, token) in &tokens {
+        if let Some(frontend_url) = hostname.strip_prefix("registry.") {
+            if !tokens.contains_key(frontend_url) {
+                frontend_tokens.insert(frontend_url.to_string(), token.clone());
+            }
+        }
+    }
+    tokens.extend(frontend_tokens);
+
+    Ok(tokens)
 }

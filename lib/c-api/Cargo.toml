@@ -35,7 +35,7 @@ wasmer-types = { version = "=4.2.3", path = "../types" }
 wasmer-wasix = { version = "0.16.0", path = "../wasix", features = ["host-fs", "host-vnet"], optional = true }
 webc = { workspace = true, optional = true }
 virtual-fs = { version = "0.9.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
-enumset = "1.0.2"
+enumset.workspace = true
 cfg-if = "1.0"
 lazy_static = "1.4"
 libc = { version = "^0.2", default-features = false }
