@@ -91,7 +91,12 @@ pub enum JournalEntryRecordType {
 }
 
 impl JournalEntryRecordType {
-    pub unsafe fn deserialize_archive<'a>(self, data: &'a [u8]) -> JournalEntry<'a> {
+    /// # Safety
+    ///
+    /// `rykv` makes direct memory references to achieve high performance
+    /// however this does mean care must be taken that the data itself
+    /// can not be manipulated or corrupted.
+    pub unsafe fn deserialize_archive(self, data: &[u8]) -> JournalEntry<'_> {
         match self {
             JournalEntryRecordType::InitModuleV1 => ArchivedJournalEntry::InitModuleV1(
                 rkyv::archived_root::<JournalEntryInitModuleV1>(data),
@@ -692,8 +697,8 @@ impl<'a> JournalEntry<'a> {
             } => serializer.serialize_value(&JournalEntryPortRouteAddV1 {
                 cidr,
                 via_router,
-                preferred_until: preferred_until.clone(),
-                expires_at: expires_at.clone(),
+                preferred_until,
+                expires_at,
             }),
             JournalEntry::PortRouteClear => return Ok(()),
             JournalEntry::PortRouteDel { ip } => {
@@ -818,7 +823,7 @@ impl<'a> JournalEntry<'a> {
                 serializer.serialize_value(&JournalEntrySocketSetOptTimeV1 {
                     fd,
                     ty: ty.into(),
-                    time: time.clone(),
+                    time,
                 })
             }
             JournalEntry::SocketShutdown { fd, how } => {
@@ -2389,7 +2394,7 @@ impl<'a> From<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 ref trigger,
             }) => Self::Snapshot {
                 when: SystemTime::UNIX_EPOCH
-                    .checked_add(since_epoch.clone().try_into().unwrap())
+                    .checked_add((*since_epoch).try_into().unwrap())
                     .unwrap_or(SystemTime::UNIX_EPOCH),
                 trigger: trigger.into(),
             },
@@ -2608,10 +2613,8 @@ impl<'a> From<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 via_router: via_router.as_ipaddr(),
                 preferred_until: preferred_until
                     .as_ref()
-                    .map(|time| time.clone().try_into().unwrap()),
-                expires_at: expires_at
-                    .as_ref()
-                    .map(|time| time.clone().try_into().unwrap()),
+                    .map(|time| (*time).try_into().unwrap()),
+                expires_at: expires_at.as_ref().map(|time| (*time).try_into().unwrap()),
             },
             ArchivedJournalEntry::PortRouteClearV1 => Self::PortRouteClear,
             ArchivedJournalEntry::PortRouteDelV1(ArchivedJournalEntryPortRouteDelV1 { ip }) => {
@@ -2765,7 +2768,7 @@ impl<'a> From<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             }) => Self::SocketSetOptTime {
                 fd: *fd,
                 ty: ty.into(),
-                time: time.as_ref().map(|time| time.clone().try_into().unwrap()),
+                time: time.as_ref().map(|time| (*time).try_into().unwrap()),
             },
             ArchivedJournalEntry::SocketShutdownV1(ArchivedJournalEntrySocketShutdownV1 {
                 fd,
@@ -2844,7 +2847,7 @@ mod tests {
     #[test]
     pub fn test_record_process_exit() {
         run_test(JournalEntry::ProcessExit {
-            exit_code: Some(ExitCode::Errno(Errno::Fault)),
+            exit_code: Some(ExitCode::Errno(wasi::Errno::Fault)),
         });
     }
 
@@ -2865,7 +2868,7 @@ mod tests {
     pub fn test_record_close_thread() {
         run_test(JournalEntry::CloseThread {
             id: 987u32.into(),
-            exit_code: Some(ExitCode::Errno(Errno::Fault)),
+            exit_code: Some(ExitCode::Errno(wasi::Errno::Fault)),
         });
     }
 
@@ -2875,7 +2878,7 @@ mod tests {
         run_test(JournalEntry::FileDescriptorSeek {
             fd: 765u32,
             offset: 9183722450971234i64,
-            whence: Whence::End,
+            whence: wasi::Whence::End,
         });
     }
 
@@ -2903,7 +2906,7 @@ mod tests {
     #[test]
     pub fn test_record_set_clock_time() {
         run_test(JournalEntry::SetClockTime {
-            clock_id: Snapshot0Clockid::Realtime,
+            clock_id: wasi::Snapshot0Clockid::Realtime,
             time: 7912837412934u64,
         });
     }
@@ -2916,10 +2919,10 @@ mod tests {
             dirfd: 23458922u32,
             dirflags: 134512345,
             path: "/blah".into(),
-            o_flags: Oflags::all(),
-            fs_rights_base: Rights::all(),
-            fs_rights_inheriting: Rights::all(),
-            fs_flags: Fdflags::all(),
+            o_flags: wasi::Oflags::all(),
+            fs_rights_base: wasi::Rights::all(),
+            fs_rights_inheriting: wasi::Rights::all(),
+            fs_flags: wasi::Fdflags::all(),
         });
     }
 
@@ -2974,7 +2977,7 @@ mod tests {
             path: "/".into(),
             st_atim: 923452345,
             st_mtim: 350,
-            fst_flags: Fstflags::all(),
+            fst_flags: wasi::Fstflags::all(),
         });
     }
 
@@ -2985,7 +2988,7 @@ mod tests {
             fd: 898785u32,
             st_atim: 29834952345,
             st_mtim: 239845892345,
-            fst_flags: Fstflags::all(),
+            fst_flags: wasi::Fstflags::all(),
         });
     }
 
@@ -3003,7 +3006,7 @@ mod tests {
     pub fn test_record_file_descriptor_set_flags() {
         run_test(JournalEntry::FileDescriptorSetFlags {
             fd: 982348752u32,
-            flags: Fdflags::all(),
+            flags: wasi::Fdflags::all(),
         });
     }
 
@@ -3012,8 +3015,8 @@ mod tests {
     pub fn test_record_file_descriptor_set_rights() {
         run_test(JournalEntry::FileDescriptorSetRights {
             fd: 872345u32,
-            fs_rights_base: Rights::all(),
-            fs_rights_inheriting: Rights::all(),
+            fs_rights_base: wasi::Rights::all(),
+            fs_rights_inheriting: wasi::Rights::all(),
         });
     }
 
@@ -3024,7 +3027,7 @@ mod tests {
             fd: 298434u32,
             offset: 92834529092345,
             len: 23485928345,
-            advice: Advice::Random,
+            advice: wasi::Advice::Random,
         });
     }
 
@@ -3099,10 +3102,10 @@ mod tests {
     pub fn test_record_epoll_ctl() {
         run_test(JournalEntry::EpollCtl {
             epfd: 34523455,
-            op: EpollCtl::Unknown,
+            op: wasi::EpollCtl::Unknown,
             fd: 23452345,
-            event: Some(EpollEventCtl {
-                events: EpollType::all(),
+            event: Some(wasi::EpollEventCtl {
+                events: wasi::EpollType::all(),
                 ptr: 32452345,
                 fd: 23452345,
                 data1: 1235245756,
@@ -3115,7 +3118,7 @@ mod tests {
     #[test]
     pub fn test_record_tty_set() {
         run_test(JournalEntry::TtySet {
-            tty: Tty {
+            tty: wasi::Tty {
                 cols: 1234,
                 rows: 6754,
                 width: 4563456,
@@ -3237,8 +3240,8 @@ mod tests {
     pub fn test_record_socket_open() {
         run_test(JournalEntry::SocketOpen {
             af: Addressfamily::Inet6,
-            ty: Socktype::Stream,
-            pt: SockProto::Tcp,
+            ty: wasi::Socktype::Stream,
+            pt: wasi::SockProto::Tcp,
             fd: 23452345,
         });
     }
@@ -3277,7 +3280,7 @@ mod tests {
             listen_fd: 21234,
             fd: 1,
             peer_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
-            fd_flags: Fdflags::all(),
+            fd_flags: wasi::Fdflags::all(),
             nonblocking: true,
         });
     }
@@ -3361,7 +3364,7 @@ mod tests {
     pub fn test_record_socket_set_opt_flag() {
         run_test(JournalEntry::SocketSetOptFlag {
             fd: 0,
-            opt: Sockoption::Linger,
+            opt: wasi::Sockoption::Linger,
             flag: true,
         });
     }
@@ -3371,7 +3374,7 @@ mod tests {
     pub fn test_record_socket_set_opt_size() {
         run_test(JournalEntry::SocketSetOptSize {
             fd: 15,
-            opt: Sockoption::Linger,
+            opt: wasi::Sockoption::Linger,
             size: 234234,
         });
     }

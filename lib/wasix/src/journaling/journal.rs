@@ -652,7 +652,7 @@ pub trait WritableJournal {
 pub trait ReadableJournal {
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>>;
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>>;
 
     /// Resets the journal so that reads will start from the
     /// beginning again

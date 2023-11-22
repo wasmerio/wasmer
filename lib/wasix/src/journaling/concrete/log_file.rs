@@ -93,7 +93,7 @@ impl LogFileJournal {
         // Move to the end of the file and write the
         // magic if one is needed
         if file.seek(SeekFrom::End(0)).unwrap() == 0 {
-            let magic = JOURNAL_MAGIC_NUMBER as u64;
+            let magic = JOURNAL_MAGIC_NUMBER;
             let magic = magic.to_be_bytes();
             file.write_all(&magic)?;
         }
@@ -126,20 +126,18 @@ impl WritableJournal for LogFileJournalTx {
         // Write the header (with a record size of zero)
         let record_type: JournalEntryRecordType = entry.archive_record_type();
         state.file.write_all(&(record_type as u16).to_be_bytes())?;
-        let offset_size = state.file.seek(SeekFrom::Current(0))?;
+        let offset_size = state.file.stream_position()?;
         state.file.write_all(&[0u8; 6])?; // record size (48 bits)
 
         // Now serialize the actual data to the log
-        let offset_start = state.file.seek(SeekFrom::Current(0))?;
+        let offset_start = state.file.stream_position()?;
         entry.serialize_archive(&mut state.serializer)?;
-        let offset_end = state.file.seek(SeekFrom::Current(0))?;
+        let offset_end = state.file.stream_position()?;
         let record_size = offset_end - offset_start;
 
         // Write the record and then move back to the end again
         state.file.seek(SeekFrom::Start(offset_size))?;
-        state
-            .file
-            .write_all(&(record_size as u64).to_be_bytes()[2..8])?;
+        state.file.write_all(&record_size.to_be_bytes()[2..8])?;
         state.file.seek(SeekFrom::Start(offset_end))?;
 
         // Now write the actual data and update the offsets
@@ -150,7 +148,7 @@ impl WritableJournal for LogFileJournalTx {
 impl ReadableJournal for LogFileJournalRx {
     /// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
         let mut buffer_pos = self.buffer_pos.lock().unwrap();
 
         // Get a memory reference to the data on the disk at
