@@ -2795,7 +2795,6 @@ mod tests {
     use rkyv::ser::serializers::{
         AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
     };
-    use wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype, Tty};
 
     use super::*;
 
@@ -3239,7 +3238,7 @@ mod tests {
     #[test]
     pub fn test_record_socket_open() {
         run_test(JournalEntry::SocketOpen {
-            af: Addressfamily::Inet6,
+            af: wasi::Addressfamily::Inet6,
             ty: wasi::Socktype::Stream,
             pt: wasi::SockProto::Tcp,
             fd: 23452345,
