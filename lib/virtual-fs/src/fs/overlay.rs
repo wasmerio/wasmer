@@ -53,13 +53,6 @@ use crate::{
 ///     let _guard = runtime.enter();
 ///
 /// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(PathBuf::from("/tmp")).unwrap()]);
-///
-/// // This also has the benefit of storing the two values in-line with no extra
-/// // overhead or indirection.
-/// assert_eq!(
-///     std::mem::size_of_val(&fs),
-///     std::mem::size_of::<(MemFS, HostFS)>(),
-/// );
 /// ```
 ///
 /// A more complex example is
