@@ -1304,7 +1304,7 @@ pub fn restore_snapshot(
         tracing::trace!("Restoring snapshot event - {next:?}");
         match next {
             crate::journaling::JournalEntry::InitModule { wasm_hash } => {
-                is_same_module = ctx.data().process.module_hash.as_bytes() == wasm_hash;
+                is_same_module = ctx.data().process.module_hash.as_bytes()[0..16] == wasm_hash;
             }
             crate::journaling::JournalEntry::ProcessExit { exit_code } => {
                 JournalEffector::apply_process_exit(ctx.data(), exit_code)

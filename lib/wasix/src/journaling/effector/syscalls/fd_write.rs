@@ -13,35 +13,30 @@ impl JournalEffector {
         let memory = unsafe { env.memory_view(&ctx) };
         let iovs_arr = iovs.slice(&memory, iovs_len)?;
 
-        __asyncify_light(env, None, async {
-            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-            let mut remaining: M::Offset = TryFrom::<usize>::try_from(written).unwrap_or_default();
-            for iovs in iovs_arr.iter() {
-                let sub = iovs.buf_len.min(remaining);
-                if sub == M::ZERO {
-                    continue;
-                }
-                remaining -= sub;
-
-                let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                    .slice(&memory, sub)
-                    .map_err(mem_error_to_wasi)?
-                    .access()
-                    .map_err(mem_error_to_wasi)?;
-                ctx.data()
-                    .active_journal()?
-                    .write(JournalEntry::FileDescriptorWrite {
-                        fd,
-                        offset,
-                        data: Cow::Borrowed(buf.as_ref()),
-                        is_64bit: M::is_64bit(),
-                    })
-                    .await
-                    .map_err(map_snapshot_err)?;
+        let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+        let mut remaining: M::Offset = TryFrom::<usize>::try_from(written).unwrap_or_default();
+        for iovs in iovs_arr.iter() {
+            let sub = iovs.buf_len.min(remaining);
+            if sub == M::ZERO {
+                continue;
             }
-            Ok(())
-        })?
-        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+            remaining -= sub;
+
+            let buf = WasmPtr::<u8, M>::new(iovs.buf)
+                .slice(&memory, sub)
+                .map_err(mem_error_to_wasi)?
+                .access()
+                .map_err(mem_error_to_wasi)?;
+            ctx.data()
+                .active_journal()?
+                .write(JournalEntry::FileDescriptorWrite {
+                    fd,
+                    offset,
+                    data: Cow::Borrowed(buf.as_ref()),
+                    is_64bit: M::is_64bit(),
+                })
+                .map_err(map_snapshot_err)?;
+        }
         Ok(())
     }
 

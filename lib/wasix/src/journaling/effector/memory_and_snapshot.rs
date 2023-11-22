@@ -41,38 +41,32 @@ impl JournalEffector {
         // Now that we know all the regions that need to be saved we
         // enter a processing loop that dumps all the data to the log
         // file in an orderly manner.
-        __asyncify_light(env, None, async {
-            let memory = unsafe { env.memory_view(ctx) };
-            let journal = ctx.data().active_journal()?;
+        let memory = unsafe { env.memory_view(ctx) };
+        let journal = ctx.data().active_journal()?;
 
-            for region in regions {
-                // We grab this region of memory as a vector and hash
-                // it, which allows us to make some logging efficiency
-                // gains.
-                let data = memory
-                    .copy_range_to_vec(region.clone())
-                    .map_err(mem_error_to_wasi)?;
+        for region in regions {
+            // We grab this region of memory as a vector and hash
+            // it, which allows us to make some logging efficiency
+            // gains.
+            let data = memory
+                .copy_range_to_vec(region.clone())
+                .map_err(mem_error_to_wasi)?;
 
-                // Now we write it to the snap snapshot capturer
-                journal
-                    .write(JournalEntry::UpdateMemoryRegion {
-                        region,
-                        data: data.into(),
-                    })
-                    .await
-                    .map_err(map_snapshot_err)?;
-            }
-
-            // Finally we mark the end of the snapshot so that
-            // it can act as a restoration point
-            let when = SystemTime::now();
+            // Now we write it to the snap snapshot capturer
             journal
-                .write(JournalEntry::Snapshot { when, trigger })
-                .await
+                .write(JournalEntry::UpdateMemoryRegion {
+                    region,
+                    data: data.into(),
+                })
                 .map_err(map_snapshot_err)?;
-            Ok(())
-        })?
-        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        }
+
+        // Finally we mark the end of the snapshot so that
+        // it can act as a restoration point
+        let when = SystemTime::now();
+        journal
+            .write(JournalEntry::Snapshot { when, trigger })
+            .map_err(map_snapshot_err)?;
         Ok(())
     }
 

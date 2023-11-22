@@ -1,20 +1,20 @@
 use bytes::Buf;
+use rkyv::ser::serializers::{
+    AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
+};
 use shared_buffer::OwnedBuffer;
 use std::{
-    io::{Seek, SeekFrom},
+    fs::File,
+    io::{Seek, SeekFrom, Write},
     path::Path,
 };
-use tokio::runtime::Handle;
-use virtual_fs::AsyncWriteExt;
-
-use futures::future::LocalBoxFuture;
 
 use super::*;
 
 struct State {
-    file: tokio::fs::File,
+    file: File,
+    serializer: CompositeSerializer<WriteSerializer<File>, AllocScratch, SharedSerializeMap>,
     buffer_pos: usize,
-    record_pos: usize,
 }
 
 /// The LogFile snapshot capturer will write its snapshots to a linear journal
@@ -30,56 +30,93 @@ struct State {
 /// delimiter.
 pub struct LogFileJournal {
     state: std::sync::Mutex<State>,
-    handle: Handle,
     buffer: OwnedBuffer,
 }
 
 impl LogFileJournal {
     pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let mut file = std::fs::File::options()
+        let file = std::fs::File::options()
             .read(true)
             .write(true)
             .create(true)
             .open(path)?;
+        Self::from_file(file)
+    }
+
+    pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
         let buffer = OwnedBuffer::from_file(&file)?;
 
-        // Move the file to the end
-        file.seek(SeekFrom::End(0))?;
+        // If the buffer exists we valid the magic number
+        let mut buffer_pos = 0;
+        let mut buffer_ptr = buffer.as_ref();
+        if buffer_ptr.len() >= 8 {
+            let magic = u64::from_be_bytes(buffer_ptr[0..8].try_into().unwrap());
+            if magic != JOURNAL_MAGIC_NUMBER {
+                return Err(anyhow::format_err!(
+                    "invalid magic number of journal ({} vs {})",
+                    magic,
+                    JOURNAL_MAGIC_NUMBER
+                ));
+            }
+            buffer_ptr.advance(8);
+            buffer_pos += 8;
+        } else {
+            tracing::trace!("journal has no magic (could be empty?)");
+        }
 
+        // Move to the end of the file and write the
+        // magic if one is needed
+        if file.seek(SeekFrom::End(0)).unwrap() == 0 {
+            let magic = JOURNAL_MAGIC_NUMBER as u64;
+            let magic = magic.to_be_bytes();
+            file.write_all(&magic)?;
+        }
+
+        // We create various serializers and state that is
+        // used when writing. Plus we store the owned buffer
+        // thats used for zero copy deserialization
         Ok(Self {
             state: std::sync::Mutex::new(State {
-                file: tokio::fs::File::from_std(file),
-                buffer_pos: 0,
-                record_pos: 0,
+                file: file.try_clone()?,
+                serializer: CompositeSerializer::new(
+                    WriteSerializer::new(file),
+                    AllocScratch::default(),
+                    SharedSerializeMap::default(),
+                ),
+                buffer_pos,
             }),
-            handle: Handle::current(),
             buffer,
         })
     }
 }
 
-impl JournalBatch {}
-
-#[async_trait::async_trait]
 impl Journal for LogFileJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
         tracing::debug!("journal event: {:?}", entry);
-        Box::pin(async {
-            // Create the batch
-            let batch = JournalBatch {
-                records: vec![entry.into()],
-            };
 
-            let data = rkyv::to_bytes::<_, 128>(&batch).unwrap();
-            let data_len = data.len() as u64;
-            let data_len = data_len.to_be_bytes();
+        let mut state = self.state.lock().unwrap();
 
-            let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            let mut state = self.state.lock().unwrap();
-            state.file.write_all(&data_len).await?;
-            state.file.write_all(&data).await?;
-            Ok(())
-        })
+        // Write the header (with a record size of zero)
+        let record_type: JournalEntryRecordType = entry.archive_record_type();
+        state.file.write_all(&(record_type as u16).to_be_bytes())?;
+        let offset_size = state.file.seek(SeekFrom::Current(0))?;
+        state.file.write_all(&[0u8; 6])?; // record size (48 bits)
+
+        // Now serialize the actual data to the log
+        let offset_start = state.file.seek(SeekFrom::Current(0))?;
+        entry.serialize_archive(&mut state.serializer)?;
+        let offset_end = state.file.seek(SeekFrom::Current(0))?;
+        let record_size = offset_end - offset_start;
+
+        // Write the record and then move back to the end again
+        state.file.seek(SeekFrom::Start(offset_size))?;
+        state
+            .file
+            .write_all(&(record_size as u64).to_be_bytes()[2..8])?;
+        state.file.seek(SeekFrom::Start(offset_end))?;
+
+        // Now write the actual data and update the offsets
+        Ok(())
     }
 
     /// UNSAFE: This method uses unsafe operations to remove the need to zero
@@ -90,53 +127,160 @@ impl Journal for LogFileJournal {
         // Get a memory reference to the data on the disk at
         // the current read location
         let mut buffer_ptr = self.buffer.as_ref();
-
-        // First we read the magic number for the archive
-        if state.buffer_pos == 0 {
-            if buffer_ptr.len() >= 8 {
-                let magic = u64::from_be_bytes(buffer_ptr[0..8].try_into().unwrap());
-                if magic != JOURNAL_MAGIC_NUMBER {
-                    return Err(anyhow::format_err!(
-                        "invalid magic number of journal ({} vs {})",
-                        magic,
-                        JOURNAL_MAGIC_NUMBER
-                    ));
-                }
-                state.buffer_pos += 8;
-            } else {
-                return Ok(None);
-            }
-        }
         buffer_ptr.advance(state.buffer_pos);
-
         loop {
-            // Next we read the length of the current batch
-            if buffer_ptr.len() < 8 {
+            // Read the headers and advance
+            let header_size = 8;
+            if buffer_ptr.len() < header_size {
                 return Ok(None);
             }
-            let batch_len = u64::from_be_bytes(buffer_ptr[0..8].try_into().unwrap()) as usize;
-            buffer_ptr.advance(8);
-            if batch_len == 0 || batch_len > buffer_ptr.len() {
+            let header = {
+                let b = buffer_ptr;
+                let header = JournalEntryHeader {
+                    record_type: u16::from_be_bytes([b[0], b[1]]),
+                    record_size: u64::from_be_bytes([0u8, 0u8, b[2], b[3], b[4], b[5], b[6], b[7]]),
+                };
+                buffer_ptr.advance(8);
+                header
+            };
+
+            if header.record_size as usize > buffer_ptr.len() {
+                state.buffer_pos += buffer_ptr.len();
+                tracing::trace!(
+                    "journal is corrupt (record_size={} vs remaining={})",
+                    header.record_size,
+                    buffer_ptr.len()
+                );
                 return Ok(None);
             }
 
-            // Read the batch data itself
-            let batch = &buffer_ptr[..batch_len];
-            let batch: &ArchivedJournalBatch =
-                unsafe { rkyv::archived_unsized_root::<JournalBatch>(batch) };
+            // Move the buffer position forward
+            let entry = &buffer_ptr[..(header.record_size as usize)];
+            buffer_ptr.advance(header.record_size as usize);
+            state.buffer_pos += header_size;
+            state.buffer_pos += header.record_size as usize;
 
-            // If we have reached the end then move onto the next batch
-            if state.record_pos >= batch.records.len() {
-                buffer_ptr.advance(batch_len);
-                state.buffer_pos += batch_len;
-                state.record_pos = 0;
-                continue;
-            }
-            let record = &batch.records[state.record_pos];
+            // Now we read the entry
+            let record_type: JournalEntryRecordType = match header.record_type.try_into() {
+                Ok(t) => t,
+                Err(_) => {
+                    tracing::debug!(
+                        "unknown journal entry type ({}) - skipping",
+                        header.record_type
+                    );
+                    continue;
+                }
+            };
 
-            // Otherwise we return the record and advance
-            state.record_pos += 1;
-            return Ok(Some(record.into()));
+            let record = unsafe { record_type.deserialize_archive(entry) };
+            return Ok(Some(record));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_save_and_load_journal_events() {
+        // Get a random file path
+        let file = tempfile::NamedTempFile::new().unwrap();
+
+        // Write some events to it
+        let journal = LogFileJournal::from_file(file.as_file().try_clone().unwrap()).unwrap();
+        journal
+            .write(JournalEntry::CreatePipe { fd1: 1, fd2: 2 })
+            .unwrap();
+        journal.write(JournalEntry::PortAddrClear).unwrap();
+        drop(journal);
+
+        // Read the events and validate
+        let journal = LogFileJournal::new(file.path()).unwrap();
+        let event1 = journal.read().unwrap();
+        let event2 = journal.read().unwrap();
+        let event3 = journal.read().unwrap();
+
+        // Check the events
+        assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
+        assert_eq!(event2, Some(JournalEntry::PortAddrClear));
+        assert_eq!(event3, None);
+
+        // Now write another event
+        journal
+            .write(JournalEntry::SocketSend {
+                fd: 1234,
+                data: [12; 1024].to_vec().into(),
+                flags: 123,
+                is_64bit: true,
+            })
+            .unwrap();
+
+        // The event should not be visible yet unless we reload the log file
+        assert_eq!(journal.read().unwrap(), None);
+
+        // Reload the load file
+        let journal = LogFileJournal::new(file.path()).unwrap();
+
+        // Before we read it, we will throw in another event
+        journal
+            .write(JournalEntry::CreatePipe {
+                fd1: 1234,
+                fd2: 5432,
+            })
+            .unwrap();
+
+        let event1 = journal.read().unwrap();
+        let event2 = journal.read().unwrap();
+        let event3 = journal.read().unwrap();
+        let event4 = journal.read().unwrap();
+        assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
+        assert_eq!(event2, Some(JournalEntry::PortAddrClear));
+        assert_eq!(
+            event3,
+            Some(JournalEntry::SocketSend {
+                fd: 1234,
+                data: [12; 1024].to_vec().into(),
+                flags: 123,
+                is_64bit: true,
+            })
+        );
+        assert_eq!(event4, None);
+
+        // Load it again
+        let journal = LogFileJournal::new(file.path()).unwrap();
+
+        let event1 = journal.read().unwrap();
+        let event2 = journal.read().unwrap();
+        let event3 = journal.read().unwrap();
+        let event4 = journal.read().unwrap();
+        let event5 = journal.read().unwrap();
+
+        tracing::info!("event1 {:?}", event1);
+        tracing::info!("event2 {:?}", event2);
+        tracing::info!("event3 {:?}", event3);
+        tracing::info!("event4 {:?}", event4);
+        tracing::info!("event5 {:?}", event5);
+
+        assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
+        assert_eq!(event2, Some(JournalEntry::PortAddrClear));
+        assert_eq!(
+            event3,
+            Some(JournalEntry::SocketSend {
+                fd: 1234,
+                data: [12; 1024].to_vec().into(),
+                flags: 123,
+                is_64bit: true,
+            })
+        );
+        assert_eq!(
+            event4,
+            Some(JournalEntry::CreatePipe {
+                fd1: 1234,
+                fd2: 5432,
+            })
+        );
+        assert_eq!(event5, None);
     }
 }

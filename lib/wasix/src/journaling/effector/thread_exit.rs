@@ -6,14 +6,9 @@ impl JournalEffector {
         id: WasiThreadId,
         exit_code: Option<ExitCode>,
     ) -> anyhow::Result<()> {
-        __asyncify_light(env, None, async {
-            env.active_journal()?
-                .write(JournalEntry::CloseThread { id, exit_code })
-                .await
-                .map_err(map_snapshot_err)?;
-            Ok(())
-        })?
-        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        env.active_journal()?
+            .write(JournalEntry::CloseThread { id, exit_code })
+            .map_err(map_snapshot_err)?;
         Ok(())
     }
 }

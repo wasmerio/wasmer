@@ -1,5 +1,3 @@
-use futures::future::LocalBoxFuture;
-
 use super::*;
 
 /// Filters out a specific set of journal events and drops the rest, this
@@ -60,102 +58,100 @@ impl FilteredJournal {
 }
 
 impl Journal for FilteredJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
-        Box::pin(async {
-            let evt = match entry {
-                JournalEntry::SetClockTime { .. }
-                | JournalEntry::InitModule { .. }
-                | JournalEntry::ProcessExit { .. }
-                | JournalEntry::EpollCreate { .. }
-                | JournalEntry::EpollCtl { .. }
-                | JournalEntry::TtySet { .. } => {
-                    if self.filter_core {
-                        return Ok(());
-                    }
-                    entry
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+        let evt = match entry {
+            JournalEntry::SetClockTime { .. }
+            | JournalEntry::InitModule { .. }
+            | JournalEntry::ProcessExit { .. }
+            | JournalEntry::EpollCreate { .. }
+            | JournalEntry::EpollCtl { .. }
+            | JournalEntry::TtySet { .. } => {
+                if self.filter_core {
+                    return Ok(());
                 }
-                JournalEntry::SetThread { .. } | JournalEntry::CloseThread { .. } => {
-                    if self.filter_threads {
-                        return Ok(());
-                    }
-                    entry
+                entry
+            }
+            JournalEntry::SetThread { .. } | JournalEntry::CloseThread { .. } => {
+                if self.filter_threads {
+                    return Ok(());
                 }
-                JournalEntry::UpdateMemoryRegion { .. } => {
-                    if self.filter_memory {
-                        return Ok(());
-                    }
-                    entry
+                entry
+            }
+            JournalEntry::UpdateMemoryRegion { .. } => {
+                if self.filter_memory {
+                    return Ok(());
                 }
-                JournalEntry::FileDescriptorSeek { .. }
-                | JournalEntry::FileDescriptorWrite { .. }
-                | JournalEntry::OpenFileDescriptor { .. }
-                | JournalEntry::CloseFileDescriptor { .. }
-                | JournalEntry::RemoveDirectory { .. }
-                | JournalEntry::UnlinkFile { .. }
-                | JournalEntry::PathRename { .. }
-                | JournalEntry::RenumberFileDescriptor { .. }
-                | JournalEntry::DuplicateFileDescriptor { .. }
-                | JournalEntry::CreateDirectory { .. }
-                | JournalEntry::PathSetTimes { .. }
-                | JournalEntry::FileDescriptorSetFlags { .. }
-                | JournalEntry::FileDescriptorAdvise { .. }
-                | JournalEntry::FileDescriptorAllocate { .. }
-                | JournalEntry::FileDescriptorSetRights { .. }
-                | JournalEntry::FileDescriptorSetTimes { .. }
-                | JournalEntry::FileDescriptorSetSize { .. }
-                | JournalEntry::CreateHardLink { .. }
-                | JournalEntry::CreateSymbolicLink { .. }
-                | JournalEntry::ChangeDirectory { .. }
-                | JournalEntry::CreatePipe { .. }
-                | JournalEntry::CreateEvent { .. } => {
-                    if self.filter_fs {
-                        return Ok(());
-                    }
-                    entry
+                entry
+            }
+            JournalEntry::FileDescriptorSeek { .. }
+            | JournalEntry::FileDescriptorWrite { .. }
+            | JournalEntry::OpenFileDescriptor { .. }
+            | JournalEntry::CloseFileDescriptor { .. }
+            | JournalEntry::RemoveDirectory { .. }
+            | JournalEntry::UnlinkFile { .. }
+            | JournalEntry::PathRename { .. }
+            | JournalEntry::RenumberFileDescriptor { .. }
+            | JournalEntry::DuplicateFileDescriptor { .. }
+            | JournalEntry::CreateDirectory { .. }
+            | JournalEntry::PathSetTimes { .. }
+            | JournalEntry::FileDescriptorSetFlags { .. }
+            | JournalEntry::FileDescriptorAdvise { .. }
+            | JournalEntry::FileDescriptorAllocate { .. }
+            | JournalEntry::FileDescriptorSetRights { .. }
+            | JournalEntry::FileDescriptorSetTimes { .. }
+            | JournalEntry::FileDescriptorSetSize { .. }
+            | JournalEntry::CreateHardLink { .. }
+            | JournalEntry::CreateSymbolicLink { .. }
+            | JournalEntry::ChangeDirectory { .. }
+            | JournalEntry::CreatePipe { .. }
+            | JournalEntry::CreateEvent { .. } => {
+                if self.filter_fs {
+                    return Ok(());
                 }
-                JournalEntry::Snapshot { .. } => {
-                    if self.filter_snapshots {
-                        return Ok(());
-                    }
-                    entry
+                entry
+            }
+            JournalEntry::Snapshot { .. } => {
+                if self.filter_snapshots {
+                    return Ok(());
                 }
-                JournalEntry::PortAddAddr { .. }
-                | JournalEntry::PortDelAddr { .. }
-                | JournalEntry::PortAddrClear
-                | JournalEntry::PortBridge { .. }
-                | JournalEntry::PortUnbridge
-                | JournalEntry::PortDhcpAcquire
-                | JournalEntry::PortGatewaySet { .. }
-                | JournalEntry::PortRouteAdd { .. }
-                | JournalEntry::PortRouteClear
-                | JournalEntry::PortRouteDel { .. }
-                | JournalEntry::SocketOpen { .. }
-                | JournalEntry::SocketListen { .. }
-                | JournalEntry::SocketBind { .. }
-                | JournalEntry::SocketConnected { .. }
-                | JournalEntry::SocketAccepted { .. }
-                | JournalEntry::SocketJoinIpv4Multicast { .. }
-                | JournalEntry::SocketJoinIpv6Multicast { .. }
-                | JournalEntry::SocketLeaveIpv4Multicast { .. }
-                | JournalEntry::SocketLeaveIpv6Multicast { .. }
-                | JournalEntry::SocketSendFile { .. }
-                | JournalEntry::SocketSendTo { .. }
-                | JournalEntry::SocketSend { .. }
-                | JournalEntry::SocketSetOptFlag { .. }
-                | JournalEntry::SocketSetOptSize { .. }
-                | JournalEntry::SocketSetOptTime { .. }
-                | JournalEntry::SocketShutdown { .. } => {
-                    if self.filter_net {
-                        return Ok(());
-                    }
-                    entry
+                entry
+            }
+            JournalEntry::PortAddAddr { .. }
+            | JournalEntry::PortDelAddr { .. }
+            | JournalEntry::PortAddrClear
+            | JournalEntry::PortBridge { .. }
+            | JournalEntry::PortUnbridge
+            | JournalEntry::PortDhcpAcquire
+            | JournalEntry::PortGatewaySet { .. }
+            | JournalEntry::PortRouteAdd { .. }
+            | JournalEntry::PortRouteClear
+            | JournalEntry::PortRouteDel { .. }
+            | JournalEntry::SocketOpen { .. }
+            | JournalEntry::SocketListen { .. }
+            | JournalEntry::SocketBind { .. }
+            | JournalEntry::SocketConnected { .. }
+            | JournalEntry::SocketAccepted { .. }
+            | JournalEntry::SocketJoinIpv4Multicast { .. }
+            | JournalEntry::SocketJoinIpv6Multicast { .. }
+            | JournalEntry::SocketLeaveIpv4Multicast { .. }
+            | JournalEntry::SocketLeaveIpv6Multicast { .. }
+            | JournalEntry::SocketSendFile { .. }
+            | JournalEntry::SocketSendTo { .. }
+            | JournalEntry::SocketSend { .. }
+            | JournalEntry::SocketSetOptFlag { .. }
+            | JournalEntry::SocketSetOptSize { .. }
+            | JournalEntry::SocketSetOptTime { .. }
+            | JournalEntry::SocketShutdown { .. } => {
+                if self.filter_net {
+                    return Ok(());
                 }
-            };
-            self.inner.write(evt).await
-        })
+                entry
+            }
+        };
+        self.inner.write(evt)
     }
 
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
         self.inner.read()
     }
 }

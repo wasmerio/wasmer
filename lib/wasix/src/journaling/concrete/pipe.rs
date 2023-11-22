@@ -1,7 +1,6 @@
+use std::sync::mpsc;
+use std::sync::mpsc::TryRecvError;
 use std::sync::Mutex;
-
-use futures::future::LocalBoxFuture;
-use tokio::sync::mpsc::{self, error::TryRecvError};
 
 use super::*;
 
@@ -14,9 +13,9 @@ pub struct PipeJournal {
 }
 
 impl PipeJournal {
-    pub fn channel(buffer: usize) -> (Self, Self) {
-        let (tx1, rx1) = mpsc::channel(buffer);
-        let (tx2, rx2) = mpsc::channel(buffer);
+    pub fn channel() -> (Self, Self) {
+        let (tx1, rx1) = mpsc::channel();
+        let (tx2, rx2) = mpsc::channel();
 
         let end1 = PipeJournal {
             tx: tx1,
@@ -33,25 +32,21 @@ impl PipeJournal {
 }
 
 impl Journal for PipeJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
         let entry = entry.into_owned();
-        Box::pin(async {
-            self.tx.send(entry).await.map_err(|err| {
-                anyhow::format_err!("failed to send journal event through the pipe - {}", err)
-            })
+        self.tx.send(entry).map_err(|err| {
+            anyhow::format_err!("failed to send journal event through the pipe - {}", err)
         })
     }
 
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
-        let mut rx = self.rx.lock().unwrap();
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+        let rx = self.rx.lock().unwrap();
         match rx.try_recv() {
-            Ok(e) => Ok(Some(e.into())),
+            Ok(e) => Ok(Some(e)),
             Err(TryRecvError::Empty) => Ok(None),
-            Err(TryRecvError::Disconnected) => {
-                return Err(anyhow::format_err!(
-                    "failed to receive journal event from the pipe as its disconnected"
-                ))
-            }
+            Err(TryRecvError::Disconnected) => Err(anyhow::format_err!(
+                "failed to receive journal event from the pipe as its disconnected"
+            )),
         }
     }
 }

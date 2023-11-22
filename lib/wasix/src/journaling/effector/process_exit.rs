@@ -2,14 +2,9 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_process_exit(env: &WasiEnv, exit_code: Option<ExitCode>) -> anyhow::Result<()> {
-        __asyncify_light(env, None, async {
-            env.active_journal()?
-                .write(JournalEntry::ProcessExit { exit_code })
-                .await
-                .map_err(map_snapshot_err)?;
-            Ok(())
-        })?
-        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
+        env.active_journal()?
+            .write(JournalEntry::ProcessExit { exit_code })
+            .map_err(map_snapshot_err)?;
         Ok(())
     }
 

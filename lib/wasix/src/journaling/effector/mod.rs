@@ -17,9 +17,9 @@ pub(super) use wasmer_wasix_types::{
 pub(super) use crate::{
     mem_error_to_wasi,
     os::task::process::WasiProcessInner,
-    syscalls::{__asyncify_light, fd_write_internal, FdWriteSource},
+    syscalls::{fd_write_internal, FdWriteSource},
     utils::map_snapshot_err,
-    WasiEnv, WasiError, WasiRuntimeError, WasiThreadId,
+    WasiEnv, WasiRuntimeError, WasiThreadId,
 };
 
 use super::*;

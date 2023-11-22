@@ -9,7 +9,6 @@ use wasmer_wasix_types::wasi::{
     Sockoption, Socktype, Timestamp, Tty, Whence,
 };
 
-use futures::future::LocalBoxFuture;
 use virtual_fs::Fd;
 
 use crate::net::socket::TimeType;
@@ -42,7 +41,7 @@ pub enum SocketJournalEvent {
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum JournalEntry<'a> {
     InitModule {
         wasm_hash: [u8; 32],
@@ -643,7 +642,7 @@ impl<'a> JournalEntry<'a> {
 pub trait Journal {
     /// Takes in a stream of snapshot log entries and saves them so that they
     /// may be restored at a later moment
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>>;
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()>;
 
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time

@@ -1,5 +1,3 @@
-use futures::future::LocalBoxFuture;
-
 use super::*;
 
 pub static UNSUPPORTED_SNAPSHOT_CAPTURER: UnsupportedJournal = UnsupportedJournal {};
@@ -10,12 +8,12 @@ pub static UNSUPPORTED_SNAPSHOT_CAPTURER: UnsupportedJournal = UnsupportedJourna
 pub struct UnsupportedJournal {}
 
 impl Journal for UnsupportedJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> LocalBoxFuture<'a, anyhow::Result<()>> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
         tracing::debug!("journal event: {:?}", entry);
-        Box::pin(async { Err(anyhow::format_err!("unsupported")) })
+        Err(anyhow::format_err!("unsupported"))
     }
 
-    fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
         Ok(None)
     }
 }

@@ -1188,7 +1188,7 @@ impl core::fmt::Debug for Whence {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Tty {
     pub cols: u32,

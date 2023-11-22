@@ -10,16 +10,10 @@ impl JournalEffector {
             return Ok(());
         }
 
-        __asyncify_light(env, None, async {
-            ctx.data()
-                .active_journal()?
-                .write(event)
-                .await
-                .map_err(map_snapshot_err)?;
-            Ok(())
-        })?
-        .map_err(|err| WasiError::Exit(ExitCode::Errno(err)))?;
-
+        ctx.data()
+            .active_journal()?
+            .write(event)
+            .map_err(map_snapshot_err)?;
         Ok(())
     }
 }

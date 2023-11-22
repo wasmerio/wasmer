@@ -1,3 +1,5 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+use rkyv::ser::{ScratchSpace, Serializer};
 use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde;
 use std::borrow::Cow;
@@ -11,24 +13,832 @@ use super::*;
 
 pub const JOURNAL_MAGIC_NUMBER: u64 = 0x310d6dd027362979;
 
-/// Version of the archived journal
+#[repr(u16)]
 #[derive(
-    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    serde::Serialize,
+    serde::Deserialize,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalControlBatchType {
-    Abort,
-    Commit,
+pub enum JournalEntryRecordType {
+    InitModuleV1,
+    ProcessExitV1,
+    SetThreadV1,
+    CloseThreadV1,
+    FileDescriptorSeekV1,
+    FileDescriptorWriteV1,
+    UpdateMemoryRegionV1,
+    SetClockTimeV1,
+    OpenFileDescriptorV1,
+    CloseFileDescriptorV1,
+    RenumberFileDescriptorV1,
+    DuplicateFileDescriptorV1,
+    CreateDirectoryV1,
+    RemoveDirectoryV1,
+    PathSetTimesV1,
+    FileDescriptorSetTimesV1,
+    FileDescriptorSetSizeV1,
+    FileDescriptorSetFlagsV1,
+    FileDescriptorSetRightsV1,
+    FileDescriptorAdviseV1,
+    FileDescriptorAllocateV1,
+    CreateHardLinkV1,
+    CreateSymbolicLinkV1,
+    UnlinkFileV1,
+    PathRenameV1,
+    ChangeDirectoryV1,
+    EpollCreateV1,
+    EpollCtlV1,
+    TtySetV1,
+    CreatePipeV1,
+    CreateEventV1,
+    PortAddAddrV1,
+    PortDelAddrV1,
+    PortAddrClearV1,
+    PortBridgeV1,
+    PortUnbridgeV1,
+    PortDhcpAcquireV1,
+    PortGatewaySetV1,
+    PortRouteAddV1,
+    PortRouteClearV1,
+    PortRouteDelV1,
+    SocketOpenV1,
+    SocketListenV1,
+    SocketBindV1,
+    SocketConnectedV1,
+    SocketAcceptedV1,
+    SocketJoinIpv4MulticastV1,
+    SocketJoinIpv6MulticastV1,
+    SocketLeaveIpv4MulticastV1,
+    SocketLeaveIpv6MulticastV1,
+    SocketSendFileV1,
+    SocketSendToV1,
+    SocketSendV1,
+    SocketSetOptFlagV1,
+    SocketSetOptSizeV1,
+    SocketSetOptTimeV1,
+    SocketShutdownV1,
+    SnapshotV1,
 }
 
-/// Represents a batch of journal log entries
-#[allow(clippy::large_enum_variant)]
-#[derive(
-    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
-)]
-#[archive_attr(derive(CheckBytes))]
-pub(crate) struct JournalBatch {
-    pub records: Vec<JournalBatchEntry>,
+impl JournalEntryRecordType {
+    pub unsafe fn deserialize_archive<'a>(self, data: &'a [u8]) -> JournalEntry<'a> {
+        match self {
+            JournalEntryRecordType::InitModuleV1 => ArchivedJournalEntry::InitModuleV1(
+                rkyv::archived_root::<JournalEntryInitModuleV1>(data),
+            ),
+            JournalEntryRecordType::ProcessExitV1 => ArchivedJournalEntry::ProcessExitV1(
+                rkyv::archived_root::<JournalEntryProcessExitV1>(data),
+            ),
+            JournalEntryRecordType::SetThreadV1 => ArchivedJournalEntry::SetThreadV1(
+                rkyv::archived_root::<JournalEntrySetThreadV1>(data),
+            ),
+            JournalEntryRecordType::CloseThreadV1 => ArchivedJournalEntry::CloseThreadV1(
+                rkyv::archived_root::<JournalEntryCloseThreadV1>(data),
+            ),
+            JournalEntryRecordType::FileDescriptorSeekV1 => {
+                ArchivedJournalEntry::FileDescriptorSeekV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorSeekV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorWriteV1 => {
+                ArchivedJournalEntry::FileDescriptorWriteV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorWriteV1,
+                >(data))
+            }
+            JournalEntryRecordType::UpdateMemoryRegionV1 => {
+                ArchivedJournalEntry::UpdateMemoryRegionV1(rkyv::archived_root::<
+                    JournalEntryUpdateMemoryRegionV1,
+                >(data))
+            }
+            JournalEntryRecordType::SetClockTimeV1 => {
+                ArchivedJournalEntry::SetClockTimeV1(rkyv::archived_root::<
+                    JournalEntrySetClockTimeV1,
+                >(data))
+            }
+            JournalEntryRecordType::OpenFileDescriptorV1 => {
+                ArchivedJournalEntry::OpenFileDescriptorV1(rkyv::archived_root::<
+                    JournalEntryOpenFileDescriptorV1,
+                >(data))
+            }
+            JournalEntryRecordType::CloseFileDescriptorV1 => {
+                ArchivedJournalEntry::CloseFileDescriptorV1(rkyv::archived_root::<
+                    JournalEntryCloseFileDescriptorV1,
+                >(data))
+            }
+            JournalEntryRecordType::RenumberFileDescriptorV1 => {
+                ArchivedJournalEntry::RenumberFileDescriptorV1(rkyv::archived_root::<
+                    JournalEntryRenumberFileDescriptorV1,
+                >(data))
+            }
+            JournalEntryRecordType::DuplicateFileDescriptorV1 => {
+                ArchivedJournalEntry::DuplicateFileDescriptorV1(rkyv::archived_root::<
+                    JournalEntryDuplicateFileDescriptorV1,
+                >(data))
+            }
+            JournalEntryRecordType::CreateDirectoryV1 => {
+                ArchivedJournalEntry::CreateDirectoryV1(rkyv::archived_root::<
+                    JournalEntryCreateDirectoryV1,
+                >(data))
+            }
+            JournalEntryRecordType::RemoveDirectoryV1 => {
+                ArchivedJournalEntry::RemoveDirectoryV1(rkyv::archived_root::<
+                    JournalEntryRemoveDirectoryV1,
+                >(data))
+            }
+            JournalEntryRecordType::PathSetTimesV1 => {
+                ArchivedJournalEntry::PathSetTimesV1(rkyv::archived_root::<
+                    JournalEntryPathSetTimesV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorSetTimesV1 => {
+                ArchivedJournalEntry::FileDescriptorSetTimesV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorSetTimesV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorSetSizeV1 => {
+                ArchivedJournalEntry::FileDescriptorSetSizeV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorSetSizeV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorSetFlagsV1 => {
+                ArchivedJournalEntry::FileDescriptorSetFlagsV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorSetFlagsV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorSetRightsV1 => {
+                ArchivedJournalEntry::FileDescriptorSetRightsV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorSetRightsV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorAdviseV1 => {
+                ArchivedJournalEntry::FileDescriptorAdviseV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorAdviseV1,
+                >(data))
+            }
+            JournalEntryRecordType::FileDescriptorAllocateV1 => {
+                ArchivedJournalEntry::FileDescriptorAllocateV1(rkyv::archived_root::<
+                    JournalEntryFileDescriptorAllocateV1,
+                >(data))
+            }
+            JournalEntryRecordType::CreateHardLinkV1 => {
+                ArchivedJournalEntry::CreateHardLinkV1(rkyv::archived_root::<
+                    JournalEntryCreateHardLinkV1,
+                >(data))
+            }
+            JournalEntryRecordType::CreateSymbolicLinkV1 => {
+                ArchivedJournalEntry::CreateSymbolicLinkV1(rkyv::archived_root::<
+                    JournalEntryCreateSymbolicLinkV1,
+                >(data))
+            }
+            JournalEntryRecordType::UnlinkFileV1 => ArchivedJournalEntry::UnlinkFileV1(
+                rkyv::archived_root::<JournalEntryUnlinkFileV1>(data),
+            ),
+            JournalEntryRecordType::PathRenameV1 => ArchivedJournalEntry::PathRenameV1(
+                rkyv::archived_root::<JournalEntryPathRenameV1>(data),
+            ),
+            JournalEntryRecordType::ChangeDirectoryV1 => {
+                ArchivedJournalEntry::ChangeDirectoryV1(rkyv::archived_root::<
+                    JournalEntryChangeDirectoryV1,
+                >(data))
+            }
+            JournalEntryRecordType::EpollCreateV1 => ArchivedJournalEntry::EpollCreateV1(
+                rkyv::archived_root::<JournalEntryEpollCreateV1>(data),
+            ),
+            JournalEntryRecordType::EpollCtlV1 => ArchivedJournalEntry::EpollCtlV1(
+                rkyv::archived_root::<JournalEntryEpollCtlV1>(data),
+            ),
+            JournalEntryRecordType::TtySetV1 => {
+                ArchivedJournalEntry::TtySetV1(rkyv::archived_root::<JournalEntryTtySetV1>(data))
+            }
+            JournalEntryRecordType::CreatePipeV1 => ArchivedJournalEntry::CreatePipeV1(
+                rkyv::archived_root::<JournalEntryCreatePipeV1>(data),
+            ),
+            JournalEntryRecordType::CreateEventV1 => ArchivedJournalEntry::CreateEventV1(
+                rkyv::archived_root::<JournalEntryCreateEventV1>(data),
+            ),
+            JournalEntryRecordType::PortAddAddrV1 => ArchivedJournalEntry::PortAddAddrV1(
+                rkyv::archived_root::<JournalEntryPortAddAddrV1>(data),
+            ),
+            JournalEntryRecordType::PortDelAddrV1 => ArchivedJournalEntry::PortDelAddrV1(
+                rkyv::archived_root::<JournalEntryPortDelAddrV1>(data),
+            ),
+            JournalEntryRecordType::PortAddrClearV1 => return JournalEntry::PortAddrClear,
+            JournalEntryRecordType::PortBridgeV1 => ArchivedJournalEntry::PortBridgeV1(
+                rkyv::archived_root::<JournalEntryPortBridgeV1>(data),
+            ),
+            JournalEntryRecordType::PortUnbridgeV1 => return JournalEntry::PortUnbridge,
+            JournalEntryRecordType::PortDhcpAcquireV1 => return JournalEntry::PortDhcpAcquire,
+            JournalEntryRecordType::PortGatewaySetV1 => {
+                ArchivedJournalEntry::PortGatewaySetV1(rkyv::archived_root::<
+                    JournalEntryPortGatewaySetV1,
+                >(data))
+            }
+            JournalEntryRecordType::PortRouteAddV1 => {
+                ArchivedJournalEntry::PortRouteAddV1(rkyv::archived_root::<
+                    JournalEntryPortRouteAddV1,
+                >(data))
+            }
+            JournalEntryRecordType::PortRouteClearV1 => return JournalEntry::PortRouteClear,
+            JournalEntryRecordType::PortRouteDelV1 => {
+                ArchivedJournalEntry::PortRouteDelV1(rkyv::archived_root::<
+                    JournalEntryPortRouteDelV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketOpenV1 => ArchivedJournalEntry::SocketOpenV1(
+                rkyv::archived_root::<JournalEntrySocketOpenV1>(data),
+            ),
+            JournalEntryRecordType::SocketListenV1 => {
+                ArchivedJournalEntry::SocketListenV1(rkyv::archived_root::<
+                    JournalEntrySocketListenV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketBindV1 => ArchivedJournalEntry::SocketBindV1(
+                rkyv::archived_root::<JournalEntrySocketBindV1>(data),
+            ),
+            JournalEntryRecordType::SocketConnectedV1 => {
+                ArchivedJournalEntry::SocketConnectedV1(rkyv::archived_root::<
+                    JournalEntrySocketConnectedV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketAcceptedV1 => {
+                ArchivedJournalEntry::SocketAcceptedV1(rkyv::archived_root::<
+                    JournalEntrySocketAcceptedV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketJoinIpv4MulticastV1 => {
+                ArchivedJournalEntry::SocketJoinIpv4MulticastV1(rkyv::archived_root::<
+                    JournalEntrySocketJoinIpv4MulticastV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketJoinIpv6MulticastV1 => {
+                ArchivedJournalEntry::SocketJoinIpv6MulticastV1(rkyv::archived_root::<
+                    JournalEntrySocketJoinIpv6MulticastV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketLeaveIpv4MulticastV1 => {
+                ArchivedJournalEntry::SocketLeaveIpv4MulticastV1(rkyv::archived_root::<
+                    JournalEntrySocketLeaveIpv4MulticastV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketLeaveIpv6MulticastV1 => {
+                ArchivedJournalEntry::SocketLeaveIpv6MulticastV1(rkyv::archived_root::<
+                    JournalEntrySocketLeaveIpv6MulticastV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketSendFileV1 => {
+                ArchivedJournalEntry::SocketSendFileV1(rkyv::archived_root::<
+                    JournalEntrySocketSendFileV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketSendToV1 => {
+                ArchivedJournalEntry::SocketSendToV1(rkyv::archived_root::<
+                    JournalEntrySocketSendToV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketSendV1 => ArchivedJournalEntry::SocketSendV1(
+                rkyv::archived_root::<JournalEntrySocketSendV1>(data),
+            ),
+            JournalEntryRecordType::SocketSetOptFlagV1 => {
+                ArchivedJournalEntry::SocketSetOptFlagV1(rkyv::archived_root::<
+                    JournalEntrySocketSetOptFlagV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketSetOptSizeV1 => {
+                ArchivedJournalEntry::SocketSetOptSizeV1(rkyv::archived_root::<
+                    JournalEntrySocketSetOptSizeV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketSetOptTimeV1 => {
+                ArchivedJournalEntry::SocketSetOptTimeV1(rkyv::archived_root::<
+                    JournalEntrySocketSetOptTimeV1,
+                >(data))
+            }
+            JournalEntryRecordType::SocketShutdownV1 => {
+                ArchivedJournalEntry::SocketShutdownV1(rkyv::archived_root::<
+                    JournalEntrySocketShutdownV1,
+                >(data))
+            }
+            JournalEntryRecordType::SnapshotV1 => ArchivedJournalEntry::SnapshotV1(
+                rkyv::archived_root::<JournalEntrySnapshotV1>(data),
+            ),
+        }
+        .into()
+    }
+}
+
+impl<'a> JournalEntry<'a> {
+    pub fn archive_record_type(&self) -> JournalEntryRecordType {
+        match self {
+            Self::InitModule { .. } => JournalEntryRecordType::InitModuleV1,
+            Self::UpdateMemoryRegion { .. } => JournalEntryRecordType::UpdateMemoryRegionV1,
+            Self::ProcessExit { .. } => JournalEntryRecordType::ProcessExitV1,
+            Self::SetThread { .. } => JournalEntryRecordType::SetThreadV1,
+            Self::CloseThread { .. } => JournalEntryRecordType::CloseThreadV1,
+            Self::FileDescriptorSeek { .. } => JournalEntryRecordType::FileDescriptorSeekV1,
+            Self::FileDescriptorWrite { .. } => JournalEntryRecordType::FileDescriptorWriteV1,
+            Self::SetClockTime { .. } => JournalEntryRecordType::SetClockTimeV1,
+            Self::CloseFileDescriptor { .. } => JournalEntryRecordType::CloseFileDescriptorV1,
+            Self::OpenFileDescriptor { .. } => JournalEntryRecordType::OpenFileDescriptorV1,
+            Self::RenumberFileDescriptor { .. } => JournalEntryRecordType::RenumberFileDescriptorV1,
+            Self::DuplicateFileDescriptor { .. } => {
+                JournalEntryRecordType::DuplicateFileDescriptorV1
+            }
+            Self::CreateDirectory { .. } => JournalEntryRecordType::CreateDirectoryV1,
+            Self::RemoveDirectory { .. } => JournalEntryRecordType::RemoveDirectoryV1,
+            Self::PathSetTimes { .. } => JournalEntryRecordType::PathSetTimesV1,
+            Self::FileDescriptorSetTimes { .. } => JournalEntryRecordType::FileDescriptorSetTimesV1,
+            Self::FileDescriptorSetFlags { .. } => JournalEntryRecordType::FileDescriptorSetFlagsV1,
+            Self::FileDescriptorSetRights { .. } => {
+                JournalEntryRecordType::FileDescriptorSetRightsV1
+            }
+            Self::FileDescriptorSetSize { .. } => JournalEntryRecordType::FileDescriptorSetSizeV1,
+            Self::FileDescriptorAdvise { .. } => JournalEntryRecordType::FileDescriptorAdviseV1,
+            Self::FileDescriptorAllocate { .. } => JournalEntryRecordType::FileDescriptorAllocateV1,
+            Self::CreateHardLink { .. } => JournalEntryRecordType::CreateHardLinkV1,
+            Self::CreateSymbolicLink { .. } => JournalEntryRecordType::CreateSymbolicLinkV1,
+            Self::UnlinkFile { .. } => JournalEntryRecordType::UnlinkFileV1,
+            Self::PathRename { .. } => JournalEntryRecordType::PathRenameV1,
+            Self::ChangeDirectory { .. } => JournalEntryRecordType::ChangeDirectoryV1,
+            Self::EpollCreate { .. } => JournalEntryRecordType::EpollCreateV1,
+            Self::EpollCtl { .. } => JournalEntryRecordType::EpollCtlV1,
+            Self::TtySet { .. } => JournalEntryRecordType::TtySetV1,
+            Self::CreatePipe { .. } => JournalEntryRecordType::CreatePipeV1,
+            Self::CreateEvent { .. } => JournalEntryRecordType::CreateEventV1,
+            Self::PortAddAddr { .. } => JournalEntryRecordType::PortAddAddrV1,
+            Self::PortDelAddr { .. } => JournalEntryRecordType::PortDelAddrV1,
+            Self::PortAddrClear => JournalEntryRecordType::PortAddrClearV1,
+            Self::PortBridge { .. } => JournalEntryRecordType::PortBridgeV1,
+            Self::PortUnbridge => JournalEntryRecordType::PortUnbridgeV1,
+            Self::PortDhcpAcquire => JournalEntryRecordType::PortDhcpAcquireV1,
+            Self::PortGatewaySet { .. } => JournalEntryRecordType::PortGatewaySetV1,
+            Self::PortRouteAdd { .. } => JournalEntryRecordType::PortRouteAddV1,
+            Self::PortRouteClear => JournalEntryRecordType::PortRouteClearV1,
+            Self::PortRouteDel { .. } => JournalEntryRecordType::PortRouteDelV1,
+            Self::SocketOpen { .. } => JournalEntryRecordType::SocketOpenV1,
+            Self::SocketListen { .. } => JournalEntryRecordType::SocketListenV1,
+            Self::SocketBind { .. } => JournalEntryRecordType::SocketBindV1,
+            Self::SocketConnected { .. } => JournalEntryRecordType::SocketConnectedV1,
+            Self::SocketAccepted { .. } => JournalEntryRecordType::SocketAcceptedV1,
+            Self::SocketJoinIpv4Multicast { .. } => {
+                JournalEntryRecordType::SocketJoinIpv4MulticastV1
+            }
+            Self::SocketJoinIpv6Multicast { .. } => {
+                JournalEntryRecordType::SocketJoinIpv6MulticastV1
+            }
+            Self::SocketLeaveIpv4Multicast { .. } => {
+                JournalEntryRecordType::SocketLeaveIpv4MulticastV1
+            }
+            Self::SocketLeaveIpv6Multicast { .. } => {
+                JournalEntryRecordType::SocketLeaveIpv6MulticastV1
+            }
+            Self::SocketSendFile { .. } => JournalEntryRecordType::SocketSendFileV1,
+            Self::SocketSendTo { .. } => JournalEntryRecordType::SocketSendToV1,
+            Self::SocketSend { .. } => JournalEntryRecordType::SocketSendV1,
+            Self::SocketSetOptFlag { .. } => JournalEntryRecordType::SocketSetOptFlagV1,
+            Self::SocketSetOptSize { .. } => JournalEntryRecordType::SocketSetOptSizeV1,
+            Self::SocketSetOptTime { .. } => JournalEntryRecordType::SocketSetOptTimeV1,
+            Self::SocketShutdown { .. } => JournalEntryRecordType::SocketShutdownV1,
+            Self::Snapshot { .. } => JournalEntryRecordType::SnapshotV1,
+        }
+    }
+
+    pub fn serialize_archive<T: Serializer + ScratchSpace>(
+        self,
+        serializer: &mut T,
+    ) -> anyhow::Result<()>
+    where
+        T::Error: std::fmt::Display,
+    {
+        match self {
+            JournalEntry::InitModule { wasm_hash } => {
+                serializer.serialize_value(&JournalEntryInitModuleV1 { wasm_hash })
+            }
+            JournalEntry::UpdateMemoryRegion { region, data } => {
+                serializer.serialize_value(&JournalEntryUpdateMemoryRegionV1 {
+                    start: region.start,
+                    end: region.end,
+                    data: data.into_owned(),
+                })
+            }
+            JournalEntry::ProcessExit { exit_code } => {
+                serializer.serialize_value(&JournalEntryProcessExitV1 {
+                    exit_code: exit_code.map(|e| e.into()),
+                })
+            }
+            JournalEntry::SetThread {
+                id,
+                call_stack,
+                memory_stack,
+                store_data,
+                is_64bit,
+            } => serializer.serialize_value(&JournalEntrySetThreadV1 {
+                id: id.into(),
+                call_stack: call_stack.into_owned(),
+                memory_stack: memory_stack.into_owned(),
+                store_data: store_data.into_owned(),
+                is_64bit,
+            }),
+            JournalEntry::CloseThread { id, exit_code } => {
+                serializer.serialize_value(&JournalEntryCloseThreadV1 {
+                    id: id.into(),
+                    exit_code: exit_code.map(|e| e.into()),
+                })
+            }
+            JournalEntry::FileDescriptorSeek { fd, offset, whence } => {
+                serializer.serialize_value(&JournalEntryFileDescriptorSeekV1 {
+                    fd,
+                    offset,
+                    whence: whence.into(),
+                })
+            }
+            JournalEntry::FileDescriptorWrite {
+                fd,
+                offset,
+                data,
+                is_64bit,
+            } => serializer.serialize_value(&JournalEntryFileDescriptorWriteV1 {
+                fd,
+                offset,
+                data: data.into_owned(),
+                is_64bit,
+            }),
+            JournalEntry::SetClockTime { clock_id, time } => {
+                serializer.serialize_value(&JournalEntrySetClockTimeV1 {
+                    clock_id: clock_id.into(),
+                    time,
+                })
+            }
+            JournalEntry::CloseFileDescriptor { fd } => {
+                serializer.serialize_value(&JournalEntryCloseFileDescriptorV1 { fd })
+            }
+            JournalEntry::OpenFileDescriptor {
+                fd,
+                dirfd,
+                dirflags,
+                path,
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+            } => serializer.serialize_value(&JournalEntryOpenFileDescriptorV1 {
+                fd,
+                dirfd,
+                dirflags,
+                path: path.into_owned(),
+                o_flags: o_flags.bits(),
+                fs_rights_base: fs_rights_base.bits(),
+                fs_rights_inheriting: fs_rights_inheriting.bits(),
+                fs_flags: fs_flags.bits(),
+            }),
+            JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
+                serializer.serialize_value(&JournalEntryRenumberFileDescriptorV1 { old_fd, new_fd })
+            }
+            JournalEntry::DuplicateFileDescriptor {
+                original_fd,
+                copied_fd,
+            } => serializer.serialize_value(&JournalEntryDuplicateFileDescriptorV1 {
+                original_fd,
+                copied_fd,
+            }),
+            JournalEntry::CreateDirectory { fd, path } => {
+                serializer.serialize_value(&JournalEntryCreateDirectoryV1 {
+                    fd,
+                    path: path.into_owned(),
+                })
+            }
+            JournalEntry::RemoveDirectory { fd, path } => {
+                serializer.serialize_value(&JournalEntryRemoveDirectoryV1 {
+                    fd,
+                    path: path.into_owned(),
+                })
+            }
+            JournalEntry::PathSetTimes {
+                fd,
+                flags,
+                path,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            } => serializer.serialize_value(&JournalEntryPathSetTimesV1 {
+                fd,
+                flags,
+                path: path.into_owned(),
+                st_atim,
+                st_mtim,
+                fst_flags: fst_flags.bits(),
+            }),
+            JournalEntry::FileDescriptorSetTimes {
+                fd,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            } => serializer.serialize_value(&JournalEntryFileDescriptorSetTimesV1 {
+                fd,
+                st_atim,
+                st_mtim,
+                fst_flags: fst_flags.bits(),
+            }),
+            JournalEntry::FileDescriptorSetFlags { fd, flags } => {
+                serializer.serialize_value(&JournalEntryFileDescriptorSetFlagsV1 {
+                    fd,
+                    flags: flags.bits(),
+                })
+            }
+            JournalEntry::FileDescriptorSetRights {
+                fd,
+                fs_rights_base,
+                fs_rights_inheriting,
+            } => serializer.serialize_value(&JournalEntryFileDescriptorSetRightsV1 {
+                fd,
+                fs_rights_base: fs_rights_base.bits(),
+                fs_rights_inheriting: fs_rights_inheriting.bits(),
+            }),
+            JournalEntry::FileDescriptorSetSize { fd, st_size } => {
+                serializer.serialize_value(&JournalEntryFileDescriptorSetSizeV1 { fd, st_size })
+            }
+            JournalEntry::FileDescriptorAdvise {
+                fd,
+                offset,
+                len,
+                advice,
+            } => serializer.serialize_value(&JournalEntryFileDescriptorAdviseV1 {
+                fd,
+                offset,
+                len,
+                advice: advice.into(),
+            }),
+            JournalEntry::FileDescriptorAllocate { fd, offset, len } => serializer
+                .serialize_value(&JournalEntryFileDescriptorAllocateV1 { fd, offset, len }),
+            JournalEntry::CreateHardLink {
+                old_fd,
+                old_path,
+                old_flags,
+                new_fd,
+                new_path,
+            } => serializer.serialize_value(&JournalEntryCreateHardLinkV1 {
+                old_fd,
+                old_path: old_path.into_owned(),
+                old_flags,
+                new_fd,
+                new_path: new_path.into_owned(),
+            }),
+            JournalEntry::CreateSymbolicLink {
+                old_path,
+                fd,
+                new_path,
+            } => serializer.serialize_value(&JournalEntryCreateSymbolicLinkV1 {
+                old_path: old_path.into_owned(),
+                fd,
+                new_path: new_path.into_owned(),
+            }),
+            JournalEntry::UnlinkFile { fd, path } => {
+                serializer.serialize_value(&JournalEntryUnlinkFileV1 {
+                    fd,
+                    path: path.into_owned(),
+                })
+            }
+            JournalEntry::PathRename {
+                old_fd,
+                old_path,
+                new_fd,
+                new_path,
+            } => serializer.serialize_value(&JournalEntryPathRenameV1 {
+                old_fd,
+                old_path: old_path.into_owned(),
+                new_fd,
+                new_path: new_path.into_owned(),
+            }),
+            JournalEntry::ChangeDirectory { path } => {
+                serializer.serialize_value(&JournalEntryChangeDirectoryV1 {
+                    path: path.into_owned(),
+                })
+            }
+            JournalEntry::EpollCreate { fd } => {
+                serializer.serialize_value(&JournalEntryEpollCreateV1 { fd })
+            }
+            JournalEntry::EpollCtl {
+                epfd,
+                op,
+                fd,
+                event,
+            } => serializer.serialize_value(&JournalEntryEpollCtlV1 {
+                epfd,
+                op: op.into(),
+                fd,
+                event: event.map(|e| e.into()),
+            }),
+            JournalEntry::TtySet { tty, line_feeds } => {
+                serializer.serialize_value(&JournalEntryTtySetV1 {
+                    cols: tty.cols,
+                    rows: tty.rows,
+                    width: tty.width,
+                    height: tty.height,
+                    stdin_tty: tty.stdin_tty,
+                    stdout_tty: tty.stdout_tty,
+                    stderr_tty: tty.stderr_tty,
+                    echo: tty.echo,
+                    line_buffered: tty.line_buffered,
+                    line_feeds,
+                })
+            }
+            JournalEntry::CreatePipe { fd1, fd2 } => {
+                serializer.serialize_value(&JournalEntryCreatePipeV1 { fd1, fd2 })
+            }
+            JournalEntry::CreateEvent {
+                initial_val,
+                flags,
+                fd,
+            } => serializer.serialize_value(&JournalEntryCreateEventV1 {
+                initial_val,
+                flags,
+                fd,
+            }),
+            JournalEntry::PortAddAddr { cidr } => {
+                serializer.serialize_value(&JournalEntryPortAddAddrV1 { cidr })
+            }
+            JournalEntry::PortDelAddr { addr } => {
+                serializer.serialize_value(&JournalEntryPortDelAddrV1 { addr })
+            }
+            JournalEntry::PortAddrClear => return Ok(()),
+            JournalEntry::PortBridge {
+                network,
+                token,
+                security,
+            } => serializer.serialize_value(&JournalEntryPortBridgeV1 {
+                network: network.into_owned(),
+                token: token.into_owned(),
+                security: security.into(),
+            }),
+            JournalEntry::PortUnbridge => return Ok(()),
+            JournalEntry::PortDhcpAcquire => return Ok(()),
+            JournalEntry::PortGatewaySet { ip } => {
+                serializer.serialize_value(&JournalEntryPortGatewaySetV1 { ip })
+            }
+            JournalEntry::PortRouteAdd {
+                cidr,
+                via_router,
+                preferred_until,
+                expires_at,
+            } => serializer.serialize_value(&JournalEntryPortRouteAddV1 {
+                cidr,
+                via_router,
+                preferred_until: preferred_until.clone(),
+                expires_at: expires_at.clone(),
+            }),
+            JournalEntry::PortRouteClear => return Ok(()),
+            JournalEntry::PortRouteDel { ip } => {
+                serializer.serialize_value(&JournalEntryPortRouteDelV1 { ip })
+            }
+            JournalEntry::SocketOpen { af, ty, pt, fd } => {
+                serializer.serialize_value(&JournalEntrySocketOpenV1 {
+                    af: af.into(),
+                    ty: ty.into(),
+                    pt: pt.into(),
+                    fd,
+                })
+            }
+            JournalEntry::SocketListen { fd, backlog } => {
+                serializer.serialize_value(&JournalEntrySocketListenV1 { fd, backlog })
+            }
+            JournalEntry::SocketBind { fd, addr } => {
+                serializer.serialize_value(&JournalEntrySocketBindV1 { fd, addr })
+            }
+            JournalEntry::SocketConnected { fd, addr } => {
+                serializer.serialize_value(&JournalEntrySocketConnectedV1 { fd, addr })
+            }
+            JournalEntry::SocketAccepted {
+                listen_fd,
+                fd,
+                peer_addr,
+                fd_flags,
+                nonblocking,
+            } => serializer.serialize_value(&JournalEntrySocketAcceptedV1 {
+                listen_fd,
+                fd,
+                peer_addr,
+                fd_flags: fd_flags.bits(),
+                nonblocking,
+            }),
+            JournalEntry::SocketJoinIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => serializer.serialize_value(&JournalEntrySocketJoinIpv4MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            }),
+            JournalEntry::SocketJoinIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => serializer.serialize_value(&JournalEntrySocketJoinIpv6MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            }),
+            JournalEntry::SocketLeaveIpv4Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => serializer.serialize_value(&JournalEntrySocketLeaveIpv4MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            }),
+            JournalEntry::SocketLeaveIpv6Multicast {
+                fd,
+                multiaddr,
+                iface,
+            } => serializer.serialize_value(&JournalEntrySocketLeaveIpv6MulticastV1 {
+                fd,
+                multiaddr,
+                iface,
+            }),
+            JournalEntry::SocketSendFile {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            } => serializer.serialize_value(&JournalEntrySocketSendFileV1 {
+                socket_fd,
+                file_fd,
+                offset,
+                count,
+            }),
+            JournalEntry::SocketSendTo {
+                fd,
+                data,
+                flags,
+                addr,
+                is_64bit,
+            } => serializer.serialize_value(&JournalEntrySocketSendToV1 {
+                fd,
+                data: data.into_owned(),
+                flags,
+                addr,
+                is_64bit,
+            }),
+            JournalEntry::SocketSend {
+                fd,
+                data,
+                flags,
+                is_64bit,
+            } => serializer.serialize_value(&JournalEntrySocketSendV1 {
+                fd,
+                data: data.into_owned(),
+                flags,
+                is_64bit,
+            }),
+            JournalEntry::SocketSetOptFlag { fd, opt, flag } => {
+                serializer.serialize_value(&JournalEntrySocketSetOptFlagV1 {
+                    fd,
+                    opt: opt.into(),
+                    flag,
+                })
+            }
+            JournalEntry::SocketSetOptSize { fd, opt, size } => {
+                serializer.serialize_value(&JournalEntrySocketSetOptSizeV1 {
+                    fd,
+                    opt: opt.into(),
+                    size,
+                })
+            }
+            JournalEntry::SocketSetOptTime { fd, ty, time } => {
+                serializer.serialize_value(&JournalEntrySocketSetOptTimeV1 {
+                    fd,
+                    ty: ty.into(),
+                    time: time.clone(),
+                })
+            }
+            JournalEntry::SocketShutdown { fd, how } => {
+                serializer.serialize_value(&JournalEntrySocketShutdownV1 {
+                    fd,
+                    how: how.into(),
+                })
+            }
+            JournalEntry::Snapshot { when, trigger } => {
+                serializer.serialize_value(&JournalEntrySnapshotV1 {
+                    since_epoch: when
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap_or(Duration::ZERO),
+                    trigger: trigger.into(),
+                })
+            }
+        }
+        .map_err(|err| anyhow::format_err!("failed to serialize journal record - {}", err))?;
+        Ok(())
+    }
 }
 
 /// The journal log entries are serializable which
@@ -37,292 +847,620 @@ pub(crate) struct JournalBatch {
 /// Note: This structure is versioned which allows for
 /// changes to the journal entry types without having to
 /// worry about backward and forward compatibility
-#[allow(clippy::large_enum_variant)]
 #[derive(
     Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalBatchEntry {
-    InitModuleV1 {
-        wasm_hash: [u8; 32],
-    },
-    ProcessExitV1 {
-        exit_code: Option<JournalExitCodeV1>,
-    },
-    SetThreadV1 {
-        id: u32,
-        call_stack: Vec<u8>,
-        memory_stack: Vec<u8>,
-        store_data: Vec<u8>,
-        is_64bit: bool,
-    },
-    CloseThreadV1 {
-        id: u32,
-        exit_code: Option<JournalExitCodeV1>,
-    },
-    FileDescriptorSeekV1 {
-        fd: u32,
-        offset: i64,
-        whence: JournalWhenceV1,
-    },
-    FileDescriptorWriteV1 {
-        fd: u32,
-        offset: u64,
-        data: Vec<u8>,
-        is_64bit: bool,
-    },
-    UpdateMemoryRegionV1 {
-        start: u64,
-        end: u64,
-        data: Vec<u8>,
-    },
-    SetClockTimeV1 {
-        clock_id: JournalSnapshot0ClockidV1,
-        time: u64,
-    },
-    OpenFileDescriptorV1 {
-        fd: u32,
-        dirfd: u32,
-        dirflags: u32,
-        path: String,
-        o_flags: u16,
-        fs_rights_base: u64,
-        fs_rights_inheriting: u64,
-        fs_flags: u16,
-    },
-    CloseFileDescriptorV1 {
-        fd: u32,
-    },
-    RenumberFileDescriptorV1 {
-        old_fd: u32,
-        new_fd: u32,
-    },
-    DuplicateFileDescriptorV1 {
-        original_fd: u32,
-        copied_fd: u32,
-    },
-    CreateDirectoryV1 {
-        fd: u32,
-        path: String,
-    },
-    RemoveDirectoryV1 {
-        fd: u32,
-        path: String,
-    },
-    PathSetTimesV1 {
-        fd: u32,
-        flags: u32,
-        path: String,
-        st_atim: u64,
-        st_mtim: u64,
-        fst_flags: u16,
-    },
-    FileDescriptorSetTimesV1 {
-        fd: u32,
-        st_atim: u64,
-        st_mtim: u64,
-        fst_flags: u16,
-    },
-    FileDescriptorSetSizeV1 {
-        fd: u32,
-        st_size: u64,
-    },
-    FileDescriptorSetFlagsV1 {
-        fd: u32,
-        flags: u16,
-    },
-    FileDescriptorSetRightsV1 {
-        fd: u32,
-        fs_rights_base: u64,
-        fs_rights_inheriting: u64,
-    },
-    FileDescriptorAdviseV1 {
-        fd: u32,
-        offset: u64,
-        len: u64,
-        advice: JournalAdviceV1,
-    },
-    FileDescriptorAllocateV1 {
-        fd: u32,
-        offset: u64,
-        len: u64,
-    },
-    CreateHardLinkV1 {
-        old_fd: u32,
-        old_path: String,
-        old_flags: u32,
-        new_fd: u32,
-        new_path: String,
-    },
-    CreateSymbolicLinkV1 {
-        old_path: String,
-        fd: u32,
-        new_path: String,
-    },
-    UnlinkFileV1 {
-        fd: u32,
-        path: String,
-    },
-    PathRenameV1 {
-        old_fd: u32,
-        old_path: String,
-        new_fd: u32,
-        new_path: String,
-    },
-    ChangeDirectoryV1 {
-        path: String,
-    },
-    EpollCreateV1 {
-        fd: u32,
-    },
-    EpollCtlV1 {
-        epfd: u32,
-        op: JournalEpollCtlV1,
-        fd: u32,
-        event: Option<JournalEpollEventCtlV1>,
-    },
-    TtySetV1 {
-        cols: u32,
-        rows: u32,
-        width: u32,
-        height: u32,
-        stdin_tty: bool,
-        stdout_tty: bool,
-        stderr_tty: bool,
-        echo: bool,
-        line_buffered: bool,
-        line_feeds: bool,
-    },
-    CreatePipeV1 {
-        fd1: u32,
-        fd2: u32,
-    },
-    CreateEventV1 {
-        initial_val: u64,
-        flags: u16,
-        fd: u32,
-    },
-    PortAddAddrV1 {
-        cidr: IpCidr,
-    },
-    PortDelAddrV1 {
-        addr: IpAddr,
-    },
+pub(crate) struct JournalEntryHeader {
+    pub record_type: u16,
+    pub record_size: u64,
+}
+
+pub enum ArchivedJournalEntry<'a> {
+    InitModuleV1(&'a ArchivedJournalEntryInitModuleV1),
+    ProcessExitV1(&'a ArchivedJournalEntryProcessExitV1),
+    SetThreadV1(&'a ArchivedJournalEntrySetThreadV1),
+    CloseThreadV1(&'a ArchivedJournalEntryCloseThreadV1),
+    FileDescriptorSeekV1(&'a ArchivedJournalEntryFileDescriptorSeekV1),
+    FileDescriptorWriteV1(&'a ArchivedJournalEntryFileDescriptorWriteV1),
+    UpdateMemoryRegionV1(&'a ArchivedJournalEntryUpdateMemoryRegionV1),
+    SetClockTimeV1(&'a ArchivedJournalEntrySetClockTimeV1),
+    OpenFileDescriptorV1(&'a ArchivedJournalEntryOpenFileDescriptorV1),
+    CloseFileDescriptorV1(&'a ArchivedJournalEntryCloseFileDescriptorV1),
+    RenumberFileDescriptorV1(&'a ArchivedJournalEntryRenumberFileDescriptorV1),
+    DuplicateFileDescriptorV1(&'a ArchivedJournalEntryDuplicateFileDescriptorV1),
+    CreateDirectoryV1(&'a ArchivedJournalEntryCreateDirectoryV1),
+    RemoveDirectoryV1(&'a ArchivedJournalEntryRemoveDirectoryV1),
+    PathSetTimesV1(&'a ArchivedJournalEntryPathSetTimesV1),
+    FileDescriptorSetTimesV1(&'a ArchivedJournalEntryFileDescriptorSetTimesV1),
+    FileDescriptorSetSizeV1(&'a ArchivedJournalEntryFileDescriptorSetSizeV1),
+    FileDescriptorSetFlagsV1(&'a ArchivedJournalEntryFileDescriptorSetFlagsV1),
+    FileDescriptorSetRightsV1(&'a ArchivedJournalEntryFileDescriptorSetRightsV1),
+    FileDescriptorAdviseV1(&'a ArchivedJournalEntryFileDescriptorAdviseV1),
+    FileDescriptorAllocateV1(&'a ArchivedJournalEntryFileDescriptorAllocateV1),
+    CreateHardLinkV1(&'a ArchivedJournalEntryCreateHardLinkV1),
+    CreateSymbolicLinkV1(&'a ArchivedJournalEntryCreateSymbolicLinkV1),
+    UnlinkFileV1(&'a ArchivedJournalEntryUnlinkFileV1),
+    PathRenameV1(&'a ArchivedJournalEntryPathRenameV1),
+    ChangeDirectoryV1(&'a ArchivedJournalEntryChangeDirectoryV1),
+    EpollCreateV1(&'a ArchivedJournalEntryEpollCreateV1),
+    EpollCtlV1(&'a ArchivedJournalEntryEpollCtlV1),
+    TtySetV1(&'a ArchivedJournalEntryTtySetV1),
+    CreatePipeV1(&'a ArchivedJournalEntryCreatePipeV1),
+    CreateEventV1(&'a ArchivedJournalEntryCreateEventV1),
+    PortAddAddrV1(&'a ArchivedJournalEntryPortAddAddrV1),
+    PortDelAddrV1(&'a ArchivedJournalEntryPortDelAddrV1),
     PortAddrClearV1,
-    PortBridgeV1 {
-        network: String,
-        token: String,
-        security: JournalStreamSecurityV1,
-    },
+    PortBridgeV1(&'a ArchivedJournalEntryPortBridgeV1),
     PortUnbridgeV1,
     PortDhcpAcquireV1,
-    PortGatewaySetV1 {
-        ip: IpAddr,
-    },
-    PortRouteAddV1 {
-        cidr: IpCidr,
-        via_router: IpAddr,
-        preferred_until: Option<Duration>,
-        expires_at: Option<Duration>,
-    },
+    PortGatewaySetV1(&'a ArchivedJournalEntryPortGatewaySetV1),
+    PortRouteAddV1(&'a ArchivedJournalEntryPortRouteAddV1),
     PortRouteClearV1,
-    PortRouteDelV1 {
-        ip: IpAddr,
-    },
-    SocketOpenV1 {
-        af: JournalAddressfamilyV1,
-        ty: JournalSocktypeV1,
-        pt: u16,
-        fd: u32,
-    },
-    SocketListenV1 {
-        fd: u32,
-        backlog: u32,
-    },
-    SocketBindV1 {
-        fd: u32,
-        addr: SocketAddr,
-    },
-    SocketConnectedV1 {
-        fd: u32,
-        addr: SocketAddr,
-    },
-    SocketAcceptedV1 {
-        listen_fd: u32,
-        fd: u32,
-        peer_addr: SocketAddr,
-        fd_flags: u16,
-        nonblocking: bool,
-    },
-    SocketJoinIpv4MulticastV1 {
-        fd: u32,
-        multiaddr: Ipv4Addr,
-        iface: Ipv4Addr,
-    },
-    SocketJoinIpv6MulticastV1 {
-        fd: u32,
-        multiaddr: Ipv6Addr,
-        iface: u32,
-    },
-    SocketLeaveIpv4MulticastV1 {
-        fd: u32,
-        multiaddr: Ipv4Addr,
-        iface: Ipv4Addr,
-    },
-    SocketLeaveIpv6MulticastV1 {
-        fd: u32,
-        multiaddr: Ipv6Addr,
-        iface: u32,
-    },
-    SocketSendFileV1 {
-        socket_fd: u32,
-        file_fd: u32,
-        offset: u64,
-        count: u64,
-    },
-    SocketSendToV1 {
-        fd: u32,
-        data: Vec<u8>,
-        flags: u16,
-        addr: SocketAddr,
-        is_64bit: bool,
-    },
-    SocketSendV1 {
-        fd: u32,
-        data: Vec<u8>,
-        flags: u16,
-        is_64bit: bool,
-    },
-    SocketSetOptFlagV1 {
-        fd: u32,
-        opt: JournalSockoptionV1,
-        flag: bool,
-    },
-    SocketSetOptSizeV1 {
-        fd: u32,
-        opt: JournalSockoptionV1,
-        size: u64,
-    },
-    SocketSetOptTimeV1 {
-        fd: u32,
-        ty: JournalTimeTypeV1,
-        time: Option<Duration>,
-    },
-    SocketShutdownV1 {
-        fd: u32,
-        how: JournalSocketShutdownV1,
-    },
-    SnapshotV1 {
-        since_epoch: Duration,
-        trigger: JournalSnapshotTriggerV1,
-    },
+    PortRouteDelV1(&'a ArchivedJournalEntryPortRouteDelV1),
+    SocketOpenV1(&'a ArchivedJournalEntrySocketOpenV1),
+    SocketListenV1(&'a ArchivedJournalEntrySocketListenV1),
+    SocketBindV1(&'a ArchivedJournalEntrySocketBindV1),
+    SocketConnectedV1(&'a ArchivedJournalEntrySocketConnectedV1),
+    SocketAcceptedV1(&'a ArchivedJournalEntrySocketAcceptedV1),
+    SocketJoinIpv4MulticastV1(&'a ArchivedJournalEntrySocketJoinIpv4MulticastV1),
+    SocketJoinIpv6MulticastV1(&'a ArchivedJournalEntrySocketJoinIpv6MulticastV1),
+    SocketLeaveIpv4MulticastV1(&'a ArchivedJournalEntrySocketLeaveIpv4MulticastV1),
+    SocketLeaveIpv6MulticastV1(&'a ArchivedJournalEntrySocketLeaveIpv6MulticastV1),
+    SocketSendFileV1(&'a ArchivedJournalEntrySocketSendFileV1),
+    SocketSendToV1(&'a ArchivedJournalEntrySocketSendToV1),
+    SocketSendV1(&'a ArchivedJournalEntrySocketSendV1),
+    SocketSetOptFlagV1(&'a ArchivedJournalEntrySocketSetOptFlagV1),
+    SocketSetOptSizeV1(&'a ArchivedJournalEntrySocketSetOptSizeV1),
+    SocketSetOptTimeV1(&'a ArchivedJournalEntrySocketSetOptTimeV1),
+    SocketShutdownV1(&'a ArchivedJournalEntrySocketShutdownV1),
+    SnapshotV1(&'a ArchivedJournalEntrySnapshotV1),
 }
 
 #[derive(
     Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalSnapshot0ClockidV1 {
+pub struct JournalEntryInitModuleV1 {
+    pub wasm_hash: [u8; 32],
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryProcessExitV1 {
+    pub exit_code: Option<JournalExitCodeV1>,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySetThreadV1 {
+    pub id: u32,
+    pub call_stack: Vec<u8>,
+    pub memory_stack: Vec<u8>,
+    pub store_data: Vec<u8>,
+    pub is_64bit: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCloseThreadV1 {
+    pub id: u32,
+    pub exit_code: Option<JournalExitCodeV1>,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorSeekV1 {
+    pub fd: u32,
+    pub offset: i64,
+    pub whence: JournalWhenceV1,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorWriteV1 {
+    pub fd: u32,
+    pub offset: u64,
+    pub data: Vec<u8>,
+    pub is_64bit: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryUpdateMemoryRegionV1 {
+    pub start: u64,
+    pub end: u64,
+    pub data: Vec<u8>,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySetClockTimeV1 {
+    pub clock_id: JournalSnapshot0ClockidV1,
+    pub time: u64,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryOpenFileDescriptorV1 {
+    pub fd: u32,
+    pub dirfd: u32,
+    pub dirflags: u32,
+    pub path: String,
+    pub o_flags: u16,
+    pub fs_rights_base: u64,
+    pub fs_rights_inheriting: u64,
+    pub fs_flags: u16,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCloseFileDescriptorV1 {
+    pub fd: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryRenumberFileDescriptorV1 {
+    pub old_fd: u32,
+    pub new_fd: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryDuplicateFileDescriptorV1 {
+    pub original_fd: u32,
+    pub copied_fd: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCreateDirectoryV1 {
+    pub fd: u32,
+    pub path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryRemoveDirectoryV1 {
+    pub fd: u32,
+    pub path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPathSetTimesV1 {
+    pub fd: u32,
+    pub flags: u32,
+    pub path: String,
+    pub st_atim: u64,
+    pub st_mtim: u64,
+    pub fst_flags: u16,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorSetTimesV1 {
+    pub fd: u32,
+    pub st_atim: u64,
+    pub st_mtim: u64,
+    pub fst_flags: u16,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorSetSizeV1 {
+    pub fd: u32,
+    pub st_size: u64,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorSetFlagsV1 {
+    pub fd: u32,
+    pub flags: u16,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorSetRightsV1 {
+    pub fd: u32,
+    pub fs_rights_base: u64,
+    pub fs_rights_inheriting: u64,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorAdviseV1 {
+    pub fd: u32,
+    pub offset: u64,
+    pub len: u64,
+    pub advice: JournalAdviceV1,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryFileDescriptorAllocateV1 {
+    pub fd: u32,
+    pub offset: u64,
+    pub len: u64,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCreateHardLinkV1 {
+    pub old_fd: u32,
+    pub old_path: String,
+    pub old_flags: u32,
+    pub new_fd: u32,
+    pub new_path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCreateSymbolicLinkV1 {
+    pub old_path: String,
+    pub fd: u32,
+    pub new_path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryUnlinkFileV1 {
+    pub fd: u32,
+    pub path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPathRenameV1 {
+    pub old_fd: u32,
+    pub old_path: String,
+    pub new_fd: u32,
+    pub new_path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryChangeDirectoryV1 {
+    pub path: String,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryEpollCreateV1 {
+    pub fd: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryEpollCtlV1 {
+    pub epfd: u32,
+    pub op: JournalEpollCtlV1,
+    pub fd: u32,
+    pub event: Option<JournalEpollEventCtlV1>,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryTtySetV1 {
+    pub cols: u32,
+    pub rows: u32,
+    pub width: u32,
+    pub height: u32,
+    pub stdin_tty: bool,
+    pub stdout_tty: bool,
+    pub stderr_tty: bool,
+    pub echo: bool,
+    pub line_buffered: bool,
+    pub line_feeds: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCreatePipeV1 {
+    pub fd1: u32,
+    pub fd2: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryCreateEventV1 {
+    pub initial_val: u64,
+    pub flags: u16,
+    pub fd: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPortAddAddrV1 {
+    pub cidr: IpCidr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPortDelAddrV1 {
+    pub addr: IpAddr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPortBridgeV1 {
+    pub network: String,
+    pub token: String,
+    pub security: JournalStreamSecurityV1,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPortGatewaySetV1 {
+    pub ip: IpAddr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPortRouteAddV1 {
+    pub cidr: IpCidr,
+    pub via_router: IpAddr,
+    pub preferred_until: Option<Duration>,
+    pub expires_at: Option<Duration>,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntryPortRouteDelV1 {
+    pub ip: IpAddr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketOpenV1 {
+    pub af: JournalAddressfamilyV1,
+    pub ty: JournalSocktypeV1,
+    pub pt: u16,
+    pub fd: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketListenV1 {
+    pub fd: u32,
+    pub backlog: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketBindV1 {
+    pub fd: u32,
+    pub addr: SocketAddr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketConnectedV1 {
+    pub fd: u32,
+    pub addr: SocketAddr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketAcceptedV1 {
+    pub listen_fd: u32,
+    pub fd: u32,
+    pub peer_addr: SocketAddr,
+    pub fd_flags: u16,
+    pub nonblocking: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketJoinIpv4MulticastV1 {
+    pub fd: u32,
+    pub multiaddr: Ipv4Addr,
+    pub iface: Ipv4Addr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketJoinIpv6MulticastV1 {
+    pub fd: u32,
+    pub multiaddr: Ipv6Addr,
+    pub iface: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketLeaveIpv4MulticastV1 {
+    pub fd: u32,
+    pub multiaddr: Ipv4Addr,
+    pub iface: Ipv4Addr,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketLeaveIpv6MulticastV1 {
+    pub fd: u32,
+    pub multiaddr: Ipv6Addr,
+    pub iface: u32,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketSendFileV1 {
+    pub socket_fd: u32,
+    pub file_fd: u32,
+    pub offset: u64,
+    pub count: u64,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketSendToV1 {
+    pub fd: u32,
+    pub data: Vec<u8>,
+    pub flags: u16,
+    pub addr: SocketAddr,
+    pub is_64bit: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketSendV1 {
+    pub fd: u32,
+    pub data: Vec<u8>,
+    pub flags: u16,
+    pub is_64bit: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketSetOptFlagV1 {
+    pub fd: u32,
+    pub opt: JournalSockoptionV1,
+    pub flag: bool,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketSetOptSizeV1 {
+    pub fd: u32,
+    pub opt: JournalSockoptionV1,
+    pub size: u64,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketSetOptTimeV1 {
+    pub fd: u32,
+    pub ty: JournalTimeTypeV1,
+    pub time: Option<Duration>,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySocketShutdownV1 {
+    pub fd: u32,
+    pub how: JournalSocketShutdownV1,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub struct JournalEntrySnapshotV1 {
+    pub since_epoch: Duration,
+    pub trigger: JournalSnapshotTriggerV1,
+}
+
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
+)]
+#[archive_attr(derive(CheckBytes))]
+pub enum JournalSnapshot0ClockidV1 {
     Realtime,
     Monotonic,
     ProcessCputimeId,
@@ -374,7 +1512,7 @@ impl From<&'_ ArchivedJournalSnapshot0ClockidV1> for wasi::Snapshot0Clockid {
     Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalWhenceV1 {
+pub enum JournalWhenceV1 {
     Set,
     Cur,
     End,
@@ -418,7 +1556,7 @@ impl From<&'_ ArchivedJournalWhenceV1> for wasi::Whence {
     Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalAdviceV1 {
+pub enum JournalAdviceV1 {
     Normal,
     Sequential,
     Random,
@@ -474,7 +1612,7 @@ impl From<&'_ ArchivedJournalAdviceV1> for wasi::Advice {
     Debug, Clone, serde::Serialize, serde::Deserialize, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalExitCodeV1 {
+pub enum JournalExitCodeV1 {
     Errno(u16),
     Other(i32),
 }
@@ -526,7 +1664,7 @@ impl From<&'_ ArchivedJournalExitCodeV1> for wasi::ExitCode {
     Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalSnapshotTriggerV1 {
+pub enum JournalSnapshotTriggerV1 {
     Idle,
     Listen,
     Environ,
@@ -608,7 +1746,7 @@ impl From<&'_ ArchivedJournalSnapshotTriggerV1> for SnapshotTrigger {
     Archive,
 )]
 #[archive_attr(derive(CheckBytes))]
-pub(crate) enum JournalEpollCtlV1 {
+pub enum JournalEpollCtlV1 {
     Add,
     Mod,
     Del,
@@ -1135,972 +2273,270 @@ impl From<&'_ ArchivedJournalSocketShutdownV1> for Shutdown {
     }
 }
 
-impl<'a> From<JournalEntry<'a>> for JournalBatchEntry {
-    fn from(value: JournalEntry<'a>) -> Self {
+impl<'a> From<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
+    fn from(value: ArchivedJournalEntry<'a>) -> Self {
         match value {
-            JournalEntry::InitModule { wasm_hash } => Self::InitModuleV1 { wasm_hash },
-            JournalEntry::UpdateMemoryRegion { region, data } => Self::UpdateMemoryRegionV1 {
-                start: region.start,
-                end: region.end,
-                data: data.into_owned(),
-            },
-            JournalEntry::ProcessExit { exit_code } => Self::ProcessExitV1 {
-                exit_code: exit_code.map(|code| code.into()),
-            },
-            JournalEntry::SetThread {
-                id,
-                call_stack,
-                memory_stack,
-                store_data,
-                is_64bit,
-            } => Self::SetThreadV1 {
-                id: id.into(),
-                call_stack: call_stack.into_owned(),
-                memory_stack: memory_stack.into_owned(),
-                store_data: store_data.into_owned(),
-                is_64bit,
-            },
-            JournalEntry::CloseThread { id, exit_code } => Self::CloseThreadV1 {
-                id: id.into(),
-                exit_code: exit_code.map(|code| code.into()),
-            },
-            JournalEntry::FileDescriptorWrite {
-                fd,
-                offset,
-                data,
-                is_64bit,
-            } => Self::FileDescriptorWriteV1 {
-                fd,
-                offset,
-                data: data.into_owned(),
-                is_64bit,
-            },
-            JournalEntry::FileDescriptorSeek { fd, offset, whence } => Self::FileDescriptorSeekV1 {
-                fd,
-                offset,
-                whence: whence.into(),
-            },
-            JournalEntry::OpenFileDescriptor {
-                fd,
-                dirfd,
-                dirflags,
-                path,
-                o_flags,
-                fs_rights_base,
-                fs_rights_inheriting,
-                fs_flags,
-            } => Self::OpenFileDescriptorV1 {
-                fd,
-                dirfd,
-                dirflags,
-                path: path.into_owned(),
-                o_flags: o_flags.bits(),
-                fs_rights_base: fs_rights_base.bits(),
-                fs_rights_inheriting: fs_rights_inheriting.bits(),
-                fs_flags: fs_flags.bits(),
-            },
-            JournalEntry::CloseFileDescriptor { fd } => Self::CloseFileDescriptorV1 { fd },
-            JournalEntry::RemoveDirectory { fd, path } => Self::RemoveDirectoryV1 {
-                fd,
-                path: path.into_owned(),
-            },
-            JournalEntry::UnlinkFile { fd, path } => Self::UnlinkFileV1 {
-                fd,
-                path: path.into_owned(),
-            },
-            JournalEntry::PathRename {
-                old_fd,
-                old_path,
-                new_fd,
-                new_path,
-            } => Self::PathRenameV1 {
-                old_fd,
-                old_path: old_path.into_owned(),
-                new_fd,
-                new_path: new_path.into_owned(),
-            },
-            JournalEntry::Snapshot { when, trigger } => Self::SnapshotV1 {
-                since_epoch: when
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap_or(Duration::ZERO),
-                trigger: trigger.into(),
-            },
-            JournalEntry::SetClockTime { clock_id, time } => Self::SetClockTimeV1 {
-                clock_id: clock_id.into(),
-                time,
-            },
-            JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
-                Self::RenumberFileDescriptorV1 { old_fd, new_fd }
-            }
-            JournalEntry::DuplicateFileDescriptor {
-                original_fd,
-                copied_fd,
-            } => Self::DuplicateFileDescriptorV1 {
-                original_fd,
-                copied_fd,
-            },
-            JournalEntry::CreateDirectory { fd, path } => Self::CreateDirectoryV1 {
-                fd,
-                path: path.into_owned(),
-            },
-            JournalEntry::PathSetTimes {
-                fd,
-                path,
-                flags,
-                st_atim,
-                st_mtim,
-                fst_flags,
-            } => Self::PathSetTimesV1 {
-                fd,
-                path: path.into_owned(),
-                flags,
-                st_atim,
-                st_mtim,
-                fst_flags: fst_flags.bits(),
-            },
-            JournalEntry::FileDescriptorSetTimes {
-                fd,
-                st_atim,
-                st_mtim,
-                fst_flags,
-            } => Self::FileDescriptorSetTimesV1 {
-                fd,
-                st_atim,
-                st_mtim,
-                fst_flags: fst_flags.bits(),
-            },
-            JournalEntry::FileDescriptorSetSize { fd, st_size } => {
-                Self::FileDescriptorSetSizeV1 { fd, st_size }
-            }
-            JournalEntry::FileDescriptorSetFlags { fd, flags } => Self::FileDescriptorSetFlagsV1 {
-                fd,
-                flags: flags.bits(),
-            },
-            JournalEntry::FileDescriptorSetRights {
-                fd,
-                fs_rights_base,
-                fs_rights_inheriting,
-            } => Self::FileDescriptorSetRightsV1 {
-                fd,
-                fs_rights_base: fs_rights_base.bits(),
-                fs_rights_inheriting: fs_rights_inheriting.bits(),
-            },
-            JournalEntry::FileDescriptorAdvise {
-                fd,
-                offset,
-                len,
-                advice,
-            } => Self::FileDescriptorAdviseV1 {
-                fd,
-                offset,
-                len,
-                advice: advice.into(),
-            },
-            JournalEntry::FileDescriptorAllocate { fd, offset, len } => {
-                Self::FileDescriptorAllocateV1 { fd, offset, len }
-            }
-            JournalEntry::CreateHardLink {
-                old_fd,
-                old_path,
-                old_flags,
-                new_fd,
-                new_path,
-            } => Self::CreateHardLinkV1 {
-                old_fd,
-                old_path: old_path.into_owned(),
-                old_flags,
-                new_fd,
-                new_path: new_path.into_owned(),
-            },
-            JournalEntry::CreateSymbolicLink {
-                old_path,
-                fd,
-                new_path,
-            } => Self::CreateSymbolicLinkV1 {
-                old_path: old_path.into_owned(),
-                fd,
-                new_path: new_path.into_owned(),
-            },
-            JournalEntry::ChangeDirectory { path } => Self::ChangeDirectoryV1 {
-                path: path.into_owned(),
-            },
-            JournalEntry::EpollCreate { fd } => Self::EpollCreateV1 { fd },
-            JournalEntry::EpollCtl {
-                epfd,
-                op,
-                fd,
-                event,
-            } => Self::EpollCtlV1 {
-                epfd,
-                op: op.into(),
-                fd,
-                event: event.map(|e| e.into()),
-            },
-            JournalEntry::TtySet { tty, line_feeds } => Self::TtySetV1 {
-                cols: tty.cols,
-                rows: tty.rows,
-                width: tty.width,
-                height: tty.height,
-                stdin_tty: tty.stdin_tty,
-                stdout_tty: tty.stdout_tty,
-                stderr_tty: tty.stderr_tty,
-                echo: tty.echo,
-                line_buffered: tty.line_buffered,
-                line_feeds,
-            },
-            JournalEntry::CreatePipe { fd1, fd2 } => Self::CreatePipeV1 { fd1, fd2 },
-            JournalEntry::PortAddAddr { cidr } => Self::PortAddAddrV1 { cidr },
-            JournalEntry::PortDelAddr { addr } => Self::PortDelAddrV1 { addr },
-            JournalEntry::PortAddrClear => Self::PortAddrClearV1,
-            JournalEntry::PortBridge {
-                network,
-                token,
-                security,
-            } => Self::PortBridgeV1 {
-                network: network.into(),
-                token: token.into(),
-                security: security.into(),
-            },
-            JournalEntry::PortUnbridge => Self::PortUnbridgeV1,
-            JournalEntry::PortDhcpAcquire => Self::PortDhcpAcquireV1,
-            JournalEntry::PortGatewaySet { ip } => Self::PortGatewaySetV1 { ip },
-            JournalEntry::PortRouteAdd {
-                cidr,
-                via_router,
-                preferred_until,
-                expires_at,
-            } => Self::PortRouteAddV1 {
-                cidr,
-                via_router,
-                preferred_until,
-                expires_at,
-            },
-            JournalEntry::PortRouteClear => Self::PortRouteClearV1,
-            JournalEntry::PortRouteDel { ip } => Self::PortRouteDelV1 { ip },
-            JournalEntry::SocketOpen { af, ty, pt, fd } => Self::SocketOpenV1 {
-                af: af.into(),
-                ty: ty.into(),
-                pt: pt as u16,
-                fd,
-            },
-            JournalEntry::SocketListen { fd, backlog } => Self::SocketListenV1 { fd, backlog },
-            JournalEntry::SocketBind { fd, addr } => Self::SocketBindV1 { fd, addr },
-            JournalEntry::SocketConnected { fd, addr } => Self::SocketConnectedV1 { fd, addr },
-            JournalEntry::SocketAccepted {
-                listen_fd,
-                fd,
-                peer_addr,
-                fd_flags,
-                nonblocking,
-            } => Self::SocketAcceptedV1 {
-                listen_fd,
-                fd,
-                peer_addr,
-                fd_flags: fd_flags.bits(),
-                nonblocking,
-            },
-            JournalEntry::SocketJoinIpv4Multicast {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketJoinIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalEntry::SocketJoinIpv6Multicast {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketJoinIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalEntry::SocketLeaveIpv4Multicast {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketLeaveIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalEntry::SocketLeaveIpv6Multicast {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketLeaveIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalEntry::SocketSendFile {
-                socket_fd,
-                file_fd,
-                offset,
-                count,
-            } => Self::SocketSendFileV1 {
-                socket_fd,
-                file_fd,
-                offset,
-                count,
-            },
-            JournalEntry::SocketSendTo {
-                fd,
-                data,
-                flags,
-                addr,
-                is_64bit,
-            } => Self::SocketSendToV1 {
-                fd,
-                data: data.into(),
-                flags,
-                addr,
-                is_64bit,
-            },
-            JournalEntry::SocketSend {
-                fd,
-                data,
-                flags,
-                is_64bit,
-            } => Self::SocketSendV1 {
-                fd,
-                data: data.into(),
-                flags,
-                is_64bit,
-            },
-            JournalEntry::SocketSetOptFlag { fd, opt, flag } => Self::SocketSetOptFlagV1 {
-                fd,
-                opt: opt.into(),
-                flag,
-            },
-            JournalEntry::SocketSetOptSize { fd, opt, size } => Self::SocketSetOptSizeV1 {
-                fd,
-                opt: opt.into(),
-                size,
-            },
-            JournalEntry::SocketSetOptTime { fd, ty, time } => Self::SocketSetOptTimeV1 {
-                fd,
-                ty: ty.into(),
-                time,
-            },
-            JournalEntry::SocketShutdown { fd, how } => Self::SocketShutdownV1 {
-                fd,
-                how: how.into(),
-            },
-            JournalEntry::CreateEvent {
-                initial_val,
-                flags,
-                fd,
-            } => Self::CreateEventV1 {
-                initial_val,
-                flags,
-                fd,
-            },
-        }
-    }
-}
-
-impl<'a> From<JournalBatchEntry> for JournalEntry<'a> {
-    fn from(value: JournalBatchEntry) -> Self {
-        match value {
-            JournalBatchEntry::InitModuleV1 { wasm_hash } => Self::InitModule { wasm_hash },
-            JournalBatchEntry::UpdateMemoryRegionV1 { start, end, data } => {
-                Self::UpdateMemoryRegion {
-                    region: start..end,
-                    data: data.into(),
+            ArchivedJournalEntry::InitModuleV1(ArchivedJournalEntryInitModuleV1 { wasm_hash }) => {
+                Self::InitModule {
+                    wasm_hash: *wasm_hash,
                 }
             }
-            JournalBatchEntry::ProcessExitV1 { exit_code } => Self::ProcessExit {
-                exit_code: exit_code.map(|code| code.into()),
+            ArchivedJournalEntry::UpdateMemoryRegionV1(
+                ArchivedJournalEntryUpdateMemoryRegionV1 { start, end, data },
+            ) => Self::UpdateMemoryRegion {
+                region: (*start)..(*end),
+                data: Cow::Borrowed(data.as_ref()),
             },
-            JournalBatchEntry::SetThreadV1 {
+            ArchivedJournalEntry::ProcessExitV1(ArchivedJournalEntryProcessExitV1 {
+                exit_code,
+            }) => Self::ProcessExit {
+                exit_code: exit_code.as_ref().map(|code| code.into()),
+            },
+            ArchivedJournalEntry::SetThreadV1(ArchivedJournalEntrySetThreadV1 {
                 id,
                 call_stack,
                 memory_stack,
                 store_data,
                 is_64bit,
-            } => Self::SetThread {
-                id: id.into(),
-                call_stack: call_stack.into(),
-                memory_stack: memory_stack.into(),
-                store_data: store_data.into(),
-                is_64bit,
+            }) => Self::SetThread {
+                id: (*id).into(),
+                call_stack: call_stack.as_ref().into(),
+                memory_stack: memory_stack.as_ref().into(),
+                store_data: store_data.as_ref().into(),
+                is_64bit: *is_64bit,
             },
-            JournalBatchEntry::CloseThreadV1 { id, exit_code } => Self::CloseThread {
-                id: id.into(),
-                exit_code: exit_code.map(|code| code.into()),
+            ArchivedJournalEntry::CloseThreadV1(ArchivedJournalEntryCloseThreadV1 {
+                id,
+                exit_code,
+            }) => Self::CloseThread {
+                id: (*id).into(),
+                exit_code: exit_code.as_ref().map(|code| code.into()),
             },
-            JournalBatchEntry::FileDescriptorWriteV1 {
-                data,
-                fd,
-                offset,
-                is_64bit,
-            } => Self::FileDescriptorWrite {
-                data: data.into(),
-                fd,
-                offset,
-                is_64bit,
-            },
-            JournalBatchEntry::FileDescriptorSeekV1 { fd, offset, whence } => {
-                Self::FileDescriptorSeek {
+            ArchivedJournalEntry::FileDescriptorWriteV1(
+                ArchivedJournalEntryFileDescriptorWriteV1 {
+                    data,
                     fd,
                     offset,
-                    whence: whence.into(),
-                }
-            }
-            JournalBatchEntry::OpenFileDescriptorV1 {
-                fd,
-                dirfd,
-                dirflags,
-                path,
-                o_flags,
-                fs_rights_base,
-                fs_rights_inheriting,
-                fs_flags,
-            } => Self::OpenFileDescriptor {
-                fd,
-                dirfd,
-                dirflags,
-                path: path.into(),
-                o_flags: wasi::Oflags::from_bits_truncate(o_flags),
-                fs_rights_base: wasi::Rights::from_bits_truncate(fs_rights_base),
-                fs_rights_inheriting: wasi::Rights::from_bits_truncate(fs_rights_inheriting),
-                fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags),
-            },
-            JournalBatchEntry::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd },
-            JournalBatchEntry::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
-                fd,
-                path: path.into(),
-            },
-            JournalBatchEntry::UnlinkFileV1 { fd, path } => Self::UnlinkFile {
-                fd,
-                path: path.into(),
-            },
-            JournalBatchEntry::PathRenameV1 {
-                old_fd,
-                old_path,
-                new_fd,
-                new_path,
-            } => Self::PathRename {
-                old_fd,
-                old_path: old_path.into(),
-                new_fd,
-                new_path: new_path.into(),
-            },
-            JournalBatchEntry::SnapshotV1 {
-                since_epoch,
-                trigger,
-            } => Self::Snapshot {
-                when: SystemTime::UNIX_EPOCH
-                    .checked_add(since_epoch)
-                    .unwrap_or(SystemTime::UNIX_EPOCH),
-                trigger: trigger.into(),
-            },
-            JournalBatchEntry::SetClockTimeV1 { clock_id, time } => Self::SetClockTime {
-                clock_id: clock_id.into(),
-                time,
-            },
-            JournalBatchEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
-                Self::RenumberFileDescriptor { old_fd, new_fd }
-            }
-            JournalBatchEntry::DuplicateFileDescriptorV1 {
-                original_fd: old_fd,
-                copied_fd: new_fd,
-            } => Self::DuplicateFileDescriptor {
-                original_fd: old_fd,
-                copied_fd: new_fd,
-            },
-            JournalBatchEntry::CreateDirectoryV1 { fd, path } => Self::CreateDirectory {
-                fd,
-                path: path.into(),
-            },
-            JournalBatchEntry::PathSetTimesV1 {
-                fd,
-                path,
-                flags,
-                st_atim,
-                st_mtim,
-                fst_flags,
-            } => Self::PathSetTimes {
-                fd,
-                path: path.into(),
-                flags,
-                st_atim,
-                st_mtim,
-                fst_flags: wasi::Fstflags::from_bits_truncate(fst_flags),
-            },
-            JournalBatchEntry::FileDescriptorSetTimesV1 {
-                fd,
-                st_atim,
-                st_mtim,
-                fst_flags,
-            } => Self::FileDescriptorSetTimes {
-                fd,
-                st_atim,
-                st_mtim,
-                fst_flags: wasi::Fstflags::from_bits_truncate(fst_flags),
-            },
-            JournalBatchEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
-                Self::FileDescriptorSetSize { fd, st_size }
-            }
-            JournalBatchEntry::FileDescriptorSetFlagsV1 { fd, flags } => {
-                Self::FileDescriptorSetFlags {
-                    fd,
-                    flags: Fdflags::from_bits_truncate(flags),
-                }
-            }
-            JournalBatchEntry::FileDescriptorSetRightsV1 {
-                fd,
-                fs_rights_base,
-                fs_rights_inheriting,
-            } => Self::FileDescriptorSetRights {
-                fd,
-                fs_rights_base: Rights::from_bits_truncate(fs_rights_base),
-                fs_rights_inheriting: Rights::from_bits_truncate(fs_rights_inheriting),
-            },
-            JournalBatchEntry::FileDescriptorAdviseV1 {
-                fd,
-                offset,
-                len,
-                advice,
-            } => Self::FileDescriptorAdvise {
-                fd,
-                offset,
-                len,
-                advice: advice.into(),
-            },
-            JournalBatchEntry::FileDescriptorAllocateV1 { fd, offset, len } => {
-                Self::FileDescriptorAllocate { fd, offset, len }
-            }
-            JournalBatchEntry::CreateHardLinkV1 {
-                old_fd,
-                old_path,
-                old_flags,
-                new_fd,
-                new_path,
-            } => Self::CreateHardLink {
-                old_fd,
-                old_path: old_path.into(),
-                old_flags,
-                new_fd,
-                new_path: new_path.into(),
-            },
-            JournalBatchEntry::CreateSymbolicLinkV1 {
-                old_path,
-                fd,
-                new_path,
-            } => Self::CreateSymbolicLink {
-                old_path: old_path.into(),
-                fd,
-                new_path: new_path.into(),
-            },
-            JournalBatchEntry::ChangeDirectoryV1 { path } => {
-                Self::ChangeDirectory { path: path.into() }
-            }
-            JournalBatchEntry::EpollCreateV1 { fd } => Self::EpollCreate { fd },
-            JournalBatchEntry::EpollCtlV1 {
-                epfd,
-                op,
-                fd,
-                event,
-            } => Self::EpollCtl {
-                epfd,
-                op: op.into(),
-                fd,
-                event: event.map(|e| e.into()),
-            },
-            JournalBatchEntry::TtySetV1 {
-                cols,
-                rows,
-                width,
-                height,
-                stdin_tty,
-                stdout_tty,
-                stderr_tty,
-                echo,
-                line_buffered,
-                line_feeds,
-            } => Self::TtySet {
-                tty: wasi::Tty {
-                    cols,
-                    rows,
-                    width,
-                    height,
-                    stdin_tty,
-                    stdout_tty,
-                    stderr_tty,
-                    echo,
-                    line_buffered,
+                    is_64bit,
                 },
-                line_feeds,
-            },
-            JournalBatchEntry::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe { fd1, fd2 },
-            JournalBatchEntry::PortAddAddrV1 { cidr } => Self::PortAddAddr { cidr },
-            JournalBatchEntry::PortDelAddrV1 { addr } => Self::PortDelAddr { addr },
-            JournalBatchEntry::PortAddrClearV1 => Self::PortAddrClear,
-            JournalBatchEntry::PortBridgeV1 {
-                network,
-                token,
-                security,
-            } => Self::PortBridge {
-                network: network.into(),
-                token: token.into(),
-                security: security.into(),
-            },
-            JournalBatchEntry::PortUnbridgeV1 => Self::PortUnbridge,
-            JournalBatchEntry::PortDhcpAcquireV1 => Self::PortDhcpAcquire,
-            JournalBatchEntry::PortGatewaySetV1 { ip } => Self::PortGatewaySet { ip },
-            JournalBatchEntry::PortRouteAddV1 {
-                cidr,
-                via_router,
-                preferred_until,
-                expires_at,
-            } => Self::PortRouteAdd {
-                cidr,
-                via_router,
-                preferred_until,
-                expires_at,
-            },
-            JournalBatchEntry::PortRouteClearV1 => Self::PortRouteClear,
-            JournalBatchEntry::PortRouteDelV1 { ip } => Self::PortRouteDel { ip },
-            JournalBatchEntry::SocketOpenV1 { af, ty, pt, fd } => Self::SocketOpen {
-                af: af.into(),
-                ty: ty.into(),
-                pt: pt.try_into().unwrap_or(wasi::SockProto::Max),
-                fd,
-            },
-            JournalBatchEntry::SocketListenV1 { fd, backlog } => Self::SocketListen { fd, backlog },
-            JournalBatchEntry::SocketBindV1 { fd, addr } => Self::SocketBind { fd, addr },
-            JournalBatchEntry::SocketConnectedV1 { fd, addr } => Self::SocketConnected { fd, addr },
-            JournalBatchEntry::SocketAcceptedV1 {
-                listen_fd,
-                fd,
-                peer_addr,
-                fd_flags,
-                nonblocking,
-            } => Self::SocketAccepted {
-                listen_fd,
-                fd,
-                peer_addr,
-                fd_flags: Fdflags::from_bits_truncate(fd_flags),
-                nonblocking,
-            },
-            JournalBatchEntry::SocketJoinIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketJoinIpv4Multicast {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalBatchEntry::SocketJoinIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketJoinIpv6Multicast {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalBatchEntry::SocketLeaveIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketLeaveIpv4Multicast {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalBatchEntry::SocketLeaveIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketLeaveIpv6Multicast {
-                fd,
-                multiaddr,
-                iface,
-            },
-            JournalBatchEntry::SocketSendFileV1 {
-                socket_fd,
-                file_fd,
-                offset,
-                count,
-            } => Self::SocketSendFile {
-                socket_fd,
-                file_fd,
-                offset,
-                count,
-            },
-            JournalBatchEntry::SocketSendToV1 {
-                fd,
-                data,
-                flags,
-                addr,
-                is_64bit,
-            } => Self::SocketSendTo {
-                fd,
-                data: data.into(),
-                flags,
-                addr,
-                is_64bit,
-            },
-            JournalBatchEntry::SocketSendV1 {
-                fd,
-                data,
-                flags,
-                is_64bit,
-            } => Self::SocketSend {
-                fd,
-                data: data.into(),
-                flags,
-                is_64bit,
-            },
-            JournalBatchEntry::SocketSetOptFlagV1 { fd, opt, flag } => Self::SocketSetOptFlag {
-                fd,
-                opt: opt.into(),
-                flag,
-            },
-            JournalBatchEntry::SocketSetOptSizeV1 { fd, opt, size } => Self::SocketSetOptSize {
-                fd,
-                opt: opt.into(),
-                size,
-            },
-            JournalBatchEntry::SocketSetOptTimeV1 { fd, ty, time } => Self::SocketSetOptTime {
-                fd,
-                ty: ty.into(),
-                time,
-            },
-            JournalBatchEntry::SocketShutdownV1 { fd, how } => Self::SocketShutdown {
-                fd,
-                how: how.into(),
-            },
-            JournalBatchEntry::CreateEventV1 {
-                initial_val,
-                flags,
-                fd,
-            } => Self::CreateEvent {
-                initial_val,
-                flags,
-                fd,
-            },
-        }
-    }
-}
-
-impl<'a> From<&'a ArchivedJournalBatchEntry> for JournalEntry<'a> {
-    fn from(value: &'a ArchivedJournalBatchEntry) -> Self {
-        type A = ArchivedJournalBatchEntry;
-        match value {
-            A::InitModuleV1 { wasm_hash } => Self::InitModule {
-                wasm_hash: *wasm_hash,
-            },
-            A::UpdateMemoryRegionV1 { start, end, data } => Self::UpdateMemoryRegion {
-                region: *start..*end,
-                data: Cow::Borrowed(data.as_ref()),
-            },
-            A::ProcessExitV1 { exit_code } => Self::ProcessExit {
-                exit_code: exit_code.as_ref().map(|code| code.into()),
-            },
-            A::SetThreadV1 {
-                id,
-                call_stack,
-                memory_stack,
-                store_data,
-                is_64bit,
-            } => Self::SetThread {
-                id: (*id).into(),
-                call_stack: Cow::Borrowed(call_stack.as_ref()),
-                memory_stack: Cow::Borrowed(memory_stack.as_ref()),
-                store_data: Cow::Borrowed(store_data.as_ref()),
-                is_64bit: *is_64bit,
-            },
-            A::CloseThreadV1 { id, exit_code } => Self::CloseThread {
-                id: (*id).into(),
-                exit_code: exit_code.as_ref().map(|code| code.into()),
-            },
-            A::FileDescriptorWriteV1 {
-                data,
-                fd,
-                offset,
-                is_64bit,
-            } => Self::FileDescriptorWrite {
-                data: Cow::Borrowed(data.as_ref()),
+            ) => Self::FileDescriptorWrite {
+                data: data.as_ref().into(),
                 fd: *fd,
                 offset: *offset,
                 is_64bit: *is_64bit,
             },
-            A::FileDescriptorSeekV1 { fd, offset, whence } => Self::FileDescriptorSeek {
+            ArchivedJournalEntry::FileDescriptorSeekV1(
+                ArchivedJournalEntryFileDescriptorSeekV1 {
+                    fd,
+                    offset,
+                    ref whence,
+                },
+            ) => Self::FileDescriptorSeek {
                 fd: *fd,
                 offset: *offset,
                 whence: whence.into(),
             },
-            A::OpenFileDescriptorV1 {
-                fd,
-                dirfd,
-                dirflags,
-                path,
-                o_flags,
-                fs_rights_base,
-                fs_rights_inheriting,
-                fs_flags,
-            } => Self::OpenFileDescriptor {
+            ArchivedJournalEntry::OpenFileDescriptorV1(
+                ArchivedJournalEntryOpenFileDescriptorV1 {
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path,
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                },
+            ) => Self::OpenFileDescriptor {
                 fd: *fd,
                 dirfd: *dirfd,
                 dirflags: *dirflags,
-                path: Cow::Borrowed(path.as_str()),
+                path: path.as_ref().into(),
                 o_flags: wasi::Oflags::from_bits_truncate(*o_flags),
                 fs_rights_base: wasi::Rights::from_bits_truncate(*fs_rights_base),
                 fs_rights_inheriting: wasi::Rights::from_bits_truncate(*fs_rights_inheriting),
                 fs_flags: wasi::Fdflags::from_bits_truncate(*fs_flags),
             },
-            A::CloseFileDescriptorV1 { fd } => Self::CloseFileDescriptor { fd: *fd },
-            A::RemoveDirectoryV1 { fd, path } => Self::RemoveDirectory {
+            ArchivedJournalEntry::CloseFileDescriptorV1(
+                ArchivedJournalEntryCloseFileDescriptorV1 { fd },
+            ) => Self::CloseFileDescriptor { fd: *fd },
+            ArchivedJournalEntry::RemoveDirectoryV1(ArchivedJournalEntryRemoveDirectoryV1 {
+                fd,
+                path,
+            }) => Self::RemoveDirectory {
                 fd: *fd,
-                path: Cow::Borrowed(path.as_str()),
+                path: path.as_ref().into(),
             },
-            A::UnlinkFileV1 { fd, path } => Self::UnlinkFile {
-                fd: *fd,
-                path: Cow::Borrowed(path.as_str()),
-            },
-            A::PathRenameV1 {
+            ArchivedJournalEntry::UnlinkFileV1(ArchivedJournalEntryUnlinkFileV1 { fd, path }) => {
+                Self::UnlinkFile {
+                    fd: *fd,
+                    path: path.as_ref().into(),
+                }
+            }
+            ArchivedJournalEntry::PathRenameV1(ArchivedJournalEntryPathRenameV1 {
                 old_fd,
                 old_path,
                 new_fd,
                 new_path,
-            } => Self::PathRename {
+            }) => Self::PathRename {
                 old_fd: *old_fd,
-                old_path: Cow::Borrowed(old_path.as_str()),
+                old_path: old_path.as_ref().into(),
                 new_fd: *new_fd,
-                new_path: Cow::Borrowed(new_path.as_str()),
+                new_path: new_path.as_ref().into(),
             },
-            A::SnapshotV1 {
+            ArchivedJournalEntry::SnapshotV1(ArchivedJournalEntrySnapshotV1 {
                 since_epoch,
-                trigger,
-            } => Self::Snapshot {
+                ref trigger,
+            }) => Self::Snapshot {
                 when: SystemTime::UNIX_EPOCH
-                    .checked_add(Duration::from_nanos(since_epoch.as_nanos() as u64))
+                    .checked_add(since_epoch.clone().try_into().unwrap())
                     .unwrap_or(SystemTime::UNIX_EPOCH),
                 trigger: trigger.into(),
             },
-            A::SetClockTimeV1 { clock_id, time } => Self::SetClockTime {
+            ArchivedJournalEntry::SetClockTimeV1(ArchivedJournalEntrySetClockTimeV1 {
+                ref clock_id,
+                time,
+            }) => Self::SetClockTime {
                 clock_id: clock_id.into(),
                 time: *time,
             },
-            A::RenumberFileDescriptorV1 { old_fd, new_fd } => Self::RenumberFileDescriptor {
+            ArchivedJournalEntry::RenumberFileDescriptorV1(
+                ArchivedJournalEntryRenumberFileDescriptorV1 { old_fd, new_fd },
+            ) => Self::RenumberFileDescriptor {
                 old_fd: *old_fd,
                 new_fd: *new_fd,
             },
-            A::DuplicateFileDescriptorV1 {
-                original_fd,
-                copied_fd,
-            } => Self::DuplicateFileDescriptor {
-                original_fd: *original_fd,
-                copied_fd: *copied_fd,
+            ArchivedJournalEntry::DuplicateFileDescriptorV1(
+                ArchivedJournalEntryDuplicateFileDescriptorV1 {
+                    original_fd: old_fd,
+                    copied_fd: new_fd,
+                },
+            ) => Self::DuplicateFileDescriptor {
+                original_fd: *old_fd,
+                copied_fd: *new_fd,
             },
-            A::CreateDirectoryV1 { fd, path } => Self::CreateDirectory {
+            ArchivedJournalEntry::CreateDirectoryV1(ArchivedJournalEntryCreateDirectoryV1 {
+                fd,
+                path,
+            }) => Self::CreateDirectory {
                 fd: *fd,
-                path: Cow::Borrowed(path.as_str()),
+                path: path.as_ref().into(),
             },
-            A::PathSetTimesV1 {
+            ArchivedJournalEntry::PathSetTimesV1(ArchivedJournalEntryPathSetTimesV1 {
                 fd,
                 path,
                 flags,
                 st_atim,
                 st_mtim,
                 fst_flags,
-            } => Self::PathSetTimes {
+            }) => Self::PathSetTimes {
                 fd: *fd,
-                path: Cow::Borrowed(path.as_str()),
+                path: path.as_ref().into(),
                 flags: *flags,
                 st_atim: *st_atim,
                 st_mtim: *st_mtim,
                 fst_flags: wasi::Fstflags::from_bits_truncate(*fst_flags),
             },
-            A::FileDescriptorSetTimesV1 {
-                fd,
-                st_atim,
-                st_mtim,
-                fst_flags,
-            } => Self::FileDescriptorSetTimes {
+            ArchivedJournalEntry::FileDescriptorSetTimesV1(
+                ArchivedJournalEntryFileDescriptorSetTimesV1 {
+                    fd,
+                    st_atim,
+                    st_mtim,
+                    fst_flags,
+                },
+            ) => Self::FileDescriptorSetTimes {
                 fd: *fd,
                 st_atim: *st_atim,
                 st_mtim: *st_mtim,
                 fst_flags: wasi::Fstflags::from_bits_truncate(*fst_flags),
             },
-            A::FileDescriptorSetSizeV1 { fd, st_size } => Self::FileDescriptorSetSize {
+            ArchivedJournalEntry::FileDescriptorSetSizeV1(
+                ArchivedJournalEntryFileDescriptorSetSizeV1 { fd, st_size },
+            ) => Self::FileDescriptorSetSize {
                 fd: *fd,
                 st_size: *st_size,
             },
-            A::FileDescriptorSetFlagsV1 { fd, flags } => Self::FileDescriptorSetFlags {
+            ArchivedJournalEntry::FileDescriptorSetFlagsV1(
+                ArchivedJournalEntryFileDescriptorSetFlagsV1 { fd, flags },
+            ) => Self::FileDescriptorSetFlags {
                 fd: *fd,
                 flags: Fdflags::from_bits_truncate(*flags),
             },
-            A::FileDescriptorSetRightsV1 {
-                fd,
-                fs_rights_base,
-                fs_rights_inheriting,
-            } => Self::FileDescriptorSetRights {
+            ArchivedJournalEntry::FileDescriptorSetRightsV1(
+                ArchivedJournalEntryFileDescriptorSetRightsV1 {
+                    fd,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                },
+            ) => Self::FileDescriptorSetRights {
                 fd: *fd,
                 fs_rights_base: Rights::from_bits_truncate(*fs_rights_base),
                 fs_rights_inheriting: Rights::from_bits_truncate(*fs_rights_inheriting),
             },
-            A::FileDescriptorAdviseV1 {
-                fd,
-                offset,
-                len,
-                advice,
-            } => Self::FileDescriptorAdvise {
+            ArchivedJournalEntry::FileDescriptorAdviseV1(
+                ArchivedJournalEntryFileDescriptorAdviseV1 {
+                    fd,
+                    offset,
+                    len,
+                    ref advice,
+                },
+            ) => Self::FileDescriptorAdvise {
                 fd: *fd,
                 offset: *offset,
                 len: *len,
                 advice: advice.into(),
             },
-            A::FileDescriptorAllocateV1 { fd, offset, len } => Self::FileDescriptorAllocate {
+            ArchivedJournalEntry::FileDescriptorAllocateV1(
+                ArchivedJournalEntryFileDescriptorAllocateV1 { fd, offset, len },
+            ) => Self::FileDescriptorAllocate {
                 fd: *fd,
                 offset: *offset,
                 len: *len,
             },
-            A::CreateHardLinkV1 {
+            ArchivedJournalEntry::CreateHardLinkV1(ArchivedJournalEntryCreateHardLinkV1 {
                 old_fd,
                 old_path,
                 old_flags,
                 new_fd,
                 new_path,
-            } => Self::CreateHardLink {
+            }) => Self::CreateHardLink {
                 old_fd: *old_fd,
-                old_path: Cow::Borrowed(old_path.as_str()),
+                old_path: old_path.as_ref().into(),
                 old_flags: *old_flags,
                 new_fd: *new_fd,
-                new_path: Cow::Borrowed(new_path.as_str()),
+                new_path: new_path.as_ref().into(),
             },
-            A::CreateSymbolicLinkV1 {
-                old_path,
-                fd,
-                new_path,
-            } => Self::CreateSymbolicLink {
-                old_path: Cow::Borrowed(old_path.as_str()),
+            ArchivedJournalEntry::CreateSymbolicLinkV1(
+                ArchivedJournalEntryCreateSymbolicLinkV1 {
+                    old_path,
+                    fd,
+                    new_path,
+                },
+            ) => Self::CreateSymbolicLink {
+                old_path: old_path.as_ref().into(),
                 fd: *fd,
-                new_path: Cow::Borrowed(new_path.as_str()),
+                new_path: new_path.as_ref().into(),
             },
-            A::ChangeDirectoryV1 { path } => Self::ChangeDirectory {
-                path: Cow::Borrowed(path.as_str()),
+            ArchivedJournalEntry::ChangeDirectoryV1(ArchivedJournalEntryChangeDirectoryV1 {
+                path,
+            }) => Self::ChangeDirectory {
+                path: path.as_ref().into(),
             },
-            A::EpollCreateV1 { fd } => Self::EpollCreate { fd: *fd },
-            A::EpollCtlV1 {
+            ArchivedJournalEntry::EpollCreateV1(ArchivedJournalEntryEpollCreateV1 { fd }) => {
+                Self::EpollCreate { fd: *fd }
+            }
+            ArchivedJournalEntry::EpollCtlV1(ArchivedJournalEntryEpollCtlV1 {
                 epfd,
-                op,
+                ref op,
                 fd,
-                event,
-            } => Self::EpollCtl {
+                ref event,
+            }) => Self::EpollCtl {
                 epfd: *epfd,
                 op: op.into(),
                 fd: *fd,
                 event: event.as_ref().map(|e| e.into()),
             },
-            A::TtySetV1 {
+            ArchivedJournalEntry::TtySetV1(ArchivedJournalEntryTtySetV1 {
                 cols,
                 rows,
                 width,
@@ -2111,7 +2547,7 @@ impl<'a> From<&'a ArchivedJournalBatchEntry> for JournalEntry<'a> {
                 echo,
                 line_buffered,
                 line_feeds,
-            } => Self::TtySet {
+            }) => Self::TtySet {
                 tty: wasi::Tty {
                     cols: *cols,
                     rows: *rows,
@@ -2125,38 +2561,46 @@ impl<'a> From<&'a ArchivedJournalBatchEntry> for JournalEntry<'a> {
                 },
                 line_feeds: *line_feeds,
             },
-            A::CreatePipeV1 { fd1, fd2 } => Self::CreatePipe {
-                fd1: *fd1,
-                fd2: *fd2,
-            },
-            A::PortAddAddrV1 { cidr } => Self::PortAddAddr {
-                cidr: IpCidr {
-                    ip: cidr.ip.as_ipaddr(),
-                    prefix: cidr.prefix,
-                },
-            },
-            A::PortDelAddrV1 { addr } => Self::PortDelAddr {
-                addr: addr.as_ipaddr(),
-            },
-            A::PortAddrClearV1 => Self::PortAddrClear,
-            A::PortBridgeV1 {
+            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 { fd1, fd2 }) => {
+                Self::CreatePipe {
+                    fd1: *fd1,
+                    fd2: *fd2,
+                }
+            }
+            ArchivedJournalEntry::PortAddAddrV1(ArchivedJournalEntryPortAddAddrV1 { cidr }) => {
+                Self::PortAddAddr {
+                    cidr: IpCidr {
+                        ip: cidr.ip.as_ipaddr(),
+                        prefix: cidr.prefix,
+                    },
+                }
+            }
+            ArchivedJournalEntry::PortDelAddrV1(ArchivedJournalEntryPortDelAddrV1 { addr }) => {
+                Self::PortDelAddr {
+                    addr: addr.as_ipaddr(),
+                }
+            }
+            ArchivedJournalEntry::PortAddrClearV1 => Self::PortAddrClear,
+            ArchivedJournalEntry::PortBridgeV1(ArchivedJournalEntryPortBridgeV1 {
                 network,
                 token,
-                security,
-            } => Self::PortBridge {
-                network: Cow::Borrowed(network.as_str()),
-                token: Cow::Borrowed(token.as_str()),
+                ref security,
+            }) => Self::PortBridge {
+                network: network.as_ref().into(),
+                token: token.as_ref().into(),
                 security: security.into(),
             },
-            A::PortUnbridgeV1 => Self::PortUnbridge,
-            A::PortDhcpAcquireV1 => Self::PortDhcpAcquire,
-            A::PortGatewaySetV1 { ip } => Self::PortGatewaySet { ip: ip.as_ipaddr() },
-            A::PortRouteAddV1 {
+            ArchivedJournalEntry::PortUnbridgeV1 => Self::PortUnbridge,
+            ArchivedJournalEntry::PortDhcpAcquireV1 => Self::PortDhcpAcquire,
+            ArchivedJournalEntry::PortGatewaySetV1(ArchivedJournalEntryPortGatewaySetV1 { ip }) => {
+                Self::PortGatewaySet { ip: ip.as_ipaddr() }
+            }
+            ArchivedJournalEntry::PortRouteAddV1(ArchivedJournalEntryPortRouteAddV1 {
                 cidr,
                 via_router,
                 preferred_until,
                 expires_at,
-            } => Self::PortRouteAdd {
+            }) => Self::PortRouteAdd {
                 cidr: IpCidr {
                     ip: cidr.ip.as_ipaddr(),
                     prefix: cidr.prefix,
@@ -2164,145 +2608,799 @@ impl<'a> From<&'a ArchivedJournalBatchEntry> for JournalEntry<'a> {
                 via_router: via_router.as_ipaddr(),
                 preferred_until: preferred_until
                     .as_ref()
-                    .map(|d| Duration::from_nanos(d.as_nanos() as u64)),
+                    .map(|time| time.clone().try_into().unwrap()),
                 expires_at: expires_at
                     .as_ref()
-                    .map(|d| Duration::from_nanos(d.as_nanos() as u64)),
+                    .map(|time| time.clone().try_into().unwrap()),
             },
-            A::PortRouteClearV1 => Self::PortRouteClear,
-            A::PortRouteDelV1 { ip } => Self::PortRouteDel { ip: ip.as_ipaddr() },
-            A::SocketOpenV1 { af, ty, pt, fd } => Self::SocketOpen {
+            ArchivedJournalEntry::PortRouteClearV1 => Self::PortRouteClear,
+            ArchivedJournalEntry::PortRouteDelV1(ArchivedJournalEntryPortRouteDelV1 { ip }) => {
+                Self::PortRouteDel { ip: ip.as_ipaddr() }
+            }
+            ArchivedJournalEntry::SocketOpenV1(ArchivedJournalEntrySocketOpenV1 {
+                ref af,
+                ref ty,
+                pt,
+                fd,
+            }) => Self::SocketOpen {
                 af: af.into(),
                 ty: ty.into(),
                 pt: (*pt).try_into().unwrap_or(wasi::SockProto::Max),
                 fd: *fd,
             },
-            A::SocketListenV1 { fd, backlog } => Self::SocketListen {
+            ArchivedJournalEntry::SocketListenV1(ArchivedJournalEntrySocketListenV1 {
+                fd,
+                backlog,
+            }) => Self::SocketListen {
                 fd: *fd,
                 backlog: *backlog,
             },
-            A::SocketBindV1 { fd, addr } => Self::SocketBind {
+            ArchivedJournalEntry::SocketBindV1(ArchivedJournalEntrySocketBindV1 { fd, addr }) => {
+                Self::SocketBind {
+                    fd: *fd,
+                    addr: addr.as_socket_addr(),
+                }
+            }
+            ArchivedJournalEntry::SocketConnectedV1(ArchivedJournalEntrySocketConnectedV1 {
+                fd,
+                addr,
+            }) => Self::SocketConnected {
                 fd: *fd,
                 addr: addr.as_socket_addr(),
             },
-            A::SocketConnectedV1 { fd, addr } => Self::SocketConnected {
-                fd: *fd,
-                addr: addr.as_socket_addr(),
-            },
-            A::SocketAcceptedV1 {
+            ArchivedJournalEntry::SocketAcceptedV1(ArchivedJournalEntrySocketAcceptedV1 {
                 listen_fd,
                 fd,
                 peer_addr,
                 fd_flags,
                 nonblocking,
-            } => Self::SocketAccepted {
+            }) => Self::SocketAccepted {
                 listen_fd: *listen_fd,
                 fd: *fd,
                 peer_addr: peer_addr.as_socket_addr(),
                 fd_flags: Fdflags::from_bits_truncate(*fd_flags),
                 nonblocking: *nonblocking,
             },
-            A::SocketJoinIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketJoinIpv4Multicast {
+            ArchivedJournalEntry::SocketJoinIpv4MulticastV1(
+                ArchivedJournalEntrySocketJoinIpv4MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+            ) => Self::SocketJoinIpv4Multicast {
                 fd: *fd,
                 multiaddr: multiaddr.as_ipv4(),
                 iface: iface.as_ipv4(),
             },
-            A::SocketJoinIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketJoinIpv6Multicast {
+            ArchivedJournalEntry::SocketJoinIpv6MulticastV1(
+                ArchivedJournalEntrySocketJoinIpv6MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+            ) => Self::SocketJoinIpv6Multicast {
                 fd: *fd,
                 multiaddr: multiaddr.as_ipv6(),
                 iface: *iface,
             },
-            A::SocketLeaveIpv4MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketLeaveIpv4Multicast {
+            ArchivedJournalEntry::SocketLeaveIpv4MulticastV1(
+                ArchivedJournalEntrySocketLeaveIpv4MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+            ) => Self::SocketLeaveIpv4Multicast {
                 fd: *fd,
                 multiaddr: multiaddr.as_ipv4(),
                 iface: iface.as_ipv4(),
             },
-            A::SocketLeaveIpv6MulticastV1 {
-                fd,
-                multiaddr,
-                iface,
-            } => Self::SocketLeaveIpv6Multicast {
+            ArchivedJournalEntry::SocketLeaveIpv6MulticastV1(
+                ArchivedJournalEntrySocketLeaveIpv6MulticastV1 {
+                    fd,
+                    multiaddr,
+                    iface,
+                },
+            ) => Self::SocketLeaveIpv6Multicast {
                 fd: *fd,
                 multiaddr: multiaddr.as_ipv6(),
                 iface: *iface,
             },
-            A::SocketSendFileV1 {
+            ArchivedJournalEntry::SocketSendFileV1(ArchivedJournalEntrySocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,
                 count,
-            } => Self::SocketSendFile {
+            }) => Self::SocketSendFile {
                 socket_fd: *socket_fd,
                 file_fd: *file_fd,
                 offset: *offset,
                 count: *count,
             },
-            A::SocketSendToV1 {
+            ArchivedJournalEntry::SocketSendToV1(ArchivedJournalEntrySocketSendToV1 {
                 fd,
                 data,
                 flags,
                 addr,
                 is_64bit,
-            } => Self::SocketSendTo {
+            }) => Self::SocketSendTo {
                 fd: *fd,
-                data: Cow::Borrowed(data.as_ref()),
+                data: data.as_ref().into(),
                 flags: *flags,
                 addr: addr.as_socket_addr(),
                 is_64bit: *is_64bit,
             },
-            A::SocketSendV1 {
+            ArchivedJournalEntry::SocketSendV1(ArchivedJournalEntrySocketSendV1 {
                 fd,
                 data,
                 flags,
                 is_64bit,
-            } => Self::SocketSend {
+            }) => Self::SocketSend {
                 fd: *fd,
-                data: Cow::Borrowed(data.as_ref()),
+                data: data.as_ref().into(),
                 flags: *flags,
                 is_64bit: *is_64bit,
             },
-            A::SocketSetOptFlagV1 { fd, opt, flag } => Self::SocketSetOptFlag {
+            ArchivedJournalEntry::SocketSetOptFlagV1(ArchivedJournalEntrySocketSetOptFlagV1 {
+                fd,
+                ref opt,
+                flag,
+            }) => Self::SocketSetOptFlag {
                 fd: *fd,
                 opt: opt.into(),
                 flag: *flag,
             },
-            A::SocketSetOptSizeV1 { fd, opt, size } => Self::SocketSetOptSize {
+            ArchivedJournalEntry::SocketSetOptSizeV1(ArchivedJournalEntrySocketSetOptSizeV1 {
+                fd,
+                ref opt,
+                size,
+            }) => Self::SocketSetOptSize {
                 fd: *fd,
                 opt: opt.into(),
                 size: *size,
             },
-            A::SocketSetOptTimeV1 { fd, ty, time } => Self::SocketSetOptTime {
+            ArchivedJournalEntry::SocketSetOptTimeV1(ArchivedJournalEntrySocketSetOptTimeV1 {
+                fd,
+                ref ty,
+                time,
+            }) => Self::SocketSetOptTime {
                 fd: *fd,
                 ty: ty.into(),
-                time: time
-                    .as_ref()
-                    .map(|d| Duration::from_nanos(d.as_nanos() as u64)),
+                time: time.as_ref().map(|time| time.clone().try_into().unwrap()),
             },
-            A::SocketShutdownV1 { fd, how } => Self::SocketShutdown {
+            ArchivedJournalEntry::SocketShutdownV1(ArchivedJournalEntrySocketShutdownV1 {
+                fd,
+                ref how,
+            }) => Self::SocketShutdown {
                 fd: *fd,
                 how: how.into(),
             },
-            A::CreateEventV1 {
+            ArchivedJournalEntry::CreateEventV1(ArchivedJournalEntryCreateEventV1 {
                 initial_val,
                 flags,
                 fd,
-            } => Self::CreateEvent {
+            }) => Self::CreateEvent {
                 initial_val: *initial_val,
                 flags: *flags,
                 fd: *fd,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rkyv::ser::serializers::{
+        AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
+    };
+    use wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype, Tty};
+
+    use super::*;
+
+    pub fn run_test<'a>(record: JournalEntry<'a>) {
+        tracing::info!("record2: {:?}", record);
+
+        // Determine the record type
+        let record_type = record.archive_record_type();
+        tracing::info!("record_type: {:?}", record_type);
+
+        // Serialize it
+        let mut buffer = Vec::new();
+        let mut serializer = CompositeSerializer::new(
+            WriteSerializer::new(&mut buffer),
+            AllocScratch::default(),
+            SharedSerializeMap::default(),
+        );
+
+        record.clone().serialize_archive(&mut serializer).unwrap();
+        let buffer = &buffer[..];
+        if buffer.len() < 20 {
+            tracing::info!("buffer: {:x?}", buffer);
+        } else {
+            tracing::info!("buffer_len: {}", buffer.len());
+        }
+
+        // Deserialize it
+        let record2 = unsafe { record_type.deserialize_archive(buffer) };
+        tracing::info!("record2: {:?}", record2);
+
+        // Check it
+        assert_eq!(record, record2);
+
+        // Now make it static and check it again
+        let record3 = record2.into_owned();
+        tracing::info!("record3: {:?}", record3);
+        assert_eq!(record, record3);
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_init_module() {
+        run_test(JournalEntry::InitModule {
+            wasm_hash: [13u8; 32],
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_process_exit() {
+        run_test(JournalEntry::ProcessExit {
+            exit_code: Some(ExitCode::Errno(Errno::Fault)),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_set_thread() {
+        run_test(JournalEntry::SetThread {
+            id: 1234u32.into(),
+            call_stack: vec![1, 2, 3].into(),
+            memory_stack: vec![4, 5, 6, 7].into(),
+            store_data: vec![10, 11].into(),
+            is_64bit: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_close_thread() {
+        run_test(JournalEntry::CloseThread {
+            id: 987u32.into(),
+            exit_code: Some(ExitCode::Errno(Errno::Fault)),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_descriptor_seek() {
+        run_test(JournalEntry::FileDescriptorSeek {
+            fd: 765u32,
+            offset: 9183722450971234i64,
+            whence: Whence::End,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_descriptor_write() {
+        run_test(JournalEntry::FileDescriptorWrite {
+            fd: 54321u32,
+            offset: 13897412934u64,
+            data: vec![74u8, 98u8, 36u8].into(),
+            is_64bit: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_update_memory() {
+        run_test(JournalEntry::UpdateMemoryRegion {
+            region: 76u64..8237453u64,
+            data: [74u8; 40960].to_vec().into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_set_clock_time() {
+        run_test(JournalEntry::SetClockTime {
+            clock_id: Snapshot0Clockid::Realtime,
+            time: 7912837412934u64,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_open_file_descriptor() {
+        run_test(JournalEntry::OpenFileDescriptor {
+            fd: 298745u32,
+            dirfd: 23458922u32,
+            dirflags: 134512345,
+            path: "/blah".into(),
+            o_flags: Oflags::all(),
+            fs_rights_base: Rights::all(),
+            fs_rights_inheriting: Rights::all(),
+            fs_flags: Fdflags::all(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_close_descriptor() {
+        run_test(JournalEntry::CloseFileDescriptor { fd: 23845732u32 });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_renumber_file_descriptor() {
+        run_test(JournalEntry::RenumberFileDescriptor {
+            old_fd: 27834u32,
+            new_fd: 398452345u32,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_duplicate_file_descriptor() {
+        run_test(JournalEntry::DuplicateFileDescriptor {
+            original_fd: 23482934u32,
+            copied_fd: 9384529u32,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_create_directory() {
+        run_test(JournalEntry::CreateDirectory {
+            fd: 238472u32,
+            path: "/joasjdf/asdfn".into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_remove_directory() {
+        run_test(JournalEntry::RemoveDirectory {
+            fd: 23894952u32,
+            path: "/blahblah".into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_path_set_times() {
+        run_test(JournalEntry::PathSetTimes {
+            fd: 1238934u32,
+            flags: 234523,
+            path: "/".into(),
+            st_atim: 923452345,
+            st_mtim: 350,
+            fst_flags: Fstflags::all(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_file_descriptor_set_times() {
+        run_test(JournalEntry::FileDescriptorSetTimes {
+            fd: 898785u32,
+            st_atim: 29834952345,
+            st_mtim: 239845892345,
+            fst_flags: Fstflags::all(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_file_descriptor_set_size() {
+        run_test(JournalEntry::FileDescriptorSetSize {
+            fd: 34958234u32,
+            st_size: 234958293845u64,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_file_descriptor_set_flags() {
+        run_test(JournalEntry::FileDescriptorSetFlags {
+            fd: 982348752u32,
+            flags: Fdflags::all(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_file_descriptor_set_rights() {
+        run_test(JournalEntry::FileDescriptorSetRights {
+            fd: 872345u32,
+            fs_rights_base: Rights::all(),
+            fs_rights_inheriting: Rights::all(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_file_descriptor_advise() {
+        run_test(JournalEntry::FileDescriptorAdvise {
+            fd: 298434u32,
+            offset: 92834529092345,
+            len: 23485928345,
+            advice: Advice::Random,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_file_descriptor_allocate() {
+        run_test(JournalEntry::FileDescriptorAllocate {
+            fd: 2934852,
+            offset: 23489582934523,
+            len: 9845982345,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_create_hard_link() {
+        run_test(JournalEntry::CreateHardLink {
+            old_fd: 324983845,
+            old_path: "/asjdfiasidfasdf".into(),
+            old_flags: 234857,
+            new_fd: 34958345,
+            new_path: "/ashdufnasd".into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_create_symbolic_link() {
+        run_test(JournalEntry::CreateSymbolicLink {
+            old_path: "/asjbndfjasdf/asdafasdf".into(),
+            fd: 235422345,
+            new_path: "/asdf".into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_unlink_file() {
+        run_test(JournalEntry::UnlinkFile {
+            fd: 32452345,
+            path: "/asdfasd".into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_path_rename() {
+        run_test(JournalEntry::PathRename {
+            old_fd: 32451345,
+            old_path: "/asdfasdfas/asdfasdf".into(),
+            new_fd: 23452345,
+            new_path: "/ahgfdfghdfghdfgh".into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_change_directory() {
+        run_test(JournalEntry::ChangeDirectory {
+            path: "/etc".to_string().into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_epoll_create() {
+        run_test(JournalEntry::EpollCreate { fd: 45384752 });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_epoll_ctl() {
+        run_test(JournalEntry::EpollCtl {
+            epfd: 34523455,
+            op: EpollCtl::Unknown,
+            fd: 23452345,
+            event: Some(EpollEventCtl {
+                events: EpollType::all(),
+                ptr: 32452345,
+                fd: 23452345,
+                data1: 1235245756,
+                data2: 23452345,
+            }),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_tty_set() {
+        run_test(JournalEntry::TtySet {
+            tty: Tty {
+                cols: 1234,
+                rows: 6754,
+                width: 4563456,
+                height: 345,
+                stdin_tty: true,
+                stdout_tty: false,
+                stderr_tty: true,
+                echo: true,
+                line_buffered: true,
+            },
+            line_feeds: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_create_pipe() {
+        run_test(JournalEntry::CreatePipe {
+            fd1: 3452345,
+            fd2: 2345163,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_create_event() {
+        run_test(JournalEntry::CreateEvent {
+            initial_val: 13451345,
+            flags: 2343,
+            fd: 5836544,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_port_add_addr() {
+        run_test(JournalEntry::PortAddAddr {
+            cidr: IpCidr {
+                ip: Ipv4Addr::LOCALHOST.into(),
+                prefix: 24,
+            },
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_del_addr() {
+        run_test(JournalEntry::PortDelAddr {
+            addr: Ipv6Addr::LOCALHOST.into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_addr_clear() {
+        run_test(JournalEntry::PortAddrClear);
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_port_bridge() {
+        run_test(JournalEntry::PortBridge {
+            network: "mynetwork".into(),
+            token: format!("blh blah").into(),
+            security: StreamSecurity::ClassicEncryption,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_unbridge() {
+        run_test(JournalEntry::PortUnbridge);
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_dhcp_acquire() {
+        run_test(JournalEntry::PortDhcpAcquire);
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_gateway_set() {
+        run_test(JournalEntry::PortGatewaySet {
+            ip: Ipv4Addr::new(12, 34, 136, 220).into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_route_add() {
+        run_test(JournalEntry::PortRouteAdd {
+            cidr: IpCidr {
+                ip: Ipv4Addr::LOCALHOST.into(),
+                prefix: 24,
+            },
+            via_router: Ipv4Addr::LOCALHOST.into(),
+            preferred_until: Some(Duration::MAX),
+            expires_at: Some(Duration::ZERO),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_route_clear() {
+        run_test(JournalEntry::PortRouteClear);
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_route_del() {
+        run_test(JournalEntry::PortRouteDel {
+            ip: Ipv4Addr::BROADCAST.into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_open() {
+        run_test(JournalEntry::SocketOpen {
+            af: Addressfamily::Inet6,
+            ty: Socktype::Stream,
+            pt: SockProto::Tcp,
+            fd: 23452345,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_listen() {
+        run_test(JournalEntry::SocketListen {
+            fd: 12341234,
+            backlog: 123,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_bind() {
+        run_test(JournalEntry::SocketBind {
+            fd: 2341234,
+            addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_connected() {
+        run_test(JournalEntry::SocketConnected {
+            fd: 12341,
+            addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_accepted() {
+        run_test(JournalEntry::SocketAccepted {
+            listen_fd: 21234,
+            fd: 1,
+            peer_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
+            fd_flags: Fdflags::all(),
+            nonblocking: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_join_ipv4_multicast() {
+        run_test(JournalEntry::SocketJoinIpv4Multicast {
+            fd: 12,
+            multiaddr: Ipv4Addr::new(123, 123, 123, 123).into(),
+            iface: Ipv4Addr::new(128, 0, 0, 1).into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_join_ipv6_multicast() {
+        run_test(JournalEntry::SocketJoinIpv6Multicast {
+            fd: 12,
+            multiaddr: Ipv6Addr::new(123, 123, 123, 123, 1234, 12663, 31, 1324).into(),
+            iface: 23541,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_leave_ipv4_multicast() {
+        run_test(JournalEntry::SocketLeaveIpv4Multicast {
+            fd: 12,
+            multiaddr: Ipv4Addr::new(123, 123, 123, 123).into(),
+            iface: Ipv4Addr::new(128, 0, 0, 1).into(),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_leave_ipv6_multicast() {
+        run_test(JournalEntry::SocketLeaveIpv6Multicast {
+            fd: 12,
+            multiaddr: Ipv6Addr::new(123, 123, 123, 123, 1234, 12663, 31, 1324).into(),
+            iface: 23541,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_send_file() {
+        run_test(JournalEntry::SocketSendFile {
+            socket_fd: 22234,
+            file_fd: 989,
+            offset: 124,
+            count: 345673456234651234,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_send_to() {
+        run_test(JournalEntry::SocketSendTo {
+            fd: 123,
+            data: [98u8; 102400].to_vec().into(),
+            flags: 1234,
+            addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
+            is_64bit: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_send() {
+        run_test(JournalEntry::SocketSend {
+            fd: 123,
+            data: [98u8; 102400].to_vec().into(),
+            flags: 1234,
+            is_64bit: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_set_opt_flag() {
+        run_test(JournalEntry::SocketSetOptFlag {
+            fd: 0,
+            opt: Sockoption::Linger,
+            flag: true,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_set_opt_size() {
+        run_test(JournalEntry::SocketSetOptSize {
+            fd: 15,
+            opt: Sockoption::Linger,
+            size: 234234,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_set_opt_time() {
+        run_test(JournalEntry::SocketSetOptTime {
+            fd: 0,
+            ty: TimeType::AcceptTimeout,
+            time: Some(Duration::ZERO),
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_socket_shutdown() {
+        run_test(JournalEntry::SocketShutdown {
+            fd: 123,
+            how: Shutdown::Both,
+        });
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_record_snapshot() {
+        run_test(JournalEntry::Snapshot {
+            when: SystemTime::now(),
+            trigger: SnapshotTrigger::Idle,
+        });
     }
 }

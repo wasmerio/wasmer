@@ -63,6 +63,7 @@ pin-project = "1.0.12"
 semver = "1.0.17"
 dashmap = "5.4.0"
 tempfile = "3.6.0"
+num_enum = "0.5.7"
 # Used by the WCGI runner
 hyper = { version = "0.14", features = ["server", "stream"], optional = true }
 wcgi = { version = "0.1.2", optional = true }
@@ -118,6 +119,7 @@ winapi = "0.3"
 wasmer = { path = "../api", version = "=4.2.3", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
 pretty_assertions = "1.3.0"
+tracing-test = "0.2.4"
 wasm-bindgen-test = "0.3.0"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -141,6 +143,7 @@ sys-default = [
     "sys",
     "logging",
     "host-fs",
+    "journal",
     "sys-poll",
     "sys-thread",
     "host-vnet",
