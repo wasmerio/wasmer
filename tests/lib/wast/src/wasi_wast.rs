@@ -34,9 +34,6 @@ pub enum WasiFileSystemKind {
     /// Instruct the test runner to use `virtual_fs::tmp_fs`
     Tmp,
 
-    /// Instruct the test runner to use `virtual_fs::union_fs<host_fs, mem_fs>`
-    UnionHostMemory,
-
     /// Instruct the test runner to use the TempFs returned by `virtual_fs::builder::RootFileSystemBuilder`
     RootFileSystemBuilder,
 }
@@ -224,31 +221,6 @@ impl<'a> WasiTest<'a> {
                     WasiFileSystemKind::Tmp => Box::<tmp_fs::TmpFileSystem>::default(),
                     WasiFileSystemKind::RootFileSystemBuilder => {
                         Box::new(RootFileSystemBuilder::new().build())
-                    }
-                    WasiFileSystemKind::UnionHostMemory => {
-                        let a: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
-                            Arc::new(mem_fs::FileSystem::default());
-                        let b: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
-                            Arc::new(mem_fs::FileSystem::default());
-                        let c: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
-                            Arc::new(mem_fs::FileSystem::default());
-                        let d: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
-                            Arc::new(mem_fs::FileSystem::default());
-                        let e: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
-                            Arc::new(mem_fs::FileSystem::default());
-                        let f: Arc<dyn virtual_fs::FileSystem + Send + Sync> =
-                            Arc::new(mem_fs::FileSystem::default());
-
-                        let union = tmp_fs::TmpFileSystem::new();
-
-                        union.mount(PathBuf::from("/test_fs"), &a, PathBuf::new())?;
-                        union.mount(PathBuf::from("/snapshot1"), &b, PathBuf::new())?;
-                        union.mount(PathBuf::from("/tests"), &c, PathBuf::new())?;
-                        union.mount(PathBuf::from("/nightly_2022_10_18"), &d, PathBuf::new())?;
-                        union.mount(PathBuf::from("/unstable"), &e, PathBuf::new())?;
-                        union.mount(PathBuf::from("/.tmp_wasmer_wast_0"), &f, PathBuf::new())?;
-
-                        Box::new(union)
                     }
                     _ => {
                         panic!("unexpected filesystem type {:?}", other);
