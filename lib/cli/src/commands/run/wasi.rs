@@ -182,6 +182,11 @@ impl Wasi {
                     })?;
             }
         }
+        if let Err(e) = root_fs.create_dir(Path::new(Self::MAPPED_CURRENT_DIR_DEFAULT_PATH)) {
+            tracing::debug!(
+                "Could not create /home directory, probably the path is already mounted"
+            );
+        }
         Ok(root_fs)
     }
 

@@ -526,12 +526,12 @@ impl WasiFs {
 
     /// Converts a relative path into an absolute path
     pub(crate) fn relative_path_to_absolute(&self, mut path: String) -> String {
-        if path.starts_with("./") {
+        if !path.starts_with("/") {
             let current_dir = self.current_dir.lock().unwrap();
-            path = format!("{}{}", current_dir.as_str(), &path[1..]);
-            if path.contains("//") {
-                path = path.replace("//", "/");
-            }
+            path = PathBuf::from(current_dir.as_str())
+                .join(path)
+                .to_string_lossy()
+                .to_string();
         }
         path
     }
@@ -1233,8 +1233,14 @@ impl WasiFs {
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
         let base_inode = self.get_fd_inode(base)?;
+        println!(
+            "get_inode_at_path, path: {}, base name: {} (inode: {})",
+            path,
+            base_inode.deref().name,
+            base
+        );
         let start_inode = if (!base_inode.deref().name.starts_with('/')
-            || (base == VIRTUAL_ROOT_FD && !path.starts_with('/')))
+            || (base_inode.deref().name == "/" && !path.starts_with('/')))
             && self.is_wasix.load(Ordering::Acquire)
         {
             let (cur_inode, _) = self.get_current_dir(inodes, base)?;
