@@ -1,64 +1,120 @@
+use std::{
+    collections::HashSet,
+    sync::atomic::{AtomicUsize, Ordering},
+};
+
+use derivative::Derivative;
+
 use super::*;
 
 /// Filters out a specific set of journal events and drops the rest, this
 /// journal can be useful for restoring to a previous call point but
 /// retaining the memory changes (e.g. WCGI runner).
+#[derive(Debug)]
 pub struct FilteredJournal {
-    inner: Box<DynJournal>,
+    tx: FilteredJournalTx,
+    rx: FilteredJournalRx,
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct FilteredJournalTx {
+    #[derivative(Debug = "ignore")]
+    inner: Box<DynWritableJournal>,
     filter_memory: bool,
     filter_threads: bool,
     filter_fs: bool,
     filter_core: bool,
     filter_snapshots: bool,
     filter_net: bool,
+    filter_events: Option<HashSet<usize>>,
+    event_index: AtomicUsize,
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct FilteredJournalRx {
+    #[derivative(Debug = "ignore")]
+    inner: Box<DynReadableJournal>,
 }
 
 impl FilteredJournal {
-    pub fn new(inner: Box<DynJournal>) -> Self {
+    pub fn new<J>(inner: J) -> Self
+    where
+        J: Journal,
+    {
+        let (tx, rx) = inner.split();
         Self {
-            inner,
-            filter_memory: false,
-            filter_threads: false,
-            filter_fs: false,
-            filter_core: false,
-            filter_snapshots: false,
-            filter_net: false,
+            tx: FilteredJournalTx {
+                inner: tx,
+                filter_memory: false,
+                filter_threads: false,
+                filter_fs: false,
+                filter_core: false,
+                filter_snapshots: false,
+                filter_net: false,
+                filter_events: None,
+                event_index: AtomicUsize::new(0),
+            },
+            rx: FilteredJournalRx { inner: rx },
         }
     }
 
     pub fn with_ignore_memory(mut self, val: bool) -> Self {
-        self.filter_memory = val;
+        self.tx.filter_memory = val;
         self
     }
 
     pub fn with_ignore_threads(mut self, val: bool) -> Self {
-        self.filter_threads = val;
+        self.tx.filter_threads = val;
         self
     }
 
     pub fn with_ignore_fs(mut self, val: bool) -> Self {
-        self.filter_fs = val;
+        self.tx.filter_fs = val;
         self
     }
 
     pub fn with_ignore_core(mut self, val: bool) -> Self {
-        self.filter_core = val;
+        self.tx.filter_core = val;
         self
     }
 
     pub fn with_ignore_snapshots(mut self, val: bool) -> Self {
-        self.filter_snapshots = val;
+        self.tx.filter_snapshots = val;
         self
     }
 
     pub fn with_ignore_networking(mut self, val: bool) -> Self {
-        self.filter_net = val;
+        self.tx.filter_net = val;
         self
+    }
+
+    pub fn with_filter_events(mut self, events: HashSet<usize>) -> Self {
+        self.tx.filter_events = Some(events);
+        self
+    }
+
+    pub fn add_event_to_whitelist(&mut self, event_index: usize) {
+        if let Some(filter) = self.tx.filter_events.as_mut() {
+            filter.insert(event_index);
+        }
+    }
+
+    pub fn into_inner(self) -> CompositeJournal {
+        CompositeJournal::new(self.tx.inner, self.rx.inner)
     }
 }
 
-impl Journal for FilteredJournal {
+impl WritableJournal for FilteredJournalTx {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+        let event_index = self.event_index.fetch_add(1, Ordering::SeqCst);
+        if let Some(events) = self.filter_events.as_ref() {
+            if !events.contains(&event_index) {
+                return Ok(());
+            }
+        }
+
         let evt = match entry {
             JournalEntry::SetClockTime { .. }
             | JournalEntry::InitModule { .. }
@@ -150,8 +206,38 @@ impl Journal for FilteredJournal {
         };
         self.inner.write(evt)
     }
+}
 
+impl ReadableJournal for FilteredJournalRx {
     fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
         self.inner.read()
+    }
+
+    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
+        Ok(Box::new(FilteredJournalRx {
+            inner: self.inner.as_restarted()?,
+        }))
+    }
+}
+
+impl WritableJournal for FilteredJournal {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+        self.tx.write(entry)
+    }
+}
+
+impl ReadableJournal for FilteredJournal {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+        self.rx.read()
+    }
+
+    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
+        self.rx.as_restarted()
+    }
+}
+
+impl Journal for FilteredJournal {
+    fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
+        (Box::new(self.tx), Box::new(self.rx))
     }
 }

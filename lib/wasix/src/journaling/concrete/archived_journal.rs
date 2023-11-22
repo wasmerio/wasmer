@@ -2797,7 +2797,7 @@ mod tests {
     use super::*;
 
     pub fn run_test<'a>(record: JournalEntry<'a>) {
-        tracing::info!("record2: {:?}", record);
+        tracing::info!("record: {:?}", record);
 
         // Determine the record type
         let record_type = record.archive_record_type();

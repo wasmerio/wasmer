@@ -7,15 +7,10 @@ use std::{
     fs::File,
     io::{Seek, SeekFrom, Write},
     path::Path,
+    sync::{Arc, Mutex},
 };
 
 use super::*;
-
-struct State {
-    file: File,
-    serializer: CompositeSerializer<WriteSerializer<File>, AllocScratch, SharedSerializeMap>,
-    buffer_pos: usize,
-}
 
 /// The LogFile snapshot capturer will write its snapshots to a linear journal
 /// and read them when restoring. It uses the `bincode` serializer which
@@ -29,21 +24,33 @@ struct State {
 /// The logfile snapshot capturer uses a 64bit number as a entry encoding
 /// delimiter.
 pub struct LogFileJournal {
-    state: std::sync::Mutex<State>,
+    tx: LogFileJournalTx,
+    rx: LogFileJournalRx,
+}
+
+#[derive(Debug)]
+struct TxState {
+    file: File,
+    serializer: CompositeSerializer<WriteSerializer<File>, AllocScratch, SharedSerializeMap>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LogFileJournalTx {
+    state: Arc<Mutex<TxState>>,
+}
+
+#[derive(Debug)]
+pub struct LogFileJournalRx {
+    tx: LogFileJournalTx,
+    buffer_pos: Mutex<usize>,
     buffer: OwnedBuffer,
 }
 
-impl LogFileJournal {
-    pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let file = std::fs::File::options()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(path)?;
-        Self::from_file(file)
-    }
+impl LogFileJournalTx {
+    pub fn as_rx(&self) -> anyhow::Result<LogFileJournalRx> {
+        let state = self.state.lock().unwrap();
+        let file = state.file.try_clone()?;
 
-    pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
         let buffer = OwnedBuffer::from_file(&file)?;
 
         // If the buffer exists we valid the magic number
@@ -64,6 +71,25 @@ impl LogFileJournal {
             tracing::trace!("journal has no magic (could be empty?)");
         }
 
+        Ok(LogFileJournalRx {
+            tx: self.clone(),
+            buffer_pos: Mutex::new(buffer_pos),
+            buffer,
+        })
+    }
+}
+
+impl LogFileJournal {
+    pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let file = std::fs::File::options()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+        Self::from_file(file)
+    }
+
+    pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
         // Move to the end of the file and write the
         // magic if one is needed
         if file.seek(SeekFrom::End(0)).unwrap() == 0 {
@@ -72,25 +98,26 @@ impl LogFileJournal {
             file.write_all(&magic)?;
         }
 
-        // We create various serializers and state that is
-        // used when writing. Plus we store the owned buffer
-        // thats used for zero copy deserialization
-        Ok(Self {
-            state: std::sync::Mutex::new(State {
+        // Create the tx
+        let tx = LogFileJournalTx {
+            state: Arc::new(Mutex::new(TxState {
                 file: file.try_clone()?,
                 serializer: CompositeSerializer::new(
                     WriteSerializer::new(file),
                     AllocScratch::default(),
                     SharedSerializeMap::default(),
                 ),
-                buffer_pos,
-            }),
-            buffer,
-        })
+            })),
+        };
+
+        // First we create the readable journal
+        let rx = tx.as_rx()?;
+
+        Ok(Self { rx, tx })
     }
 }
 
-impl Journal for LogFileJournal {
+impl WritableJournal for LogFileJournalTx {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
         tracing::debug!("journal event: {:?}", entry);
 
@@ -118,16 +145,18 @@ impl Journal for LogFileJournal {
         // Now write the actual data and update the offsets
         Ok(())
     }
+}
 
+impl ReadableJournal for LogFileJournalRx {
     /// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
     fn read<'a>(&'a self) -> anyhow::Result<Option<JournalEntry<'a>>> {
-        let mut state = self.state.lock().unwrap();
+        let mut buffer_pos = self.buffer_pos.lock().unwrap();
 
         // Get a memory reference to the data on the disk at
         // the current read location
         let mut buffer_ptr = self.buffer.as_ref();
-        buffer_ptr.advance(state.buffer_pos);
+        buffer_ptr.advance(*buffer_pos);
         loop {
             // Read the headers and advance
             let header_size = 8;
@@ -145,7 +174,7 @@ impl Journal for LogFileJournal {
             };
 
             if header.record_size as usize > buffer_ptr.len() {
-                state.buffer_pos += buffer_ptr.len();
+                *buffer_pos += buffer_ptr.len();
                 tracing::trace!(
                     "journal is corrupt (record_size={} vs remaining={})",
                     header.record_size,
@@ -157,8 +186,8 @@ impl Journal for LogFileJournal {
             // Move the buffer position forward
             let entry = &buffer_ptr[..(header.record_size as usize)];
             buffer_ptr.advance(header.record_size as usize);
-            state.buffer_pos += header_size;
-            state.buffer_pos += header.record_size as usize;
+            *buffer_pos += header_size;
+            *buffer_pos += header.record_size as usize;
 
             // Now we read the entry
             let record_type: JournalEntryRecordType = match header.record_type.try_into() {
@@ -175,6 +204,33 @@ impl Journal for LogFileJournal {
             let record = unsafe { record_type.deserialize_archive(entry) };
             return Ok(Some(record));
         }
+    }
+
+    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
+        let ret = self.tx.as_rx()?;
+        Ok(Box::new(ret))
+    }
+}
+
+impl WritableJournal for LogFileJournal {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+        self.tx.write(entry)
+    }
+}
+
+impl ReadableJournal for LogFileJournal {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+        self.rx.read()
+    }
+
+    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
+        self.rx.as_restarted()
+    }
+}
+
+impl Journal for LogFileJournal {
+    fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
+        (Box::new(self.tx), Box::new(self.rx))
     }
 }
 

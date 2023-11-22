@@ -7,13 +7,28 @@ pub static UNSUPPORTED_SNAPSHOT_CAPTURER: UnsupportedJournal = UnsupportedJourna
 #[derive(Debug, Default)]
 pub struct UnsupportedJournal {}
 
-impl Journal for UnsupportedJournal {
+impl ReadableJournal for UnsupportedJournal {
+    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+        Ok(None)
+    }
+
+    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
+        Ok(Box::new(UnsupportedJournal::default()))
+    }
+}
+
+impl WritableJournal for UnsupportedJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
         tracing::debug!("journal event: {:?}", entry);
         Err(anyhow::format_err!("unsupported"))
     }
+}
 
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
-        Ok(None)
+impl Journal for UnsupportedJournal {
+    fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
+        (
+            Box::new(UnsupportedJournal::default()),
+            Box::new(UnsupportedJournal::default()),
+        )
     }
 }
