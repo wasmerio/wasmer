@@ -1,11 +1,12 @@
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    path::Path,
+    fmt::Debug,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::{Context, Error};
-use futures::{StreamExt, TryStreamExt};
+use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
@@ -305,9 +306,10 @@ fn filesystem(
     mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
 
     for ResolvedFileSystemMapping {
+        mount_path,
+        original_path,
         volume_name,
         package,
-        ..
     } in &pkg.filesystem
     {
         // Note: We want to reuse existing Volume instances if we can. That way
@@ -334,7 +336,22 @@ fn filesystem(
             continue;
         };
 
-        let fs = WebcVolumeFileSystem::new(volume.clone());
+        let original_path = PathBuf::from(original_path);
+        let mount_path = if mount_path.is_relative() {
+            PathBuf::from("/home").join(mount_path)
+        } else {
+            mount_path.clone()
+        };
+
+        // let fs = WebcVolumeFileSystem::new(volume.clone());
+        let fs =
+            MappedPathFileSystem::new(WebcVolumeFileSystem::new(volume.clone()), move |path| {
+                let without_mount_dir: &Path = path
+                    .strip_prefix(&mount_path)
+                    .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
+                let path_on_original_volume = original_path.join(without_mount_dir);
+                Ok(path_on_original_volume)
+            });
 
         filesystems.push(fs);
     }
@@ -342,4 +359,106 @@ fn filesystem(
     let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), filesystems);
 
     Ok(fs)
+}
+
+/// A [`FileSystem`] implementation that lets you map the [`Path`] to something
+/// else.
+#[derive(Clone, PartialEq)]
+struct MappedPathFileSystem<F, M> {
+    inner: F,
+    map: M,
+}
+
+impl<F, M> MappedPathFileSystem<F, M>
+where
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn new(inner: F, map: M) -> Self {
+        MappedPathFileSystem { inner, map }
+    }
+
+    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
+        let path = (self.map)(path)?;
+
+        // Don't forget to make the path absolute again.
+        Ok(Path::new("/").join(path))
+    }
+}
+
+impl<M, F> FileSystem for MappedPathFileSystem<F, M>
+where
+    F: FileSystem,
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn as_dir(&self) -> Box<dyn virtual_fs::Directory + Send + Sync> {
+        self.inner.as_dir()
+    }
+    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
+        let path = self.path(path)?;
+        self.inner.read_dir(&path)
+    }
+
+    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.create_dir(&path)
+    }
+
+    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.remove_dir(&path)
+    }
+
+    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
+        let from = from.to_owned();
+        let to = to.to_owned();
+        Box::pin(async move {
+            let from = self.path(&from)?;
+            let to = self.path(&to)?;
+            self.inner.rename(&from, &to).await
+        })
+    }
+
+    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        let path = self.path(path)?;
+        self.inner.metadata(&path)
+    }
+
+    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.remove_file(&path)
+    }
+
+    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+        virtual_fs::OpenOptions::new(self)
+    }
+}
+
+impl<F, M> virtual_fs::FileOpener for MappedPathFileSystem<F, M>
+where
+    F: FileSystem,
+    M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
+{
+    fn open(
+        &self,
+        path: &Path,
+        conf: &virtual_fs::OpenOptionsConfig,
+    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
+        let path = self.path(path)?;
+        self.inner
+            .new_open_options()
+            .options(conf.clone())
+            .open(path)
+    }
+}
+
+impl<F, M> Debug for MappedPathFileSystem<F, M>
+where
+    F: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MappedPathFileSystem")
+            .field("inner", &self.inner)
+            .field("map", &std::any::type_name::<M>())
+            .finish()
+    }
 }
