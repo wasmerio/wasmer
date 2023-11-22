@@ -415,11 +415,6 @@ where
             unique_id: crate::generate_next_unique_id(),
         }
     }
-
-    fn remove_child(&self, name: OsString) -> Result<(), FsError> {
-        // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
-        unimplemented!();
-    }
 }
 
 impl<P, S> crate::Directory for OverlayDirectory<P, S>
@@ -430,16 +425,14 @@ where
 {
     fn get_child(&self, name: OsString) -> Result<Descriptor, FsError> {
         if let Ok(primary) = self.fs.primary.as_dir().walk_to(self.path.clone()) {
-            match primary.get_child(name.clone()) {
-                Ok(child) => return Ok(child),
-                _ => {}
+            if let Ok(child) = primary.get_child(name.clone()) {
+                return Ok(child);
             }
         }
         for secondary in self.fs.secondaries.filesystems() {
             if let Ok(secondary) = secondary.as_dir().walk_to(self.path.clone()) {
-                match secondary.get_child(name.clone()) {
-                    Ok(child) => return Ok(child),
-                    _ => {}
+                if let Ok(child) = secondary.get_child(name.clone()) {
+                    return Ok(child);
                 }
             }
         }
@@ -464,7 +457,7 @@ where
 
     fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>, FsError> {
         // TODO: Manage whiteouts
-        let to_path = self.path.join(to.clone());
+        let to_path = self.path.join(to);
         let primary_dir = self.fs.primary.as_dir().walk_to(to_path.clone());
         if primary_dir.is_ok() {
             return primary_dir;
@@ -1374,7 +1367,8 @@ mod tests {
                 .unwrap();
         }
         // Set up the secondary file systems
-        let webc = WebCOwned::parse(Bytes::from_static(PYTHON), &ParseOptions::default()).unwrap();
+        let webc: WebCOwned =
+            WebCOwned::parse(Bytes::from_static(PYTHON), &ParseOptions::default()).unwrap();
         let webc = WebcFileSystem::init_all(Arc::new(webc));
 
         let fs = OverlayFileSystem::new(primary, [webc]);

@@ -75,7 +75,7 @@ impl VirtualFile for FileHandle {
         let node = guard.get_node(self.inode).unwrap();
         guard.absolute_path(node)
     }
-    
+
     fn unique_id(&self) -> usize {
         self.unique_id
     }
@@ -260,7 +260,7 @@ impl VirtualFile for FileHandle {
         })
     }
 
-    fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         if !self.readable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -298,7 +298,7 @@ impl VirtualFile for FileHandle {
         }
     }
 
-    fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+    fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         if !self.readable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -611,7 +611,7 @@ impl AsyncSeek for FileHandle {
         ret
     }
 
-    fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+    fn poll_complete(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
         // In `append` mode, it's not possible to seek in the file. In
         // [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html),
         // the `O_APPEND` option describes this behavior well:
@@ -765,7 +765,7 @@ impl AsyncWrite for FileHandle {
         ret
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let mut fs =
             self.filesystem.inner.write().map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
@@ -787,7 +787,7 @@ impl AsyncWrite for FileHandle {
         }
     }
 
-    fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let mut fs =
             self.filesystem.inner.write().map_err(|_| {
                 io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")

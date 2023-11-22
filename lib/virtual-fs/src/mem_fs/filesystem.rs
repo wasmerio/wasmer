@@ -4,7 +4,6 @@ use super::*;
 use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use futures::future::BoxFuture;
 use slab::Slab;
-use std::convert::identity;
 use std::ffi::OsString;
 use std::fmt;
 use std::path::{Component, Path, PathBuf};
@@ -117,7 +116,7 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
     fn parent(&self) -> Option<Arc<dyn crate::Directory + Send + Sync>> {
-        let mut guard = self.inner.write().ok()?;
+        let guard = self.inner.write().ok()?;
         guard.parent.clone()
     }
 
@@ -130,7 +129,7 @@ impl crate::FileSystem for FileSystem {
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
         // Canonicalize the path.
-        let (path, inode_of_directory) = guard.canonicalize(path)?;
+        let (_path, inode_of_directory) = guard.canonicalize(path)?;
         let inode_of_directory = match inode_of_directory {
             InodeResolution::Found(a) => a,
             InodeResolution::Redirect(fs, path) => {
@@ -182,7 +181,7 @@ impl crate::FileSystem for FileSystem {
         let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
 
         // Canonicalize the path.
-        let (path, node) = guard.canonicalize(path)?;
+        let (_path, node) = guard.canonicalize(path)?;
 
         let inode_of_directory = match node {
             InodeResolution::Found(a) => a,
@@ -198,7 +197,7 @@ impl crate::FileSystem for FileSystem {
         let mut guard = self.inner.write().map_err(|_| FsError::Lock)?;
 
         // Canonicalize the path.
-        let (path, node) = guard.canonicalize(path)?;
+        let (_path, node) = guard.canonicalize(path)?;
 
         let inode_of_file = match node {
             InodeResolution::Found(a) => a,
@@ -412,7 +411,7 @@ impl FileSystemInner {
             }
             return PathBuf::from("/").join(node.name());
         }
-        self.absolute_path(&parent).join(node.name())
+        self.absolute_path(parent).join(node.name())
     }
 
     fn read_dir_inode(&self, inode_of_directory: Inode) -> Result<ReadDir> {
@@ -572,50 +571,6 @@ impl FileSystemInner {
                 println!("Inode of parent found -> Redirect: {}", path.display());
                 Ok(InodeResolution::Redirect(fs, path))
             }
-        }
-    }
-
-    /// From the inode of a parent node (so, a directory), returns the
-    /// child index of `name_of_directory` along with its inode.
-    pub(super) fn as_parent_get_position_and_inode_of_directory(
-        &self,
-        inode_of_parent: Inode,
-        name_of_directory: &OsString,
-        directory_must_be_empty: DirectoryMustBeEmpty,
-    ) -> Result<(usize, InodeResolution)> {
-        match self.storage.get(inode_of_parent) {
-            Some(Node::Directory(DirectoryNode { children, .. })) => children
-                .iter()
-                .enumerate()
-                .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
-                .find_map(|(nth, node)| match node {
-                    Node::Directory(DirectoryNode {
-                        inode,
-                        name,
-                        children,
-                        ..
-                    }) if name.as_os_str() == name_of_directory => {
-                        if directory_must_be_empty.no() || children.is_empty() {
-                            Some(Ok((nth, InodeResolution::Found(*inode))))
-                        } else {
-                            Some(Err(FsError::DirectoryNotEmpty))
-                        }
-                    }
-
-                    _ => None,
-                })
-                .ok_or(FsError::InvalidInput)
-                .and_then(identity), // flatten
-
-            Some(Node::ArcDirectory(ArcDirectoryNode {
-                fs, path: fs_path, ..
-            })) => {
-                let mut path = fs_path.clone();
-                path.push(name_of_directory);
-                Ok((0, InodeResolution::Redirect(fs.clone(), path)))
-            }
-
-            _ => Err(FsError::BaseNotDirectory),
         }
     }
 
@@ -893,22 +848,6 @@ impl Default for FileSystemInner {
             parent: None,
             limiter: None,
         }
-    }
-}
-
-#[allow(dead_code)] // The `No` variant.
-pub(super) enum DirectoryMustBeEmpty {
-    Yes,
-    No,
-}
-
-impl DirectoryMustBeEmpty {
-    pub(super) fn yes(&self) -> bool {
-        matches!(self, Self::Yes)
-    }
-
-    pub(super) fn no(&self) -> bool {
-        !self.yes()
     }
 }
 

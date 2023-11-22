@@ -222,14 +222,14 @@ impl crate::Directory for WebcDirectory {
     }
 
     fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>, FsError> {
-        let to_path = self.path.join(to.clone());
+        let to_path = self.path.join(to);
         match self.fs.volume.metadata(&to_path) {
             Some(m) if m.is_dir() => {
                 let dir = WebcDirectory::new(to_path, self.fs.clone());
-                return Ok(Arc::new(dir));
+                Ok(Arc::new(dir))
             }
-            Some(_) => return Err(FsError::BaseNotDirectory),
-            None => return Err(FsError::EntryNotFound),
+            Some(_) => Err(FsError::BaseNotDirectory),
+            None => Err(FsError::EntryNotFound),
         }
     }
 
@@ -253,9 +253,9 @@ impl crate::Directory for WebcDirectory {
             }
             Some(d) if d.is_dir() => {
                 let dir = WebcDirectory::new(to_path, self.fs.clone());
-                return Ok(Descriptor::Directory(Arc::new(dir)));
+                Ok(Descriptor::Directory(Arc::new(dir)))
             }
-            _ => return Err(FsError::NotAFile),
+            _ => Err(FsError::NotAFile),
         }
     }
 }
@@ -288,7 +288,7 @@ impl FileOpener for WebcVolumeFileSystem {
                 Cursor::new(bytes),
                 crate::generate_next_unique_id(),
                 self.parent.clone(),
-                path.clone().into(),
+                path.into(),
             ))),
             None => {
                 // The metadata() call should guarantee this, so something
@@ -300,7 +300,12 @@ impl FileOpener for WebcVolumeFileSystem {
 }
 
 #[derive(Debug, Clone)]
-struct File(Cursor<SharedBytes>, usize, Option<Arc<dyn crate::Directory + Send + Sync>>, PathBuf);
+struct File(
+    Cursor<SharedBytes>,
+    usize,
+    Option<Arc<dyn crate::Directory + Send + Sync>>,
+    PathBuf,
+);
 
 impl VirtualFile for File {
     fn absolute_path(&self) -> PathBuf {

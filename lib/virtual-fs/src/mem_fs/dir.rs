@@ -3,13 +3,9 @@ use super::{
     ReadOnlyFileNode,
 };
 use crate::FileSystem as _;
-use crate::{
-    Descriptor, DescriptorType, DirEntry, DirectoryEntry, FileType, FsError, Metadata, OpenOptions,
-    ReadDir, ReaddirIterator, Result,
-};
-use futures::future::BoxFuture;
+use crate::{Descriptor, DescriptorType, DirectoryEntry, FsError, ReaddirIterator, Result};
 use std::ffi::OsString;
-use std::path::{Component, Components, Path, PathBuf};
+use std::path::{Component, PathBuf};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone)]
@@ -26,11 +22,6 @@ impl Directory {
             fs,
             unique_id: crate::generate_next_unique_id(),
         }
-    }
-
-    fn remove_child(&self, name: OsString) -> Result<()> {
-        // let child = self.clone().get_child(name).ok_or(FsError::EntryNotFound)?;
-        unimplemented!();
     }
 }
 
@@ -58,18 +49,17 @@ impl crate::Directory for Directory {
         match found_node {
             Node::Directory(DirectoryNode { inode, .. }) => {
                 let directory = Directory::new(*inode, self.fs.clone());
-                return Ok(Descriptor::Directory(Arc::new(directory)));
+                Ok(Descriptor::Directory(Arc::new(directory)))
             }
             Node::File(FileNode { inode, .. })
             | Node::ReadOnlyFile(ReadOnlyFileNode { inode, .. })
             | Node::CustomFile(CustomFileNode { inode, .. }) => {
                 let file = FileHandle::new(*inode, self.fs.clone(), false, false, false, 0);
-                return Ok(Descriptor::File(Arc::new(file)));
+                Ok(Descriptor::File(Arc::new(file)))
             }
             Node::ArcDirectory(ArcDirectoryNode { fs, .. }) => {
-                return Ok(Descriptor::Directory(Arc::new(fs.as_dir())));
+                Ok(Descriptor::Directory(Arc::new(fs.as_dir())))
             }
-            _ => return Err(FsError::InvalidData),
         }
     }
 
@@ -173,9 +163,9 @@ impl crate::Directory for Directory {
         match node {
             Node::Directory(DirectoryNode { inode, .. }) => {
                 let directory = Directory::new(*inode, self.fs.clone());
-                return Ok(Arc::new(directory));
+                Ok(Arc::new(directory))
             }
-            _ => return Err(FsError::BaseNotDirectory),
+            _ => Err(FsError::BaseNotDirectory),
         }
     }
 

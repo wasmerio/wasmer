@@ -19,7 +19,7 @@ use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-use futures::{future::BoxFuture, Future};
+use futures::Future;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;

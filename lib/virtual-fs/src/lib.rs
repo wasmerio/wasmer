@@ -126,7 +126,7 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 pub use ops::{copy_reference, copy_reference_ext};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
-    fn set_parent(&mut self, directory: Arc<dyn crate::Directory + Send + Sync>) -> Result<()> {
+    fn set_parent(&mut self, _directory: Arc<dyn crate::Directory + Send + Sync>) -> Result<()> {
         unimplemented!();
     }
 
@@ -138,7 +138,7 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
         unimplemented!();
     }
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
-    fn get_dir(&self, path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
+    fn get_dir(&self, _path: &Path) -> Result<Box<dyn Directory + Send + Sync>> {
         unimplemented!();
     }
     fn create_dir(&self, path: &Path) -> Result<()>;
@@ -472,7 +472,7 @@ pub trait Directory: fmt::Debug + Send + Sync + Upcastable {
 
     fn get_child(&self, name: OsString) -> Result<Descriptor>;
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn Directory + Send + Sync>> {
+    fn walk_to(&self, _to: PathBuf) -> Result<Arc<dyn Directory + Send + Sync>> {
         unimplemented!();
     }
 
@@ -546,16 +546,6 @@ pub enum Descriptor {
     Directory(Arc<dyn Directory + Send + Sync>),
 }
 
-impl Descriptor {
-    #[inline]
-    fn absolute_path(&self) -> PathBuf {
-        match self {
-            Self::File(f) => f.absolute_path(),
-            Self::Directory(d) => d.absolute_path(),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum DescriptorType {
     File,
@@ -573,9 +563,11 @@ pub struct ReaddirIterator(
 );
 
 impl ReaddirIterator {
+    #[allow(dead_code)]
     pub(crate) fn new(i: impl Iterator<Item = Result<DirectoryEntry>> + Send + 'static) -> Self {
         ReaddirIterator(std::sync::Mutex::new(Box::new(i)))
     }
+    #[allow(dead_code)]
     pub(crate) fn next(&self) -> Result<Option<DirectoryEntry>> {
         self.0.lock().unwrap().next().transpose()
     }

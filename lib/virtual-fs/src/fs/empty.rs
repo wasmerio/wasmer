@@ -74,7 +74,7 @@ impl crate::Directory for EmptyFileSystem {
         unimplemented!();
     }
 
-    fn get_child(&self, name: OsString) -> Result<Descriptor> {
+    fn get_child(&self, _name: OsString) -> Result<Descriptor> {
         Err(FsError::EntryNotFound)
     }
 
@@ -88,7 +88,7 @@ impl crate::Directory for EmptyFileSystem {
         PathBuf::from("/")
     }
 
-    fn walk_to<'a>(&self, to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>> {
+    fn walk_to<'a>(&self, _to: PathBuf) -> Result<Arc<dyn crate::Directory + Send + Sync>> {
         Err(FsError::EntryNotFound)
     }
 
