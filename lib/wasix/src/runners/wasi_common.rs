@@ -102,6 +102,7 @@ impl CommonWasiOptions {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use tempfile::TempDir;
 
     use virtual_fs::WebcVolumeFileSystem;
@@ -127,7 +128,7 @@ mod tests {
             "args".to_string(),
         ]);
 
-        args.prepare_webc_env(&mut builder, fs, &annotations)
+        args.prepare_webc_env(&mut builder, &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -159,7 +160,7 @@ mod tests {
         let mut annotations = WasiAnnotation::new("python");
         annotations.env = Some(vec!["HARD_CODED=env-vars".to_string()]);
 
-        args.prepare_webc_env(&mut builder, fs, &annotations)
+        args.prepare_webc_env(&mut builder, &annotations, None)
             .unwrap();
 
         assert_eq!(
