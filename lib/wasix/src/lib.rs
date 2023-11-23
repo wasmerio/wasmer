@@ -62,7 +62,6 @@ use std::sync::Arc;
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
-use journal::DynJournal;
 use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
 use tracing::error;
@@ -236,18 +235,8 @@ impl WasiRuntimeError {
 pub(crate) fn run_wasi_func(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
-    journals: Vec<Arc<DynJournal>>,
     params: &[wasmer::Value],
 ) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
-    if !journals.is_empty() {
-        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-            anyhow::format_err!(
-                "journal restoration is not currently supported when running specific functions"
-            )
-            .into(),
-        )));
-    }
-
     func.call(store, params).map_err(|err| {
         if let Some(_werr) = err.downcast_ref::<WasiError>() {
             let werr = err.downcast::<WasiError>().unwrap();
@@ -268,9 +257,8 @@ pub(crate) fn run_wasi_func(
 pub(crate) fn run_wasi_func_start(
     func: &wasmer::Function,
     store: &mut impl AsStoreMut,
-    journals: Vec<Arc<DynJournal>>,
 ) -> Result<(), WasiRuntimeError> {
-    run_wasi_func(func, store, journals, &[])?;
+    run_wasi_func(func, store, &[])?;
     Ok(())
 }
 

@@ -945,17 +945,12 @@ impl WasiEnvBuilder {
             );
         }
 
-        #[cfg(feature = "journal")]
-        let journals: Vec<Arc<DynJournal>> = self.journals.clone();
-        #[cfg(not(feature = "journal"))]
-        let journals = Vec::new();
-
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
 
-        let result = crate::run_wasi_func_start(start, store, journals);
+        let result = crate::run_wasi_func_start(start, store);
         let (result, exit_code) = wasi_exit_code(result);
 
         let pid = env.data(&store).pid();
