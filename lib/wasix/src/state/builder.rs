@@ -23,7 +23,10 @@ use crate::{
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     runtime::{module_cache::ModuleHash, task_manager::InlineWaker},
     state::WasiState,
-    syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    syscalls::{
+        rewind_ext2,
+        types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    },
     RewindStateOption, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 
@@ -943,6 +946,14 @@ impl WasiEnvBuilder {
         }
 
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
+
+        // Bootstrap the process
+        let rewind_state = env.bootstrap(store)?;
+        if rewind_state.is_some() {
+            let mut ctx = env.env.clone().into_mut(store);
+            rewind_ext2(&mut ctx, rewind_state)
+                .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))?;
+        }
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();

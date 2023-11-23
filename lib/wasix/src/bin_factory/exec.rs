@@ -153,7 +153,7 @@ fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: Option<(RewindState, Bytes)>,
+    rewind_state: Option<(RewindState, Option<Bytes>)>,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
@@ -169,7 +169,7 @@ fn call_module(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                Some(rewind_result),
+                rewind_result,
             );
             if res != Errno::Success {
                 ctx.data().blocking_on_exit(Some(res.into()));
@@ -181,7 +181,7 @@ fn call_module(
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
-                Some(rewind_result),
+                rewind_result,
             );
             if res != Errno::Success {
                 ctx.data().blocking_on_exit(Some(res.into()));
@@ -212,7 +212,7 @@ fn call_module(
                     let respawn = {
                         move |ctx, store, rewind_result| {
                             // Call the thread
-                            call_module(ctx, store, handle, Some((rewind, rewind_result)));
+                            call_module(ctx, store, handle, Some((rewind, Some(rewind_result))));
                         }
                     };
 
