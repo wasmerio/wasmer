@@ -27,9 +27,11 @@ mod validate;
 mod wast;
 mod whoami;
 
+#[cfg(feature = "journal")]
+pub use self::journal::*;
 pub use self::{
-    add::*, cache::*, config::*, container::*, init::*, inspect::*, journal::*, login::*,
-    package::*, publish::*, run::Run, self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
+    publish::*, run::Run, self_update::*, validate::*, whoami::*,
 };
 
 #[cfg(target_os = "linux")]
