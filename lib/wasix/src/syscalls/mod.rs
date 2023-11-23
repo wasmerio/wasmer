@@ -1295,7 +1295,7 @@ pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
 pub fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     journal: Arc<DynJournal>,
-) -> Result<RewindState, WasiRuntimeError> {
+) -> Result<Option<RewindState>, WasiRuntimeError> {
     use crate::journal::Journal;
 
     let mut is_same_module = false;
@@ -1724,7 +1724,7 @@ pub fn restore_snapshot(
         );
     }
 
-    rewind.ok_or(WasiRuntimeError::Runtime(RuntimeError::user(anyhow::format_err!("The restored snapshot journal does not have a thread stack events and hence we can not restore the state of the process.").into())))
+    Ok(rewind)
 }
 
 pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(

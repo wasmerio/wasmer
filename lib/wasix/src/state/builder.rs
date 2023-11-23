@@ -1013,7 +1013,7 @@ impl WasiEnvBuilder {
             for journal in journals {
                 let ctx = env.env.clone().into_mut(&mut store);
                 let rewind = restore_snapshot(ctx, journal)?;
-                rewind_state = Some((rewind, None));
+                rewind_state = rewind.map(|rewind| (rewind, None));
             }
 
             env.data_mut(&mut store).replaying_journal = false;
