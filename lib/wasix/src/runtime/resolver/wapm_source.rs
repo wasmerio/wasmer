@@ -133,7 +133,7 @@ impl WapmSource {
 impl Source for WapmSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
-        let (full_name, version_constraint) = match package {
+        let (package_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
             _ => return Err(QueryError::Unsupported),
         };
@@ -721,5 +721,89 @@ mod tests {
 
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].pkg.version.to_string(), "3.12.1");
+    }
+
+    #[tokio::test]
+    async fn query_the_backend_again_if_cached_queries_dont_match() {
+        let cached_value = serde_json::from_value(serde_json::json! {
+            {
+                "data": {
+                    "getPackage": {
+                        "packageName": "python",
+                        "namespace": "wasmer",
+                        "versions": [
+                            {
+                                "version": "3.12.0",
+                                "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
+                                "distribution": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                }
+                            },
+                        ]
+                    },
+                    "info": {
+                        "defaultFrontend": "https://wasmer.io/",
+                    },
+                }
+            }
+        }).unwrap();
+        let body = serde_json::json! {
+            {
+                "data": {
+                    "getPackage": {
+                        "packageName": "python",
+                        "namespace": "wasmer",
+                        "versions": [
+                            {
+                                "version": "4.0.0",
+                                "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"4.0.0\", \"description\": \"Python\"}}}",
+                                "distribution": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@4.0.0",
+                                    "piritaSha256Hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                }
+                            },
+                            {
+                                "version": "3.12.0",
+                                "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
+                                "distribution": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                }
+                            },
+                        ]
+                    },
+                    "info": {
+                        "defaultFrontend": "https://wasmer.io/",
+                    },
+                }
+            }
+        };
+        let response = HttpResponse {
+            body: Some(serde_json::to_vec(&body).unwrap()),
+            redirected: false,
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
+        };
+        let client = Arc::new(DummyClient::new(vec![response]));
+        let registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        let request = PackageSpecifier::Registry {
+            full_name: "wasmer/python".to_string(),
+            version: "4.0.0".parse().unwrap(),
+        };
+        let temp = tempfile::tempdir().unwrap();
+        let source = WapmSource::new(registry_endpoint, client.clone())
+            .with_local_cache(temp.path(), Duration::from_secs(0));
+        source
+            .cache
+            .as_ref()
+            .unwrap()
+            .update("wasmer/python", &cached_value)
+            .unwrap();
+
+        let summaries = source.query(&request).await.unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].pkg.version.to_string(), "4.0.0");
     }
 }
