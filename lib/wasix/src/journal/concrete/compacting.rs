@@ -390,7 +390,7 @@ impl Journal for CompactingJournal {
 mod tests {
     use super::*;
 
-    use wasmer_wasix_types::wasi;
+    use wasmer_wasix_types::wasi::{self, Tty};
 
     pub fn run_test<'a>(
         in_records: Vec<JournalEntry<'a>>,
@@ -583,6 +583,10 @@ mod tests {
                     memory_stack: [55u8; 34].to_vec().into(),
                     store_data: [66u8; 70].to_vec().into(),
                     is_64bit: true,
+                },
+                JournalEntry::Snapshot {
+                    when: SystemTime::now(),
+                    trigger: SnapshotTrigger::FirstListen,
                 },
                 JournalEntry::OpenFileDescriptor {
                     fd: 1234,
@@ -827,6 +831,58 @@ mod tests {
             vec![JournalEntry::CreateDirectory {
                 fd: 1234,
                 path: "/blah".into(),
+            }],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_duplicate_tty() {
+        run_test(
+            vec![
+                JournalEntry::TtySet {
+                    tty: Tty {
+                        cols: 123,
+                        rows: 65,
+                        width: 2341,
+                        height: 573457,
+                        stdin_tty: true,
+                        stdout_tty: true,
+                        stderr_tty: true,
+                        echo: true,
+                        line_buffered: true,
+                    },
+                    line_feeds: true,
+                },
+                JournalEntry::TtySet {
+                    tty: Tty {
+                        cols: 12,
+                        rows: 65,
+                        width: 2341,
+                        height: 573457,
+                        stdin_tty: true,
+                        stdout_tty: false,
+                        stderr_tty: true,
+                        echo: true,
+                        line_buffered: true,
+                    },
+                    line_feeds: true,
+                },
+            ],
+            vec![JournalEntry::TtySet {
+                tty: Tty {
+                    cols: 12,
+                    rows: 65,
+                    width: 2341,
+                    height: 573457,
+                    stdin_tty: true,
+                    stdout_tty: false,
+                    stderr_tty: true,
+                    echo: true,
+                    line_buffered: true,
+                },
+                line_feeds: true,
             }],
         )
         .unwrap()
