@@ -320,7 +320,7 @@ impl crate::runners::Runner for WasiRunner {
                     .context("Unable to wait for the process to exit")
             }
             .in_current_span(),
-        )?;
+        )??;
 
         if exit_code.raw() == 0 {
             Ok(())

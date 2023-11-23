@@ -367,7 +367,10 @@ impl dyn VirtualTaskManager {
 pub trait VirtualTaskManagerExt {
     /// Runs the work in the background via the task managers shared background
     /// threads while blocking the current execution until it finishs
-    fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
+    fn spawn_and_block_on<A>(
+        &self,
+        task: impl Future<Output = A> + Send + 'static,
+    ) -> Result<A, anyhow::Error>
     where
         A: Send + 'static;
 }
@@ -379,16 +382,20 @@ where
 {
     /// Runs the work in the background via the task managers shared background
     /// threads while blocking the current execution until it finishs
-    fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
+    fn spawn_and_block_on<A>(
+        &self,
+        task: impl Future<Output = A> + Send + 'static,
+    ) -> Result<A, anyhow::Error>
     where
         A: Send + 'static,
     {
-        let (work_tx, mut work_rx) = ::tokio::sync::mpsc::unbounded_channel();
+        let (tx, rx) = ::tokio::sync::oneshot::channel();
         let work = Box::pin(async move {
             let ret = task.await;
-            work_tx.send(ret).ok();
+            tx.send(ret).ok();
         });
         self.task_shared(Box::new(move || work)).unwrap();
-        InlineWaker::block_on(work_rx.recv()).unwrap()
+        rx.blocking_recv()
+            .map_err(|_| anyhow::anyhow!("task execution failed - result channel dropped"))
     }
 }

@@ -180,7 +180,7 @@ impl Wasi {
                     .spawn_and_block_on(async move {
                         BinaryPackage::from_registry(&specifier, &*inner_rt).await
                     })
-                    .with_context(|| format!("Unable to load \"{name}\""))?
+                    .with_context(|| format!("Unable to load \"{name}\""))??
             };
             uses.push(pkg);
         }
