@@ -63,7 +63,7 @@ impl CompactingLogFileJournal {
             .to_string_lossy()
             .to_string();
         temp_filename.insert_str(0, ".compacting.");
-        let temp_path = path.as_ref().clone().with_file_name(&temp_filename);
+        let temp_path = path.as_ref().with_file_name(&temp_filename);
 
         let state = Arc::new(Mutex::new(State {
             on_drop: false,

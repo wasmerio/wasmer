@@ -665,12 +665,12 @@ impl<'a> JournalEntry<'a> {
                     rows: tty.rows,
                     width: tty.width,
                     height: tty.height,
-                    stdin_tty: tty.stdin_tty.into(),
-                    stdout_tty: tty.stdout_tty.into(),
-                    stderr_tty: tty.stderr_tty.into(),
-                    echo: tty.echo.into(),
-                    line_buffered: tty.line_buffered.into(),
-                    line_feeds: line_feeds.into(),
+                    stdin_tty: tty.stdin_tty,
+                    stdout_tty: tty.stdout_tty,
+                    stderr_tty: tty.stderr_tty,
+                    echo: tty.echo,
+                    line_buffered: tty.line_buffered,
+                    line_feeds: line_feeds,
                 })
             }
             JournalEntry::CreatePipe { fd1, fd2 } => {

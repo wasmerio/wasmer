@@ -397,13 +397,13 @@ mod tests {
         out_records: Vec<JournalEntry<'a>>,
     ) -> anyhow::Result<()> {
         // Build a journal that will store the records before compacting
-        let mut compacting_journal = CompactingJournal::new(BufferedJournal::new())?;
+        let mut compacting_journal = CompactingJournal::new(BufferedJournal::default())?;
         for record in in_records {
             compacting_journal.write(record)?;
         }
 
         // Now we build a new one using the compactor
-        let new_journal = BufferedJournal::new();
+        let new_journal = BufferedJournal::default();
         compacting_journal.compact_to(new_journal)?;
 
         // Read the records

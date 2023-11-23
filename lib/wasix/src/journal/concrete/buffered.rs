@@ -27,14 +27,14 @@ pub struct BufferedJournalTx {
     state: Arc<Mutex<State>>,
 }
 
-impl BufferedJournal {
-    pub fn new() -> Self {
+impl Default for BufferedJournal {
+    fn default() -> Self {
         let state = Arc::new(Mutex::new(State::default()));
         Self {
             tx: BufferedJournalTx {
                 state: state.clone(),
             },
-            rx: BufferedJournalRx { state: state },
+            rx: BufferedJournalRx { state },
         }
     }
 }
