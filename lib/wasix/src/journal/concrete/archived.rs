@@ -670,7 +670,7 @@ impl<'a> JournalEntry<'a> {
                     stderr_tty: tty.stderr_tty,
                     echo: tty.echo,
                     line_buffered: tty.line_buffered,
-                    line_feeds: line_feeds,
+                    line_feeds,
                 })
             }
             JournalEntry::CreatePipe { fd1, fd2 } => {
