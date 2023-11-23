@@ -11,7 +11,14 @@ impl JournalEffector {
         ty: TimeType,
         time: Option<Duration>,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SocketSetOptTime { fd, ty, time })
+        Self::save_event(
+            ctx,
+            JournalEntry::SocketSetOptTime {
+                fd,
+                ty: ty.into(),
+                time,
+            },
+        )
     }
 
     pub fn apply_sock_set_opt_time(

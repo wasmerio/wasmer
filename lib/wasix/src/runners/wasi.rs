@@ -11,7 +11,7 @@ use webc::metadata::{annotations::Wasi, Command};
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journaling::{DynJournal, SnapshotTrigger},
+    journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
     Runtime, WasiEnvBuilder, WasiRuntimeError,
@@ -195,7 +195,7 @@ impl WasiRunner {
     }
 
     pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
-        for on in crate::journaling::DEFAULT_SNAPSHOT_TRIGGERS {
+        for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
             if !self.has_snapshot_trigger(on) {
                 self.add_snapshot_trigger(on);
             }

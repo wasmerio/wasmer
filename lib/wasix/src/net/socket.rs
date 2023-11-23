@@ -151,6 +151,7 @@ pub enum WasiSocketStatus {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum TimeType {
     ReadTimeout,
     WriteTimeout,

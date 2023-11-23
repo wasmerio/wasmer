@@ -1,6 +1,6 @@
 use super::*;
 
-pub static UNSUPPORTED_SNAPSHOT_CAPTURER: UnsupportedJournal = UnsupportedJournal {};
+pub static UNSUPPORTED_JOURNAL: UnsupportedJournal = UnsupportedJournal {};
 
 /// The default for runtime is to use the unsupported journal
 /// which will fail to write journal entries if one attempts to do so.
@@ -18,7 +18,7 @@ impl ReadableJournal for UnsupportedJournal {
 }
 
 impl WritableJournal for UnsupportedJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         tracing::debug!("journal event: {:?}", entry);
         Err(anyhow::format_err!("unsupported"))
     }

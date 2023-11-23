@@ -5090,6 +5090,7 @@ dependencies = [
  "pin-project-lite",
  "pretty_assertions",
  "replace_with",
+ "serde",
  "slab",
  "tempfile",
  "thiserror",
@@ -6218,6 +6219,7 @@ version = "0.16.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64",
  "bincode",
  "bytecheck",
  "bytes",

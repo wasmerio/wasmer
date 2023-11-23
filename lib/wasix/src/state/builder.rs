@@ -27,7 +27,7 @@ use crate::{
 };
 #[cfg(feature = "journal")]
 use crate::{
-    journaling::{DynJournal, SnapshotTrigger},
+    journal::{DynJournal, SnapshotTrigger},
     syscalls::restore_snapshot,
 };
 
@@ -1023,9 +1023,9 @@ impl WasiEnvBuilder {
             // process or if a process has been recompiled
             let wasm_hash = env.data(&store).process.module_hash.as_bytes();
             let mut ctx = env.env.clone().into_mut(&mut store);
-            crate::journaling::JournalEffector::save_event(
+            crate::journal::JournalEffector::save_event(
                 &mut ctx,
-                crate::journaling::JournalEntry::InitModule { wasm_hash },
+                crate::journal::JournalEntry::InitModule { wasm_hash },
             )
             .map_err(|err| {
                 WasiRuntimeError::Runtime(RuntimeError::new(format!(

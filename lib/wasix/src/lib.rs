@@ -47,7 +47,7 @@ pub mod net;
 pub mod capabilities;
 pub mod fs;
 pub mod http;
-pub mod journaling;
+pub mod journal;
 mod rewind;
 pub mod runners;
 pub mod runtime;
@@ -62,7 +62,7 @@ use std::sync::Arc;
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
-use journaling::DynJournal;
+use journal::DynJournal;
 use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
 use tracing::error;

@@ -101,17 +101,17 @@ impl FilteredJournal {
         }
     }
 
-    pub fn into_inner(self) -> CompositeJournal {
-        CompositeJournal::new(self.tx.inner, self.rx.inner)
+    pub fn into_inner(self) -> RecombinedJournal {
+        RecombinedJournal::new(self.tx.inner, self.rx.inner)
     }
 }
 
 impl WritableJournal for FilteredJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         let event_index = self.event_index.fetch_add(1, Ordering::SeqCst);
         if let Some(events) = self.filter_events.as_ref() {
             if !events.contains(&event_index) {
-                return Ok(());
+                return Ok(0);
             }
         }
 
@@ -123,19 +123,19 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::EpollCtl { .. }
             | JournalEntry::TtySet { .. } => {
                 if self.filter_core {
-                    return Ok(());
+                    return Ok(0);
                 }
                 entry
             }
             JournalEntry::SetThread { .. } | JournalEntry::CloseThread { .. } => {
                 if self.filter_threads {
-                    return Ok(());
+                    return Ok(0);
                 }
                 entry
             }
             JournalEntry::UpdateMemoryRegion { .. } => {
                 if self.filter_memory {
-                    return Ok(());
+                    return Ok(0);
                 }
                 entry
             }
@@ -162,13 +162,13 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::CreatePipe { .. }
             | JournalEntry::CreateEvent { .. } => {
                 if self.filter_fs {
-                    return Ok(());
+                    return Ok(0);
                 }
                 entry
             }
             JournalEntry::Snapshot { .. } => {
                 if self.filter_snapshots {
-                    return Ok(());
+                    return Ok(0);
                 }
                 entry
             }
@@ -199,7 +199,7 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::SocketSetOptTime { .. }
             | JournalEntry::SocketShutdown { .. } => {
                 if self.filter_net {
-                    return Ok(());
+                    return Ok(0);
                 }
                 entry
             }
@@ -221,7 +221,7 @@ impl ReadableJournal for FilteredJournalRx {
 }
 
 impl WritableJournal for FilteredJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         self.tx.write(entry)
     }
 }

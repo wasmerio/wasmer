@@ -15,6 +15,8 @@ mod create_obj;
 mod gen_c_header;
 mod init;
 mod inspect;
+#[cfg(feature = "journal")]
+mod journal;
 mod login;
 mod package;
 mod publish;
@@ -26,8 +28,8 @@ mod wast;
 mod whoami;
 
 pub use self::{
-    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
-    publish::*, run::Run, self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, container::*, init::*, inspect::*, journal::*, login::*,
+    package::*, publish::*, run::Run, self_update::*, validate::*, whoami::*,
 };
 
 #[cfg(target_os = "linux")]

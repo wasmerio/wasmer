@@ -29,7 +29,7 @@ use wasmer::{
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 #[cfg(feature = "journal")]
-use wasmer_wasix::journaling::{LogFileJournal, SnapshotTrigger};
+use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     runners::{MappedCommand, MappedDirectory, Runner},

@@ -118,7 +118,7 @@ impl LogFileJournal {
 }
 
 impl WritableJournal for LogFileJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         tracing::debug!("journal event: {:?}", entry);
 
         let mut state = self.state.lock().unwrap();
@@ -127,7 +127,7 @@ impl WritableJournal for LogFileJournalTx {
         let record_type: JournalEntryRecordType = entry.archive_record_type();
         state.file.write_all(&(record_type as u16).to_be_bytes())?;
         let offset_size = state.file.stream_position()?;
-        state.file.write_all(&[0u8; 6])?; // record size (48 bits)
+        state.file.write_all(&[0u8; 6])?; // record and pad size (48 bits)
 
         // Now serialize the actual data to the log
         let offset_start = state.file.stream_position()?;
@@ -135,13 +135,23 @@ impl WritableJournal for LogFileJournalTx {
         let offset_end = state.file.stream_position()?;
         let record_size = offset_end - offset_start;
 
+        // If the alightment is out then fail
+        if record_size % 8 != 0 {
+            tracing::error!(
+                "alignment is out for journal event (type={:?}, record_size={}, alignment={})",
+                record_type,
+                record_size,
+                record_size % 8
+            );
+        }
+
         // Write the record and then move back to the end again
         state.file.seek(SeekFrom::Start(offset_size))?;
         state.file.write_all(&record_size.to_be_bytes()[2..8])?;
         state.file.seek(SeekFrom::Start(offset_end))?;
 
         // Now write the actual data and update the offsets
-        Ok(())
+        Ok(record_size)
     }
 }
 
@@ -157,17 +167,30 @@ impl ReadableJournal for LogFileJournalRx {
         buffer_ptr.advance(*buffer_pos);
         loop {
             // Read the headers and advance
-            let header_size = 8;
-            if buffer_ptr.len() < header_size {
+            if buffer_ptr.len() < 8 {
                 return Ok(None);
             }
             let header = {
                 let b = buffer_ptr;
+
+                // If the next header is the magic itself then skip it.
+                // You may be wondering how a magic could appear later
+                // in the journal itself. This can happen if someone
+                // concat's multiple journals together to make a combined
+                // journal
+                if b[0..8] == JOURNAL_MAGIC_NUMBER_BYTES[0..8] {
+                    buffer_ptr.advance(8);
+                    *buffer_pos += 8;
+                    continue;
+                }
+
+                // Otherwise we decode the header
                 let header = JournalEntryHeader {
                     record_type: u16::from_be_bytes([b[0], b[1]]),
                     record_size: u64::from_be_bytes([0u8, 0u8, b[2], b[3], b[4], b[5], b[6], b[7]]),
                 };
                 buffer_ptr.advance(8);
+                *buffer_pos += 8;
                 header
             };
 
@@ -181,10 +204,9 @@ impl ReadableJournal for LogFileJournalRx {
                 return Ok(None);
             }
 
-            // Move the buffer position forward
+            // Move the buffer position forward past the record
             let entry = &buffer_ptr[..(header.record_size as usize)];
             buffer_ptr.advance(header.record_size as usize);
-            *buffer_pos += header_size;
             *buffer_pos += header.record_size as usize;
 
             // Now we read the entry
@@ -211,7 +233,7 @@ impl ReadableJournal for LogFileJournalRx {
 }
 
 impl WritableJournal for LogFileJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         self.tx.write(entry)
     }
 }
@@ -247,6 +269,15 @@ mod tests {
         journal
             .write(JournalEntry::CreatePipe { fd1: 1, fd2: 2 })
             .unwrap();
+        journal
+            .write(JournalEntry::SetThread {
+                id: 1.into(),
+                call_stack: vec![11; 116].into(),
+                memory_stack: vec![22; 16].into(),
+                store_data: vec![33; 136].into(),
+                is_64bit: false,
+            })
+            .unwrap();
         journal.write(JournalEntry::PortAddrClear).unwrap();
         drop(journal);
 
@@ -255,11 +286,22 @@ mod tests {
         let event1 = journal.read().unwrap();
         let event2 = journal.read().unwrap();
         let event3 = journal.read().unwrap();
+        let event4 = journal.read().unwrap();
 
         // Check the events
         assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
-        assert_eq!(event2, Some(JournalEntry::PortAddrClear));
-        assert_eq!(event3, None);
+        assert_eq!(
+            event2,
+            Some(JournalEntry::SetThread {
+                id: 1.into(),
+                call_stack: vec![11; 116].into(),
+                memory_stack: vec![22; 16].into(),
+                store_data: vec![33; 136].into(),
+                is_64bit: false,
+            })
+        );
+        assert_eq!(event3, Some(JournalEntry::PortAddrClear));
+        assert_eq!(event4, None);
 
         // Now write another event
         journal
@@ -289,10 +331,21 @@ mod tests {
         let event2 = journal.read().unwrap();
         let event3 = journal.read().unwrap();
         let event4 = journal.read().unwrap();
+        let event5 = journal.read().unwrap();
         assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
-        assert_eq!(event2, Some(JournalEntry::PortAddrClear));
         assert_eq!(
-            event3,
+            event2,
+            Some(JournalEntry::SetThread {
+                id: 1.into(),
+                call_stack: vec![11; 116].into(),
+                memory_stack: vec![22; 16].into(),
+                store_data: vec![33; 136].into(),
+                is_64bit: false,
+            })
+        );
+        assert_eq!(event3, Some(JournalEntry::PortAddrClear));
+        assert_eq!(
+            event4,
             Some(JournalEntry::SocketSend {
                 fd: 1234,
                 data: [12; 1024].to_vec().into(),
@@ -300,7 +353,7 @@ mod tests {
                 is_64bit: true,
             })
         );
-        assert_eq!(event4, None);
+        assert_eq!(event5, None);
 
         // Load it again
         let journal = LogFileJournal::new(file.path()).unwrap();
@@ -310,17 +363,29 @@ mod tests {
         let event3 = journal.read().unwrap();
         let event4 = journal.read().unwrap();
         let event5 = journal.read().unwrap();
+        let event6 = journal.read().unwrap();
 
         tracing::info!("event1 {:?}", event1);
         tracing::info!("event2 {:?}", event2);
         tracing::info!("event3 {:?}", event3);
         tracing::info!("event4 {:?}", event4);
         tracing::info!("event5 {:?}", event5);
+        tracing::info!("event6 {:?}", event6);
 
         assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
-        assert_eq!(event2, Some(JournalEntry::PortAddrClear));
         assert_eq!(
-            event3,
+            event2,
+            Some(JournalEntry::SetThread {
+                id: 1.into(),
+                call_stack: vec![11; 116].into(),
+                memory_stack: vec![22; 16].into(),
+                store_data: vec![33; 136].into(),
+                is_64bit: false,
+            })
+        );
+        assert_eq!(event3, Some(JournalEntry::PortAddrClear));
+        assert_eq!(
+            event4,
             Some(JournalEntry::SocketSend {
                 fd: 1234,
                 data: [12; 1024].to_vec().into(),
@@ -329,12 +394,12 @@ mod tests {
             })
         );
         assert_eq!(
-            event4,
+            event5,
             Some(JournalEntry::CreatePipe {
                 fd1: 1234,
                 fd2: 5432,
             })
         );
-        assert_eq!(event5, None);
+        assert_eq!(event6, None);
     }
 }

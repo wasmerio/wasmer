@@ -244,13 +244,13 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
-    pub fn add_snapshot_trigger(&mut self, on: crate::journaling::SnapshotTrigger) {
+    pub fn add_snapshot_trigger(&mut self, on: crate::journal::SnapshotTrigger) {
         self.wasi.snapshot_on.push(on);
     }
 
     #[cfg(feature = "journal")]
     pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
-        for on in crate::journaling::DEFAULT_SNAPSHOT_TRIGGERS {
+        for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
             if !self.has_snapshot_trigger(on) {
                 self.add_snapshot_trigger(on);
             }
@@ -259,21 +259,21 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
-    pub fn has_snapshot_trigger(&self, on: crate::journaling::SnapshotTrigger) -> bool {
+    pub fn has_snapshot_trigger(&self, on: crate::journal::SnapshotTrigger) -> bool {
         self.wasi.snapshot_on.iter().any(|t| *t == on)
     }
 
     #[cfg(feature = "journal")]
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
-        if !self.has_snapshot_trigger(crate::journaling::SnapshotTrigger::PeriodicInterval) {
-            self.add_snapshot_trigger(crate::journaling::SnapshotTrigger::PeriodicInterval);
+        if !self.has_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval) {
+            self.add_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval);
         }
         self.wasi.snapshot_interval.replace(period);
         self
     }
 
     #[cfg(feature = "journal")]
-    pub fn add_journal(&mut self, journal: Arc<crate::journaling::DynJournal>) -> &mut Self {
+    pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
         self.wasi.journals.push(journal);
         self
     }

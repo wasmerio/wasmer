@@ -1,3 +1,4 @@
+use super::base64;
 use serde::{Deserialize, Serialize};
 use std::net::{Shutdown, SocketAddr};
 use std::time::SystemTime;
@@ -38,16 +39,76 @@ pub enum SocketJournalEvent {
     },
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub enum SocketShutdownHow {
+    Read,
+    Write,
+    Both,
+}
+impl From<Shutdown> for SocketShutdownHow {
+    fn from(value: Shutdown) -> Self {
+        match value {
+            Shutdown::Read => Self::Read,
+            Shutdown::Write => Self::Write,
+            Shutdown::Both => Self::Both,
+        }
+    }
+}
+impl From<SocketShutdownHow> for Shutdown {
+    fn from(value: SocketShutdownHow) -> Self {
+        match value {
+            SocketShutdownHow::Read => Self::Read,
+            SocketShutdownHow::Write => Self::Write,
+            SocketShutdownHow::Both => Self::Both,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub enum SocketOptTimeType {
+    ReadTimeout,
+    WriteTimeout,
+    AcceptTimeout,
+    ConnectTimeout,
+    BindTimeout,
+    Linger,
+}
+impl From<TimeType> for SocketOptTimeType {
+    fn from(value: TimeType) -> Self {
+        match value {
+            TimeType::ReadTimeout => Self::ReadTimeout,
+            TimeType::WriteTimeout => Self::WriteTimeout,
+            TimeType::AcceptTimeout => Self::AcceptTimeout,
+            TimeType::ConnectTimeout => Self::ConnectTimeout,
+            TimeType::BindTimeout => Self::BindTimeout,
+            TimeType::Linger => Self::Linger,
+        }
+    }
+}
+impl From<SocketOptTimeType> for TimeType {
+    fn from(value: SocketOptTimeType) -> Self {
+        match value {
+            SocketOptTimeType::ReadTimeout => Self::ReadTimeout,
+            SocketOptTimeType::WriteTimeout => Self::WriteTimeout,
+            SocketOptTimeType::AcceptTimeout => Self::AcceptTimeout,
+            SocketOptTimeType::ConnectTimeout => Self::ConnectTimeout,
+            SocketOptTimeType::BindTimeout => Self::BindTimeout,
+            SocketOptTimeType::Linger => Self::Linger,
+        }
+    }
+}
+
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
 #[allow(clippy::large_enum_variant)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum JournalEntry<'a> {
     InitModule {
         wasm_hash: [u8; 32],
     },
     UpdateMemoryRegion {
         region: Range<u64>,
+        #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
     },
     ProcessExit {
@@ -55,8 +116,11 @@ pub enum JournalEntry<'a> {
     },
     SetThread {
         id: WasiThreadId,
+        #[serde(with = "base64")]
         call_stack: Cow<'a, [u8]>,
+        #[serde(with = "base64")]
         memory_stack: Cow<'a, [u8]>,
+        #[serde(with = "base64")]
         store_data: Cow<'a, [u8]>,
         is_64bit: bool,
     },
@@ -72,6 +136,7 @@ pub enum JournalEntry<'a> {
     FileDescriptorWrite {
         fd: Fd,
         offset: u64,
+        #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
         is_64bit: bool,
     },
@@ -273,6 +338,7 @@ pub enum JournalEntry<'a> {
     },
     SocketSendTo {
         fd: Fd,
+        #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
         flags: SiFlags,
         addr: SocketAddr,
@@ -280,6 +346,7 @@ pub enum JournalEntry<'a> {
     },
     SocketSend {
         fd: Fd,
+        #[serde(with = "base64")]
         data: Cow<'a, [u8]>,
         flags: SiFlags,
         is_64bit: bool,
@@ -296,12 +363,12 @@ pub enum JournalEntry<'a> {
     },
     SocketSetOptTime {
         fd: Fd,
-        ty: TimeType,
+        ty: SocketOptTimeType,
         time: Option<Duration>,
     },
     SocketShutdown {
         fd: Fd,
-        how: Shutdown,
+        how: SocketShutdownHow,
     },
     /// Represents the marker for the end of a snapshot
     Snapshot {
@@ -633,41 +700,81 @@ impl<'a> JournalEntry<'a> {
             Self::Snapshot { when, trigger } => JournalEntry::Snapshot { when, trigger },
         }
     }
+
+    pub fn estimate_size(&self) -> usize {
+        let base_size = std::mem::size_of_val(self);
+        match self {
+            JournalEntry::InitModule { .. } => base_size,
+            JournalEntry::UpdateMemoryRegion { data, .. } => base_size + data.len(),
+            JournalEntry::ProcessExit { .. } => base_size,
+            JournalEntry::SetThread {
+                call_stack,
+                memory_stack,
+                store_data,
+                ..
+            } => base_size + call_stack.len() + memory_stack.len() + store_data.len(),
+            JournalEntry::CloseThread { .. } => base_size,
+            JournalEntry::FileDescriptorSeek { .. } => base_size,
+            JournalEntry::FileDescriptorWrite { data, .. } => base_size + data.len(),
+            JournalEntry::SetClockTime { .. } => base_size,
+            JournalEntry::CloseFileDescriptor { .. } => base_size,
+            JournalEntry::OpenFileDescriptor { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::RenumberFileDescriptor { .. } => base_size,
+            JournalEntry::DuplicateFileDescriptor { .. } => base_size,
+            JournalEntry::CreateDirectory { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::RemoveDirectory { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::PathSetTimes { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::FileDescriptorSetTimes { .. } => base_size,
+            JournalEntry::FileDescriptorSetFlags { .. } => base_size,
+            JournalEntry::FileDescriptorSetRights { .. } => base_size,
+            JournalEntry::FileDescriptorSetSize { .. } => base_size,
+            JournalEntry::FileDescriptorAdvise { .. } => base_size,
+            JournalEntry::FileDescriptorAllocate { .. } => base_size,
+            JournalEntry::CreateHardLink {
+                old_path, new_path, ..
+            } => base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
+            JournalEntry::CreateSymbolicLink {
+                old_path, new_path, ..
+            } => base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
+            JournalEntry::UnlinkFile { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::PathRename {
+                old_path, new_path, ..
+            } => base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
+            JournalEntry::ChangeDirectory { path } => base_size + path.as_bytes().len(),
+            JournalEntry::EpollCreate { .. } => base_size,
+            JournalEntry::EpollCtl { .. } => base_size,
+            JournalEntry::TtySet { .. } => base_size,
+            JournalEntry::CreatePipe { .. } => base_size,
+            JournalEntry::CreateEvent { .. } => base_size,
+            JournalEntry::PortAddAddr { .. } => base_size,
+            JournalEntry::PortDelAddr { .. } => base_size,
+            JournalEntry::PortAddrClear => base_size,
+            JournalEntry::PortBridge { network, token, .. } => {
+                base_size + network.as_bytes().len() + token.as_bytes().len()
+            }
+            JournalEntry::PortUnbridge => base_size,
+            JournalEntry::PortDhcpAcquire => base_size,
+            JournalEntry::PortGatewaySet { .. } => base_size,
+            JournalEntry::PortRouteAdd { .. } => base_size,
+            JournalEntry::PortRouteClear => base_size,
+            JournalEntry::PortRouteDel { .. } => base_size,
+            JournalEntry::SocketOpen { .. } => base_size,
+            JournalEntry::SocketListen { .. } => base_size,
+            JournalEntry::SocketBind { .. } => base_size,
+            JournalEntry::SocketConnected { .. } => base_size,
+            JournalEntry::SocketAccepted { .. } => base_size,
+            JournalEntry::SocketJoinIpv4Multicast { .. } => base_size,
+            JournalEntry::SocketJoinIpv6Multicast { .. } => base_size,
+            JournalEntry::SocketLeaveIpv4Multicast { .. } => base_size,
+            JournalEntry::SocketLeaveIpv6Multicast { .. } => base_size,
+            JournalEntry::SocketSendFile { .. } => base_size,
+            JournalEntry::SocketSendTo { data, .. } => base_size + data.len(),
+            JournalEntry::SocketSend { data, .. } => base_size + data.len(),
+            JournalEntry::SocketSetOptFlag { .. } => base_size,
+            JournalEntry::SocketSetOptSize { .. } => base_size,
+            JournalEntry::SocketSetOptTime { .. } => base_size,
+            JournalEntry::SocketShutdown { .. } => base_size,
+            JournalEntry::Snapshot { .. } => base_size,
+        }
+    }
 }
-
-/// The snapshot capturer will take a series of objects that represents the state of
-/// a WASM process at a point in time and saves it so that it can be restored.
-/// It also allows for the restoration of that state at a later moment
-#[allow(unused_variables)]
-pub trait WritableJournal {
-    /// Takes in a stream of snapshot log entries and saves them so that they
-    /// may be restored at a later moment
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()>;
-}
-
-/// The snapshot capturer will take a series of objects that represents the state of
-/// a WASM process at a point in time and saves it so that it can be restored.
-/// It also allows for the restoration of that state at a later moment
-#[allow(unused_variables)]
-pub trait ReadableJournal {
-    /// Returns a stream of snapshot objects that the runtime will use
-    /// to restore the state of a WASM process to a previous moment in time
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>>;
-
-    /// Resets the journal so that reads will start from the
-    /// beginning again
-    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>>;
-}
-
-/// The snapshot capturer will take a series of objects that represents the state of
-/// a WASM process at a point in time and saves it so that it can be restored.
-/// It also allows for the restoration of that state at a later moment
-#[allow(unused_variables)]
-pub trait Journal: WritableJournal + ReadableJournal {
-    /// Splits the journal into a read and write side
-    fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>);
-}
-
-pub type DynJournal = dyn Journal + Send + Sync;
-pub type DynWritableJournal = dyn WritableJournal + Send + Sync;
-pub type DynReadableJournal = dyn ReadableJournal + Send + Sync;

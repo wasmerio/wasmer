@@ -3,7 +3,7 @@ use std::task::Waker;
 use super::*;
 #[cfg(feature = "journal")]
 use crate::{
-    journaling::{JournalEffector, JournalEntry},
+    journal::{JournalEffector, JournalEntry},
     utils::map_snapshot_err,
 };
 use crate::{net::socket::TimeType, syscalls::*};

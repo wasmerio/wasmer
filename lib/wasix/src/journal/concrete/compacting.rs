@@ -33,6 +33,10 @@ impl From<Range<u64>> for MemoryRange {
 struct State {
     // We maintain a memory map of the events that are significant
     memory_map: HashMap<MemoryRange, usize>,
+    // List of all the snapshots
+    snapshots: Vec<usize>,
+    // Last tty event thats been set
+    tty: Option<usize>,
     // Thread events are only maintained while the thread and the
     // process are still running
     thread_map: HashMap<crate::WasiThreadId, usize>,
@@ -64,6 +68,12 @@ impl State {
     {
         let mut filter = FilteredJournal::new(inner)
             .with_filter_events(self.whitelist.clone().into_iter().collect());
+        if let Some(tty) = self.tty.as_ref() {
+            filter.add_event_to_whitelist(*tty);
+        }
+        for e in self.snapshots.iter() {
+            filter.add_event_to_whitelist(*e);
+        }
         for (_, e) in self.memory_map.iter() {
             filter.add_event_to_whitelist(*e);
         }
@@ -120,6 +130,8 @@ impl CompactingJournal {
                 state: Arc::new(Mutex::new(State {
                     inner_tx: tx,
                     inner_rx: rx.as_restarted()?,
+                    tty: None,
+                    snapshots: Default::default(),
                     memory_map: Default::default(),
                     thread_map: Default::default(),
                     suspect_descriptors: Default::default(),
@@ -145,7 +157,7 @@ impl CompactingJournalTx {
     }
 
     /// Compacts the inner journal into a new journal
-    pub fn compact<J>(&mut self, new_journal: J) -> anyhow::Result<()>
+    pub fn compact_to<J>(&self, new_journal: J) -> anyhow::Result<()>
     where
         J: Journal,
     {
@@ -195,10 +207,17 @@ impl CompactingJournalTx {
 
         Ok(())
     }
+
+    pub fn replace_inner<J: Journal>(&self, inner: J) {
+        let mut state = self.state.lock().unwrap();
+        let (mut tx, mut rx) = inner.split();
+        std::mem::swap(&mut state.inner_tx, &mut tx);
+        std::mem::swap(&mut state.inner_rx, &mut rx);
+    }
 }
 
 impl WritableJournal for CompactingJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         let mut state = self.state.lock().unwrap();
         let event_index = state.event_index;
         state.event_index += 1;
@@ -217,11 +236,15 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::CloseThread { id, .. } => {
                 state.thread_map.remove(id);
             }
+            JournalEntry::Snapshot { .. } => {
+                state.snapshots.push(event_index);
+            }
             JournalEntry::ProcessExit { .. } => {
                 state.thread_map.clear();
                 state.memory_map.clear();
                 state.suspect_descriptors.clear();
                 state.whitelist.insert(event_index);
+                state.snapshots.clear();
             }
             JournalEntry::CloseFileDescriptor { fd } => {
                 // If its not suspect we need to record this event
@@ -233,6 +256,9 @@ impl WritableJournal for CompactingJournalTx {
                 } else {
                     state.whitelist.insert(event_index);
                 }
+            }
+            JournalEntry::TtySet { .. } => {
+                state.tty.replace(event_index);
             }
             JournalEntry::OpenFileDescriptor { fd, .. } => {
                 // All file descriptors are opened in a suspect state which
@@ -310,11 +336,19 @@ impl WritableJournal for CompactingJournalTx {
 
 impl CompactingJournal {
     /// Compacts the inner journal into a new journal
-    pub fn compact<J>(&mut self, new_journal: J) -> anyhow::Result<()>
+    pub fn compact_to<J>(&mut self, new_journal: J) -> anyhow::Result<()>
     where
         J: Journal,
     {
-        self.tx.compact(new_journal)
+        self.tx.compact_to(new_journal)
+    }
+
+    pub fn into_split(self) -> (CompactingJournalTx, CompactingJournalRx) {
+        (self.tx, self.rx)
+    }
+
+    pub fn replace_inner<J: Journal>(&self, inner: J) {
+        self.tx.replace_inner(inner)
     }
 }
 
@@ -329,7 +363,7 @@ impl ReadableJournal for CompactingJournalRx {
 }
 
 impl WritableJournal for CompactingJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<()> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         self.tx.write(entry)
     }
 }
@@ -363,18 +397,14 @@ mod tests {
         out_records: Vec<JournalEntry<'a>>,
     ) -> anyhow::Result<()> {
         // Build a journal that will store the records before compacting
-        let in_file = tempfile::NamedTempFile::new()?;
-        let mut compacting_journal = CompactingJournal::new(LogFileJournal::from_file(
-            in_file.as_file().try_clone().unwrap(),
-        )?)?;
+        let mut compacting_journal = CompactingJournal::new(BufferedJournal::new())?;
         for record in in_records {
             compacting_journal.write(record)?;
         }
 
         // Now we build a new one using the compactor
-        let new_file = tempfile::NamedTempFile::new()?;
-        let new_journal = LogFileJournal::from_file(new_file.as_file().try_clone()?)?;
-        compacting_journal.compact(new_journal)?;
+        let new_journal = BufferedJournal::new();
+        compacting_journal.compact_to(new_journal)?;
 
         // Read the records
         let new_records = compacting_journal.as_restarted()?;

@@ -9,7 +9,8 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, Login, Package, Publish, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, CmdJournal, Config, Init, Inspect, Login, Package, Publish, Run, SelfUpdate,
+    Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
@@ -130,6 +131,7 @@ impl Args {
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),
             Some(Cmd::App(apps)) => apps.run(),
+            Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
             None => {
@@ -265,6 +267,11 @@ enum Cmd {
     /// Run a WebAssembly file or Wasmer container.
     #[clap(alias = "run-unstable")]
     Run(Run),
+
+    /// Manage journals (compacting, inspecting, filtering, ...)
+    #[clap(subcommand)]
+    #[cfg(feature = "journal")]
+    Journal(CmdJournal),
 
     #[clap(subcommand)]
     Package(crate::commands::Package),
