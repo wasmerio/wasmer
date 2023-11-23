@@ -74,7 +74,7 @@ impl CmdJournalFilter {
             .to_string_lossy()
             .to_string();
         temp_filename.insert_str(0, ".staging.");
-        let temp_path = self.target_path.clone().with_file_name(&temp_filename);
+        let temp_path = self.target_path.with_file_name(&temp_filename);
         std::fs::remove_file(&temp_path).ok();
 
         // Load the source journal and the target journal (in the temp location)
@@ -100,7 +100,7 @@ impl CmdJournalFilter {
         std::fs::rename(temp_path, self.target_path.clone())?;
 
         // Now print the outcome
-        let journal = LogFileJournal::new(self.target_path.clone())?;
+        let journal = LogFileJournal::new(&self.target_path)?;
         let printer = PrintingJournal::default();
         copy_journal(&journal, &printer)?;
         Ok(())
