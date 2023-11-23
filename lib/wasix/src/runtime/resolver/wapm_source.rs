@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use http::{HeaderMap, Method};
-use semver::Version;
+use semver::{Version, VersionReq};
 use url::Url;
 use webc::metadata::Manifest;
 
@@ -58,39 +58,6 @@ impl WapmSource {
 
     pub fn registry_endpoint(&self) -> &Url {
         &self.registry_endpoint
-    }
-
-    async fn lookup_package(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
-        if let Some(cache) = &self.cache {
-            match cache.lookup_cached_query(package_name) {
-                Ok(Some(cached)) => {
-                    tracing::debug!("Cache hit!");
-                    return Ok(cached);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        package_name,
-                        error = &*e,
-                        "An unexpected error occurred while checking the local query cache",
-                    );
-                }
-            }
-        }
-
-        let response = self.query_graphql(package_name).await?;
-
-        if let Some(cache) = &self.cache {
-            if let Err(e) = cache.update(package_name, &response) {
-                tracing::warn!(
-                    package_name,
-                    error = &*e,
-                    "An error occurred while caching the GraphQL response",
-                );
-            }
-        }
-
-        Ok(response)
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -171,63 +138,99 @@ impl Source for WapmSource {
             _ => return Err(QueryError::Unsupported),
         };
 
-        let response: WapmWebQuery = self.lookup_package(full_name).await?;
-
-        let mut summaries = Vec::new();
-
-        let WapmWebQueryGetPackage {
-            package_name,
-            namespace,
-            versions,
-        } = response.data.get_package.ok_or(QueryError::NotFound)?;
-        let mut archived_versions = Vec::new();
-
-        for pkg_version in versions {
-            let version = match Version::parse(&pkg_version.version) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::debug!(
-                        pkg.version = pkg_version.version.as_str(),
-                        error = &e as &dyn std::error::Error,
-                        "Skipping a version because it doesn't have a valid version numer",
-                    );
-                    continue;
-                }
-            };
-
-            if pkg_version.is_archived {
-                tracing::debug!(
-                    pkg.version=%version,
-                    "Skipping an archived version",
-                );
-                archived_versions.push(version);
-                continue;
-            }
-
-            if version_constraint.matches(&version) {
-                match decode_summary(
-                    pkg_version,
-                    &response.data.info.default_frontend,
-                    &namespace,
-                    &package_name,
-                ) {
-                    Ok(summary) => summaries.push(summary),
-                    Err(e) => {
-                        tracing::debug!(
-                            version=%version,
-                            error=&*e,
-                            "Skipping version because its metadata couldn't be parsed"
-                        );
+        if let Some(cache) = &self.cache {
+            match cache.lookup_cached_query(package_name) {
+                Ok(Some(cached)) => {
+                    if let Ok(cached) = matching_package_summaries(cached, version_constraint) {
+                        tracing::debug!("Cache hit!");
+                        return Ok(cached);
                     }
                 }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        package_name,
+                        error = &*e,
+                        "An unexpected error occurred while checking the local query cache",
+                    );
+                }
             }
         }
 
-        if summaries.is_empty() {
-            Err(QueryError::NoMatches { archived_versions })
-        } else {
-            Ok(summaries)
+        let response = self.query_graphql(package_name).await?;
+
+        if let Some(cache) = &self.cache {
+            if let Err(e) = cache.update(package_name, &response) {
+                tracing::warn!(
+                    package_name,
+                    error = &*e,
+                    "An error occurred while caching the GraphQL response",
+                );
+            }
         }
+
+        matching_package_summaries(response, version_constraint)
+    }
+}
+
+fn matching_package_summaries(
+    response: WapmWebQuery,
+    version_constraint: &VersionReq,
+) -> Result<Vec<PackageSummary>, QueryError> {
+    let mut summaries = Vec::new();
+
+    let WapmWebQueryGetPackage {
+        package_name,
+        namespace,
+        versions,
+    } = response.data.get_package.ok_or(QueryError::NotFound)?;
+    let mut archived_versions = Vec::new();
+
+    for pkg_version in versions {
+        let version = match Version::parse(&pkg_version.version) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::debug!(
+                    pkg.version = pkg_version.version.as_str(),
+                    error = &e as &dyn std::error::Error,
+                    "Skipping a version because it doesn't have a valid version numer",
+                );
+                continue;
+            }
+        };
+
+        if pkg_version.is_archived {
+            tracing::debug!(
+                pkg.version=%version,
+                "Skipping an archived version",
+            );
+            archived_versions.push(version);
+            continue;
+        }
+
+        if version_constraint.matches(&version) {
+            match decode_summary(
+                pkg_version,
+                &response.data.info.default_frontend,
+                &namespace,
+                &package_name,
+            ) {
+                Ok(summary) => summaries.push(summary),
+                Err(e) => {
+                    tracing::debug!(
+                        version=%version,
+                        error=&*e,
+                        "Skipping version because its metadata couldn't be parsed"
+                    );
+                }
+            }
+        }
+    }
+
+    if summaries.is_empty() {
+        Err(QueryError::NoMatches { archived_versions })
+    } else {
+        Ok(summaries)
     }
 }
 
