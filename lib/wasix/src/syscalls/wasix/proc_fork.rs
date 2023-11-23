@@ -247,8 +247,9 @@ fn run<M: MemorySize>(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
+        let mut ctx = ctx.env.clone().into_mut(&mut store);
         let res = rewind_ext::<M>(
-            ctx.env.clone().into_mut(&mut store),
+            &mut ctx,
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,

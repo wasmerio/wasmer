@@ -121,8 +121,8 @@ use crate::{
     os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes, WasiResult,
-    WasiRuntimeError,
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
+    WasiResult, WasiRuntimeError,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1112,7 +1112,7 @@ where
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
-    ctx: FunctionEnvMut<WasiEnv>,
+    mut ctx: FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
@@ -1123,7 +1123,7 @@ where
 {
     let rewind_result = bincode::serialize(&result).unwrap().into();
     rewind_ext::<M>(
-        ctx,
+        &mut ctx,
         memory_stack,
         rewind_stack,
         store_data,
@@ -1134,7 +1134,7 @@ where
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiEnv>,
+    ctx: &mut FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
@@ -1154,7 +1154,7 @@ pub fn rewind_ext<M: MemorySize>(
             return Errno::Unknown;
         }
     };
-    crate::utils::store::restore_instance_snapshot(&mut ctx, &store_snapshot);
+    crate::utils::store::restore_instance_snapshot(ctx, &store_snapshot);
     let env = ctx.data();
     let memory = match env.try_memory_view(&ctx) {
         Some(v) => v,
@@ -1209,13 +1209,47 @@ pub fn rewind_ext<M: MemorySize>(
         .filter_map(|a| a.asyncify_start_rewind.clone())
         .next()
     {
-        asyncify_start_rewind.call(&mut ctx, asyncify_data);
+        asyncify_start_rewind.call(ctx, asyncify_data);
     } else {
         warn!("failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible");
         return Errno::Noexec;
     }
 
     Errno::Success
+}
+
+pub fn rewind_ext2(
+    ctx: &mut FunctionEnvMut<WasiEnv>,
+    rewind_state: RewindStateOption,
+) -> Result<(), ExitCode> {
+    if let Some((rewind_state, rewind_result)) = rewind_state {
+        tracing::trace!("Rewinding");
+        let errno = if rewind_state.is_64bit {
+            crate::rewind_ext::<wasmer_types::Memory64>(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        } else {
+            crate::rewind_ext::<wasmer_types::Memory32>(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        };
+
+        if errno != Errno::Success {
+            let exit_code = ExitCode::from(errno);
+            ctx.data().on_exit(Some(exit_code));
+            return Err(exit_code);
+        }
+    }
+
+    Ok(())
 }
 
 #[allow(clippy::extra_unused_type_parameters)]

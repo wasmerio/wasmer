@@ -243,7 +243,8 @@ impl WasiProcessInner {
                 trace!("checkpoint finished");
 
                 // Rewind the stack and carry on
-                return match rewind_ext::<M>(ctx, memory_stack, rewind_stack, store_data, None) {
+                return match rewind_ext::<M>(&mut ctx, memory_stack, rewind_stack, store_data, None)
+                {
                     Errno::Success => OnCalledAction::InvokeAgain,
                     err => {
                         tracing::warn!(

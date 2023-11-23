@@ -6,7 +6,6 @@ use std::{
     sync::Arc,
 };
 
-use bytes::Bytes;
 use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
@@ -23,7 +22,7 @@ use crate::{
     runtime::{module_cache::ModuleHash, task_manager::InlineWaker},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
+    RewindStateOption, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 #[cfg(feature = "journal")]
 use crate::{
@@ -1095,15 +1094,16 @@ fn wasi_exit_code(
 
 fn run_with_deep_sleep(
     mut store: Store,
-    rewind_state: Option<(RewindState, Option<Bytes>)>,
+    rewind_state: RewindStateOption,
     env: WasiFunctionEnv,
     sender: tokio::sync::mpsc::UnboundedSender<Result<(), WasiRuntimeError>>,
 ) {
     if let Some((rewind_state, rewind_result)) = rewind_state {
         tracing::trace!("Rewinding");
+        let mut ctx = env.env.clone().into_mut(&mut store);
         let errno = if rewind_state.is_64bit {
             crate::rewind_ext::<wasmer_types::Memory64>(
-                env.env.clone().into_mut(&mut store),
+                &mut ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
@@ -1111,7 +1111,7 @@ fn run_with_deep_sleep(
             )
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
-                env.env.clone().into_mut(&mut store),
+                &mut ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,

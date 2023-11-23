@@ -162,28 +162,29 @@ fn call_module(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
+        let mut ctx = ctx.env.clone().into_mut(&mut store);
         if rewind_state.is_64bit {
             let res = rewind_ext::<Memory64>(
-                ctx.env.clone().into_mut(&mut store),
+                &mut ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 Some(rewind_result),
             );
             if res != Errno::Success {
-                ctx.data(&store).blocking_on_exit(Some(res.into()));
+                ctx.data().blocking_on_exit(Some(res.into()));
                 return;
             }
         } else {
             let res = rewind_ext::<Memory32>(
-                ctx.env.clone().into_mut(&mut store),
+                &mut ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 Some(rewind_result),
             );
             if res != Errno::Success {
-                ctx.data(&store).blocking_on_exit(Some(res.into()));
+                ctx.data().blocking_on_exit(Some(res.into()));
                 return;
             }
         };
