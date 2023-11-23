@@ -720,6 +720,93 @@
 <a href="#720" id="720">720</a>
 <a href="#721" id="721">721</a>
 <a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -728,7 +815,7 @@
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>http::{HeaderMap, Method};
-<span class="kw">use </span>semver::Version;
+<span class="kw">use </span>semver::{Version, VersionReq};
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>webc::metadata::Manifest;
 
@@ -780,39 +867,6 @@
 
     <span class="kw">pub fn </span>registry_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Url {
         <span class="kw-2">&amp;</span><span class="self">self</span>.registry_endpoint
-    }
-
-    <span class="kw">async fn </span>lookup_package(<span class="kw-2">&amp;</span><span class="self">self</span>, package_name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;WapmWebQuery, Error&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
-            <span class="kw">match </span>cache.lookup_cached_query(package_name) {
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached)) =&gt; {
-                    <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(cached);
-                }
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {}
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">tracing::warn!</span>(
-                        package_name,
-                        error = <span class="kw-2">&amp;*</span>e,
-                        <span class="string">&quot;An unexpected error occurred while checking the local query cache&quot;</span>,
-                    );
-                }
-            }
-        }
-
-        <span class="kw">let </span>response = <span class="self">self</span>.query_graphql(package_name).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
-            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = cache.update(package_name, <span class="kw-2">&amp;</span>response) {
-                <span class="macro">tracing::warn!</span>(
-                    package_name,
-                    error = <span class="kw-2">&amp;*</span>e,
-                    <span class="string">&quot;An error occurred while caching the GraphQL response&quot;</span>,
-                );
-            }
-        }
-
-        <span class="prelude-val">Ok</span>(response)
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
@@ -888,68 +942,104 @@
 </span><span class="kw">impl </span>Source <span class="kw">for </span>WapmSource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
     </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
-        <span class="kw">let </span>(full_name, version_constraint) = <span class="kw">match </span>package {
+        <span class="kw">let </span>(package_name, version_constraint) = <span class="kw">match </span>package {
             PackageSpecifier::Registry { full_name, version } =&gt; (full_name, version),
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::Unsupported),
         };
 
-        <span class="kw">let </span>response: WapmWebQuery = <span class="self">self</span>.lookup_package(full_name).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">let </span><span class="kw-2">mut </span>summaries = Vec::new();
-
-        <span class="kw">let </span>WapmWebQueryGetPackage {
-            package_name,
-            namespace,
-            versions,
-        } = response.data.get_package.ok_or(QueryError::NotFound)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>archived_versions = Vec::new();
-
-        <span class="kw">for </span>pkg_version <span class="kw">in </span>versions {
-            <span class="kw">let </span>version = <span class="kw">match </span>Version::parse(<span class="kw-2">&amp;</span>pkg_version.version) {
-                <span class="prelude-val">Ok</span>(v) =&gt; v,
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">tracing::debug!</span>(
-                        pkg.version = pkg_version.version.as_str(),
-                        error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                        <span class="string">&quot;Skipping a version because it doesn&#39;t have a valid version numer&quot;</span>,
-                    );
-                    <span class="kw">continue</span>;
-                }
-            };
-
-            <span class="kw">if </span>pkg_version.is_archived {
-                <span class="macro">tracing::debug!</span>(
-                    pkg.version=%version,
-                    <span class="string">&quot;Skipping an archived version&quot;</span>,
-                );
-                archived_versions.push(version);
-                <span class="kw">continue</span>;
-            }
-
-            <span class="kw">if </span>version_constraint.matches(<span class="kw-2">&amp;</span>version) {
-                <span class="kw">match </span>decode_summary(
-                    pkg_version,
-                    <span class="kw-2">&amp;</span>response.data.info.default_frontend,
-                    <span class="kw-2">&amp;</span>namespace,
-                    <span class="kw-2">&amp;</span>package_name,
-                ) {
-                    <span class="prelude-val">Ok</span>(summary) =&gt; summaries.push(summary),
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">tracing::debug!</span>(
-                            version=%version,
-                            error=<span class="kw-2">&amp;*</span>e,
-                            <span class="string">&quot;Skipping version because its metadata couldn&#39;t be parsed&quot;
-                        </span>);
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
+            <span class="kw">match </span>cache.lookup_cached_query(package_name) {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached)) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(cached) = matching_package_summaries(cached, version_constraint) {
+                        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(cached);
                     }
                 }
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {}
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::warn!</span>(
+                        package_name,
+                        error = <span class="kw-2">&amp;*</span>e,
+                        <span class="string">&quot;An unexpected error occurred while checking the local query cache&quot;</span>,
+                    );
+                }
             }
         }
 
-        <span class="kw">if </span>summaries.is_empty() {
-            <span class="prelude-val">Err</span>(QueryError::NoMatches { archived_versions })
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>(summaries)
+        <span class="kw">let </span>response = <span class="self">self</span>.query_graphql(package_name).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = cache.update(package_name, <span class="kw-2">&amp;</span>response) {
+                <span class="macro">tracing::warn!</span>(
+                    package_name,
+                    error = <span class="kw-2">&amp;*</span>e,
+                    <span class="string">&quot;An error occurred while caching the GraphQL response&quot;</span>,
+                );
+            }
         }
+
+        matching_package_summaries(response, version_constraint)
+    }
+}
+
+<span class="kw">fn </span>matching_package_summaries(
+    response: WapmWebQuery,
+    version_constraint: <span class="kw-2">&amp;</span>VersionReq,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>summaries = Vec::new();
+
+    <span class="kw">let </span>WapmWebQueryGetPackage {
+        package_name,
+        namespace,
+        versions,
+    } = response.data.get_package.ok_or(QueryError::NotFound)<span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>archived_versions = Vec::new();
+
+    <span class="kw">for </span>pkg_version <span class="kw">in </span>versions {
+        <span class="kw">let </span>version = <span class="kw">match </span>Version::parse(<span class="kw-2">&amp;</span>pkg_version.version) {
+            <span class="prelude-val">Ok</span>(v) =&gt; v,
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::debug!</span>(
+                    pkg.version = pkg_version.version.as_str(),
+                    error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    <span class="string">&quot;Skipping a version because it doesn&#39;t have a valid version numer&quot;</span>,
+                );
+                <span class="kw">continue</span>;
+            }
+        };
+
+        <span class="kw">if </span>pkg_version.is_archived {
+            <span class="macro">tracing::debug!</span>(
+                pkg.version=%version,
+                <span class="string">&quot;Skipping an archived version&quot;</span>,
+            );
+            archived_versions.push(version);
+            <span class="kw">continue</span>;
+        }
+
+        <span class="kw">if </span>version_constraint.matches(<span class="kw-2">&amp;</span>version) {
+            <span class="kw">match </span>decode_summary(
+                pkg_version,
+                <span class="kw-2">&amp;</span>response.data.info.default_frontend,
+                <span class="kw-2">&amp;</span>namespace,
+                <span class="kw-2">&amp;</span>package_name,
+            ) {
+                <span class="prelude-val">Ok</span>(summary) =&gt; summaries.push(summary),
+                <span class="prelude-val">Err</span>(e) =&gt; {
+                    <span class="macro">tracing::debug!</span>(
+                        version=%version,
+                        error=<span class="kw-2">&amp;*</span>e,
+                        <span class="string">&quot;Skipping version because its metadata couldn&#39;t be parsed&quot;
+                    </span>);
+                }
+            }
+        }
+    }
+
+    <span class="kw">if </span>summaries.is_empty() {
+        <span class="prelude-val">Err</span>(QueryError::NoMatches { archived_versions })
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Ok</span>(summaries)
     }
 }
 
@@ -1440,6 +1530,90 @@
 
         <span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
         <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.version.to_string(), <span class="string">&quot;3.12.1&quot;</span>);
+    }
+
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>query_the_backend_again_if_cached_queries_dont_match() {
+        <span class="kw">let </span>cached_value = serde_json::from_value(<span class="macro">serde_json::json! </span>{
+            {
+                <span class="string">&quot;data&quot;</span>: {
+                    <span class="string">&quot;getPackage&quot;</span>: {
+                        <span class="string">&quot;packageName&quot;</span>: <span class="string">&quot;python&quot;</span>,
+                        <span class="string">&quot;namespace&quot;</span>: <span class="string">&quot;wasmer&quot;</span>,
+                        <span class="string">&quot;versions&quot;</span>: [
+                            {
+                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.0&quot;</span>,
+                                <span class="string">&quot;piritaManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
+                                <span class="string">&quot;distribution&quot;</span>: {
+                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@3.12.0&quot;</span>,
+                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&quot;
+                                </span>}
+                            },
+                        ]
+                    },
+                    <span class="string">&quot;info&quot;</span>: {
+                        <span class="string">&quot;defaultFrontend&quot;</span>: <span class="string">&quot;https://wasmer.io/&quot;</span>,
+                    },
+                }
+            }
+        }).unwrap();
+        <span class="kw">let </span>body = <span class="macro">serde_json::json! </span>{
+            {
+                <span class="string">&quot;data&quot;</span>: {
+                    <span class="string">&quot;getPackage&quot;</span>: {
+                        <span class="string">&quot;packageName&quot;</span>: <span class="string">&quot;python&quot;</span>,
+                        <span class="string">&quot;namespace&quot;</span>: <span class="string">&quot;wasmer&quot;</span>,
+                        <span class="string">&quot;versions&quot;</span>: [
+                            {
+                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;4.0.0&quot;</span>,
+                                <span class="string">&quot;piritaManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;4.0.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
+                                <span class="string">&quot;distribution&quot;</span>: {
+                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@4.0.0&quot;</span>,
+                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb&quot;
+                                </span>}
+                            },
+                            {
+                                <span class="string">&quot;version&quot;</span>: <span class="string">&quot;3.12.0&quot;</span>,
+                                <span class="string">&quot;piritaManifest&quot;</span>: <span class="string">&quot;{\&quot;package\&quot;: {\&quot;wapm\&quot;: {\&quot;name\&quot;: \&quot;wasmer/python\&quot;, \&quot;version\&quot;: \&quot;3.12.0\&quot;, \&quot;description\&quot;: \&quot;Python\&quot;}}}&quot;</span>,
+                                <span class="string">&quot;distribution&quot;</span>: {
+                                    <span class="string">&quot;piritaDownloadUrl&quot;</span>: <span class="string">&quot;https://wasmer.io/wasmer/python@3.12.0&quot;</span>,
+                                    <span class="string">&quot;piritaSha256Hash&quot;</span>: <span class="string">&quot;aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&quot;
+                                </span>}
+                            },
+                        ]
+                    },
+                    <span class="string">&quot;info&quot;</span>: {
+                        <span class="string">&quot;defaultFrontend&quot;</span>: <span class="string">&quot;https://wasmer.io/&quot;</span>,
+                    },
+                }
+            }
+        };
+        <span class="kw">let </span>response = HttpResponse {
+            body: <span class="prelude-val">Some</span>(serde_json::to_vec(<span class="kw-2">&amp;</span>body).unwrap()),
+            redirected: <span class="bool-val">false</span>,
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
+        };
+        <span class="kw">let </span>client = Arc::new(DummyClient::new(<span class="macro">vec!</span>[response]));
+        <span class="kw">let </span>registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        <span class="kw">let </span>request = PackageSpecifier::Registry {
+            full_name: <span class="string">&quot;wasmer/python&quot;</span>.to_string(),
+            version: <span class="string">&quot;4.0.0&quot;</span>.parse().unwrap(),
+        };
+        <span class="kw">let </span>temp = tempfile::tempdir().unwrap();
+        <span class="kw">let </span>source = WapmSource::new(registry_endpoint, client.clone())
+            .with_local_cache(temp.path(), Duration::from_secs(<span class="number">0</span>));
+        source
+            .cache
+            .as_ref()
+            .unwrap()
+            .update(<span class="string">&quot;wasmer/python&quot;</span>, <span class="kw-2">&amp;</span>cached_value)
+            .unwrap();
+
+        <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>request).<span class="kw">await</span>.unwrap();
+
+        <span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.version.to_string(), <span class="string">&quot;4.0.0&quot;</span>);
     }
 }
 </code></pre></div></section></main></body></html>
