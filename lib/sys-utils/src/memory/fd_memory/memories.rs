@@ -131,6 +131,11 @@ impl WasmMmap {
         Ok(prev_pages)
     }
 
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.size.0 = 0;
+        Ok(())
+    }
+
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
     pub fn copy(&mut self) -> Result<Self, MemoryError> {
@@ -337,6 +342,11 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.grow(delta, self.config.clone())
     }
 
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.mmap.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         self.mmap.vm_memory_definition.as_ptr()
@@ -416,6 +426,13 @@ impl LinearMemory for VMSharedMemory {
     fn size(&self) -> Pages {
         let guard = self.mmap.read().unwrap();
         guard.size()
+    }
+
+    /// Resets the memory back down to zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.reset();
+        Ok(())
     }
 
     /// Returns the memory style for this memory.
@@ -501,6 +518,12 @@ impl LinearMemory for VMMemory {
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
         self.0.grow(delta)
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.0.reset();
+        OK(())
     }
 
     /// Returns the memory style for this memory.

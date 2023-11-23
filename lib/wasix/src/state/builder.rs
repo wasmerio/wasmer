@@ -948,7 +948,9 @@ impl WasiEnvBuilder {
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
         // Bootstrap the process
-        let rewind_state = env.bootstrap(store)?;
+        // Unsafe: The bootstrap must be executed in the same thread that runs the
+        //         actual WASM code
+        let rewind_state = unsafe { env.bootstrap(store)? };
         if rewind_state.is_some() {
             let mut ctx = env.env.clone().into_mut(store);
             rewind_ext2(&mut ctx, rewind_state)
@@ -1002,9 +1004,6 @@ impl WasiEnvBuilder {
 
         env.data(&store).thread.set_status_running();
 
-        // Bootstrap the process
-        let rewind_state = env.bootstrap(&mut store)?;
-
         let tasks = env.data(&store).tasks().clone();
         let pid = env.data(&store).pid();
         let tid = env.data(&store).tid();
@@ -1015,6 +1014,18 @@ impl WasiEnvBuilder {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
 
         tasks.task_dedicated(Box::new(move || {
+            // Unsafe: The bootstrap must be executed in the same thread that runs the
+            //         actual WASM code
+            let rewind_state = unsafe {
+                match env.bootstrap(&mut store) {
+                    Ok(a) => a,
+                    Err(err) => {
+                        env.on_exit(&mut store, None);
+                        tx.send(Err(err)).ok();
+                        return;
+                    }
+                }
+            };
             run_with_deep_sleep(store, rewind_state, env, tx);
         }))?;
 

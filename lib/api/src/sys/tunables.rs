@@ -106,6 +106,12 @@ mod tests {
                 attempted_delta: delta,
             })
         }
+
+        fn reset(&mut self) -> Result<(), MemoryError> {
+            self.mem.fill(0);
+            Ok(())
+        }
+
         fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
             unsafe {
                 NonNull::new(

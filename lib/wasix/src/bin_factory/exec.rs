@@ -120,7 +120,9 @@ pub fn spawn_exec_module(
                 };
 
                 // Bootstrap the process
-                let rewind_state = match ctx.bootstrap(&mut store) {
+                // Unsafe: The bootstrap must be executed in the same thread that runs the
+                //         actual WASM code
+                let rewind_state = match unsafe { ctx.bootstrap(&mut store) } {
                     Ok(r) => r,
                     Err(err) => {
                         thread.thread.set_status_finished(Err(err));

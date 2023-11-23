@@ -1324,25 +1324,29 @@ pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
     WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
 }
 
+/// Safety: This function manipulates the memory of the process and thus must
+/// be executed by the WASM process thread itself.
+///
 #[allow(clippy::result_large_err)]
 #[cfg(feature = "journal")]
-pub fn restore_snapshot(
+pub unsafe fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     journal: Arc<DynJournal>,
 ) -> Result<Option<RewindState>, WasiRuntimeError> {
     use crate::journal::Journal;
 
-    let mut is_same_module = true;
+    let cur_module_hash = Some(ctx.data().process.module_hash.as_bytes());
+    let mut journal_module_hash = None;
     let mut rewind = None;
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
         tracing::trace!("Restoring snapshot event - {next:?}");
         match next {
             crate::journal::JournalEntry::InitModule { wasm_hash } => {
-                is_same_module = ctx.data().process.module_hash.as_bytes()[0..16] == wasm_hash;
+                journal_module_hash.replace(wasm_hash);
             }
             crate::journal::JournalEntry::ProcessExit { exit_code } => {
                 rewind = None;
-                JournalEffector::apply_process_exit(ctx.data(), exit_code)
+                JournalEffector::apply_process_exit(&mut ctx, exit_code)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::FileDescriptorWrite {
@@ -1363,7 +1367,7 @@ pub fn restore_snapshot(
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::UpdateMemoryRegion { region, data } => {
-                if !is_same_module {
+                if cur_module_hash != journal_module_hash {
                     continue;
                 }
                 JournalEffector::apply_memory(&mut ctx, region, &data)
@@ -1371,7 +1375,7 @@ pub fn restore_snapshot(
             }
             crate::journal::JournalEntry::CloseThread { id, exit_code } => {
                 if id == ctx.data().tid() {
-                    JournalEffector::apply_process_exit(ctx.data(), exit_code)
+                    JournalEffector::apply_process_exit(&mut ctx, exit_code)
                         .map_err(anyhow_err_to_runtime_err)?;
                 } else {
                     JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
@@ -1385,7 +1389,7 @@ pub fn restore_snapshot(
                 store_data,
                 is_64bit,
             } => {
-                if !is_same_module {
+                if cur_module_hash != journal_module_hash {
                     continue;
                 }
                 if id == ctx.data().tid() {
@@ -1451,7 +1455,7 @@ pub fn restore_snapshot(
                 when: _,
                 trigger: _,
             } => {
-                if !is_same_module {
+                if cur_module_hash != journal_module_hash {
                     continue;
                 }
             }
@@ -1750,11 +1754,13 @@ pub fn restore_snapshot(
     // If we are not in the same module then we fire off an exit
     // that simulates closing the process (hence keeps everything
     // in a clean state)
-    if !is_same_module {
+    if journal_module_hash.is_some() && cur_module_hash != journal_module_hash {
         eprintln!(
-            "The WASM module hash does not match the journal module hash - forcing a restart"
+            "The WASM module hash does not match the journal module hash (journal_hash={:x?} vs module_hash{:x?}) - forcing a restart",
+            journal_module_hash.unwrap(),
+            cur_module_hash.unwrap()
         );
-        JournalEffector::apply_process_exit(ctx.data(), None).map_err(anyhow_err_to_runtime_err)?;
+        JournalEffector::apply_process_exit(&mut ctx, None).map_err(anyhow_err_to_runtime_err)?;
         rewind = None;
     } else {
         tracing::debug!(

@@ -51,6 +51,11 @@ impl Memory {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.handle.get_mut(store.objects_mut()).reset()?;
+        Ok(())
+    }
+
     pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
         Self {
             handle: unsafe {
