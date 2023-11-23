@@ -119,12 +119,23 @@ pub fn spawn_exec_module(
                     WasiFunctionEnv { env: ctx.env }
                 };
 
+                // Bootstrap the process
+                let rewind_state = match ctx.bootstrap(&mut store) {
+                    Ok(r) => r,
+                    Err(err) => {
+                        thread.thread.set_status_finished(Err(err.into()));
+                        ctx.data(&store)
+                            .blocking_on_exit(Some(Errno::Noexec.into()));
+                        return;
+                    }
+                };
+
                 // If there is a start function
                 debug!("wasi[{}]::called main()", pid);
                 // TODO: rewrite to use crate::run_wasi_func
 
                 // Call the module
-                call_module(ctx, store, thread, None);
+                call_module(ctx, store, thread, rewind_state);
             }
         };
 

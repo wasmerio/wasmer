@@ -1332,7 +1332,7 @@ pub fn restore_snapshot(
 ) -> Result<Option<RewindState>, WasiRuntimeError> {
     use crate::journal::Journal;
 
-    let mut is_same_module = false;
+    let mut is_same_module = true;
     let mut rewind = None;
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
         tracing::trace!("Restoring snapshot event - {next:?}");
@@ -1341,6 +1341,7 @@ pub fn restore_snapshot(
                 is_same_module = ctx.data().process.module_hash.as_bytes()[0..16] == wasm_hash;
             }
             crate::journal::JournalEntry::ProcessExit { exit_code } => {
+                rewind = None;
                 JournalEffector::apply_process_exit(ctx.data(), exit_code)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
@@ -1370,12 +1371,11 @@ pub fn restore_snapshot(
             }
             crate::journal::JournalEntry::CloseThread { id, exit_code } => {
                 if id == ctx.data().tid() {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                        anyhow::format_err!(
-                            "Snapshot restoration has already closed the main thread."
-                        )
-                        .into(),
-                    )));
+                    JournalEffector::apply_process_exit(ctx.data(), exit_code)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                } else {
+                    JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
             }
             crate::journal::JournalEntry::SetThread {
@@ -1751,7 +1751,11 @@ pub fn restore_snapshot(
     // that simulates closing the process (hence keeps everything
     // in a clean state)
     if !is_same_module {
+        eprintln!(
+            "The WASM module hash does not match the journal module hash - forcing a restart"
+        );
         JournalEffector::apply_process_exit(ctx.data(), None).map_err(anyhow_err_to_runtime_err)?;
+        rewind = None;
     } else {
         tracing::debug!(
             "journal used on a different module - the process will simulate a restart."

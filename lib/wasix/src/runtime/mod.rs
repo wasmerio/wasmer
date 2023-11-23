@@ -11,7 +11,7 @@ use self::{
 
 use std::{
     fmt,
-    sync::{Arc, Mutex},
+    sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
 use derivative::Derivative;
@@ -115,6 +115,13 @@ where
         &EMPTY_JOURNAL_LIST
     }
 
+    /// Pops the restore list of journals that will be replayed before the
+    /// instance gets going
+    #[cfg(feature = "journal")]
+    fn pop_restore_journals(&self) -> &'_ Vec<Arc<DynJournal>> {
+        &EMPTY_JOURNAL_LIST
+    }
+
     /// The snapshot capturer takes and restores snapshots of the WASM process at specific
     /// points in time by reading and writing log entries
     #[cfg(feature = "journal")]
@@ -202,6 +209,7 @@ pub struct PluggableRuntime {
     #[cfg(feature = "journal")]
     #[derivative(Debug = "ignore")]
     pub journals: Vec<Arc<DynJournal>>,
+    pub restored_journals: Arc<AtomicBool>,
 }
 
 impl PluggableRuntime {
@@ -238,6 +246,7 @@ impl PluggableRuntime {
             module_cache: Arc::new(module_cache::in_memory()),
             #[cfg(feature = "journal")]
             journals: Vec::new(),
+            restored_journals: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -342,6 +351,20 @@ impl Runtime for PluggableRuntime {
     #[cfg(feature = "journal")]
     fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
         &self.journals
+    }
+
+    #[cfg(feature = "journal")]
+    fn pop_restore_journals(&self) -> &'_ Vec<Arc<DynJournal>> {
+        use std::sync::atomic::Ordering;
+        if self
+            .restored_journals
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_ok()
+        {
+            &self.journals
+        } else {
+            &EMPTY_JOURNAL_LIST
+        }
     }
 
     #[cfg(feature = "journal")]

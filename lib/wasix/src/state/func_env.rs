@@ -247,7 +247,7 @@ impl WasiFunctionEnv {
         {
             // If there are journals we need to restore then do so (this will
             // prevent the initialization function from running
-            let restore_journals = self.data(&store).runtime.journals().clone();
+            let restore_journals = self.data(&store).runtime.pop_restore_journals().clone();
             if !restore_journals.is_empty() {
                 self.data_mut(&mut store).replaying_journal = true;
 
