@@ -1316,17 +1316,15 @@ pub fn restore_snapshot(
                 data,
                 is_64bit,
             } => {
-                InlineWaker::block_on(async {
-                    if is_64bit {
-                        JournalEffector::apply_fd_write::<Memory64>(&ctx, fd, offset, data).await
-                    } else {
-                        JournalEffector::apply_fd_write::<Memory32>(&ctx, fd, offset, data).await
-                    }
-                })
+                if is_64bit {
+                    JournalEffector::apply_fd_write::<Memory64>(&ctx, fd, offset, data)
+                } else {
+                    JournalEffector::apply_fd_write::<Memory32>(&ctx, fd, offset, data)
+                }
                 .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::FileDescriptorSeek { fd, offset, whence } => {
-                InlineWaker::block_on(JournalEffector::apply_fd_seek(&mut ctx, fd, offset, whence))
+                JournalEffector::apply_fd_seek(&mut ctx, fd, offset, whence)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::UpdateMemoryRegion { region, data } => {
@@ -1666,38 +1664,30 @@ pub fn restore_snapshot(
                 file_fd,
                 offset,
                 count,
-            } => InlineWaker::block_on(JournalEffector::apply_sock_send_file(
-                &mut ctx, socket_fd, file_fd, offset, count,
-            ))
-            .map_err(anyhow_err_to_runtime_err)?,
+            } => JournalEffector::apply_sock_send_file(&mut ctx, socket_fd, file_fd, offset, count)
+                .map_err(anyhow_err_to_runtime_err)?,
             crate::journal::JournalEntry::SocketSendTo {
                 fd,
                 data,
                 flags,
                 addr,
                 is_64bit,
-            } => InlineWaker::block_on(async {
-                if is_64bit {
-                    JournalEffector::apply_sock_send_to::<Memory64>(&ctx, fd, data, flags, addr)
-                        .await
-                } else {
-                    JournalEffector::apply_sock_send_to::<Memory32>(&ctx, fd, data, flags, addr)
-                        .await
-                }
-            })
+            } => if is_64bit {
+                JournalEffector::apply_sock_send_to::<Memory64>(&ctx, fd, data, flags, addr)
+            } else {
+                JournalEffector::apply_sock_send_to::<Memory32>(&ctx, fd, data, flags, addr)
+            }
             .map_err(anyhow_err_to_runtime_err)?,
             crate::journal::JournalEntry::SocketSend {
                 fd,
                 data,
                 flags,
                 is_64bit,
-            } => InlineWaker::block_on(async {
-                if is_64bit {
-                    JournalEffector::apply_sock_send::<Memory64>(&ctx, fd, data, flags).await
-                } else {
-                    JournalEffector::apply_sock_send::<Memory32>(&ctx, fd, data, flags).await
-                }
-            })
+            } => if is_64bit {
+                JournalEffector::apply_sock_send::<Memory64>(&ctx, fd, data, flags)
+            } else {
+                JournalEffector::apply_sock_send::<Memory32>(&ctx, fd, data, flags)
+            }
             .map_err(anyhow_err_to_runtime_err)?,
             crate::journal::JournalEntry::SocketSetOptFlag { fd, opt, flag } => {
                 JournalEffector::apply_sock_set_opt_flag(&mut ctx, fd, opt, flag)

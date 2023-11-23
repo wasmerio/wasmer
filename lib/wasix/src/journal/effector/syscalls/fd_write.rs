@@ -40,7 +40,7 @@ impl JournalEffector {
         Ok(())
     }
 
-    pub async fn apply_fd_write<M: MemorySize>(
+    pub fn apply_fd_write<M: MemorySize>(
         ctx: &FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
         offset: u64,

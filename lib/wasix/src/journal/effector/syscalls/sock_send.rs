@@ -44,7 +44,7 @@ impl JournalEffector {
         Ok(())
     }
 
-    pub async fn apply_sock_send<M: MemorySize>(
+    pub fn apply_sock_send<M: MemorySize>(
         ctx: &FunctionEnvMut<'_, WasiEnv>,
         sock: Fd,
         si_data: Cow<'_, [u8]>,

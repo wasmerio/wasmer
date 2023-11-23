@@ -21,7 +21,7 @@ impl JournalEffector {
         )
     }
 
-    pub async fn apply_sock_send_file(
+    pub fn apply_sock_send_file(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         socket_fd: Fd,
         file_fd: Fd,

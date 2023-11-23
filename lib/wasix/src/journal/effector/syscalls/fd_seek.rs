@@ -10,7 +10,7 @@ impl JournalEffector {
         Self::save_event(ctx, JournalEntry::FileDescriptorSeek { fd, offset, whence })
     }
 
-    pub async fn apply_fd_seek(
+    pub fn apply_fd_seek(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
         offset: i64,
