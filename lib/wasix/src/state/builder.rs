@@ -105,7 +105,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
 }
 
 /// Error type returned when bad data is given to [`WasiEnvBuilder`].
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum WasiStateCreationError {
     #[error("bad environment variable format: `{0}`")]
     EnvironmentVariableFormatError(String),

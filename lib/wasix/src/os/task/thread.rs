@@ -545,7 +545,7 @@ impl std::ops::Deref for WasiThreadHandle {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum WasiThreadError {
     #[error("Multithreading is not supported")]
     Unsupported,
@@ -559,7 +559,7 @@ pub enum WasiThreadError {
     // Note: Boxed so we can keep the error size down
     InstanceCreateFailed(Box<InstantiationError>),
     #[error("Initialization function failed - {0}")]
-    InitFailed(anyhow::Error),
+    InitFailed(Arc<anyhow::Error>),
     /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     #[error("WASM context is invalid")]
     InvalidWasmContext,

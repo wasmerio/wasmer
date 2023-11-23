@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tracing::trace;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
@@ -61,7 +63,7 @@ impl WasiFunctionEnv {
 
         init(&instance, &store).map_err(|err| {
             tracing::warn!("failed to init instance - {}", err);
-            WasiThreadError::InitFailed(err)
+            WasiThreadError::InitFailed(Arc::new(err))
         })?;
 
         // Initialize the WASI environment

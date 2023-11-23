@@ -14,7 +14,7 @@ use crate::{
     journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
     runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
-    Runtime, WasiEnvBuilder, WasiRuntimeError,
+    Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
 
 use super::wasi_common::MappedCommand;
@@ -361,7 +361,51 @@ impl crate::runners::Runner for WasiRunner {
                 task_handle
                     .wait_finished()
                     .await
-                    .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
+                    .map_err(|err| {
+                        // We do our best to recover the error
+                        let msg = err.to_string();
+                        let weak = Arc::downgrade(&err);
+                        Arc::into_inner(err).unwrap_or_else(|| {
+                            weak.upgrade()
+                                .map(|err| match err.as_ref() {
+                                    WasiRuntimeError::Init(a) => WasiRuntimeError::Init(a.clone()),
+                                    WasiRuntimeError::Export(a) => {
+                                        WasiRuntimeError::Export(a.clone())
+                                    }
+                                    WasiRuntimeError::Instantiation(a) => {
+                                        WasiRuntimeError::Instantiation(a.clone())
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::Exit(a)) => {
+                                        WasiRuntimeError::Wasi(WasiError::Exit(a.clone()))
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
+                                        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
+                                        WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
+                                            "deep-sleep"
+                                        )))
+                                    }
+                                    WasiRuntimeError::ControlPlane(a) => {
+                                        WasiRuntimeError::ControlPlane(a.clone())
+                                    }
+                                    WasiRuntimeError::Runtime(a) => {
+                                        WasiRuntimeError::Runtime(a.clone())
+                                    }
+                                    WasiRuntimeError::Thread(a) => {
+                                        WasiRuntimeError::Thread(a.clone())
+                                    }
+                                    WasiRuntimeError::Anyhow(a) => {
+                                        WasiRuntimeError::Anyhow(a.clone())
+                                    }
+                                })
+                                .unwrap_or_else(|| {
+                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
+                                        "{}", msg
+                                    )))
+                                })
+                        })
+                    })
                     .context("Unable to wait for the process to exit")
             }
             .in_current_span(),

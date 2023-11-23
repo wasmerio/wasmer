@@ -209,6 +209,8 @@ pub enum WasiRuntimeError {
     Runtime(#[from] RuntimeError),
     #[error("Memory access error")]
     Thread(#[from] WasiThreadError),
+    #[error("{0}")]
+    Anyhow(#[from] Arc<anyhow::Error>),
 }
 
 impl WasiRuntimeError {
