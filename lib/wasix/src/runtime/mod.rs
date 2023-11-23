@@ -111,7 +111,7 @@ where
     /// The list of journals which will be used to restore the state of the
     /// runtime at a particular point in time
     #[cfg(feature = "journal")]
-    fn journals(&self) -> &'static Vec<Arc<DynJournal>> {
+    fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
         &EMPTY_JOURNAL_LIST
     }
 
@@ -337,6 +337,11 @@ impl Runtime for PluggableRuntime {
 
     fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
         self.module_cache.clone()
+    }
+
+    #[cfg(feature = "journal")]
+    fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
+        &self.journals
     }
 
     #[cfg(feature = "journal")]
