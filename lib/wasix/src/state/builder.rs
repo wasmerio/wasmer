@@ -12,6 +12,8 @@ use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
+#[cfg(feature = "journal")]
+use crate::journal::{DynJournal, SnapshotTrigger};
 #[cfg(feature = "sys")]
 use crate::PluggableRuntime;
 use crate::{
@@ -23,11 +25,6 @@ use crate::{
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     RewindStateOption, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
-};
-#[cfg(feature = "journal")]
-use crate::{
-    journal::{DynJournal, SnapshotTrigger},
-    syscalls::restore_snapshot,
 };
 
 use super::env::WasiEnvInit;
@@ -990,44 +987,12 @@ impl WasiEnvBuilder {
         #[cfg(feature = "sys-thread")]
         let _guard = _guard.as_ref().map(|r| r.enter());
 
-        #[cfg(feature = "journal")]
-        let journals = self.journals.clone();
-
         let (_, env) = self.instantiate_ext(module, module_hash, &mut store)?;
 
         env.data(&store).thread.set_status_running();
 
-        #[allow(unused_mut)]
-        let mut rewind_state = None;
-
-        #[cfg(feature = "journal")]
-        {
-            env.data_mut(&mut store).replaying_journal = true;
-
-            for journal in journals {
-                let ctx = env.env.clone().into_mut(&mut store);
-                let rewind = restore_snapshot(ctx, journal)?;
-                rewind_state = rewind.map(|rewind| (rewind, None));
-            }
-
-            env.data_mut(&mut store).replaying_journal = false;
-
-            // The first event we save is an event that records the module hash.
-            // Note: This is used to detect if an incorrect journal is used on the wrong
-            // process or if a process has been recompiled
-            let wasm_hash = env.data(&store).process.module_hash.as_bytes();
-            let mut ctx = env.env.clone().into_mut(&mut store);
-            crate::journal::JournalEffector::save_event(
-                &mut ctx,
-                crate::journal::JournalEntry::InitModule { wasm_hash },
-            )
-            .map_err(|err| {
-                WasiRuntimeError::Runtime(RuntimeError::new(format!(
-                    "journal failied to save the module initialization event - {}",
-                    err
-                )))
-            })?;
-        }
+        // Bootstrap the process
+        let rewind_state = env.bootstrap(&mut store)?;
 
         let tasks = env.data(&store).tasks().clone();
         let pid = env.data(&store).pid();
