@@ -7,11 +7,12 @@ use wasmer::{
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
+#[cfg(feature = "journal")]
+use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    syscalls::restore_snapshot,
     utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
     InstanceSnapshot, RewindStateOption, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
 };
@@ -237,6 +238,7 @@ impl WasiFunctionEnv {
 
     /// Bootstraps this main thread and context with any journals that
     /// may be present
+    #[allow(clippy::result_large_err)]
     pub fn bootstrap(
         &self,
         mut store: &'_ mut impl AsStoreMut,

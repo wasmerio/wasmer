@@ -376,7 +376,7 @@ impl crate::runners::Runner for WasiRunner {
                                         WasiRuntimeError::Instantiation(a.clone())
                                     }
                                     WasiRuntimeError::Wasi(WasiError::Exit(a)) => {
-                                        WasiRuntimeError::Wasi(WasiError::Exit(a.clone()))
+                                        WasiRuntimeError::Wasi(WasiError::Exit(*a))
                                     }
                                     WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
                                         WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)

@@ -123,7 +123,7 @@ pub fn spawn_exec_module(
                 let rewind_state = match ctx.bootstrap(&mut store) {
                     Ok(r) => r,
                     Err(err) => {
-                        thread.thread.set_status_finished(Err(err.into()));
+                        thread.thread.set_status_finished(Err(err));
                         ctx.data(&store)
                             .blocking_on_exit(Some(Errno::Noexec.into()));
                         return;
