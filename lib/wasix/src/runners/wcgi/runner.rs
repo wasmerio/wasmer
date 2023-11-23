@@ -67,7 +67,7 @@ impl WcgiRunner {
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi, None)?;
+            wasi_common.prepare_webc_env(builder, Some(Arc::clone(&container_fs)), &wasi, None)?;
             builder.set_runtime(Arc::clone(&rt));
 
             Ok(())
@@ -141,7 +141,7 @@ impl crate::runners::Runner for WcgiRunner {
                     })
                     .await
             })
-            .context("Unable to start the server")?;
+            .context("Unable to start the server")??;
 
         Ok(())
     }
