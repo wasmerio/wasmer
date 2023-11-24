@@ -27,6 +27,13 @@ pub struct Publish {
     /// Defaults to current working directory.
     #[clap(name = "PACKAGE_PATH")]
     pub package_path: Option<String>,
+    /// Wait for package to be available on the registry before exiting
+    #[clap(long)]
+    pub wait: bool,
+
+    /// Timeout (in seconds) for the publish query to the registry
+    #[clap(long, default_value = "30")]
+    pub timeout: u64,
 }
 
 impl Publish {
@@ -46,6 +53,8 @@ impl Publish {
             token,
             no_validate: self.no_validate,
             package_path: self.package_path.clone(),
+            wait: self.wait,
+            timeout: std::time::Duration::from_secs(self.timeout),
         };
         publish.execute().map_err(on_error)?;
 

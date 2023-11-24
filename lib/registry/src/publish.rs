@@ -1,7 +1,7 @@
-use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::io::BufRead;
 use std::path::PathBuf;
+use std::{collections::BTreeMap, time::Duration};
 
 use console::{style, Emoji};
 use graphql_client::GraphQLQuery;
@@ -39,6 +39,8 @@ pub fn try_chunked_uploading(
     maybe_signature_data: &SignArchiveResult,
     archived_data_size: u64,
     quiet: bool,
+    wait_for_webc_generation: bool,
+    timeout: Duration,
 ) -> Result<(), anyhow::Error> {
     let registry = match registry.as_ref() {
         Some(s) => format_graphql(s),
@@ -232,10 +234,11 @@ pub fn try_chunked_uploading(
             signature: maybe_signature_data,
             signed_url: Some(signed_url),
             private: Some(package.private),
+            wait: Some(wait_for_webc_generation),
         });
 
     let _response: publish_package_mutation_chunked::ResponseData =
-        crate::graphql::execute_query(&registry, &token, &q)?;
+        crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
 
     println!(
         "Successfully published package `{}@{}`",
