@@ -18,7 +18,7 @@ use wasmer_wasix::{Pipe, WasiEnv};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/tests/wasi-wast/wasi/unstable/pipe_reverse.wasm"
+        "/examples/sources/pipe_reverse.wasm"
     );
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;

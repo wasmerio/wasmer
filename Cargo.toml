@@ -22,7 +22,6 @@ wasmer-compiler-llvm = { version = "=4.2.3", path = "lib/compiler-llvm", optiona
 wasmer-emscripten = { version = "=4.2.3", path = "lib/emscripten", optional = true }
 wasmer-wasix = { version = "0.16.0", path = "lib/wasix", optional = true }
 wasmer-wast = { version = "=4.2.3", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=4.2.3", path = "tests/wasi-wast", optional = true }
 wasmer-cache = { version = "=4.2.3", path = "lib/cache", optional = true }
 wasmer-types = { version = "=4.2.3", path = "lib/types" }
 wasmer-middlewares = { version = "=4.2.3", path = "lib/middlewares", optional = true }
@@ -69,7 +68,6 @@ members = [
     "tests/integration/ios",
     "tests/lib/compiler-test-derive",
     "tests/lib/wast",
-    "tests/wasi-wast",
 ]
 exclude = ["lib/wasi-web"]
 resolver = "2"
