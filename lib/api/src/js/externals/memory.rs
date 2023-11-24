@@ -144,6 +144,10 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
+    }
+
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }

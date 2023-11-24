@@ -140,6 +140,10 @@ impl Memory {
         // Ok(Pages(new_pages))
     }
 
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
+    }
+
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,

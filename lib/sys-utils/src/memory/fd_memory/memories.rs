@@ -523,7 +523,7 @@ impl LinearMemory for VMMemory {
     /// Resets the memory down to a zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
         self.0.reset();
-        OK(())
+        Ok(())
     }
 
     /// Returns the memory style for this memory.
