@@ -103,8 +103,12 @@ pub fn try_chunked_uploading(
         expires_after_seconds: Some(60 * 30),
     });
 
-    let _response: get_signed_url::ResponseData =
-        execute_query_modifier_inner(&registry, &token, &get_google_signed_url, None, |f| f)?;
+    let _response: get_signed_url::ResponseData = crate::graphql::execute_query_with_timeout(
+        &registry,
+        &token,
+        timeout,
+        &get_google_signed_url,
+    )?;
 
     let url = _response.url.ok_or_else(|| {
         anyhow::anyhow!(
