@@ -31,6 +31,10 @@ pub struct Publish {
     #[clap(long)]
     pub wait: bool,
     /// Timeout (in seconds) for the publish query to the registry.
+    ///
+    /// Note that this is not the timeout for the entire publish process, but
+    ///
+    /// for each individual query to the registry during the publish flow.
     #[clap(long, default_value = "30")]
     pub timeout: u64,
 }
