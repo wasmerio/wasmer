@@ -194,7 +194,7 @@ impl Config {
 
     /// Expose an environment variable to the guest.
     pub fn env(&mut self, name: impl Into<String>, value: impl Into<String>) -> &mut Self {
-        self.wasi.env.insert(name.into(), value.into());
+        self.wasi.env.push((name.into(), value.into()));
         self
     }
 

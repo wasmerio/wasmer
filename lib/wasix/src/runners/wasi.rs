@@ -70,7 +70,7 @@ impl WasiRunner {
 
     /// Provide environment variables to the runner.
     pub fn set_env(&mut self, key: impl Into<String>, value: impl Into<String>) {
-        self.wasi.env.insert(key.into(), value.into());
+        self.wasi.env.push((key.into(), value.into()));
     }
 
     pub fn with_envs<I, K, V>(mut self, envs: I) -> Self
@@ -90,7 +90,7 @@ impl WasiRunner {
         V: Into<String>,
     {
         for (key, value) in envs {
-            self.wasi.env.insert(key.into(), value.into());
+            self.wasi.env.push((key.into(), value.into()));
         }
     }
 
@@ -246,7 +246,6 @@ impl WasiRunner {
             builder.set_stderr(Box::new(stderr.clone()));
         }
         if let Some(current_dir) = &self.wasi.current_dir {
-            builder.add_env("HOME", current_dir.to_str().unwrap());
             builder.set_current_dir(current_dir);
         }
 

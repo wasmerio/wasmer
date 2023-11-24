@@ -165,6 +165,10 @@ impl Wasi {
             for MappedDirectory { host, guest } in mapped_dirs {
                 tracing::debug!("Mounting host directory {} in {}", host.display(), guest);
                 let native_fs = HostFileSystem::new(host.canonicalize()?)?;
+                // Create the parent dirs
+                if let Some(parent) = PathBuf::from(guest.clone()).parent() {
+                    virtual_fs::ops::create_dir_all(&root_fs, parent)?;
+                }
                 let fs: Arc<dyn virtual_fs::FileSystem + Send + Sync + 'static> =
                     Arc::new(native_fs);
                 root_fs

@@ -21,7 +21,7 @@ pub struct MappedCommand {
 #[derive(Debug, Default, Clone)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
-    pub(crate) env: HashMap<String, String>,
+    pub(crate) env: Vec<(String, String)>,
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
@@ -96,6 +96,7 @@ impl CommonWasiOptions {
     ) -> Result<(), Error> {
         builder.set_sandbox_fs(root_fs);
         builder.add_preopen_dir("/")?;
+        // builder.add_preopen_dir("/home")?;
         Ok(())
     }
 }
