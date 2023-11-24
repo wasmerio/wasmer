@@ -122,6 +122,7 @@ pub fn try_chunked_uploading(
     let url = url::Url::parse(&signed_url).unwrap();
     let client = reqwest::blocking::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
+        .timeout(timeout)
         .build()
         .unwrap();
 
