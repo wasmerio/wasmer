@@ -1755,7 +1755,7 @@ pub unsafe fn restore_snapshot(
     // that simulates closing the process (hence keeps everything
     // in a clean state)
     if journal_module_hash.is_some() && cur_module_hash != journal_module_hash {
-        eprintln!(
+        tracing::error!(
             "The WASM module hash does not match the journal module hash (journal_hash={:x?} vs module_hash{:x?}) - forcing a restart",
             journal_module_hash.unwrap(),
             cur_module_hash.unwrap()
