@@ -8,7 +8,6 @@ use graphql_client::GraphQLQuery;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::graphql::{
-    execute_query_modifier_inner,
     mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
     queries::{get_signed_url, GetSignedUrl},
 };
@@ -39,7 +38,7 @@ pub fn try_chunked_uploading(
     maybe_signature_data: &SignArchiveResult,
     archived_data_size: u64,
     quiet: bool,
-    wait_for_webc_generation: bool,
+    wait: bool,
     timeout: Duration,
 ) -> Result<(), anyhow::Error> {
     let registry = match registry.as_ref() {
@@ -234,7 +233,7 @@ pub fn try_chunked_uploading(
             signature: maybe_signature_data,
             signed_url: Some(signed_url),
             private: Some(package.private),
-            wait: Some(wait_for_webc_generation),
+            wait: Some(wait),
         });
 
     let _response: publish_package_mutation_chunked::ResponseData =
