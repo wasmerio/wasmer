@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [[ $1 == "-V" ]]; then
+  exec /Users/syrusakbary/Development/wasmer/target/release/wasmer -V
+fi
+
+exec /Users/syrusakbary/Development/wasmer/target/release/wasmer run "$@" 
