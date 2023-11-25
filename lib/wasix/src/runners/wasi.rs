@@ -64,7 +64,7 @@ impl WasiRunner {
 
     /// Provide environment variables to the runner.
     pub fn set_env(&mut self, key: impl Into<String>, value: impl Into<String>) {
-        self.wasi.env.insert(key.into(), value.into());
+        self.wasi.env.push((key.into(), value.into()));
     }
 
     pub fn with_envs<I, K, V>(mut self, envs: I) -> Self
@@ -84,7 +84,7 @@ impl WasiRunner {
         V: Into<String>,
     {
         for (key, value) in envs {
-            self.wasi.env.insert(key.into(), value.into());
+            self.wasi.env.push((key.into(), value.into()));
         }
     }
 
