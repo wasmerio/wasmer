@@ -203,48 +203,26 @@ impl Wasi {
             // Process the --dirs flag and merge it with --mapdir.
             let mut have_current_dir = false;
             for dir in &self.pre_opened_directories {
-                let mapping = if dir == Path::new(".") {
+                if dir.is_absolute() {
+                    bail!("--dir must be relative, received {}", dir.display());
+                }
+                if dir == Path::new(".") {
                     if have_current_dir {
                         bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
                     }
                     have_current_dir = true;
+                }
 
-                    let current_dir =
-                        std::env::current_dir().context("could not determine current directory")?;
+                let resolved: PathBuf = dir.canonicalize().with_context(|| {
+                    format!(
+                        "could not canonicalize path for argument '--dir {}'",
+                        dir.display()
+                    )
+                })?;
 
-                    MappedDirectory {
-                        host: current_dir,
-                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-                    }
-                } else {
-                    let resolved = dir.canonicalize().with_context(|| {
-                        format!(
-                            "could not canonicalize path for argument '--dir {}'",
-                            dir.display()
-                        )
-                    })?;
-
-                    if &resolved != dir {
-                        bail!(
-                            "Invalid argument '--dir {}': path must either be absolute, or '.'",
-                            dir.display(),
-                        );
-                    }
-
-                    let guest = resolved
-                        .to_str()
-                        .with_context(|| {
-                            format!(
-                                "invalid argument '--dir {}': path must be valid utf-8",
-                                dir.display(),
-                            )
-                        })?
-                        .to_string();
-
-                    MappedDirectory {
-                        host: resolved,
-                        guest,
-                    }
+                let mapping = MappedDirectory {
+                    host: resolved,
+                    guest: dir.display().to_string(),
                 };
 
                 mapped_dirs.push(mapping);
@@ -323,48 +301,26 @@ impl Wasi {
         // Process the --dirs flag and merge it with --mapdir.
         let mut have_current_dir = false;
         for dir in &self.pre_opened_directories {
-            let mapping = if dir == Path::new(".") {
+            if dir.is_absolute() {
+                bail!("--dir must be relative, received {}", dir.display());
+            }
+            if dir == Path::new(".") {
                 if have_current_dir {
                     bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
                 }
                 have_current_dir = true;
+            }
 
-                let current_dir =
-                    std::env::current_dir().context("could not determine current directory")?;
+            let resolved: PathBuf = dir.canonicalize().with_context(|| {
+                format!(
+                    "could not canonicalize path for argument '--dir {}'",
+                    dir.display()
+                )
+            })?;
 
-                MappedDirectory {
-                    host: current_dir,
-                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-                }
-            } else {
-                let resolved = dir.canonicalize().with_context(|| {
-                    format!(
-                        "could not canonicalize path for argument '--dir {}'",
-                        dir.display()
-                    )
-                })?;
-
-                if &resolved != dir {
-                    bail!(
-                        "Invalid argument '--dir {}': path must either be absolute, or '.'",
-                        dir.display(),
-                    );
-                }
-
-                let guest = resolved
-                    .to_str()
-                    .with_context(|| {
-                        format!(
-                            "invalid argument '--dir {}': path must be valid utf-8",
-                            dir.display(),
-                        )
-                    })?
-                    .to_string();
-
-                MappedDirectory {
-                    host: resolved,
-                    guest,
-                }
+            let mapping = MappedDirectory {
+                host: resolved,
+                guest: dir.display().to_string(),
             };
 
             mapped_dirs.push(mapping);

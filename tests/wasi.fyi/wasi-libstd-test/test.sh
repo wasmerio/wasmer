@@ -12,13 +12,15 @@ else
   runtime=$1
 fi
 
-bash build.sh
+BASE_DIR=$(dirname "$0")
+
+$BASE_DIR/build.sh
 
 status=0
 
-for input in *.wasm; do
+for input in $BASE_DIR/*.wasm; do
   echo "Testing $input..."
-  tools/wasm-test $runtime $input || status=1
+  $BASE_DIR/../tools/wasm-test $runtime $input || status=1
 done
 
 exit $status

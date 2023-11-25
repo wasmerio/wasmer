@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+WASMER_EXE=$(dirname "$0")/../../../target/release/wasmer
+
+if [[ $1 == "-V" ]]; then
+  exec $WASMER_EXE -V
+fi
+
+exec $WASMER_EXE run "$@" 

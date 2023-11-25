@@ -631,6 +631,9 @@ test-wasi-unit:
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- wasi::wasitests
 
+test-wasifyi: build-wasmer
+	./tests/wasi.fyi/wasi-libstd-test/test.sh `pwd`/tests/wasi.fyi/tools/run-wasmer-release
+
 test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi
