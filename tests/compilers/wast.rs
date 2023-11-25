@@ -9,7 +9,7 @@ use wasmer_wast::Wast;
 //         mod [vfs] {
 //             #[test]
 //             fn [test_name]() -> anyhow::Result<()> {
-//                 crate::run_wasi("tests/spectests/[test_name].wast", "[compiler]", WasiFileSystemKind::[vfs])
+//                 crate::run_wast(config, "tests/spectests/[test_name].wast")
 //             }
 //         }
 //     }

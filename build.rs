@@ -56,18 +56,5 @@ fn main() -> anyhow::Result<()> {
         drop(Command::new("rustfmt").arg(&spectests_output).status());
     }
 
-    // Wasitest test generation
-    {
-        let mut wasitests = Testsuite {
-            buffer: String::new(),
-            path: vec![],
-        };
-
-        let wasitests_output = out_dir.join("generated_wasitests.rs");
-        fs::write(&wasitests_output, wasitests.buffer)?;
-
-        drop(Command::new("rustfmt").arg(&wasitests_output).status());
-    }
-
     Ok(())
 }
