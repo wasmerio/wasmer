@@ -239,8 +239,10 @@ impl WasiFunctionEnv {
     /// Bootstraps this main thread and context with any journals that
     /// may be present
     ///
-    /// Safety: This function manipulates the memory of the process and thus must
-    /// be executed by the WASM process thread itself.
+    /// # Safety
+    ///
+    /// This function manipulates the memory of the process and thus must be executed
+    /// by the WASM process thread itself.
     ///
     #[allow(clippy::result_large_err)]
     pub unsafe fn bootstrap(

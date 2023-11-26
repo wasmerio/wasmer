@@ -70,8 +70,10 @@ impl JournalEffector {
         Ok(())
     }
 
-    /// Safety: This function manipulates the memory of the process and thus must
-    /// be executed by the WASM process thread itself.
+    /// # Safety
+    ///
+    /// This function manipulates the memory of the process and thus must be executed
+    /// by the WASM process thread itself.
     ///
     pub unsafe fn apply_memory(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
