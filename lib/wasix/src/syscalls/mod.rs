@@ -1332,9 +1332,23 @@ pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
 pub unsafe fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     journal: Arc<DynJournal>,
+    bootstrapping: bool,
 ) -> Result<Option<RewindState>, WasiRuntimeError> {
+    use std::ops::Range;
+
     use crate::journal::Journal;
 
+    // We delay the spawning of threads until the end as its
+    // possible that the threads will be cancelled before all the
+    // events finished the streaming process
+    let mut spawn_threads: HashMap<WasiThreadId, RewindState> = Default::default();
+
+    // We delay the memory updates until the end as its possible the
+    // memory will be cleared before all the events finished the
+    // streaming process
+    let mut update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
+
+    // Loop through all the events and process them
     let cur_module_hash = Some(ctx.data().process.module_hash.as_bytes());
     let mut journal_module_hash = None;
     let mut rewind = None;
@@ -1345,9 +1359,14 @@ pub unsafe fn restore_snapshot(
                 journal_module_hash.replace(wasm_hash);
             }
             crate::journal::JournalEntry::ProcessExit { exit_code } => {
-                rewind = None;
-                JournalEffector::apply_process_exit(&mut ctx, exit_code)
-                    .map_err(anyhow_err_to_runtime_err)?;
+                if bootstrapping {
+                    rewind = None;
+                    spawn_threads.clear();
+                    update_memory.clear();
+                } else {
+                    JournalEffector::apply_process_exit(&mut ctx, exit_code)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
             }
             crate::journal::JournalEntry::FileDescriptorWrite {
                 fd,
@@ -1370,16 +1389,31 @@ pub unsafe fn restore_snapshot(
                 if cur_module_hash != journal_module_hash {
                     continue;
                 }
-                JournalEffector::apply_memory(&mut ctx, region, &data)
-                    .map_err(anyhow_err_to_runtime_err)?;
+
+                if bootstrapping {
+                    update_memory.insert(region, data.clone());
+                } else {
+                    JournalEffector::apply_memory(&mut ctx, region, &data)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
             }
             crate::journal::JournalEntry::CloseThread { id, exit_code } => {
                 if id == ctx.data().tid() {
-                    JournalEffector::apply_process_exit(&mut ctx, exit_code)
-                        .map_err(anyhow_err_to_runtime_err)?;
+                    if bootstrapping {
+                        rewind = None;
+                        spawn_threads.clear();
+                        update_memory.clear();
+                    } else {
+                        JournalEffector::apply_process_exit(&mut ctx, exit_code)
+                            .map_err(anyhow_err_to_runtime_err)?;
+                    }
                 } else {
-                    JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
-                        .map_err(anyhow_err_to_runtime_err)?;
+                    if bootstrapping {
+                        spawn_threads.remove(&id);
+                    } else {
+                        JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
+                            .map_err(anyhow_err_to_runtime_err)?;
+                    }
                 }
             }
             crate::journal::JournalEntry::SetThread {
@@ -1392,20 +1426,27 @@ pub unsafe fn restore_snapshot(
                 if cur_module_hash != journal_module_hash {
                     continue;
                 }
+
+                let state = RewindState {
+                    memory_stack: memory_stack.to_vec().into(),
+                    rewind_stack: call_stack.to_vec().into(),
+                    store_data: store_data.to_vec().into(),
+                    is_64bit,
+                };
+
                 if id == ctx.data().tid() {
-                    rewind.replace(RewindState {
-                        memory_stack: memory_stack.to_vec().into(),
-                        rewind_stack: call_stack.to_vec().into(),
-                        store_data: store_data.to_vec().into(),
-                        is_64bit,
-                    });
+                    rewind.replace(state);
                 } else {
-                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                        anyhow::format_err!(
-                            "Snapshot restoration does not currently support multiple threads."
-                        )
-                        .into(),
-                    )));
+                    if bootstrapping {
+                        spawn_threads.insert(id, state);
+                    } else {
+                        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                            anyhow::format_err!(
+                                "Snapshot restoration does not currently support live updates of running threads."
+                            )
+                            .into(),
+                        )));
+                    }
                 }
             }
             crate::journal::JournalEntry::CloseFileDescriptor { fd } => {
@@ -1751,6 +1792,7 @@ pub unsafe fn restore_snapshot(
                 .map_err(anyhow_err_to_runtime_err)?,
         }
     }
+
     // If we are not in the same module then we fire off an exit
     // that simulates closing the process (hence keeps everything
     // in a clean state)
@@ -1760,12 +1802,35 @@ pub unsafe fn restore_snapshot(
             journal_module_hash.unwrap(),
             cur_module_hash.unwrap()
         );
-        JournalEffector::apply_process_exit(&mut ctx, None).map_err(anyhow_err_to_runtime_err)?;
-        rewind = None;
+        if bootstrapping {
+            rewind = None;
+            spawn_threads.clear();
+            update_memory.clear();
+        } else {
+            JournalEffector::apply_process_exit(&mut ctx, None)
+                .map_err(anyhow_err_to_runtime_err)?;
+        }
     } else {
         tracing::debug!(
             "journal used on a different module - the process will simulate a restart."
         );
+    }
+
+    // We do not yet support multi threading
+    if !spawn_threads.is_empty() {
+        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+            anyhow::format_err!(
+                "Snapshot restoration does not currently support multiple threads."
+            )
+            .into(),
+        )));
+    }
+
+    // Next we apply all the memory updates that were delayed while the logs
+    // were processed to completion.
+    for (region, data) in update_memory {
+        JournalEffector::apply_memory(&mut ctx, region, &data)
+            .map_err(anyhow_err_to_runtime_err)?;
     }
 
     Ok(rewind)

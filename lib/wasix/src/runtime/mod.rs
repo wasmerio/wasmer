@@ -355,6 +355,7 @@ impl Runtime for PluggableRuntime {
 
     #[cfg(feature = "journal")]
     fn pop_restore_journals(&self) -> &'_ Vec<Arc<DynJournal>> {
+        tracing::error!("TODO: remove pop_restore_journals");
         use std::sync::atomic::Ordering;
         if self
             .restored_journals

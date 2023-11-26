@@ -259,7 +259,7 @@ impl WasiFunctionEnv {
 
                 for journal in restore_journals {
                     let ctx = self.env.clone().into_mut(&mut store);
-                    let rewind = match restore_snapshot(ctx, journal) {
+                    let rewind = match restore_snapshot(ctx, journal, true) {
                         Ok(r) => r,
                         Err(err) => {
                             self.data_mut(&mut store).replaying_journal = false;

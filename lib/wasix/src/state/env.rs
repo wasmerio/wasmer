@@ -874,7 +874,7 @@ impl WasiEnv {
     /// Returns the active journal or fails with an error
     #[cfg(feature = "journal")]
     pub fn active_journal(&self) -> Result<&DynJournal, Errno> {
-        self.runtime().active_journal().ok_or({
+        self.runtime().active_journal().ok_or_else(|| {
             tracing::warn!("failed to save thread exit as there is not active journal");
             Errno::Fault
         })
