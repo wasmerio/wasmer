@@ -121,16 +121,24 @@ impl Run {
 
         pb.finish_and_clear();
 
+        // push the TTY state so we can restore it after the program finishes
+        let tty = runtime.tty().map(|tty| tty.tty_get());
+
         let result = {
             match target {
                 ExecutableTarget::WebAssembly {
                     module,
                     module_hash,
                     path,
-                } => self.execute_wasm(&path, &module, module_hash, store, runtime),
-                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
+                } => self.execute_wasm(&path, &module, module_hash, store, runtime.clone()),
+                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
             }
         };
+
+        // restore the TTY state as teh execution may have changed it
+        if let Some(state) = tty {
+            runtime.tty().map(|tty| tty.tty_set(state));
+        }
 
         if let Err(e) = &result {
             self.maybe_save_coredump(e);
