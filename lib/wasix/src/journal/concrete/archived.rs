@@ -641,7 +641,6 @@ impl<'a> JournalEntry<'a> {
             }),
             JournalEntry::ChangeDirectory { path } => {
                 serializer.serialize_value(&JournalEntryChangeDirectoryV1 {
-                    _padding: padding(path.as_bytes().len()),
                     path: path.into_owned(),
                 })
             }
@@ -1210,7 +1209,6 @@ pub struct JournalEntryPathRenameV1 {
 #[archive_attr(derive(CheckBytes))]
 pub struct JournalEntryChangeDirectoryV1 {
     pub path: String,
-    pub _padding: Vec<u8>,
 }
 
 #[repr(C)]
@@ -2565,7 +2563,6 @@ impl<'a> From<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::ChangeDirectoryV1(ArchivedJournalEntryChangeDirectoryV1 {
                 path,
-                _padding: _,
             }) => Self::ChangeDirectory {
                 path: path.as_ref().into(),
             },
