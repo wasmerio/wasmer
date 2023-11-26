@@ -1347,6 +1347,7 @@ pub unsafe fn restore_snapshot(
     // memory will be cleared before all the events finished the
     // streaming process
     let mut update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
+    let mut update_tty = None;
 
     // Loop through all the events and process them
     let cur_module_hash = Some(ctx.data().process.module_hash.as_bytes());
@@ -1363,6 +1364,7 @@ pub unsafe fn restore_snapshot(
                     rewind = None;
                     spawn_threads.clear();
                     update_memory.clear();
+                    update_tty.take();
                 } else {
                     JournalEffector::apply_process_exit(&mut ctx, exit_code)
                         .map_err(anyhow_err_to_runtime_err)?;
@@ -1403,6 +1405,7 @@ pub unsafe fn restore_snapshot(
                         rewind = None;
                         spawn_threads.clear();
                         update_memory.clear();
+                        update_tty.take();
                     } else {
                         JournalEffector::apply_process_exit(&mut ctx, exit_code)
                             .map_err(anyhow_err_to_runtime_err)?;
@@ -1616,22 +1619,25 @@ pub unsafe fn restore_snapshot(
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::TtySet { tty, line_feeds } => {
-                JournalEffector::apply_tty_set(
-                    &mut ctx,
-                    crate::WasiTtyState {
-                        cols: tty.cols,
-                        rows: tty.rows,
-                        width: tty.width,
-                        height: tty.height,
-                        stdin_tty: tty.stdin_tty,
-                        stdout_tty: tty.stdout_tty,
-                        stderr_tty: tty.stderr_tty,
-                        echo: tty.echo,
-                        line_buffered: tty.line_buffered,
-                        line_feeds,
-                    },
-                )
-                .map_err(anyhow_err_to_runtime_err)?;
+                let state = crate::WasiTtyState {
+                    cols: tty.cols,
+                    rows: tty.rows,
+                    width: tty.width,
+                    height: tty.height,
+                    stdin_tty: tty.stdin_tty,
+                    stdout_tty: tty.stdout_tty,
+                    stderr_tty: tty.stderr_tty,
+                    echo: tty.echo,
+                    line_buffered: tty.line_buffered,
+                    line_feeds,
+                };
+
+                if bootstrapping {
+                    update_tty.replace(state);
+                } else {
+                    JournalEffector::apply_tty_set(&mut ctx, state)
+                        .map_err(anyhow_err_to_runtime_err)?;
+                }
             }
             crate::journal::JournalEntry::PortAddAddr { cidr } => {
                 JournalEffector::apply_port_addr_add(&mut ctx, cidr)
@@ -1806,6 +1812,7 @@ pub unsafe fn restore_snapshot(
             rewind = None;
             spawn_threads.clear();
             update_memory.clear();
+            update_tty.take();
         } else {
             JournalEffector::apply_process_exit(&mut ctx, None)
                 .map_err(anyhow_err_to_runtime_err)?;
@@ -1831,6 +1838,9 @@ pub unsafe fn restore_snapshot(
     for (region, data) in update_memory {
         JournalEffector::apply_memory(&mut ctx, region, &data)
             .map_err(anyhow_err_to_runtime_err)?;
+    }
+    if let Some(state) = update_tty {
+        JournalEffector::apply_tty_set(&mut ctx, state).map_err(anyhow_err_to_runtime_err)?;
     }
 
     Ok(rewind)
