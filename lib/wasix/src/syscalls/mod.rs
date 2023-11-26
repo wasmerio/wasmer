@@ -1410,13 +1410,11 @@ pub unsafe fn restore_snapshot(
                         JournalEffector::apply_process_exit(&mut ctx, exit_code)
                             .map_err(anyhow_err_to_runtime_err)?;
                     }
+                } else if bootstrapping {
+                    spawn_threads.remove(&id);
                 } else {
-                    if bootstrapping {
-                        spawn_threads.remove(&id);
-                    } else {
-                        JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
-                            .map_err(anyhow_err_to_runtime_err)?;
-                    }
+                    JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
+                        .map_err(anyhow_err_to_runtime_err)?;
                 }
             }
             crate::journal::JournalEntry::SetThread {
@@ -1439,17 +1437,15 @@ pub unsafe fn restore_snapshot(
 
                 if id == ctx.data().tid() {
                     rewind.replace(state);
+                } else if bootstrapping {
+                    spawn_threads.insert(id, state);
                 } else {
-                    if bootstrapping {
-                        spawn_threads.insert(id, state);
-                    } else {
-                        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-                            anyhow::format_err!(
-                                "Snapshot restoration does not currently support live updates of running threads."
-                            )
-                            .into(),
-                        )));
-                    }
+                    return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+                        anyhow::format_err!(
+                            "Snapshot restoration does not currently support live updates of running threads."
+                        )
+                        .into(),
+                    )));
                 }
             }
             crate::journal::JournalEntry::CloseFileDescriptor { fd } => {
