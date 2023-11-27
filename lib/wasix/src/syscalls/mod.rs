@@ -1349,6 +1349,14 @@ pub unsafe fn restore_snapshot(
     let mut update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
     let mut update_tty = None;
 
+    // We capture the stdout and stderr while we replay
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+    let mut stdout_fds = HashSet::new();
+    let mut stderr_fds = HashSet::new();
+    stdout_fds.insert(1 as WasiFd);
+    stderr_fds.insert(2 as WasiFd);
+
     // Loop through all the events and process them
     let cur_module_hash = Some(ctx.data().process.module_hash.as_bytes());
     let mut journal_module_hash = None;
@@ -1365,6 +1373,12 @@ pub unsafe fn restore_snapshot(
                     spawn_threads.clear();
                     update_memory.clear();
                     update_tty.take();
+                    stdout.clear();
+                    stderr.clear();
+                    stdout_fds.clear();
+                    stderr_fds.clear();
+                    stdout_fds.insert(1 as WasiFd);
+                    stderr_fds.insert(2 as WasiFd);
                 } else {
                     JournalEffector::apply_process_exit(&mut ctx, exit_code)
                         .map_err(anyhow_err_to_runtime_err)?;
@@ -1376,6 +1390,15 @@ pub unsafe fn restore_snapshot(
                 data,
                 is_64bit,
             } => {
+                if stdout_fds.contains(&fd) {
+                    stdout.push((offset, data, is_64bit));
+                    continue;
+                }
+                if stderr_fds.contains(&fd) {
+                    stderr.push((offset, data, is_64bit));
+                    continue;
+                }
+
                 if is_64bit {
                     JournalEffector::apply_fd_write::<Memory64>(&ctx, fd, offset, data)
                 } else {
@@ -1406,6 +1429,12 @@ pub unsafe fn restore_snapshot(
                         spawn_threads.clear();
                         update_memory.clear();
                         update_tty.take();
+                        stdout.clear();
+                        stderr.clear();
+                        stdout_fds.clear();
+                        stderr_fds.clear();
+                        stdout_fds.insert(1 as WasiFd);
+                        stderr_fds.insert(2 as WasiFd);
                     } else {
                         JournalEffector::apply_process_exit(&mut ctx, exit_code)
                             .map_err(anyhow_err_to_runtime_err)?;
@@ -1449,6 +1478,8 @@ pub unsafe fn restore_snapshot(
                 }
             }
             crate::journal::JournalEntry::CloseFileDescriptor { fd } => {
+                stdout_fds.remove(&fd);
+                stderr_fds.remove(&fd);
                 JournalEffector::apply_fd_close(&mut ctx, fd).map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::OpenFileDescriptor {
@@ -1502,6 +1533,12 @@ pub unsafe fn restore_snapshot(
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
+                if stdout_fds.remove(&old_fd) {
+                    stdout_fds.insert(new_fd);
+                }
+                if stderr_fds.remove(&old_fd) {
+                    stderr_fds.insert(new_fd);
+                }
                 JournalEffector::apply_fd_renumber(&mut ctx, old_fd, new_fd)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
@@ -1509,6 +1546,12 @@ pub unsafe fn restore_snapshot(
                 original_fd,
                 copied_fd,
             } => {
+                if stdout_fds.contains(&original_fd) {
+                    stdout_fds.insert(copied_fd);
+                }
+                if stderr_fds.contains(&original_fd) {
+                    stderr_fds.insert(copied_fd);
+                }
                 JournalEffector::apply_fd_duplicate(&mut ctx, original_fd, copied_fd)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
@@ -1807,6 +1850,12 @@ pub unsafe fn restore_snapshot(
             spawn_threads.clear();
             update_memory.clear();
             update_tty.take();
+            stdout.clear();
+            stderr.clear();
+            stdout_fds.clear();
+            stderr_fds.clear();
+            stdout_fds.insert(1 as WasiFd);
+            stderr_fds.insert(2 as WasiFd);
         } else {
             JournalEffector::apply_process_exit(&mut ctx, None)
                 .map_err(anyhow_err_to_runtime_err)?;
@@ -1827,6 +1876,24 @@ pub unsafe fn restore_snapshot(
         )));
     }
 
+    // Now output the stdout and stderr
+    for (offset, data, is_64bit) in stdout {
+        if is_64bit {
+            JournalEffector::apply_fd_write::<Memory64>(&ctx, 1, offset, data)
+        } else {
+            JournalEffector::apply_fd_write::<Memory32>(&ctx, 1, offset, data)
+        }
+        .map_err(anyhow_err_to_runtime_err)?;
+    }
+
+    for (offset, data, is_64bit) in stderr {
+        if is_64bit {
+            JournalEffector::apply_fd_write::<Memory64>(&ctx, 2, offset, data)
+        } else {
+            JournalEffector::apply_fd_write::<Memory32>(&ctx, 2, offset, data)
+        }
+        .map_err(anyhow_err_to_runtime_err)?;
+    }
     // Next we apply all the memory updates that were delayed while the logs
     // were processed to completion.
     for (region, data) in update_memory {
@@ -1834,7 +1901,6 @@ pub unsafe fn restore_snapshot(
             .map_err(anyhow_err_to_runtime_err)?;
     }
     if let Some(state) = update_tty {
-        tracing::error!("BLAH1 {:?}", state);
         JournalEffector::apply_tty_set(&mut ctx, state).map_err(anyhow_err_to_runtime_err)?;
     }
 
