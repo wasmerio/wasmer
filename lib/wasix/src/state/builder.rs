@@ -71,6 +71,8 @@ pub struct WasiEnvBuilder {
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
 
+    pub(super) module_hash: Option<ModuleHash>,
+
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
 
@@ -291,6 +293,14 @@ impl WasiEnvBuilder {
     /// resulting WASI instance.
     pub fn use_webc(mut self, pkg: BinaryPackage) -> Self {
         self.add_webc(pkg);
+        self
+    }
+
+    /// Sets the module hash for the running process. This ensures that the journal
+    /// can restore the records for the right module. If no module hash is supplied
+    /// then the process will start with a random module hash.
+    pub fn set_module_hash(&mut self, hash: ModuleHash) -> &mut Self {
+        self.module_hash.replace(hash);
         self
     }
 
@@ -857,8 +867,12 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
+        let module_hash = self
+            .module_hash
+            .clone()
+            .unwrap_or_else(|| ModuleHash::random());
         let init = self.build_init()?;
-        WasiEnv::from_init(init)
+        WasiEnv::from_init(init, module_hash)
     }
 
     /// Construct a [`WasiFunctionEnv`].
@@ -871,8 +885,12 @@ impl WasiEnvBuilder {
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
+        let module_hash = self
+            .module_hash
+            .clone()
+            .unwrap_or_else(|| ModuleHash::random());
         let init = self.build_init()?;
-        let env = WasiEnv::from_init(init)?;
+        let env = WasiEnv::from_init(init, module_hash)?;
         let func_env = WasiFunctionEnv::new(store, env);
         Ok(func_env)
     }

@@ -430,11 +430,14 @@ impl WasiEnv {
     }
 
     #[allow(clippy::result_large_err)]
-    pub(crate) fn from_init(init: WasiEnvInit) -> Result<Self, WasiRuntimeError> {
+    pub(crate) fn from_init(
+        init: WasiEnvInit,
+        module_hash: ModuleHash,
+    ) -> Result<Self, WasiRuntimeError> {
         let process = if let Some(p) = init.process {
             p
         } else {
-            init.control_plane.new_process(ModuleHash::random())?
+            init.control_plane.new_process(module_hash)?
         };
 
         let layout = WasiMemoryLayout::default();
@@ -496,9 +499,7 @@ impl WasiEnv {
             }
         }
 
-        let mut env = Self::from_init(init)?;
-        env.process.module_hash = module_hash;
-
+        let env = Self::from_init(init, module_hash)?;
         let pid = env.process.pid();
 
         let mut store = store.as_store_mut();
