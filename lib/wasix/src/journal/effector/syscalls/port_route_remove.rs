@@ -7,7 +7,7 @@ impl JournalEffector {
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         ip: IpAddr,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::PortRouteDel { ip })
+        Self::save_event(ctx, JournalEntry::PortRouteDelV1 { ip })
     }
 
     pub fn apply_port_route_remove(

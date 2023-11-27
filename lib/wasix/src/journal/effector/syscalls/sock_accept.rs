@@ -18,12 +18,12 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SocketAccepted {
+            JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
                 peer_addr,
                 fd_flags,
-                nonblocking,
+                non_blocking: nonblocking,
             },
         )
     }

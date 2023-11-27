@@ -9,7 +9,7 @@ impl JournalEffector {
         opt: Sockoption,
         flag: bool,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SocketSetOptFlag { fd, opt, flag })
+        Self::save_event(ctx, JournalEntry::SocketSetOptFlagV1 { fd, opt, flag })
     }
 
     pub fn apply_sock_set_opt_flag(

@@ -35,7 +35,7 @@ impl JournalEffector {
                 .map_err(mem_error_to_wasi)?;
             ctx.data()
                 .active_journal()?
-                .write(JournalEntry::SocketSendTo {
+                .write(JournalEntry::SocketSendToV1 {
                     fd,
                     data: Cow::Borrowed(buf.as_ref()),
                     addr,

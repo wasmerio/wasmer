@@ -9,7 +9,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::CreateSymbolicLink {
+            JournalEntry::CreateSymbolicLinkV1 {
                 old_path: old_path.into(),
                 fd,
                 new_path: new_path.into(),

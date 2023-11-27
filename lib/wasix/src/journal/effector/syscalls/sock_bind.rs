@@ -8,7 +8,7 @@ impl JournalEffector {
         fd: Fd,
         addr: SocketAddr,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SocketBind { fd, addr })
+        Self::save_event(ctx, JournalEntry::SocketBindV1 { fd, addr })
     }
 
     pub fn apply_sock_bind(

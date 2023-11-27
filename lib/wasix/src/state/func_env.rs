@@ -281,7 +281,7 @@ impl WasiFunctionEnv {
             let mut ctx = self.env.clone().into_mut(&mut store);
             crate::journal::JournalEffector::save_event(
                 &mut ctx,
-                crate::journal::JournalEntry::InitModule { wasm_hash },
+                crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
             )
             .map_err(|err| {
                 WasiRuntimeError::Runtime(RuntimeError::new(format!(

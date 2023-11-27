@@ -221,7 +221,7 @@ impl ReadableJournal for LogFileJournalRx {
                 }
             };
 
-            let record = unsafe { record_type.deserialize_archive(entry) };
+            let record = unsafe { record_type.deserialize_archive(entry)? };
             return Ok(Some(record));
         }
     }
@@ -267,10 +267,10 @@ mod tests {
         // Write some events to it
         let journal = LogFileJournal::from_file(file.as_file().try_clone().unwrap()).unwrap();
         journal
-            .write(JournalEntry::CreatePipe { fd1: 1, fd2: 2 })
+            .write(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 })
             .unwrap();
         journal
-            .write(JournalEntry::SetThread {
+            .write(JournalEntry::SetThreadV1 {
                 id: 1.into(),
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
@@ -278,7 +278,7 @@ mod tests {
                 is_64bit: false,
             })
             .unwrap();
-        journal.write(JournalEntry::PortAddrClear).unwrap();
+        journal.write(JournalEntry::PortAddrClearV1).unwrap();
         drop(journal);
 
         // Read the events and validate
@@ -289,10 +289,10 @@ mod tests {
         let event4 = journal.read().unwrap();
 
         // Check the events
-        assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
+        assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
         assert_eq!(
             event2,
-            Some(JournalEntry::SetThread {
+            Some(JournalEntry::SetThreadV1 {
                 id: 1.into(),
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
@@ -300,12 +300,12 @@ mod tests {
                 is_64bit: false,
             })
         );
-        assert_eq!(event3, Some(JournalEntry::PortAddrClear));
+        assert_eq!(event3, Some(JournalEntry::PortAddrClearV1));
         assert_eq!(event4, None);
 
         // Now write another event
         journal
-            .write(JournalEntry::SocketSend {
+            .write(JournalEntry::SocketSendV1 {
                 fd: 1234,
                 data: [12; 1024].to_vec().into(),
                 flags: 123,
@@ -321,7 +321,7 @@ mod tests {
 
         // Before we read it, we will throw in another event
         journal
-            .write(JournalEntry::CreatePipe {
+            .write(JournalEntry::CreatePipeV1 {
                 fd1: 1234,
                 fd2: 5432,
             })
@@ -332,10 +332,10 @@ mod tests {
         let event3 = journal.read().unwrap();
         let event4 = journal.read().unwrap();
         let event5 = journal.read().unwrap();
-        assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
+        assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
         assert_eq!(
             event2,
-            Some(JournalEntry::SetThread {
+            Some(JournalEntry::SetThreadV1 {
                 id: 1.into(),
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
@@ -343,10 +343,10 @@ mod tests {
                 is_64bit: false,
             })
         );
-        assert_eq!(event3, Some(JournalEntry::PortAddrClear));
+        assert_eq!(event3, Some(JournalEntry::PortAddrClearV1));
         assert_eq!(
             event4,
-            Some(JournalEntry::SocketSend {
+            Some(JournalEntry::SocketSendV1 {
                 fd: 1234,
                 data: [12; 1024].to_vec().into(),
                 flags: 123,
@@ -372,10 +372,10 @@ mod tests {
         tracing::info!("event5 {:?}", event5);
         tracing::info!("event6 {:?}", event6);
 
-        assert_eq!(event1, Some(JournalEntry::CreatePipe { fd1: 1, fd2: 2 }));
+        assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
         assert_eq!(
             event2,
-            Some(JournalEntry::SetThread {
+            Some(JournalEntry::SetThreadV1 {
                 id: 1.into(),
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
@@ -383,10 +383,10 @@ mod tests {
                 is_64bit: false,
             })
         );
-        assert_eq!(event3, Some(JournalEntry::PortAddrClear));
+        assert_eq!(event3, Some(JournalEntry::PortAddrClearV1));
         assert_eq!(
             event4,
-            Some(JournalEntry::SocketSend {
+            Some(JournalEntry::SocketSendV1 {
                 fd: 1234,
                 data: [12; 1024].to_vec().into(),
                 flags: 123,
@@ -395,7 +395,7 @@ mod tests {
         );
         assert_eq!(
             event5,
-            Some(JournalEntry::CreatePipe {
+            Some(JournalEntry::CreatePipeV1 {
                 fd1: 1234,
                 fd2: 5432,
             })

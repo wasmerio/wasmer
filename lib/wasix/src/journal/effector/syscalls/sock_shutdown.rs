@@ -10,7 +10,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SocketShutdown {
+            JournalEntry::SocketShutdownV1 {
                 fd,
                 how: shutdown.into(),
             },

@@ -13,7 +13,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SocketSetOptTime {
+            JournalEntry::SocketSetOptTimeV1 {
                 fd,
                 ty: ty.into(),
                 time,

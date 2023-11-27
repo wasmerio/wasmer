@@ -11,9 +11,9 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SocketLeaveIpv6Multicast {
+            JournalEntry::SocketLeaveIpv6MulticastV1 {
                 fd,
-                multiaddr,
+                multi_addr: multiaddr,
                 iface,
             },
         )

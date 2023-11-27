@@ -9,7 +9,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::FileDescriptorSetRights {
+            JournalEntry::FileDescriptorSetRightsV1 {
                 fd,
                 fs_rights_base,
                 fs_rights_inheriting,

@@ -6,7 +6,7 @@ impl JournalEffector {
         fd1: Fd,
         fd2: Fd,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::CreatePipe { fd1, fd2 })
+        Self::save_event(ctx, JournalEntry::CreatePipeV1 { fd1, fd2 })
     }
 
     pub fn apply_fd_pipe(

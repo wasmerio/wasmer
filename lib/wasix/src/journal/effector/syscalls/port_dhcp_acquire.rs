@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_port_dhcp_acquire(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::PortDhcpAcquire)
+        Self::save_event(ctx, JournalEntry::PortDhcpAcquireV1)
     }
 
     pub fn apply_port_dhcp_acquire(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> anyhow::Result<()> {

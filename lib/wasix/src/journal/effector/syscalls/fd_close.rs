@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_fd_close(ctx: &mut FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::CloseFileDescriptor { fd })
+        Self::save_event(ctx, JournalEntry::CloseFileDescriptorV1 { fd })
     }
 
     pub fn apply_fd_close(ctx: &mut FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> anyhow::Result<()> {

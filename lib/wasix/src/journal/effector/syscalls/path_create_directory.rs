@@ -8,7 +8,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::CreateDirectory {
+            JournalEntry::CreateDirectoryV1 {
                 fd,
                 path: path.into(),
             },

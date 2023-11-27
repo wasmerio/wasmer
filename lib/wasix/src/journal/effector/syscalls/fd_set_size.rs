@@ -6,7 +6,7 @@ impl JournalEffector {
         fd: Fd,
         st_size: Filesize,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::FileDescriptorSetSize { fd, st_size })
+        Self::save_event(ctx, JournalEntry::FileDescriptorSetSizeV1 { fd, st_size })
     }
 
     pub fn apply_fd_set_size(

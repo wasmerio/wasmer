@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_port_unbridge(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::PortUnbridge)
+        Self::save_event(ctx, JournalEntry::PortUnbridgeV1)
     }
 
     pub fn apply_port_unbridge(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> anyhow::Result<()> {

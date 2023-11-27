@@ -9,7 +9,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::FileDescriptorAllocate { fd, offset, len },
+            JournalEntry::FileDescriptorAllocateV1 { fd, offset, len },
         )
     }
 

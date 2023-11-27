@@ -8,7 +8,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::RenumberFileDescriptor {
+            JournalEntry::RenumberFileDescriptorV1 {
                 old_fd: from,
                 new_fd: to,
             },

@@ -10,7 +10,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::FileDescriptorAdvise {
+            JournalEntry::FileDescriptorAdviseV1 {
                 fd,
                 offset,
                 len,

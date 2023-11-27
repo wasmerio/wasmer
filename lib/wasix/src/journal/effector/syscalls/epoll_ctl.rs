@@ -10,7 +10,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::EpollCtl {
+            JournalEntry::EpollCtlV1 {
                 epfd,
                 op,
                 fd,

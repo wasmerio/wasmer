@@ -7,7 +7,7 @@ impl JournalEffector {
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         cidr: IpCidr,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::PortAddAddr { cidr })
+        Self::save_event(ctx, JournalEntry::PortAddAddrV1 { cidr })
     }
 
     pub fn apply_port_addr_add(

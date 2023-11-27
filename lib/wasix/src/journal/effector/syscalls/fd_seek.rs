@@ -7,7 +7,10 @@ impl JournalEffector {
         offset: i64,
         whence: Whence,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::FileDescriptorSeek { fd, offset, whence })
+        Self::save_event(
+            ctx,
+            JournalEntry::FileDescriptorSeekV1 { fd, offset, whence },
+        )
     }
 
     pub fn apply_fd_seek(

@@ -10,7 +10,7 @@ impl JournalEffector {
         pt: SockProto,
         fd: Fd,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SocketOpen { af, ty, pt, fd })
+        Self::save_event(ctx, JournalEntry::SocketOpenV1 { af, ty, pt, fd })
     }
 
     pub fn apply_sock_open(

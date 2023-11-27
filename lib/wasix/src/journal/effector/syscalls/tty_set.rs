@@ -9,7 +9,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::TtySet {
+            JournalEntry::TtySetV1 {
                 tty: wasmer_wasix_types::wasi::Tty {
                     cols: state.cols,
                     rows: state.rows,

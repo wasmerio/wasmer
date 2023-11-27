@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_epoll_create(ctx: &mut FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::EpollCreate { fd })
+        Self::save_event(ctx, JournalEntry::EpollCreateV1 { fd })
     }
 
     pub fn apply_epoll_create(ctx: &mut FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> anyhow::Result<()> {

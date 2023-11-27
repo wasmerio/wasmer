@@ -7,7 +7,7 @@ impl JournalEffector {
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         ip: IpAddr,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::PortGatewaySet { ip })
+        Self::save_event(ctx, JournalEntry::PortGatewaySetV1 { ip })
     }
 
     pub fn apply_port_gateway_set(

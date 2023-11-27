@@ -54,7 +54,7 @@ impl JournalEffector {
 
             // Now we write it to the snap snapshot capturer
             journal
-                .write(JournalEntry::UpdateMemoryRegion {
+                .write(JournalEntry::UpdateMemoryRegionV1 {
                     region,
                     data: data.into(),
                 })
@@ -65,7 +65,7 @@ impl JournalEffector {
         // it can act as a restoration point
         let when = SystemTime::now();
         journal
-            .write(JournalEntry::Snapshot { when, trigger })
+            .write(JournalEntry::SnapshotV1 { when, trigger })
             .map_err(map_snapshot_err)?;
         Ok(())
     }

@@ -11,7 +11,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::CreateHardLink {
+            JournalEntry::CreateHardLinkV1 {
                 old_fd,
                 old_flags,
                 old_path: old_path.into(),

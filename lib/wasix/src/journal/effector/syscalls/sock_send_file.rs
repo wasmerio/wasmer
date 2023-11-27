@@ -12,7 +12,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SocketSendFile {
+            JournalEntry::SocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,

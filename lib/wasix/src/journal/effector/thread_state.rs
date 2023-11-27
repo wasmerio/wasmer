@@ -10,7 +10,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SetThread {
+            JournalEntry::SetThreadV1 {
                 id,
                 call_stack: Cow::Owned(rewind_stack.into()),
                 memory_stack: Cow::Owned(memory_stack.into()),

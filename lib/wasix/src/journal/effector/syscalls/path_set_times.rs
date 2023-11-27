@@ -12,7 +12,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::PathSetTimes {
+            JournalEntry::PathSetTimesV1 {
                 fd,
                 flags,
                 path: path.into(),

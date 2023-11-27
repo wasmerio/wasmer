@@ -8,7 +8,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::UnlinkFile {
+            JournalEntry::UnlinkFileV1 {
                 fd,
                 path: Cow::Owned(path),
             },

@@ -10,7 +10,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::PathRename {
+            JournalEntry::PathRenameV1 {
                 old_fd,
                 old_path: Cow::Owned(old_path),
                 new_fd,

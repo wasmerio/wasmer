@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_port_route_clear(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::PortRouteClear)
+        Self::save_event(ctx, JournalEntry::PortRouteClearV1)
     }
 
     pub fn apply_port_route_clear(ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> anyhow::Result<()> {

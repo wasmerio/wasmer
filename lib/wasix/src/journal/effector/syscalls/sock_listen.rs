@@ -8,7 +8,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::SocketListen {
+            JournalEntry::SocketListenV1 {
                 fd,
                 backlog: backlog as u32,
             },

@@ -13,7 +13,7 @@ impl JournalEffector {
         fd: Fd,
         addr: SocketAddr,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SocketConnected { fd, addr })
+        Self::save_event(ctx, JournalEntry::SocketConnectedV1 { fd, addr })
     }
 
     pub fn apply_sock_connect(

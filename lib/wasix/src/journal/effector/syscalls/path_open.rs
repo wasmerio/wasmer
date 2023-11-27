@@ -15,7 +15,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::OpenFileDescriptor {
+            JournalEntry::OpenFileDescriptorV1 {
                 fd,
                 dirfd,
                 dirflags,

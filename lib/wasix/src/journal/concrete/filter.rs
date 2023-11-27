@@ -116,88 +116,88 @@ impl WritableJournal for FilteredJournalTx {
         }
 
         let evt = match entry {
-            JournalEntry::SetClockTime { .. }
-            | JournalEntry::InitModule { .. }
-            | JournalEntry::ProcessExit { .. }
-            | JournalEntry::EpollCreate { .. }
-            | JournalEntry::EpollCtl { .. }
-            | JournalEntry::TtySet { .. } => {
+            JournalEntry::SetClockTimeV1 { .. }
+            | JournalEntry::InitModuleV1 { .. }
+            | JournalEntry::ProcessExitV1 { .. }
+            | JournalEntry::EpollCreateV1 { .. }
+            | JournalEntry::EpollCtlV1 { .. }
+            | JournalEntry::TtySetV1 { .. } => {
                 if self.filter_core {
                     return Ok(0);
                 }
                 entry
             }
-            JournalEntry::SetThread { .. } | JournalEntry::CloseThread { .. } => {
+            JournalEntry::SetThreadV1 { .. } | JournalEntry::CloseThreadV1 { .. } => {
                 if self.filter_threads {
                     return Ok(0);
                 }
                 entry
             }
-            JournalEntry::UpdateMemoryRegion { .. } => {
+            JournalEntry::UpdateMemoryRegionV1 { .. } => {
                 if self.filter_memory {
                     return Ok(0);
                 }
                 entry
             }
-            JournalEntry::FileDescriptorSeek { .. }
-            | JournalEntry::FileDescriptorWrite { .. }
-            | JournalEntry::OpenFileDescriptor { .. }
-            | JournalEntry::CloseFileDescriptor { .. }
-            | JournalEntry::RemoveDirectory { .. }
-            | JournalEntry::UnlinkFile { .. }
-            | JournalEntry::PathRename { .. }
-            | JournalEntry::RenumberFileDescriptor { .. }
-            | JournalEntry::DuplicateFileDescriptor { .. }
-            | JournalEntry::CreateDirectory { .. }
-            | JournalEntry::PathSetTimes { .. }
-            | JournalEntry::FileDescriptorSetFlags { .. }
-            | JournalEntry::FileDescriptorAdvise { .. }
-            | JournalEntry::FileDescriptorAllocate { .. }
-            | JournalEntry::FileDescriptorSetRights { .. }
-            | JournalEntry::FileDescriptorSetTimes { .. }
-            | JournalEntry::FileDescriptorSetSize { .. }
-            | JournalEntry::CreateHardLink { .. }
-            | JournalEntry::CreateSymbolicLink { .. }
-            | JournalEntry::ChangeDirectory { .. }
-            | JournalEntry::CreatePipe { .. }
-            | JournalEntry::CreateEvent { .. } => {
+            JournalEntry::FileDescriptorSeekV1 { .. }
+            | JournalEntry::FileDescriptorWriteV1 { .. }
+            | JournalEntry::OpenFileDescriptorV1 { .. }
+            | JournalEntry::CloseFileDescriptorV1 { .. }
+            | JournalEntry::RemoveDirectoryV1 { .. }
+            | JournalEntry::UnlinkFileV1 { .. }
+            | JournalEntry::PathRenameV1 { .. }
+            | JournalEntry::RenumberFileDescriptorV1 { .. }
+            | JournalEntry::DuplicateFileDescriptorV1 { .. }
+            | JournalEntry::CreateDirectoryV1 { .. }
+            | JournalEntry::PathSetTimesV1 { .. }
+            | JournalEntry::FileDescriptorSetFlagsV1 { .. }
+            | JournalEntry::FileDescriptorAdviseV1 { .. }
+            | JournalEntry::FileDescriptorAllocateV1 { .. }
+            | JournalEntry::FileDescriptorSetRightsV1 { .. }
+            | JournalEntry::FileDescriptorSetTimesV1 { .. }
+            | JournalEntry::FileDescriptorSetSizeV1 { .. }
+            | JournalEntry::CreateHardLinkV1 { .. }
+            | JournalEntry::CreateSymbolicLinkV1 { .. }
+            | JournalEntry::ChangeDirectoryV1 { .. }
+            | JournalEntry::CreatePipeV1 { .. }
+            | JournalEntry::CreateEventV1 { .. } => {
                 if self.filter_fs {
                     return Ok(0);
                 }
                 entry
             }
-            JournalEntry::Snapshot { .. } => {
+            JournalEntry::SnapshotV1 { .. } => {
                 if self.filter_snapshots {
                     return Ok(0);
                 }
                 entry
             }
-            JournalEntry::PortAddAddr { .. }
-            | JournalEntry::PortDelAddr { .. }
-            | JournalEntry::PortAddrClear
-            | JournalEntry::PortBridge { .. }
-            | JournalEntry::PortUnbridge
-            | JournalEntry::PortDhcpAcquire
-            | JournalEntry::PortGatewaySet { .. }
-            | JournalEntry::PortRouteAdd { .. }
-            | JournalEntry::PortRouteClear
-            | JournalEntry::PortRouteDel { .. }
-            | JournalEntry::SocketOpen { .. }
-            | JournalEntry::SocketListen { .. }
-            | JournalEntry::SocketBind { .. }
-            | JournalEntry::SocketConnected { .. }
-            | JournalEntry::SocketAccepted { .. }
-            | JournalEntry::SocketJoinIpv4Multicast { .. }
-            | JournalEntry::SocketJoinIpv6Multicast { .. }
-            | JournalEntry::SocketLeaveIpv4Multicast { .. }
-            | JournalEntry::SocketLeaveIpv6Multicast { .. }
-            | JournalEntry::SocketSendFile { .. }
-            | JournalEntry::SocketSendTo { .. }
-            | JournalEntry::SocketSend { .. }
-            | JournalEntry::SocketSetOptFlag { .. }
-            | JournalEntry::SocketSetOptSize { .. }
-            | JournalEntry::SocketSetOptTime { .. }
-            | JournalEntry::SocketShutdown { .. } => {
+            JournalEntry::PortAddAddrV1 { .. }
+            | JournalEntry::PortDelAddrV1 { .. }
+            | JournalEntry::PortAddrClearV1
+            | JournalEntry::PortBridgeV1 { .. }
+            | JournalEntry::PortUnbridgeV1
+            | JournalEntry::PortDhcpAcquireV1
+            | JournalEntry::PortGatewaySetV1 { .. }
+            | JournalEntry::PortRouteAddV1 { .. }
+            | JournalEntry::PortRouteClearV1
+            | JournalEntry::PortRouteDelV1 { .. }
+            | JournalEntry::SocketOpenV1 { .. }
+            | JournalEntry::SocketListenV1 { .. }
+            | JournalEntry::SocketBindV1 { .. }
+            | JournalEntry::SocketConnectedV1 { .. }
+            | JournalEntry::SocketAcceptedV1 { .. }
+            | JournalEntry::SocketJoinIpv4MulticastV1 { .. }
+            | JournalEntry::SocketJoinIpv6MulticastV1 { .. }
+            | JournalEntry::SocketLeaveIpv4MulticastV1 { .. }
+            | JournalEntry::SocketLeaveIpv6MulticastV1 { .. }
+            | JournalEntry::SocketSendFileV1 { .. }
+            | JournalEntry::SocketSendToV1 { .. }
+            | JournalEntry::SocketSendV1 { .. }
+            | JournalEntry::SocketSetOptFlagV1 { .. }
+            | JournalEntry::SocketSetOptSizeV1 { .. }
+            | JournalEntry::SocketSetOptTimeV1 { .. }
+            | JournalEntry::SocketShutdownV1 { .. } => {
                 if self.filter_net {
                     return Ok(0);
                 }

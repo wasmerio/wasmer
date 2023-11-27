@@ -2,7 +2,7 @@ use super::*;
 
 impl JournalEffector {
     pub fn save_chdir(ctx: &mut FunctionEnvMut<'_, WasiEnv>, path: String) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::ChangeDirectory { path: path.into() })
+        Self::save_event(ctx, JournalEntry::ChangeDirectoryV1 { path: path.into() })
     }
 
     pub fn apply_chdir(ctx: &mut FunctionEnvMut<'_, WasiEnv>, path: &str) -> anyhow::Result<()> {

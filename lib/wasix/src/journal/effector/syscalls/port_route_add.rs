@@ -12,7 +12,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::PortRouteAdd {
+            JournalEntry::PortRouteAddV1 {
                 cidr,
                 via_router,
                 preferred_until,

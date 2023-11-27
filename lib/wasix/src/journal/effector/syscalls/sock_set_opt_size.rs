@@ -9,7 +9,7 @@ impl JournalEffector {
         opt: Sockoption,
         size: Filesize,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SocketSetOptSize { fd, opt, size })
+        Self::save_event(ctx, JournalEntry::SocketSetOptSizeV1 { fd, opt, size })
     }
 
     pub fn apply_sock_set_opt_size(

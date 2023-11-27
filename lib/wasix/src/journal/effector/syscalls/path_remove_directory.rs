@@ -8,7 +8,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::RemoveDirectory {
+            JournalEntry::RemoveDirectoryV1 {
                 fd,
                 path: Cow::Owned(path),
             },

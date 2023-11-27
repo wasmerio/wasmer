@@ -32,7 +32,7 @@ impl JournalEffector {
 
             ctx.data()
                 .active_journal()?
-                .write(JournalEntry::FileDescriptorWrite {
+                .write(JournalEntry::FileDescriptorWriteV1 {
                     fd,
                     offset,
                     data,

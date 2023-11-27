@@ -6,7 +6,7 @@ impl JournalEffector {
         clock_id: Snapshot0Clockid,
         time: Timestamp,
     ) -> anyhow::Result<()> {
-        Self::save_event(ctx, JournalEntry::SetClockTime { clock_id, time })
+        Self::save_event(ctx, JournalEntry::SetClockTimeV1 { clock_id, time })
     }
 
     pub fn apply_clock_time_set(

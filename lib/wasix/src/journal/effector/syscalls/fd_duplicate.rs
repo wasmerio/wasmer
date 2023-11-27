@@ -8,7 +8,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::DuplicateFileDescriptor {
+            JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
             },

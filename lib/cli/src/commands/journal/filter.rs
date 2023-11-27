@@ -47,7 +47,13 @@ pub struct CmdJournalFilter {
     /// Path to the journal that will be the output of the filter
     #[clap(index = 2)]
     target_path: PathBuf,
-    /// Filters to be applied to the output journal
+    /// Filters to be applied to the output journal, filter options are
+    /// - 'mem' | 'memory' -> removes all WASM memory related events
+    /// - 'thread' | 'threads' -> removes all events related to the state of the threads
+    /// - 'fs' | 'file' -> removes file system mutation events
+    /// - 'core' -> removes core operating system operations such as TTY
+    /// - 'snap' | 'snapshot' -> removes the snapshots from the journal
+    /// - 'net' | 'network' -> removes network socket and interface events
     #[clap(short, long = "filter")]
     filters: Vec<FilterOut>,
 }

@@ -61,20 +61,20 @@ impl Journal for PrintingJournal {
 impl<'a> fmt::Display for JournalEntry<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            JournalEntry::InitModule { wasm_hash } => {
+            JournalEntry::InitModuleV1 { wasm_hash } => {
                 write!(f, "init-module (hash={:x?})", wasm_hash)
             }
-            JournalEntry::UpdateMemoryRegion { region, data } => write!(
+            JournalEntry::UpdateMemoryRegionV1 { region, data } => write!(
                 f,
                 "memory-update (start={}, end={}, data.len={})",
                 region.start,
                 region.end,
                 data.len()
             ),
-            JournalEntry::ProcessExit { exit_code } => {
+            JournalEntry::ProcessExitV1 { exit_code } => {
                 write!(f, "process-exit (code={:?})", exit_code)
             }
-            JournalEntry::SetThread {
+            JournalEntry::SetThreadV1 {
                 id,
                 call_stack,
                 memory_stack,
@@ -88,15 +88,15 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 memory_stack.len(),
                 store_data.len(),
             ),
-            JournalEntry::CloseThread { id, exit_code } => {
+            JournalEntry::CloseThreadV1 { id, exit_code } => {
                 write!(f, "thread-close (id={}, code={:?})", id, exit_code)
             }
-            JournalEntry::FileDescriptorSeek { fd, offset, whence } => write!(
+            JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } => write!(
                 f,
                 "fd-seek (fd={}, offset={}, whence={:?})",
                 fd, offset, whence
             ),
-            JournalEntry::FileDescriptorWrite {
+            JournalEntry::FileDescriptorWriteV1 {
                 fd, offset, data, ..
             } => write!(
                 f,
@@ -105,17 +105,17 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 offset,
                 data.len()
             ),
-            JournalEntry::SetClockTime { clock_id, time } => {
+            JournalEntry::SetClockTimeV1 { clock_id, time } => {
                 write!(f, "set-clock-time (id={:?}, time={})", clock_id, time)
             }
-            JournalEntry::CloseFileDescriptor { fd } => write!(f, "fd-close (fd={})", fd),
-            JournalEntry::OpenFileDescriptor { fd, path, .. } => {
+            JournalEntry::CloseFileDescriptorV1 { fd } => write!(f, "fd-close (fd={})", fd),
+            JournalEntry::OpenFileDescriptorV1 { fd, path, .. } => {
                 write!(f, "fd-open (path={}, fd={})", fd, path)
             }
-            JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
+            JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 write!(f, "fd-renumber (old={}, new={})", old_fd, new_fd)
             }
-            JournalEntry::DuplicateFileDescriptor {
+            JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
             } => write!(
@@ -123,13 +123,13 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "fd-duplicate (original={}, copied={})",
                 original_fd, copied_fd
             ),
-            JournalEntry::CreateDirectory { path, .. } => {
+            JournalEntry::CreateDirectoryV1 { path, .. } => {
                 write!(f, "path-create-dir (path={})", path)
             }
-            JournalEntry::RemoveDirectory { path, .. } => {
+            JournalEntry::RemoveDirectoryV1 { path, .. } => {
                 write!(f, "path-remove-dir (path={})", path)
             }
-            JournalEntry::PathSetTimes {
+            JournalEntry::PathSetTimesV1 {
                 path,
                 st_atim,
                 st_mtim,
@@ -139,7 +139,7 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "path-set-times (path={}, atime={}, mtime={}))",
                 path, st_atim, st_mtim
             ),
-            JournalEntry::FileDescriptorSetTimes {
+            JournalEntry::FileDescriptorSetTimesV1 {
                 fd,
                 st_atim,
                 st_mtim,
@@ -149,10 +149,10 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "fd-set-times (fd={}, atime={}, mtime={})",
                 fd, st_atim, st_mtim
             ),
-            JournalEntry::FileDescriptorSetFlags { fd, flags } => {
+            JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } => {
                 write!(f, "fd-set-flags (fd={}, flags={:?})", fd, flags)
             }
-            JournalEntry::FileDescriptorSetRights {
+            JournalEntry::FileDescriptorSetRightsV1 {
                 fd,
                 fs_rights_base,
                 fs_rights_inheriting,
@@ -161,82 +161,82 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "fd-set-rights (fd={}, base={:?}, inherited={:?})",
                 fd, fs_rights_base, fs_rights_inheriting
             ),
-            JournalEntry::FileDescriptorSetSize { fd, st_size } => {
+            JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
                 write!(f, "fd-set-size (fd={}, size={})", fd, st_size)
             }
-            JournalEntry::FileDescriptorAdvise {
+            JournalEntry::FileDescriptorAdviseV1 {
                 fd, offset, len, ..
             } => write!(f, "fd-advise (fd={}, offset={}, len={})", fd, offset, len),
-            JournalEntry::FileDescriptorAllocate { fd, offset, len } => {
+            JournalEntry::FileDescriptorAllocateV1 { fd, offset, len } => {
                 write!(f, "fd-allocate (fd={}, offset={}, len={})", fd, offset, len)
             }
-            JournalEntry::CreateHardLink {
+            JournalEntry::CreateHardLinkV1 {
                 old_path, new_path, ..
             } => write!(f, "path-link (from={}, to={})", old_path, new_path),
-            JournalEntry::CreateSymbolicLink {
+            JournalEntry::CreateSymbolicLinkV1 {
                 old_path, new_path, ..
             } => write!(f, "path-symlink (from={}, to={})", old_path, new_path),
-            JournalEntry::UnlinkFile { path, .. } => write!(f, "path-unlink (path={})", path),
-            JournalEntry::PathRename {
+            JournalEntry::UnlinkFileV1 { path, .. } => write!(f, "path-unlink (path={})", path),
+            JournalEntry::PathRenameV1 {
                 old_path, new_path, ..
             } => write!(
                 f,
                 "path-rename (old-path={}, new-path={})",
                 old_path, new_path
             ),
-            JournalEntry::ChangeDirectory { path } => write!(f, "chdir (path={})", path),
-            JournalEntry::EpollCreate { fd } => write!(f, "epoll-create (fd={})", fd),
-            JournalEntry::EpollCtl { epfd, op, fd, .. } => {
+            JournalEntry::ChangeDirectoryV1 { path } => write!(f, "chdir (path={})", path),
+            JournalEntry::EpollCreateV1 { fd } => write!(f, "epoll-create (fd={})", fd),
+            JournalEntry::EpollCtlV1 { epfd, op, fd, .. } => {
                 write!(f, "epoll-ctl (epfd={}, op={:?}, fd={})", epfd, op, fd)
             }
-            JournalEntry::TtySet { tty, line_feeds } => write!(
+            JournalEntry::TtySetV1 { tty, line_feeds } => write!(
                 f,
                 "tty-set (echo={}, buffering={}, feeds={})",
                 tty.echo, tty.line_buffered, line_feeds
             ),
-            JournalEntry::CreatePipe { fd1, fd2 } => {
+            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
                 write!(f, "fd-pipe (fd1={}, fd2={})", fd1, fd2)
             }
-            JournalEntry::CreateEvent {
+            JournalEntry::CreateEventV1 {
                 initial_val, fd, ..
             } => write!(f, "fd-event (fd={}, initial={})", fd, initial_val),
-            JournalEntry::PortAddAddr { cidr } => {
+            JournalEntry::PortAddAddrV1 { cidr } => {
                 write!(f, "port-addr-add (ip={}, prefix={})", cidr.ip, cidr.prefix)
             }
-            JournalEntry::PortDelAddr { addr } => write!(f, "port-addr-del (addr={})", addr),
-            JournalEntry::PortAddrClear => write!(f, "port-addr-clear"),
-            JournalEntry::PortBridge { network, .. } => {
+            JournalEntry::PortDelAddrV1 { addr } => write!(f, "port-addr-del (addr={})", addr),
+            JournalEntry::PortAddrClearV1 => write!(f, "port-addr-clear"),
+            JournalEntry::PortBridgeV1 { network, .. } => {
                 write!(f, "port-bridge (network={})", network)
             }
-            JournalEntry::PortUnbridge => write!(f, "port-unbridge"),
-            JournalEntry::PortDhcpAcquire => write!(f, "port-dhcp-acquire"),
-            JournalEntry::PortGatewaySet { ip } => write!(f, "port-gateway-set (ip={})", ip),
-            JournalEntry::PortRouteAdd {
+            JournalEntry::PortUnbridgeV1 => write!(f, "port-unbridge"),
+            JournalEntry::PortDhcpAcquireV1 => write!(f, "port-dhcp-acquire"),
+            JournalEntry::PortGatewaySetV1 { ip } => write!(f, "port-gateway-set (ip={})", ip),
+            JournalEntry::PortRouteAddV1 {
                 cidr, via_router, ..
             } => write!(
                 f,
                 "port-route-add (ip={}, prefix={}, via_router={})",
                 cidr.ip, cidr.prefix, via_router
             ),
-            JournalEntry::PortRouteClear => write!(f, "port-route-clear"),
-            JournalEntry::PortRouteDel { ip } => write!(f, "port-route-del (ip={})", ip),
-            JournalEntry::SocketOpen { af, ty, pt, fd } => {
+            JournalEntry::PortRouteClearV1 => write!(f, "port-route-clear"),
+            JournalEntry::PortRouteDelV1 { ip } => write!(f, "port-route-del (ip={})", ip),
+            JournalEntry::SocketOpenV1 { af, ty, pt, fd } => {
                 write!(
                     f,
                     "sock-open (fd={}, af={:?}, ty={:?}, pt={:?})",
                     fd, af, ty, pt
                 )
             }
-            JournalEntry::SocketListen { fd, backlog } => {
+            JournalEntry::SocketListenV1 { fd, backlog } => {
                 write!(f, "sock-listen (fd={}, backlog={})", fd, backlog)
             }
-            JournalEntry::SocketBind { fd, addr } => {
+            JournalEntry::SocketBindV1 { fd, addr } => {
                 write!(f, "sock-bind (fd={}, addr={})", fd, addr)
             }
-            JournalEntry::SocketConnected { fd, addr } => {
+            JournalEntry::SocketConnectedV1 { fd, addr } => {
                 write!(f, "sock-connect (fd={}, addr={})", fd, addr)
             }
-            JournalEntry::SocketAccepted {
+            JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
                 peer_addr,
@@ -246,7 +246,7 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "sock-accept (listen-fd={}, sock_fd={}, peer={})",
                 listen_fd, fd, peer_addr
             ),
-            JournalEntry::SocketJoinIpv4Multicast {
+            JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
                 multiaddr,
                 iface,
@@ -255,34 +255,34 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "sock-join-mcast-ipv4 (fd={}, addr={}, iface={})",
                 fd, multiaddr, iface
             ),
-            JournalEntry::SocketJoinIpv6Multicast {
+            JournalEntry::SocketJoinIpv6MulticastV1 {
                 fd,
-                multiaddr,
+                multi_addr: multiaddr,
                 iface,
             } => write!(
                 f,
                 "sock-join-mcast-ipv6 (fd={}, addr={}, iface={})",
                 fd, multiaddr, iface
             ),
-            JournalEntry::SocketLeaveIpv4Multicast {
+            JournalEntry::SocketLeaveIpv4MulticastV1 {
                 fd,
-                multiaddr,
+                multi_addr: multiaddr,
                 iface,
             } => write!(
                 f,
                 "sock-leave-mcast-ipv4 (fd={}, addr={}, iface={})",
                 fd, multiaddr, iface
             ),
-            JournalEntry::SocketLeaveIpv6Multicast {
+            JournalEntry::SocketLeaveIpv6MulticastV1 {
                 fd,
-                multiaddr,
+                multi_addr: multiaddr,
                 iface,
             } => write!(
                 f,
                 "sock-leave-mcast-ipv6 (fd={}, addr={}, iface={})",
                 fd, multiaddr, iface
             ),
-            JournalEntry::SocketSendFile {
+            JournalEntry::SocketSendFileV1 {
                 socket_fd,
                 file_fd,
                 offset,
@@ -292,29 +292,29 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "sock-send-file (sock-fd={}, file-fd={}, offset={}, count={})",
                 socket_fd, file_fd, offset, count
             ),
-            JournalEntry::SocketSendTo { fd, data, addr, .. } => write!(
+            JournalEntry::SocketSendToV1 { fd, data, addr, .. } => write!(
                 f,
                 "sock-send-to (fd={}, data.len={}, addr={})",
                 fd,
                 data.len(),
                 addr
             ),
-            JournalEntry::SocketSend { fd, data, .. } => {
+            JournalEntry::SocketSendV1 { fd, data, .. } => {
                 write!(f, "sock-send (fd={}, data.len={}", fd, data.len())
             }
-            JournalEntry::SocketSetOptFlag { fd, opt, flag } => {
+            JournalEntry::SocketSetOptFlagV1 { fd, opt, flag } => {
                 write!(f, "sock-set-opt (fd={}, opt={:?}, flag={})", fd, opt, flag)
             }
-            JournalEntry::SocketSetOptSize { fd, opt, size } => {
+            JournalEntry::SocketSetOptSizeV1 { fd, opt, size } => {
                 write!(f, "sock-set-opt (fd={}, opt={:?}, size={})", fd, opt, size)
             }
-            JournalEntry::SocketSetOptTime { fd, ty, time } => {
+            JournalEntry::SocketSetOptTimeV1 { fd, ty, time } => {
                 write!(f, "sock-set-opt (fd={}, opt={:?}, time={:?})", fd, ty, time)
             }
-            JournalEntry::SocketShutdown { fd, how } => {
+            JournalEntry::SocketShutdownV1 { fd, how } => {
                 write!(f, "sock-shutdown (fd={}, how={:?})", fd, how)
             }
-            JournalEntry::Snapshot { when, trigger } => {
+            JournalEntry::SnapshotV1 { when, trigger } => {
                 write!(f, "snapshot (when={:?}, trigger={:?})", when, trigger)
             }
         }

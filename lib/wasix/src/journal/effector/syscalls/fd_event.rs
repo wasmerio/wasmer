@@ -11,7 +11,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         Self::save_event(
             ctx,
-            JournalEntry::CreateEvent {
+            JournalEntry::CreateEventV1 {
                 initial_val,
                 flags,
                 fd,
