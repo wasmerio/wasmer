@@ -350,7 +350,7 @@
 </span><span class="kw">use </span><span class="kw">crate</span>::commands::{CreateObj, GenCHeader};
 <span class="kw">use </span><span class="kw">crate</span>::error::PrettyError;
 <span class="kw">use </span>clap::{CommandFactory, Parser};
-<span class="kw">use </span>wasmer_deploy_cli::cmd::CliCommand;
+<span class="kw">use </span>wasmer_edge_cli::cmd::CliCommand;
 
 <span class="doccomment">/// The main function for the Wasmer CLI tool.
 </span><span class="kw">pub fn </span>wasmer_main() {
@@ -607,19 +607,19 @@
     </span>Container(<span class="kw">crate</span>::commands::Container),
 
     <span class="comment">// Edge commands
-    </span><span class="doccomment">/// Deploy apps to the Wasmer Edge.
-    </span>Deploy(wasmer_deploy_cli::cmd::deploy::CmdDeploy),
+    </span><span class="doccomment">/// Deploy apps to Wasmer Edge.
+    </span>Deploy(wasmer_edge_cli::cmd::deploy::CmdDeploy),
 
-    <span class="doccomment">/// Manage deployed apps.
+    <span class="doccomment">/// Manage deployed Edge apps.
     </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;apps&quot;</span>)]
-    </span>App(wasmer_deploy_cli::cmd::app::CmdApp),
+    </span>App(wasmer_edge_cli::cmd::app::CmdApp),
 
-    <span class="doccomment">/// Create a dynamic on the Deploy Edge, and connect to it through SSH.
-    </span>Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+    <span class="doccomment">/// Run commands/packages on Wasmer Edge in an interactive shell session.
+    </span>Ssh(wasmer_edge_cli::cmd::ssh::CmdSsh),
 
     <span class="doccomment">/// Manage Wasmer namespaces.
     </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;namespaces&quot;</span>)]
-    </span>Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
+    </span>Namespace(wasmer_edge_cli::cmd::namespace::CmdNamespace),
 }
 
 <span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {
