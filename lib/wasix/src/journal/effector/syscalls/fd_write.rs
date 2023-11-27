@@ -4,7 +4,7 @@ impl JournalEffector {
     pub fn save_fd_write<M: MemorySize>(
         ctx: &FunctionEnvMut<'_, WasiEnv>,
         fd: Fd,
-        offset: u64,
+        mut offset: u64,
         written: usize,
         iovs: WasmPtr<__wasi_ciovec_t<M>, M>,
         iovs_len: M::Offset,
@@ -27,15 +27,20 @@ impl JournalEffector {
                 .map_err(mem_error_to_wasi)?
                 .access()
                 .map_err(mem_error_to_wasi)?;
+            let data = Cow::Borrowed(buf.as_ref());
+            let data_len = data.len();
+
             ctx.data()
                 .active_journal()?
                 .write(JournalEntry::FileDescriptorWrite {
                     fd,
                     offset,
-                    data: Cow::Borrowed(buf.as_ref()),
+                    data,
                     is_64bit: M::is_64bit(),
                 })
                 .map_err(map_snapshot_err)?;
+
+            offset += data_len as u64;
         }
         Ok(())
     }
