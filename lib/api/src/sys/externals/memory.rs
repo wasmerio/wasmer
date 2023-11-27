@@ -51,6 +51,16 @@ impl Memory {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        self.handle
+            .get_mut(store.objects_mut())
+            .grow_at_least(min_size)
+    }
+
     pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
         self.handle.get_mut(store.objects_mut()).reset()?;
         Ok(())

@@ -26,6 +26,17 @@ pub enum SnapshotTrigger {
     NonDeterministicCall,
 }
 
+impl SnapshotTrigger {
+    pub fn only_once(&self) -> bool {
+        match self {
+            Self::FirstListen => true,
+            Self::FirstEnviron => true,
+            Self::FirstStdin => true,
+            _ => false,
+        }
+    }
+}
+
 pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 4] = [
     SnapshotTrigger::Idle,
     SnapshotTrigger::FirstEnviron,

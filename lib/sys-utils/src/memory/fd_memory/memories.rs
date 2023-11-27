@@ -12,7 +12,7 @@ use std::{
 };
 
 use wasmer::{Bytes, MemoryError, MemoryType, Pages};
-use wasmer_types::MemoryStyle;
+use wasmer_types::{MemoryStyle, WASM_PAGE_SIZE};
 use wasmer_vm::{
     LinearMemory, MaybeInstanceOwned, ThreadConditions, Trap, VMMemoryDefinition, WaiterError,
 };
@@ -129,6 +129,19 @@ impl WasmMmap {
         }
 
         Ok(prev_pages)
+    }
+
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64, conf: VMMemoryConfig) -> Result<(), MemoryError> {
+        let cur_size = self.size.bytes().0 as u64;
+        if cur_size < min_size {
+            let growth = min_size - cur_size;
+            let growth_pages = ((growth - 1) / WASM_PAGE_SIZE as u64) + 1;
+            self.grow(Pages(growth_pages as u32), conf)?;
+        }
+
+        Ok(())
     }
 
     fn reset(&mut self) -> Result<(), MemoryError> {
@@ -342,6 +355,12 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.mmap.grow_at_least(min_size, self.config.clone())
+    }
+
     fn reset(&mut self) -> Result<(), MemoryError> {
         self.mmap.reset()?;
         Ok(())
@@ -431,7 +450,7 @@ impl LinearMemory for VMSharedMemory {
     /// Resets the memory back down to zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
         let mut guard = self.mmap.write().unwrap();
-        guard.reset();
+        guard.reset()?;
         Ok(())
     }
 
@@ -447,6 +466,13 @@ impl LinearMemory for VMSharedMemory {
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         guard.grow(delta, self.config.clone())
+    }
+
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.grow_at_least(min_size, self.config.clone())
     }
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
@@ -520,9 +546,15 @@ impl LinearMemory for VMMemory {
         self.0.grow(delta)
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.0.grow_at_least(min_size)
+    }
+
     /// Resets the memory down to a zero size
     fn reset(&mut self) -> Result<(), MemoryError> {
-        self.0.reset();
+        self.0.reset()?;
         Ok(())
     }
 

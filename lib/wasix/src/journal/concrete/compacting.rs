@@ -8,7 +8,7 @@ use virtual_fs::Fd;
 
 use super::*;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct StateDescriptor {
     events: Vec<usize>,
     write_map: HashMap<MemoryRange, usize>,
@@ -28,9 +28,14 @@ impl From<Range<u64>> for MemoryRange {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+struct DescriptorLookup(u64);
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 struct State {
+    /// The descriptor seed is used generate descriptor lookups
+    descriptor_seed: u64,
     // We maintain a memory map of the events that are significant
     memory_map: HashMap<MemoryRange, usize>,
     // List of all the snapshots
@@ -42,10 +47,17 @@ struct State {
     thread_map: HashMap<crate::WasiThreadId, usize>,
     // Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
-    suspect_descriptors: HashMap<Fd, Vec<usize>>,
+    suspect_descriptors: HashMap<Fd, DescriptorLookup>,
     // Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
-    keep_descriptors: HashMap<Fd, StateDescriptor>,
+    keep_descriptors: HashMap<Fd, DescriptorLookup>,
+    // We put the IO related to stdio into a special list
+    // which can be purged when the program exits as its no longer
+    // important.
+    stdio_descriptors: HashMap<Fd, DescriptorLookup>,
+    // We abstract the descriptor state so that multiple file descriptors
+    // can refer to the same file descriptors
+    descriptors: HashMap<DescriptorLookup, StateDescriptor>,
     // Everything that will be retained during the next compact
     whitelist: HashSet<usize>,
     // We use an event index to track what to keep
@@ -80,17 +92,19 @@ impl State {
         for t in self.thread_map.iter() {
             filter.add_event_to_whitelist(*t.1);
         }
-        for (_, d) in self.suspect_descriptors.iter() {
-            for e in d.iter() {
-                filter.add_event_to_whitelist(*e);
-            }
-        }
-        for (_, d) in self.keep_descriptors.iter() {
-            for e in d.events.iter() {
-                filter.add_event_to_whitelist(*e);
-            }
-            for e in d.write_map.values() {
-                filter.add_event_to_whitelist(*e);
+        for (_, l) in self
+            .suspect_descriptors
+            .iter()
+            .chain(self.keep_descriptors.iter())
+            .chain(self.stdio_descriptors.iter())
+        {
+            if let Some(d) = self.descriptors.get(&l) {
+                for e in d.events.iter() {
+                    filter.add_event_to_whitelist(*e);
+                }
+                for e in d.write_map.values() {
+                    filter.add_event_to_whitelist(*e);
+                }
             }
         }
         filter
@@ -125,21 +139,25 @@ impl CompactingJournal {
         J: Journal,
     {
         let (tx, rx) = inner.split();
+        let state = State {
+            inner_tx: tx,
+            inner_rx: rx.as_restarted()?,
+            tty: None,
+            snapshots: Default::default(),
+            memory_map: Default::default(),
+            thread_map: Default::default(),
+            suspect_descriptors: Default::default(),
+            keep_descriptors: Default::default(),
+            stdio_descriptors: Default::default(),
+            descriptor_seed: 0,
+            descriptors: Default::default(),
+            whitelist: Default::default(),
+            delta_list: None,
+            event_index: 0,
+        };
         Ok(Self {
             tx: CompactingJournalTx {
-                state: Arc::new(Mutex::new(State {
-                    inner_tx: tx,
-                    inner_rx: rx.as_restarted()?,
-                    tty: None,
-                    snapshots: Default::default(),
-                    memory_map: Default::default(),
-                    thread_map: Default::default(),
-                    suspect_descriptors: Default::default(),
-                    keep_descriptors: Default::default(),
-                    whitelist: Default::default(),
-                    delta_list: None,
-                    event_index: 0,
-                })),
+                state: Arc::new(Mutex::new(state)),
                 compacting: Arc::new(Mutex::new(())),
             },
             rx: CompactingJournalRx { inner: rx },
@@ -242,20 +260,16 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::ProcessExit { .. } => {
                 state.thread_map.clear();
                 state.memory_map.clear();
+                for (_, lookup) in state.suspect_descriptors.clone() {
+                    state.descriptors.remove(&lookup);
+                }
                 state.suspect_descriptors.clear();
+                for (_, lookup) in state.stdio_descriptors.clone() {
+                    state.descriptors.remove(&lookup);
+                }
+                state.stdio_descriptors.clear();
                 state.whitelist.insert(event_index);
                 state.snapshots.clear();
-            }
-            JournalEntry::CloseFileDescriptor { fd } => {
-                // If its not suspect we need to record this event
-                if state.suspect_descriptors.remove(fd).is_some() {
-                    // suspect descriptors that are closed are dropped
-                    // as they made no material difference to the state
-                } else if let Some(e) = state.keep_descriptors.get_mut(fd) {
-                    e.events.push(event_index);
-                } else {
-                    state.whitelist.insert(event_index);
-                }
             }
             JournalEntry::TtySet { .. } => {
                 state.tty.replace(event_index);
@@ -264,14 +278,29 @@ impl WritableJournal for CompactingJournalTx {
                 // All file descriptors are opened in a suspect state which
                 // means if they are closed without modifying the file system
                 // then the events will be ignored.
-                state.suspect_descriptors.insert(*fd, vec![event_index]);
+                let lookup = state.descriptor_seed;
+                state.descriptor_seed += 1;
+                state
+                    .suspect_descriptors
+                    .insert(*fd, DescriptorLookup(lookup));
             }
             // We keep non-mutable events for file descriptors that are suspect
-            JournalEntry::FileDescriptorSeek { fd, .. } => {
-                if let Some(events) = state.suspect_descriptors.get_mut(fd) {
-                    events.push(event_index);
-                } else if let Some(s) = state.keep_descriptors.get_mut(fd) {
-                    s.events.push(event_index);
+            JournalEntry::FileDescriptorSeek { fd, .. }
+            | JournalEntry::CloseFileDescriptor { fd } => {
+                // Get the lookup
+                let lookup = state
+                    .suspect_descriptors
+                    .get(fd)
+                    .cloned()
+                    .or_else(|| state.keep_descriptors.get(fd).cloned())
+                    .or_else(|| state.stdio_descriptors.get(fd).cloned());
+
+                if let Some(lookup) = lookup {
+                    let state = state
+                        .descriptors
+                        .entry(lookup)
+                        .or_insert_with(|| Default::default());
+                    state.events.push(event_index);
                 } else {
                     state.whitelist.insert(event_index);
                 }
@@ -282,21 +311,26 @@ impl WritableJournal for CompactingJournalTx {
             | JournalEntry::FileDescriptorAllocate { fd, .. }
             | JournalEntry::FileDescriptorSetFlags { fd, .. }
             | JournalEntry::FileDescriptorSetTimes { fd, .. }
-            | JournalEntry::FileDescriptorWrite { fd, .. }
-            | JournalEntry::DuplicateFileDescriptor {
-                original_fd: fd, ..
-            } => {
+            | JournalEntry::FileDescriptorWrite { fd, .. } => {
                 // Its no longer suspect
-                if let Some(events) = state.suspect_descriptors.remove(fd) {
-                    state.keep_descriptors.insert(
-                        *fd,
-                        StateDescriptor {
-                            events,
-                            write_map: Default::default(),
-                        },
-                    );
+                if let Some(lookup) = state.suspect_descriptors.remove(fd) {
+                    state.keep_descriptors.insert(*fd, lookup);
                 }
-                if let Some(state) = state.keep_descriptors.get_mut(fd) {
+
+                // Get the lookup
+                let lookup = state
+                    .suspect_descriptors
+                    .get(fd)
+                    .cloned()
+                    .or_else(|| state.keep_descriptors.get(fd).cloned())
+                    .or_else(|| state.stdio_descriptors.get(fd).cloned());
+
+                // Update the state
+                if let Some(lookup) = lookup {
+                    let state = state
+                        .descriptors
+                        .entry(lookup)
+                        .or_insert_with(|| Default::default());
                     if let JournalEntry::FileDescriptorWrite { offset, data, .. } = &entry {
                         state.write_map.insert(
                             MemoryRange {
@@ -312,14 +346,29 @@ impl WritableJournal for CompactingJournalTx {
                     state.whitelist.insert(event_index);
                 }
             }
+            // Duplicating the file descriptor
+            JournalEntry::DuplicateFileDescriptor {
+                original_fd,
+                copied_fd,
+            } => {
+                if let Some(lookup) = state.suspect_descriptors.remove(original_fd) {
+                    state.suspect_descriptors.insert(*copied_fd, lookup);
+                } else if let Some(lookup) = state.keep_descriptors.remove(original_fd) {
+                    state.keep_descriptors.insert(*copied_fd, lookup);
+                } else if let Some(lookup) = state.stdio_descriptors.remove(original_fd) {
+                    state.stdio_descriptors.insert(*copied_fd, lookup);
+                } else {
+                    state.whitelist.insert(event_index);
+                }
+            }
             // Renumbered file descriptors will retain their suspect status
             JournalEntry::RenumberFileDescriptor { old_fd, new_fd } => {
-                if let Some(mut events) = state.suspect_descriptors.remove(old_fd) {
-                    events.push(event_index);
-                    state.suspect_descriptors.insert(*new_fd, events);
-                } else if let Some(mut s) = state.keep_descriptors.remove(old_fd) {
-                    s.events.push(event_index);
-                    state.keep_descriptors.insert(*new_fd, s);
+                if let Some(lookup) = state.suspect_descriptors.remove(old_fd) {
+                    state.suspect_descriptors.insert(*new_fd, lookup);
+                } else if let Some(lookup) = state.keep_descriptors.remove(old_fd) {
+                    state.keep_descriptors.insert(*new_fd, lookup);
+                } else if let Some(lookup) = state.stdio_descriptors.remove(old_fd) {
+                    state.stdio_descriptors.insert(*new_fd, lookup);
                 } else {
                     state.whitelist.insert(event_index);
                 }

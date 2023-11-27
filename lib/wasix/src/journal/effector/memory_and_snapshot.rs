@@ -80,7 +80,11 @@ impl JournalEffector {
         region: Range<u64>,
         data: &[u8],
     ) -> anyhow::Result<()> {
-        let (env, store) = ctx.data_and_store_mut();
+        let (env, mut store) = ctx.data_and_store_mut();
+
+        let memory = unsafe { env.memory() };
+        memory.grow_at_least(&mut store, region.end + data.len() as u64)?;
+
         let memory = unsafe { env.memory_view(&store) };
         memory
             .write(region.start, data.as_ref())

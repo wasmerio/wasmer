@@ -820,6 +820,16 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    /// This has been marked as unsafe as it will panic if its executed
+    /// on the wrong thread or before the inner is set
+    pub(crate) unsafe fn memory<'a>(&self) -> WasiInstanceGuardMemory<'_> {
+        self.try_memory().expect(
+            "You must initialize the WasiEnv before using it and can not pass it between threads",
+        )
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
     pub(crate) fn try_memory_view<'a>(
         &self,
         store: &'a (impl AsStoreRef + ?Sized),
@@ -890,7 +900,11 @@ impl WasiEnv {
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
-        self.snapshot_on.remove(&trigger)
+        if trigger.only_once() {
+            self.snapshot_on.remove(&trigger)
+        } else {
+            self.snapshot_on.contains(&trigger)
+        }
     }
 
     /// Internal helper function to get a standard device handle.

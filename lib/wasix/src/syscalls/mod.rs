@@ -1491,13 +1491,11 @@ pub unsafe fn restore_snapshot(
                 JournalEffector::apply_path_rename(&mut ctx, old_fd, &old_path, new_fd, &new_path)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
-            crate::journal::JournalEntry::Snapshot {
-                when: _,
-                trigger: _,
-            } => {
+            crate::journal::JournalEntry::Snapshot { when: _, trigger } => {
                 if cur_module_hash != journal_module_hash {
                     continue;
                 }
+                ctx.data_mut().pop_snapshot_trigger(trigger);
             }
             crate::journal::JournalEntry::SetClockTime { clock_id, time } => {
                 JournalEffector::apply_clock_time_set(&mut ctx, clock_id, time)
@@ -1836,6 +1834,7 @@ pub unsafe fn restore_snapshot(
             .map_err(anyhow_err_to_runtime_err)?;
     }
     if let Some(state) = update_tty {
+        tracing::error!("BLAH1 {:?}", state);
         JournalEffector::apply_tty_set(&mut ctx, state).map_err(anyhow_err_to_runtime_err)?;
     }
 
