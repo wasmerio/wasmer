@@ -822,7 +822,7 @@ impl WasiEnv {
     /// (it must be initialized before it can be used)
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory<'a>(&self) -> WasiInstanceGuardMemory<'_> {
+    pub(crate) unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
         self.try_memory().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )

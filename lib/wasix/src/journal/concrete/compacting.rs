@@ -98,7 +98,7 @@ impl State {
             .chain(self.keep_descriptors.iter())
             .chain(self.stdio_descriptors.iter())
         {
-            if let Some(d) = self.descriptors.get(&l) {
+            if let Some(d) = self.descriptors.get(l) {
                 for e in d.events.iter() {
                     filter.add_event_to_whitelist(*e);
                 }
@@ -299,7 +299,7 @@ impl WritableJournal for CompactingJournalTx {
                     let state = state
                         .descriptors
                         .entry(lookup)
-                        .or_insert_with(|| Default::default());
+                        .or_insert_with(Default::default);
                     state.events.push(event_index);
                 } else {
                     state.whitelist.insert(event_index);
@@ -330,7 +330,7 @@ impl WritableJournal for CompactingJournalTx {
                     let state = state
                         .descriptors
                         .entry(lookup)
-                        .or_insert_with(|| Default::default());
+                        .or_insert_with(Default::default);
                     if let JournalEntry::FileDescriptorWriteV1 { offset, data, .. } = &entry {
                         state.write_map.insert(
                             MemoryRange {

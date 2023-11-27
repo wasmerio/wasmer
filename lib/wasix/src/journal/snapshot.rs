@@ -28,12 +28,10 @@ pub enum SnapshotTrigger {
 
 impl SnapshotTrigger {
     pub fn only_once(&self) -> bool {
-        match self {
-            Self::FirstListen => true,
-            Self::FirstEnviron => true,
-            Self::FirstStdin => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::FirstListen | Self::FirstEnviron | Self::FirstStdin
+        )
     }
 }
 

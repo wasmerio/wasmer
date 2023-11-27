@@ -144,6 +144,21 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        let cur_size = self.view(store).data_size();
+        if min_size > cur_size {
+            let delta = min_size - cur_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
+
+            self.grow(store, Pages(pages))?;
+        }
+        Ok(())
+    }
+
     pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
         Ok(())
     }

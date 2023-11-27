@@ -867,10 +867,7 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
-        let module_hash = self
-            .module_hash
-            .clone()
-            .unwrap_or_else(|| ModuleHash::random());
+        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
         let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
@@ -885,10 +882,7 @@ impl WasiEnvBuilder {
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
-        let module_hash = self
-            .module_hash
-            .clone()
-            .unwrap_or_else(|| ModuleHash::random());
+        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
         let init = self.build_init()?;
         let env = WasiEnv::from_init(init, module_hash)?;
         let func_env = WasiFunctionEnv::new(store, env);
