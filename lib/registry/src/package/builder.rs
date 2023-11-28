@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use std::{fs, io::IsTerminal};
 
 use anyhow::{anyhow, bail, Context};
@@ -38,6 +39,10 @@ pub struct Publish {
     pub no_validate: bool,
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     pub package_path: Option<String>,
+    /// Wait for package to be available on the registry before exiting
+    pub wait: bool,
+    /// Timeout (in seconds) for the publish query to the registry
+    pub timeout: Duration,
 }
 
 #[derive(Debug, Error)]
@@ -186,6 +191,8 @@ impl Publish {
             &maybe_signature_data,
             archived_data_size,
             self.quiet,
+            self.wait,
+            self.timeout,
         )
     }
 
