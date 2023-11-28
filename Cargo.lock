@@ -5925,9 +5925,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-edge-cli"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7a4fd3142520febcdaa8771517de6b4a87546472dd92e273323146827d61e17"
+checksum = "2d6efa3ced01dd6f1f7b2cab243e323136412bb186fea31c3b751081cc883403"
 dependencies = [
  "anyhow",
  "clap",
