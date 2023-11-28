@@ -173,7 +173,6 @@ fn wasmer_publish_and_run() {
     let assert = std::process::Command::new(get_wasmer_path())
         .arg("run")
         .arg(format!("https://wasmer.wtf/{package_name}"))
-        .arg("--entrypoint=quickjs")
         .arg("--")
         .arg("--eval")
         .arg("console.log('Hello, World!')")
