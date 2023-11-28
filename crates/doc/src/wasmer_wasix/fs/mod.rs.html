@@ -2010,14 +2010,6 @@
 <a href="#2010" id="2010">2010</a>
 <a href="#2011" id="2011">2011</a>
 <a href="#2012" id="2012">2012</a>
-<a href="#2013" id="2013">2013</a>
-<a href="#2014" id="2014">2014</a>
-<a href="#2015" id="2015">2015</a>
-<a href="#2016" id="2016">2016</a>
-<a href="#2017" id="2017">2017</a>
-<a href="#2018" id="2018">2018</a>
-<a href="#2019" id="2019">2019</a>
-<a href="#2020" id="2020">2020</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2480,31 +2472,26 @@
     <span class="doccomment">/// Closes all the file handles.
     </span><span class="attr">#[allow(clippy::await_holding_lock)]
     </span><span class="kw">pub async fn </span>close_all(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="comment">// TODO: this should close all uniquely owned files instead of just flushing.
-
-        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>map) = <span class="self">self</span>.fd_map.write() {
-            map.clear();
-        }
-
-        <span class="kw">let </span>to_close = {
+        <span class="kw">let </span><span class="kw-2">mut </span>to_close = {
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(map) = <span class="self">self</span>.fd_map.read() {
-                map.keys().copied().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                map.keys().copied().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;()
             } <span class="kw">else </span>{
-                Vec::new()
+                HashSet::new()
             }
         };
+        to_close.insert(__WASI_STDOUT_FILENO);
+        to_close.insert(__WASI_STDERR_FILENO);
 
-        <span class="kw">let _ </span>= <span class="macro">tokio::join!</span>(
-            <span class="comment">// Make sure the STDOUT and STDERR are explicitely flushed
-            </span><span class="self">self</span>.flush(__WASI_STDOUT_FILENO),
-            <span class="self">self</span>.flush(__WASI_STDERR_FILENO),
-            <span class="kw">async </span>{
-                <span class="kw">for </span>fd <span class="kw">in </span>to_close {
-                    <span class="self">self</span>.flush(fd).<span class="kw">await</span>.ok();
-                    <span class="self">self</span>.close_fd(fd).ok();
-                }
+        <span class="kw">let _ </span>= <span class="macro">tokio::join!</span>(<span class="kw">async </span>{
+            <span class="kw">for </span>fd <span class="kw">in </span>to_close {
+                <span class="self">self</span>.flush(fd).<span class="kw">await</span>.ok();
+                <span class="self">self</span>.close_fd(fd).ok();
             }
-        );
+        });
+
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>map) = <span class="self">self</span>.fd_map.write() {
+            map.clear();
+        }
     }
 
     <span class="doccomment">/// Will conditionally union the binary file system with this one
@@ -3586,37 +3573,34 @@
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
                 }
 
-                <span class="kw">let </span>work = {
+                <span class="kw">let </span>file = {
                     <span class="kw">let </span>guard = fd.inode.read();
                     <span class="kw">match </span>guard.deref() {
                         Kind::File {
                             handle: <span class="prelude-val">Some</span>(file), ..
-                        } =&gt; {
-                            <span class="kw">struct </span>FlushPoller {
-                                file: Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;&gt;,
-                            }
-                            <span class="kw">impl </span>Future <span class="kw">for </span>FlushPoller {
-                                <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;;
-                                <span class="kw">fn </span>poll(
-                                    <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-                                    cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-                                ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-                                    <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="self">self</span>.file.write().unwrap();
-                                    Pin::new(file.as_mut())
-                                        .poll_flush(cx)
-                                        .map_err(|<span class="kw">_</span>| Errno::Io)
-                                }
-                            }
-                            FlushPoller { file: file.clone() }
-                        }
+                        } =&gt; file.clone(),
                         <span class="comment">// TODO: verify this behavior
                         </span>Kind::Dir { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Isdir),
                         Kind::Buffer { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Io),
                     }
                 };
-                work.<span class="kw">await</span><span class="question-mark">?
-            </span>}
+                drop(fd);
+
+                <span class="kw">struct </span>FlushPoller {
+                    file: Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;&gt;,
+                }
+                <span class="kw">impl </span>Future <span class="kw">for </span>FlushPoller {
+                    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Errno&gt;;
+                    <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                        <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="self">self</span>.file.write().unwrap();
+                        Pin::new(file.as_mut())
+                            .poll_flush(cx)
+                            .map_err(|<span class="kw">_</span>| Errno::Io)
+                    }
+                }
+                FlushPoller { file }.<span class="kw">await</span><span class="question-mark">?</span>;
+            }
         }
         <span class="prelude-val">Ok</span>(())
     }
