@@ -1,11 +1,11 @@
+use anyhow::Context;
+use console::{style, Emoji};
+use graphql_client::GraphQLQuery;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::fmt::Write;
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::{collections::BTreeMap, time::Duration};
-
-use console::{style, Emoji};
-use graphql_client::GraphQLQuery;
-use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
 use crate::graphql::queries::get_signed_url::GetSignedUrlUrl;
 use crate::graphql::{
@@ -188,7 +188,7 @@ fn upload_package(
     archived_data_size: u64,
     timeout: Duration,
 ) -> Result<(), anyhow::Error> {
-    let url = url::Url::parse(signed_url).unwrap();
+    let url = url::Url::parse(signed_url).context("cannot parse signed url")?;
     let client = reqwest::blocking::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .timeout(timeout)

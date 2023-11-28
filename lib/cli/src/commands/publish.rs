@@ -33,10 +33,9 @@ pub struct Publish {
     /// Timeout (in seconds) for the publish query to the registry.
     ///
     /// Note that this is not the timeout for the entire publish process, but
-    ///
     /// for each individual query to the registry during the publish flow.
-    #[clap(long, default_value = "30")]
-    pub timeout: u64,
+    #[clap(long, default_value = "30s")]
+    pub timeout: humantime::Duration,
 }
 
 impl Publish {
@@ -57,7 +56,7 @@ impl Publish {
             no_validate: self.no_validate,
             package_path: self.package_path.clone(),
             wait: self.wait,
-            timeout: std::time::Duration::from_secs(self.timeout),
+            timeout: self.timeout.into(),
         };
         publish.execute().map_err(on_error)?;
 
