@@ -166,8 +166,8 @@ fn google_signed_url(
     });
 
     let _response: get_signed_url::ResponseData = crate::graphql::execute_query_with_timeout(
-        &registry,
-        &token,
+        registry,
+        token,
         timeout,
         &get_google_signed_url,
     )?;
