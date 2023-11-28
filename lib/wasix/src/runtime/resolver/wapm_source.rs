@@ -517,7 +517,6 @@ mod tests {
             &self,
             request: HttpRequest,
         ) -> futures::future::BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
-            std::fs::write("/tmp/request.txt", request.body.as_deref().unwrap()).unwrap();
             self.requests.lock().unwrap().push(request);
             let response = self.responses.lock().unwrap().remove(0);
             Box::pin(async { Ok(response) })
