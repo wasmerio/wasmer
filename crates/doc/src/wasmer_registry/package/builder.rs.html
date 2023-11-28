@@ -1064,8 +1064,16 @@
 <a href="#1064" id="1064">1064</a>
 <a href="#1065" id="1065">1065</a>
 <a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>std::{fs, io::IsTerminal};
 
 <span class="kw">use </span>anyhow::{anyhow, bail, Context};
@@ -1104,6 +1112,10 @@
     </span><span class="kw">pub </span>no_validate: bool,
     <span class="doccomment">/// Directory containing the `wasmer.toml` (defaults to current root dir)
     </span><span class="kw">pub </span>package_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Wait for package to be available on the registry before exiting
+    </span><span class="kw">pub </span>wait: bool,
+    <span class="doccomment">/// Timeout (in seconds) for the publish query to the registry
+    </span><span class="kw">pub </span>timeout: Duration,
 }
 
 <span class="attr">#[derive(Debug, Error)]
@@ -1252,6 +1264,8 @@
             <span class="kw-2">&amp;</span>maybe_signature_data,
             archived_data_size,
             <span class="self">self</span>.quiet,
+            <span class="self">self</span>.wait,
+            <span class="self">self</span>.timeout,
         )
     }
 

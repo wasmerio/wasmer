@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SignArchiveResult"],"fn":["try_chunked_uploading"],"static":["PACKAGE","UPLOAD"]};
+window.SIDEBAR_ITEMS = {"enum":["SignArchiveResult"],"fn":["google_signed_url","initialize_registry_and_token","sign_package","try_chunked_uploading","upload_package"],"static":["PACKAGE","UPLOAD"]};

@@ -78,6 +78,17 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context <span class="kw">as _</span>;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
@@ -107,6 +118,15 @@
     /// Defaults to current working directory.
     </span><span class="attr">#[clap(name = <span class="string">&quot;PACKAGE_PATH&quot;</span>)]
     </span><span class="kw">pub </span>package_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Wait for package to be available on the registry before exiting.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>wait: bool,
+    <span class="doccomment">/// Timeout (in seconds) for the publish query to the registry.
+    ///
+    /// Note that this is not the timeout for the entire publish process, but
+    /// for each individual query to the registry during the publish flow.
+    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;30s&quot;</span>)]
+    </span><span class="kw">pub </span>timeout: humantime::Duration,
 }
 
 <span class="kw">impl </span>Publish {
@@ -126,6 +146,8 @@
             token,
             no_validate: <span class="self">self</span>.no_validate,
             package_path: <span class="self">self</span>.package_path.clone(),
+            wait: <span class="self">self</span>.wait,
+            timeout: <span class="self">self</span>.timeout.into(),
         };
         publish.execute().map_err(on_error)<span class="question-mark">?</span>;
 

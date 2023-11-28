@@ -244,17 +244,62 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
-<span class="kw">use </span>std::fmt::Write;
-<span class="kw">use </span>std::io::BufRead;
-<span class="kw">use </span>std::path::PathBuf;
-
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>console::{style, Emoji};
 <span class="kw">use </span>graphql_client::GraphQLQuery;
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressState, ProgressStyle};
+<span class="kw">use </span>std::fmt::Write;
+<span class="kw">use </span>std::io::BufRead;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::{collections::BTreeMap, time::Duration};
 
+<span class="kw">use </span><span class="kw">crate</span>::graphql::queries::get_signed_url::GetSignedUrlUrl;
 <span class="kw">use </span><span class="kw">crate</span>::graphql::{
-    execute_query_modifier_inner,
     mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
     queries::{get_signed_url, GetSignedUrl},
 };
@@ -285,7 +330,61 @@
     maybe_signature_data: <span class="kw-2">&amp;</span>SignArchiveResult,
     archived_data_size: u64,
     quiet: bool,
+    wait: bool,
+    timeout: Duration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">let </span>(registry, token) = initialize_registry_and_token(registry, token)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>maybe_signature_data = sign_package(maybe_signature_data);
+
+    <span class="comment">// fetch this before showing the `Uploading...` message
+    // because there is a chance that the registry may not return a signed url.
+    // This usually happens if the package version already exists in the registry.
+    </span><span class="kw">let </span>signed_url = google_signed_url(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, package, timeout)<span class="question-mark">?</span>;
+
+    <span class="kw">if </span>!quiet {
+        <span class="macro">println!</span>(<span class="string">&quot;{} {} Uploading...&quot;</span>, style(<span class="string">&quot;[1/2]&quot;</span>).bold().dim(), UPLOAD);
+    }
+
+    upload_package(<span class="kw-2">&amp;</span>signed_url.url, archive_path, archived_data_size, timeout)<span class="question-mark">?</span>;
+
+    <span class="kw">if </span>!quiet {
+        <span class="macro">println!</span>(<span class="string">&quot;{} {}Publishing...&quot;</span>, style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(), PACKAGE);
+    }
+
+    <span class="kw">let </span>q =
+        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
+            name: package.name.to_string(),
+            version: package.version.to_string(),
+            description: package.description.clone(),
+            manifest: manifest_string.to_string(),
+            license: package.license.clone(),
+            license_file: license_file.to_owned(),
+            readme: readme.to_owned(),
+            repository: package.repository.clone(),
+            homepage: package.homepage.clone(),
+            file_name: <span class="prelude-val">Some</span>(archive_name.to_string()),
+            signature: maybe_signature_data,
+            signed_url: <span class="prelude-val">Some</span>(signed_url.url),
+            private: <span class="prelude-val">Some</span>(package.private),
+            wait: <span class="prelude-val">Some</span>(wait),
+        });
+
+    <span class="kw">let </span>_response: publish_package_mutation_chunked::ResponseData =
+        <span class="kw">crate</span>::graphql::execute_query_with_timeout(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, timeout, <span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
+
+    <span class="macro">println!</span>(
+        <span class="string">&quot;Successfully published package `{}@{}`&quot;</span>,
+        package.name, package.version
+    );
+
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">fn </span>initialize_registry_and_token(
+    registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    token: <span class="prelude-ty">Option</span>&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(String, String), anyhow::Error&gt; {
     <span class="kw">let </span>registry = <span class="kw">match </span>registry.as_ref() {
         <span class="prelude-val">Some</span>(s) =&gt; format_graphql(s),
         <span class="prelude-val">None </span>=&gt; {
@@ -317,7 +416,13 @@
         </span>}
     };
 
-    <span class="kw">let </span>maybe_signature_data = <span class="kw">match </span>maybe_signature_data {
+    <span class="prelude-val">Ok</span>((registry, token))
+}
+
+<span class="kw">fn </span>sign_package(
+    maybe_signature_data: <span class="kw-2">&amp;</span>SignArchiveResult,
+) -&gt; <span class="prelude-ty">Option</span>&lt;publish_package_mutation_chunked::InputSignature&gt; {
+    <span class="kw">match </span>maybe_signature_data {
         SignArchiveResult::Ok {
             public_key_id,
             signature,
@@ -336,20 +441,27 @@
             //warn!(&quot;Publishing package without a verifying signature. Consider registering a key pair with wasmer&quot;);
             </span><span class="prelude-val">None
         </span>}
-    };
-
-    <span class="kw">if </span>!quiet {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {} Uploading...&quot;</span>, style(<span class="string">&quot;[1/2]&quot;</span>).bold().dim(), UPLOAD);
     }
+}
 
+<span class="kw">fn </span>google_signed_url(
+    registry: <span class="kw-2">&amp;</span>str,
+    token: <span class="kw-2">&amp;</span>str,
+    package: <span class="kw-2">&amp;</span>wasmer_toml::Package,
+    timeout: Duration,
+) -&gt; <span class="prelude-ty">Result</span>&lt;GetSignedUrlUrl, anyhow::Error&gt; {
     <span class="kw">let </span>get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
         name: package.name.to_string(),
         version: package.version.to_string(),
         expires_after_seconds: <span class="prelude-val">Some</span>(<span class="number">60 </span>* <span class="number">30</span>),
     });
 
-    <span class="kw">let </span>_response: get_signed_url::ResponseData =
-        execute_query_modifier_inner(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, <span class="kw-2">&amp;</span>get_google_signed_url, <span class="prelude-val">None</span>, |f| f)<span class="question-mark">?</span>;
+    <span class="kw">let </span>_response: get_signed_url::ResponseData = <span class="kw">crate</span>::graphql::execute_query_with_timeout(
+        registry,
+        token,
+        timeout,
+        <span class="kw-2">&amp;</span>get_google_signed_url,
+    )<span class="question-mark">?</span>;
 
     <span class="kw">let </span>url = _response.url.ok_or_else(|| {
         <span class="macro">anyhow::anyhow!</span>(
@@ -358,11 +470,19 @@
             package.version
         )
     })<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(url)
+}
 
-    <span class="kw">let </span>signed_url = url.url;
-    <span class="kw">let </span>url = url::Url::parse(<span class="kw-2">&amp;</span>signed_url).unwrap();
+<span class="kw">fn </span>upload_package(
+    signed_url: <span class="kw-2">&amp;</span>str,
+    archive_path: <span class="kw-2">&amp;</span>PathBuf,
+    archived_data_size: u64,
+    timeout: Duration,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">let </span>url = url::Url::parse(signed_url).context(<span class="string">&quot;cannot parse signed url&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span>client = reqwest::blocking::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
+        .timeout(timeout)
         .build()
         .unwrap();
 
@@ -458,36 +578,6 @@
     }
 
     pb.finish_and_clear();
-
-    <span class="kw">if </span>!quiet {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {}Publishing...&quot;</span>, style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(), PACKAGE);
-    }
-
-    <span class="kw">let </span>q =
-        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.name.to_string(),
-            version: package.version.to_string(),
-            description: package.description.clone(),
-            manifest: manifest_string.to_string(),
-            license: package.license.clone(),
-            license_file: license_file.to_owned(),
-            readme: readme.to_owned(),
-            repository: package.repository.clone(),
-            homepage: package.homepage.clone(),
-            file_name: <span class="prelude-val">Some</span>(archive_name.to_string()),
-            signature: maybe_signature_data,
-            signed_url: <span class="prelude-val">Some</span>(signed_url),
-            private: <span class="prelude-val">Some</span>(package.private),
-        });
-
-    <span class="kw">let </span>_response: publish_package_mutation_chunked::ResponseData =
-        <span class="kw">crate</span>::graphql::execute_query(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, <span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
-
-    <span class="macro">println!</span>(
-        <span class="string">&quot;Successfully published package `{}@{}`&quot;</span>,
-        package.name, package.version
-    );
-
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>
