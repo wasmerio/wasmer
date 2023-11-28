@@ -640,14 +640,21 @@ mod validate {
         registry: &str,
         auth_token: &str,
     ) -> Result<bool, ValidationError> {
-        let package_version = crate::query_package_from_registry(
+        let result = crate::query_package_from_registry(
             registry,
             &manifest.package.name,
             None,
             Some(auth_token),
-        )?;
+        );
 
-        Ok(package_version.is_private != manifest.package.private)
+        match result {
+            Ok(package_version) => Ok(package_version.is_private != manifest.package.private),
+            Err(QueryPackageError::NoPackageFound { .. }) => {
+                // The package hasn't been published yet
+                Ok(false)
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn validate_module(
