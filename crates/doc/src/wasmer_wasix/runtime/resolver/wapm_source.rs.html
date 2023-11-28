@@ -806,7 +806,6 @@
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
 <a href="#808" id="808">808</a>
-<a href="#809" id="809">809</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -1326,7 +1325,6 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>,
             request: HttpRequest,
         ) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">&#39;_</span>, <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt;&gt; {
-            std::fs::write(<span class="string">&quot;/tmp/request.txt&quot;</span>, request.body.as_deref().unwrap()).unwrap();
             <span class="self">self</span>.requests.lock().unwrap().push(request);
             <span class="kw">let </span>response = <span class="self">self</span>.responses.lock().unwrap().remove(<span class="number">0</span>);
             Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(response) })

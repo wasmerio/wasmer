@@ -1057,6 +1057,13 @@
 <a href="#1057" id="1057">1057</a>
 <a href="#1058" id="1058">1058</a>
 <a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::{fs, io::IsTerminal};
@@ -1699,14 +1706,21 @@
         registry: <span class="kw-2">&amp;</span>str,
         auth_token: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ValidationError&gt; {
-        <span class="kw">let </span>package_version = <span class="kw">crate</span>::query_package_from_registry(
+        <span class="kw">let </span>result = <span class="kw">crate</span>::query_package_from_registry(
             registry,
             <span class="kw-2">&amp;</span>manifest.package.name,
             <span class="prelude-val">None</span>,
             <span class="prelude-val">Some</span>(auth_token),
-        )<span class="question-mark">?</span>;
+        );
 
-        <span class="prelude-val">Ok</span>(package_version.is_private != manifest.package.private)
+        <span class="kw">match </span>result {
+            <span class="prelude-val">Ok</span>(package_version) =&gt; <span class="prelude-val">Ok</span>(package_version.is_private != manifest.package.private),
+            <span class="prelude-val">Err</span>(QueryPackageError::NoPackageFound { .. }) =&gt; {
+                <span class="comment">// The package hasn&#39;t been published yet
+                </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+            }
+            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
+        }
     }
 
     <span class="kw">fn </span>validate_module(

@@ -511,6 +511,15 @@
 <a href="#511" id="511">511</a>
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
@@ -624,7 +633,12 @@
         <span class="kw">match </span><span class="self">self </span>{
             QueryPackageError::ErrorSendingQuery(q) =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;error sending query: {q}&quot;</span>),
             QueryPackageError::NoPackageFound { name, version } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;no package found for {name:?} (version = {version:?})&quot;</span>)
+                <span class="macro">write!</span>(f, <span class="string">&quot;no package found for {name:?}&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = version {
+                    <span class="macro">write!</span>(f, <span class="string">&quot; (version = {version:?})&quot;</span>)<span class="question-mark">?</span>;
+                }
+
+                <span class="prelude-val">Ok</span>(())
             }
         }
     }
@@ -683,9 +697,13 @@
             QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;Error sending GetPackagesQuery: {e}&quot;</span>))
         })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>v = response.package_version.as_ref().ok_or_else(|| {
-        QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;no package version for {name:?}&quot;</span>))
-    })<span class="question-mark">?</span>;
+    <span class="kw">let </span>v = response
+        .package_version
+        .as_ref()
+        .ok_or_else(|| QueryPackageError::NoPackageFound {
+            name: name.to_string(),
+            version: <span class="prelude-val">None</span>,
+        })<span class="question-mark">?</span>;
 
     <span class="kw">let </span>manifest = toml::from_str::&lt;wasmer_toml::Manifest&gt;(<span class="kw-2">&amp;</span>v.manifest).map_err(|e| {
         QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;Invalid manifest for crate {name:?}: {e}&quot;</span>))
