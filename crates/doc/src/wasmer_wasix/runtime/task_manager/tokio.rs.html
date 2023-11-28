@@ -186,6 +186,30 @@
 <a href="#186" id="186">186</a>
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
@@ -231,11 +255,34 @@
     }
 }
 
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub struct </span>ThreadPool {
+    inner: rusty_pool::ThreadPool,
+}
+
+<span class="kw">impl </span>std::ops::Deref <span class="kw">for </span>ThreadPool {
+    <span class="kw">type </span>Target = rusty_pool::ThreadPool;
+
+    <span class="kw">fn </span>deref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Target {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.inner
+    }
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>ThreadPool {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">&quot;ThreadPool&quot;</span>)
+            .field(<span class="string">&quot;name&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_name())
+            .field(<span class="string">&quot;current_worker_count&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_current_worker_count())
+            .field(<span class="string">&quot;idle_worker_count&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.get_idle_worker_count())
+            .finish()
+    }
+}
+
 <span class="doccomment">/// A task manager that uses tokio to spawn tasks.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>TokioTaskManager {
     rt: RuntimeOrHandle,
-    pool: Arc&lt;rayon::ThreadPool&gt;,
+    pool: Arc&lt;ThreadPool&gt;,
 }
 
 <span class="kw">impl </span>TokioTaskManager {
@@ -250,12 +297,13 @@
 
         <span class="self">Self </span>{
             rt: rt.into(),
-            pool: Arc::new(
-                rayon::ThreadPoolBuilder::new()
-                    .num_threads(max_threads)
-                    .build()
-                    .unwrap(),
-            ),
+            pool: Arc::new(ThreadPool {
+                inner: rusty_pool::Builder::new()
+                    .name(<span class="string">&quot;TokioTaskManager Thread Pool&quot;</span>.to_string())
+                    .core_size(max_threads)
+                    .max_size(max_threads)
+                    .build(),
+            }),
         }
     }
 
@@ -329,7 +377,7 @@
             <span class="self">self</span>.rt.handle().spawn(<span class="kw">async move </span>{
                 <span class="kw">let </span>result = trigger.<span class="kw">await</span>;
                 <span class="comment">// Build the task that will go on the callback
-                </span>pool.spawn(<span class="kw">move </span>|| {
+                </span>pool.execute(<span class="kw">move </span>|| {
                     <span class="comment">// Invoke the callback
                     </span>run(TaskWasmRunProperties {
                         ctx,
@@ -342,7 +390,7 @@
             <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawning task_wasm in blocking thread&quot;</span>);
 
             <span class="comment">// Run the callback on a dedicated thread
-            </span><span class="self">self</span>.pool.spawn(<span class="kw">move </span>|| {
+            </span><span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
                 <span class="macro">tracing::trace!</span>(<span class="string">&quot;task_wasm started in blocking thread&quot;</span>);
 
                 <span class="comment">// Invoke the callback
@@ -361,7 +409,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         task: Box&lt;<span class="kw">dyn </span>FnOnce() + Send + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
-        <span class="self">self</span>.pool.spawn(<span class="kw">move </span>|| {
+        <span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
             task();
         });
         <span class="prelude-val">Ok</span>(())
