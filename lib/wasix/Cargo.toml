@@ -13,6 +13,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+rusty_pool = { version = "0.7.0", optional = true }
 cfg-if = "1.0"
 thiserror = "1"
 tracing = { version = "0.1.37" }
@@ -66,7 +67,6 @@ tower-http = { version = "0.4.0", features = ["trace", "util", "catch-panic", "c
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
 petgraph = "0.6.3"
-rayon = { version = "1.7.0", optional = true }
 wasm-bindgen = { version = "0.2.87", optional = true }
 js-sys = { version = "0.3.64", optional = true }
 wasm-bindgen-futures = { version = "0.4.37", optional = true }
@@ -118,7 +118,7 @@ webc_runner_rt_emscripten = ["wasmer-emscripten"]
 sys = ["webc/mmap", "time", "virtual-mio/sys"]
 sys-default = ["sys", "logging", "host-fs", "sys-poll", "sys-thread", "host-vnet", "host-threads", "host-reqwest"]
 sys-poll = []
-sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rayon"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
