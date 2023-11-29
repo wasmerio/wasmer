@@ -169,16 +169,21 @@ impl PackageDownload {
         pb.set_length(webc_total_size);
 
         let mut tmpfile = NamedTempFile::new_in(self.out_path.parent().unwrap())?;
-
+        let accepted_contenttypes = vec![
+            "application/webc",
+            "application/octet-stream",
+            "application/wasm",
+        ];
         let ty = res
             .headers()
             .get(http::header::CONTENT_TYPE)
             .and_then(|t| t.to_str().ok())
             .unwrap_or_default();
-        if !(ty == "application/webc" || ty == "application/octet-stream") {
+        if !(accepted_contenttypes.contains(&ty)) {
             eprintln!(
                 "Warning: response has invalid content type - expected \
-                'application/webc' or 'application/octet-stream', got {ty}"
+                 one of {:?}, got {ty}",
+                accepted_contenttypes
             );
         }
 
