@@ -66,7 +66,7 @@ impl Cranelift {
     }
 
     /// Generates the ISA for the provided target
-    pub fn isa(&self, target: &Target) -> CodegenResult<Box<dyn TargetIsa>> {
+    pub fn isa(&self, target: &Target) -> CodegenResult<Arc<dyn TargetIsa>> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features

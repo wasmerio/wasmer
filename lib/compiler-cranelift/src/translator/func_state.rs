@@ -10,6 +10,7 @@
 //! value and control stacks during the translation of a single function.
 
 use super::func_environ::{FuncEnvironment, GlobalVariable};
+use crate::heap::Heap;
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
 use std::vec::Vec;
@@ -233,7 +234,7 @@ pub struct FuncTranslationState {
     globals: HashMap<GlobalIndex, GlobalVariable>,
 
     // Map of heaps that have been created by `FuncEnvironment::make_heap`.
-    heaps: HashMap<MemoryIndex, ir::Heap>,
+    heaps: HashMap<MemoryIndex, Heap>,
 
     // Map of tables that have been created by `FuncEnvironment::make_table`.
     tables: HashMap<TableIndex, ir::Table>,
@@ -473,7 +474,7 @@ impl FuncTranslationState {
         func: &mut ir::Function,
         index: u32,
         environ: &mut FE,
-    ) -> WasmResult<ir::Heap> {
+    ) -> WasmResult<Heap> {
         let index = MemoryIndex::from_u32(index);
         match self.heaps.entry(index) {
             Occupied(entry) => Ok(*entry.get()),

@@ -105,7 +105,7 @@ pub fn make_trampoline_dynamic_function(
 
     let mut code_buf = Vec::new();
     context
-        .compile_and_emit(isa, &mut code_buf)
+        .compile_and_emit(isa, &mut code_buf, &mut Default::default())
         .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
