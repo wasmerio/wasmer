@@ -115,9 +115,12 @@ impl BuiltinPackageLoader {
         if dist.webc.scheme() == "file" {
             match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
                 Ok(path) => {
-                    // FIXME: This will block the thread
-                    let bytes = std::fs::read(&path)
-                        .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
+                    let bytes = tokio::task::spawn_blocking({
+                        let path = path.clone();
+                        move || std::fs::read(&path)
+                    })
+                    .await?
+                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
                     return Ok(bytes.into());
                 }
                 Err(e) => {
@@ -222,7 +225,10 @@ impl PackageLoader for BuiltinPackageLoader {
         // in a smart way to keep memory usage down.
 
         if let Some(cache) = &self.cache {
-            match cache.save_and_load_as_mmapped(&bytes, &summary.dist).await {
+            match cache
+                .save_and_load_as_mmapped(bytes.clone(), &summary.dist)
+                .await
+            {
                 Ok(container) => {
                     tracing::debug!("Cached to disk");
                     self.in_memory.save(&container, summary.dist.webc_sha256);
@@ -274,7 +280,10 @@ impl FileSystemCache {
         #[cfg(target_arch = "wasm32")]
         let container = Container::from_disk(&path);
         #[cfg(not(target_arch = "wasm32"))]
-        let container = tokio::task::block_in_place(|| Container::from_disk(&path));
+        let container = {
+            let path = path.clone();
+            tokio::task::spawn_blocking(move || Container::from_disk(&path)).await?
+        };
         match container {
             Ok(c) => Ok(Some(c)),
             Err(ContainerError::Open { error, .. })
@@ -291,27 +300,32 @@ impl FileSystemCache {
         }
     }
 
-    async fn save(&self, webc: &[u8], dist: &DistributionInfo) -> Result<(), Error> {
+    async fn save(&self, webc: Bytes, dist: &DistributionInfo) -> Result<(), Error> {
         let path = self.path(&dist.webc_sha256);
+        let dist = dist.clone();
 
-        let parent = path.parent().expect("Always within cache_dir");
+        tokio::task::spawn_blocking(move || {
+            let parent = path.parent().expect("Always within cache_dir");
 
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
 
-        let mut temp = NamedTempFile::new_in(parent)?;
-        temp.write_all(webc)?;
-        temp.flush()?;
-        temp.as_file_mut().sync_all()?;
-        temp.persist(&path)?;
+            let mut temp = NamedTempFile::new_in(parent)?;
+            temp.write_all(&webc)?;
+            temp.flush()?;
+            temp.as_file_mut().sync_all()?;
+            temp.persist(&path)?;
 
-        tracing::debug!(
-            pkg.hash=%dist.webc_sha256,
-            pkg.url=%dist.webc,
-            path=%path.display(),
-            num_bytes=webc.len(),
-            "Saved to disk",
-        );
+            tracing::debug!(
+                pkg.hash=%dist.webc_sha256,
+                pkg.url=%dist.webc,
+                path=%path.display(),
+                num_bytes=webc.len(),
+                "Saved to disk",
+            );
+            Result::<_, Error>::Ok(())
+        })
+        .await??;
 
         Ok(())
     }
@@ -319,7 +333,7 @@ impl FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all)]
     async fn save_and_load_as_mmapped(
         &self,
-        webc: &[u8],
+        webc: Bytes,
         dist: &DistributionInfo,
     ) -> Result<Container, Error> {
         // First, save it to disk
