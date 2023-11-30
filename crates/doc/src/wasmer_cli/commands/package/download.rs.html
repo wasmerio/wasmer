@@ -253,6 +253,11 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
@@ -424,17 +429,22 @@
         </span>pb.set_length(webc_total_size);
 
         <span class="kw">let </span><span class="kw-2">mut </span>tmpfile = NamedTempFile::new_in(<span class="self">self</span>.out_path.parent().unwrap())<span class="question-mark">?</span>;
-
+        <span class="kw">let </span>accepted_contenttypes = <span class="macro">vec!</span>[
+            <span class="string">&quot;application/webc&quot;</span>,
+            <span class="string">&quot;application/octet-stream&quot;</span>,
+            <span class="string">&quot;application/wasm&quot;</span>,
+        ];
         <span class="kw">let </span>ty = res
             .headers()
             .get(http::header::CONTENT_TYPE)
             .and_then(|t| t.to_str().ok())
             .unwrap_or_default();
-        <span class="kw">if </span>!(ty == <span class="string">&quot;application/webc&quot; </span>|| ty == <span class="string">&quot;application/octet-stream&quot;</span>) {
+        <span class="kw">if </span>!(accepted_contenttypes.contains(<span class="kw-2">&amp;</span>ty)) {
             <span class="macro">eprintln!</span>(
                 <span class="string">&quot;Warning: response has invalid content type - expected \
-                &#39;application/webc&#39; or &#39;application/octet-stream&#39;, got {ty}&quot;
-            </span>);
+                 one of {:?}, got {ty}&quot;</span>,
+                accepted_contenttypes
+            );
         }
 
         std::io::copy(<span class="kw-2">&amp;mut </span>pb.wrap_read(res), <span class="kw-2">&amp;mut </span>tmpfile)
