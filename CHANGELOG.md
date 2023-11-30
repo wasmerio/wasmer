@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.2.4 - 30/11/2023
 
+This release allows publishing private packages and fixes the issue of the file system being accessible by WASI modules in the abscence of directory mapping. Also improves startup speed, and fixes multiple issues around the WASI filesystem, packages and apps.
+
 ## Added
 
   - [#4334](https://github.com/wasmerio/wasmer/pull/4334) Add `application/wasm` to list of accepted content-types for webcs
