@@ -16,7 +16,7 @@ rust-version.workspace = true
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer = { version = "4.2.3", path = "../api", default-features=false }
+wasmer = { version = "4.2.4", path = "../api", default-features=false }
 wasmer-wasix = { version = "0.16.0", path = "../wasix", default-features=false }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.16.0" }
 tracing = "0.1"
